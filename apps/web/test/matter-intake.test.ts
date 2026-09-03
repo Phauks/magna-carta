@@ -3,9 +3,10 @@
  *
  * These are the places on the intake where a quiet mistake would look right on screen and be wrong
  * in a way somebody acts on: a person holding two seats, a request that reaches the server missing
- * the one identifier it requires, a conflict check that says it searched a name it never had, and a
- * client list that offers the same client twice under two spellings.
+ * the one identifier it requires, a matter created without the client every later reader derives
+ * from its party link, and a conflict check that says it searched a name it never had.
  */
+import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
 import { describe, expect, it } from "vitest";
 import {
   ASSIGNED_ATTORNEY_ROLE,
@@ -17,7 +18,6 @@ import {
   intakeBlockedOn,
   intakeBlockedSection,
   intakeRequest,
-  knownClientNames,
   teamAfterAssign,
   teamAfterRelease,
   teamMemberIds,
@@ -31,6 +31,18 @@ import {
 function draft(overrides: Partial<IntakeDraft> = {}): IntakeDraft {
   return { ...EMPTY_INTAKE_DRAFT, ...overrides };
 }
+
+/** The client, as the directory picker hands it over. */
+const PEMBERTON: PickableEntity = {
+  identifier: "directoryPerson_pemberton",
+  name: "Eleanor Pemberton",
+  kind: "person",
+};
+const BEXLEY: PickableEntity = {
+  identifier: "directoryOrganization_bexley",
+  name: "Bexley Holdings LLC",
+  kind: "organization",
+};
 
 describe("the intake's sections", () => {
   it("tabs only what genuinely takes turns: the matter, then the people who carry it", () => {
@@ -79,23 +91,39 @@ describe("the team", () => {
 });
 
 describe("what stands between a draft and a matter", () => {
-  it("asks for a title first and a responsible attorney second", () => {
+  it("asks for a title first, the client second, and a responsible attorney third", () => {
     const empty = draft();
     expect(intakeBlockedOn(empty)).toBe("A matter needs a title.");
     expect(intakeBlockedSection(empty)).toBe("matter");
 
     const titled = draft({ title: "Pemberton v. Hale Construction Co." });
-    expect(intakeBlockedOn(titled)).toBe("A matter needs a responsible attorney.");
-    expect(intakeBlockedSection(titled)).toBe("people");
+    expect(intakeBlockedOn(titled)).toBe("A matter needs a client.");
+
+    const withClient = draft({ ...titled, client: PEMBERTON });
+    expect(intakeBlockedOn(withClient)).toBe("A matter needs a responsible attorney.");
+    expect(intakeBlockedSection(withClient)).toBe("people");
   });
 
   it("treats whitespace as no title at all", () => {
     expect(intakeBlockedOn(draft({ title: "   " }))).toBe("A matter needs a title.");
   });
 
-  it("is clear once both are answered", () => {
+  it("needs a client whatever the starting status, and sends nobody to a tab for it", () => {
+    // A prospective matter's conflict check needs a person, so there is no matter without a client.
+    const titled = draft({
+      title: "Pemberton v. Hale Construction Co.",
+      startingStatus: "prospective",
+      team: teamAfterAssign(EMPTY_MATTER_TEAM, "user_osei", "responsible"),
+    });
+    expect(intakeBlockedOn(titled)).toBe("A matter needs a client.");
+    // The client sits on the right-hand side, in view whichever tab is open.
+    expect(intakeBlockedSection(titled)).toBeNull();
+  });
+
+  it("is clear once all three are answered", () => {
     const ready = draft({
       title: "Pemberton v. Hale Construction Co.",
+      client: PEMBERTON,
       team: teamAfterAssign(EMPTY_MATTER_TEAM, "user_osei", "responsible"),
     });
     expect(intakeBlockedOn(ready)).toBeNull();
@@ -107,7 +135,7 @@ describe("the create request", () => {
   const ready = draft({
     title: "  Pemberton v. Hale Construction Co.  ",
     startingStatus: "open",
-    clientName: "Eleanor Pemberton",
+    client: PEMBERTON,
     matterTypeId: "matterType_construction",
     locationId: "location_clark",
     description: "Defect claim over the east elevation.",
@@ -123,20 +151,21 @@ describe("the create request", () => {
       matterTypeId: "matterType_construction",
       locationId: "location_clark",
       responsibleMemberId: "user_osei",
+      clientEntityId: "directoryPerson_pemberton",
       clientDisplayName: "Eleanor Pemberton",
     });
     expect(request).not.toHaveProperty("matterNumber");
   });
 
   it("records an untouched optional field as absent, never as an empty string", () => {
-    const request = intakeRequest(draft({ ...ready, clientName: "  ", description: "" }));
-    expect(request?.clientDisplayName).toBeNull();
+    const request = intakeRequest(draft({ ...ready, description: "" }));
     expect(request?.description).toBeNull();
   });
 
   it("refuses to assemble a request that is not ready", () => {
-    expect(intakeRequest(draft({ title: "A title, no attorney" }))).toBeNull();
-    expect(intakeRequest(draft({ team: ready.team }))).toBeNull();
+    expect(intakeRequest(draft({ title: "A title, no attorney", client: PEMBERTON }))).toBeNull();
+    expect(intakeRequest(draft({ team: ready.team, client: PEMBERTON }))).toBeNull();
+    expect(intakeRequest(draft({ ...ready, client: null }))).toBeNull();
   });
 });
 
@@ -158,35 +187,19 @@ describe("the writes that staff the team", () => {
 });
 
 describe("what a conflict check would search", () => {
-  it("names the client and the caption, which carries the other side", () => {
+  it("names the client and nothing else, because that is all the check is sent", () => {
     expect(
-      conflictSubjects(
-        draft({ clientName: "Eleanor Pemberton", title: "Pemberton v. Hale Construction Co." }),
-      ),
-    ).toEqual(["Eleanor Pemberton", "Pemberton v. Hale Construction Co."]);
+      conflictSubjects(draft({ client: PEMBERTON, title: "Pemberton v. Hale Construction Co." })),
+    ).toEqual(["Eleanor Pemberton"]);
   });
 
-  it("does not say it searched the same name twice", () => {
-    expect(
-      conflictSubjects(draft({ clientName: "Bexley Holdings LLC", title: "Bexley Holdings LLC" })),
-    ).toEqual(["Bexley Holdings LLC"]);
+  it("does not list the caption even when it is the client's own name", () => {
+    expect(conflictSubjects(draft({ client: BEXLEY, title: "Bexley Holdings LLC" }))).toEqual([
+      "Bexley Holdings LLC",
+    ]);
   });
 
   it("has nothing to search before anything is entered", () => {
     expect(conflictSubjects(draft())).toEqual([]);
-  });
-});
-
-describe("the clients the firm already has", () => {
-  it("offers each client once, in reading order, skipping matters with none", () => {
-    expect(
-      knownClientNames([
-        { clientDisplayName: "Marguerite Wren" },
-        { clientDisplayName: "Eleanor Pemberton" },
-        { clientDisplayName: " Eleanor Pemberton " },
-        { clientDisplayName: null },
-        { clientDisplayName: "   " },
-      ]),
-    ).toEqual(["Eleanor Pemberton", "Marguerite Wren"]);
   });
 });

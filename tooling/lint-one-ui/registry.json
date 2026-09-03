@@ -54,6 +54,18 @@
     {
       "name": "ScreenSearch",
       "home": "packages/design-system/src/lib/components/screen-search"
+    },
+    {
+      "name": "EntityIdentity",
+      "home": "packages/design-system/src/lib/components/entity-identity"
+    },
+    {
+      "name": "EntityPicker",
+      "home": "packages/design-system/src/lib/components/entity-picker"
+    },
+    {
+      "name": "RecordParties",
+      "home": "packages/design-system/src/lib/components/record-parties"
     }
   ],
   "modalShellsComment": [
@@ -114,6 +126,11 @@
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/settings/components/settings-ledger.svelte",
       "reason": "a Sheet, and an edge panel holding a change history is context rather than an act. It stays; the allowance records that a Sheet was considered and left alone."
+    },
+    {
+      "rule": "table-machinery",
+      "file": "apps/web/src/lib/tools/firm-usage/by-location-table.svelte",
+      "reason": "predates the rule; a sort written locally over the presentational primitives, with the remainder, offsite and totals rows held outside it by hand. It should be a DataTable.Grid — the Grid's row groups and scope-honest totals row already model the three rows this table keeps outside its sort — and that port is a design round on the firm-usage surface, reviewed on the deployed site, not a lint fix."
     },
     {
       "rule": "status-tone",

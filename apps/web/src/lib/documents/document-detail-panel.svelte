@@ -11,6 +11,7 @@
    * not the same thing as hiding the button: the button works, and what it reaches may not be there.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -248,8 +249,7 @@
         <a
           class="inline-flex items-center gap-4 text-sm underline underline-offset-2"
           href={launch.editorUrl}
-          target="_blank"
-          rel="noreferrer noopener"
+          {...opensBeside("session")}
         >
           <ExternalLink class="size-16" aria-hidden="true" />
           Open the editor in a new tab

@@ -11,7 +11,7 @@
 
 What this document is for now: **the account-side actions that no session can perform** — Cloudflare dashboard steps, DNS, R2 lifecycle rules, secrets, account entitlements, repository settings, and the GitHub Actions billing block. Every one of them is a step the repository cannot take on its own no matter what merges. Kept current by the orchestration stream.
 
-**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and for the month the gate of record was blocked account-side (2026-08-05 to 2026-09-01) that verification was the scoped local gate plus whatever tests the change carries. The gate executes again; what stands between a merge and production now is the pull-request tier, and — once the first entry below is done — a run of the exact tree that lands.
+**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and for the month the gate of record was blocked account-side (2026-08-05 to 2026-09-01) that verification was the scoped local gate plus whatever tests the change carries. The gate executes again; what stands between a merge and production now is the pull-request tier alone; the first entry below records why there is no second run on the exact tree that lands.
 
 _Position, 2026-08-29: `main` is production for the app Worker and the SPA. Everything else about the account is read live, not recorded here — including which projects are connected, what branch each builds from, and what is deployed on any of them. The 2026-08-24 API pass that this file used to treat as its "evidentiary floor" is exactly the thing that stopped being one: it was accurate on the day and had decayed within the week, and a floor that decays silently is worse than no floor. Read the account instead._
 
@@ -29,40 +29,42 @@ refusal, and the improvement it argues for are recorded once, in
 [`operations.md`](conventions/operations.md) under_ Control-plane database migrations _— read that
 before diagnosing any "the code creates this table and production does not have it" report._
 
-## Enable the merge queue on `main` — one repository setting, and it closes the gap every red check of 2026-09-02 came through
+## No merge queue on `main` — GitHub does not offer one to this repository, and the owner declined the move (2026-09-03)
 
-**Why.** On 2026-09-02, the first day the gate ran a full battery in a month, every failure it found
-was the same defect: two branches that merged minutes apart, each green against the `main` it had
-seen, never tested together. A permission list that did not know a key another merge added; a story
-still clicking a button another merge removed; a lint rule and the screen that trips it landing the
-same afternoon. The pull-request tier cannot see this by construction. A merge queue can: it builds
-the exact tree that will land and runs the gate on that, so the interleaving is caught before the
-deploy rather than by the next branch to run. The workflow side is already wired: `gate.yml`
-carries the `merge_group` trigger, resolves its diff base from the queue's payload, and defers the
-fan-out sinks on that tier for as long as the austerity holds. Only the setting is missing.
+**Why it was wanted.** On 2026-09-02, the first day the gate ran a full battery in a month, every
+failure it found was the same defect: two branches that merged minutes apart, each green against the
+`main` it had seen, never tested together. A permission list that did not know a key another merge
+added; a story still clicking a button another merge removed; a lint rule and the screen that trips
+it landing the same afternoon. The pull-request tier cannot see this by construction. A merge queue
+can: it builds the exact tree that will land and runs the gate on that, so the interleaving is caught
+before the deploy rather than by the next branch to run. The workflow side was wired for it in #488:
+`gate.yml` carries the `merge_group` trigger, resolves its diff base from the queue's payload, and
+defers the fan-out sinks on that tier for as long as the austerity holds.
 
-**What to click.** GitHub → **Settings** → **Rules** → **Rulesets** → the ruleset that protects
-`main` → under _Branch rules_, enable **Require merge queue**, then:
+**Why it cannot be clicked.** GitHub offers merge queues in public repositories owned by an
+organization, and in private repositories owned by organizations on Enterprise Cloud. This repository
+is private and owned by a user account, so **Require merge queue** does not appear in its rulesets or
+its branch protection, and no plan change on a user account adds it. The routes that would: transfer
+the repository to an organization and make it public, or transfer it and pay for Enterprise Cloud.
+Either re-binds Workers Builds, the GitHub App installs and the connector access to the new owner.
 
-1. **Merge method: Squash.** The repository squash-merges, and the landing detection in
-   `tooling/branch-landing/` assumes it.
-2. **Build concurrency: 1.** One battery at a time. Raising it lets the queue test several
-   speculative groups in parallel, which is speed bought with runner-minutes the budget does not have.
-3. **Minimum group size 1, maximum group size 5, wait time 5 minutes.** A lone pull request waits
-   five minutes for company; several that queue together are tested as one group with one battery,
-   which is the queue paying for itself.
-4. **Status check timeout: 60 minutes**, comfortably above the 17-minute battery, so a slow run is a
-   slow run rather than a dropped entry.
-5. **Require all queue entries to pass required checks: on** (the default). The required check stays
-   the aggregate **`gate`** job, exactly as today; nothing else needs requiring.
-6. Leave **Require branches to be up to date before merging** off. The queue makes it redundant, and
-   on, it would force a rebase and a second pull-request run before every entry.
+**Decision, 2026-09-03.** The owner declined the transfer: it eats time the project does not have,
+and the failures it would prevent are dealt with as they come. Nothing in the repository changes —
+the `merge_group` trigger, its base resolution and its sink deferral stay wired, so the tier is ready
+the day the ownership changes. What stands in is a habit: **merge one pull request at a time, and
+sync the next branch onto the `main` the last merge produced before it lands.** The ruleset option
+_Require branches to be up to date before merging_ would enforce that habit, and is deliberately left
+off: with two or three streams open it forces a full battery per stream per merge, which is the
+budget pressure the austerity exists to avoid, and it still cannot stop two branches updated from the
+same `main` from landing back to back. If interleaved-merge failures recur at the 2026-09-02 rate,
+the number to decide against is the runner-minutes that option would spend against the minutes those
+fixes cost.
 
-**Two things to watch on the first day.** The docs-assembly workflow enables auto-merge on its own
-pull request with `gh pr merge --auto --rebase`; with a queue on, that call adds the entry to the
-queue and the queue's own method applies. Confirm the first assembly pull request after the change
-lands on its own, and drop the method flag if `gh` refuses it. And the first queued merge's `gate`
-run is the end-to-end proof of the `merge_group` tier: read it.
+**Two things written for the queue that stay.** The docs-assembly workflow enables auto-merge with
+`gh pr merge --auto --rebase`; without a queue that is plain auto-merge, landing on the gate's green.
+And the values a queue would take — squash; build concurrency 1; group size 1 to 5 with a five-minute
+wait; a 60-minute check timeout; `gate` as the one required check; up-to-date-before-merge off — are
+in this file's history at #488, should the transfer ever happen.
 
 **History.** This entry replaces the one that stood here from 2026-08-05 to 2026-09-01: GitHub had
 refused to start any billable job for the repository, so the gate executed nothing for a month. The
@@ -702,6 +704,12 @@ RasterEngineContainer` and `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer` at
    seven days and an incomplete-multipart abort at seven days. Until the owner adds a
    `conversions/` expiry, conversion outputs accumulate. Same class of dashboard step as the
    `templates/staging/` rule at the bottom of this queue.
+
+   **Narrowed, 2026-09-01.** This is now a step for the SHARED platform bucket only. Per-firm buckets
+   get `bundles/` (7 d), `conversions/` (24 h) and an abandoned-multipart abort (24 h) applied at
+   provisioning by `apps/api-worker/src/firm-resource-provider.ts`, so a firm provisioned from here on
+   needs no dashboard visit. The platform bucket predates that code and is not provisioned by it.
+
 2. **Verify readiness honestly.** This container's `/ready` answers 503 until a
    worker has finished suite initialisation (tens of seconds), so a freshly
    deployed instance reporting not-ready for half a minute is correct behaviour,

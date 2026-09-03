@@ -9,6 +9,7 @@ import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy"
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -266,7 +267,7 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
       }
 
       // The R2 key is firm-scoped and server-resolved — never sourced from the request body.
-      const object = await c.env.R2.get(version.r2Key);
+      const object = await resolveFirmBucket(c.env, firm.bucketName).bucket.get(version.r2Key);
       if (object === null) {
         return problemJson(c, {
           type: "not-found",

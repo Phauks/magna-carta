@@ -21,6 +21,7 @@
    * separate caption.
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import Badge from "@magna-carta/design-system/badge";
   import { buttonClasses } from "@magna-carta/design-system/button";
@@ -84,7 +85,7 @@
 
   function openDocumentation(): void {
     if (documentationHref === null) return;
-    window.open(documentationHref, "_blank", "noopener,noreferrer");
+    openBeside(documentationHref, "external");
   }
 </script>
 

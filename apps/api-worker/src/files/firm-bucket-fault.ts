@@ -3,9 +3,10 @@
  * caller's.
  *
  * Two states reach here, and neither is a bug in the request: a firm whose provisioning never
- * recorded a bucket, and a firm whose recorded bucket is not the one bound to this Worker — the
- * mismatch the bucket resolver refuses because a presigned write would land where no read path can
- * reach it.
+ * recorded a bucket, and a deployment that does not name the bucket it reads through, so the bucket
+ * resolver cannot tell the bound bucket apart from a firm's own. (A firm whose bucket is simply not
+ * the bound one is no longer a fault at all — the resolver hands back an S3-backed handle addressing
+ * that bucket, s3-firm-bucket.ts.)
  *
  * They were plain `Error`s, so the outermost boundary turned each into "An unexpected error
  * occurred. Quote the Error ID when reporting it." That sentence is correct for a fault nobody
@@ -37,19 +38,10 @@ export function firmBucketNotProvisioned(): FirmBucketUnavailableError {
   );
 }
 
-export function firmBucketNotBound(
-  firmBucketName: string,
-  boundBucketName: string | null,
-): FirmBucketUnavailableError {
+export function firmBucketNotBound(): FirmBucketUnavailableError {
   return new FirmBucketUnavailableError(
-    boundBucketName === null
-      ? "This deployment does not name the storage bucket it reads through, so an upload cannot be " +
-          "signed against one it can also read back. Nothing was uploaded and the matter is " +
-          "unchanged. The operator sets R2_BUCKET_NAME to the bucket bound to the API worker."
-      : `This firm's files are recorded against the storage bucket "${firmBucketName}", and this ` +
-          `deployment reads through "${boundBucketName}". Signing an upload against the first would ` +
-          "put the bytes where nothing here can read them back, so it was refused: nothing was " +
-          "uploaded and the matter is unchanged. The operator either binds the firm's own bucket to " +
-          "the API worker or records the firm against the bound one.",
+    "This deployment does not name the storage bucket it reads through, so an upload cannot be " +
+      "signed against one it can also read back. Nothing was uploaded and the matter is " +
+      "unchanged. The operator sets R2_BUCKET_NAME to the bucket bound to the API worker.",
   );
 }

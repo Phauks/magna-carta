@@ -21,6 +21,13 @@ export interface RecipientResolutionContext {
   // Whoever performed the act, where the topic's payload names one. Most do not, which is why this
   // is optional rather than required-and-often-null.
   readonly actorUserId: UserId | null;
+  // The member a `named-recipient` type's payload names — the task's assignee today. Extracted by
+  // the caller from the payload rather than read from the subject's row here, so this package still
+  // makes no query it did not already make, and so the recipient is whoever was named at the WRITE
+  // rather than whoever holds the record by the time the queue drains. Null for every other
+  // audience, and a `named-recipient` type that resolves to null reaches nobody, which is the
+  // correct outcome for a task assigned to no one.
+  readonly namedRecipientUserId: UserId | null;
   // Supplied rather than read here: this package holds no binding and reads no clock, so the one
   // resolver that needs the time (direct-grant expiry) is handed it by whoever is running the pass.
   readonly now: () => string;
@@ -119,6 +126,12 @@ async function resolveDeclaredAudience(
       return { recipientUserIds: await responsibleMember(context), substituted: false };
     case "matter-team":
       return { recipientUserIds: await matterTeam(context), substituted: false };
+    case "named-recipient":
+      return {
+        recipientUserIds:
+          context.namedRecipientUserId === null ? [] : [context.namedRecipientUserId],
+        substituted: false,
+      };
     case "actor":
       return {
         recipientUserIds: context.actorUserId === null ? [] : [context.actorUserId],

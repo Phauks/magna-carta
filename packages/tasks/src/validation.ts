@@ -1,0 +1,335 @@
+import {
+  CIVIL_DATE_PATTERN,
+  DEFAULT_PLAN_DUE_ANCHOR,
+  MAX_CANCELLATION_REASON_LENGTH,
+  MAX_PLAN_DESCRIPTION_LENGTH,
+  MAX_PLAN_NAME_LENGTH,
+  MAX_PLAN_OFFSET_DAYS,
+  MAX_TASK_BODY_LENGTH,
+  MAX_TASK_TITLE_LENGTH,
+  PLAN_DUE_ANCHORS,
+  TASK_PRIORITIES,
+  WALL_CLOCK_TIME_PATTERN,
+  type PlanDueAnchor,
+  type TaskDue,
+  type TaskPriority,
+} from "./types.ts";
+
+// Every refusal this subsystem raises, as a code the route maps to a problem type. Codes — never
+// messages — drive the mapping, so a message can be reworded without changing the contract.
+export type TaskValidationCode =
+  | "task-empty-title"
+  | "task-title-too-long"
+  | "task-body-too-long"
+  | "task-unknown-priority"
+  // The due-date shape refusals. Each names the one thing that is wrong rather than a generic
+  // "invalid date", because each is fixed by the caller supplying a different field.
+  | "task-invalid-date"
+  | "task-invalid-time"
+  | "task-time-without-date"
+  | "task-date-without-zone"
+  | "task-zone-without-date"
+  | "task-unknown-time-zone"
+  // A task this reader cannot reach, or one that is not on the matter the caller named. Kept
+  // distinct because they are fixed differently, and neither ever reveals which by its message.
+  | "task-unknown"
+  | "task-matter-mismatch"
+  // Assignment. Refused at the write rather than created and hidden: a task list with holes in it
+  // that nobody can explain is worse than a refusal somebody can act on.
+  | "task-unknown-assignee"
+  | "task-assignee-cannot-see-matter"
+  // State moves that do not apply to the state the task is in.
+  | "task-not-open"
+  | "task-not-done"
+  | "task-already-cancelled"
+  | "task-cancellation-reason-required"
+  | "task-cancellation-reason-too-long"
+  // Sequencing.
+  | "task-unknown-predecessor"
+  | "task-predecessor-matter-mismatch"
+  | "task-blocking-cycle"
+  // A file that is not a live file on this task's matter, or a task with no matter to have files on.
+  | "task-unknown-file"
+  | "task-file-matter-mismatch"
+  | "task-without-matter-has-no-files"
+  | "task-too-many-files"
+  // The matter plan.
+  | "plan-empty-name"
+  | "plan-name-too-long"
+  | "plan-description-too-long"
+  | "plan-unknown"
+  | "plan-inactive"
+  | "plan-unknown-anchor"
+  | "plan-offset-without-anchor"
+  | "plan-anchor-without-offset"
+  | "plan-offset-out-of-range"
+  | "plan-too-many-task-templates"
+  | "plan-unknown-task-template"
+  | "plan-task-template-mismatch"
+  | "plan-blocking-cycle"
+  | "plan-nothing-accepted"
+  // A task's identity in a system that is not this one. The platform ships no adapter, so every one
+  // of these is a refusal an ADDON reads — which is why they say what is wrong rather than what to
+  // do about it: the caller knows its own remedy and this package does not.
+  | "external-system-required"
+  | "external-system-too-long"
+  | "external-id-required"
+  | "external-id-too-long"
+  | "external-url-too-long"
+  | "remote-revision-too-long"
+  // The two uniqueness rules, refused separately because they are different mistakes: the first
+  // means somebody else already claimed that remote object, the second means this task already has
+  // an identity in that system.
+  | "external-object-already-linked"
+  | "task-already-linked"
+  | "external-link-not-found";
+
+export class TaskValidationError extends Error {
+  constructor(
+    readonly code: TaskValidationCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "TaskValidationError";
+  }
+}
+
+function refuse(code: TaskValidationCode, message: string): never {
+  throw new TaskValidationError(code, message);
+}
+
+// The title as it will be stored. Trimmed at the edges and never in the middle.
+export function normalizeTaskTitle(title: string): string {
+  const normalized = title.trim();
+  if (normalized.length === 0) refuse("task-empty-title", "a task needs to say what to do");
+  if (normalized.length > MAX_TASK_TITLE_LENGTH) {
+    refuse(
+      "task-title-too-long",
+      `a task title is at most ${String(MAX_TASK_TITLE_LENGTH)} characters; this one is ${String(normalized.length)}. Longer instructions belong in the body`,
+    );
+  }
+  return normalized;
+}
+
+// The body, which is optional. An empty body and an absent one are the same thing and both store
+// NULL: a task carrying an empty string would render an empty section on every surface that checks
+// for presence rather than content.
+export function normalizeTaskBody(body: string | null | undefined): string | null {
+  if (body === null || body === undefined) return null;
+  const normalized = body.trim();
+  if (normalized.length === 0) return null;
+  if (normalized.length > MAX_TASK_BODY_LENGTH) {
+    refuse(
+      "task-body-too-long",
+      `a task body is at most ${String(MAX_TASK_BODY_LENGTH)} characters; this one is ${String(normalized.length)}`,
+    );
+  }
+  return normalized;
+}
+
+export function normalizeCancellationReason(reason: string): string {
+  const normalized = reason.trim();
+  if (normalized.length === 0) {
+    refuse(
+      "task-cancellation-reason-required",
+      "cancelling a task records why, because the decision is the record",
+    );
+  }
+  if (normalized.length > MAX_CANCELLATION_REASON_LENGTH) {
+    refuse(
+      "task-cancellation-reason-too-long",
+      `a cancellation reason is at most ${String(MAX_CANCELLATION_REASON_LENGTH)} characters; a longer explanation belongs in the task body`,
+    );
+  }
+  return normalized;
+}
+
+export function normalizeTaskPriority(priority: string | null | undefined): TaskPriority | null {
+  if (priority === null || priority === undefined) return null;
+  if (!(TASK_PRIORITIES as readonly string[]).includes(priority)) {
+    refuse(
+      "task-unknown-priority",
+      `${priority} is not a priority; the four are ${TASK_PRIORITIES.join(", ")}`,
+    );
+  }
+  return priority as TaskPriority;
+}
+
+// Whether a runtime can resolve a zone. Validated at the WRITE and never at the read, for the reason
+// the calendar states: a row whose zone nothing can resolve is a record nobody can display and
+// nobody can correct without a migration.
+function isResolvableTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// The due date as it will be stored, with the three-way coherence checked once here rather than at
+// each call site.
+//
+// NOTHING IS INFERRED. This never invents a midnight, never fills a zone the caller did not give,
+// and never defaults a date to today. It also performs no arithmetic of any kind: there is no
+// business-day rule here, no holiday calendar, no service-method offset, and no derivation of one
+// date from another. That is the calendar package's stated invariant and this package inherits it —
+// a computed date that is wrong gets trusted precisely because it was computed.
+export function normalizeTaskDue(input: {
+  readonly dueOn?: string | null;
+  readonly dueAtTime?: string | null;
+  readonly timeZone?: string | null;
+}): TaskDue {
+  const dueOn = input.dueOn ?? null;
+  const dueAtTime = input.dueAtTime ?? null;
+  const timeZone = input.timeZone ?? null;
+
+  if (dueOn !== null) {
+    if (!CIVIL_DATE_PATTERN.test(dueOn)) {
+      refuse("task-invalid-date", "a due date must be a civil date of the form YYYY-MM-DD");
+    }
+    // The pattern alone accepts 2026-02-30. A round trip through the calendar catches a rollover.
+    const [year, month, day] = dueOn.split("-").map(Number) as [number, number, number];
+    const roundTrip = new Date(Date.UTC(year, month - 1, day));
+    if (
+      roundTrip.getUTCFullYear() !== year ||
+      roundTrip.getUTCMonth() !== month - 1 ||
+      roundTrip.getUTCDate() !== day
+    ) {
+      refuse("task-invalid-date", `${dueOn} is not a date on the calendar`);
+    }
+    if (timeZone === null) {
+      refuse(
+        "task-date-without-zone",
+        'a task due "Friday" is due at two different moments in Reno and Boston; give the zone the date is read in',
+      );
+    }
+  }
+
+  if (dueAtTime !== null) {
+    if (!WALL_CLOCK_TIME_PATTERN.test(dueAtTime)) {
+      refuse("task-invalid-time", "a due time must be a wall-clock time of the form HH:MM");
+    }
+    if (dueOn === null) {
+      refuse(
+        "task-time-without-date",
+        "an hour with no day is not a moment anybody can place; give the due date as well",
+      );
+    }
+  }
+
+  if (timeZone !== null) {
+    if (dueOn === null) {
+      refuse(
+        "task-zone-without-date",
+        "a time zone on a task with no due date says nothing; give the date or drop the zone",
+      );
+    }
+    if (!isResolvableTimeZone(timeZone)) {
+      refuse("task-unknown-time-zone", `${timeZone} is not a time zone this platform can resolve`);
+    }
+  }
+
+  return { dueOn, dueAtTime, timeZone };
+}
+
+// ---- the matter plan ----
+
+export function normalizePlanName(name: string): string {
+  const normalized = name.trim();
+  if (normalized.length === 0)
+    refuse("plan-empty-name", "a plan needs a name a firm will recognize");
+  if (normalized.length > MAX_PLAN_NAME_LENGTH) {
+    refuse(
+      "plan-name-too-long",
+      `a plan name is at most ${String(MAX_PLAN_NAME_LENGTH)} characters`,
+    );
+  }
+  return normalized;
+}
+
+export function normalizePlanDescription(description: string | null | undefined): string | null {
+  if (description === null || description === undefined) return null;
+  const normalized = description.trim();
+  if (normalized.length === 0) return null;
+  if (normalized.length > MAX_PLAN_DESCRIPTION_LENGTH) {
+    refuse(
+      "plan-description-too-long",
+      `a plan description is at most ${String(MAX_PLAN_DESCRIPTION_LENGTH)} characters`,
+    );
+  }
+  return normalized;
+}
+
+// The anchor and its offset, checked together because neither is meaningful alone.
+//
+// An offset with no anchor computes nothing. An anchor with no offset would silently mean "+0", and a
+// template that means the anchor date itself should say so with an explicit zero rather than by
+// omission — the difference between "on the day the matter opens" and "somebody forgot to type a
+// number" is exactly what a reviewer of a plan needs to see.
+export function normalizePlanDue(input: {
+  readonly dueAnchor?: string | null;
+  readonly offsetDays?: number | null;
+}): { anchor: PlanDueAnchor; offsetDays: number | null } {
+  const raw = input.dueAnchor ?? DEFAULT_PLAN_DUE_ANCHOR;
+  if (!(PLAN_DUE_ANCHORS as readonly string[]).includes(raw)) {
+    refuse(
+      "plan-unknown-anchor",
+      `${raw} is not a due-date anchor; the two are ${PLAN_DUE_ANCHORS.join(", ")}. ` +
+        "Anchors beyond these are the front half of a docketing rule and are added by a reviewed migration",
+    );
+  }
+  const anchor = raw as PlanDueAnchor;
+  const offsetDays = input.offsetDays ?? null;
+
+  if (anchor === "none") {
+    if (offsetDays !== null) {
+      refuse(
+        "plan-offset-without-anchor",
+        "an offset with no anchor computes nothing; give the anchor it counts from, or drop the offset",
+      );
+    }
+    return { anchor, offsetDays: null };
+  }
+
+  if (offsetDays === null) {
+    refuse(
+      "plan-anchor-without-offset",
+      "say how many days after the anchor this is due; zero means the anchor day itself and is written as zero",
+    );
+  }
+  if (!Number.isInteger(offsetDays)) {
+    refuse("plan-offset-out-of-range", "an offset is a whole number of days");
+  }
+  if (Math.abs(offsetDays) > MAX_PLAN_OFFSET_DAYS) {
+    refuse(
+      "plan-offset-out-of-range",
+      `an offset is at most ${String(MAX_PLAN_OFFSET_DAYS)} days either way; a larger one is a typo rather than a schedule`,
+    );
+  }
+  return { anchor, offsetDays };
+}
+
+// THE ONE PIECE OF DATE ARITHMETIC IN THIS PACKAGE, and the single named exception in
+// test/no-arithmetic.test.ts.
+//
+// It adds a whole number of CALENDAR days to a civil date and returns a civil date. No business-day
+// rule, no holiday calendar, no service-method offset, no jurisdiction, and no reading of any clock.
+// Adding fourteen days to a date is not the arithmetic packages/calendar forbids; deriving a court
+// deadline from a rule is, and this does not do that.
+//
+// The honest consequence, stated here because it is the reason instantiation asks before it writes:
+// this will happily land a task on a Sunday or on Christmas Day. A person moves that date in a
+// second. A template cannot know to.
+//
+// Computed in UTC deliberately. The inputs and the output are civil dates with no time and no zone,
+// so a UTC round trip is pure day arithmetic — using a named zone here would introduce a daylight-
+// saving transition into a calculation that has no business seeing one.
+export function addCalendarDays(civilDate: string, days: number): string {
+  const [year, month, day] = civilDate.split("-").map(Number) as [number, number, number];
+  const shifted = new Date(Date.UTC(year, month - 1, day + days));
+  const isoYear = String(shifted.getUTCFullYear()).padStart(4, "0");
+  const isoMonth = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const isoDay = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${isoYear}-${isoMonth}-${isoDay}`;
+}

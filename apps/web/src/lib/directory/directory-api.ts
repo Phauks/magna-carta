@@ -165,7 +165,19 @@ export type DirectoryEdgeType =
   | "corporate_subsidiary"
   | "corporate_successor"
   | "representation"
-  | "role_assignment";
+  | "role_assignment"
+  | "officer_of"
+  | "director_of"
+  | "partner_of"
+  | "trustee_of"
+  | "personal_representative_of"
+  | "agent_of"
+  | "employment"
+  | "member_of"
+  | "shareholder_of"
+  | "beneficiary_of"
+  | "guardian_of"
+  | "point_of_contact_for";
 
 /** One entity the firm may already hold under another spelling. */
 export interface DuplicateCandidate {
@@ -537,6 +549,53 @@ export function readDirectoryEdges(
 }
 
 /** The matters this entity is a party to — the mirror of the read that answers for one matter. */
+/** What a new edge records: the two ends, the type, and the facts about the link itself. */
+export interface CreateDirectoryEdgeRequest {
+  from: string;
+  to: string;
+  edgeType: DirectoryEdgeType;
+  role?: string | null;
+  note?: string | null;
+  validFrom?: string | null;
+  validTo?: string | null;
+}
+
+/**
+ * Records a relationship between two entities. The direction is the type's: an officer is an
+ * officer OF an organization, so `from` is the person and `to` the organization whichever record
+ * the edge was recorded from. The idempotency key is the caller's, so a retried press records once.
+ */
+export function createDirectoryEdge(
+  fetchImpl: typeof fetch,
+  request: CreateDirectoryEdgeRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, "/api/v1/directory/edges", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+/** What a new category takes: its name and which side of the directory it files. */
+export interface CreateDirectoryCategoryRequest {
+  name: string;
+  appliesTo: DirectoryEntityKind | "both";
+}
+
+/** Creates one of the firm's own categories. The idempotency key is the caller's. */
+export function createDirectoryCategory(
+  fetchImpl: typeof fetch,
+  request: CreateDirectoryCategoryRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, "/api/v1/directory/categories", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
 export function readDirectoryEntityMatterParties(
   fetchImpl: typeof fetch,
   entityId: string,

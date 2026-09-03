@@ -11,6 +11,7 @@
    * controls live in the masthead so starting a run never reflows the page body.
    */
   import { onDestroy, onMount } from "svelte";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import Button from "@magna-carta/design-system/button";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import { bandwidthStats } from "$lib/tools/speed-test/bandwidth-stats.ts";
@@ -415,8 +416,7 @@
     </InfoHint>
     <a
       href="https://blog.cloudflare.com/aim-database-for-internet-quality/"
-      target="_blank"
-      rel="noreferrer noopener"
+      {...opensBeside("external")}
       class="underline"
     >
       Learn more

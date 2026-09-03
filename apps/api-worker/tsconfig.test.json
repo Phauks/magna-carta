@@ -160,6 +160,9 @@
       "path": "../../packages/status/tsconfig.build.json"
     },
     {
+      "path": "../../packages/tasks/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/telemetry/tsconfig.build.json"
     },
     {

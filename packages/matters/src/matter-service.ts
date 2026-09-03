@@ -1,5 +1,6 @@
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   selectIdempotencyRecordStatement,
   type SqlDatabase,
@@ -56,6 +57,8 @@ import {
   DEFAULT_CONSULTATION_SCHEME,
 } from "./numbering/consultation-scheme.ts";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
+import { insertMatterPartyStatement } from "@magna-carta/directory/statements";
+import { MATTER_PARTY_CLIENT_ROLE } from "./matter-party.ts";
 import {
   allocateCounterValueStatement,
   ensureCounterRowStatement,
@@ -405,6 +408,44 @@ export interface CreateMatterInput extends MatterFieldsInput {
   readonly responsibleMemberId: UserId;
   readonly status: "prospective" | "open";
   readonly numberContext?: NumberContext;
+  /**
+   * The directory entity the firm acts for on this matter. Given, the client's party link is
+   * written in the same batch as the matter, so no matter is ever readable without its client — a
+   * prospective matter's conflict check needs a person, and billing and trust derive the client
+   * from that link rather than from the display name. Absent only for the callers that predate the
+   * directory link (fixtures, imports, the backfill that supplies the link afterwards).
+   */
+  readonly clientEntityId?: string | null;
+}
+
+/*
+ * The client's own party row, alongside the matter it belongs to. The role is the one every reader
+ * of matter_party derives the client from, and the row is written by the directory's own statement
+ * so its shape cannot drift from the party the Parties page would link by hand.
+ */
+function clientPartyStatements(
+  database: BatchDatabase,
+  options: MatterServiceOptions,
+  matterId: MatterId,
+  clientEntityId: string | null | undefined,
+  now: string,
+): SqlStatement[] {
+  if (clientEntityId === undefined || clientEntityId === null) return [];
+  const matterPartyId = newIdentifier("matterParty", options.randomSource);
+  return [
+    insertMatterPartyStatement(database, {
+      id: matterPartyId,
+      matterId,
+      entityId: clientEntityId,
+      role: MATTER_PARTY_CLIENT_ROLE,
+      capacity: null,
+      createdAt: now,
+    }),
+    auditStatement(database, options, "matter.client_linked", matterId, {
+      matterPartyId,
+      entityId: clientEntityId,
+    }),
+  ];
 }
 
 export interface CreatedMatter {
@@ -447,6 +488,7 @@ export async function createMatter(
             createdAt: now,
           }),
           auditStatement(database, options, "matter.created", matterId),
+          ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
         ],
         outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
         value: { matterId, matterNumber: null, consultationNumber },
@@ -477,6 +519,7 @@ export async function createMatter(
           createdAt: now,
         }),
         auditStatement(database, options, "matter.created", matterId),
+        ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
       ],
       outboxMessages: [
         { topic: MATTER_CREATED_TOPIC, payload: { matterId } },

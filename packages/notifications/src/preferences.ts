@@ -65,6 +65,7 @@ const notificationPreferencesSchema = z
   .object({
     deadlines: categoryChoiceSchema.optional(),
     calendar: categoryChoiceSchema.optional(),
+    tasks: categoryChoiceSchema.optional(),
     trust: categoryChoiceSchema.optional(),
     billing: categoryChoiceSchema.optional(),
     documents: categoryChoiceSchema.optional(),

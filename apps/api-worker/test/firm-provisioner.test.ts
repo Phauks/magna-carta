@@ -28,13 +28,14 @@ interface FakePorts {
   readonly calls: {
     createBucket: number;
     configureBucketNotifications: number;
+    configureBucketLifecycle: number;
   };
   readonly regions: DataRegion[];
   failures: { createBucket?: boolean };
 }
 
 function fakePorts(): FakePorts {
-  const calls = { createBucket: 0, configureBucketNotifications: 0 };
+  const calls = { createBucket: 0, configureBucketNotifications: 0, configureBucketLifecycle: 0 };
   const regions: DataRegion[] = [];
   const failures: FakePorts["failures"] = {};
   const resourceProvider: FirmResourceProvider = {
@@ -46,6 +47,10 @@ function fakePorts(): FakePorts {
     },
     configureBucketNotifications(_firmId: FirmId, _region: DataRegion) {
       calls.configureBucketNotifications += 1;
+      return Promise.resolve();
+    },
+    configureBucketLifecycle(_firmId: FirmId, _region: DataRegion) {
+      calls.configureBucketLifecycle += 1;
       return Promise.resolve();
     },
   };
@@ -184,6 +189,7 @@ describe("provisionFirm", () => {
     expect(ports.calls).toEqual({
       createBucket: 1,
       configureBucketNotifications: 1,
+      configureBucketLifecycle: 1,
     });
   });
 
@@ -207,6 +213,7 @@ describe("provisionFirm", () => {
     expect(ports.calls).toEqual({
       createBucket: 2,
       configureBucketNotifications: 1,
+      configureBucketLifecycle: 1,
     });
   });
 
@@ -231,6 +238,7 @@ describe("provisionFirm", () => {
     expect(ports.calls).toEqual({
       createBucket: 1,
       configureBucketNotifications: 2,
+      configureBucketLifecycle: 2,
     });
   });
 
@@ -251,6 +259,7 @@ describe("provisionFirm", () => {
     expect(ports.calls).toEqual({
       createBucket: 1,
       configureBucketNotifications: 1,
+      configureBucketLifecycle: 1,
     });
   });
 
@@ -377,6 +386,7 @@ describe("provisionFirm", () => {
     expect(portsB.calls).toEqual({
       createBucket: 0,
       configureBucketNotifications: 1,
+      configureBucketLifecycle: 1,
     });
 
     // Resume A: its activation batch must abort (the fence's PRIMARY KEY collision), and the

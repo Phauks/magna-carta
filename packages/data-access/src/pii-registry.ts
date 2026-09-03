@@ -483,6 +483,82 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "pseudonymize-keep",
     note: "who last changed the words, where anybody has",
   },
+  // The task. Four member references and one free-text pair, and the free text is the reason this is
+  // report-manual rather than a scrub: a title is written to be read in a list and routinely names
+  // the person it is about ("Call Mrs. Herrera re the settlement offer"), with no structured subject
+  // column to rewrite from.
+  //
+  // Every member reference is pseudonymize-keep, on the note's own reasoning: an unattributed
+  // obligation is worth a fraction of an attributed one, so the reference is replaced at the member
+  // tombstone and never dropped. `created_by` matters more here than it looks — it is half of what
+  // makes a task on no matter reachable at all, so dropping it would strand the row.
+  {
+    table: "matter_task",
+    subjectKey: "title",
+    action: "report-manual",
+    note: "what to do, written to be read in a list and routinely naming the person it concerns; no structured subject column and no safe automated rewrite",
+  },
+  {
+    table: "matter_task",
+    subjectKey: "body",
+    action: "report-manual",
+    note: "the instruction behind the title, the same free text with more room",
+  },
+  {
+    table: "matter_task",
+    subjectKey: "cancellation_reason",
+    action: "report-manual",
+    note: "why the firm decided not to do the work; free text a member typed about a matter",
+  },
+  {
+    table: "matter_task",
+    subjectKey: "assignee_user_id",
+    action: "pseudonymize-keep",
+    note: "whose work it is; the reference is replaced at the member tombstone, never dropped",
+  },
+  {
+    table: "matter_task",
+    subjectKey: "updated_by",
+    action: "pseudonymize-keep",
+    note: "who touched it last; a reference the mirror reads to tell its own writes from a person's, replaced at the member tombstone rather than dropped",
+  },
+  {
+    // The tombstone a deleted task leaves behind, so a mirror learns the work is gone. It carries
+    // identifiers and nothing else -- no title, no body, no assignee -- so `deleted_by` is the only
+    // subject reference on it, and it is pseudonymized on the same terms as every other actor
+    // reference rather than dropping the row, which would take the deletion back out of the feed.
+    table: "matter_task_deletion",
+    subjectKey: "deleted_by",
+    action: "pseudonymize-keep",
+    note: "who deleted the task; the deletion itself is the fact the row exists to carry",
+  },
+  {
+    table: "matter_task",
+    subjectKey: "created_by",
+    action: "pseudonymize-keep",
+    note: "who put the task there, and half of what makes a task on no matter reachable",
+  },
+  {
+    table: "matter_task",
+    subjectKey: "completed_by",
+    action: "pseudonymize-keep",
+    note: "who did the work",
+  },
+  {
+    table: "matter_task",
+    subjectKey: "cancelled_by",
+    action: "pseudonymize-keep",
+    note: "who decided the work would not be done",
+  },
+  // The plan itself names one person: whoever authored it. Everything else on the row is firm
+  // procedure — a plan's name and description describe how the firm runs a kind of matter, not
+  // anybody it runs one for.
+  {
+    table: "matter_plan_template",
+    subjectKey: "created_by",
+    action: "pseudonymize-keep",
+    note: "who authored the plan; the reference is replaced at the member tombstone, never dropped",
+  },
   // The firm's own calendar scope. A firm event's participant table takes the same three keys as a
   // matter event's, for the same three shapes — but the retention basis differs: attendance at the
   // all-hands or a training session is the firm's operational record, not a matter's litigation
@@ -1022,6 +1098,21 @@ export const NO_PII_TABLES: readonly string[] = [
   // (linked_by). Whose document it is resolves through the file and the matter, never through a
   // column here — the same shape matter_asset_document sits in directly above.
   "matter_note_document",
+  // A task's link to one of the matter's files, the same two-handle shape as matter_note_document
+  // directly above and for the same reason: whose document it is resolves through the file and the
+  // matter, never through a column here.
+  "matter_task_document",
+  // A task's identity in an outside system: the system's name, its opaque handle for the object, a
+  // URL and a revision token. `created_by` is firm-member provenance on the custody_hold line. The
+  // person the TASK concerns resolves through matter_task, never through a column here -- an
+  // external id is the remote's own key and this platform never parses it.
+  "matter_task_external_link",
+  // A plan's steps. Free text, and deliberately NOT personal data: a step is written once and used
+  // on every matter of its kind, so a step that named a client would be a step that is wrong on
+  // every matter but one. `default_assignee_role` is a role string ("assigned_paralegal") matched
+  // against the matter's team at proposal time, never a member handle — which is the whole reason a
+  // template names a role: one that named Sarah would be wrong the moment Sarah's matters moved.
+  "matter_plan_task_template",
   // The three structured attribute tables that describe an OBJECT and reference no person: a vehicle's
   // make, model, identification number, and plate; a firearm's make, model, calibre, and serial; a
   // digital asset's platform, its public handle, and who holds it. Every identifier on them is public
