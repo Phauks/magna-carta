@@ -28,7 +28,6 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FileMinus from "@lucide/svelte/icons/file-minus";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import { LedgerPanes, RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
@@ -206,6 +205,19 @@
       filtered: grid.isFiltered,
       money,
     }),
+  );
+
+  /*
+   * The domain figures as the shared strip reads them. The label leads and the figure follows, which
+   * this register alone had drifted out of — the strip now decides the order for every table.
+   */
+  const footerReading = $derived(
+    figures.map((figure) => ({
+      identifier: figure.identifier,
+      label: figure.label,
+      value: money(figure.amountMinor),
+      caption: figure.caption,
+    })),
   );
 
   /** The open credit this client is carrying, which a bill can be set against. */
@@ -433,31 +445,12 @@
 {/snippet}
 
 {#snippet footerEnd()}
-  {#if grid.isFiltered}
-    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
-  {/if}
-  {#each figures as figure, index (figure.identifier)}
-    {#if index > 0}<span aria-hidden="true">·</span>{/if}
-    <span class="inline-flex items-baseline gap-4" title={figure.caption}>
-      <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
-      <span class="text-text-subtle">{figure.label}</span>
-    </span>
-  {/each}
+  <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
 <section class="flex min-h-0 flex-1 flex-col gap-12">
   <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
-      <Button
-        variant="secondary"
-        size="sm"
-        title="Clear all filters and show all {grid.totalRowCount} bills"
-        onclick={() => grid.clearAllFilters()}
-      >
-        <FunnelX class="size-16" aria-hidden="true" />
-        Clear Filters
-      </Button>
-    {/if}
+    <DataTable.ClearFilters {grid} />
     <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
          border of its own, and last in the row on every ledger. -->
     <Button

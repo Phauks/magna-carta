@@ -29,7 +29,6 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import {
     LedgerPanes,
@@ -361,6 +360,16 @@
     footerFigures(grid.isFiltered ? grid.rowsInView : entries, { filtered: grid.isFiltered }),
   );
 
+  /* The domain figures as the shared strip reads them: money formatted here, arrangement there. */
+  const footerReading = $derived(
+    figures.map((figure) => ({
+      identifier: figure.identifier,
+      label: figure.label,
+      value: money(figure.amountMinor / 100),
+      caption: figure.caption,
+    })),
+  );
+
   const sheet = $derived(
     printEntry === null
       ? null
@@ -420,31 +429,12 @@
 {/snippet}
 
 {#snippet footerEnd()}
-  {#if grid.isFiltered}
-    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
-  {/if}
-  {#each figures as figure, index (figure.identifier)}
-    {#if index > 0}<span aria-hidden="true">·</span>{/if}
-    <span class="inline-flex items-baseline gap-4" title={figure.caption}>
-      <span class="text-text-subtle">{figure.label}</span>
-      <span class="font-semibold tabular-nums">{money(figure.amountMinor / 100)}</span>
-    </span>
-  {/each}
+  <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
 <section class="flex min-h-0 flex-1 flex-col gap-12">
   <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
-      <Button
-        variant="secondary"
-        size="sm"
-        title="Clear all filters and show all {grid.totalRowCount} entries"
-        onclick={() => grid.clearAllFilters()}
-      >
-        <FunnelX class="size-16" aria-hidden="true" />
-        Clear Filters
-      </Button>
-    {/if}
+    <DataTable.ClearFilters {grid} />
     <!-- Recording one entry on this matter is the matter header's New Time; the Time Sheet is the
          top bar's, reachable from every screen including this one, and a second door to it here was
          a control that took a reader somewhere they were already standing in front of. -->

@@ -620,3 +620,11 @@ need:
     sets, each as identifier, code and label); a billable-side category vocabulary and column; the
     non-billable category on the listing; billing disposition beyond the boolean (TD2); ~~an
     internal memo column (TD10)~~ **CLOSED** (see 20); a permission on the rate override (TP4).
+
+## Round eight — the surface's controls become the platform's
+
+| #    | Ruling                                                                                                                                                                                                                                                                                                                                                                        | Status  |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| TB2c | **The clear-filters control is `DataTable.ClearFilters`** — one shape on every table, with the words rather than a bare glyph. It stays in the tabs row where TT2 put it, which is also where the owner's 2026-09-03 platform ruling puts it: the control row above the table, where the filters were set. TB2b's presence-only rule is unchanged and is now the component's. | settled |
+| TS9  | **Undo and redo move from the Time Sheet's toolbar into its footer**, as `UndoRedoControls` — the owner's 2026-09-03 ruling that the pair lives in the counts strip on every surface that has a stack. It joins the worked / billed / value figures there. TT2's tabs-row inventory loses the pair and keeps the rest.                                                        | settled |
+| TS10 | **The worked / billed / value figures are `DataTable.GridFigures`** — the label leads and the figure follows, which is the platform's one reading order for a labelled figure. The sheet keeps its own scope sentence and its incomplete-row count beside the strip; both are this surface's facts, not figures.                                                              | settled |

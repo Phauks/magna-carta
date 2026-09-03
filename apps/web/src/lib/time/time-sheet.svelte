@@ -68,7 +68,6 @@
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import CircleCheckBig from "@lucide/svelte/icons/circle-check-big";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import NotebookPen from "@lucide/svelte/icons/notebook-pen";
   import Pause from "@lucide/svelte/icons/pause";
@@ -457,6 +456,31 @@
     if (isWorkable(row)) return undefined;
     return statusEntry(row.status).meaning;
   }
+  /*
+   * The three figures this sheet ends with, as the shared strip reads them. Worked and billed are
+   * the same range in two literacies and the sheet shows both on purpose; the strip owns their
+   * arrangement, this file owns what they mean.
+   */
+  const footerReading = $derived([
+    {
+      identifier: "worked",
+      label: "worked",
+      value: formatDuration(minutesFromSeconds(honesty.workedSeconds)).text,
+      caption: "Time worked in this range, as worked.",
+    },
+    {
+      identifier: "billed",
+      label: "billed",
+      value: formatDuration(honesty.billedMinutes).text,
+      caption: "Time in this range as the firm's rounding increment billed it.",
+    },
+    {
+      identifier: "value",
+      label: "value",
+      value: money(honesty.amountMinor),
+      caption: "What this range is worth, before tax.",
+    },
+  ]);
 </script>
 
 <svelte:window onkeydown={open ? keyPressed : undefined} />
@@ -770,25 +794,7 @@
 {/snippet}
 
 {#snippet honestyStrip()}
-  <span class="inline-flex items-baseline gap-4" title="Time worked in this range, as worked.">
-    <span class="text-text-subtle">worked</span>
-    <span class="font-semibold tabular-nums">
-      {formatDuration(minutesFromSeconds(honesty.workedSeconds)).text}
-    </span>
-  </span>
-  <span aria-hidden="true">·</span>
-  <span
-    class="inline-flex items-baseline gap-4"
-    title="Time in this range as the firm's rounding increment billed it."
-  >
-    <span class="text-text-subtle">billed</span>
-    <span class="font-semibold tabular-nums">{formatDuration(honesty.billedMinutes).text}</span>
-  </span>
-  <span aria-hidden="true">·</span>
-  <span class="inline-flex items-baseline gap-4" title="What this range is worth, before tax.">
-    <span class="text-text-subtle">value</span>
-    <span class="font-semibold tabular-nums">{money(honesty.amountMinor)}</span>
-  </span>
+  <DataTable.GridFigures {grid} figures={footerReading} />
   <span aria-hidden="true">·</span>
   <span class="text-text-muted">{scope.label}{scope.note === undefined ? "" : `, ${scope.note}`}</span
   >
@@ -798,10 +804,11 @@
       class="text-status-warning-subtle-foreground"
       title="These rows are saved and still short of a description or a duration. They stay on the sheet until they are completed."
     >
-      {honesty.incompleteRows}
-      {honesty.incompleteRows === 1 ? "row" : "rows"} incomplete
+      {honesty.incompleteRows} incomplete
     </span>
   {/if}
+  <span aria-hidden="true">·</span>
+  <UndoRedoControls history={store.history} onOutcome={said} />
 {/snippet}
 
 <!-- The sheet is a WORKING surface, so it opens filling the screen; the frame's own control shrinks
@@ -910,23 +917,9 @@
           {/if}
         </span>
 
-        <!-- Undo and redo are the design system's pair over this sheet's own stack: the button
-             does the step, the caret fused to its side opens the stack, and choosing the Nth walks
-             all N at once. The secondary register is this toolbar's, not undo's. -->
-        <UndoRedoControls history={store.history} variant="secondary" onOutcome={said} />
-
-        <!-- Absence is the signal: the control exists only while a filter is in play. -->
-        {#if grid.isFiltered}
-          <Button
-            variant="secondary"
-            size="icon"
-            title="Clear {grid.activeFilterCount} filter{grid.activeFilterCount === 1 ? '' : 's'}"
-            aria-label="Clear the filters"
-            onclick={() => grid.clearAllFilters()}
-          >
-            <FunnelX class="size-16" aria-hidden="true" />
-          </Button>
-        {/if}
+        <!-- The way back to the whole sheet sits where the filters were set. Absence is the signal:
+             the control is not here while nothing is narrowing the view. -->
+        <DataTable.ClearFilters {grid} />
 
       </div>
     </div>

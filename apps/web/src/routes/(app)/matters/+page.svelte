@@ -38,7 +38,6 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import CreateControl from "@magna-carta/design-system/create-control";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
@@ -270,20 +269,10 @@
         <Search class="size-16" aria-hidden="true" />
       </Button>
 
-      {#if narrowed}
-        <!-- The control exists only while something is narrowing the view: its absence says
-             nothing is, which is a thing a reader can see without reading anything. -->
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Show every matter: {narrowingSummary}"
-          title={narrowingSummary}
-          class="text-accent-default"
-          onclick={clearNarrowing}
-        >
-          <FunnelX class="size-16" aria-hidden="true" />
-        </Button>
-      {/if}
+      <DataTable.ClearFilters
+        {grid}
+        narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }}
+      />
 
       <!-- The one create control (the design system's), LAST on the row: the search grows toward
            the inline start as it opens, so the control after it is the one place that growth cannot
@@ -359,11 +348,12 @@
          one-click way back to all of it. One line at a fixed height, so it never reflows. -->
     <DataTable.GridFooter {grid}>
       {#snippet end()}
-        {#if list.nextCursor !== null}
-          <Button variant="secondary" size="sm" onclick={loadMore} disabled={list.loadingMore}>
-            {list.loadingMore ? "Loading" : "Load more matters"}
-          </Button>
-        {/if}
+        <DataTable.LoadMore
+          noun="matters"
+          more={list.nextCursor !== null}
+          loading={list.loadingMore}
+          onLoad={loadMore}
+        />
       {/snippet}
     </DataTable.GridFooter>
   {/if}

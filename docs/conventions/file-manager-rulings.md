@@ -569,3 +569,16 @@ The owner's words this round: "the file manager area is really good."
   computed radius must be 0); D2's check is replaced by D2b's (both restores ask; the
   follow lands selected in Discovery); new S20, P12d and N29 checks; three checks that
   opened the panel unconditionally now guard on its persisted state.
+
+## R18 — round fifteen: the table's own controls are shared components
+
+| #    | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Status  |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| L42b | **The clear-filters control lives in the control row above the table, where the filters were set** — the owner's 2026-09-03 ruling, applied to every table on the platform. It is `DataTable.ClearFilters`, one shape everywhere, and it is present only while something is narrowing the view. **Revises L42's placement**: the footer keeps the count ("x of y · filtered on Status, Matter") and its inline "Show all", which is the sentence's own remedy rather than a control in a control row. L44's presence-only rule is unchanged and is now the component's. | settled |
+| A15c | **The undo and redo pair is `UndoRedoControls`, and it lives in the footer on every surface that has a stack** — the owner's 2026-09-03 ruling. A15b's placement for this surface is unchanged and is now the platform's; the Time Sheet's toolbar pair moved down to join it. The pair's shape, wording, split control and keys are the design system's, not a surface's.                                                                                                                                                                                              | settled |
+
+**Notes recorded this round:**
+
+- The four undo and redo dropdowns on the product threw when opened — `DropdownMenu.GroupHeading`
+  with no `DropdownMenu.Group` above it, on both surfaces, because the markup was copied rather than
+  shared. Fixed by the shared control, which has a story that opens the menu.

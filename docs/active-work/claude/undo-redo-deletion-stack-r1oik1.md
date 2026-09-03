@@ -1,6 +1,6 @@
 ---
 worktree: /home/user/magna-carta
-area: Undo, redo and reversal — the design, the one history stack, and both surfaces ported onto it
+area: Undo, redo and reversal — the design, the history stack, and the table's own controls consolidated
 status: building
 touches: packages/design-system/src/lib/components/history, packages/design-system/package.json, packages/design-system/CLAUDE.md, packages/design-system/src/stories, packages/design-system/test, apps/web/src/lib/file-manager, apps/web/src/lib/time, apps/web/test, tooling/lint-one-ui/registry.json, docs/specs/, changelog.d/
 ---
@@ -24,3 +24,12 @@ entries, one story, two test files.
 before continuing on the Time Sheet toolbar or the file-manager footer. The port also fixes a live
 defect this stream found: all four undo and redo dropdowns rendered `DropdownMenu.GroupHeading` with
 no `DropdownMenu.Group`, which throws when the caret is pressed.
+
+**Then the rest of the table's own controls**, on the owner's 2026-09-03 placement: the clear
+control into the control row above the table (`DataTable.ClearFilters`, seven hand-built copies in
+three shapes), the labelled figures into the counts strip (`DataTable.GridFigures`, five copies, one
+already in the opposite reading order), the way to the rest of a paged list beside the count that
+says there is more (`DataTable.LoadMore`, three copies in two places), and the undo pair into the
+footer on every surface. Ten screens across billing, costs, time, matters, directory and custodian
+change, so a concurrent stream on any of those should sync `main`. Rulings recorded as L42b/A15c,
+TB2c/TS9/TS10, and one line in `design-corrections.md`.

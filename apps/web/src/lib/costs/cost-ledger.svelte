@@ -33,7 +33,6 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import {
@@ -333,6 +332,19 @@
     footerFigures(grid.isFiltered ? grid.rowsInView : costs, { filtered: grid.isFiltered }),
   );
 
+  /*
+   * The domain figures as the shared strip reads them: the money is turned into text HERE, in the
+   * matter's own currency, because the strip owns the arrangement and never the formatting.
+   */
+  const footerReading = $derived(
+    figures.map((figure) => ({
+      identifier: figure.identifier,
+      label: figure.label,
+      value: money(figure.amountMinor),
+      caption: figure.caption,
+    })),
+  );
+
   const sheet = $derived(
     printEntry === null
       ? null
@@ -409,33 +421,14 @@
 {/snippet}
 
 {#snippet footerEnd()}
-  {#if grid.isFiltered}
-    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
-  {/if}
-  {#each figures as figure, index (figure.identifier)}
-    {#if index > 0}<span aria-hidden="true">·</span>{/if}
-    <span class="inline-flex items-baseline gap-4" title={figure.caption}>
-      <span class="text-text-subtle">{figure.label}</span>
-      <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
-    </span>
-  {/each}
+  <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
 <!-- The list region takes the remaining height and keeps it, so the screen does not reflow as
      rows arrive, as a filter narrows them, or as an empty state replaces them. -->
 <section class="flex min-h-0 flex-1 flex-col gap-12">
   <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
-      <Button
-        variant="secondary"
-        size="sm"
-        title="Clear all filters and show all {grid.totalRowCount} costs"
-        onclick={() => grid.clearAllFilters()}
-      >
-        <FunnelX class="size-16" aria-hidden="true" />
-        Clear Filters
-      </Button>
-    {/if}
+    <DataTable.ClearFilters {grid} />
     {#if REVIEW_GATE_ENABLED}
       <Button
         variant="secondary"

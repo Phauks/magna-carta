@@ -34,7 +34,6 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import { LedgerPanes, RecordMenu } from "$lib/records/index.ts";
   import { ledgerRecordMenu } from "$lib/records/ledger-record-menu.ts";
@@ -255,6 +254,26 @@
           printedAt: formatInstant(new Date()),
         }),
   );
+  /*
+   * The two figures this ledger ends with, as the shared strip reads them. The captions are the
+   * whole reason the pair is not a bare total: "unbilled" and "billed" are positions in a process,
+   * and a reader hovering either needs to know which.
+   */
+  const footerReading = $derived([
+    {
+      identifier: "unbilled",
+      label: "unbilled",
+      value: money(position.unbilledMinor),
+      caption:
+        "Billable fees no finalized invoice has taken up. A draft bill claims them on the Bills tab.",
+    },
+    {
+      identifier: "billed",
+      label: "billed",
+      value: money(position.billedMinor),
+      caption: "Fees a finalized invoice has taken up.",
+    },
+  ]);
 </script>
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<FeeRecord>)}
@@ -304,24 +323,7 @@
 {/snippet}
 
 {#snippet footerEnd()}
-  {#if grid.isFiltered}
-    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
-  {/if}
-  <span
-    class="inline-flex items-baseline gap-4"
-    title="Billable fees no finalized invoice has taken up. A draft bill claims them on the Bills tab."
-  >
-    <span class="text-text-subtle">unbilled</span>
-    <span class="font-semibold tabular-nums">{money(position.unbilledMinor)}</span>
-  </span>
-  <span aria-hidden="true">·</span>
-  <span
-    class="inline-flex items-baseline gap-4"
-    title="Fees a finalized invoice has taken up."
-  >
-    <span class="text-text-subtle">billed</span>
-    <span class="font-semibold tabular-nums">{money(position.billedMinor)}</span>
-  </span>
+  <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
 <section class="flex min-h-0 flex-1 flex-col gap-12">
@@ -334,17 +336,7 @@
   -->
   <div class="flex flex-wrap items-center justify-end gap-8 text-sm">
     <span class="flex flex-1 flex-wrap items-center justify-end gap-8">
-      {#if grid.isFiltered}
-        <Button
-          variant="secondary"
-          size="sm"
-          title="Clear all filters and show all {grid.totalRowCount} fees"
-          onclick={() => grid.clearAllFilters()}
-        >
-          <FunnelX class="size-16" aria-hidden="true" />
-          Clear Filters
-        </Button>
-      {/if}
+      <DataTable.ClearFilters {grid} />
       <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
            border of its own, and last in the row on every ledger. -->
       <Button

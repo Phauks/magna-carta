@@ -152,6 +152,32 @@ directory search before these existed; the one-implementation registry now refus
 - **`PARTIES_TAB_KEY`** is the agreement every record window imports, the twin of
   `ATTACHMENTS_TAB_KEY`.
 
+## The table's own controls: three components, not a snippet per surface
+
+**`DataTable.ClearFilters`, `DataTable.GridFigures` and `DataTable.LoadMore`** are the controls a
+table's control row and counts strip are made of. Each was hand-built on several surfaces first —
+the clear control seven times in three shapes, the figures strip five times with one already in the
+opposite reading order, load-more three times in two places — and the drift is why they moved here.
+
+- **What a surface varies is WHERE it puts them, never what they look like.** The owner's 2026-09-03
+  placement: the clear control goes in the control row above the table, where the filters were set;
+  the undo and redo pair goes in the footer. `docs/conventions/design-corrections.md` carries it.
+- **`ClearFilters` is two acts and says which.** Column filters alone read "Clear Filters"; a
+  surface whose own search or scope is also holding rows back passes `narrowing` and the control
+  reads "Show Everything", because clearing a search under a button labelled Clear Filters is a lie
+  about what the press will do. Neither is configured — both are derived. Its `grid` is optional:
+  a surface can be narrowed before its grid exists.
+- **It renders NOTHING when nothing is in play**, and so does `LoadMore` at the end of a list. That
+  is the standing rule for a control that undoes a state — absence is the answer, never a disabled
+  control.
+- **`GridFigures` takes TEXT.** Money, durations and counts each format through their own home; a
+  strip that took minor units and a currency would have to learn all three and still be wrong for
+  the fourth. What it owns is the arrangement: label first, figure second, tabular, `·` between,
+  and the "In view:" prefix under a filter — a total that silently changed meaning when a column was
+  filtered is the most quietly wrong thing a footer can do.
+- **The footer's inline "Show all" stays.** It is part of the tally sentence ("x of y · filtered on
+  Status, Matter"), not a control in a control row, and the two are different things.
+
 ## The history family: one stack, one pair of controls, one set of keys
 
 **`src/lib/components/history/` is the one home of undo and redo.** `HistoryStack` holds the steps,
