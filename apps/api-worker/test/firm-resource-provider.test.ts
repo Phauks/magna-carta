@@ -5,6 +5,7 @@ import {
   createDevFirmResourceProvider,
   firmResourceName,
 } from "../src/firm-resource-provider.ts";
+import { browserUploadCorsRules } from "../src/files/browser-upload-cors.ts";
 
 describe("dev FirmResourceProvider (bucket-name adapter)", () => {
   it("createBucket answers a per-firm-unique deterministic name (the event→firm resolution key)", async () => {
@@ -317,5 +318,71 @@ describe("Cloudflare REST FirmResourceProvider", () => {
     await usProvider.configureBucketNotifications(firmId, "us");
     expect(usStub.calls[0]?.headers["cf-r2-jurisdiction"]).toBeUndefined();
     expect(usStub.calls[1]?.headers["cf-r2-jurisdiction"]).toBeUndefined();
+  });
+});
+
+describe("FirmResourceProvider — the bucket's browser-upload CORS policy", () => {
+  it("translates the dashboard-shaped artifact into the API's rule shape, extra origins folded in once", () => {
+    const rules = browserUploadCorsRules(["https://preview.example", "https://magnacarta.esq"]);
+    expect(rules).toHaveLength(1);
+    const rule = rules[0];
+    expect(rule?.id).toBe("browser-direct-upload");
+    expect(rule?.allowed.methods).toEqual(["GET", "PUT"]);
+    // The signed headers: an upload that omits one is refused by R2, so a policy that does not allow
+    // them fails every browser upload at the preflight.
+    expect(rule?.allowed.headers).toEqual([
+      "content-type",
+      "x-amz-meta-matter",
+      "x-amz-meta-object_class",
+    ]);
+    // Multipart cannot complete without the client reading each part's ETag.
+    expect(rule?.exposeHeaders).toEqual(["ETag"]);
+    expect(rule?.allowed.origins).toContain("https://preview.example");
+    expect(
+      rule?.allowed.origins.filter((origin) => origin === "https://magnacarta.esq"),
+    ).toHaveLength(1);
+  });
+
+  it("dev adapter: configureBucketCors is a no-op (local uploads are same-origin)", async () => {
+    await expect(
+      createDevFirmResourceProvider().configureBucketCors(newIdentifier("firm"), "us"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("REST adapter: PUTs the rule set onto the firm's bucket, jurisdiction header riding for an EU firm", async () => {
+    const stub = stubFetch([
+      { status: 200, body: { success: true, result: {} } },
+      { status: 200, body: { success: true, result: {} } },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      browserOrigins: ["https://preview.example"],
+      fetchImplementation: stub.fetchImplementation,
+    });
+    const firmId = newIdentifier("firm");
+    await provider.configureBucketCors(firmId, "us");
+    await provider.configureBucketCors(firmId, "eu");
+    const [us, eu] = stub.calls;
+    expect(us?.method).toBe("PUT");
+    expect(us?.url).toBe(
+      `https://api.cloudflare.com/client/v4/accounts/test-account-id/r2/buckets/${await firmResourceName(firmId)}/cors`,
+    );
+    expect(us?.headers["cf-r2-jurisdiction"]).toBeUndefined();
+    expect(eu?.headers["cf-r2-jurisdiction"]).toBe("eu");
+    const body = us?.body as { rules: ReturnType<typeof browserUploadCorsRules> };
+    expect(body.rules[0]?.allowed.origins).toContain("https://preview.example");
+  });
+
+  it("REST adapter: an API refusal surfaces as the named failure rather than a completed step", async () => {
+    const stub = stubFetch([
+      {
+        status: 403,
+        body: { success: false, errors: [{ code: 10000, message: "Authentication error" }] },
+      },
+    ]);
+    await expect(
+      restProvider(stub).configureBucketCors(newIdentifier("firm"), "us"),
+    ).rejects.toThrow(/configureBucketCors failed: HTTP 403/);
   });
 });

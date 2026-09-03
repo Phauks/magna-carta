@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 288 | 44% |
-| Part-built | partial, in-build | 118 | 18% |
+| Done | shipped | 289 | 44% |
+| Part-built | partial, in-build | 117 | 18% |
 | Ahead | designed, planned, researching, not-started | 207 | 32% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **654** | **100%** |
@@ -40,8 +40,8 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 288 | 44% |
-| `partial` | 117 | 18% |
+| `shipped` | 289 | 44% |
+| `partial` | 116 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 2% |
@@ -53,7 +53,7 @@ not](#what-a-roll-up-is-not).
 
 ### What a roll-up is not
 
-**140 of the 794 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 794 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 288 of 654 (44%). Shipped plus partial is 405 (62%).**
+**Shipped alone is 289 of 654 (44%). Shipped plus partial is 405 (62%).**
 
-The 117 units between those two numbers are work that is engineered and paid for and is not
+The 116 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -101,7 +101,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 5 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 63% |
-| Core Domain — Directory, Matters & Locations | 32 | 21 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 52% |
+| Core Domain — Directory, Matters & Locations | 33 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 54% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 11 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 17 | 65% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **288** | **117** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **654** | **44%** |
+| **All areas** | **289** | **116** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **654** | **44%** |
 
 ## Where we have been
 
@@ -609,7 +609,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Core Domain — Directory, Matters & Locations
 
-[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 61 units of work, 52% shipped. 32 done, 21 part-built, 7 ahead, 1 parked.
+[`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 61 units of work, 54% shipped. 33 done, 20 part-built, 7 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete; the list, the record screen and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md)._
   - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record screen is built. The organization stays thin by the owner's ruling._
@@ -622,9 +622,9 @@ to change a line here, edit the node in its area file and re-run the build.
     - `directory.edges.relationships` · `partial` · **Relationships (person-person, org-org)** — Typed relationship edges — spouse/family, guardian/ward, trustee, beneficiary, business partner; corporate parent/subsidiary/successor/affiliate — feeding conflicts, estate planning, corporate work. _Note: Backend and the record screen shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing._
     - `directory.edges.representation` · `partial` · **Representation edges** — Counsel-represents-party edges scoped within a matter. _Note: Backend edge type shipped; no UI._
     - `directory.edges.role-assignments` · `partial` · **Matter role assignments** — Entity-to-matter role links with the role on the link, not the entity; one entity can hold multiple roles in one matter. _Note: Backend shipped; the matter's Parties page adds a party from the Directory picker with a role and a capacity, and removes one. The matter's client is a party row from the moment the matter exists, written by the intake's create._
-  - `directory.identifiers` · `partial` · **Typed identifiers** — Typed identifier list (bar number, EIN/Tax ID, SSN, DOB, driver's license) used for conflicts, billing, and document generation. _Note: Backend shipped; UI not built._
+  - `directory.identifiers` · `shipped` · **Typed identifiers** — Typed identifier list (bar number, EIN/Tax ID, SSN, DOB, driver's license) used for conflicts, billing, and document generation. _Note: Typed shapes with format checks on both sides; accounts sealed with their username and secret; the dob kind removed (dates live on the person)._
     - `directory.identifiers.protected-fields` · `shipped` · **Field-level encryption and access control** — Sensitive fields (SSN, EIN, DOB, financial) structurally encrypted via the data-access protected() field type with HMAC blind index so conflicts can match without decrypting; access logged.
-  - `directory.duplicates` · `partial` · **Duplicate detection** — Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates. _Note: Candidate engine shipped; entry-time "possible duplicate?" prompt is UI, not built._
+  - `directory.duplicates` · `shipped` · **Duplicate detection** — Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates. _Note: Candidate engine shipped; the entry-time gate runs beside the New Person and New Organization entry (apps/web/src/lib/directory/duplicate-gate.svelte), permanently in view as the name is typed._
   - `directory.merge` · `partial` · **Non-destructive merge** — Merge folds a duplicate into a master, repoints every reference, archives (never deletes) the subordinate, and records survivorship plus the exact repoint list in an append-only entity_merge event. _Note: Backend shipped; merge tooling UI not built._
     - `directory.merge.unmerge` · `deferred` · **Guarded unmerge** — Reversal of a recent, still-clean merge; locked once post-merge activity accrues. _Note: Deferral-with-seam, not a retrofit; no unmerge export exists in packages/directory._
   - `directory.archival` · `shipped` · **Soft-delete and archival** — Entities referenced by a matter or the conflicts log are archived, never hard-deleted.

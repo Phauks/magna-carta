@@ -1726,19 +1726,24 @@ export type CreateDirectoryPersonRequest = {
     prefix?: string | null;
     middle?: string | null;
     suffix?: string | null;
+    otherNames?: Array<CreateDirectoryPersonOtherName>;
+    pronouns?: DirectoryPronounSet;
+    dateOfBirth?: string | null;
+    dateOfDeath?: string | null;
+    emails?: Array<AddDirectoryEmailRequest>;
+    phones?: Array<AddDirectoryPhoneRequest>;
+    addresses?: Array<AddDirectoryAddressRequest>;
+    identifiers?: Array<AddDirectoryIdentifierRequest>;
+    organizations?: Array<CreateDirectoryPersonOrganization>;
 };
 
-export type DirectoryPersonDetail = {
-    id: string;
-    prefix: string | null;
-    given: string | null;
-    middle: string | null;
-    family: string | null;
-    suffix: string | null;
-    displayName: string | null;
-    status: string;
-    mergedIntoId: string | null;
-    pronouns: DirectoryPronounSet;
+export type CreateDirectoryPersonOtherName = {
+    given: string;
+    family: string;
+    nameRole: 'current' | 'former' | 'alias' | 'aka' | 'maiden' | 'dba';
+    prefix?: string | null;
+    middle?: string | null;
+    suffix?: string | null;
 };
 
 /**
@@ -1770,6 +1775,115 @@ export type DirectoryPronounSet = {
      */
     verbNumber: 'singular' | 'plural';
 } | null;
+
+export type AddDirectoryEmailRequest = {
+    address: string;
+    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type DirectoryContactPreference = {
+    /**
+     * May the firm use this contact point. Defaults to true. A contact point the person asked the firm not to use is recorded with the permission withdrawn and a note saying so, never deleted: deleting it loses the instruction along with the value.
+     */
+    permitted?: boolean;
+    /**
+     * Is this the one route the person asked to be reached by. At most one per entity across email, phone and address together, because that preference is a single answer about every channel; promoting one demotes whichever was preferred before, in any of the three.
+     */
+    preferred?: boolean;
+    /**
+     * Why the contact point may not be used, or how it should be.
+     */
+    note?: string | null;
+};
+
+export type DirectoryContactVerification = {
+    /**
+     * What the firm found when it last tried to confirm this contact point. A failed status records returned mail, a bounced message or a disconnected line. It never blocks a send: it is surfaced to whoever is about to send, and the send proceeds.
+     */
+    status?: 'unverified' | 'verified' | 'failed';
+    /**
+     * What the failure said, in the words it said it.
+     */
+    detail?: string | null;
+};
+
+export type AddDirectoryPhoneRequest = {
+    /**
+     * The number as it was written. Stored verbatim and never rewritten; the structured columns beside it go null when it cannot be split, so an unparseable number is still recorded.
+     */
+    number: string;
+    contactSystem?: 'voice' | 'fax' | 'sms' | 'pager';
+    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    extension?: string | null;
+    countryRegionCode?: string | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type AddDirectoryAddressRequest = {
+    recipient?: string | null;
+    organizationName?: string | null;
+    street?: string | null;
+    streetTwo?: string | null;
+    dependentLocality?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    sortingCode?: string | null;
+    country?: string | null;
+    addressUse?: 'residential' | 'business' | 'postal' | 'registered' | 'service' | 'former' | 'temporary' | null;
+    addressType?: 'physical' | 'postal' | 'both';
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type AddDirectoryIdentifierRequest = {
+    type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    /**
+     * The plaintext part a list shows without a reveal: the state or country that issued a licence, the jurisdiction behind a bar number, who an account is held with. Required where the type has one; never any part of the value.
+     */
+    label?: string | null;
+    number: string;
+    /**
+     * An account's username.
+     */
+    username?: string | null;
+    /**
+     * An account's secret, sealed beside its number and never indexed.
+     */
+    secret?: string | null;
+    validFrom?: string | null;
+    validTo?: string | null;
+};
+
+export type CreateDirectoryPersonOrganization = {
+    organizationId: string;
+    edgeType: 'affiliation' | 'relationship' | 'corporate_parent' | 'corporate_subsidiary' | 'corporate_successor' | 'representation' | 'role_assignment' | 'officer_of' | 'director_of' | 'partner_of' | 'trustee_of' | 'personal_representative_of' | 'agent_of' | 'employment' | 'member_of' | 'shareholder_of' | 'beneficiary_of' | 'guardian_of' | 'point_of_contact_for';
+    /**
+     * Which end of the edge the person is. The type says which way a membership reads (employment runs person to organization); the screen decides and the record keeps it.
+     */
+    personIs: 'from' | 'to';
+    role?: string | null;
+    note?: string | null;
+};
+
+export type DirectoryPersonDetail = {
+    id: string;
+    prefix: string | null;
+    given: string | null;
+    middle: string | null;
+    family: string | null;
+    suffix: string | null;
+    displayName: string | null;
+    status: string;
+    mergedIntoId: string | null;
+    pronouns: DirectoryPronounSet;
+};
 
 export type DirectoryAckResponse = {
     ok: boolean;
@@ -1965,21 +2079,23 @@ export type DirectoryIdentifierRecordsResponse = {
 
 export type DirectoryIdentifierRecord = {
     id: string;
-    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    /**
+     * The plaintext part: the issuing region, the jurisdiction, who an account is held with.
+     */
+    label: string | null;
     validFrom: string | null;
     validTo: string | null;
     recordedAt: string;
 };
 
-export type AddDirectoryIdentifierRequest = {
-    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
-    value: string;
-    validFrom?: string | null;
-    validTo?: string | null;
-};
-
 export type DirectoryIdentifierValueResponse = {
+    /**
+     * The decrypted value — for an account, its number; the username and secret ride beside it.
+     */
     value: string | null;
+    username?: string | null;
+    secret?: string | null;
 };
 
 export type CreateDirectoryEdgeRequest = {
@@ -2047,7 +2163,7 @@ export type DirectoryDuplicateCandidatesRequest = {
     family?: string;
     legalName?: string;
     identifiers?: Array<{
-        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+        type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
         value: string;
     }>;
     excludeEntityId?: string;
@@ -2179,40 +2295,6 @@ export type DirectoryEmailsResponse = {
     data: Array<DirectoryEmailEntry>;
 };
 
-export type AddDirectoryEmailRequest = {
-    address: string;
-    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
-    isPrimary?: boolean;
-    preference?: DirectoryContactPreference;
-    verification?: DirectoryContactVerification;
-};
-
-export type DirectoryContactPreference = {
-    /**
-     * May the firm use this contact point. Defaults to true. A contact point the person asked the firm not to use is recorded with the permission withdrawn and a note saying so, never deleted: deleting it loses the instruction along with the value.
-     */
-    permitted?: boolean;
-    /**
-     * Is this the one route the person asked to be reached by. At most one per entity across email, phone and address together, because that preference is a single answer about every channel; promoting one demotes whichever was preferred before, in any of the three.
-     */
-    preferred?: boolean;
-    /**
-     * Why the contact point may not be used, or how it should be.
-     */
-    note?: string | null;
-};
-
-export type DirectoryContactVerification = {
-    /**
-     * What the firm found when it last tried to confirm this contact point. A failed status records returned mail, a bounced message or a disconnected line. It never blocks a send: it is surfaced to whoever is about to send, and the send proceeds.
-     */
-    status?: 'unverified' | 'verified' | 'failed';
-    /**
-     * What the failure said, in the words it said it.
-     */
-    detail?: string | null;
-};
-
 export type UpdateDirectoryEmailRequest = {
     address?: string;
     contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
@@ -2223,20 +2305,6 @@ export type UpdateDirectoryEmailRequest = {
 
 export type DirectoryPhonesResponse = {
     data: Array<DirectoryPhoneEntry>;
-};
-
-export type AddDirectoryPhoneRequest = {
-    /**
-     * The number as it was written. Stored verbatim and never rewritten; the structured columns beside it go null when it cannot be split, so an unparseable number is still recorded.
-     */
-    number: string;
-    contactSystem?: 'voice' | 'fax' | 'sms' | 'pager';
-    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
-    extension?: string | null;
-    countryRegionCode?: string | null;
-    isPrimary?: boolean;
-    preference?: DirectoryContactPreference;
-    verification?: DirectoryContactVerification;
 };
 
 export type UpdateDirectoryPhoneRequest = {
@@ -2252,24 +2320,6 @@ export type UpdateDirectoryPhoneRequest = {
 
 export type DirectoryAddressesResponse = {
     data: Array<DirectoryAddressEntry>;
-};
-
-export type AddDirectoryAddressRequest = {
-    recipient?: string | null;
-    organizationName?: string | null;
-    street?: string | null;
-    streetTwo?: string | null;
-    dependentLocality?: string | null;
-    city?: string | null;
-    region?: string | null;
-    postal?: string | null;
-    sortingCode?: string | null;
-    country?: string | null;
-    addressUse?: 'residential' | 'business' | 'postal' | 'registered' | 'service' | 'former' | 'temporary' | null;
-    addressType?: 'physical' | 'postal' | 'both';
-    isPrimary?: boolean;
-    preference?: DirectoryContactPreference;
-    verification?: DirectoryContactVerification;
 };
 
 export type UpdateDirectoryAddressRequest = {
@@ -14614,7 +14664,7 @@ export type DirectoryReadIdentifierData = {
     body?: never;
     path: {
         id: string;
-        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+        type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
     };
     query?: never;
     url: '/api/v1/directory/entities/{id}/identifiers/{type}';
