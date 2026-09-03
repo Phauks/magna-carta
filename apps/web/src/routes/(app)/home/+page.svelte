@@ -13,7 +13,7 @@
   import Button from "@magna-carta/design-system/button";
   import * as Card from "@magna-carta/design-system/card";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { calendarContext } from "$lib/calendar/calendar-context.svelte.ts";
   import { CalendarView } from "$lib/calendar/index.ts";
@@ -45,14 +45,14 @@
   <title>Home · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Good {daypart}</Masthead.Title>
-    <Masthead.Meta>
-      <span>{today}</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<ScreenHeader
+  title="Good {daypart}"
+  class="mb-24"
+>
+  {#snippet meta()}
+    <span>{today}</span>
+  {/snippet}
+</ScreenHeader>
 
 <div class="mb-24 grid grid-cols-1 gap-16 lg:grid-cols-3">
   <Card.Root>

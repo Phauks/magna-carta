@@ -1,6 +1,6 @@
 # Case calendar and deadlines
 
-_The firm calendar and the matter's Calendar section are live. The matter timeline as a view, the room grid, and the Home card are still to come and are recorded through the API meanwhile._
+_The firm calendar, the matter's Calendar section, the room grid and the Home card are live. A matter's whole history is its [Activity section](matter-activity.md)._
 
 ## What it does
 
@@ -53,12 +53,6 @@ setting and deadline on every matter you can see, and the firm's own events besi
 **A matter's Calendar section** keeps its two tables (Deadlines, then Events) as the **List** view and
 adds **Month** and **Agenda** beside them, which are the firm calendar narrowed to this one matter
 and showing titles. **Record a deadline** and **Record an event** are on the section's own row.
-
-**Timeline** is the section's fourth view: everything the firm has recorded about the case, newest
-first, read from wherever it was recorded: documents filed, mail captured, documents assembled,
-originals moved, money through trust, time and costs, conflicts checks, and the dates on this
-calendar. Each row says what kind of thing it is and links to the record it came from; press
-**Earlier** for the next page back.
 
 **Two cards read the same calendar.** **Today** on Home is what is on your own calendar today and
 tomorrow, six entries deep, with a line to the rest. **Coming up** on a matter's Overview is that

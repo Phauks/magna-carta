@@ -13,6 +13,9 @@
       "path": "./tsconfig.build.json"
     },
     {
+      "path": "../access-control/tsconfig.build.json"
+    },
+    {
       "path": "../data-access/tsconfig.build.json"
     },
     {

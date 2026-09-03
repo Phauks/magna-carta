@@ -995,28 +995,3 @@ export function deleteEventLink(
 // ---- the matter timeline -----------------------------------------------------------------------
 
 export type TimelineDirection = "past" | "future" | "all";
-
-export interface MatterTimelineQuery {
-  cursor?: string;
-  direction?: TimelineDirection;
-  kinds?: readonly string[];
-}
-
-/**
- * One page of the matter's federated history: everything the firm has recorded about the case, read
- * in place from the table each fact was born in, newest first under one cursor.
- */
-export function readMatterTimeline(
-  fetchImpl: typeof fetch,
-  matterId: string,
-  query: MatterTimelineQuery = {},
-): Promise<ApiOutcome<Page<TimelineEntry>>> {
-  const parameters = new URLSearchParams();
-  if (query.direction !== undefined) parameters.set("direction", query.direction);
-  for (const kind of query.kinds ?? []) parameters.append("kind", kind);
-  if (query.cursor !== undefined) parameters.set("cursor", query.cursor);
-  return requestJson(
-    fetchImpl,
-    withQuery(`/api/v1/matters/${encodeURIComponent(matterId)}/timeline`, parameters),
-  );
-}

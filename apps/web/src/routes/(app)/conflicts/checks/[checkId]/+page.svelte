@@ -21,6 +21,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Button from "@magna-carta/design-system/button";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import Separator from "@magna-carta/design-system/separator";
@@ -146,11 +147,8 @@
   <title>Conflicts Check · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Eyebrow>Conflicts</Masthead.Eyebrow>
-    <Masthead.Title>The Check</Masthead.Title>
-    <Masthead.Meta>
+<ScreenHeader title="The Check" back="conflicts" class="mb-24">
+  {#snippet meta()}
       {#if check !== null}
         <span>{formatInstant(check.createdAt)}</span>
         <Masthead.MetaSeparator />
@@ -166,9 +164,8 @@
               })}
         </span>
       {/if}
-    </Masthead.Meta>
-  </Masthead.Heading>
-  <Masthead.Actions>
+  {/snippet}
+  {#snippet actions()}
     {#if check !== null && check.matterId !== null}
       <Button variant="secondary" href="/conflicts/matters/{check.matterId}">
         <ScrollText class="size-16" aria-hidden="true" />
@@ -179,8 +176,8 @@
       <Printer class="size-16" aria-hidden="true" />
       The report
     </Button>
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if failure !== null}
   <FailureNotice

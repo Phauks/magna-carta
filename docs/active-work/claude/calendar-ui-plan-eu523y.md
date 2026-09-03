@@ -30,6 +30,5 @@ owner has seen the firm calendar).
 **Fourth round, 2026-09-03 (after #495 landed slices 1–3):** the event-type catalog under
 Settings › Practice › Event Types (`(app)/settings/event-types`), the entry window's Links tab
 reading and relating settings through `GET /api/v1/events/{id}/links` and its firm-event twin
-(two new reads in `apps/api-worker/src/routes/calendar.ts`, contract and client regenerated), and
-the matter section's Timeline view over the federated timeline read
-(`apps/web/src/lib/calendar/timeline-presentation.ts`).
+(two new reads in `apps/api-worker/src/routes/calendar.ts`, contract and client regenerated). The plan's Timeline view on the
+Calendar section was dropped once main's Activity section (#464) became that read's screen.

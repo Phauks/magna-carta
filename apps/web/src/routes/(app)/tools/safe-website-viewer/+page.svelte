@@ -27,7 +27,7 @@
    * stay testable off the DOM. Runs outside any matter and stores nothing.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import WebsiteShell, {
     probeNarrative,
     type ProbeFacts,
@@ -211,14 +211,15 @@
      capture arrives and leaves no dead band beneath the frame. On narrow screens the halves stack
      and keep their fixed comfortable heights instead — a phone cannot give both full height. -->
 <div class="flex h-full flex-col">
-  <Masthead.Root class="mb-24">
-    <Masthead.Heading>
-      <Masthead.Title>Safe Website Viewer</Masthead.Title>
-      <Masthead.Meta>
-        <span>The page renders in an isolated remote browser</span>
-      </Masthead.Meta>
-    </Masthead.Heading>
-  </Masthead.Root>
+  <ScreenHeader
+    title="Safe Website Viewer"
+    back="tools"
+    class="mb-24"
+  >
+    {#snippet meta()}
+      <span>The page renders in an isolated remote browser</span>
+    {/snippet}
+  </ScreenHeader>
 
   <!-- Polite live region: announces an arrived snapshot to a screen reader without re-reading the
        whole result. Alert-rendered states announce themselves through their own role. -->

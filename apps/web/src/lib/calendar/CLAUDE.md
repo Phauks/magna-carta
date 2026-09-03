@@ -23,8 +23,6 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   LAYERS a reader can turn on over the firm calendar (`CALENDAR_LAYERS`: only the timeline's
   date-bearing sources, custody dates first)
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
-- `timeline-presentation.ts` — how a row of the matter's federated timeline reads on the section's
-  Timeline view: the kind word through the same vocabulary, the day, the declared label or none
 - `calendar-reads.ts` — the read plan per scope: which reads, walked to the end or the ceiling,
   failing independently
 - `calendar-controller.svelte.ts`, `calendar-context.svelte.ts` — the view state and the read-once

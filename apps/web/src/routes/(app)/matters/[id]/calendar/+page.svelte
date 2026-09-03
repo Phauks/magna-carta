@@ -36,8 +36,6 @@
   import { replaceState } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import type { Failure } from "$lib/api/request.ts";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -45,13 +43,6 @@
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import List from "@lucide/svelte/icons/list";
   import Flag from "@lucide/svelte/icons/flag";
-  import History from "@lucide/svelte/icons/history";
-  import { formatDate } from "@magna-carta/design-system/data-table";
-  import {
-    groupTimelineByDay,
-    presentTimelineRow,
-    type TimelineRowPresentation,
-  } from "$lib/calendar/timeline-presentation.ts";
   import Table from "@lucide/svelte/icons/table";
   import { CalendarView } from "$lib/calendar/index.ts";
   import {
@@ -64,7 +55,6 @@
     listMatterDeadlines,
     listMatterEvents,
     MANAGE_CALENDAR_PERMISSION,
-    readMatterTimeline,
     overdueCount,
     readerTimeZone,
     type CalendarDeadline,
@@ -88,17 +78,13 @@
   // ---- the section's view ----------------------------------------------------------------------
 
   /** Which of the section's views is showing; `calendar` is the component in one of its views. */
-  type SectionView = "list" | "calendar" | "timeline";
+  type SectionView = "list" | "calendar";
 
   const arrivalView = page.url.searchParams.get("view");
   const arrivalEntry = page.url.searchParams.get("entry");
 
   let sectionView = $state<SectionView>(
-    arrivalView === "timeline"
-      ? "timeline"
-      : isCalendarView(arrivalView) || arrivalEntry !== null
-        ? "calendar"
-        : "list",
+    isCalendarView(arrivalView) || arrivalEntry !== null ? "calendar" : "list",
   );
   /** The component's own view while the section is on it; agenda for a deep-linked entry. */
   let calendarView = $state<CalendarViewName>(isCalendarView(arrivalView) ? arrivalView : "agenda");
@@ -118,65 +104,12 @@
     calendarView = view;
   }
 
-  /** The component mirrors its own views; List and Timeline are this page's, so this page mirrors them. */
-  function showOwn(view: "list" | "timeline"): void {
-    sectionView = view;
-    const url = new URL(page.url);
-    url.searchParams.set("view", view);
-    replaceState(url, page.state);
-  }
-
+  /** The component mirrors its own views; List is this page's, so this page mirrors it. */
   function showList(): void {
-    showOwn("list");
-  }
-
-  // ---- the timeline: everything the firm has recorded about the case, read in place ------------
-  //
-  // Newest first under the read's own cursor, walked a page at a time on demand rather than to the
-  // end: a long case has a long history, and a reader wants the recent part first.
-
-  let timelineRows = $state<readonly TimelineRowPresentation[] | null>(null);
-  let timelineCursor = $state<string | null>(null);
-  let timelineFailure = $state<Failure | null>(null);
-  let timelineReading = $state(false);
-  let timelineGeneration = 0;
-
-  async function readTimeline(mode: "fresh" | "more"): Promise<void> {
-    if (mode === "more" && (timelineCursor === null || timelineReading)) return;
-    timelineGeneration += 1;
-    const generation = timelineGeneration;
-    if (mode === "fresh") {
-      timelineRows = null;
-      timelineCursor = null;
-    }
-    timelineFailure = null;
-    timelineReading = true;
-    const outcome = await readMatterTimeline(fetch, matter.id, {
-      cursor: mode === "more" ? (timelineCursor ?? undefined) : undefined,
-    });
-    if (generation !== timelineGeneration) return;
-    timelineReading = false;
-    if (outcome.kind !== "ok") {
-      timelineFailure = outcome.failure;
-      return;
-    }
-    const rows = outcome.value.data.map(presentTimelineRow);
-    timelineRows = mode === "more" ? [...(timelineRows ?? []), ...rows] : rows;
-    timelineCursor = outcome.value.nextCursor;
-  }
-
-  $effect(() => {
-    if (sectionView !== "timeline" || isSample) return;
-    void matter.id;
-    void readTimeline("fresh");
-  });
-
-  const timelineDays = $derived(groupTimelineByDay(timelineRows ?? []));
-
-  /** The actor's name, where the roster knows them; blank where nobody acted (a due date). */
-  function actorName(userId: string | null): string {
-    if (userId === null) return "";
-    return members.find((member) => member.userId === userId)?.displayName ?? "";
+    sectionView = "list";
+    const url = new URL(page.url);
+    url.searchParams.set("view", "list");
+    replaceState(url, page.state);
   }
 
   // ---- the section's own reads -----------------------------------------------------------------
@@ -337,77 +270,12 @@
           >
             <Table class="size-16" aria-hidden="true" />
           </Button>
-          <Button
-            variant={sectionView === "timeline" ? "secondary" : "ghost"}
-            size="icon"
-            aria-label="Timeline"
-            aria-pressed={sectionView === "timeline"}
-            onclick={() => showOwn("timeline")}
-          >
-            <History class="size-16" aria-hidden="true" />
-          </Button>
         </div>
       </div>
     </div>
   </div>
 
-  {#if sectionView === "timeline"}
-    {#if isSample}
-      <EmptyState title="Nothing In A Sample Matter's History">
-        This is one of the sample matters the interface is reviewed against. It has no firm behind
-        it, so nothing has been recorded about it.
-      </EmptyState>
-    {:else if timelineFailure !== null}
-      <FailureNotice
-        failure={timelineFailure}
-        title="The Timeline Could Not Be Read"
-        fallback="The matter's history could not be read."
-        onRetry={() => void readTimeline("fresh")}
-      />
-    {:else if timelineRows === null}
-      <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the matter's history">
-        <Skeleton class="h-16 w-full" />
-        <Skeleton class="h-16 w-3/4" />
-      </div>
-    {:else if timelineRows.length === 0}
-      <EmptyState title="Nothing Recorded Yet">
-        Everything the firm records about this matter gathers here, read from wherever it was
-        recorded: documents, mail, time, costs, custody, trust, and the dates on this calendar.
-      </EmptyState>
-    {:else}
-      <div class="flex flex-col gap-16">
-        {#each timelineDays as day (day.date)}
-          <div class="flex flex-col gap-8">
-            <p class="text-sm font-medium">{formatDate(day.date)}</p>
-            <DataTable.Root>
-              <DataTable.Caption class="sr-only">Recorded on {formatDate(day.date)}</DataTable.Caption>
-              <DataTable.Body>
-                {#each day.rows as row (row.key)}
-                  <DataTable.Row>
-                    <!-- One line per fact: the kind, then the source's declared label where it
-                         declared one; a source that declared none reads by kind alone. -->
-                    <DataTable.Cell>
-                      <a class="underline underline-offset-2" href={row.link}>
-                        {row.kind}{row.label === null ? "" : ` · ${row.label}`}
-                      </a>
-                    </DataTable.Cell>
-                    <DataTable.Cell class="text-end text-text-muted">{actorName(row.actorUserId)}</DataTable.Cell>
-                  </DataTable.Row>
-                {/each}
-              </DataTable.Body>
-            </DataTable.Root>
-          </div>
-        {/each}
-        {#if timelineCursor !== null}
-          <div>
-            <Button variant="secondary" size="sm" disabled={timelineReading} onclick={() => void readTimeline("more")}>
-              {timelineReading ? "Reading" : "Earlier"}
-            </Button>
-          </div>
-        {/if}
-      </div>
-    {/if}
-  {:else if sectionView === "calendar"}
+  {#if sectionView === "calendar"}
     {#if isSample}
       <EmptyState title="Nothing On A Sample Matter's Calendar">
         This is one of the sample matters the interface is reviewed against. It has no firm behind

@@ -25,6 +25,14 @@
  * adding a fifteenth section forces somebody to answer the question, and the scope dropdown renders
  * the unanswerable ones disabled with their reason instead of quietly omitting them.
  *
+ * AND EVERY SECTION ANSWERS FOR THE TIMELINE, the same way. `timelineSources` names the federated
+ * timeline sources (packages/calendar/src/sources/all.ts) whose rows this section OWNS — the
+ * section an Activity row of that source opens into, behind its own access gate. A source no
+ * section owns is declared so in `UNSECTIONED_TIMELINE_SOURCES` with the reason, and
+ * `pnpm run lint:matter-timeline-coverage` fails a source that is neither owned nor declared, or
+ * owned twice. Ownership lives HERE rather than in the Activity section's own files so that "where
+ * does this row open" has one answer, and it is the answer the section registry already gives.
+ *
  * EVERY SECTION ALSO ANSWERS FOR CREATE, the same way. The matter header carries ONE create control
  * beside the search, and its label is this registry's answer for the section the reader is on —
  * "New Fee" on Fees, "New File" on Files — so the label is settled by the address before the
@@ -55,6 +63,11 @@ export interface MatterSection {
    */
   searchWaitingOn?: string;
   /**
+   * The timeline source keys whose rows this section owns. Empty where the section holds no record
+   * the timeline reads — Overview and Activity consolidate, Fees and Parties have no source yet.
+   */
+  timelineSources: readonly string[];
+  /**
    * The noun the header's one create control offers on this section — "Fee" renders as New Fee —
    * or null when nothing is created from it. One capitalised word within the design system's
    * noun budget (create-label.ts in the CreateControl home), so every label fits the control's
@@ -70,10 +83,21 @@ export interface MatterSection {
   createWaitingOn?: string;
 }
 
+/**
+ * The timeline sources no matter section owns, each with the reason. A row of one of these states
+ * what happened and opens nowhere, which is honest; the coverage lint refuses a source that is
+ * missing from both this map and every section's `timelineSources`.
+ */
+export const UNSECTIONED_TIMELINE_SOURCES: Readonly<Record<string, string>> = {
+  conflictsCheck: "No matter section holds a conflicts check yet",
+  firmEvent: "Firm-anchored: a firm event belongs to no matter and never appears on one",
+};
+
 /** Every section a matter has, in the order the strip reads them. */
 export const matterSections: readonly MatterSection[] = [
   {
     slug: "overview",
+    timelineSources: ["matterLifecycle"],
     label: "Overview",
     stage: "alpha",
     description: "The matter at a glance — its facts, status, and what has accrued against it.",
@@ -87,7 +111,26 @@ export const matterSections: readonly MatterSection[] = [
       "The overview summarises the other sections; each record is created from its own",
   },
   {
+    slug: "activity",
+    timelineSources: [],
+    label: "Activity",
+    stage: "alpha",
+    description:
+      "What has happened on this case, in order, from every part of the platform that records " +
+      "anything \u2014 mail saved to the matter, documents, hearings and deadlines, time and costs, " +
+      "client money, items in custody, and the notes the firm wrote about all of it.",
+    // Never a source, for the Overview's reason: Activity holds no record of its own. Every row is
+    // one of the other sections' rows read in date order, so a search source here would answer the
+    // same query twice and land a reader on the chronology when they asked for the thing itself.
+    searchSource: null,
+    // The one record a contribution can make from the chronology today, offered by the register
+    // through the header's control (see $lib/activity/activity-register.svelte).
+    createNoun: "Note",
+    searchWaitingOn: "Activity consolidates the other sections; searching it would answer twice",
+  },
+  {
     slug: "files",
+    timelineSources: ["documentFiled", "documentAssembly", "fileHistory"],
     label: "Files",
     stage: "alpha",
     description:
@@ -98,6 +141,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "time",
+    timelineSources: ["timeEntry"],
     label: "Time",
     stage: "alpha",
     description:
@@ -108,6 +152,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "fees",
+    timelineSources: [],
     label: "Fees",
     stage: "alpha",
     description:
@@ -125,6 +170,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "costs",
+    timelineSources: ["costEntry"],
     label: "Costs",
     stage: "alpha",
     description:
@@ -135,6 +181,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "billing",
+    timelineSources: [],
     label: "Billing",
     stage: "alpha",
     description:
@@ -145,6 +192,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "trust",
+    timelineSources: ["trustMovement"],
     label: "Trust",
     stage: "soon",
     description:
@@ -157,6 +205,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "notes",
+    timelineSources: ["matterNote"],
     label: "Notes",
     stage: "alpha",
     description: "Matter notes and memoranda — dated, attributed, and searchable.",
@@ -165,6 +214,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "tasks",
+    timelineSources: ["matterTask"],
     label: "Tasks",
     stage: "alpha",
     description:
@@ -183,6 +233,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "emails",
+    timelineSources: ["emailFiled"],
     label: "Emails",
     stage: "soon",
     description: "Email correspondence filed to this matter, threaded and searchable.",
@@ -193,6 +244,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "messaging",
+    timelineSources: [],
     label: "Messaging",
     stage: "soon",
     description:
@@ -204,6 +256,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "custodian",
+    timelineSources: ["custodyMovement", "custodyReviewDue", "custodyDueBack"],
     label: "Custodian",
     stage: "alpha",
     description:
@@ -214,6 +267,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "parties",
+    timelineSources: [],
     label: "Parties",
     stage: "alpha",
     description:
@@ -224,6 +278,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "calendar",
+    timelineSources: ["matterEvent", "matterDeadline"],
     label: "Calendar",
     stage: "alpha",
     description:
@@ -234,6 +289,7 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "magnus",
+    timelineSources: [],
     label: "Magnus",
     stage: "soon",
     description:
@@ -260,7 +316,9 @@ export type MatterStripEntry =
  * that names no section, and a section placed twice are all module-load failures rather than a tab
  * that silently stops existing.
  *
- * Overview leads because it is where the bare matter address lands. Files stands alone because it
+ * Overview leads because it is where the bare matter address lands. Activity leads the Record group
+ * because it is the record read in order: the chronology of everything the group's other sections
+ * hold, one click from Overview's own recent-activity tile. Files stands alone because it
  * is the section members are in most — putting the busiest destination behind a menu would spend a
  * click on nearly every visit. Parties and Calendar stand alone on the owner's ruling: a matter's
  * dates are checked too often to sit behind a menu, and with Calendar on the row the group they
@@ -284,7 +342,7 @@ const ARRANGEMENT: readonly (
   "parties",
   "calendar",
   "tasks",
-  { label: "Record", slugs: ["notes", "emails", "messaging", "custodian"] },
+  { label: "Record", slugs: ["activity", "notes", "emails", "messaging", "custodian"] },
   "magnus",
 ];
 
@@ -328,6 +386,11 @@ function buildStrip(): readonly MatterStripEntry[] {
 
 /** The strip's top level, in order. Validated at module load against the section registry. */
 export const matterStrip: readonly MatterStripEntry[] = buildStrip();
+
+/** The section that owns a timeline source's rows, or undefined where none does. */
+export function sectionOwningTimelineSource(sourceKey: string): MatterSection | undefined {
+  return matterSections.find((section) => section.timelineSources.includes(sourceKey));
+}
 
 /*
  * Every create answer is checked the moment the registry loads: a noun the design system's label

@@ -22,7 +22,7 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Card from "@magna-carta/design-system/card";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Select from "@magna-carta/design-system/select";
   import MergeFieldPicker from "@magna-carta/design-system/merge-field-picker";
   import MergeFieldReviewList from "@magna-carta/design-system/merge-field-review-list";
@@ -111,15 +111,15 @@
 
 <svelte:head><title>Assemble a document · Magna Carta</title></svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Assemble a document</Masthead.Title>
-    <Masthead.Meta>
-      <span>Fill in what a template needs, and let the rest fill itself</span>
-      <MaturityBadge stage="alpha" />
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<ScreenHeader
+  title="Assemble a document"
+  class="mb-24"
+>
+  {#snippet meta()}
+    <span>Fill in what a template needs, and let the rest fill itself</span>
+    <MaturityBadge stage="alpha" />
+  {/snippet}
+</ScreenHeader>
 
 <div class="flex max-w-3xl flex-col gap-24">
   <Alert.Root variant="info">
