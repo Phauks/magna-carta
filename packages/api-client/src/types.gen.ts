@@ -2824,6 +2824,20 @@ export type ResourceAvailabilityEntry = {
     overlappingBookingIds: Array<string>;
 };
 
+export type EventBookings = {
+    data: Array<EventBooking>;
+};
+
+export type EventBooking = {
+    id: string;
+    resourceId: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    endsOn: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+};
+
 export type BookingCreatedResponse = {
     id: string;
     conflicts: Array<BookingConflict>;
@@ -16907,6 +16921,84 @@ export type CalendarResourceAvailabilityResponses = {
 };
 
 export type CalendarResourceAvailabilityResponse = CalendarResourceAvailabilityResponses[keyof CalendarResourceAvailabilityResponses];
+
+export type CalendarListEventBookingsData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/bookings';
+};
+
+export type CalendarListEventBookingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListEventBookingsError = CalendarListEventBookingsErrors[keyof CalendarListEventBookingsErrors];
+
+export type CalendarListEventBookingsResponses = {
+    /**
+     * The event's bookings
+     */
+    200: EventBookings;
+};
+
+export type CalendarListEventBookingsResponse = CalendarListEventBookingsResponses[keyof CalendarListEventBookingsResponses];
+
+export type CalendarListFirmEventBookingsData = {
+    body?: never;
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}/bookings';
+};
+
+export type CalendarListFirmEventBookingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListFirmEventBookingsError = CalendarListFirmEventBookingsErrors[keyof CalendarListFirmEventBookingsErrors];
+
+export type CalendarListFirmEventBookingsResponses = {
+    /**
+     * The firm event's bookings
+     */
+    200: EventBookings;
+};
+
+export type CalendarListFirmEventBookingsResponse = CalendarListFirmEventBookingsResponses[keyof CalendarListFirmEventBookingsResponses];
 
 export type CalendarCreateBookingData = {
     body: CreateBookingRequest;

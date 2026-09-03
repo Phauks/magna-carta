@@ -116,6 +116,95 @@ const timelineRow: TimelineEntry = {
   link: "/matters/matter_1/calendar?entry=matterEvent_in",
 };
 
+describe("readCalendarWindow, resource scope", () => {
+  const window = calendarWindow("week", "2026-09-15");
+
+  it("reads the resource's availability alone, paints bookings as their events, and marks conflicts", async () => {
+    const { fetch, requests } = fakeFetch([
+      {
+        match: (url) => url.pathname === "/api/v1/calendar/resources/firmResource_1/availability",
+        answer: () => ({
+          status: 200,
+          body: {
+            data: [
+              {
+                bookingId: "firmResourceBooking_a",
+                startsOn: "2026-09-15",
+                startsAtTime: "10:00",
+                endsOn: null,
+                endsAtTime: "11:00",
+                timeZone: "America/New_York",
+                eventKind: "matterEvent",
+                eventId: "matterEvent_in",
+                eventTypeName: "Deposition",
+                link: "/matters/matter_1/calendar?entry=matterEvent_in",
+                overlappingBookingIds: ["firmResourceBooking_b"],
+              },
+              {
+                bookingId: "firmResourceBooking_c",
+                startsOn: "2026-09-17",
+                startsAtTime: null,
+                endsOn: null,
+                endsAtTime: null,
+                timeZone: "America/New_York",
+                eventKind: "firmEvent",
+                eventId: "firmEvent_1",
+                eventTypeName: null,
+                link: "/calendar/firm-events?entry=firmEvent_1",
+                overlappingBookingIds: [],
+              },
+            ],
+          },
+        }),
+      },
+    ]);
+    const result = await readCalendarWindow(
+      fetch,
+      { kind: "resource", resourceId: "firmResource_1" },
+      window,
+      context,
+    );
+    expect(requests.map((url) => url.pathname)).toEqual([
+      "/api/v1/calendar/resources/firmResource_1/availability",
+    ]);
+    expect(requests[0]?.searchParams.get("from")).toBe(window.from);
+    expect(requests[0]?.searchParams.get("to")).toBe(window.to);
+    expect(result.failures).toEqual([]);
+    expect(result.entries.map((entry) => entry.id)).toEqual([
+      "event:matterEvent_in",
+      "firmEvent:firmEvent_1",
+    ]);
+    expect(result.entries[0]).toMatchObject({
+      kind: "event",
+      recordId: "matterEvent_in",
+      label: "Deposition",
+      detail: "Double-booked",
+      tone: "danger",
+      time: "10:00 AM",
+    });
+    expect(result.entries[1]).toMatchObject({
+      kind: "firmEvent",
+      label: "Firm event",
+      tone: "accent",
+      detail: undefined,
+    });
+  });
+
+  it("names the bookings read when it fails", async () => {
+    const { fetch } = fakeFetch([
+      { match: () => true, answer: () => ({ status: 500, body: { status: 500, title: "Down" } }) },
+    ]);
+    const result = await readCalendarWindow(
+      fetch,
+      { kind: "resource", resourceId: "firmResource_1" },
+      window,
+      context,
+    );
+    expect(result.entries).toEqual([]);
+    expect(result.failures.map((failed) => failed.read)).toEqual(["bookings"]);
+  });
+});
+
 describe("readCalendarWindow, firm scope", () => {
   const window = calendarWindow("month", "2026-09-15");
 

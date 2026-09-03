@@ -45,9 +45,9 @@
   name: Rooms and resources
   scope: Bookable firm resources (rooms, vehicles, equipment) with availability as a read, bookings attached to exactly one event, liveness derived from event status, and double-booking as a warn-and-allow visible fact.
   status: shipped
-  surface: awaiting-screen
-  notes: Backend only. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams.
-  evidence: firm_resource and firm_resource_booking tables; packages/calendar/src/resource-service.ts and booking-service.ts (two-stage overlap check, zone frozen from the resource's office); availability and booking routes in apps/api-worker/src/routes/calendar.ts.
+  surface: screen
+  notes: The catalog is kept under Settings › Practice › Rooms and Resources; a room is booked from an event's window (its Rooms tab) and read on the room grid at /calendar/rooms. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams.
+  evidence: firm_resource and firm_resource_booking tables; packages/calendar/src/resource-service.ts and booking-service.ts (two-stage overlap check, zone frozen from the resource's office); availability, booking and the two per-event bookings routes in apps/api-worker/src/routes/calendar.ts; apps/web/src/routes/(app)/settings/resources/+page.svelte, the Rooms tab in apps/web/src/lib/calendar/entry-window.svelte, and apps/web/src/routes/(app)/calendar/rooms/+page.svelte.
 
 - id: calendar.links-continuance
   name: Event links and continuance
@@ -136,9 +136,12 @@
 - id: calendar.surface.room-grid
   name: Room grid and bookings
   scope: A resource's schedule over the availability read with conflicts painted, bookings on an event's window, and the resource catalog under Settings.
-  status: designed
+  status: shipped
+  surface: screen
+  slices: 6-2-calendar-firm-events-resources
   spec: docs/specs/2026-09-02-calendar-interface-design.md
-  evidence: Nothing on the web reads /api/v1/calendar/resources; the plan's slice 3.
+  notes: The room grid is the one calendar component with the resource scope; a booking paints as its event, danger with a Double-booked line where the read pre-paired it, and opens the event's window. Booking takes the event's own window; changing a booking's span is recorded through the API until a reason to surface it appears.
+  evidence: apps/web/src/routes/(app)/calendar/rooms/+page.svelte over the resource scope in apps/web/src/lib/calendar/calendar-reads.ts (asserted in apps/web/test/calendar-reads.test.ts); the Rooms tab and Book a Room verb in apps/web/src/lib/calendar/entry-window.svelte over GET /api/v1/events/{eventId}/bookings (apps/api-worker/test/calendar-routes.test.ts); the catalog at apps/web/src/routes/(app)/settings/resources/+page.svelte.
 
 - id: calendar.sync
   name: Two-way Google/Outlook sync

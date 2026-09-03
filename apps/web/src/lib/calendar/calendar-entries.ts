@@ -19,6 +19,7 @@ import {
   type CalendarEvent,
   type EventType,
   type FirmEvent,
+  type ResourceAvailabilityEntry,
   type TimelineEntry,
 } from "./calendar-api.ts";
 import { isMatterScope, type CalendarScope } from "./calendar-scope.ts";
@@ -191,6 +192,40 @@ export function entryFromFirmEvent(event: FirmEvent, context: EntryContext): Cal
     time: formatWallClock(event.startsAtTime, event.timeZone, context.readerTimeZone) ?? undefined,
     tone: event.status === "cancelled" ? "warning" : "accent",
     struck: event.status === "cancelled",
+  };
+}
+
+/** What a booking on a resource's schedule paints as when it double-books. */
+export const DOUBLE_BOOKED_LABEL = "Double-booked";
+
+/**
+ * A booking on a resource's schedule. It paints as the EVENT it belongs to (its type's name, since
+ * the availability read carries no title), keyed by the event so activating it opens that event's
+ * window, and it takes the danger register with a "Double-booked" line when the read pre-paired
+ * it with another booking: a room in two places at once is the one fact a room grid exists to show.
+ */
+export function entryFromAvailability(
+  entry: ResourceAvailabilityEntry,
+  context: EntryContext,
+): CalendarEntry {
+  const doubleBooked = entry.overlappingBookingIds.length > 0;
+  const kind: CalendarEntryKind = entry.eventKind === "firmEvent" ? "firmEvent" : "event";
+  const label =
+    entry.eventTypeName ??
+    (entry.eventKind === "firmEvent" ? UNCLASSIFIED_FIRM_EVENT_LABEL : UNCLASSIFIED_EVENT_LABEL);
+  return {
+    id: entryId(kind, entry.eventId),
+    kind,
+    recordId: entry.eventId,
+    matterId: null,
+    link: entry.link,
+    settled: false,
+    date: entry.startsOn,
+    endDate: entry.endsOn ?? undefined,
+    label,
+    detail: doubleBooked ? DOUBLE_BOOKED_LABEL : undefined,
+    time: formatWallClock(entry.startsAtTime, entry.timeZone, context.readerTimeZone) ?? undefined,
+    tone: doubleBooked ? "danger" : entry.eventKind === "firmEvent" ? "accent" : "info",
   };
 }
 

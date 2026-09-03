@@ -211,10 +211,12 @@
     border-end-end-radius: var(--mc-radius-none);
   }
   /*
-   * A narrow month cell lets the label drop under the time rather than truncating it to nothing
-   * behind a clock: the time is the shorter fact and the label is the one a reader came for.
+   * A narrow month or week cell (each is a seventh of the width) lets the label drop under the
+   * time rather than truncating it to nothing behind a clock that names its zone: the time is the
+   * shorter fact and the label is the one a reader came for.
    */
-  .mc-calendar-grid-month .mc-calendar-grid-entry {
+  .mc-calendar-grid-month .mc-calendar-grid-entry,
+  .mc-calendar-grid-week .mc-calendar-grid-entry {
     flex-wrap: wrap;
   }
   /* The time leads, at the reading edge, in tabular figures so a column of them aligns. */

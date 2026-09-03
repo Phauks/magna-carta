@@ -671,3 +671,191 @@ export function updateCalendarSettings(
     idempotencyKey,
   });
 }
+
+// ---- resources and bookings --------------------------------------------------------------------
+//
+// A resource is something bookable the firm owns; a booking always hangs off exactly one event and
+// blocks the resource while that event is not cancelled. Double-booking is warn-and-allow: a write
+// lands and reports the conflicts it made, and the availability read pre-pairs every overlap.
+
+export type FirmResourceKind = "room" | "vehicle" | "equipment" | "other";
+
+export interface FirmResource {
+  id: string;
+  name: string;
+  kind: FirmResourceKind;
+  locationId: string | null;
+  capacity: number | null;
+  notes: string | null;
+  active: boolean;
+}
+
+/** The catalog, un-paged and capped; `capped` says when a firm has more resources than the cap. */
+export function listResources(
+  fetchImpl: typeof fetch,
+  includeInactive = false,
+): Promise<ApiOutcome<{ data: FirmResource[]; capped: boolean }>> {
+  const parameters = new URLSearchParams(includeInactive ? { includeInactive: "true" } : {});
+  return requestJson(fetchImpl, withQuery("/api/v1/calendar/resources", parameters));
+}
+
+export interface CreateResourceRequest {
+  name: string;
+  kind: FirmResourceKind;
+  locationId?: string | null;
+  capacity?: number | null;
+  notes?: string | null;
+}
+
+export interface UpdateResourceRequest {
+  name?: string;
+  kind?: FirmResourceKind;
+  locationId?: string | null;
+  capacity?: number | null;
+  notes?: string | null;
+  active?: boolean;
+}
+
+export function createResource(
+  fetchImpl: typeof fetch,
+  request: CreateResourceRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<FirmResource>> {
+  return requestJson(fetchImpl, "/api/v1/calendar/resources", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+export function updateResource(
+  fetchImpl: typeof fetch,
+  resourceId: string,
+  request: UpdateResourceRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<Acknowledged>> {
+  return requestJson(fetchImpl, `/api/v1/calendar/resources/${encodeURIComponent(resourceId)}`, {
+    method: "PATCH",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+export type BookingEventKind = "matterEvent" | "firmEvent";
+
+/** One live booking on a resource's schedule, with the bookings it overlaps already paired. */
+export interface ResourceAvailabilityEntry {
+  bookingId: string;
+  startsOn: string;
+  startsAtTime: string | null;
+  endsOn: string | null;
+  endsAtTime: string | null;
+  timeZone: string;
+  eventKind: BookingEventKind;
+  eventId: string;
+  eventTypeName: string | null;
+  link: string;
+  overlappingBookingIds: string[];
+}
+
+/** A resource's window. Un-paged: a room's bookings over a month are a handful by construction. */
+export function readResourceAvailability(
+  fetchImpl: typeof fetch,
+  resourceId: string,
+  window: { from: string; to: string },
+): Promise<ApiOutcome<{ data: ResourceAvailabilityEntry[] }>> {
+  const parameters = new URLSearchParams({ from: window.from, to: window.to });
+  return requestJson(
+    fetchImpl,
+    withQuery(
+      `/api/v1/calendar/resources/${encodeURIComponent(resourceId)}/availability`,
+      parameters,
+    ),
+  );
+}
+
+/** One of an event's own bookings, as the event's window lists them. */
+export interface EventBooking {
+  id: string;
+  resourceId: string;
+  startsOn: string;
+  startsAtTime: string | null;
+  endsOn: string | null;
+  endsAtTime: string | null;
+  timeZone: string;
+}
+
+/** The bookings an event holds. A matter event's through its own path, a firm event's through the firm's. */
+export function listEventBookings(
+  fetchImpl: typeof fetch,
+  event: { kind: BookingEventKind; id: string },
+): Promise<ApiOutcome<{ data: EventBooking[] }>> {
+  const path =
+    event.kind === "matterEvent"
+      ? `/api/v1/events/${encodeURIComponent(event.id)}/bookings`
+      : `/api/v1/firm-events/${encodeURIComponent(event.id)}/bookings`;
+  return requestJson(fetchImpl, path);
+}
+
+export interface BookingConflict {
+  bookingId: string;
+  startsOn: string;
+  startsAtTime: string | null;
+  endsOn: string | null;
+  endsAtTime: string | null;
+  timeZone: string;
+  eventKind: BookingEventKind;
+  eventId: string;
+  link: string;
+}
+
+export interface CreateBookingRequest {
+  resourceId: string;
+  matterEventId?: string | null;
+  firmEventId?: string | null;
+  /** Omitted, the booking takes the event's own window. */
+  startsOn?: string;
+  startsAtTime?: string | null;
+  endsOn?: string | null;
+  endsAtTime?: string | null;
+  timeZone?: string;
+}
+
+/** Books a resource for an event. Lands even when it double-books, and says so in `conflicts`. */
+export function createBooking(
+  fetchImpl: typeof fetch,
+  request: CreateBookingRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string; conflicts: BookingConflict[] }>> {
+  return requestJson(fetchImpl, "/api/v1/resource-bookings", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+/** Releases a resource. The only way a booking goes, other than its event being cancelled. */
+export function deleteBooking(
+  fetchImpl: typeof fetch,
+  bookingId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<Acknowledged>> {
+  return requestJson(fetchImpl, `/api/v1/resource-bookings/${encodeURIComponent(bookingId)}`, {
+    method: "DELETE",
+    idempotencyKey,
+  });
+}
+
+/** The word a resource kind reads as. */
+export function resourceKindLabel(kind: FirmResourceKind): string {
+  switch (kind) {
+    case "room":
+      return "Room";
+    case "vehicle":
+      return "Vehicle";
+    case "equipment":
+      return "Equipment";
+    case "other":
+      return "Other";
+  }
+}

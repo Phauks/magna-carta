@@ -1,7 +1,7 @@
 # Firm events and rooms
 
 _Firm events are recorded and read on the firm calendar. Resources and bookings are built and are
-recorded through the API until the room grid ships._
+the room grid, the Rooms tab on an event, and the catalog under Settings are live._
 
 ## What it does
 

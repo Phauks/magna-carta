@@ -29,7 +29,7 @@ import { replaceState } from "$app/navigation";
 import { page } from "$app/state";
 import type { CalendarEntry, EntryContext } from "./calendar-entries.ts";
 import { readCalendarWindow, type CalendarReadFailure } from "./calendar-reads.ts";
-import { scopeKey, type CalendarScope } from "./calendar-scope.ts";
+import { isFirmSideScope, scopeKey, type CalendarScope } from "./calendar-scope.ts";
 import { calendarLayer } from "./calendar-vocabulary.ts";
 import {
   anchorFromAddress,
@@ -135,9 +135,9 @@ export class CalendarController {
     return this.#host.anchor();
   }
 
-  /** True when the host's scope is the firm's side, where Mine and Everyone are both on offer. */
+  /** True when the host's scope is the firm's side, where Mine, Everyone, a colleague and the layers are on offer. */
   get firmSide(): boolean {
-    return this.#host.scope().kind !== "matter";
+    return isFirmSideScope(this.#host.scope());
   }
 
   /**
@@ -146,7 +146,7 @@ export class CalendarController {
    */
   get scope(): CalendarScope | null {
     const hostScope = this.#host.scope();
-    if (hostScope.kind === "matter") return hostScope;
+    if (hostScope.kind === "matter" || hostScope.kind === "resource") return hostScope;
     if (this.scopeChoice === "everyone") return { kind: "firm" };
     if (this.scopeChoice === "member") {
       // A colleague's calendar is the same member filter the reader's own is: what is on THEIR

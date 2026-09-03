@@ -208,6 +208,7 @@
   /** Whose calendar the grid is, in the possessive: "your", "Ada Lovelace's", "the firm's". */
   const whose = $derived.by((): string => {
     if (scope.kind === "matter") return "this matter's";
+    if (scope.kind === "resource") return "this resource's";
     if (scope.kind === "mine" || controller.scopeChoice === "mine") return "your";
     if (controller.scopeChoice === "member" && controller.memberChoice !== null) {
       return `${context.memberName(controller.memberChoice)}'s`;
@@ -219,11 +220,12 @@
     `${whose.charAt(0).toUpperCase()}${whose.slice(1)} calendar`,
   );
 
-  const emptyMessage = $derived(
-    whose === "the firm's" || whose === "this matter's"
+  const emptyMessage = $derived.by((): string => {
+    if (scope.kind === "resource") return `Nothing booked in ${controller.title}.`;
+    return whose === "the firm's" || whose === "this matter's"
       ? `Nothing recorded in ${controller.title}.`
-      : `Nothing on ${whose} calendar in ${controller.title}.`,
-  );
+      : `Nothing on ${whose} calendar in ${controller.title}.`;
+  });
 
   /*
    * A capped host paints the first N and points at the rest. The link opens the same calendar on
@@ -241,6 +243,10 @@
     if (scope.kind === "matter") {
       return `/matters/${encodeURIComponent(scope.matterId)}/calendar?${query.toString()}`;
     }
+    if (scope.kind === "resource") {
+      query.set("resource", scope.resourceId);
+      return `/calendar/rooms?${query.toString()}`;
+    }
     query.set("scope", scope.kind === "mine" ? "mine" : controller.scopeChoice);
     return `/calendar?${query.toString()}`;
   });
@@ -249,6 +255,7 @@
     events: "The Events Could Not Be Read",
     deadlines: "The Deadlines Could Not Be Read",
     firmEvents: "The Firm's Own Events Could Not Be Read",
+    bookings: "The Bookings Could Not Be Read",
   };
 </script>
 

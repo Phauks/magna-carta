@@ -14,7 +14,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 
 - `index.ts` — exports `CalendarView`, the component a host embeds with a scope; registered in
   `tooling/lint-one-ui/registry.json`, so a second calendar composition anywhere fails the gate
-- `calendar-scope.ts` — the closed scope union (`firm`, `mine`, `matter`); one read plan each
+- `calendar-scope.ts` — the closed scope union (`firm`, `mine`, `matter`, `resource`); one read
+  plan each
 - `calendar-window.ts` — a view plus an anchor as a civil-date window, on `CalendarDate`; the
   previous and next anchors; the window's name; the address helpers
 - `calendar-api.ts` — every read and write, mirroring the contract; the shared label helpers
@@ -84,7 +85,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   the `CalendarGridEntry` shape) and never a second grid; `$lib/api/request.ts` for transport;
   `$lib/time/firm-matters.svelte.ts` for the firm's matters; `$lib/members/members-api.ts` for the
   roster; `$lib/directory/directory-api.ts` for the participant search.
-- Consumed by `apps/web/src/routes/(app)/calendar/**` and `(app)/matters/[id]/calendar/`.
+- Consumed by `apps/web/src/routes/(app)/calendar/**` (the firm screen, the firm-events deep
+  link, and `rooms/`, the room grid), `(app)/matters/[id]/calendar/` and `[id]/overview/`, Home,
+  and the settings pages `(app)/settings/calendar/` and `(app)/settings/resources/`.
   The federated read's deep links are `/matters/{id}/calendar?entry=` and
   `/calendar/firm-events?entry=`; both routes read `entry` and open the window on arrival.
 

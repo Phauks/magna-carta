@@ -22,6 +22,16 @@ export const UNPAGED_LIST_OPERATIONS = [];
  * "it is probably small".
  */
 export const BOUNDED_BY_CONSTRUCTION = {
+  // --- The bookings ONE event holds --------------------------------------------------------------
+  "calendar.listEventBookings":
+    "The live bookings one matter event holds: a room, a car, a projector. Read through " +
+    "selectBookingsForEventStatement in packages/calendar/src/booking-statements.ts, whose " +
+    "EVENT_BOOKINGS_LIMIT (200) is a backstop on a read whose natural size is a handful, not a " +
+    "page; every booking hangs off exactly one event and is made one at a time from that " +
+    "event's window, behind calendar:manage.",
+  "calendar.listFirmEventBookings":
+    "The same read for a firm event, through the same statement and the same backstop " +
+    "(packages/calendar/src/booking-statements.ts, EVENT_BOOKINGS_LIMIT).",
   // --- The firm's own configured vocabularies -------------------------------------------------
   //
   // Six tables with the same shape and the same argument, so the claim is the same one six times:

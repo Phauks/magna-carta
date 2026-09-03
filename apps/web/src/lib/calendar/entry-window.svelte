@@ -86,6 +86,13 @@
     type UpdateDeadlineRequest,
     type UpdateEventRequest,
     type UpdateFirmEventRequest,
+    createBooking,
+    deleteBooking,
+    listEventBookings,
+    listResources,
+    resourceKindLabel,
+    type EventBooking,
+    type FirmResource,
   } from "./calendar-api.ts";
   import type { CalendarContext } from "./calendar-context.svelte.ts";
   import {
@@ -257,6 +264,7 @@
     if (generation !== readGeneration) return;
     record = next;
     unreachableDeadline = unreachable;
+    void readBookings(next);
     readFailure = failure === null ? null : stated(failure, "The record could not be read.");
     reading = false;
     seedDrafts();
@@ -270,6 +278,113 @@
   /** Re-open this window on a neighbouring setting. */
   function openEvent(eventId: string): void {
     current = { kind: "event", recordId: eventId };
+  }
+
+  // ---- the rooms an event has booked ------------------------------------------------------------
+  //
+  // A booking belongs to exactly one event, so the event's window is where its rooms are read and
+  // booked. The catalog is read once per window, lazily, because a deadline never books anything.
+
+  let bookings = $state<readonly EventBooking[] | null>(null);
+  let bookingsFailure = $state<StatedFailure | null>(null);
+  let resources = $state<readonly FirmResource[] | null>(null);
+  let bookingsGeneration = 0;
+
+  async function readBookings(target: EntryRecord | null): Promise<void> {
+    bookingsGeneration += 1;
+    const generation = bookingsGeneration;
+    bookings = null;
+    bookingsFailure = null;
+    if (target === null || target.kind === "deadline") return;
+    const event = { kind: target.kind === "event" ? "matterEvent" : "firmEvent", id: target.event.id } as const;
+    const [outcome] = await Promise.all([listEventBookings(fetch, event), readResources()]);
+    if (generation !== bookingsGeneration) return;
+    if (outcome.kind === "ok") {
+      bookings = outcome.value.data;
+    } else {
+      bookingsFailure = stated(outcome.failure, "The event's bookings could not be read.");
+    }
+  }
+
+  async function readResources(): Promise<void> {
+    if (resources !== null) return;
+    const outcome = await listResources(fetch, true);
+    if (outcome.kind === "ok") resources = outcome.value.data;
+  }
+
+  function resourceName(resourceId: string): string {
+    const resource = resources?.find((candidate) => candidate.id === resourceId);
+    return resource === undefined ? "A resource" : `${resource.name} · ${resourceKindLabel(resource.kind)}`;
+  }
+
+  const bookingCount = $derived(bookings?.length ?? 0);
+
+  let bookOpen = $state(false);
+  let bookResourceId = $state("");
+  let bookFailure = $state<StatedFailure | null>(null);
+  let bookConflicts = $state(0);
+  let bookAttemptKey: string | null = null;
+
+  const bookableResources = $derived(
+    (resources ?? [])
+      .filter((resource) => resource.active)
+      .map((resource) => ({ value: resource.id, label: `${resource.name} · ${resourceKindLabel(resource.kind)}` })),
+  );
+  const bookRefusal = $derived(
+    bookResourceId === "" ? "Choose what to book." : undefined,
+  );
+
+  function openBook(): void {
+    bookResourceId = "";
+    bookFailure = null;
+    bookConflicts = 0;
+    bookAttemptKey = null;
+    verbFailure = null;
+    bookOpen = true;
+  }
+
+  /*
+   * The booking takes the event's own window: the room is busy because the event is happening in
+   * it. A booking that double-books LANDS and says so; refusing would make the platform referee
+   * rooms it does not own, and must never be why a hearing cannot be recorded.
+   */
+  async function commitBook(): Promise<ActionOutcome> {
+    if (record === null || record.kind === "deadline" || bookResourceId === "") return "refused";
+    bookFailure = null;
+    bookAttemptKey ??= crypto.randomUUID();
+    const outcome = await createBooking(
+      fetch,
+      record.kind === "event"
+        ? { resourceId: bookResourceId, matterEventId: record.event.id }
+        : { resourceId: bookResourceId, firmEventId: record.event.id },
+      bookAttemptKey,
+    );
+    if (outcome.kind === "ok") {
+      bookAttemptKey = null;
+      bookConflicts = outcome.value.conflicts.length;
+      void readBookings(record);
+      onChanged();
+      return "committed";
+    }
+    if (outcome.kind === "problem") bookAttemptKey = null;
+    bookFailure = stated(
+      outcome.failure,
+      "The booking was not made.",
+      "Nothing answered. The booking was not made, so pressing again makes it once.",
+    );
+    return "refused";
+  }
+
+  async function releaseBooking(bookingId: string): Promise<void> {
+    if (record === null) return;
+    verbFailure = null;
+    const outcome = await deleteBooking(fetch, bookingId, crypto.randomUUID());
+    if (outcome.kind === "ok") {
+      void readBookings(record);
+      onChanged();
+      return;
+    }
+    verbFailure = stated(outcome.failure, "The booking was not released.");
   }
 
   // ---- the drafts the fields edit ---------------------------------------------------------------
@@ -1262,6 +1377,71 @@
 
 <!-- What acts like a link looks like a link: these re-open this window on the other record, so
      they are buttons under the hood and wear the link register on top. -->
+{#snippet roomsTab()}
+  {#if record === null}
+    <p class="text-sm text-text-muted">&nbsp;</p>
+  {:else if record.kind === "deadline"}
+    <p class="text-sm text-text-muted">A deadline books nothing.</p>
+  {:else if bookingsFailure !== null}
+    <FailureNotice
+      failure={bookingsFailure.failure}
+      title="The Bookings Could Not Be Read"
+      fallback={bookingsFailure.fallback}
+      onRetry={() => void readBookings(record)}
+    />
+  {:else if bookings === null}
+    <Skeleton class="h-16 w-full" />
+  {:else if bookConflicts > 0 && bookings.length > 0}
+    <!-- Reported once, after the booking that made it: the room grid shows the pair. -->
+    <p class="text-sm">
+      Double-booked with {bookConflicts} other {bookConflicts === 1 ? "booking" : "bookings"}. The
+      booking stands; the room grid shows the pair.
+    </p>
+    {@render bookingRows(bookings)}
+  {:else if bookings.length === 0}
+    <p class="text-sm text-text-muted">Nothing booked for this event.</p>
+  {:else}
+    {@render bookingRows(bookings)}
+  {/if}
+{/snippet}
+
+{#snippet bookingRows(rows: readonly EventBooking[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">What this event has booked</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Resource</DataTable.Head>
+        <DataTable.Head>When</DataTable.Head>
+        <DataTable.Head class="sr-only">Release</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as booking (booking.id)}
+        <DataTable.Row>
+          <DataTable.Cell>{resourceName(booking.resourceId)}</DataTable.Cell>
+          <DataTable.Cell>
+            {booking.startsOn}{booking.startsAtTime === null ? "" : ` ${formatWallClock(booking.startsAtTime, booking.timeZone, context.readerTimeZone) ?? ""}`}
+            {#if booking.endsAtTime !== null}
+              to {formatWallClock(booking.endsAtTime, booking.timeZone, context.readerTimeZone) ?? ""}
+            {/if}
+          </DataTable.Cell>
+          <DataTable.Cell class="text-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={eventVerbRefusal !== undefined}
+              title={eventVerbRefusal ?? "Free the resource; the event stays as it is"}
+              onclick={() => void releaseBooking(booking.id)}
+            >
+              Release
+            </Button>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}
+
 {#snippet linksTab()}
   {#if record === null}
     <p class="text-sm text-text-muted">&nbsp;</p>
@@ -1353,6 +1533,14 @@
       >
         Continue Setting
       </Button>
+      <Button
+        variant="secondary"
+        disabled={eventVerbRefusal !== undefined}
+        title={eventVerbRefusal ?? "Book a room, a car or equipment for this setting's window"}
+        onclick={openBook}
+      >
+        Book a Room
+      </Button>
     {:else if current?.kind === "deadline"}
       <Button
         variant="secondary"
@@ -1387,6 +1575,14 @@
       >
         Cancel Event
       </Button>
+      <Button
+        variant="secondary"
+        disabled={eventVerbRefusal !== undefined}
+        title={eventVerbRefusal ?? "Book a room, a car or equipment for this event's window"}
+        onclick={openBook}
+      >
+        Book a Room
+      </Button>
     {/if}
     <Button onclick={() => (open = false)}>Close</Button>
   {/if}
@@ -1402,6 +1598,7 @@
   tabs={[
     { key: "participants", label: "Participants", count: participantCount, content: participantsTab },
     { key: "links", label: "Links", count: linkCount, content: linksTab },
+    { key: "rooms", label: "Rooms", count: bookingCount, content: roomsTab },
     { key: "history", label: "History", content: historyTab },
   ] satisfies RecordWindowTab[]}
   editDisabledReason={editRefusal}
@@ -1628,3 +1825,52 @@
     onRecorded={() => landed()}
   />
 {/if}
+
+<ActionDialog
+  bind:open={bookOpen}
+  heading="Book a Room"
+  commitLabel="Book"
+  commitBusyLabel="Booking"
+  commitRefusal={bookRefusal}
+  unsavedChanges={bookResourceId !== ""}
+  onCommit={commitBook}
+>
+  {#snippet notice()}
+    {#if bookFailure !== null}
+      <FailureNotice
+        failure={bookFailure.failure}
+        title="The Booking Was Not Made"
+        fallback={bookFailure.fallback}
+        whenSilent={bookFailure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+  {#snippet fields()}
+  <div class="flex flex-col gap-16">
+    <p class="text-sm text-text-muted">
+      The booking takes this event's own window. A resource already taken is booked anyway and the
+      double-booking is reported, never refused.
+    </p>
+    <div class="flex flex-col gap-4">
+      <Label for="entry-book-resource">Resource</Label>
+      {#if bookableResources.length === 0}
+        <p class="text-sm text-text-muted">
+          The firm has no rooms or resources yet. They are added under Settings › Practice › Rooms
+          and Resources.
+        </p>
+      {:else}
+        <Select.Root type="single" items={bookableResources} bind:value={bookResourceId} allowDeselect={false}>
+          <Select.Trigger id="entry-book-resource" class="w-full">
+            <Select.Value placeholder={placeholderOf("Resource")} />
+          </Select.Trigger>
+          <Select.Content>
+            {#each bookableResources as item (item.value)}
+              <Select.Item value={item.value} label={item.label} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      {/if}
+    </div>
+  </div>
+  {/snippet}
+</ActionDialog>

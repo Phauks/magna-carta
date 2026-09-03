@@ -244,6 +244,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     editPermissionArea: "calendar",
     shipped: true,
   },
+  {
+    // The firm's bookable resources: rooms, vehicles, equipment. A CATALOG page rather than a
+    // settings form: each act (add, change, retire) commits through its own dialog against
+    // GET/POST/PATCH /api/v1/calendar/resources, so the posture is "applies immediately" and
+    // nothing is staged. Its edit right is the calendar's own `calendar:manage`, read from the
+    // session on the page, because the area seam here is still a mock.
+    id: "resources",
+    label: "Rooms and Resources",
+    href: "/settings/resources",
+    group: "practice",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "calendar",
+    shipped: true,
+  },
   // Billing
   {
     id: "billing",

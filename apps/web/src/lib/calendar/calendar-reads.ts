@@ -27,10 +27,12 @@ import {
   listFirmEvents,
   listMatterEvents,
   readFirmCalendar,
+  readResourceAvailability,
   type CalendarEvent,
 } from "./calendar-api.ts";
 import {
   entryFromDeadline,
+  entryFromAvailability,
   entryFromFirmEvent,
   entryFromMatterEvent,
   entryFromTimelineRow,
@@ -43,7 +45,7 @@ import { windowOverlaps, type CalendarWindow } from "./calendar-window.ts";
 import { firmCalendarKinds } from "./calendar-vocabulary.ts";
 
 /** Which of the plan's reads a failure belongs to, in the words a notice uses. */
-export type CalendarReadName = "events" | "deadlines" | "firmEvents";
+export type CalendarReadName = "events" | "deadlines" | "firmEvents" | "bookings";
 
 export interface CalendarReadFailure {
   readonly read: CalendarReadName;
@@ -105,9 +107,42 @@ export async function readCalendarWindow(
   context: EntryContext,
   options: CalendarReadOptions = {},
 ): Promise<CalendarWindowResult> {
-  return scope.kind === "matter"
-    ? readMatterWindow(fetchImpl, scope.matterId, window, context, scope)
-    : readFirmWindow(fetchImpl, scope, window, context, options.layers ?? NO_LAYERS);
+  switch (scope.kind) {
+    case "matter":
+      return readMatterWindow(fetchImpl, scope.matterId, window, context, scope);
+    case "resource":
+      return readResourceWindow(fetchImpl, scope.resourceId, window, context);
+    default:
+      return readFirmWindow(fetchImpl, scope, window, context, options.layers ?? NO_LAYERS);
+  }
+}
+
+/**
+ * A resource's schedule: one un-paged read of its live bookings over the window, conflicts already
+ * paired by the server. Nothing else is read, because a room is busy only ever on account of a
+ * booking, and a booking is not a calendar entry anywhere but here.
+ */
+async function readResourceWindow(
+  fetchImpl: typeof fetch,
+  resourceId: string,
+  window: CalendarWindow,
+  context: EntryContext,
+): Promise<CalendarWindowResult> {
+  const outcome = await readResourceAvailability(fetchImpl, resourceId, {
+    from: window.from,
+    to: window.to,
+  });
+  if (outcome.kind !== "ok") {
+    return {
+      entries: [],
+      failures: collectFailures([["bookings", outcome.failure]]),
+      truncated: false,
+    };
+  }
+  const entries = outcome.value.data
+    .filter((entry) => windowOverlaps(window, entry.startsOn, entry.endsOn))
+    .map((entry) => entryFromAvailability(entry, context));
+  return { entries: orderEntries(entries), failures: [], truncated: false };
 }
 
 async function readFirmWindow(
@@ -211,5 +246,7 @@ export function describeReadFailure(read: CalendarReadName): string {
       return "The deadlines could not be read.";
     case "firmEvents":
       return "The firm's own events could not be read.";
+    case "bookings":
+      return "The resource's bookings could not be read.";
   }
 }

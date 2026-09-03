@@ -18,7 +18,9 @@ export type CalendarScope =
   /** The firm scope narrowed to what is on this member's calendar: a participant, the responsible member, or an all-members audience. */
   | { readonly kind: "mine"; readonly memberId: string }
   /** One matter's events and deadlines. */
-  | { readonly kind: "matter"; readonly matterId: string };
+  | { readonly kind: "matter"; readonly matterId: string }
+  /** One bookable resource's schedule: the live bookings on it, conflicts pre-paired by the read. */
+  | { readonly kind: "resource"; readonly resourceId: string };
 
 /** A stable key for a scope, so a read keyed on it is told from a read of a different scope. */
 export function scopeKey(scope: CalendarScope): string {
@@ -29,6 +31,8 @@ export function scopeKey(scope: CalendarScope): string {
       return `mine:${scope.memberId}`;
     case "matter":
       return `matter:${scope.matterId}`;
+    case "resource":
+      return `resource:${scope.resourceId}`;
   }
 }
 
@@ -41,7 +45,14 @@ export function describeScope(scope: CalendarScope): string {
       return "Mine";
     case "matter":
       return "This matter";
+    case "resource":
+      return "This resource";
   }
+}
+
+/** True when the scope is one the firm-side toggles (Mine, Everyone, a colleague, the layers) apply to. */
+export function isFirmSideScope(scope: CalendarScope): boolean {
+  return scope.kind === "firm" || scope.kind === "mine";
 }
 
 /** True when the scope names one matter, so a chip can drop the matter number it would repeat. */

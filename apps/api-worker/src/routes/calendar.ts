@@ -34,6 +34,10 @@ import {
   type BookingConflict,
 } from "@magna-carta/calendar/booking-service";
 import {
+  readBookingsForEvent,
+  type LiveBookingRow,
+} from "@magna-carta/calendar/booking-statements";
+import {
   continueMatterEvent,
   readContinuanceChain,
 } from "@magna-carta/calendar/continuance-service";
@@ -513,6 +517,35 @@ const availabilityQuery = z.object({
   from: z.string().regex(CIVIL_DATE),
   to: z.string().regex(CIVIL_DATE),
 });
+
+// The bookings ONE event holds, as its window lists them: the resource and the booked span. A
+// handful by construction (a room, a car, a projector), so un-paged. The resource's name is the
+// catalog's to give, and the surface already holds the catalog.
+const EventBooking = z
+  .object({
+    id: z.string(),
+    resourceId: z.string(),
+    startsOn: z.string(),
+    startsAtTime: z.string().nullable(),
+    endsOn: z.string().nullable(),
+    endsAtTime: z.string().nullable(),
+    timeZone: z.string(),
+  })
+  .openapi("EventBooking");
+
+const EventBookings = z.object({ data: z.array(EventBooking) }).openapi("EventBookings");
+
+function eventBooking(row: LiveBookingRow): z.infer<typeof EventBooking> {
+  return {
+    id: row.id,
+    resourceId: row.resource_id,
+    startsOn: row.starts_on,
+    startsAtTime: row.starts_at_time,
+    endsOn: row.ends_on,
+    endsAtTime: row.ends_at_time,
+    timeZone: row.time_zone,
+  };
+}
 
 // ---- event links and continuance ----
 
@@ -1564,6 +1597,42 @@ const resourceAvailabilityRoute = defineOpenAPIRoute(readMeta("resourceAvailabil
 });
 
 // ---- booking routes ----
+
+const listEventBookingsRoute = defineOpenAPIRoute(readMeta("listEventBookings", "matter"), {
+  method: "get",
+  path: "/api/v1/events/{eventId}/bookings",
+  description:
+    "The live bookings a matter event holds: which resources it has booked and for what span. Read through the visible-matter predicate like the event itself; an event on an invisible matter is a 404.",
+  request: { params: eventIdParam },
+  responses: {
+    200: {
+      description: "The event's bookings",
+      content: { "application/json": { schema: EventBookings } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const listFirmEventBookingsRoute = defineOpenAPIRoute(readMeta("listFirmEventBookings", "firm"), {
+  method: "get",
+  path: "/api/v1/firm-events/{firmEventId}/bookings",
+  description:
+    "The live bookings a firm event holds: which resources it has booked and for what span.",
+  request: { params: firmEventIdParam },
+  responses: {
+    200: {
+      description: "The firm event's bookings",
+      content: { "application/json": { schema: EventBookings } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
 
 const createBookingRoute = defineOpenAPIRoute(mutationMeta("createBooking", "firm"), {
   method: "post",
@@ -2972,6 +3041,60 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
         if (caught instanceof CalendarValidationError) return calendarReadErrorResponse(c, caught);
         throw caught;
       }
+    },
+  );
+
+  // GET /api/v1/events/{eventId}/bookings
+  app.openapi(
+    {
+      ...listEventBookingsRoute,
+      middleware: chokepointMiddleware(chokepoint, listEventBookingsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { eventId } = c.req.valid("param");
+      const event = await readMatterEventDetail(
+        firm.firmDatabase,
+        eventId as MatterEventId,
+        visibleMatterPredicate(),
+      );
+      if (event === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such event in this firm.",
+        });
+      }
+      const rows = await readBookingsForEvent(firm.firmDatabase, {
+        matterEventId: eventId as MatterEventId,
+      });
+      return c.json({ data: rows.map(eventBooking) }, 200);
+    },
+  );
+
+  // GET /api/v1/firm-events/{firmEventId}/bookings
+  app.openapi(
+    {
+      ...listFirmEventBookingsRoute,
+      middleware: chokepointMiddleware(chokepoint, listFirmEventBookingsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { firmEventId } = c.req.valid("param");
+      const event = await readFirmEvent(firm.firmDatabase, firmEventId as FirmEventId);
+      if (event === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such firm event in this firm.",
+        });
+      }
+      const rows = await readBookingsForEvent(firm.firmDatabase, {
+        firmEventId: firmEventId as FirmEventId,
+      });
+      return c.json({ data: rows.map(eventBooking) }, 200);
     },
   );
 
