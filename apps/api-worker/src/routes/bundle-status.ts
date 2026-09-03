@@ -141,13 +141,13 @@ export function registerBundleStatusRoute(app: BundleStatusApp, chokepoint: Chok
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
-      const bucketName = resolveFirmBucket(c.env, firm.bucketName).bucketName;
+      const firmBucket = resolveFirmBucket(c.env, firm.bucketName);
       const { manifestHash } = c.req.valid("param");
 
       const coordinator = c.env.BUNDLE_COORDINATOR.get(
         c.env.BUNDLE_COORDINATOR.idFromName(`${firmId}:${manifestHash}`),
       );
-      const progress = await resolveBundleProgress(c.env, bucketName, await coordinator.status());
+      const progress = await resolveBundleProgress(c.env, firmBucket, await coordinator.status());
       return c.json(progress, 200);
     },
   );

@@ -110,6 +110,10 @@ describe("load-profile smoke", () => {
     }
   });
 
+  // A seeded snapshot plus warm-up and measured iterations over every group is real work, and how
+  // long it takes is a fact about the machine: 1.6 s here, past the 5 s default on a shared two-core
+  // CI shard running the rest of this suite beside it. The budget states what the test costs, on the
+  // same terms as the other load-profile measurement tests in this package (60 s and 120 s).
   it("snapshots, measures every v1 operation, and keeps hot-path statements scan-free", async () => {
     const cacheDirectory = mkdtempSync(join(tmpdir(), "mc-smoke-cache-"));
     temporaryDirectories.push(cacheDirectory);
@@ -698,5 +702,5 @@ describe("load-profile smoke", () => {
     expect(findFullScans(reportsPlans, REPORTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
-  });
+  }, 60_000);
 });

@@ -702,6 +702,12 @@ RasterEngineContainer` and `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer` at
    seven days and an incomplete-multipart abort at seven days. Until the owner adds a
    `conversions/` expiry, conversion outputs accumulate. Same class of dashboard step as the
    `templates/staging/` rule at the bottom of this queue.
+
+   **Narrowed, 2026-09-01.** This is now a step for the SHARED platform bucket only. Per-firm buckets
+   get `bundles/` (7 d), `conversions/` (24 h) and an abandoned-multipart abort (24 h) applied at
+   provisioning by `apps/api-worker/src/firm-resource-provider.ts`, so a firm provisioned from here on
+   needs no dashboard visit. The platform bucket predates that code and is not provisioned by it.
+
 2. **Verify readiness honestly.** This container's `/ready` answers 503 until a
    worker has finished suite initialisation (tens of seconds), so a freshly
    deployed instance reporting not-ready for half a minute is correct behaviour,

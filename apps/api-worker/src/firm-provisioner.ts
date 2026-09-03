@@ -189,6 +189,11 @@ export async function provisionFirm(
   // re-run on a resume is harmless.
   await dependencies.resourceProvider.configureBucketNotifications(firmId, firmRow.data_region);
 
+  // Step 2b(ii) — apply the bucket's expiry rules, unconditionally and for the same reason: a run
+  // that created the bucket and crashed before this would otherwise leave a firm whose transient
+  // artifacts never expire, which nothing downstream would ever notice.
+  await dependencies.resourceProvider.configureBucketLifecycle(firmId, firmRow.data_region);
+
   // Step 2c — mint the firm's data key. Guarded by wrapped_firm_key IS NULL so a resume mints
   // nothing, AND by the firm never having been shredded (a firm.key_shredded audit row): a shredded
   // firm's null key is permanent, never re-minted. Mint = 32 random bytes, AES-KW-wrapped under the

@@ -3,6 +3,7 @@ import type { FileId } from "@magna-carta/identifiers/types";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucketForFirmId } from "../files/firm-bucket.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { documentSessionStub } from "./document-session.ts";
@@ -42,6 +43,7 @@ async function withWopi(
   fn: (resolved: {
     claims: Awaited<ReturnType<typeof wopiGuard>>["claims"];
     firmDatabase: ProxyBatchDatabase;
+    bucket: R2Bucket;
     fileId: FileId;
     state: Awaited<ReturnType<ReturnType<typeof documentSessionStub>["getState"]>>;
   }) => Promise<Response>,
@@ -65,7 +67,10 @@ async function withWopi(
     ) {
       throw new WopiGuardError("unauthorized");
     }
-    return fn({ claims, firmDatabase, fileId, state });
+    // The bucket comes from the MAC-verified claims, like the database beside it — a WOPI callback
+    // reads and writes the working copy in the firm its token names and in no other.
+    const { bucket } = await resolveFirmBucketForFirmId(c.env, claims.firmId);
+    return fn({ claims, firmDatabase, bucket, fileId, state });
   });
 }
 
@@ -74,10 +79,10 @@ export function registerWopiHostRoutes(
 ): void {
   // CheckFileInfo — GET /wopi/files/{fileId}
   app.get("/wopi/files/:fileId", (c) =>
-    withWopi(c, "wopi:check-file-info", async ({ claims, firmDatabase, state }) => {
+    withWopi(c, "wopi:check-file-info", async ({ claims, firmDatabase, bucket, state }) => {
       const body = await checkFileInfo(claims, {
         database: firmDatabase,
-        bucket: c.env.R2,
+        bucket,
         currentMeta: state.current,
         liveSessionId: state.sessionId,
       });
@@ -104,10 +109,10 @@ export function registerWopiHostRoutes(
 
   // GetFile — GET /wopi/files/{fileId}/contents
   app.get("/wopi/files/:fileId/contents", (c) =>
-    withWopi(c, "wopi:get-file", async ({ claims, firmDatabase, state }) =>
+    withWopi(c, "wopi:get-file", async ({ claims, firmDatabase, bucket, state }) =>
       getFile(claims, {
         database: firmDatabase,
-        bucket: c.env.R2,
+        bucket,
         currentMeta: state.current,
         // The live session identity is what decides whether this token may read the working copy, so it
         // is passed through even though a read never mutates it.
@@ -121,10 +126,10 @@ export function registerWopiHostRoutes(
     withWopi(
       c,
       "wopi:put-file",
-      async ({ claims, fileId, state }) => {
+      async ({ claims, bucket, fileId, state }) => {
         const stub = documentSessionStub(c.env, fileId);
         return putFile(claims, c.req.raw, {
-          bucket: c.env.R2,
+          bucket,
           currentMeta: state.current,
           currentLock: state.wopiLock,
           recordCurrentMeta: (meta) => stub.setCurrentMeta(meta),

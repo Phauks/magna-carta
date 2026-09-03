@@ -118,7 +118,7 @@ describe("runTieringSweep", () => {
     const tiered: string[] = [];
     const report = await runTieringSweep(env, {
       now: NOW_MS,
-      tierObject: async (key) => {
+      tierObject: async (_bucket, key) => {
         tiered.push(key);
       },
     });
