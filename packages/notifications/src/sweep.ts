@@ -395,6 +395,9 @@ async function materializeComparisonFindings(options: {
         matterId: finding.matterId,
         // A comparison has no actor. Nobody made the deadline arrive.
         actorUserId: null,
+        // And it names nobody: a comparison finds a condition, not a person. No type raised by this
+        // path declares `named-recipient`, and one that did would reach nobody rather than guess.
+        namedRecipientUserId: null,
         now: () => options.now,
         policy: options.policy,
       });

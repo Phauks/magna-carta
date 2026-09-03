@@ -65,6 +65,12 @@ export interface DraftTimeEntry {
   readonly utbmsTaskCodeId?: string | null;
   readonly utbmsActivityCodeId?: string | null;
   readonly memo?: string | null;
+  /**
+   * The task this time was worked on, where the timekeeper named one. Omitted on nearly every
+   * entry: time is captured against a MATTER, and naming a task is an extra. The server refuses a
+   * task on another matter, so the picker only ever offers this matter's own.
+   */
+  readonly taskId?: string | null;
 }
 
 /**
@@ -108,6 +114,8 @@ export interface TimeEntryChanges {
   readonly utbmsActivityCodeId?: string | null;
   /** The firm's internal note. Null clears it; absent leaves it alone. */
   readonly memo?: string | null;
+  /** Null unlinks the task; absent leaves it alone. Refused on a billed or void entry. */
+  readonly taskId?: string | null;
 }
 
 export function patchTimeEntry(

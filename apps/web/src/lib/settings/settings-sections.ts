@@ -259,6 +259,20 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     editPermissionArea: "calendar",
     shipped: true,
   },
+  {
+    // The firm's matter plans: what a kind of matter takes, as a template that PROPOSES tasks. Sits
+    // under Practice beside matter numbering because both are statements about how the firm runs its
+    // work rather than settings that change a screen. The controls inside are gated on
+    // tasks:managePlans from the session, which is narrower than this section's own reach.
+    id: "matter-plans",
+    label: "Matter Plans",
+    href: "/settings/matter-plans",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
   // Billing
   {
     id: "billing",
