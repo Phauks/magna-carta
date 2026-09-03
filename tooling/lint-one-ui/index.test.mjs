@@ -19,8 +19,12 @@ import {
   findHandBuiltDialogs,
   findFooterSetProblems,
   findHandComposedModals,
+  findHandComposedDetailsPanels,
   findHandDrawnGlyphs,
   findHandRolledSelects,
+  findHandWrittenCapsRegister,
+  findHandWrittenRefusals,
+  findMoneyPresentation,
   findHeaderSetProblems,
   findImperativeDomUse,
   findInventedStatusTones,
@@ -889,11 +893,168 @@ describe("the registry's own allowances", () => {
       "imperative-dom",
       "raw-table",
       "table-machinery",
+      "caps-register",
+      "money-presentation",
+      "permission-refusal",
+      "details-panel",
       "sweep",
     ]);
     for (const allowance of registry.allowances ?? []) {
       expect(known, `allowance for an unknown rule: ${allowance.rule}`).toContain(allowance.rule);
       expect(String(allowance.reason ?? "").trim()).not.toBe("");
     }
+  });
+});
+
+describe("one caps register", () => {
+  it("passes on a surface that reaches for the component", () => {
+    expect(
+      findHandWrittenCapsRegister(
+        "apps/web/src/lib/x.svelte",
+        '<FieldLabel as="h3">Standing</FieldLabel>',
+      ),
+    ).toEqual([]);
+  });
+
+  it("bites on the voice built out of utilities", () => {
+    const problems = findHandWrittenCapsRegister(
+      "apps/web/src/lib/x.svelte",
+      '<p class="text-xs text-text-muted uppercase">Standing</p>',
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toEqual("caps-register");
+  });
+
+  it("bites on the inline letter-spacing that finishes the voice by hand", () => {
+    const problems = findHandWrittenCapsRegister(
+      "apps/web/src/lib/x.svelte",
+      '<span class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">Fleet</span>',
+    );
+    expect(problems).toHaveLength(1);
+  });
+
+  it("does NOT bite inside the design system's own recipes, which ARE the register", () => {
+    expect(
+      findHandWrittenCapsRegister(
+        "packages/design-system/src/lib/components/field-label/field-label.css",
+        ".mc-field-label { letter-spacing: var(--mc-tracking-caps); }",
+      ),
+    ).toEqual([]);
+  });
+
+  it("does NOT read a comment as a violation", () => {
+    expect(
+      findHandWrittenCapsRegister(
+        "apps/web/src/lib/x.svelte",
+        '<!-- was class="text-xs text-text-muted uppercase" before FieldLabel -->',
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("one money presenter", () => {
+  it("passes on a surface that reaches for the shared formatter", () => {
+    expect(
+      findMoneyPresentation("apps/web/src/lib/x.svelte", "formatMoney(amount, { currency })"),
+    ).toEqual([]);
+  });
+
+  it("bites on a second currency formatter", () => {
+    const problems = findMoneyPresentation(
+      "apps/web/src/lib/x.ts",
+      'new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })',
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toEqual("money-presentation");
+  });
+
+  it("does NOT bite in either of the two homes allowed to print money", () => {
+    const source = 'new Intl.NumberFormat(locale, { style: "currency", currency: code })';
+    expect(findMoneyPresentation("packages/money/src/format.ts", source)).toEqual([]);
+    expect(
+      findMoneyPresentation("packages/design-system/src/lib/formatters/money.ts", source),
+    ).toEqual([]);
+  });
+});
+
+describe("one refusal sentence", () => {
+  it("passes on a surface that reaches for the helper", () => {
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/x.svelte",
+        'permissionRefusal("Opening a matter", "matters:create")',
+      ),
+    ).toEqual([]);
+  });
+
+  it("bites on either wording, because both existed", () => {
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/x.svelte",
+        '"Opening a matter needs the matters:create permission, which this account does not hold."',
+      ),
+    ).toHaveLength(1);
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/x.ts",
+        '"This account does not hold the billing:credit capability."',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("does NOT cry wolf on ordinary English about holding something else", () => {
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/x.svelte",
+        'note="somebody who guessed all three facts but does not hold the address still gets nothing"',
+      ),
+    ).toEqual([]);
+  });
+
+  it("does NOT bite in the home the sentence lives in", () => {
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/access/refusal.ts",
+        "return `${act} needs the ${permission} permission, which this account does not hold.`;",
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("one details panel", () => {
+  it("passes on a surface that composes the shell", () => {
+    expect(
+      findHandComposedDetailsPanels(
+        "apps/web/src/lib/time/time-details-panel.svelte",
+        '<DetailsPanel.Root label="Entry details">',
+      ),
+    ).toEqual([]);
+  });
+
+  it("bites on the frame written out", () => {
+    const problems = findHandComposedDetailsPanels(
+      "apps/web/src/lib/x/x-details-panel.svelte",
+      '<aside class="flex h-full w-full flex-col border-l border-border-default bg-surface-default">',
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toEqual("details-panel");
+  });
+
+  it("bites on the scrolling body written out", () => {
+    expect(
+      findHandComposedDetailsPanels(
+        "apps/web/src/lib/x/x-details-panel.svelte",
+        '<div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("does NOT bite inside the shell, which is where the frame belongs", () => {
+    expect(
+      findHandComposedDetailsPanels(
+        "apps/web/src/lib/details-panel/details-panel.svelte",
+        '<aside class="flex h-full w-full flex-col border-l border-border-default bg-surface-default">',
+      ),
+    ).toEqual([]);
   });
 });

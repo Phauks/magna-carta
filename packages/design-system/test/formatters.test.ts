@@ -9,7 +9,7 @@
  * agrees with itself.
  */
 import { describe, expect, it } from "vitest";
-import { formatDuration } from "../src/lib/formatters/duration.ts";
+import { formatClock, formatDuration } from "../src/lib/formatters/duration.ts";
 import { formatInstant, instantAttribute, readInstant } from "../src/lib/formatters/instant.ts";
 import { personName, UNRECORDED_PERSON } from "../src/lib/formatters/person-name.ts";
 import { placeholderOf, readsAsFieldName } from "../src/lib/formatters/placeholder.ts";
@@ -62,6 +62,41 @@ describe("formatDuration", () => {
   it("shows a value that is not a duration as what actually arrived", () => {
     expect(formatDuration(Number.NaN).text).toEqual("NaN");
     expect(formatDuration(Number.POSITIVE_INFINITY).text).toEqual("Infinity");
+  });
+});
+
+describe("formatClock", () => {
+  /*
+   * The clock form the Time Sheet's running timer wears. It used to be a second implementation
+   * living beside the sheet, which is why these assertions read as they do: the first two are the
+   * sheet's own, moved here with the function, and the rest are what the sheet's copy never said.
+   */
+  it("writes a clock, to the second only while something is ticking", () => {
+    expect(formatClock(5430)).toEqual("1:30");
+    expect(formatClock(5430, { toTheSecond: true })).toEqual("1:30:30");
+  });
+
+  it("pads the minutes, and the seconds, so the form is unmistakable", () => {
+    expect(formatClock(65)).toEqual("0:01");
+    expect(formatClock(65, { toTheSecond: true })).toEqual("0:01:05");
+  });
+
+  it("keeps hours past a day as hours, because a duration is not a calendar", () => {
+    expect(formatClock(90_000)).toEqual("25:00");
+  });
+
+  it("carries a sign the sheet's own copy dropped", () => {
+    expect(formatClock(-5430)).toEqual("-1:30");
+  });
+
+  it("is the same clock formatDuration reports, which is the whole point of sharing it", () => {
+    for (const minutes of [0, 6, 65, 90, 1500]) {
+      expect(formatDuration(minutes).clock).toEqual(formatClock(minutes * 60));
+    }
+  });
+
+  it("shows what arrived rather than dressing a non-duration as zero", () => {
+    expect(formatClock(Number.NaN)).toEqual("NaN");
   });
 });
 

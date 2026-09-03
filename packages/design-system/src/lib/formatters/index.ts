@@ -11,7 +11,13 @@
  * module instead, so nothing pulls the whole set for one function.
  */
 export { formatDate, type CivilDateInput, type CivilDateOptions } from "./civil-date.ts";
-export { formatDuration, type DurationOptions, type FormattedDuration } from "./duration.ts";
+export {
+  formatClock,
+  formatDuration,
+  type ClockOptions,
+  type DurationOptions,
+  type FormattedDuration,
+} from "./duration.ts";
 export { formatMoney, formatNumber, type MoneyOptions, type NumberOptions } from "./money.ts";
 export {
   formatInstant,

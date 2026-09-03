@@ -104,10 +104,7 @@
           {#each band.groups as group (group.id)}
             <div class="flex flex-col gap-8">
               <!-- Group header: one indent step (12) past the band's cap-line at 12. -->
-              <FieldLabel as="p"
-               
-                style="letter-spacing: var(--mc-tracking-caps); padding-inline-start: var(--mc-space-24)"
-              >
+              <FieldLabel as="p" class="ps-24">
                 {group.label}
               </FieldLabel>
               <!-- Page rows: one further step — the pills start at 24 and their own px-12 puts

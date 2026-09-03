@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 import type { TimeEntrySummary } from "../src/lib/matters/time-api.ts";
 import {
   NO_MATTER_TEXT,
-  clockText,
   incompleteCount,
   isIncomplete,
   isWorkable,
@@ -246,11 +245,6 @@ describe("durations in both literacies", () => {
   it("answers nothing for what is not a duration", () => {
     expect(parseDurationSeconds("")).toBeNull();
     expect(parseDurationSeconds("later")).toBeNull();
-  });
-
-  it("writes a clock, to the second only while something is ticking", () => {
-    expect(clockText(5430, false)).toBe("1:30");
-    expect(clockText(5430, true)).toBe("1:30:30");
   });
 
   it("rounds seconds to the minute the write is in", () => {

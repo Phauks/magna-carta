@@ -253,16 +253,6 @@ export function workedMinutesOf(row: SheetRow): number {
   return minutesFromSeconds(row.workedSeconds);
 }
 
-/** A duration as a clock, ticking to the second while a timer is on it. */
-export function clockText(seconds: number, toTheSecond: boolean): string {
-  const wholeHours = Math.floor(seconds / 3600);
-  const wholeMinutes = Math.floor((seconds % 3600) / 60);
-  const wholeSeconds = seconds % 60;
-  const minutePart = String(wholeMinutes).padStart(2, "0");
-  if (!toTheSecond) return `${String(wholeHours)}:${minutePart}`;
-  return `${String(wholeHours)}:${minutePart}:${String(wholeSeconds).padStart(2, "0")}`;
-}
-
 /**
  * Reading a duration somebody typed into a cell, as seconds.
  *

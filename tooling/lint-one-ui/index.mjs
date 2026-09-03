@@ -8,7 +8,7 @@
  * screens start disagreeing about something a reader was told was settled. Review does not scale
  * to catching that across dozens of surfaces; a scan does.
  *
- * Eleven rules run here. Their reasoning, and the pure functions that decide them, are in rules.mjs;
+ * Fifteen rules run here. Their reasoning, and the pure functions that decide them, are in rules.mjs;
  * the registry of what may exist once — and the recorded allowances — are in registry.json.
  *
  * TWO OF THE RULES BORROW THE PRODUCT'S OWN JUDGEMENT rather than restating it. The placeholder
@@ -67,8 +67,12 @@ import {
   findHandBuiltDialogs,
   findFooterSetProblems,
   findHandComposedModals,
+  findHandComposedDetailsPanels,
   findHandDrawnGlyphs,
   findHandRolledSelects,
+  findHandWrittenCapsRegister,
+  findHandWrittenRefusals,
+  findMoneyPresentation,
   findHeaderSetProblems,
   findImperativeDomUse,
   findInventedStatusTones,
@@ -398,6 +402,36 @@ mustHaveRead(
   BOTH_SIDES,
 );
 
+// Rule: one caps register. Both sides of the line, and not svelte-only: an inline letter-spacing
+// can be assembled in a module as readily as written in markup. The design system's own component
+// and style homes are where the register IS, so they exempt themselves inside the rule.
+mustHaveRead(
+  sweep(BOTH_SIDES, findHandWrittenCapsRegister, { svelteOnly: false }),
+  "caps register",
+  BOTH_SIDES,
+);
+
+// Rule: one money presenter. The whole repository, not just the two UI halves — a worker that
+// formats an amount for an email or a printed sheet is exactly as able to invent a second answer,
+// and the two homes named in the rule are the only ones allowed to hold it.
+mustHaveRead(
+  sweep(["apps", "packages"], findMoneyPresentation, { svelteOnly: false }),
+  "money presentation",
+  ["apps", "packages"],
+);
+
+// Rule: one refusal sentence. The app only: the sentence names a permission an ACCOUNT holds, which
+// is a thing only the product's own surfaces say to a reader.
+mustHaveRead(
+  sweep([APP_SOURCE], findHandWrittenRefusals, { svelteOnly: false }),
+  "permission refusal",
+  [APP_SOURCE],
+);
+
+// Rule: one details panel. The app only — the shell lives there, and the design system has no
+// business composing one.
+mustHaveRead(sweep([APP_SOURCE], findHandComposedDetailsPanels), "details panel", [APP_SOURCE]);
+
 // Rule: one status register. Modules as well as components — the second registers that exist on
 // this repository are `.ts` files holding a label map and a tone map side by side.
 mustHaveRead(
@@ -481,7 +515,10 @@ console.log(
     `thing; ${entries.length} registered component(s) each have one ` +
     "home; no app screen rolls its own select, dialog, scrim, glyph or table; nothing outside the " +
     "one table's home carries table machinery; the ported surfaces reach for no node by id, " +
-    "selector or markup string; and every modal surface is one of the declared shells." +
+    "selector or markup string; every modal surface is one of the declared shells; the " +
+    "letterspaced small-caps voice is one component rather than a class list somebody retyped; " +
+    "currency is printed by the two functions allowed to print it; a refused control carries the " +
+    "one refusal sentence; and no surface writes the details panel's frame or body out by hand." +
     (excused.length === 0
       ? " No surface outside the register gives a status word a tone, and every literal" +
         " placeholder reads as a field's name."
@@ -489,8 +526,15 @@ console.log(
         ` the ${excused.length} allowance(s) above — nothing new.`),
 );
 console.log(
-  "  Not caught: the same component behaving differently on two screens; a domain fact arriving " +
-    "through a generically named prop; a look-alike panel nobody named recognizably; a select, " +
+  "  Not caught: the same component behaving differently on two screens; a caps label built " +
+    "from a class the scan cannot read (a " +
+    "computed class string, or a tone utility that is not text-text-*); a second money presenter " +
+    'that reaches Intl through a variable rather than the literal style: "currency"; DATE ' +
+    "presentation, which is deliberately ungated because Intl.DateTimeFormat has twenty legitimate " +
+    "callers here doing time-zone arithmetic rather than display, and a rule that cried wolf over " +
+    "those is a rule somebody switches off; a refusal phrased in words the sentence never used; a " +
+    "details panel composed from different utilities that happens to look the same; a domain fact " +
+    "arriving through a generically named prop; a look-alike panel nobody named recognizably; a select, " +
     "scrim or glyph assembled at runtime rather than written out; a placeholder that is not a " +
     "literal, or that names the wrong field; a status mapper keyed on codes with its labels " +
     "elsewhere; imperative DOM beyond the three names the mockups actually used; a table built " +

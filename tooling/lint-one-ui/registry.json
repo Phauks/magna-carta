@@ -191,6 +191,11 @@
       "reason": "predates the rule; a sort written locally over the presentational primitives, with the remainder, offsite and totals rows held outside it by hand. It should be a DataTable.Grid — the Grid's row groups and scope-honest totals row already model the three rows this table keeps outside its sort — and that port is a design round on the firm-usage surface, reviewed on the deployed site, not a lint fix."
     },
     {
+      "rule": "permission-refusal",
+      "file": "apps/web/src/lib/matters/practice-area-picker.svelte",
+      "reason": "A Combobox group heading is a LABEL, and the shared sentence is a sentence: \"Adding a practice area needs the matters:manageTypes permission, which this account does not hold.\" is about ninety characters in a slot whose other branch reads \"Add to the Firm's Practice Areas\", and it would wrap or truncate. The heading keeps the first clause of the shared wording verbatim, so the two cannot say different things about the same permission, and drops only the trailing \"which this account does not hold\" that the reader can see for themselves from the disabled row beneath it. If the group heading ever gains room for a full sentence, this becomes a call to permissionRefusal and this entry goes."
+    },
+    {
       "rule": "status-tone",
       "file": "apps/web/src/routes/developer-console/table-states/+page.svelte",
       "reason": "predates the status register; the dev gallery holds its own STATUS_BADGE map so the grid states have something to render. It should read the register instead, which is also what would make the gallery show the real tones."

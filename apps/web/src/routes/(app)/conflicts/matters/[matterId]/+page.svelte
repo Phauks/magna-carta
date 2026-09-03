@@ -36,6 +36,7 @@
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import { resolveMatterRecord, type MatterRecord } from "$lib/matters/matter-record.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   const matterId = $derived(page.params.matterId ?? "");
 
@@ -114,8 +115,7 @@
   <Alert.Root variant="info" class="mb-16">
     <Alert.Title>Reading Conflicts Is Not Available To This Account</Alert.Title>
     <Alert.Description>
-      Reading a matter's conflicts standing needs the conflicts:read permission, which this account
-      does not hold.
+      {permissionRefusal("Reading a matter's conflicts standing", "conflicts:read")}
     </Alert.Description>
   </Alert.Root>
 {/if}

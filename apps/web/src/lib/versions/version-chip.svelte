@@ -467,9 +467,7 @@
                 onclick={() => fleetSectionPreference.toggle()}
               >
                 <span class="flex items-center gap-8">
-                  <span class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-                    {FLEET_SECTION_LABEL}
-                  </span>
+                  <FieldLabel as="span">{FLEET_SECTION_LABEL}</FieldLabel>
                   {#if fleetSectionPreference.collapsed && silentWorkers !== null}
                     <Badge variant="warning">{silentWorkers}</Badge>
                   {/if}

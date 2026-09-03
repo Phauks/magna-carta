@@ -2,7 +2,7 @@
 worktree: C:/dev/magna-carta-worktrees/claude/component-consolidation-review-j23x9o
 area: Component consolidation — the details panel, the display vocabulary, the caps label register, the registry's reach, and two smaller repeats
 status: building
-touches: apps/web/src/lib/details-panel, apps/web/src/lib/access, apps/web/src/lib/billing/bill-actions.ts, apps/web/src/lib/time, apps/web/src/lib/costs, apps/web/src/lib/billing, apps/web/src/lib/matters/time-api.ts, apps/web/src/lib/matters/tasks-api.ts, packages/design-system/src/lib/formatters, packages/design-system/src/lib/components/data-table/typed-columns.ts, packages/design-system/src/lib/components/field-label, tooling/lint-one-ui/registry.json, changelog.d/
+touches: tooling/lint-one-ui/, apps/web/src/lib/details-panel, apps/web/src/lib/access, apps/web/src/lib/billing/bill-actions.ts, apps/web/src/lib/time, apps/web/src/lib/costs, apps/web/src/lib/billing, apps/web/src/lib/matters/time-api.ts, apps/web/src/lib/matters/tasks-api.ts, packages/design-system/src/lib/formatters, packages/design-system/src/lib/components/data-table/typed-columns.ts, packages/design-system/src/lib/components/field-label, tooling/lint-one-ui/registry.json, changelog.d/
 ---
 
 # component-consolidation-review
@@ -36,6 +36,14 @@ search and the page masthead are genuinely single-homed and enforced. What follo
   not yet name. An append to the `components` array, so the three streams that also touch this file
   (`calendar-ui-plan-eu523y`, `directory-ui-person-linking-fcot46`, `r2-bucket-isolation-review-pckokv`)
   merge around it.
+
+**Each consolidation is a gate, not a cleanup.** `lint:one-ui` gained four rules —
+`caps-register`, `money-presentation`, `permission-refusal`, `details-panel` — because a
+consolidation nothing enforces is undone by the next screen that copies the nearest example. They
+are additive rule functions plus tests, so `focused-cori-b8z77b` and any other stream editing this
+tool merges around them rather than into them. Turning them on found four sites the hand migration
+had missed, and one false positive, which is why the refusal rule requires the word "permission"
+rather than the phrase "does not hold".
 
 **Deliberately not touched**, each being another stream's:
 

@@ -452,7 +452,7 @@
 
           <Card.Root class="gap-8 py-12">
             <Card.Header class="flex-row items-baseline gap-8 px-12">
-              <Card.Title class="flex-1 text-xs text-text-muted uppercase">Unbilled Time</Card.Title>
+              <FieldLabel as="div" class="flex-1">Unbilled Time</FieldLabel>
               <span class="text-xs tabular-nums">
                 {unbilledTime.length} · {money(unbilledTimeMinor)}
               </span>
@@ -511,7 +511,7 @@
           -->
           <Card.Root class="gap-8 py-12">
             <Card.Header class="flex-row items-baseline gap-8 px-12">
-              <Card.Title class="flex-1 text-xs text-text-muted uppercase">Unbilled Fees</Card.Title>
+              <FieldLabel as="div" class="flex-1">Unbilled Fees</FieldLabel>
               <SoonAffordance reason="the fee work-in-progress store and its claim path">
                 {#snippet control(soon)}
                   <Button variant="ghost" size="sm" {...soon}>Claim all</Button>
@@ -528,9 +528,9 @@
 
           <Card.Root class="gap-8 py-12">
             <Card.Header class="flex-row items-baseline gap-8 px-12">
-              <Card.Title class="flex-1 text-xs text-text-muted uppercase">
+              <FieldLabel as="div" class="flex-1">
                 Unbilled Costs
-              </Card.Title>
+              </FieldLabel>
               <span class="text-xs tabular-nums">
                 {unbilledCosts.length} · {money(unbilledCostMinor)}
               </span>
