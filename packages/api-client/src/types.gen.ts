@@ -987,6 +987,16 @@ export type MatterDetail = {
     responsibleMemberName: string | null;
 };
 
+export type MatterCloseReadiness = {
+    matterId: string;
+    status: 'prospective' | 'open' | 'closed';
+    closable: boolean;
+    blockers: Array<{
+        code: string;
+        message: string;
+    }>;
+};
+
 export type MatterActionAck = {
     matterId: string;
 };
@@ -2939,6 +2949,33 @@ export type EditMatterNoteRequest = {
 
 export type AttachMatterNoteDocumentRequest = {
     fileId: string;
+};
+
+export type MatterSearchAnswer = {
+    matterId: string;
+    query: string;
+    groups: Array<MatterSearchGroup>;
+};
+
+export type MatterSearchGroup = {
+    source: string;
+    section: string;
+    answerShape: 'listing' | 'ranked';
+    matchedFields: Array<string>;
+    supportsDeleted: boolean;
+    hits: Array<MatterSearchHit>;
+    hasMore: boolean;
+    skipped: 'permission' | 'query-too-short' | 'engine-unavailable' | null;
+};
+
+export type MatterSearchHit = {
+    id: string;
+    title: string;
+    snippet: string | null;
+    secondary: string | null;
+    actorUserId: string | null;
+    sortKey: string;
+    link: string;
 };
 
 export type MatterTaskPage = {
@@ -6213,6 +6250,19 @@ export type ConvertToCostAck = {
 
 export type ConvertToCostRequest = {
     utbmsExpenseCodeId?: string | null;
+};
+
+export type RefileTimeEntryAck = {
+    timeEntryId: string;
+    matterId: string;
+    durationMinutes: number;
+    rateE4: number | null;
+    amountMinor: number | null;
+    currency: string;
+};
+
+export type RefileTimeEntryRequest = {
+    matterId: string;
 };
 
 export type TimerStartAck = {
@@ -10849,6 +10899,45 @@ export type MattersUpdateResponses = {
 };
 
 export type MattersUpdateResponse = MattersUpdateResponses[keyof MattersUpdateResponses];
+
+export type MattersCloseReadinessData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/close-readiness';
+};
+
+export type MattersCloseReadinessErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersCloseReadinessError = MattersCloseReadinessErrors[keyof MattersCloseReadinessErrors];
+
+export type MattersCloseReadinessResponses = {
+    /**
+     * Whether the matter can close, and what stands in the way
+     */
+    200: MatterCloseReadiness;
+};
+
+export type MattersCloseReadinessResponse = MattersCloseReadinessResponses[keyof MattersCloseReadinessResponses];
 
 export type MattersOpenData = {
     body?: never;
@@ -17646,6 +17735,50 @@ export type NotesDetachNoteDocumentResponses = {
 };
 
 export type NotesDetachNoteDocumentResponse = NotesDetachNoteDocumentResponses[keyof NotesDetachNoteDocumentResponses];
+
+export type MatterSearchSearchData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query: {
+        q: string;
+        in?: string | Array<string>;
+        limit?: number;
+        includeDeleted?: 'true' | 'false';
+    };
+    url: '/api/v1/matters/{matterId}/search';
+};
+
+export type MatterSearchSearchErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type MatterSearchSearchError = MatterSearchSearchErrors[keyof MatterSearchSearchErrors];
+
+export type MatterSearchSearchResponses = {
+    /**
+     * One group per selected source
+     */
+    200: MatterSearchAnswer;
+};
+
+export type MatterSearchSearchResponse = MatterSearchSearchResponses[keyof MatterSearchSearchResponses];
 
 export type TasksListMatterTasksData = {
     body?: never;
@@ -29522,6 +29655,60 @@ export type TimeEntriesConvertToCostResponses = {
 };
 
 export type TimeEntriesConvertToCostResponse = TimeEntriesConvertToCostResponses[keyof TimeEntriesConvertToCostResponses];
+
+export type TimeEntriesRefileData = {
+    body: RefileTimeEntryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/refile';
+};
+
+export type TimeEntriesRefileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesRefileError = TimeEntriesRefileErrors[keyof TimeEntriesRefileErrors];
+
+export type TimeEntriesRefileResponses = {
+    /**
+     * The entry was refiled
+     */
+    200: RefileTimeEntryAck;
+};
+
+export type TimeEntriesRefileResponse = TimeEntriesRefileResponses[keyof TimeEntriesRefileResponses];
 
 export type TimerStartData = {
     body: TimerStartRequest;

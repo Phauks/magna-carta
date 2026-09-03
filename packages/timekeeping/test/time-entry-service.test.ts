@@ -1,13 +1,14 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { MatterId, UserId } from "@magna-carta/identifiers/types";
+import type { MatterId, TimeEntryId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
   approveTimeEntry,
   captureTimeEntry,
   type CaptureTimeEntryInput,
   kickBackTimeEntry,
+  refileTimeEntry,
   submitTimeEntry,
   updateDraftTimeEntry,
   voidTimeEntry,
@@ -278,6 +279,183 @@ async function billEntry(database: BatchDatabase, id: string): Promise<void> {
     .bind(id)
     .run();
 }
+
+describe("refileTimeEntry", () => {
+  /*
+   * Moving a misfiled entry keeps the record and re-asks what the matter answers. The entry number
+   * is the load-bearing half: a reference that changes is a reference that lies, so anything that
+   * cited it has to keep resolving — which is why the move carries it rather than re-minting.
+   */
+  async function seedTwoMatters(database: BatchDatabase): Promise<void> {
+    await seedMatter(database, "matter_1");
+    await database
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES (?1, 'Pemberton v. Hale', 'open', ?2, 0, ?3, ?3)",
+      )
+      .bind("matter_2", TIMEKEEPER, clock.now())
+      .run();
+  }
+
+  async function capturedDraft(database: BatchDatabase): Promise<TimeEntryId> {
+    const captured = await captureTimeEntry(
+      database,
+      { ...billableBase, rate: { noRate: true } },
+      options,
+    );
+    await commitEffectBatch(database, captured.effect, { now: clock.now });
+    return captured.timeEntryId;
+  }
+
+  it("moves the entry, keeping its number and taking the new matter's figures", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    const before = await readEntry(database, id);
+
+    const moved = await refileTimeEntry(
+      database,
+      id,
+      {
+        fromMatterId: "matter_1",
+        matterId: "matter_2",
+        durationMinutes: 45,
+        rateE4: 3_400_000,
+        rateCardId: null,
+        rateSource: "matter",
+        amountMinor: 25_500,
+        currency: "USD",
+      },
+      options,
+    );
+    await commitEffectBatch(database, moved.effect, { now: clock.now });
+
+    const after = await readEntry(database, id);
+    expect(after?.matter_id).toBe("matter_2");
+    expect(after?.duration_minutes).toBe(45);
+    expect(after?.rate_e4).toBe(3_400_000);
+    expect(after?.amount_minor).toBe(25_500);
+    // Everything that identifies the entry survives the move.
+    expect(after?.narrative).toBe(before?.narrative);
+    expect(after?.work_date).toBe(before?.work_date);
+    expect(after?.timekeeper_user_id).toBe(before?.timekeeper_user_id);
+    expect(await countAudits(database, "time_entry.refiled")).toBe(1);
+  });
+
+  it("keeps the entry number, because a reference that changes is a reference that lies", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    await database
+      .prepare("UPDATE time_entry SET entry_number = ?2 WHERE id = ?1")
+      .bind(id, "2026-0147.0042")
+      .run();
+
+    const moved = await refileTimeEntry(
+      database,
+      id,
+      {
+        fromMatterId: "matter_1",
+        matterId: "matter_2",
+        durationMinutes: 30,
+        rateE4: null,
+        rateCardId: null,
+        rateSource: null,
+        amountMinor: null,
+        currency: "USD",
+      },
+      options,
+    );
+    await commitEffectBatch(database, moved.effect, { now: clock.now });
+
+    const { results } = await database
+      .prepare("SELECT entry_number FROM time_entry WHERE id = ?1")
+      .bind(id)
+      .all<{ entry_number: string | null }>();
+    expect(results[0]?.entry_number).toBe("2026-0147.0042");
+  });
+
+  it("names both matters on the audit row, so the move is legible afterwards", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    const moved = await refileTimeEntry(
+      database,
+      id,
+      {
+        fromMatterId: "matter_1",
+        matterId: "matter_2",
+        durationMinutes: 30,
+        rateE4: null,
+        rateCardId: null,
+        rateSource: null,
+        amountMinor: null,
+        currency: "USD",
+      },
+      options,
+    );
+    await commitEffectBatch(database, moved.effect, { now: clock.now });
+
+    const { results } = await database
+      .prepare("SELECT metadata FROM audit_log WHERE event = 'time_entry.refiled'")
+      .all<{ metadata: string }>();
+    const metadata = JSON.parse(results[0]?.metadata ?? "{}") as Record<string, unknown>;
+    expect(metadata["fromMatterId"]).toBe("matter_1");
+    expect(metadata["toMatterId"]).toBe("matter_2");
+  });
+
+  it("refuses a move to the matter it is already on, rather than reporting a move that moved nothing", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    await expect(
+      refileTimeEntry(
+        database,
+        id,
+        {
+          fromMatterId: "matter_1",
+          matterId: "matter_1",
+          durationMinutes: 30,
+          rateE4: null,
+          rateCardId: null,
+          rateSource: null,
+          amountMinor: null,
+          currency: "USD",
+        },
+        options,
+      ),
+    ).rejects.toThrow(TimeEntryValidationError);
+  });
+
+  /*
+   * Past draft the entry is evidence somebody is relying on — an approved entry is a reviewer's
+   * decision about a matter, a billed one a line on a finalized bill — and the answer to both is a
+   * void and a fresh record, never a move nobody can see.
+   */
+  it("refuses anything past draft", async () => {
+    const database = freshDatabase();
+    await seedTwoMatters(database);
+    const id = await capturedDraft(database);
+    await database.prepare("UPDATE time_entry SET status = 'billed' WHERE id = ?1").bind(id).run();
+
+    await expect(
+      refileTimeEntry(
+        database,
+        id,
+        {
+          fromMatterId: "matter_1",
+          matterId: "matter_2",
+          durationMinutes: 30,
+          rateE4: null,
+          rateCardId: null,
+          rateSource: null,
+          amountMinor: null,
+          currency: "USD",
+        },
+        options,
+      ),
+    ).rejects.toThrow(TimeEntryValidationError);
+  });
+});
 
 describe("time-entry lifecycle (review gate on)", () => {
   const gateOn = { ...options, approvalRequired: true } as const;

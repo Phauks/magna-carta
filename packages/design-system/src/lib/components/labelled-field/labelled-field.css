@@ -1,0 +1,18 @@
+@layer components {
+  /*
+   * The labelled field: a label over its control over its satellites, one column. The gap is the
+   * one every panel on the action dialog shell used before this existed (space-8) and is therefore
+   * the one the owner has reviewed on screen; the form family's `mc-form-field` stacks the same
+   * parts at space-4. Two gaps for one shape is a fact to settle, not to hide, so it is stated here
+   * and neither recipe silently adopts the other's.
+   *
+   * `min-inline-size: 0` so a field inside a grid track can shrink to the track rather than
+   * forcing the row wider than its column — a long placeholder or value must not break a FieldRow.
+   */
+  .mc-labelled-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    min-inline-size: var(--mc-space-0);
+  }
+}

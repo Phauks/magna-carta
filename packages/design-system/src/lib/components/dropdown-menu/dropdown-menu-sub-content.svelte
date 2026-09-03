@@ -5,19 +5,29 @@
    * internal/floating.ts) and applies this class to the inner content element. The z-layer
    * (anchored — above modal, so it works inside dialogs) and the scale-fade presence come from the floating module; the look is the
    * mc-dropdown-menu-sub-content recipe (the same surface as the top-level Content).
+   *
+   * A submenu panel is portaled beside its parent panel, not inside it, so the pointer crossing
+   * from one to the other LEAVES the parent. It therefore reports the pointer to the root menu's
+   * hover controller (hover-open.ts) exactly as the parent panel does, or a hover-opened menu would
+   * close under a member reaching into its submenu.
    */
   import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { floatingContentClasses, PRESENCE_SCALE_FADE } from "../../internal/floating.ts";
   import type { WithoutChild } from "../../internal/types.ts";
+  import { getHoverOpenContext } from "./hover-open.ts";
 
   let {
     ref = $bindable(null),
     class: className,
     sideOffset = 6,
     collisionPadding = 8,
+    onpointerenter,
+    onpointerleave,
     ...restProps
   }: WithoutChild<DropdownMenuPrimitive.SubContentProps> = $props();
+
+  const hoverOpen = getHoverOpenContext();
 </script>
 
 <DropdownMenuPrimitive.Portal>
@@ -30,6 +40,14 @@
       "mc-dropdown-menu-sub-content",
       className,
     )}
+    onpointerenter={(event) => {
+      onpointerenter?.(event);
+      hoverOpen.pointerEnter(event);
+    }}
+    onpointerleave={(event) => {
+      onpointerleave?.(event);
+      hoverOpen.pointerLeave(event);
+    }}
     {...restProps}
   />
 </DropdownMenuPrimitive.Portal>

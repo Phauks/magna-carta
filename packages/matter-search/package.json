@@ -1,0 +1,30 @@
+{
+  "name": "@magna-carta/matter-search",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./registry": "./src/sources/registry.ts",
+    "./build": "./src/sources/build.ts",
+    "./sources": "./src/sources/all.ts",
+    "./run": "./src/run.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/calendar": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

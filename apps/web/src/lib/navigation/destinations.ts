@@ -26,7 +26,7 @@
  * Stars never touch the palette: hiding must never remove capability.
  */
 import type { Component } from "svelte";
-import type { MaturityStage } from "$lib/maturity/maturity.ts";
+import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import House from "@lucide/svelte/icons/house";
 import Download from "@lucide/svelte/icons/download";
 import Bell from "@lucide/svelte/icons/bell";

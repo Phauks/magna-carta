@@ -1,5 +1,6 @@
 # Shared setup for every gate job: install pnpm + Node (with the pnpm store cached) + workspace deps,
-# and — only when a job needs it — the pinned Rust toolchain plus a cached cargo/target. Checkout is the
+# and — only when a job needs it — the WASM packages the build-wasm job published, or the pinned Rust
+# toolchain plus a cached cargo/target. Checkout is the
 # caller's job (a composite action cannot check out for you); run this immediately after it. Factoring
 # this out keeps the per-job steps to "what this job actually checks", not boilerplate repeated ten times.
 #
@@ -25,6 +26,9 @@ description: Install pnpm, Node, and workspace dependencies (and optionally the 
 inputs:
   rust:
     description: When 'true', install the toolchain pinned by rust-toolchain.toml and cache the crates workspace.
+    default: "false"
+  wasm:
+    description: When 'true', fetch the WASM packages the gate's build-wasm job published (the `wasm-pkg` artefact) and unpack them into the workspace.
     default: "false"
 
 runs:
@@ -60,6 +64,20 @@ runs:
       # failing obscurely three steps later. --prefer-offline keeps it off the network when the store
       # cache already has every tarball.
       run: pnpm install --frozen-lockfile --prefer-offline
+
+    - name: Fetch the WASM artefacts the build-wasm job published
+      # Every consumer job in the gate needs @magna-carta/{pdf,decryption,email}'s generated packages, and
+      # none of them builds one: build-wasm builds or restores them once and publishes a tarball. Fetching
+      # it here keeps each consumer's steps to what that job actually checks.
+      if: inputs.wasm == 'true'
+      uses: actions/download-artifact@v8
+      with:
+        name: wasm-pkg
+
+    - name: Unpack the WASM artefacts
+      if: inputs.wasm == 'true'
+      shell: bash
+      run: tar -xzf wasm-pkg.tgz
 
     - name: Rust toolchain (pinned by rust-toolchain.toml)
       if: inputs.rust == 'true'

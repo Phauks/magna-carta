@@ -32,7 +32,7 @@
 
 - id: platform.workers-api.contract-toolchain
   name: Spec CI toolchain
-  scope: Spectral linting, Prism mock smoke, oasdiff breaking-change detection, and snapshot drift gates over the emitted spec.
+  scope: Spectral linting, oasdiff breaking-change detection, and snapshot drift gates over the emitted spec; the Prism mock server runs on demand rather than as a dependency.
   status: shipped
   surface: internal
   slices: 0-5b-api-contract-enforcement-pipeline

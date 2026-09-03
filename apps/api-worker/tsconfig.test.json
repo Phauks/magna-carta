@@ -112,6 +112,9 @@
       "path": "../../packages/matter-assets/tsconfig.build.json"
     },
     {
+      "path": "../../packages/matter-search/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/matters/tsconfig.build.json"
     },
     {

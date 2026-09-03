@@ -7,23 +7,20 @@
    * PAIR, before the move rather than after it. The differences between the pairs are the whole
    * decision, so a general sentence about moving records would be no help at the moment it is read.
    *
-   * THE KEPT NUMBER IS SAID IN THE FOOTER, NOT BURIED. It is the surprising part — a record on the
-   * Fees ledger wearing a number whose shape names Time — so it is stated where the reader is about
-   * to press the verb.
+   * THE KEPT NUMBER IS SAID LAST, NOT BURIED. It is the surprising part — a record on the Fees
+   * ledger wearing a number whose shape names Time — so it is the last thing read before the verb.
    *
    * THE MOVE ITSELF IS NOT WIRED. It is one cross-table write with its own refusals, and no route
-   * performs it yet; the caller says what it waits on and the verb renders disabled beside its Soon
-   * mark. Everything else here is real: the refusal that stops a record moving at all, the
+   * performs it yet; the caller says what it waits on and the shell renders the verb disabled beside
+   * its Soon mark. Everything else here is real: the refusal that stops a record moving at all, the
    * destinations, and the per-pair carry statement.
    */
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import Button from "@magna-carta/design-system/button";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import ChoiceRow from "@magna-carta/design-system/choice-row";
-  import ArrowRightLeft from "@lucide/svelte/icons/arrow-right-left";
   import Check from "@lucide/svelte/icons/check";
   import Info from "@lucide/svelte/icons/info";
   import X from "@lucide/svelte/icons/x";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
   import {
     LEDGER_KINDS,
     LEDGER_NAME,
@@ -62,11 +59,6 @@
 
   let target = $state<LedgerKind | null>(null);
 
-  $effect(() => {
-    if (!open) return;
-    target = null;
-  });
-
   const facts = $derived(
     target === null ? null : carryFacts(from, target, { amountMinor }, money),
   );
@@ -76,87 +68,74 @@
       ? "This is where the record is now"
       : `Move it to the ${LEDGER_NAME[kind]} ledger`;
   }
+
+  async function move(): Promise<ActionOutcome> {
+    if (target === null) return "refused";
+    onMove?.(target);
+    return "committed";
+  }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false} class="max-w-2xl">
-    <Dialog.Title>Move to Another Ledger</Dialog.Title>
-    <Dialog.Description>
-      {LEDGER_RECORD_NAME[from]}
-      {#if entryNumber !== null}<span class="tabular-nums">{entryNumber}</span> ·{/if}
-      {description}
-    </Dialog.Description>
+<ActionDialog
+  bind:open
+  kind="form"
+  width="wide"
+  heading="Move to Another Ledger"
+  commitLabel="Move"
+  commitRefusal={target === null ? "Choose a ledger first." : undefined}
+  commitSoon={moveDependency === undefined ? undefined : { reason: moveDependency }}
+  unsavedChanges={false}
+  onOpen={() => (target = null)}
+  onCommit={move}
+>
+  {#snippet subtitle()}
+    {LEDGER_RECORD_NAME[from]}
+    {#if entryNumber !== null}<span class="tabular-nums">{entryNumber}</span> ·{/if}
+    {description}
+  {/snippet}
 
-    <div class="flex flex-col gap-16">
-      <div class="grid gap-8 sm:grid-cols-3">
-        {#each LEDGER_KINDS as kind (kind)}
-          <ChoiceRow
-            selected={kind === target}
-            disabled={kind === from}
-            title={chooseTitle(kind)}
-            onclick={() => (target = kind)}
-          >
-            {LEDGER_RECORD_NAME[kind]}
-            {#snippet detail()}
-              {kind === from ? "where it is now" : LEDGER_SHAPE[kind]}
-            {/snippet}
-          </ChoiceRow>
-        {/each}
-      </div>
-
-      {#if facts === null}
-        <p class="flex items-start gap-8 text-sm text-text-muted">
-          <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
-          <span>Choose the ledger this record belongs on.</span>
-        </p>
-      {:else}
-        <ul class="flex flex-col gap-4 text-sm">
-          {#each facts.keeps as fact (fact)}
-            <li class="flex items-start gap-8">
-              <Check
-                class="mt-4 size-16 shrink-0 text-status-success-subtle-foreground"
-                aria-hidden="true"
-              />
-              <span>{fact}</span>
-            </li>
-          {/each}
-          {#each facts.loses as fact (fact)}
-            <li class="flex items-start gap-8 text-text-muted">
-              <X class="mt-4 size-16 shrink-0" aria-hidden="true" />
-              <span>{fact}</span>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-
-      <p class="text-xs text-text-muted">{keptNumberNote(entryNumber)}</p>
-    </div>
-
-    <div class="flex flex-wrap items-center justify-end gap-8">
-      <Button variant="secondary" onclick={() => (open = false)}>Cancel</Button>
-      {#if moveDependency === undefined}
-        <Button
-          disabled={target === null}
-          title={target === null
-            ? "Choose a ledger first"
-            : `Move this record to the ${LEDGER_NAME[target]} ledger`}
-          onclick={() => {
-            if (target !== null) onMove?.(target);
-          }}
+  {#snippet fields()}
+    <div class="grid gap-8 sm:grid-cols-3">
+      {#each LEDGER_KINDS as kind (kind)}
+        <ChoiceRow
+          selected={kind === target}
+          disabled={kind === from}
+          title={chooseTitle(kind)}
+          onclick={() => (target = kind)}
         >
-          <ArrowRightLeft class="size-16" aria-hidden="true" />
-          Move
-        </Button>
-      {:else}
-        <SoonAffordance reason={moveDependency}>
-          {#snippet control(soon)}
-            <Button {...soon}>
-              <ArrowRightLeft class="size-16" aria-hidden="true" />
-              Move
-            </Button>
+          {LEDGER_RECORD_NAME[kind]}
+          {#snippet detail()}
+            {kind === from ? "where it is now" : LEDGER_SHAPE[kind]}
           {/snippet}
-        </SoonAffordance>
-      {/if}
+        </ChoiceRow>
+      {/each}
     </div>
-  </Dialog.Content>
-</Dialog.Root>
+
+    {#if facts === null}
+      <p class="flex items-start gap-8 text-sm text-text-muted">
+        <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
+        <span>Choose the ledger this record belongs on.</span>
+      </p>
+    {:else}
+      <ul class="flex flex-col gap-4 text-sm">
+        {#each facts.keeps as fact (fact)}
+          <li class="flex items-start gap-8">
+            <Check
+              class="mt-4 size-16 shrink-0 text-status-success-subtle-foreground"
+              aria-hidden="true"
+            />
+            <span>{fact}</span>
+          </li>
+        {/each}
+        {#each facts.loses as fact (fact)}
+          <li class="flex items-start gap-8 text-text-muted">
+            <X class="mt-4 size-16 shrink-0" aria-hidden="true" />
+            <span>{fact}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    <p class="text-xs text-text-muted">{keptNumberNote(entryNumber)}</p>
+  {/snippet}
+</ActionDialog>

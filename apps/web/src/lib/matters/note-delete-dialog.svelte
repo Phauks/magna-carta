@@ -7,8 +7,8 @@
    * pressing: the text is gone and cannot be recovered, and the documents the note pointed at are
    * not — deleting a note has never been a way to delete a document.
    */
-  import * as AlertDialog from "@magna-carta/design-system/alert-dialog";
-  import { buttonClasses } from "@magna-carta/design-system/button";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -26,42 +26,40 @@
     onDeleted: () => void;
   } = $props();
 
-  let sending = $state(false);
   let failure = $state<StatedFailure | null>(null);
-
-  $effect(() => {
-    const subject = note?.id ?? null;
-    if (subject === null) return;
-    failure = null;
-  });
 
   const identity = $derived(note === null ? "" : `${authorName}, ${formatInstant(note.createdAt)}`);
   const attachedCount = $derived(note?.documents.length ?? 0);
 
-  async function remove(): Promise<void> {
-    if (note === null || sending) return;
-    sending = true;
+  async function remove(): Promise<ActionOutcome> {
+    if (note === null) return "refused";
     failure = null;
     const outcome = await deleteMatterNote(fetch, note.id, newWriteKey());
-    sending = false;
     if (outcome.kind === "ok") {
-      open = false;
       onDeleted();
-      return;
+      return "committed";
     }
     failure = stated(
       outcome.failure,
       "The note was not deleted.",
       "Nothing answered. The note was not deleted and is unchanged.",
     );
+    return "refused";
   }
 </script>
 
-<AlertDialog.Root bind:open>
-  <AlertDialog.Content>
-    <AlertDialog.Title>Delete Note</AlertDialog.Title>
-    <AlertDialog.Description>{identity}</AlertDialog.Description>
-
+<ActionDialog
+  bind:open
+  kind="destructive"
+  heading="Delete Note"
+  subtitle={identity}
+  commitLabel="Delete Note"
+  commitBusyLabel="Deleting"
+  unsavedChanges={false}
+  onOpen={() => (failure = null)}
+  onCommit={remove}
+>
+  {#snippet notice()}
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
@@ -70,7 +68,9 @@
         whenSilent={failure.whenSilent}
       />
     {/if}
+  {/snippet}
 
+  {#snippet fields()}
     <p class="text-sm">
       The note and its text are removed and cannot be recovered.
       {#if attachedCount > 0}
@@ -78,27 +78,5 @@
         {attachedCount === 1 ? "stays" : "stay"} in the matter&rsquo;s files, untouched.
       {/if}
     </p>
-
-    <div class="flex justify-end gap-8">
-      <AlertDialog.Cancel
-        class={buttonClasses({ variant: "secondary", size: "default" })}
-        disabled={sending}
-      >
-        Cancel
-      </AlertDialog.Cancel>
-      <!-- Bits' Action does not self-close: the write decides when the panel goes, so a refusal
-           stays on screen with its reason rather than closing over it. -->
-      <AlertDialog.Action
-        class={buttonClasses({ variant: "destructive", size: "default" })}
-        disabled={sending}
-        title="Remove this note and its text"
-        onclick={(event) => {
-          event.preventDefault();
-          void remove();
-        }}
-      >
-        Delete Note
-      </AlertDialog.Action>
-    </div>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+  {/snippet}
+</ActionDialog>

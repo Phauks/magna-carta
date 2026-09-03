@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "catalog:",
+    "@magna-carta/access-control": "workspace:*",
     "@magna-carta/billing": "workspace:*",
     "@magna-carta/calendar": "workspace:*",
     "@magna-carta/conflicts": "workspace:*",
@@ -58,6 +59,7 @@
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/locations": "workspace:*",
+    "@magna-carta/matter-search": "workspace:*",
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*",
     "@magna-carta/reporting": "workspace:*",

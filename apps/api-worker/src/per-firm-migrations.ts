@@ -85,6 +85,7 @@ import downloadItemRequestedFormatSql from "@magna-carta/database/drizzle/per-fi
 import matterNotesEditAndDeleteSql from "@magna-carta/database/drizzle/per-firm/20260901T120000_matter-notes-edit-and-delete.sql";
 import timeEntryRecordSurfacesSql from "@magna-carta/database/drizzle/per-firm/20260901T130000_time-entry-record-surfaces.sql";
 import consultationNumberSql from "@magna-carta/database/drizzle/per-firm/20260901T130001_consultation-number.sql";
+import matterSearchPermissionSql from "@magna-carta/database/drizzle/per-firm/20260901T130002_seed-matter-search-permission.sql";
 import tasksSql from "@magna-carta/database/drizzle/per-firm/20260901T150000_tasks.sql";
 import matterPlansSql from "@magna-carta/database/drizzle/per-firm/20260902T120000_matter-plans.sql";
 import timeEntryTaskLinkSql from "@magna-carta/database/drizzle/per-firm/20260902T190000_time-entry-task-link.sql";
@@ -187,6 +188,7 @@ export function perFirmMigrations(): Migration[] {
     "20260901T120000_matter-notes-edit-and-delete": matterNotesEditAndDeleteSql,
     "20260901T130000_time-entry-record-surfaces": timeEntryRecordSurfacesSql,
     "20260901T130001_consultation-number": consultationNumberSql,
+    "20260901T130002_seed-matter-search-permission": matterSearchPermissionSql,
     "20260901T150000_tasks": tasksSql,
     "20260902T120000_matter-plans": matterPlansSql,
     "20260902T190000_time-entry-task-link": timeEntryTaskLinkSql,

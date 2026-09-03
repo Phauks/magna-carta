@@ -11,6 +11,7 @@ import {
   submitTimeEntry,
   approveTimeEntry,
   kickBackTimeEntry,
+  refileTimeEntry,
   voidTimeEntry,
 } from "@magna-carta/timekeeping/time-entry-service";
 import type { DraftPatch } from "@magna-carta/timekeeping/time-entry-statements";
@@ -238,6 +239,22 @@ const TimeEntryAttachmentAck = z
   .object({ timeEntryId: z.string(), fileId: z.string() })
   .openapi("TimeEntryAttachmentAck");
 
+const RefileTimeEntryRequest = z
+  .object({ matterId: identifierField("matter") })
+  .openapi("RefileTimeEntryRequest");
+const RefileTimeEntryAck = z
+  .object({
+    timeEntryId: z.string(),
+    matterId: z.string(),
+    // The rate and the rounding are re-resolved against the destination, so the ack answers with
+    // what the entry now carries rather than leaving the caller to re-read for it.
+    durationMinutes: z.number().int(),
+    rateE4: z.number().int().nullable(),
+    amountMinor: z.number().int().nullable(),
+    currency: z.string(),
+  })
+  .openapi("RefileTimeEntryAck");
+
 const ConvertToCostRequest = z
   .object({
     // A billable cost on an electronic-billing matter must carry a UTBMS expense code (the task
@@ -417,6 +434,7 @@ const listAttachmentsMeta: RouteMeta = {
 const attachFileMeta = writeMeta("timeEntries.attachFile", TRACK);
 const detachFileMeta = writeMeta("timeEntries.detachFile", TRACK);
 const convertToCostMeta = writeMeta("timeEntries.convertToCost", TRACK);
+const refileMeta = writeMeta("timeEntries.refile", TRACK);
 
 const createRoute = defineOpenAPIRoute(createMeta, {
   method: "post",
@@ -725,6 +743,39 @@ const previewRoute = defineOpenAPIRoute(previewMeta, {
     403: readErrorResponses[403],
     404: readErrorResponses[404],
     429: readErrorResponses[429],
+  },
+});
+
+const refileRoute = defineOpenAPIRoute(refileMeta, {
+  method: "post",
+  path: "/api/v1/time-entries/{id}/refile",
+  description:
+    "Moves a misfiled DRAFT entry onto another matter. Its own route rather than a PATCH of " +
+    "matterId, because it is a cross-matter write: two ledgers change, and the rate the entry " +
+    "froze was resolved against the matter it is leaving. The entry number, the description, the " +
+    "memo, the codes, the attachments and the whole history carry across untouched; the RATE and " +
+    "the ROUNDING INCREMENT are re-resolved against the destination as of the entry's own work " +
+    "date, because both are matter-scoped and carrying one client's answer to another is how a " +
+    "firm bills at the wrong rate. Refused for anything past draft, anything on a bill, and " +
+    "anything a draft invoice has claimed — past that the entry is evidence somebody is relying " +
+    "on, and the answer is a void and a fresh record.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: timeEntryParam,
+    body: { content: { "application/json": { schema: RefileTimeEntryRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The entry was refiled",
+      content: { "application/json": { schema: RefileTimeEntryAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
   },
 });
 
@@ -1777,6 +1828,149 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       return c.json(
         JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ConvertToCostAck>,
         201,
+      );
+    },
+  );
+
+  // POST /api/v1/time-entries/{id}/refile — move a misfiled draft onto another matter.
+  //
+  // The pre-reads produce the named refusals a person can act on; the WHERE-guard on the refile
+  // statement (draft AND unclaimed) is the concurrency backstop behind them, so an entry submitted
+  // or billed between the read and the write matches nothing rather than moving.
+  app.openapi(
+    { ...refileRoute, middleware: chokepointMiddleware(chokepoint, refileRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const { matterId } = c.req.valid("json");
+      const entryId = id as TimeEntryId;
+
+      const now = () => new Date().toISOString();
+      let result;
+      try {
+        const { results: entryRows } = await firm.firmDatabase
+          .prepare(
+            "SELECT matter_id, timekeeper_user_id, work_date, raw_duration_minutes, billable, status, invoice_id, rate_card_id FROM time_entry WHERE id = ?1",
+          )
+          .bind(entryId)
+          .all<{
+            matter_id: string;
+            timekeeper_user_id: string;
+            work_date: string;
+            raw_duration_minutes: number;
+            billable: number;
+            status: "draft" | "submitted" | "approved" | "billed" | "void";
+            invoice_id: string | null;
+            rate_card_id: string | null;
+          }>();
+        const entry = entryRows[0];
+        if (entry === undefined) {
+          throw new TimeEntryValidationError("not-found", `no such time entry: ${entryId}`);
+        }
+        if (entry.invoice_id !== null) {
+          throw new TimeEntryValidationError(
+            "frozen-entry",
+            "this entry is on a finalized bill — a billed entry is evidence, and the way to correct it is a credit note beside the bill, never a move nobody can see",
+          );
+        }
+        // An entry a draft invoice has claimed is spoken for: moving it out from under the draft
+        // would leave the bill charging a matter it is no longer billing.
+        const { results: claimRows } = await firm.firmDatabase
+          .prepare(
+            "SELECT 1 AS present FROM invoice_wip_claim WHERE source_kind = 'time_entry' AND source_id = ?1 AND released_at IS NULL",
+          )
+          .bind(entryId)
+          .all<{ present: number }>();
+        if (claimRows[0] !== undefined) {
+          throw new TimeEntryValidationError(
+            "claimed-by-draft",
+            "a draft invoice has claimed this entry — release the claim before moving it to another matter",
+          );
+        }
+        // The destination has to be a real matter of THIS firm. The read is scoped to the firm's
+        // own database, so a matter identifier from another firm simply is not there.
+        const { results: matterRows } = await firm.firmDatabase
+          .prepare("SELECT id FROM matter WHERE id = ?1")
+          .bind(matterId)
+          .all<{ id: string }>();
+        if (matterRows[0] === undefined) {
+          throw new TimeEntryValidationError("not-found", `no such matter: ${matterId}`);
+        }
+
+        // The rate and the rounding are re-asked against the DESTINATION, on the entry's own work
+        // date — both resolve through the matter, so the answers the old matter gave are answers
+        // about a different question. This is the capture route's own resolution, reused.
+        const resolved = await resolveCaptureValues(firm.firmDatabase, {
+          matterId,
+          // The row's own timekeeper, read back out of the record it is stored in — the branded
+          // shape the request schema mints is what the resolver's input is typed as.
+          timekeeperUserId: entry.timekeeper_user_id as z.infer<
+            typeof CreateTimeEntryRequest
+          >["timekeeperUserId"],
+          workDate: entry.work_date,
+          rawDurationMinutes: entry.raw_duration_minutes,
+          narrative: "-",
+          billable: entry.billable === 1,
+          source: "manual",
+          // The card the entry already resolved on, so a firm with several cards keeps the entry on
+          // the one it was captured under; the TIER within it is what the destination re-answers.
+          ...(entry.rate_card_id === null
+            ? {}
+            : {
+                rateCardId: entry.rate_card_id as NonNullable<
+                  z.infer<typeof CreateTimeEntryRequest>["rateCardId"]
+                >,
+              }),
+        });
+        const rate = resolved.rate;
+        const refiled = {
+          matterId,
+          durationMinutes: resolved.durationMinutes,
+          rateE4: "noRate" in rate ? null : rate.rateE4,
+          rateCardId: "noRate" in rate ? null : rate.rateCardId,
+          rateSource: "noRate" in rate ? null : rate.rateSource,
+          amountMinor: "noRate" in rate ? null : rate.amountMinor,
+          currency: resolved.currency,
+        };
+
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          now,
+          effect: async () => {
+            const moved = await refileTimeEntry(
+              firm.firmDatabase,
+              entryId,
+              { ...refiled, fromMatterId: entry.matter_id },
+              { clock: { now }, actorUserId: userId },
+            );
+            return {
+              write: moved.effect,
+              responseCode: 200,
+              responseBody: canonicalJsonStringify({
+                timeEntryId: entryId,
+                matterId,
+                durationMinutes: refiled.durationMinutes,
+                rateE4: refiled.rateE4,
+                amountMinor: refiled.amountMinor,
+                currency: refiled.currency,
+              }),
+            };
+          },
+        });
+      } catch (caught) {
+        if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(
+        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RefileTimeEntryAck>,
+        200,
       );
     },
   );

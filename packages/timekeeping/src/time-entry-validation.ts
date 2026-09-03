@@ -26,7 +26,10 @@ export type TimeEntryValidationCode =
   // Conversion guards: an entry already billed (or claimed by a draft bill), already void, or
   // carrying no amount cannot convert to another charge kind.
   | "no-amount"
-  | "claimed-by-draft";
+  | "claimed-by-draft"
+  // Refile guard: the entry is already on the matter it was asked to move to. Refusing rather than
+  // no-opping keeps the act's meaning — a move that moved nothing still reported success.
+  | "same-matter";
 
 export class TimeEntryValidationError extends Error {
   constructor(

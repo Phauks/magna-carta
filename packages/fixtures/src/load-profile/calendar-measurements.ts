@@ -293,18 +293,20 @@ export async function timelinePageBounds(
 // `(occurred_at, id)` index; and `custodyDueBack` drives from the packets that are out rather than
 // from the ledger.
 //
-// The ten that remain are a decision rather than a backlog. Each costs at most 1.7 ms of this one
+// Those that remain are a decision rather than a backlog. Each costs at most 1.7 ms of this one
 // read at the profile corpus, and between them they are the platform's hottest write paths — the
 // trade of an index on every one of them against a few milliseconds on federation's weakest read is
 // not worth taking yet. `file` behind `documentFiled` is the one to revisit first, because the
-// document corpus grows fastest; the number to revisit it against is this measurement.
+// document corpus grows fastest; the number to revisit it against is this measurement. `matterNote`
+// orders on COALESCE(occurred_on, created_at's date) — a note is placed on the day it happened when
+// the author said so and on the day it was typed otherwise — and no plain index serves an expression
+// the source composes at read time, so it joins the list on the same terms rather than gaining an
+// expression index for one read.
 //
-// `matterNote` and `matterTask` are the two most recent, and they are here for exactly the reason
-// above rather than as an oversight waved through: both carry composite indexes led by `matter_id`
-// (`matter_task` also has an `(assignee_user_id, state, due_on)` index for the member's own list),
-// and a firm-wide window naming no matter and no member can seek neither. A date-led index on
-// either would come at the cost of a write path a firm touches all day, for a read that is already
-// the slowest thing the calendar does; the note to revisit is the same one the other eight carry.
+// `matterTask` joins them for its own reason: it carries composite indexes led by `matter_id` (and
+// an `(assignee_user_id, state, due_on)` one for the member's own list), and a firm-wide window
+// naming no matter and no member can seek either. A date-led index would cost a write path a firm
+// touches all day, for the slowest read the calendar does.
 export const CALENDAR_PLAN_SCAN_ALLOWLIST: readonly string[] = [
   "timeline.firm-window.matterDeadline",
   "timeline.firm-window.emailFiled",

@@ -15,6 +15,7 @@ import {
 } from "@magna-carta/data-access/download-register-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { DownloadItemId } from "@magna-carta/identifiers/types";
 import type { StoredTabularDocument } from "@magna-carta/export-document/renderable";
 import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
@@ -70,7 +71,9 @@ export async function recordExportSnapshot(input: RecordSnapshotInput): Promise<
   const id = newIdentifier("downloadItem") as DownloadItemId;
   const objectKey = snapshotObjectKey(id);
   const body = new TextEncoder().encode(JSON.stringify(input.document));
-  await input.bucket.put(objectKey, body);
+  await input.bucket.put(objectKey, body, {
+    customMetadata: firmScopedObjectDimensions("export-snapshot"),
+  });
   await input.database.batch([
     insertDownloadItemStatement(input.database, {
       id,

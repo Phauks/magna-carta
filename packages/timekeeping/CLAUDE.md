@@ -13,7 +13,8 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
 
 ## Key files / entry points
 
-- `src/time-entry-service.ts` — `captureTimeEntry` + the lifecycle transitions (submit/approve/kickBack/void)
+- `src/time-entry-service.ts` — `captureTimeEntry`, the lifecycle transitions
+  (submit/approve/kickBack/void), and `refileTimeEntry` (a misfiled draft onto another matter)
 - `src/lifecycle.ts` — the pure Draft→Billed state machine (`assertTransition`, `isFrozen`), gate-aware
 - `src/rate-service.ts` — `createRateCard` / `appendRate` (effective-dated, non-overlap) / `reRateUnbilledDrafts`
 - `src/rate-resolution.ts` — pure `resolveRate` (override → matter → client → timekeeper → role → card default)
@@ -63,8 +64,15 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
   by the stricter of the two everywhere it is read. Void is excluded and every other status counts:
   a discarded capture is not an hour, a billed hour still is one.
 - **An entry number is immutable and never reused.** It is drawn once at capture and kept through
-  every transition — a void keeps its number — and an entry captured before the sequence existed
-  stays null rather than being backfilled with a guess.
+  every transition — a void keeps its number, and so does a REFILE onto another matter — and an entry
+  captured before the sequence existed stays null rather than being backfilled with a guess. Because
+  the number's shape names the matter it was drawn on, a refiled entry's prefix is provenance rather
+  than an assertion about where it lives now.
+- **The matter moves only through `refileTimeEntry`, and takes the rate with it.** `matterId` is not
+  a `DraftPatch` field: moving it is a cross-matter write, and the rate and rounding an entry carries
+  were resolved against the matter it is leaving. The caller re-resolves against the destination on
+  the entry's own work date and hands the result in. This does NOT weaken the snapshot rule above —
+  that forbids a later rate-card edit re-rating a standing entry, which is still true.
 
 ## Dependencies & contracts
 

@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   soonControlProperties,
   soonDependencySentence,
-} from "../src/lib/maturity/soon-affordance.ts";
+} from "../src/lib/components/maturity/soon-affordance.ts";
 
 const EM_DASH = "—";
 

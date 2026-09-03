@@ -5,8 +5,7 @@
    */
   import type { Component } from "svelte";
   import type { ToolManifest } from "@magna-carta/tools/types";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import { hasSurface } from "$lib/maturity/maturity.ts";
+  import { MaturityBadge, hasSurface } from "@magna-carta/design-system/maturity";
   import type { ToolPresentation } from "./tool-presentation.ts";
 
   let {

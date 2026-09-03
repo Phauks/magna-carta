@@ -4178,6 +4178,49 @@
           "responsibleMemberName"
         ]
       },
+      "MatterCloseReadiness": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "prospective",
+              "open",
+              "closed"
+            ]
+          },
+          "closable": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "status",
+          "closable",
+          "blockers"
+        ]
+      },
       "MatterActionAck": {
         "type": "object",
         "properties": {
@@ -12208,6 +12251,130 @@
         },
         "required": [
           "fileId"
+        ]
+      },
+      "MatterSearchAnswer": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterSearchGroup"
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "query",
+          "groups"
+        ]
+      },
+      "MatterSearchGroup": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "answerShape": {
+            "type": "string",
+            "enum": [
+              "listing",
+              "ranked"
+            ]
+          },
+          "matchedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supportsDeleted": {
+            "type": "boolean"
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatterSearchHit"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "skipped": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "permission",
+              "query-too-short",
+              "engine-unavailable",
+              null
+            ]
+          }
+        },
+        "required": [
+          "source",
+          "section",
+          "answerShape",
+          "matchedFields",
+          "supportsDeleted",
+          "hits",
+          "hasMore",
+          "skipped"
+        ]
+      },
+      "MatterSearchHit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secondary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortKey": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "snippet",
+          "secondary",
+          "actorUserId",
+          "sortKey",
+          "link"
         ]
       },
       "MatterTaskPage": {
@@ -26950,6 +27117,55 @@
           }
         }
       },
+      "RefileTimeEntryAck": {
+        "type": "object",
+        "properties": {
+          "timeEntryId": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "type": "integer"
+          },
+          "rateE4": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "amountMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "timeEntryId",
+          "matterId",
+          "durationMinutes",
+          "rateE4",
+          "amountMinor",
+          "currency"
+        ]
+      },
+      "RefileTimeEntryRequest": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "matterId"
+        ]
+      },
       "TimerStartAck": {
         "type": "object",
         "properties": {
@@ -39623,6 +39839,91 @@
           },
           "422": {
             "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{id}/close-readiness": {
+      "get": {
+        "description": "Answers whether this matter would close right now, without closing it. Runs the same close preconditions the close runs and reports each one that stands in the way, with the balance and the movements that clear it, in the words of the subsystem that owns the rule. A matter that is already closed is reported as not closable, with that as its blocker. The answer is a reading of the present, never a guarantee: the close re-asserts every rule inside its own batch, so a balance that moves in between is caught there.",
+        "operationId": "matters.closeReadiness",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.closeReadiness",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:close",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether the matter can close, and what stands in the way",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterCloseReadiness"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -55766,6 +56067,141 @@
           },
           "422": {
             "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/search": {
+      "get": {
+        "description": "Searches one matter across every section the member may read, answering one group per source in the matter's own section order. Pass `in` (repeatable) to narrow to named sources; absent means every source the member may read, and there is no value meaning wider than this matter. A group that contributed nothing says why — a source the member lacks the capability for is reported as withheld rather than returned empty, so a search never reads as 'this matter holds nothing' when it holds something the reader cannot see.",
+        "operationId": "matterSearch.search",
+        "tags": [
+          "matterSearch"
+        ],
+        "x-mc-operationId": "matterSearch.search",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "search:matter",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matterSearch"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "required": false,
+            "name": "in",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "includeDeleted",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One group per selected source",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterSearchAnswer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -84325,6 +84761,140 @@
         }
       }
     },
+    "/api/v1/time-entries/{id}/refile": {
+      "post": {
+        "description": "Moves a misfiled DRAFT entry onto another matter. Its own route rather than a PATCH of matterId, because it is a cross-matter write: two ledgers change, and the rate the entry froze was resolved against the matter it is leaving. The entry number, the description, the memo, the codes, the attachments and the whole history carry across untouched; the RATE and the ROUNDING INCREMENT are re-resolved against the destination as of the entry's own work date, because both are matter-scoped and carrying one client's answer to another is how a firm bills at the wrong rate. Refused for anything past draft, anything on a bill, and anything a draft invoice has claimed — past that the entry is evidence somebody is relying on, and the answer is a void and a fresh record.",
+        "operationId": "timeEntries.refile",
+        "tags": [
+          "timeEntries"
+        ],
+        "x-mc-operationId": "timeEntries.refile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:track",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "timeEntries"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^timeEntry_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefileTimeEntryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The entry was refiled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefileTimeEntryAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/timer/start": {
       "post": {
         "description": "Starts the timekeeper's live timer, stopping any timer already running (single-active). Mints a live run id and sets the abandoned alarm.",
@@ -90874,6 +91444,9 @@
     },
     {
       "name": "matterPlans"
+    },
+    {
+      "name": "matterSearch"
     },
     {
       "name": "matterTypes"

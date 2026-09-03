@@ -44,10 +44,14 @@ describe("the gallery route", () => {
     // Written as a match over what the page imports rather than as a literal of the banned form:
     // the repository's own boundary sweep reads this file too, and the bare specifier spelled out
     // here would trip it. The escaped slash is what keeps the two apart, and is deliberate.
+    //
+    // There is deliberately no floor on how many icons the page imports. It once had exactly one,
+    // and the day its mark became a design-system component the page had none — which is the
+    // outcome this repository wants, and a floor that failed on it would be a floor punishing the
+    // right move. The rule is about the SHAPE of an import, and no imports satisfy it honestly.
     const specifiers = [...PAGE.matchAll(/from "@lucide\/svelte([^"]*)"/g)].map(
       (hit) => hit[1] ?? "",
     );
-    expect(specifiers.length).toBeGreaterThan(0);
     expect(specifiers.filter((suffix) => !suffix.startsWith("/icons/"))).toEqual([]);
   });
 
@@ -144,7 +148,7 @@ describe("the status register and the chain", () => {
     // to the product appears here without anyone remembering to add it.
     expect(PAGE).toContain("Object.keys(STATUS_VOCABULARIES)");
     expect(PAGE).toContain("statusVocabulary(vocabulary)");
-    expect(PAGE).toContain("statusMarkClasses()");
+    expect(PAGE).toContain("<StatusMark label={entry.label} />");
   });
 
   it("shows the chain with the review gate off, with it on, and locked", () => {

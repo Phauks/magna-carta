@@ -197,6 +197,58 @@ export function updateDraftStatement(
     .bind(...bindings);
 }
 
+/*
+ * Refiling a draft onto another matter.
+ *
+ * Its own statement rather than a `matterId` on DraftPatch, deliberately. The matter is not one of an
+ * entry's editable business columns: moving it is a CROSS-MATTER write — two ledgers change, two
+ * matters' totals move, and the rate the entry froze was resolved against the matter it is leaving.
+ * A patch field would let any caller that can edit a narrative also move money between matters
+ * without meaning to. So the columns move together, in one guarded statement, or not at all.
+ *
+ * The rate travels WITH the matter for the same reason. The chain resolves matter, then client, then
+ * timekeeper — so an entry that changes matters is asking a different question of it, and the answer
+ * the old matter gave is not an answer about the new one. This is not the snapshot invariant
+ * bending: that rule says a rate card edited later never re-rates a standing entry, which is still
+ * true. The caller resolves against the destination and hands the result here.
+ */
+export interface RefilePatch {
+  readonly matterId: string;
+  readonly durationMinutes: number;
+  readonly rateE4: number | null;
+  readonly rateCardId: string | null;
+  readonly rateSource: string | null;
+  readonly amountMinor: number | null;
+  readonly currency: string;
+}
+
+export function refileStatement(
+  database: SqlDatabase,
+  id: TimeEntryId,
+  patch: RefilePatch,
+  updatedAt: string,
+): SqlStatement {
+  // The guard is the same shape as the draft edit's and carries the same job: a row that stopped
+  // being a draft between the service's read and this write matches nothing and the batch reports
+  // no change, rather than moving an entry somebody has since submitted or billed. `invoice_id IS
+  // NULL` is the second half of it — a claimed row is one a bill is relying on.
+  return database
+    .prepare(
+      `UPDATE ${TIME_ENTRY_TABLE} SET matter_id = ?2, duration_minutes = ?3, rate_e4 = ?4, rate_card_id = ?5, rate_source = ?6, amount_minor = ?7, currency = ?8, updated_at = ?9 WHERE id = ?1 AND status = 'draft' AND invoice_id IS NULL`,
+    )
+    .bind(
+      id,
+      patch.matterId,
+      patch.durationMinutes,
+      patch.rateE4,
+      patch.rateCardId,
+      patch.rateSource,
+      patch.amountMinor,
+      patch.currency,
+      updatedAt,
+    );
+}
+
 // Reads the row the service guards against before composing a transition or freeze-guarded edit: the
 // service needs the current status to choose the legal target and to refuse a frozen row up front (the
 // WHERE-guard is the backstop; this read produces the human-facing refusal code).
