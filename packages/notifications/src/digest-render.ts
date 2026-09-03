@@ -39,6 +39,7 @@ import type { EmailDetailLevel, NotificationCategory, NotificationDigestCadence 
 const CATEGORY_LABELS: Readonly<Record<NotificationCategory, string>> = Object.freeze({
   deadlines: "Deadlines",
   calendar: "Calendar",
+  tasks: "Tasks",
   trust: "Trust",
   billing: "Billing",
   documents: "Documents",

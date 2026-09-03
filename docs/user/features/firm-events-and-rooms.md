@@ -1,7 +1,7 @@
 # Firm events and rooms
 
-_The backend is built. The calendar screens are authored when those surfaces ship; today firm
-events, resources, and bookings are recorded through the API._
+_Firm events are recorded and read on the firm calendar. Resources and bookings are built and are
+the room grid, the Rooms tab on an event, and the catalog under Settings are live._
 
 ## What it does
 
@@ -34,7 +34,7 @@ not belong here; personal appointments are their own thing when they are built.
 
 ## Recording a firm event
 
-Give it a title, a date, and a time zone. The event usually happens at one of your offices, so you
+On the firm calendar, **Record** then **Firm Event**. Give it a title, a date, and a time zone. The event usually happens at one of your offices, so you
 can pick the office — which also tells the calendar which rooms are nearby — or type a venue for an
 offsite. Classify it from the same type list case events use; the shipped list includes **Firm
 meeting**, **Training**, **Office closure**, **Firm holiday**, and **Reservation**.

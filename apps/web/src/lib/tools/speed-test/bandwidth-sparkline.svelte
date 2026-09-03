@@ -16,6 +16,7 @@
    * data. The geometry stretches to fill the tile width (`preserveAspectRatio="none"`); strokes hold
    * their pixel width through `vector-effect`.
    */
+  import * as DataTable from "@magna-carta/design-system/data-table";
   import { linePath, niceMax, scaleLinear } from "./chart-scale.ts";
   import { percentile } from "./bandwidth-stats.ts";
   import { formatBandwidth } from "./speed-test-format.ts";
@@ -124,22 +125,22 @@
   <details class="mt-8">
     <summary class="cursor-pointer text-xs text-text-muted">Table view</summary>
     {#if points.length > 0}
-      <table class="mt-8 w-full text-left text-sm">
-        <thead>
-          <tr>
-            <th scope="col" class="font-medium text-text-muted">Sample</th>
-            <th scope="col" class="font-medium text-text-muted">Speed</th>
-          </tr>
-        </thead>
-        <tbody>
+      <DataTable.Root class="mt-8">
+        <DataTable.Header>
+          <DataTable.Row>
+            <DataTable.Head>Sample</DataTable.Head>
+            <DataTable.Head data-align="end">Speed</DataTable.Head>
+          </DataTable.Row>
+        </DataTable.Header>
+        <DataTable.Body>
           {#each points as point, index (index)}
-            <tr>
-              <td>{index + 1}</td>
-              <td>{formatBandwidth(point.bps)}</td>
-            </tr>
+            <DataTable.Row>
+              <DataTable.Cell>{index + 1}</DataTable.Cell>
+              <DataTable.Cell data-align="end">{formatBandwidth(point.bps)}</DataTable.Cell>
+            </DataTable.Row>
           {/each}
-        </tbody>
-      </table>
+        </DataTable.Body>
+      </DataTable.Root>
     {:else}
       <p class="mt-8 text-sm text-text-muted">{ABSENT_DESCRIPTION}</p>
     {/if}

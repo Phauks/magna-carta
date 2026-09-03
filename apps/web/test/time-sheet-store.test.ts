@@ -5,11 +5,11 @@
  * says whether it landed. That makes the store the one place where "the surface works" is decided,
  * and it had no coverage at all — which is how every write except the first came to be answered 400
  * without a single failing test. So these assert the REQUESTS the store makes, over the exact path
- * a person walks: create a row, type into it again, strike it.
+ * a person walks: create a row, type into it again, void it.
  *
  * The other half is the undo stack telling the truth. A step is only offered where the store can
- * genuinely put the thing back, and these pin both directions of that: a strike offers no step,
- * and a snapshot older than a strike does not resurrect the struck entry.
+ * genuinely put the thing back, and these pin both directions of that: a void offers no step,
+ * and a snapshot older than a void does not resurrect the voided entry.
  *
  * The third half, added when the sheet became firm-wide, is the MATTER. A row may be captured
  * without one and is then not sent at all, because capture takes a matter; setting one is what puts
@@ -191,7 +191,7 @@ describe("a row captured before anybody knew where it belonged", () => {
 
 describe("the matter of an entry the firm already holds", () => {
   /*
-   * A misfiled entry MOVES rather than being struck and re-typed: it keeps its number, its memo,
+   * A misfiled entry MOVES rather than being voided and re-typed: it keeps its number, its memo,
    * its codes, its files and its history. The move is its own route, not the debounced cell save,
    * because it is a cross-matter write with its own refusals.
    */
@@ -261,7 +261,7 @@ describe("striking an entry", () => {
     expect(sent.headers[IDEMPOTENCY_HEADER]).toBeDefined();
   });
 
-  it("offers no undo step, because nothing un-strikes an entry", async () => {
+  it("offers no undo step, because a void is a status change this stack cannot rewrite", async () => {
     const { store } = sheetOver([entry()]);
 
     await store.voidRow("entry-1");
@@ -270,12 +270,16 @@ describe("striking an entry", () => {
     expect(store.history.undoLabels).toEqual([]);
   });
 
-  it("says at the time that undo does not reach it", async () => {
+  it("says at the time that undo does not reach it, and where the repair actually is", async () => {
     const { announcements, store } = sheetOver([entry()]);
 
     await store.voidRow("entry-1");
 
-    expect(announcements.join(" ")).toContain("Undo does not reach it");
+    // Both halves. Saying only the first would leave a reader believing the void is permanent,
+    // which it stopped being when the entry gained a way back to draft.
+    const said = announcements.join(" ");
+    expect(said).toContain("Undo does not reach it");
+    expect(said).toContain("restore it from the ledger or the record window");
   });
 
   it("does offer a step for a row nothing was ever written for, and puts it back", async () => {
@@ -301,8 +305,8 @@ describe("adding a row", () => {
   });
 });
 
-describe("an undo reaching back past a strike", () => {
-  it("does not put the struck entry back on the sheet as a workable draft", async () => {
+describe("an undo reaching back past a void", () => {
+  it("does not put the voided entry back on the sheet as a workable draft", async () => {
     const { store } = sheetOver([entry()]);
     store.setDescription("entry-1", "Reviewed the responses");
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
@@ -314,7 +318,7 @@ describe("an undo reaching back past a strike", () => {
     expect(store.rowByKey("entry-1")?.status).toBe("void");
   });
 
-  it("writes nothing to an entry that has since been struck", async () => {
+  it("writes nothing to an entry that has since been voided", async () => {
     const { store, recorder } = sheetOver([entry()]);
     store.setDescription("entry-1", "Reviewed the responses");
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);

@@ -21,6 +21,8 @@
    * separate caption.
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import Badge from "@magna-carta/design-system/badge";
   import { buttonClasses } from "@magna-carta/design-system/button";
@@ -84,19 +86,15 @@
 
   function openDocumentation(): void {
     if (documentationHref === null) return;
-    window.open(documentationHref, "_blank", "noopener,noreferrer");
+    openBeside(documentationHref, "external");
   }
 </script>
 
 <div class="border-b border-border-strong px-24 pt-24 pb-12">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>{title}</Masthead.Title>
-    </Masthead.Heading>
-
+  <ScreenHeader {title}>
     <!-- The universal information group, the same order on every page; history anchors the
          terminal edge. -->
-    <Masthead.Actions class="flex-wrap justify-end">
+    {#snippet actions()}
       <Badge variant="neutral" class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
         {badgeLabel ?? POSTURE_BADGES[posture]}
       </Badge>
@@ -136,8 +134,8 @@
           {restoreAction}
         />
       {/if}
-    </Masthead.Actions>
-  </Masthead.Root>
+    {/snippet}
+  </ScreenHeader>
 
   <!-- The descriptor runs the FULL content width (owner-directed): the information group lives
        in the title row above it, so nothing constrains this line. -->

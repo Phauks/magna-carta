@@ -10,7 +10,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
   import Grid from "../lib/components/data-table/data-table-grid.svelte";
-  import LitigationGrid, { TIME_COLUMNS } from "./support/litigation-grid.svelte";
+  import LitigationGrid, { TIME_COLUMNS, TIME_ENTRIES } from "./support/litigation-grid.svelte";
   import EmptyState from "../lib/components/empty-state/empty-state.svelte";
 
   const { Story } = defineMeta({
@@ -25,9 +25,17 @@
   // template); each play run clears it before asserting.
   const activateSpy = fn();
 
-  /** The rendered body rows (the totals row lives in tfoot and is not among these). */
+  /*
+   * The rendered RECORD rows.
+   *
+   * `data-grid-row` is the component's own mark for "this row is a record", and filtering on it is
+   * the only correct way to count them: the body deliberately holds structural rows besides the
+   * records — the pin rule, a row-detail's second line, and the filler that holds the totals strip
+   * down at the bottom of the frame. A bare `tbody tr` counts those too, which is a count that
+   * changes when the table's chrome changes rather than when its data does.
+   */
   const bodyRows = (table: HTMLElement): HTMLElement[] =>
-    Array.from(table.querySelectorAll("tbody tr"));
+    Array.from(table.querySelectorAll("tbody tr[data-grid-row]"));
 
   // The row-groups fixture: two entries pinned in a deliberate arrangement (the OLDER one first,
   // so the block cannot be mistaken for the sort), and two rows waiting on the clipboard.
@@ -214,7 +222,14 @@
     // Right-click the heading, then step into the column's Filter submenu — the one way in.
     const openFilter = async (label: string): Promise<void> => {
       await fireEvent.contextMenu(headOf(label));
-      await body.findByRole("menu");
+      const menu = await body.findByRole("menu");
+      // Wait for focus to be INSIDE the menu, not merely for the menu to exist. The menu takes
+      // focus on open (the panel, then its first item), but on the next animation frame rather
+      // than synchronously with its mount. A step that opens the submenu and focuses its field
+      // before that frame fires has the frame land afterwards and move focus back to the menu
+      // panel, mid-word (seen 2026-09-03, under the story suite's load, in one run of six). Once
+      // focus is inside the menu, its open-time work is spent.
+      await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
       await userEvent.click(body.getByRole("menuitem", { name: `Filter ${label}` }));
       await waitFor(() => expect(body.getAllByRole("menu").length).toBeGreaterThan(1));
     };
@@ -302,7 +317,10 @@
       const from = await body.findByRole("spinbutton", { name: "From" });
       // "From" and "To" ARE the fields' names, so they stand as ghost text.
       await expect(from).toHaveAttribute("placeholder", "From");
-      await userEvent.type(from, "2");
+      // The field is focused and the keys sent to it: what this step asserts is the keyboard
+      // rule, so only the keyboard is in play.
+      from.focus();
+      await userEvent.keyboard("2");
       // A field inside a menu keeps its own keys: typing did not hand focus to a menu item.
       await expect(from).toHaveFocus();
       await waitFor(() => expect(bodyRows(table)).toHaveLength(6));
@@ -327,7 +345,9 @@
       const contains = await body.findByRole("searchbox", { name: "Filter Title" });
       // The ghost text is the field's name, not a description of the matching rule.
       await expect(contains).toHaveAttribute("placeholder", "Title");
-      await userEvent.type(contains, "motion");
+      // Keyboard only, for the reason given at the numeric range step above.
+      contains.focus();
+      await userEvent.keyboard("motion");
       await expect(contains).toHaveFocus();
       await waitFor(() => expect(bodyRows(table)).toHaveLength(3));
       // Clear All Filters from the footer clears every filter at once.
@@ -712,6 +732,67 @@
 >
   {#snippet template()}
     <LitigationGrid rows={[]} columnWidths={OVERWIDE_COLUMN_WIDTHS} empty={overwideEmptyState} />
+  {/snippet}
+</Story>
+
+
+<!--
+  The totals strip is held at the BOTTOM of the frame, not left wherever the last row ended.
+
+  A ledger fills the height it is given, so the ordinary case is a table with room beneath it. The
+  strip is sticky, and sticky does nothing while there is nothing below to scroll past — so a table
+  shorter than its frame used to leave its totals just under the last row with a band of blank
+  surface beneath them. This story is that exact shape — one record in a frame with room for
+  several — and it measures the result rather than trusting the eye.
+-->
+<Story
+  name="Totals held at the bottom of the frame"
+  args={{}}
+  play={async ({ canvas, step }) => {
+    const frame = canvas.getByRole("group", { name: "Time entries" });
+    const table = canvas.getByRole("table");
+    const totalsRow = table.querySelector("tfoot tr:last-child");
+    if (totalsRow === null) throw new Error("the totals row did not render");
+
+    await step("There is real slack between the last record and the totals", async () => {
+      const record = table.querySelector("tbody tr[data-grid-row]");
+      if (record === null) throw new Error("the record row did not render");
+      await expect(table.querySelectorAll("tbody tr[data-grid-row]").length).toBe(1);
+      // The condition the whole fix is about, measured: a gap the filler row is holding open.
+      // Without it the strip would begin where this record ends, and the gap would be zero.
+      const gap = totalsRow.getBoundingClientRect().top - record.getBoundingClientRect().bottom;
+      await expect(gap).toBeGreaterThan(100);
+    });
+
+    await step("The totals sit on the frame's own bottom edge", async () => {
+      const frameBottom = frame.getBoundingClientRect().bottom;
+      const totalsBottom = totalsRow.getBoundingClientRect().bottom;
+      // Within a couple of pixels, allowing for the frame's hairline border.
+      await expect(Math.abs(frameBottom - totalsBottom)).toBeLessThanOrEqual(2);
+    });
+
+    await step("The record keeps its own height rather than stretching to fill", async () => {
+      const record = table.querySelector("tbody tr[data-grid-row]");
+      if (record === null) throw new Error("the record row did not render");
+      // The slack goes to the filler row. Had table layout shared it out instead, this single row
+      // would have taken most of the frame.
+      await expect(record.getBoundingClientRect().height).toBeLessThan(60);
+    });
+
+    await step("The scenery row counts as scenery, not as a record", async () => {
+      // It has to live in the body for the layout to work at all, so it says what it is instead:
+      // no `data-grid-row`, which is the mark every count of real rows filters on, and hidden from
+      // assistive technology so nobody is told about an empty row.
+      const filler = table.querySelector(".mc-table-grid-filler-row");
+      await expect(filler).not.toBeNull();
+      await expect(filler).toHaveAttribute("aria-hidden", "true");
+      await expect(filler).not.toHaveAttribute("data-grid-row");
+      await expect(table.querySelectorAll("tbody tr[data-grid-row]").length).toBe(1);
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid rows={TIME_ENTRIES.slice(0, 1)} frameClass="min-h-0 flex-1" frameHeight="320px" />
   {/snippet}
 </Story>
 

@@ -57,6 +57,21 @@
     block-size: fit-content;
   }
 
+  /*
+   * EXPANDED, THE PANEL IS THE SCREEN, AND A SCREEN HAS SQUARE CORNERS. A radius says "this is a
+   * sheet lying on top of something"; at full size there is nothing underneath to lie on, and the
+   * curve reads as four notches of desktop showing through at the corners of the application. So
+   * the corners square the moment the panel takes the viewport.
+   *
+   * It belongs on the FRAME rather than in either shell, because both shells expand and a rule
+   * either one wrote would be a rule the other has to remember to write. The selector carries an
+   * attribute, so it wins over the dialog panel's own radius without needing to be more specific
+   * than the thing it corrects.
+   */
+  .mc-modal-frame[data-expanded="true"] {
+    border-radius: var(--mc-radius-none);
+  }
+
   /* --- the header band ------------------------------------------------------------------- */
 
   .mc-modal-frame-header {

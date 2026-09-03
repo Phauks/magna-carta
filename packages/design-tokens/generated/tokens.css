@@ -162,6 +162,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -443,6 +445,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -724,6 +728,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -1005,6 +1011,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -1286,6 +1294,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -1567,6 +1577,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -1848,6 +1860,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -2129,6 +2143,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -2410,6 +2426,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -2691,6 +2709,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -2972,6 +2992,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;
@@ -3253,6 +3275,8 @@
   --mc-radius-md: 7px;
   --mc-radius-none: 0px;
   --mc-radius-sm: 2px;
+  /* The one create control in the matter header, fixed at the width its longest label needs ("New Packet" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position. */
+  --mc-size-create-control: 136px;
   --mc-size-popover: 224px;
   /* The constrained readable measure for descriptions and form bodies (the design language's field discipline: forms and prose are never full-width). */
   --mc-size-prose: 480px;

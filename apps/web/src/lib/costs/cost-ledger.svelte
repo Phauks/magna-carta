@@ -36,7 +36,6 @@
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
   import {
     LedgerPanes,
     RecordMenu,
@@ -67,6 +66,7 @@
   import { costRecordMenu, type CostMenuRecord } from "./cost-record-menu.ts";
   import {
     approveCost,
+    readCostLedgerEntry,
     submitCost,
     writeKey,
     type CostAcknowledgement,
@@ -87,6 +87,7 @@
     matterNumber = null,
     permissions = null,
     loading = false,
+    openCostId = null,
     onChanged,
   }: {
     /** Every cost on the matter, in every status: that is what a matter's cost record is. */
@@ -97,6 +98,8 @@
     /** What this account may do, from the session bootstrap. Null while it has not been read. */
     permissions?: readonly string[] | null;
     loading?: boolean;
+    /** A cost to open on arrival — what a deep link into this section names. */
+    openCostId?: string | null;
     /** Something was written; the matter's costs want re-reading. */
     onChanged: () => void;
   } = $props();
@@ -172,7 +175,32 @@
     windowOpen = true;
   }
 
-  function openRecordACost(): void {
+  /*
+   * The cost this ledger was asked to open, opened the way any cost opens: from the loaded page
+   * where it is on it, else read by its id — a cost older than the first page opens all the same.
+   * Once per id.
+   */
+  let honouredCostId = $state<string | null>(null);
+  $effect(() => {
+    const wanted = openCostId;
+    if (wanted === null || loading || honouredCostId === wanted) return;
+    honouredCostId = wanted;
+    const loaded = costs.find((cost) => cost.id === wanted);
+    if (loaded !== undefined) {
+      openRecord(loaded, false);
+      return;
+    }
+    void readCostLedgerEntry(fetch, wanted).then((outcome) => {
+      if (outcome.kind === "ok") openRecord(outcome.value, false);
+    });
+  });
+
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowEntry = null;
     windowEditing = true;
     windowOpen = true;
@@ -289,7 +317,7 @@
         // Duplicating starts a new draft from this cost's fields. Until a duplicate route exists,
         // the window opens on a blank draft rather than one silently pre-filled from a record the
         // server was never asked to copy.
-        openRecordACost();
+        openNew();
         return;
       case "submit":
         submitCosts(targets.filter((cost) => cost.status === "draft"));
@@ -400,13 +428,7 @@
 {#snippet emptyLedger()}
   <EmptyState title="No Costs Recorded Yet">
     Filing fees, service, transcripts, experts: every cost paid or consumed for this matter lands
-    here.
-    {#snippet actions()}
-      <Button onclick={openRecordACost}>
-        <Plus class="size-16" aria-hidden="true" />
-        Record a Cost
-      </Button>
-    {/snippet}
+    here. New Cost, at the top of the matter, records the first.
   </EmptyState>
 {/snippet}
 
@@ -450,14 +472,6 @@
         {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
       </Button>
     {/if}
-    <Button
-      size="sm"
-      title="Record a cost paid or consumed on this matter. It saves as a draft."
-      onclick={openRecordACost}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Record a Cost
-    </Button>
     <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
          border of its own, and last in the row on every ledger. -->
     <Button

@@ -40,9 +40,9 @@
   import Separator from "@magna-carta/design-system/separator";
   import { personName } from "@magna-carta/design-system/formatters";
   import { parseDate, type DateValue } from "@internationalized/date";
-  import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
-  import SubjectPartyPicker from "./subject-party-picker.svelte";
-  import WaiverDocumentPicker from "./waiver-document-picker.svelte";
+  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
+  import MatterDocumentPicker from "$lib/documents/matter-document-picker.svelte";
   import {
     recordConflictsDisposition,
     DISPOSE_CONFLICTS_PERMISSION,
@@ -92,7 +92,8 @@
 
   // The waiver's own record. `confirmedInWriting` starts unanswered on purpose: it is a fact in its
   // own right and a reviewer has to state it, so there is no default for the control to imply.
-  let consentingParty = $state<DirectorySearchHit | null>(null);
+  let consentingParty = $state<PickableEntity | null>(null);
+  const partySearch = directoryPickerSearch(fetch);
   let confirmedInWriting = $state<"yes" | "no" | "">("");
   let documentFileId = $state<string | null>(null);
   let givenOn = $state("");
@@ -183,7 +184,7 @@
         waiver:
           kind === "waiver_obtained" && consentingParty !== null
             ? {
-                givenByEntityId: consentingParty.entityId,
+                givenByEntityId: consentingParty.identifier,
                 confirmedInWriting: confirmedInWriting === "yes",
                 documentFileId,
                 givenOn,
@@ -255,12 +256,13 @@
         {#snippet children({ props })}
           <!-- A Directory record, not a typed name: the consenting party has to be somebody a
                reader can look up, which is the difference between a waiver and a claim of one. -->
-          <SubjectPartyPicker
-            selected={consentingParty === null ? [] : [consentingParty]}
-            onAdd={(picked) => (consentingParty = picked)}
-            onRemove={() => (consentingParty = null)}
-            inputId={props.id}
+          <EntityPicker
+            search={partySearch}
+            bind:value={consentingParty}
+            label="Waiver given by"
+            inputId="{fieldPrefix}-waiver-given-by"
             disabled={busy}
+            disabledReason={busy ? "The disposition is being recorded." : undefined}
           />
         {/snippet}
       </LabelledField>
@@ -289,10 +291,17 @@
 
       <LabelledField label="Evidencing Document">
         {#snippet children({ props })}
-          <WaiverDocumentPicker
+          <!-- The filed document that evidences the written confirmation, from the matter's own
+               files. A firm asked to produce a client's informed consent has to produce the
+               document, not a note saying where it might be. -->
+          <MatterDocumentPicker
             bind:value={documentFileId}
             {matterId}
             inputId={props.id}
+            fieldName="Evidencing Document"
+            noMatterNote="This check names no matter, so there is nowhere to file the confirmation yet. The waiver can be recorded without it and reads as incomplete until a later answer names the document."
+            noFilesNote="This matter holds no files yet. Filing the confirmation and recording a second answer is what completes the record."
+            chosenNoun="the evidencing document"
             disabled={busy}
           />
         {/snippet}

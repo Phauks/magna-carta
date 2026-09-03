@@ -25,6 +25,7 @@
    * element; settings-plate.svelte is the reference for the recipe.
    */
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
@@ -133,8 +134,7 @@
         {#if version !== null && changelogHref !== null}
           <a
             href={changelogHref}
-            target="_blank"
-            rel="noreferrer noopener"
+            {...opensBeside("external")}
             class="text-sm text-text-default tabular-nums underline decoration-border-default underline-offset-4 hover:decoration-current"
           >
             {version}

@@ -57,3 +57,12 @@ recorded, which is the one direction this engine must never be wrong in).
 Rule 4.2 constituent question becomes answerable against an organization. A firm records "member of"
 because the owner asked for it, and it lands in a class that means something. The cost is twelve new
 catalog entries and one new budget default a firm may need to tune.
+
+**Build status, 2026-09-02:** the catalog half is built — `EDGE_TYPES` carries the membership family
+and the record screen offers it, with `affiliation` kept for the rows already recorded and no longer
+offered. The fifth budgeted class is **deferred to the owner's conflicts pass**, which will align
+conflicts with intake: a new class needs its own default in settings, its own row in the recorded
+scope and the check runner's budget field, and none of those is built. Until then every constituent
+type is classed `control` in `packages/conflicts/src/edge-classes.ts`, the over-inclusive direction,
+so no conflict the engine looked for before goes unlooked for; the class map's comment says so beside
+the entries. The status stays Proposed for the class half.

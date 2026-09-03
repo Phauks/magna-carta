@@ -11,6 +11,7 @@
    * (src/lib/navigation/ecosystem-sites.ts) — add or wire a site THERE, never here.
    */
   import * as Avatar from "@magna-carta/design-system/avatar";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import Badge from "@magna-carta/design-system/badge";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Bug from "@lucide/svelte/icons/bug";
@@ -29,9 +30,9 @@
 
   function openEcosystemSite(href: string): void {
     // The design-system menu Item keeps Bits' element delegation closed, so a live site cannot
-    // render as a literal anchor; it opens programmatically with the same isolation a
-    // target="_blank" rel="noreferrer noopener" link would get.
-    window.open(href, "_blank", "noopener,noreferrer");
+    // render as a literal anchor; it opens programmatically through the one gate, with the same
+    // isolation an anchor through it would get.
+    openBeside(href, "external");
   }
 </script>
 

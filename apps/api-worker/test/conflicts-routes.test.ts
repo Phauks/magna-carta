@@ -136,6 +136,310 @@ describe("conflicts check routes", () => {
     expect(id).toMatch(/^conflictsCheck_/);
   });
 
+  it("carries an earlier answer about the same party as context, leaving the hit unanswered", async () => {
+    /*
+     * The owner's ruling of 2026-09-02, on the wire. The firm answers a hit about a party; a LATER
+     * check surfaces the same party, and that hit carries what was said before — and is still
+     * unanswered. A response that put the earlier answer in `disposition` would be the platform
+     * concluding on a reviewer's behalf about a question nobody has asked yet.
+     */
+    const subjectId = await createPerson("Twice", "Surfaced");
+    const matchId = await createPerson("Twice", "Surfaced");
+    const scope = { sources: ["party"], strictness: "balanced", depth: 1 };
+
+    const first = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope,
+    });
+    expect(first.status, await first.clone().text()).toBe(201);
+    const { id: firstCheckId } = (await first.json()) as { id: string };
+    const firstRead = await get(`/api/v1/conflicts/checks/${firstCheckId}`);
+    const firstBody = (await firstRead.json()) as {
+      hits: Array<{ id: string; entityId: string; previouslyAnswered: unknown }>;
+    };
+    const firstHit = firstBody.hits.find((hit) => hit.entityId === matchId);
+    expect(firstHit).toBeDefined();
+    // Nothing has been said about this party yet.
+    expect(firstHit?.previouslyAnswered).toBeNull();
+
+    const answered = await post(`/api/v1/conflicts/hits/${firstHit?.id}/dispositions`, {
+      kind: "cleared",
+      rationale: "former client, unrelated matter",
+    });
+    expect(answered.status, await answered.clone().text()).toBe(201);
+
+    const second = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope,
+    });
+    expect(second.status, await second.clone().text()).toBe(201);
+    const { id: secondCheckId } = (await second.json()) as { id: string };
+    const secondRead = await get(`/api/v1/conflicts/checks/${secondCheckId}`);
+    const secondBody = (await secondRead.json()) as {
+      hits: Array<{
+        entityId: string;
+        disposition: unknown;
+        previouslyAnswered: { checkId: string; kind: string } | null;
+      }>;
+    };
+    const secondHit = secondBody.hits.find((hit) => hit.entityId === matchId);
+    expect(secondHit?.previouslyAnswered?.kind).toBe("cleared");
+    expect(secondHit?.previouslyAnswered?.checkId).toBe(firstCheckId);
+    // The point of the ruling: context, not a conclusion. This hit is unanswered.
+    expect(secondHit?.disposition).toBeNull();
+  });
+
+  it("lists the checks the firm has run, newest first, and narrows to one matter", async () => {
+    const subjectId = await createPerson("History", "Subject");
+    const matter = await post("/api/v1/matters", {
+      title: "Check history",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      clientDisplayName: "History Client",
+    });
+    expect(matter.status, await matter.clone().text()).toBe(201);
+    const { matterId } = (await matter.json()) as { matterId: string };
+
+    // One check against the matter, one against a bare party set with no matter at all — which the
+    // schema allows and a listing must not imply is impossible.
+    const forMatter = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      matterId,
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(forMatter.status, await forMatter.clone().text()).toBe(201);
+    const { id: matterCheckId } = (await forMatter.json()) as { id: string };
+    const withoutMatter = await post("/api/v1/conflicts/checks", {
+      trigger: "preliminary",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(withoutMatter.status, await withoutMatter.clone().text()).toBe(201);
+
+    const all = await get("/api/v1/conflicts/checks");
+    expect(all.status, await all.clone().text()).toBe(200);
+    const page = (await all.json()) as {
+      data: Array<{
+        id: string;
+        matterId: string | null;
+        actorUserId: string | null;
+        triggerSource: string | null;
+        hitCount: number;
+      }>;
+      nextCursor: string | null;
+    };
+    // Newest first, and the envelope is the uniform one — never a bare array.
+    expect(page.data.length).toBeGreaterThanOrEqual(2);
+    expect(page).toHaveProperty("nextCursor");
+    const listed = page.data.find((entry) => entry.id === matterCheckId);
+    expect(listed?.matterId).toBe(matterId);
+    // A person asked for it, so the row names them. An automated run would carry null here, and the
+    // two must never read alike.
+    expect(listed?.actorUserId).toBe(ownerUserId);
+    expect(typeof listed?.hitCount).toBe("number");
+
+    const narrowed = await get(`/api/v1/conflicts/checks?matterId=${matterId}`);
+    expect(narrowed.status, await narrowed.clone().text()).toBe(200);
+    const narrowedPage = (await narrowed.json()) as { data: Array<{ matterId: string | null }> };
+    expect(narrowedPage.data.length).toBeGreaterThan(0);
+    // The matterless check must not appear under a matter's own history.
+    for (const entry of narrowedPage.data) expect(entry.matterId).toBe(matterId);
+  });
+
+  it("re-checks a matter on demand, against its live parties and the firm's own floor", async () => {
+    /*
+     * The affordance a reviewer presses. It takes no scope on purpose: "re-check this matter" has
+     * none for a caller to state, and asking would invite a screen to compose a narrower search than
+     * the firm requires. It also names no subjects — runConflictsCheck reads the matter's own live
+     * parties, so a party added since the last check is in the search without anybody listing them.
+     */
+    const clientId = await createPerson("Recheck", "Client");
+    const matter = await post("/api/v1/matters", {
+      title: "Re-check on demand",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      clientDisplayName: "Recheck Client",
+    });
+    expect(matter.status, await matter.clone().text()).toBe(201);
+    const { matterId } = (await matter.json()) as { matterId: string };
+    const party = await post("/api/v1/directory/matter-parties", {
+      matterId,
+      entityId: clientId,
+      role: "client",
+    });
+    expect(party.status, await party.clone().text()).toBe(201);
+
+    const recheck = await post(`/api/v1/matters/${matterId}/conflicts-rechecks`, {});
+    expect(recheck.status, await recheck.clone().text()).toBe(201);
+    const { checkId } = (await recheck.json()) as { checkId: string };
+    expect(checkId).toMatch(/^conflictsCheck_/);
+
+    // It is somebody's act, and the log says whose — unlike an automated run, which is nobody's.
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    expect(read.status, await read.clone().text()).toBe(200);
+    const body = (await read.json()) as {
+      check: { matterId: string | null; actorUserId: string | null };
+    };
+    expect(body.check.matterId).toBe(matterId);
+    expect(body.check.actorUserId).toBe(ownerUserId);
+  });
+
+  it("serves the firm's conflicts floor, with the party class always in it", async () => {
+    const response = await get("/api/v1/firm/conflicts-policy");
+    expect(response.status, await response.clone().text()).toBe(200);
+    const policy = (await response.json()) as {
+      floorSources: string[];
+      floorStrictness: string;
+      balancedNameRoles: string[];
+    };
+    // Never optional: conflicts impute across the whole firm, so a floor that could drop the party
+    // corpus would be a floor that permits a check nobody should be able to ask for.
+    expect(policy.floorSources).toContain("party");
+    expect(policy.floorStrictness).toBeTruthy();
+    // Never empty: an emptied set would compare no name rows at all — a check that runs and finds
+    // nothing for a reason nothing on the row explains.
+    expect(policy.balancedNameRoles.length).toBeGreaterThan(0);
+  });
+
+  it("serves every answer on a hit, oldest first, with the reversed one still standing", async () => {
+    /*
+     * The compliance artifact. The log is append-only so that a reviewer who cleared a hit and later
+     * reversed leaves both acts on the books; this read is what makes that history producible. A
+     * response carrying only the surviving answer would destroy on the read what the triggers refuse
+     * to destroy on the write.
+     */
+    const subjectId = await createPerson("Trailed", "Subject");
+    const matchId = await createPerson("Trailed", "Subject");
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const { id: checkId } = (await created.json()) as { id: string };
+
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    const body = (await read.json()) as { hits: Array<{ id: string; entityId: string }> };
+    const hit = body.hits.find((candidate) => candidate.entityId === matchId);
+    expect(hit).toBeDefined();
+
+    // Nobody has answered it yet: an empty trail, not a 404 and not an error.
+    const empty = await get(`/api/v1/conflicts/hits/${hit?.id}/dispositions`);
+    expect(empty.status, await empty.clone().text()).toBe(200);
+    const emptyBody = (await empty.json()) as { dispositions: unknown[] };
+    expect(emptyBody.dispositions).toEqual([]);
+
+    const cleared = await post(`/api/v1/conflicts/hits/${hit?.id}/dispositions`, {
+      kind: "cleared",
+      rationale: "former client, unrelated matter",
+    });
+    expect(cleared.status, await cleared.clone().text()).toBe(201);
+    const reversed = await post(`/api/v1/conflicts/hits/${hit?.id}/dispositions`, {
+      kind: "representation_declined",
+      rationale: "on review, the parent is a current client",
+    });
+    expect(reversed.status, await reversed.clone().text()).toBe(201);
+
+    const trail = await get(`/api/v1/conflicts/hits/${hit?.id}/dispositions`);
+    expect(trail.status, await trail.clone().text()).toBe(200);
+    const trailBody = (await trail.json()) as {
+      hitId: string;
+      dispositions: Array<{ kind: string; rationale: string; shortfalls: string[] }>;
+    };
+    expect(trailBody.hitId).toBe(hit?.id);
+    expect(trailBody.dispositions.map((entry) => entry.kind)).toEqual([
+      "cleared",
+      "representation_declined",
+    ]);
+    // The clearance keeps its own words, which is the whole point of not editing it.
+    expect(trailBody.dispositions[0]?.rationale).toBe("former client, unrelated matter");
+  });
+
+  it("answers 404 for a hit that does not exist, rather than an empty trail", async () => {
+    // "No such hit" and "nobody has answered this hit" are different facts, and conflating them
+    // would let a mistyped handle read as an unanswered candidate.
+    const response = await get(
+      `/api/v1/conflicts/hits/${newIdentifier("conflictsHit")}/dispositions`,
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("names the party each hit is about, resolved from the Directory on the read", async () => {
+    // The gap this closed: a hit carried entity_id and nothing else, so a reviewer looking at the
+    // candidate list could not tell who had surfaced without opening every row one at a time.
+    const subjectId = await createPerson("Ines", "Herrera");
+    const matchId = await createPerson("Ines", "Herrera");
+
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const { id: checkId } = (await created.json()) as { id: string };
+
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    expect(read.status, await read.clone().text()).toBe(200);
+    const body = (await read.json()) as {
+      hits: Array<{
+        entityId: string;
+        party: { kind: string; displayName: string | null } | null;
+      }>;
+    };
+
+    const hit = body.hits.find((candidate) => candidate.entityId === matchId);
+    expect(hit, "the name-twin should surface as a hit").toBeDefined();
+    expect(hit?.party).toEqual({ kind: "person", displayName: "Ines Herrera" });
+  });
+
+  it("says an entity could not be resolved rather than leaving the party blank", async () => {
+    /*
+     * The conflicts log is append-only, so a hit keeps naming the entity it matched even after the
+     * Directory has reshaped that entity — a merge is the ordinary way this happens. The wire must
+     * carry that as an UNRESOLVED party, because a null read as "no party" would invert the meaning
+     * of the one thing a conflicts hit is: a party the firm may have a problem with.
+     *
+     * The hit is written directly, because the only supported way to reach this state through the
+     * API is to merge an entity away, which is a different subsystem's act.
+     */
+    const subjectId = await createPerson("Absent", "Reference");
+    const created = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const { id: checkId } = (await created.json()) as { id: string };
+
+    await firmDatabase
+      .prepare(
+        `INSERT INTO conflicts_hit (id, check_id, entity_id, source_class, evidence_tier,
+           matched_fields_json, graph_path_json, co_party, created_at)
+         VALUES (?1, ?2, ?3, 'party', 2, '[]', '[]', 0, ?4)`,
+      )
+      .bind(
+        newIdentifier("conflictsHit"),
+        checkId,
+        "directoryPerson_mergedAwayAfterTheCheck",
+        new Date().toISOString(),
+      )
+      .run();
+
+    const read = await get(`/api/v1/conflicts/checks/${checkId}`);
+    expect(read.status, await read.clone().text()).toBe(200);
+    const body = (await read.json()) as {
+      hits: Array<{ entityId: string; party: unknown }>;
+    };
+    const orphan = body.hits.find(
+      (candidate) => candidate.entityId === "directoryPerson_mergedAwayAfterTheCheck",
+    );
+    expect(orphan, "the unresolvable hit still comes back").toBeDefined();
+    expect(orphan?.party).toBeNull();
+  });
+
   it("reads a check back with its hits, and dispositions a surfaced hit", async () => {
     // Two persons sharing a name so the check surfaces one as a conflicts hit for the other.
     const subjectId = await createPerson("Marguerite", "Castellane");

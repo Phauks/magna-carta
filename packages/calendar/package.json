@@ -30,16 +30,19 @@
     "./timeline": "./src/timeline.ts",
     "./notifications": "./src/notifications.ts",
     "./sources/registry": "./src/sources/registry.ts",
-    "./sources/all": "./src/sources/all.ts"
+    "./sources/all": "./src/sources/all.ts",
+    "./settings": "./src/settings.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/access-control": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "@magna-carta/money": "workspace:*"
+    "@magna-carta/money": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

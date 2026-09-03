@@ -10,6 +10,7 @@ import {
 import { CONFLICTS_OUTBOX_TOPICS } from "@magna-carta/conflicts/topics";
 import { EMAIL_FILING_OUTBOX_TOPICS } from "@magna-carta/email-filing/topics";
 import { FILE_MANAGER_OUTBOX_TOPICS } from "@magna-carta/file-manager/topics";
+import { TASK_OUTBOX_TOPICS } from "@magna-carta/tasks/notifications";
 import { LEDGER_ENTRY_POSTED_TOPIC } from "@magna-carta/ledger/post-entry";
 import { MATTER_OUTBOX_TOPICS } from "@magna-carta/matters/topics";
 import { LOCALLY_NAMED_EMISSION_POINTS } from "../src/emission-points.ts";
@@ -46,6 +47,7 @@ const PRODUCING_PACKAGE_TOPICS = new Set<string>([
   ...CONFLICTS_OUTBOX_TOPICS,
   ...EMAIL_FILING_OUTBOX_TOPICS,
   ...FILE_MANAGER_OUTBOX_TOPICS,
+  ...TASK_OUTBOX_TOPICS,
   LEDGER_ENTRY_POSTED_TOPIC,
   INVOICE_FINALIZED_TOPIC,
   INVOICE_VOIDED_TOPIC,

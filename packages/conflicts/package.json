@@ -17,6 +17,7 @@
     "./report-text": "./src/report-text.ts",
     "./sources": "./src/sources.ts",
     "./statements": "./src/statements.ts",
+    "./subject-facts": "./src/subject-facts.ts",
     "./audit": "./src/audit.ts",
     "./run-conflicts-effect": "./src/run-conflicts-effect.ts",
     "./fitness": "./src/fitness.ts",
@@ -28,7 +29,6 @@
     "./recheck-request": "./src/recheck-request.ts",
     "./candidate-bound": "./src/candidate-bound.ts",
     "./edge-classes": "./src/edge-classes.ts",
-    "./subject-facts": "./src/subject-facts.ts",
     "./waiver": "./src/waiver.ts"
   },
   "scripts": {

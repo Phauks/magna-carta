@@ -1,0 +1,214 @@
+@layer components {
+  /*
+   * RecordParties — the people and organizations linked to a record, presented inside a record
+   * window's context pane.
+   *
+   * This is a WORK SURFACE, not chrome: it sits beside the record a person is reading, so it stays
+   * calm. Hairlines between rows, one weight of ink for the name (the identity mark's own) and a
+   * quieter one for the role and for who linked them and when, and no fill anywhere. The identity
+   * of this product lives on the window that frames this pane, never on the pane's own data.
+   *
+   * The pane it lives in already scrolls, so nothing here scrolls inside itself: a record with
+   * thirty parties makes the tab longer, not this list shorter. That is what keeps the add row
+   * reachable by scrolling rather than stranded under a nested scrollbar.
+   */
+  .mc-record-parties {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-default);
+  }
+
+  /* --- the parties themselves --------------------------------------------------------------- */
+
+  .mc-record-parties-list {
+    display: flex;
+    flex-direction: column;
+    margin: var(--mc-space-0);
+    padding: var(--mc-space-0);
+    list-style: none;
+  }
+  /*
+   * A hairline BETWEEN rows rather than under each one: a rule under the last row would read as the
+   * start of something that is not there.
+   */
+  .mc-record-parties-item + .mc-record-parties-item {
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+  }
+  .mc-record-parties-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-8);
+  }
+  /* The identity mark and the meta line, stacked; the mark decides the row's leading edge. */
+  .mc-record-parties-item-body {
+    display: flex;
+    flex: auto;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    min-inline-size: var(--mc-space-0);
+  }
+  /* Who linked them and when. One quiet line; the instant is absolute and in the reader's own zone. */
+  .mc-record-parties-item-meta {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-record-parties-item-separator {
+    margin-inline: var(--mc-space-4);
+    color: var(--mc-text-subtle);
+  }
+  /*
+   * Removing. A quiet icon control that lifts to the default ink under the pointer — deliberately
+   * NOT the danger colour, because ending an association destroys nothing and a red control would
+   * say otherwise before the reader had read a word.
+   */
+  .mc-record-parties-remove {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--mc-density-control-sm);
+    min-block-size: var(--mc-density-control-sm);
+    padding: var(--mc-space-4);
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-record-parties-remove:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-record-parties-remove:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /* After the hover rule, so a refused control reads muted at REST and not only under the pointer. */
+  .mc-record-parties-remove:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-record-parties-remove-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+
+  /* --- while it is loading, and when it could not be read ----------------------------------- */
+
+  .mc-record-parties-placeholder-mark {
+    flex: none;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-radius: var(--mc-radius-full);
+  }
+  .mc-record-parties-placeholder-line {
+    block-size: var(--mc-space-12);
+    border-radius: var(--mc-radius-sm);
+  }
+  .mc-record-parties-error-message {
+    display: block;
+  }
+  /* The reference a person quotes when they report the failure. Set apart so it can be read out. */
+  .mc-record-parties-error-identifier {
+    display: block;
+    margin-block-start: var(--mc-space-4);
+    font-family: var(--mc-font-mono);
+    font-size: var(--mc-font-size-xs);
+  }
+  .mc-record-parties-error-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-block-start: var(--mc-space-12);
+  }
+
+  /* --- adding one ---------------------------------------------------------------------------- */
+
+  .mc-record-parties-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+  }
+  /* The way in wears the secondary button, with its glyph held to the leading edge. */
+  .mc-record-parties-add {
+    justify-content: flex-start;
+    gap: var(--mc-space-8);
+  }
+  .mc-record-parties-add-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  /* Why adding is refused, stated once beneath the control rather than only in a hover. */
+  .mc-record-parties-refusal {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  /*
+   * The inline add row. A hairline above it marks where the list ends and the entry begins; no
+   * fill, because it is part of the same work surface and not a panel over it.
+   */
+  .mc-record-parties-add-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-12);
+    padding-block-start: var(--mc-space-12);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+  }
+  /* A label over its control, at the one offset every field in the row shares. */
+  .mc-record-parties-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+  }
+  /* What the record already holds about the chosen entity: a fact under the field, in the quiet ink. */
+  .mc-record-parties-held {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  /* The one link that means nothing, refused in words as well as on the control. */
+  .mc-record-parties-add-refusal {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  /* The dismissal at the weak hand, the commit last at the strong hand, as every action bar is. */
+  .mc-record-parties-add-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--mc-space-8);
+  }
+
+  /* --- the confirmation ---------------------------------------------------------------------- */
+
+  .mc-record-parties-confirm-body {
+    margin: var(--mc-space-0);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-default);
+  }
+}

@@ -16,22 +16,25 @@
  *
  * WHAT THE SERVER TAKES TODAY, STATED ONCE. Opening a matter is TWO writes, not one. The create
  * operation accepts a title, a starting status, an optional description, an optional matter type and
- * Location, ONE responsible member, and a client display name. The rest of the team is a second
+ * Location, ONE responsible member, and the client — a directory entity, whose party link the
+ * server writes in the same batch, with the display name beside it. The rest of the team is a second
  * operation, one write per person, and it refuses the responsible role on purpose — that fact lives
  * on the matter itself, so the accountable person cannot be recorded twice and disagree with
  * themselves. This model therefore produces both: `intakeRequest` for the matter and
  * `intakeAssignments` for the people who join it.
  *
- * Money and the conflict check are genuinely not writable from here, and for a reason worth stating
- * rather than working around: a trust deposit and an invoice are both recorded AGAINST a matter, so
- * neither can happen before one exists; and the conflict check searches directory entities, which a
- * typed client name is not. Both are rendered as real controls that cannot yet be used, saying so.
+ * Money is genuinely not writable from here, and for a reason worth stating rather than working
+ * around: a trust deposit and an invoice are both recorded AGAINST a matter, so neither can happen
+ * before one exists. Those are rendered as real controls that cannot yet be used, saying so. The
+ * conflict check CAN run here, because the client is a directory entity from the moment it is
+ * chosen, and that is what the engine searches for.
  */
 import {
   ASSIGNED_ATTORNEY_ROLE,
   SUPPORT_STAFF_ROLE,
   type CreateMatterAssignmentRequest,
 } from "./matter-assignments-api.ts";
+import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
 import type { CreateMatterRequest } from "./matters-api.ts";
 
 /**
@@ -147,8 +150,13 @@ export function teamAfterRelease(team: MatterTeam, memberId: string): MatterTeam
 export interface IntakeDraft {
   readonly title: string;
   readonly startingStatus: StartingStatus;
-  /** The client's name as it should print. Chosen from the firm's existing clients, or newly named. */
-  readonly clientName: string;
+  /**
+   * The client, chosen from the firm's directory. A matter has one from the moment it exists —
+   * open or prospective alike, because a prospective matter's conflict check needs a person — so
+   * the intake refuses to create one without it, and a name typed here never becomes a record: a
+   * person the directory does not hold is added there first.
+   */
+  readonly client: PickableEntity | null;
   readonly matterTypeId: string | null;
   readonly locationId: string | null;
   readonly description: string;
@@ -158,7 +166,7 @@ export interface IntakeDraft {
 export const EMPTY_INTAKE_DRAFT: IntakeDraft = {
   title: "",
   startingStatus: "open",
-  clientName: "",
+  client: null,
   matterTypeId: null,
   locationId: null,
   description: "",
@@ -180,6 +188,7 @@ function orNull(text: string): string | null {
  */
 export function intakeBlockedOn(draft: IntakeDraft): string | null {
   if (draft.title.trim() === "") return "A matter needs a title.";
+  if (draft.client === null) return "A matter needs a client.";
   if (draft.team.responsibleMemberId === null) return "A matter needs a responsible attorney.";
   return null;
 }
@@ -187,12 +196,13 @@ export function intakeBlockedOn(draft: IntakeDraft): string | null {
 /**
  * Which section a reader should be sent to for what is missing, or null when nothing is.
  *
- * It only ever names a TAB. What the right-hand side holds is already in view, so nothing there
- * needs to be navigated to — and sending somebody to a place they are already looking would read
- * as the screen not knowing what it is showing.
+ * It only ever names a TAB. What the right-hand side holds — the client among it — is already in
+ * view, so nothing there needs to be navigated to; sending somebody to a place they are already
+ * looking would read as the screen not knowing what it is showing.
  */
 export function intakeBlockedSection(draft: IntakeDraft): IntakeSectionIdentifier | null {
   if (draft.title.trim() === "") return "matter";
+  if (draft.client === null) return null;
   if (draft.team.responsibleMemberId === null) return "people";
   return null;
 }
@@ -207,7 +217,8 @@ export function intakeBlockedSection(draft: IntakeDraft): IntakeSectionIdentifie
 export function intakeRequest(draft: IntakeDraft): CreateMatterRequest | null {
   const responsibleMemberId = draft.team.responsibleMemberId;
   const title = draft.title.trim();
-  if (title === "" || responsibleMemberId === null) return null;
+  const client = draft.client;
+  if (title === "" || responsibleMemberId === null || client === null) return null;
   return {
     title,
     status: draft.startingStatus,
@@ -215,7 +226,10 @@ export function intakeRequest(draft: IntakeDraft): CreateMatterRequest | null {
     matterTypeId: draft.matterTypeId,
     locationId: draft.locationId,
     responsibleMemberId,
-    clientDisplayName: orNull(draft.clientName),
+    // The entity is the client; the name travels beside it as the caption the docket prints, so a
+    // list read that does not join the directory still has something to show.
+    clientEntityId: client.identifier,
+    clientDisplayName: client.name,
   };
 }
 
@@ -240,38 +254,15 @@ export function intakeAssignments(draft: IntakeDraft): readonly CreateMatterAssi
 }
 
 /**
- * What a conflict check would actually be run against.
+ * What a conflict check run from the intake actually searches: the client, and only the client.
  *
- * Derived from what the intake has genuinely captured, never from a field invented to feed it: the
- * client the firm would be acting for, and the matter's own caption, which in litigation carries the
- * other side's name inside it. Adverse parties are recorded on the matter's own Parties section
- * once the matter exists, so they join the subjects there rather than being typed into a box here
- * that nothing would store.
+ * Exactly what the request sends, so the list drawn above the control never names a subject the
+ * check did not have. The matter's caption carries the other side's name in litigation, but the
+ * engine searches directory entities and a caption is a string; adverse parties are recorded on
+ * the matter's own Parties section once the matter exists, and the check that runs on creation
+ * takes them from there.
  */
 export function conflictSubjects(draft: IntakeDraft): readonly string[] {
-  const subjects: string[] = [];
-  const clientName = draft.clientName.trim();
-  const title = draft.title.trim();
-  if (clientName !== "") subjects.push(clientName);
-  if (title !== "" && title !== clientName) subjects.push(title);
-  return subjects;
-}
-
-/**
- * The distinct clients the firm already has matters for, in the order they read.
- *
- * This is the whole client list the screen can honestly offer: nothing on the server publishes a
- * client directory, so the clients that exist are the ones the docket already names. Opening a
- * second matter for an existing client therefore picks them rather than re-typing them, which is
- * what stops the same client being spelled two ways across two matters.
- */
-export function knownClientNames(
-  matters: readonly { clientDisplayName: string | null }[],
-): readonly string[] {
-  const seen = new Set<string>();
-  for (const matter of matters) {
-    const name = matter.clientDisplayName?.trim() ?? "";
-    if (name !== "") seen.add(name);
-  }
-  return [...seen].sort((left, right) => left.localeCompare(right));
+  const clientName = draft.client?.name.trim() ?? "";
+  return clientName === "" ? [] : [clientName];
 }

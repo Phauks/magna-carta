@@ -9,6 +9,7 @@
    * artifact hands back a short-lived URL the browser downloads directly.
    */
   import { onMount } from "svelte";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { guidanceFor } from "$lib/diagnostics/guidance.ts";
@@ -22,7 +23,7 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import { toast } from "@magna-carta/design-system/toast";
   import {
@@ -149,7 +150,7 @@
       for (const artifact of result.artifacts) {
         const outcome = await fetchShelfItem(fetch, artifact.id, "file");
         if (outcome.kind === "ok" && outcome.value.url !== undefined) {
-          globalThis.open(outcome.value.url, "_blank");
+          openBeside(outcome.value.url, "file");
         } else {
           unreachable.push(artifact);
         }
@@ -200,18 +201,18 @@
   <title>Downloads · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Eyebrow>Downloads</Masthead.Eyebrow>
-    <Masthead.Title>Downloads</Masthead.Title>
-  </Masthead.Heading>
-  <Masthead.Actions>
+<ScreenHeader
+  title="Downloads"
+  eyebrow="Downloads"
+  class="mb-24"
+>
+  {#snippet actions()}
     <Button variant="ghost" onclick={() => void load()}>
       <RotateCcw class="size-16" aria-hidden="true" />
       Refresh
     </Button>
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if failure !== null}
   <FailureNotice

@@ -229,6 +229,13 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // notes:* governs matter notes — the note, its revisions and its retraction all hang off the
   // matter that owns them, so the namespace binds "matter" exactly as documents:* and files:* do.
   notes: "matter",
+  // tasks:* governs work with somebody's name on it. It binds the FIRM and NOT the matter, which is
+  // the deliberate contrast with notes:* directly above and the one thing to read before copying
+  // that row. A task's matter is NULLABLE — renewing the malpractice policy is real firm work on no
+  // client file — so a matter cannot be the tenancy root of a record that need not have one. The
+  // matter-scoped list still narrows by matter and still composes the visible-matter predicate;
+  // what the binding names is which root the chokepoint resolves, not what a read returns.
+  tasks: "firm",
   // downloads:* governs a member's own shelf of what the platform produced for them. It binds the
   // FIRM rather than the matter, on the custody:* reasoning: a shelf spans every matter a member
   // bundled or exported from, and an export that ran outside any matter (the Firm Usage report) has
@@ -763,7 +770,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
   // Guards the suite against vacuity: if operations() yielded nothing, every `toEqual([])` below would
   // pass trivially. Assert the document exposes exactly the operations we expect to enforce over.
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
-    const ids = [...operations(document)].map((entry) => entry.operationId).sort();
+    const ids = [...operations(document)].map((entry) => entry.operationId).toSorted();
     expect(ids).toEqual([
       "aiDetection.detect",
       "assemblies.status",
@@ -822,9 +829,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "calendar.firmCalendar",
       "calendar.getEvent",
       "calendar.getFirmEvent",
+      "calendar.getSettings",
       "calendar.listDeadlines",
+      "calendar.listEventBookings",
       "calendar.listEventTypes",
       "calendar.listEvents",
+      "calendar.listFirmEventBookings",
       "calendar.listFirmEvents",
       "calendar.listResources",
       "calendar.matterTimeline",
@@ -837,9 +847,14 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "calendar.updateEventType",
       "calendar.updateFirmEvent",
       "calendar.updateResource",
+      "calendar.updateSettings",
       "calendar.vacateDeadline",
+      "conflicts.firmPolicy",
       "conflicts.getCheck",
+      "conflicts.hitDispositions",
+      "conflicts.listChecks",
       "conflicts.matterPosture",
+      "conflicts.recheckMatter",
       "conflicts.recordDisposition",
       "conflicts.runCheck",
       "conversions.events",
@@ -937,6 +952,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "directory.getOrganization",
       "directory.getPerson",
       "directory.linkMatterParty",
+
       "directory.listAddresses",
       "directory.listCategories",
       "directory.listEdges",
@@ -1107,6 +1123,17 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matterAssets.releaseEncumbrance",
       "matterAssets.unlinkDocument",
       "matterAssets.updateAsset",
+      "matterPlans.accept",
+      "matterPlans.addPlanStep",
+      "matterPlans.createPlan",
+      "matterPlans.editPlan",
+      "matterPlans.editPlanStep",
+      "matterPlans.listOffered",
+      "matterPlans.listPlans",
+      "matterPlans.propose",
+      "matterPlans.readPlan",
+      "matterPlans.removePlanStep",
+      "matterPlans.setPlanActive",
       "matterSearch.search",
       "matterTypes.create",
       "matterTypes.deactivate",
@@ -1150,6 +1177,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "notes.deleteNote",
       "notes.detachNoteDocument",
       "notes.editNote",
+      "notes.getNote",
       "notes.listNotes",
       "notificationPreferences.get",
       "notificationPreferences.getTrustComplianceRecipients",
@@ -1202,6 +1230,22 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "supportGrants.request",
       "supportGrants.revoke",
       "supportSessions.redeem",
+      "tasks.attachTaskDocument",
+      "tasks.cancelTask",
+      "tasks.completeTask",
+      "tasks.createTask",
+      "tasks.deleteTask",
+      "tasks.detachTaskDocument",
+      "tasks.editTask",
+      "tasks.linkExternalTask",
+      "tasks.listMatterTasks",
+      "tasks.listMyTasks",
+      "tasks.lookupExternalTask",
+      "tasks.readTaskChanges",
+      "tasks.reassignTask",
+      "tasks.recordExternalSync",
+      "tasks.reopenTask",
+      "tasks.unlinkExternalTask",
       "templates.addVersion",
       "templates.archive",
       "templates.deleteFieldMapping",
@@ -1224,7 +1268,9 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "timeEntries.listAttachments",
       "timeEntries.previewQuickAdd",
       "timeEntries.refile",
+      "timeEntries.roundingPolicy",
       "timeEntries.submit",
+      "timeEntries.unvoid",
       "timeEntries.update",
       "timeEntries.void",
       "timer.bind",

@@ -5,6 +5,15 @@
    * and the popover panel that hosts the calendar. The calendar itself reuses the mc-calendar-*
    * recipes; only the field is dressed here. The active segment highlights on :focus.
    */
+  /*
+   * The date field's label is the Label recipe's twin and must measure the same. It cannot BE that
+   * recipe — the primitive renders its own element and owns the association with the segments — so
+   * the type is restated here, and the one declaration that was missing is the reason a date field
+   * sat lower than the fields beside it: without an explicit line-height this label took the
+   * document's leading while every `.mc-label` in the row took the tight one, so the control under
+   * it started a few pixels down and a row of three fields read as two fields and a mistake.
+   * Any change to one of these two blocks belongs in both.
+   */
   .mc-date-field-label {
     display: block;
     margin-block-end: var(--mc-space-4);
@@ -12,6 +21,7 @@
     font-family: var(--mc-font-sans);
     font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
   }
   .mc-date-field {
     display: inline-flex;

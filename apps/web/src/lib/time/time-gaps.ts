@@ -54,7 +54,13 @@ export const TIME_LEDGER_GAPS = {
   },
   rounding: {
     field: "Hours",
-    waitsOn: "the firm's rounding increment being served",
+    // Narrowed, not retired. The increment itself IS served now — the record window reads it for
+    // the matter and the person it is writing for, states what the entry will be billed at, and
+    // counts units in it. What the SHEET still cannot do is say that for a row nobody has written
+    // yet: it is a day across every matter a person touched, the increment is a per-matter
+    // setting, and one read cannot answer for a mixed list. A written row needs none of this — the
+    // server sends its billed figure with it.
+    waitsOn: "the rounding increment being resolved per row on a sheet that spans matters",
   },
   timekeeperChange: {
     field: "Timekeeper",

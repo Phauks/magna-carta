@@ -3,9 +3,10 @@
  *
  *   - The tier ANCHORS the row and is never hideable, because a reviewer's queue is ordered by what
  *     kind of thing matched and a list that lost that ordering is a list nobody can triage.
- *   - The Party column exists and cannot speak. That is deliberate — the check answers entity
- *     handles and nothing names many at once — and it is exactly the kind of decision that gets
- *     "tidied up" into a dropped column by somebody who reads it as an oversight.
+ *   - The Party column names somebody, or says which of the two ways it could not. A conflicts hit
+ *     always HAS a party, so a blank cell would read as a hit against nobody — the inverse of what
+ *     the row means — and the distinction between an unresolved entity and an unnamed record is
+ *     exactly the kind of thing that gets "tidied up" into one empty string.
  */
 import { describe, expect, it } from "vitest";
 import type { HitDetail } from "../src/lib/conflicts/conflicts-api.ts";
@@ -18,6 +19,8 @@ import {
   entityKindText,
   hitColumns,
   matchedOnText,
+  partyCellTitle,
+  partyText,
   surfacedAgainstText,
 } from "../src/lib/conflicts/hit-columns.ts";
 
@@ -25,6 +28,7 @@ function hit(overrides: Partial<HitDetail> = {}): HitDetail {
   return {
     id: "conflictsHit_one",
     entityId: "directoryPerson_one",
+    party: { kind: "person", displayName: "Dana Reyes" },
     sourceClass: "party",
     evidenceTier: 2,
     matchedFields: ["exact normalized name match", "trigram overlap"],
@@ -32,6 +36,7 @@ function hit(overrides: Partial<HitDetail> = {}): HitDetail {
     coParty: false,
     createdAt: "2026-08-30T12:00:00.000Z",
     disposition: null,
+    previouslyAnswered: null,
     ...overrides,
   };
 }
@@ -51,11 +56,31 @@ describe("the column model", () => {
     expect(tier?.value(hit({ evidenceTier: 4 }))).toBe("Tier 4");
   });
 
-  it("keeps a Party column whose value is not served", () => {
+  it("names the party the hit is about", () => {
     const party = hitColumns().find((column) => column.id === HIT_COLUMN_IDENTIFIERS.party);
     expect(party).toBeDefined();
-    expect(party?.value(hit())).toBeNull();
     expect(party?.hidden).toBeUndefined();
+    expect(party?.value(hit())).toBe("Dana Reyes");
+  });
+
+  it("never renders a party as blank: the two ways of not naming one each say which", () => {
+    /*
+     * A conflicts hit always HAS a party — that is the whole content of the row — so a cell that
+     * came back empty would read as a hit against nobody, which is the opposite of its meaning.
+     * The two ways a name can be missing are different facts and the surface separates them:
+     * the entity no longer resolves (a merge after the check, which the append-only log makes
+     * reachable), or the Directory holds the record and nobody has named it.
+     */
+    const unresolved = hit({ party: null });
+    expect(partyText(unresolved)).toBe("Entity not resolved");
+    expect(partyCellTitle(unresolved)).toContain(unresolved.entityId);
+
+    const unnamed = hit({ party: { kind: "person", displayName: null } });
+    expect(partyText(unnamed)).toBe("Unnamed record");
+    expect(partyCellTitle(unnamed)).toContain("carries no name");
+
+    // A named party needs no explanation, so it carries no hover at all.
+    expect(partyCellTitle(hit())).toBeUndefined();
   });
 
   it("offers a set filter on every column a reviewer triages by", () => {

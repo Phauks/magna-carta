@@ -20,6 +20,7 @@
    * reader changed view.
    */
   import * as ContextMenu from "@magna-carta/design-system/context-menu";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
@@ -49,11 +50,9 @@
   import FileSearch from "@lucide/svelte/icons/file-search";
   import History from "@lucide/svelte/icons/history";
   import X from "@lucide/svelte/icons/x";
-  import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import Upload from "@lucide/svelte/icons/upload";
   import { problemGuidance } from "$lib/documents/document-presentation.ts";
   import {
     createFolder,
@@ -147,9 +146,48 @@
   import SafetyMark from "./safety-mark.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
 
-  let { matterId, matterTitle }: { matterId: string; matterTitle: string } = $props();
+  let {
+    matterId,
+    matterTitle,
+    revealFileId = null,
+  }: {
+    matterId: string;
+    matterTitle: string;
+    /**
+     * A file to reveal on arrival — what a deep link into this section names. The manager opens its
+     * folder, selects it and shows it in the inspector, exactly as a click on the row would.
+     */
+    revealFileId?: string | null;
+  } = $props();
 
   const manager = new FileManagerState();
+
+  // --- the create actions, answered from the matter header ---------------------------------------
+  //
+  // The header's New File control (create-action.svelte.ts) is the one create button on this
+  // surface; the toolbar carries none. These are what its menu offers, exported so the Files page
+  // can put them behind it. Creating needs a current folder, and the views that show rows from
+  // many folders have none — the refusal is read by the page inside its claim, so the control
+  // follows the view.
+
+  /** Why nothing can be created into the view being shown, or undefined in a browse view. */
+  export function createRefusal(): string | undefined {
+    return manager.view === "browse"
+      ? undefined
+      : "This view has no current folder to create into. Open a folder first.";
+  }
+
+  export function newDocument(): void {
+    openUpload([]);
+  }
+
+  export function newFolder(): void {
+    void makeFolder();
+  }
+
+  export function upload(): void {
+    openUpload([]);
+  }
 
   // --- the matter's files and folders ------------------------------------------------------------
 
@@ -303,6 +341,24 @@
     onActivate: (row) => activate(row),
   });
 
+  /*
+   * The file this surface was asked to reveal, once the record is in and once per id: its folder
+   * opens, the row is selected through the grid's own click path so the inspector follows, and the
+   * panel shows. A file the record does not hold reveals nothing — the address named something the
+   * member cannot see, and the list is the honest answer.
+   */
+  let revealedFileId = $state<string | null>(null);
+  $effect(() => {
+    const wanted = revealFileId;
+    if (wanted === null || files === null || revealedFileId === wanted) return;
+    revealedFileId = wanted;
+    const file = files.find((candidate) => candidate.id === wanted);
+    if (file === undefined) return;
+    manager.openFolder(file.folderId);
+    grid.rowClick(fileKey(file.id));
+    manager.setPanelOpen(true);
+  });
+
   const selectedRows = $derived(rows.filter((row) => manager.selectedKeys.includes(row.key)));
   const inspectedRow = $derived(
     rows.find((row) => row.key === manager.inspectorKey) ??
@@ -414,7 +470,9 @@
   let newFolderPending = $state(false);
 
   async function makeFolder(): Promise<void> {
-    if (manager.view !== "browse") return;
+    // One folder per press: the header's New File menu can be pressed again before the first
+    // create has answered, and that would be two "New Folder"s, not one.
+    if (manager.view !== "browse" || newFolderPending) return;
     newFolderPending = true;
     // A new name cannot collide: creation disambiguates in the copy convention rather than
     // refusing, because nobody typed this name and nobody should be asked to fix it.
@@ -729,7 +787,7 @@
     // call yet, so asking for several opens several rather than pretending to zip them here.
     for (const row of fileRows) {
       if (row.kind !== "file") continue;
-      globalThis.open(fileDownloadUrl(row.file.id), "_blank", "noopener");
+      openBeside(fileDownloadUrl(row.file.id), "file");
     }
   }
 
@@ -1668,9 +1726,6 @@
               viewTitle={VIEW_TITLES[manager.view]}
               onToggleRail={toggleRail}
               onTogglePanel={togglePanel}
-              onNewFolder={() => void makeFolder()}
-              onNewDocument={() => openUpload([])}
-              onUpload={() => openUpload([])}
               onSearch={runSearch}
             />
 
@@ -1950,7 +2005,7 @@
               onVerifyIntegrity={() => void runIntegrityCheck()}
               onOpenVersion={(version) => {
                 if (inspectedRow?.kind === "file") {
-                  globalThis.open(fileDownloadUrl(inspectedRow.file.id), "_blank", "noopener");
+                  openBeside(fileDownloadUrl(inspectedRow.file.id), "file");
                 }
                 void version;
               }}
@@ -2240,17 +2295,8 @@
 {#snippet emptyFolder()}
   <EmptyState title="Nothing in This Folder">
     Files put here appear in this list. Everything on the matter is still reachable from Home,
-    whichever folder it sits in.
-    {#snippet actions()}
-      <Button onclick={() => openUpload([])}>
-        <Upload class="size-16" aria-hidden="true" />
-        Upload a File
-      </Button>
-      <Button variant="secondary" disabled={newFolderPending} onclick={() => void makeFolder()}>
-        <Plus class="size-16" aria-hidden="true" />
-        New Folder
-      </Button>
-    {/snippet}
+    whichever folder it sits in. New File, at the top of the matter, adds the first; dropping files
+    here does too.
   </EmptyState>
 {/snippet}
 

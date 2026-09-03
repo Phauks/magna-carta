@@ -21,6 +21,10 @@ properties; off-token values are machine-rejected.
   animation constants; `floatingContentClasses()` is the canonical Tier 3/4 content-class builder
 - `src/lib/internal/close-guard.svelte.ts` + `discard-question.svelte` — the unsaved-work guard and
   the question BOTH modal shells run every exit through; owned here, never re-implemented in a shell
+- `src/lib/components/calendar-grid/` — `CalendarGrid` (Month, Week, Agenda): the domain-free
+  month, week and agenda presentation on the EventRail division — entries with a civil day, a label,
+  a caller-formatted time and a tone come in, and it never learns what a hearing is. The calendar's
+  own arithmetic, reads and vocabulary live with its one consumer, `apps/web/src/lib/calendar/`
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
@@ -128,6 +132,29 @@ is still an `ActionDialog` inside it, not a panel of its own.
   from the repo root only the top-level fallback is used, so a plugin on the project alone passes
   locally and fails in `pnpm test`. The package still has no `vite.config.ts`; that note is about
   the Storybook pipeline's plugin ORDER, which this does not touch.
+
+## The directory-linking family: one mark, one field, one tab
+
+**Every surface that names, picks or links a person or an organization goes through
+`EntityIdentity`, `EntityPicker` and `RecordParties`** (`src/lib/components/entity-identity`,
+`entity-picker`, `record-parties`). Three app surfaces had each hand-built a combobox over the
+directory search before these existed; the one-implementation registry now refuses a fourth.
+
+- **The picker never fetches.** It takes `search: EntitySearch` and owns the settle, the floor, the
+  abort of a superseded question and the three states (`picker-search.ts`, tested on its own). The
+  app supplies the directory — `apps/web/src/lib/directory/directory-picker-source.ts` is the one
+  adapter. Same layering as `ActionDialog`'s `notice` slot: the design system knows how a search
+  behaves, never what is searched.
+- **A failed search is stated, never rendered as no matches.** The two are the same picture and not
+  the same fact. A capped answer says so and is never re-sorted: the order is the server's.
+- **An association carries its own identity apart from the entity's** (`RecordParty.identifier` vs
+  `entityIdentifier`), which is what lets one person be on a record twice in two roles and never
+  twice in one (`linkable-entities.ts`), and what lets removing a link leave the person in the
+  directory. The remove control is the `unlink` glyph, never a waste bin, never the danger colour.
+- **The tab's confirmation is an `ActionDialog`**, from the first commit — the attachments tab
+  carries an allowance for its hand-composed one; this family does not.
+- **`PARTIES_TAB_KEY`** is the agreement every record window imports, the twin of
+  `ATTACHMENTS_TAB_KEY`.
 
 ## The maturity family, and the field primitives
 
@@ -316,6 +343,12 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   - **Every `play` wraps its assertions in named `step()` calls** (the play context's `step`, no import) — one step per beat (`"Starts unchecked"` → `"Clicking checks it"`). The play functions ARE the behaviour tests, but a bare list of `expect(...)` lines reads as noise in the Interactions panel; `step()` turns each into a labelled, collapsible checklist that doubles as living documentation of what the component guarantees. Keep element lookups above the steps; put each interaction + its assertions inside the step it proves. (Owner-directed 2026-06-13 — the panel must read as a checklist, not a wall of assertions.)
   - **Never two stories rendering the SAME thing** (duplicates stack on the Docs page — the owner saw "two cards on top of each other").
   - **Visual-tests addon** (`@chromatic-com/storybook`) is installed but **inert** until a Chromatic token is set; the recorded primary VRT is the self-hosted Playwright harness (Argos the named upgrade) — revisit which SaaS before relying on Chromatic.
+- **`ContextMenu.GroupHeading` outside a `ContextMenu.Group` stops the menu OPENING, silently.** No
+  console error, no failed render, no thrown exception a caller can see — the right-click simply does
+  nothing, which reads as "context menus do not work here" and sends you looking at the trigger. A
+  heading that names no group has no group to name: either wrap the items in `ContextMenu.Group`, or
+  use the plain heading element the other menus use (`<p class="mc-table-filter-heading">`), which is
+  what the grid's column filter menus do. Found the hard way, 2026-09-02.
 - **`#NNNN` issue references in `src/` comments trip the raw-hex gate** (four hex digits) — cite
   issues in full URL form or use a justified `fitness-allow`.
 - **No-emoji gate (golden rule 2)** is the fifth off-token scanner (`test/fitness/off-token.test.ts`):

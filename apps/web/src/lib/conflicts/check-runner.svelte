@@ -30,17 +30,19 @@
   import Separator from "@magna-carta/design-system/separator";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
-  import SubjectPartyPicker from "./subject-party-picker.svelte";
+  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { gapReason } from "./conflicts-gaps.ts";
   import {
+    readFirmConflictsPolicy,
     runConflictsCheck,
     RUN_CHECK_PERMISSION,
+    type FirmConflictsPolicy,
     type BudgetedEdgeClass,
     type ConflictsTrigger,
     type SourceClass,
     type Strictness,
   } from "./conflicts-api.ts";
-  import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
   import {
     BUDGETED_EDGE_CLASSES,
     EDGE_CLASS_VOCABULARY,
@@ -49,6 +51,8 @@
     STRICTNESS_LEVELS,
     STRICTNESS_VOCABULARY,
     edgeClassLabel,
+    sourceVocabulary,
+    strictnessVocabulary,
     triggerVocabulary,
   } from "./conflicts-vocabulary.ts";
 
@@ -78,7 +82,8 @@
   const CONTENT_DEPENDENCY =
     "an index over document text and a wired message-body index, neither of which exists";
 
-  let parties = $state<DirectorySearchHit[]>([]);
+  let parties = $state<PickableEntity[]>([]);
+  const partySearch = directoryPickerSearch(fetch);
   // The opening value only: a consumer sets which trigger the form starts on, and from then on the
   // choice belongs to the person filling it in.
   // svelte-ignore state_referenced_locally
@@ -97,7 +102,22 @@
   let failure = $state<StatedFailure | null>(null);
 
   const soonContent = soonControlProperties(CONTENT_DEPENDENCY, contentDescription);
-  const soonFirmFloor = soonControlProperties(gapReason("firmPolicy"), floorDescription);
+
+  /*
+   * The firm's own floor, read so the empty fields above can say what they will actually take.
+   * A reader composing a narrower scope is not being refused — resolveScope raises a request to the
+   * floor server-side either way — they are being told what the floor is, which is the difference
+   * between a form that looks configurable and one that is honest about its bounds.
+   */
+  let policy = $state<FirmConflictsPolicy | null>(null);
+  $effect(() => {
+    void (async () => {
+      const outcome = await readFirmConflictsPolicy(fetch);
+      if (outcome.kind === "ok") policy = outcome.value;
+      // A floor that cannot be read is left unstated rather than guessed at: this panel already
+      // says an empty field takes the firm's setting, which stays true whether or not it is shown.
+    })();
+  });
 
   // Imputation joins the firm's own members against a matter's parties, so with no matter there is
   // nothing to join and a check records the source unavailable rather than searched.
@@ -168,7 +188,7 @@
       {
         trigger,
         ...(matterId === null ? {} : { matterId }),
-        subjectEntityIds: parties.map((party) => party.entityId),
+        subjectEntityIds: parties.map((party) => party.identifier),
         scope: {
           sources: sourcesAsked(),
           strictness,
@@ -208,12 +228,15 @@
 
     <div class="flex flex-col gap-8">
       <Label for="{fieldPrefix}-parties">Subject Parties</Label>
-      <SubjectPartyPicker
+      <!-- A check takes directory entities, never typed names: the one picker, in multiple mode. -->
+      <EntityPicker
+        search={partySearch}
+        multiple
+        bind:values={parties}
+        label="Subject party"
         inputId="{fieldPrefix}-parties"
-        selected={parties}
         disabled={running}
-        onAdd={(hit) => (parties = [...parties, hit])}
-        onRemove={(entityId) => (parties = parties.filter((party) => party.entityId !== entityId))}
+        disabledReason={running ? "The check is running." : undefined}
       />
     </div>
 
@@ -368,12 +391,27 @@
     </div>
 
     <p class="text-sm text-text-muted">An empty field takes the firm's own setting.</p>
-    <!-- What that setting IS cannot be shown yet, so the fact is marked rather than left as a
-         reader's guess about numbers they cannot see. -->
-    <div class="flex items-center gap-8">
-      <MaturityBadge stage="soon" />
-      <p id={floorDescription} class="text-xs text-text-muted">{soonFirmFloor.title}</p>
-    </div>
+    {#if policy !== null}
+      <!-- The floor, stated. A per-run scope may only ADD to it: a narrower request is raised back
+           to the floor before it runs, so what a reader chooses here can widen the search and can
+           never narrow it below what the firm requires. -->
+      <dl id={floorDescription} class="flex flex-col gap-2 text-xs text-text-muted">
+        <div class="flex gap-8">
+          <dt>Firm floor</dt>
+          <dd class="text-text-default">
+            {policy.floorSources.map((source) => sourceVocabulary(source).label).join(", ")} ·
+            {strictnessVocabulary(policy.floorStrictness).label}
+          </dd>
+        </div>
+        <div class="flex gap-8">
+          <dt>Defaults</dt>
+          <dd class="text-text-default tabular-nums">
+            depth {policy.defaultDepth} · closure cap {policy.closureCap} · candidate cap
+            {policy.candidateCap}
+          </dd>
+        </div>
+      </dl>
+    {/if}
   </section>
 
   <div class="flex flex-wrap items-center gap-16">

@@ -47,6 +47,7 @@ import Wrench from "@lucide/svelte/icons/wrench";
 import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import Sparkles from "@lucide/svelte/icons/sparkles";
+import ListChecks from "@lucide/svelte/icons/list-checks";
 
 export type DestinationGroup = "top" | "money" | "firm";
 
@@ -117,7 +118,7 @@ export const DESTINATION_GROUPS: ReadonlyArray<{ id: DestinationGroup; label: st
  * matters: it is every fresh sidebar, the order Customize mode reveals hidden destinations in,
  * and where reconciliation seats new arrivals.
  */
-export const DESTINATIONS: readonly Destination[] = [
+const DESTINATION_LIST = [
   // Workspace — the owner's draft order: daily drivers, then the matter-work cluster.
   {
     id: "home",
@@ -159,6 +160,21 @@ export const DESTINATIONS: readonly Destination[] = [
     defaultStarred: true,
   },
   {
+    // The member's own work, across every matter they can see plus their own tasks on no matter.
+    // It sits in the workspace group beside Notifications rather than under a matter, because "what
+    // is on my plate" is a question about the person and not about any one case — and a task list
+    // somebody has to go looking for inside each matter is a task list nobody looks at.
+    id: "my-work",
+    label: "My Work",
+    href: "/tasks",
+    icon: ListChecks,
+    description: "Every task with your name on it, across your matters and the firm's own work.",
+    group: "top",
+    shipped: true,
+    stage: "alpha",
+    defaultStarred: true,
+  },
+  {
     // Magnus — the Magna Carta assistant. It will converse inside a matter and around the
     // app, but this is its always-reachable home: one sidebar entry, easy to find at all
     // times (owner-directed). A stub only until the assistant ships.
@@ -179,8 +195,10 @@ export const DESTINATIONS: readonly Destination[] = [
     icon: CalendarDays,
     description: "Deadlines, hearings, and appointments across the firm.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The firm calendar reads and records; the room grid, kind narrowing and the member picker
+    // beyond Mine/Everyone are still to come.
+    stage: "alpha",
     defaultStarred: true,
   },
   {
@@ -219,9 +237,9 @@ export const DESTINATIONS: readonly Destination[] = [
     defaultStarred: true,
   },
   {
-    id: "contacts",
+    id: "directory",
     label: "Directory",
-    href: "/contacts",
+    href: "/directory",
     icon: Users,
     description: "Clients, parties, counsel, and courts in one book.",
     group: "top",
@@ -365,7 +383,30 @@ export const DESTINATIONS: readonly Destination[] = [
     defaultStarred: true,
     footerPinned: true,
   },
-];
+] as const satisfies readonly Destination[];
+
+/**
+ * Every destination's id as a literal union. A screen names where its way back leads by one of
+ * these, so a typo is a type error rather than a link that renders and goes nowhere.
+ *
+ * The union needs the list's LITERAL type, which is why the array above is `as const`. Every other
+ * consumer wants the declared `Destination`, because an `as const` member loses the optional fields
+ * it happens not to set — `pinned` stops existing on the rows that never had one, and every reader
+ * of the registry breaks. So the literal list stays private and `DESTINATIONS` re-exports it at the
+ * declared type: one array, two views of it.
+ */
+export type DestinationId = (typeof DESTINATION_LIST)[number]["id"];
+
+export const DESTINATIONS: readonly Destination[] = DESTINATION_LIST;
+
+/**
+ * One destination by its registry id, or null. This is how a screen names where its way back
+ * leads: the id resolves to the destination's real href, its user-facing label and its glyph, so a
+ * back link cannot name a screen that does not exist or drift from what the sidebar calls it.
+ */
+export function destinationById(id: DestinationId): Destination | null {
+  return DESTINATIONS.find((destination) => destination.id === id) ?? null;
+}
 
 /** Shipped plus announced-Soon destinations — what the palette presents (never star-filtered). */
 export function visibleDestinations(): readonly Destination[] {

@@ -35,6 +35,7 @@ Never hand-edit `packages/design-tokens/generated/**` (CI regenerates and diffs 
 
 - Utilities consume only the generated `@theme` (`--spacing-*`, `--color-*`, `--radius-*`, …). **What the gates reject:** arbitrary values (`p-[13px]`, `bg-[#fff]`, `duration-[150ms]`), raw color literals, raw `z-<number>`, raw `duration-<number>`, and emojis. `data-[state=…]`/`aria-[…]` **variants** are allowed (they select state, carry no value) — that's how presence animations are written.
 - **`components.css` is token-only, no escape valve:** every declaration value is a `var(--mc-…)` reference or a structural keyword (`flex`, `solid`, `inherit`, `none`, …). No literal colors, lengths, durations, or numbers — not even a bare `0` (`var(--mc-space-0)`), `calc()`, or `%`. **Layout width/height is a utility on the element** (`w-full`/`h-full`), never a `%` in the recipe; the recipe owns visual design only.
+- **A size utility off the generated scale produces NOTHING, and nothing says so.** The spacing scale is `0 4 8 12 16 20 24 32 40 48 64 96` (`packages/design-tokens/generated/tailwind-theme.css`), so `w-160` / `w-192` / `h-80` compile to no rule at all: the element silently keeps whatever width it already had, which for every `Input` is the `w-full` baked into the component. Nothing fails — not the arbitrary-value gate (the class is not arbitrary), not the type-checker, not a test. Two matter surfaces shipped a search field and a date field that were meant to be narrow and were full-bleed. Size against the scale, use Tailwind's container widths (`w-xs`, `w-3xs`) for anything wider, or lay the row out with `grid`/`flex` so no width literal is needed.
 - New generated token namespace → register it in `merge-classes.ts` or conflicting utilities silently both survive (named duration/z scales need `extend.classGroups`). Z-index and presence animation live in `internal/floating.ts` only.
 
 ## Building a component (the loop every component follows)
@@ -62,6 +63,33 @@ The exemplars are normative — Button (Tier 1, native), Tabs (Tier 2, single Bi
 ## Icons
 
 Lucide only, **deep imports** (`@lucide/svelte/icons/<name>` — the bare-barrel import is gated), sized by a recipe class (`inline-size`/`block-size` from a token), not a `size` prop. **No emojis anywhere** (gated). Icons are decorative — `aria-hidden="true"` — unless they are the only label, in which case the control needs an accessible name another way.
+
+## Every screen's title, and the way back — one component
+
+**Every screen states what it is through [`apps/web/src/lib/screen/screen-header.svelte`](../../apps/web/src/lib/screen/screen-header.svelte).** Not the Masthead recipe directly — that stays the design-system primitive this composes (the register, the display serif, the density step). Twenty screens assembled Masthead by hand in eight different combinations of its parts, and four more hand-rolled an `h1` over a letterspaced `p` outside the design system entirely; nothing was wrong with any one of them, but "what does a screen header look like here" had twenty-four answers and a correction had to be made twenty-four times.
+
+The anatomy, in the order a reader meets it:
+
+```
+← ⌂ MATTERS        the way back, showing the destination in miniature — its glyph, its name
+PERSON             the eyebrow: what this screen's subject IS, when that needs saying
+Rosalind Chase     the title, in the display serif
+she/her · …        the meta line, the citation beneath the title
+```
+
+with `actions` at the inline end of the title row, and `trailing` for a band that shares its height with something else (the matter's search over its section strip — passing it is what makes the title truncate and the band stretch, because both follow from the two-column arrangement rather than being separate decisions a caller could get inconsistently right).
+
+**The way back is named, not drawn** (owner's direction, 2026-09-03). A screen passes a **destination id** — `back="directory"` — and the href, the user-facing label and the glyph all come from the sidebar's own registry. So a screen cannot invent a destination, cannot call it something the sidebar calls something else, and cannot go stale when a path moves; the id is a literal union, so a typo is a type error. The arrow shows the destination **in miniature**, its own sidebar mark beside its own name, because a reader should learn where the link lands rather than only that there is a way out. A screen outside the sidebar (the developer console) passes a spelled-out target from [`screen-header.ts`](../../apps/web/src/lib/screen/screen-header.ts) instead — deliberately more work to write than an id.
+
+The way back **leads the stack** rather than sharing the eyebrow's line, so the two never compete for the same register: one names where you would go, the other names what you are looking at.
+
+**Gated** — `pnpm run lint:back-navigation`, which answers three questions from the route tree and the registry rather than from a list:
+
+1. every route whose nearest ancestor route renders a page of its own passes a `back` — in the page, in a layout between them, or through however many components its header is built from;
+2. the destination it names resolves to that ancestor's own path (a link back to a screen the reader did not come from is worse than none);
+3. nothing in the application assembles `Masthead.Root` itself, or builds its own back link out of `EyebrowLink` and an arrow icon — the second rule is what keeps the first true, because a screen with a hand-made header is free to grow its own idea of the way back, or none.
+
+A route whose ancestors only redirect or only draw a shell is asked for nothing (`/settings/theme` is that case; its finding aid is the settings nav beside it), and a route that must decline says so in the gate's own exemption register rather than silently.
 
 ## The review rules a machine can't check
 
