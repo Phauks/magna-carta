@@ -30,27 +30,21 @@
     type FeeRecord,
   } from "./fee-record.ts";
   import { timekeeperText } from "./fee-columns.ts";
-  import { arrangementTerms, ARRANGEMENT_KIND_LABELS } from "./fee-agreement.ts";
-  import type { ArrangementRecord } from "./billing-api.ts";
 
   let {
     fees,
     selected,
-    arrangement,
     money,
     onOpen,
     onPrint,
-    onViewArrangement,
     onLetGo,
   }: {
     /** Every fee on the matter, for the face the panel shows with nothing selected. */
     fees: readonly FeeRecord[];
     selected: readonly FeeRecord[];
-    arrangement: ArrangementRecord | null;
     money: (amountMinor: number) => string;
     onOpen: (fee: FeeRecord) => void;
     onPrint: (fee: FeeRecord) => void;
-    onViewArrangement: () => void;
     onLetGo: () => void;
   } = $props();
 
@@ -58,7 +52,6 @@
   const position = $derived(feePosition(fees));
   const live = $derived(fees.filter(countsInTotals));
   const voided = $derived(fees.length - live.length);
-  const inForce = $derived(arrangement?.inForce ?? null);
 
   const heading = $derived.by((): string => {
     const fee = sole;
@@ -181,25 +174,6 @@
           "Fees a finalized invoice has taken up.",
         )}
       </dl>
-      {#if inForce !== null}
-        <div class="flex flex-col gap-4 border-t border-border-default pt-12">
-          <div class="flex items-baseline justify-between gap-16 text-sm">
-            <span class="text-text-muted">Arrangement</span>
-            <span class="tabular-nums">
-              v{inForce.version} since {formatDate(inForce.validFrom)}
-            </span>
-          </div>
-          <p class="text-xs text-text-muted">{arrangementTerms(inForce, money)}</p>
-          <Button variant="ghost" size="sm" class="self-start" onclick={onViewArrangement}>
-            View
-          </Button>
-        </div>
-      {:else}
-        <p class="border-t border-border-default pt-12 text-xs text-text-muted">
-          No arrangement was recorded, and a matter with none is billed
-          {ARRANGEMENT_KIND_LABELS.hourly.toLowerCase()}.
-        </p>
-      {/if}
     </div>
   {/if}
 </aside>

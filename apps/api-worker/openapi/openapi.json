@@ -24191,6 +24191,18 @@
               "string",
               "null"
             ]
+          },
+          "agreementFileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "agreementFileName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -24206,7 +24218,9 @@
           "advanceDepositDestination",
           "currency",
           "validFrom",
-          "validTo"
+          "validTo",
+          "agreementFileId",
+          "agreementFileName"
         ]
       },
       "BillingArrangementRequest": {
@@ -24265,6 +24279,12 @@
           "validFrom": {
             "type": "string",
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "agreementFileId": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [

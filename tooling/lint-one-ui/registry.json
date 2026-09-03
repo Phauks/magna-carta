@@ -107,11 +107,6 @@
   "allowances": [
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/arrangement-dialog.svelte",
-      "reason": "Belongs to the OTHER shell. It reads a record — the fee arrangement in force, its terms, and its version history — and its one act (Amend) opens a different panel. That is RecordWindow's shape: a record pane, a history tab, and an action bar. Migrating it to ActionDialog would be the wrong shell, and a read-only ActionDialog kind would be a second answer to 'read a thing'."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/components/command-palette.svelte",
       "reason": "not an act asked of a reader — a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
     },

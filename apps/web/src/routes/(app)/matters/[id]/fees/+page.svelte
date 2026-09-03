@@ -98,14 +98,12 @@
   <FullHeightSection>
     <FeeLedger
       {fees}
-      arrangement={billing.arrangement}
       loading={rows === null}
       matterId={matter.id}
       matterTitle={matter.title}
       matterNumber={matter.matterNumber}
       {currency}
       {permissions}
-      onAmended={() => (reloadToken += 1)}
     />
   </FullHeightSection>
 {/if}

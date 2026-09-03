@@ -42,7 +42,7 @@
   import { parseDate, type DateValue } from "@internationalized/date";
   import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
   import SubjectPartyPicker from "./subject-party-picker.svelte";
-  import WaiverDocumentPicker from "./waiver-document-picker.svelte";
+  import MatterDocumentPicker from "$lib/documents/matter-document-picker.svelte";
   import {
     recordConflictsDisposition,
     DISPOSE_CONFLICTS_PERMISSION,
@@ -289,10 +289,17 @@
 
       <LabelledField label="Evidencing Document">
         {#snippet children({ props })}
-          <WaiverDocumentPicker
+          <!-- The filed document that evidences the written confirmation, from the matter's own
+               files. A firm asked to produce a client's informed consent has to produce the
+               document, not a note saying where it might be. -->
+          <MatterDocumentPicker
             bind:value={documentFileId}
             {matterId}
             inputId={props.id}
+            fieldName="Evidencing Document"
+            noMatterNote="This check names no matter, so there is nowhere to file the confirmation yet. The waiver can be recorded without it and reads as incomplete until a later answer names the document."
+            noFilesNote="This matter holds no files yet. Filing the confirmation and recording a second answer is what completes the record."
+            chosenNoun="the evidencing document"
             disabled={busy}
           />
         {/snippet}
