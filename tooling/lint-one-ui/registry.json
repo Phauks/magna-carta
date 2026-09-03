@@ -12,6 +12,10 @@
   ],
   "components": [
     {
+      "name": "CreateControl",
+      "home": "packages/design-system/src/lib/components/create-control"
+    },
+    {
       "name": "ActionDialog",
       "home": "packages/design-system/src/lib/components/action-dialog"
     },

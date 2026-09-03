@@ -5,11 +5,19 @@
    * /matters/[id]. The pages render below through children. The chrome is identical for every
    * matter status — status shapes only what the header showcases, never which sections exist or
    * where they lead.
+   *
+   * The layout also owns the create control's slot: constructed here, offered to every section page
+   * through context, and rendered by the header beside the search. A page claims it while mounted
+   * (create-action.svelte.ts), so one control serves fourteen sections without any of them growing
+   * a button of its own.
    */
+  import { provideMatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
   import MatterHeader from "$lib/matters/matter-header.svelte";
   import type { LayoutProps } from "./$types";
 
   let { data, children }: LayoutProps = $props();
+
+  const createSlot = provideMatterCreateSlot();
 </script>
 
 <svelte:head>
@@ -21,7 +29,7 @@
      Sections that scroll normally are unaffected: min-h-full lets content grow past the fold. -->
 <div class="flex min-h-full flex-col">
   <div class="mb-24 flex-none">
-    <MatterHeader matter={data.matter} />
+    <MatterHeader matter={data.matter} {createSlot} />
   </div>
 
   {@render children()}

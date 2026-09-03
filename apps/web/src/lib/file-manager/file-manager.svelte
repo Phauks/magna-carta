@@ -50,11 +50,9 @@
   import FileSearch from "@lucide/svelte/icons/file-search";
   import History from "@lucide/svelte/icons/history";
   import X from "@lucide/svelte/icons/x";
-  import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import Upload from "@lucide/svelte/icons/upload";
   import { problemGuidance } from "$lib/documents/document-presentation.ts";
   import {
     createFolder,
@@ -146,6 +144,33 @@
   let { matterId, matterTitle }: { matterId: string; matterTitle: string } = $props();
 
   const manager = new FileManagerState();
+
+  // --- the create actions, answered from the matter header ---------------------------------------
+  //
+  // The header's New File control (create-action.svelte.ts) is the one create button on this
+  // surface; the toolbar carries none. These are what its menu offers, exported so the Files page
+  // can put them behind it. Creating needs a current folder, and the views that show rows from
+  // many folders have none — the refusal is read by the page inside its claim, so the control
+  // follows the view.
+
+  /** Why nothing can be created into the view being shown, or undefined in a browse view. */
+  export function createRefusal(): string | undefined {
+    return manager.view === "browse"
+      ? undefined
+      : "This view has no current folder to create into. Open a folder first.";
+  }
+
+  export function newDocument(): void {
+    filePicker?.click();
+  }
+
+  export function newFolder(): void {
+    void makeFolder();
+  }
+
+  export function upload(): void {
+    filePicker?.click();
+  }
 
   // --- the matter's files and folders ------------------------------------------------------------
 
@@ -410,7 +435,9 @@
   let newFolderPending = $state(false);
 
   async function makeFolder(): Promise<void> {
-    if (manager.view !== "browse") return;
+    // One folder per press: the header's New File menu can be pressed again before the first
+    // create has answered, and that would be two "New Folder"s, not one.
+    if (manager.view !== "browse" || newFolderPending) return;
     newFolderPending = true;
     // A new name cannot collide: creation disambiguates in the copy convention rather than
     // refusing, because nobody typed this name and nobody should be asked to fix it.
@@ -1634,9 +1661,6 @@
               viewTitle={VIEW_TITLES[manager.view]}
               onToggleRail={toggleRail}
               onTogglePanel={togglePanel}
-              onNewFolder={() => void makeFolder()}
-              onNewDocument={() => filePicker?.click()}
-              onUpload={() => filePicker?.click()}
               onSearch={runSearch}
             />
 
@@ -2206,17 +2230,8 @@
 {#snippet emptyFolder()}
   <EmptyState title="Nothing in This Folder">
     Files put here appear in this list. Everything on the matter is still reachable from Home,
-    whichever folder it sits in.
-    {#snippet actions()}
-      <Button onclick={() => filePicker?.click()}>
-        <Upload class="size-16" aria-hidden="true" />
-        Upload a File
-      </Button>
-      <Button variant="secondary" disabled={newFolderPending} onclick={() => void makeFolder()}>
-        <Plus class="size-16" aria-hidden="true" />
-        New Folder
-      </Button>
-    {/snippet}
+    whichever folder it sits in. New File, at the top of the matter, adds the first; dropping files
+    here does too.
   </EmptyState>
 {/snippet}
 

@@ -10,6 +10,7 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import { readSession } from "$lib/matters/matters-api.ts";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import FeeLedger from "$lib/billing/fee-ledger.svelte";
@@ -31,6 +32,23 @@
   let reportOpen = $state(false);
   /* Bumped after a write, so the section re-reads what the server now holds rather than guessing. */
   let reloadToken = $state(0);
+
+  /*
+   * The matter header's create control is this section's only create button: it answers the
+   * press by opening the ledger's own record window (create-action.svelte.ts). The ledger is off
+   * screen while a read has failed or on a sample matter, and the control says so instead of
+   * pressing into nothing.
+   */
+  let ledger = $state<ReturnType<typeof FeeLedger> | null>(null);
+  claimMatterCreate("fees", () => ({
+    title: "Record a flat charge for professional services on this matter. It saves as a draft.",
+    refusal: isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : ledger === null
+        ? "The ledger is not on screen, so nothing can be recorded from it."
+        : undefined,
+    run: () => ledger?.openNew(),
+  }));
 
   $effect(() => {
     void (async () => {
@@ -97,6 +115,7 @@
 {:else}
   <FullHeightSection>
     <FeeLedger
+      bind:this={ledger}
       {fees}
       arrangement={billing.arrangement}
       loading={rows === null}

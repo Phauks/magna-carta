@@ -140,6 +140,23 @@ is usually the fastest way to understand the rule.
 
 ### Controls and patterns
 
+- **A screen makes something new through ONE control, and it is the same control on every screen.**
+  The design system's `CreateControl`: a primary button reading "New" and one noun ("New Fee",
+  "New Matter", "New Packet"), pressing straight through or opening a menu in the same footprint,
+  held at a token width (`size.create-control`) so it never changes size as the label changes.
+  On a matter it sits in the header beside the search and its label follows the section from the
+  registry (`sections.ts` answers `createNoun` for every section, or declines with a line);
+  the section's page claims the behaviour while it is mounted. Elsewhere it sits in the
+  masthead's action row, after the search. Nothing else on the screen makes the record: the
+  action-row buttons and the empty-state buttons that used to are removed, not moved, and an empty
+  state names the control at the top instead. When nothing can be made right now the control is
+  disabled with the reason as its title; it never leaves the row. Enforced by
+  `pnpm run lint:matter-create-control`. _(the matter screens, 2026-09-03)_
+- **The search and the create control travel together, search first.** A screen that carries one
+  carries the other, in that order at the row's inline end: the search grows toward the inline
+  start, so the control after it is the one place the field's growth cannot reach. The custody
+  register had the create control and no search; it has both now. _(the Custodian register,
+  2026-09-03)_
 - **A destination opens beside the reader's work only through one gate, for a named reason.** A
   link navigates in place; a new tab is the exception, and an exception each screen decides for
   itself is how a product ends up with fifteen `target="_blank"`s in three spellings and no rule
@@ -459,6 +476,32 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-03 — the create control, moved up and made one component
+
+The owner asked for the "+ New" button to move next to the search at the top of the matter screen,
+as one modular control that reflects the screen it is on without reflowing — "New Fee", "New Cost",
+"New File" — with the lower buttons removed; then, that the control be a main component that can go
+into the matter list, the directory and anywhere something new is made; then, that the custody
+register, which had the button and no search, carry the pair. The generalizations are promoted
+above. What is local:
+
+- **The label per section** is the registry's: Files → File, Time → Time, Fees → Fee, Costs → Cost,
+  Billing → Bill, Notes → Note, Custodian → Packet, Parties → Party, Calendar → Event (disabled,
+  waiting on the event and deadline forms, where the section used to draw two disabled buttons).
+  Overview, Trust, Emails, Messaging and Magnus decline with a line; the bare "New" shows off a
+  section (the results page).
+- **Files' control is a menu** — New Document, New Folder, Upload Files — replacing the toolbar's
+  New menu. The rail's New Folder and the folder-level right-click menu stay: gestures on a place,
+  not a second button. The empty-folder state's two buttons are gone.
+- **Parties' control opens the tab's own add row**, the one its inline Add… opens; the tab is a
+  shared component and keeps that gesture.
+- **The Directory's control reads the bare "New"** and opens its person-or-organization menu; the
+  "New person" empty-state button is gone.
+- **The width is a token, 136px**, sized to "New Packet" with the glyph, the chevron and the
+  button's padding; the noun budget is seven characters.
+- **The registry's declared slug is checked against the address**: a page claiming the control for
+  a section it is not on is refused loudly, as is a second claimant on one screen.
 
 ### 2026-09-02 — the four financial ledgers, chrome round
 

@@ -9,10 +9,11 @@
    * The breadcrumb's root is the HOME ICON, the same Lucide house the rail's root row draws, so the
    * two names for one place cannot drift into two glyphs.
    *
-   * The New control anchors the toolbar's far end — the one create affordance for the surface,
-   * carrying the three ways something new lands here. Views that have no current folder keep the
-   * control visible and disabled with the reason, so the toolbar never changes shape under the
-   * pointer.
+   * THE TOOLBAR CARRIES NO CREATE CONTROL. The New menu that anchored its far end — the three ways
+   * something new lands here — moved up to the matter header beside the matter's search (owner's
+   * placement, 2026-09-03), where one control serves every section. The pane toggles end the row
+   * now; the New Folder in the rail and the folder-level context menu are gestures on a place,
+   * not a second button, and stay.
    */
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Button from "@magna-carta/design-system/button";
@@ -23,16 +24,12 @@
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
-  import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
-  import FolderPlus from "@lucide/svelte/icons/folder-plus";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import List from "@lucide/svelte/icons/list";
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import Settings2 from "@lucide/svelte/icons/settings-2";
-  import Upload from "@lucide/svelte/icons/upload";
   import { FOLDER_TREE_HOME_ICON } from "@magna-carta/design-system/folder-tree";
   import type { FileManagerState } from "./file-manager-state.svelte.ts";
 
@@ -43,9 +40,6 @@
     viewTitle = null,
     onToggleRail,
     onTogglePanel,
-    onNewFolder,
-    onNewDocument,
-    onUpload,
     onSearch,
   }: {
     manager: FileManagerState;
@@ -57,9 +51,6 @@
     viewTitle?: string | null;
     onToggleRail: () => void;
     onTogglePanel: () => void;
-    onNewFolder: () => void;
-    onNewDocument: () => void;
-    onUpload: () => void;
     /** What the reader typed. Searching opens the results view; emptying it goes back. */
     onSearch: (query: string) => void;
   } = $props();
@@ -72,12 +63,6 @@
   /** The icon view is the one place with no table header to carry the display settings. */
   const iconView = $derived(manager.listMode === "icons" && manager.view === "browse");
 
-  /** Creating needs a current folder; the views that show rows from many folders have none. */
-  const noDestinationReason = $derived(
-    manager.view === "browse"
-      ? undefined
-      : "This view has no current folder to create into. Open a folder first.",
-  );
 </script>
 
 <div class="flex items-center gap-4 border-b border-border-default px-8 py-4">
@@ -243,31 +228,5 @@
     >
       <PanelRight class="size-16" aria-hidden="true" />
     </Button>
-
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger
-        class={buttonClasses({ variant: "primary", size: "icon" })}
-        title={noDestinationReason ?? "New"}
-        aria-label="New"
-        disabled={noDestinationReason !== undefined}
-      >
-        <Plus class="size-16" aria-hidden="true" />
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-        <DropdownMenu.Item onSelect={onNewDocument}>
-          <FilePlus2 class="size-16" aria-hidden="true" />
-          New Document
-        </DropdownMenu.Item>
-        <DropdownMenu.Item onSelect={onNewFolder}>
-          <FolderPlus class="size-16" aria-hidden="true" />
-          New Folder
-        </DropdownMenu.Item>
-        <DropdownMenu.Separator />
-        <DropdownMenu.Item onSelect={onUpload}>
-          <Upload class="size-16" aria-hidden="true" />
-          Upload Files
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
   </div>
 </div>

@@ -37,7 +37,6 @@
   import Eye from "@lucide/svelte/icons/eye";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import { LedgerPanes, RecordMenu } from "$lib/records/index.ts";
   import { ledgerRecordMenu } from "$lib/records/ledger-record-menu.ts";
@@ -160,7 +159,12 @@
     windowOpen = true;
   }
 
-  function openNewFee(): void {
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowFee = null;
     windowEditing = true;
     windowOpen = true;
@@ -229,7 +233,7 @@
       case "duplicate":
         // Duplicating starts a new draft from this fee's fields. Until a fee store exists, the
         // window opens on a blank draft rather than one pre-filled from a record nothing can copy.
-        openNewFee();
+        openNew();
         return;
       case "reclassify":
         reclassifyFee = first;
@@ -311,13 +315,8 @@
 {#snippet emptyLedger()}
   <EmptyState title="No Fees Recorded Yet">
     Flat charges for professional services land here &mdash; recorded by hand, and billed like any
-    other work in progress. A fee is never computed from time entries.
-    {#snippet actions()}
-      <Button onclick={openNewFee}>
-        <Plus class="size-16" aria-hidden="true" />
-        New Fee
-      </Button>
-    {/snippet}
+    other work in progress. A fee is never computed from time entries. New Fee, at the top of the
+    matter, records the first.
   </EmptyState>
 {/snippet}
 
@@ -345,10 +344,10 @@
 <section class="flex min-h-0 flex-1 flex-col gap-12">
   <!--
     ONE ROW. The arrangement's facts lead and every verb this screen has trails them: View and Amend
-    read and change the arrangement, New Fee records against it, and the pane toggle ends the row as
-    it does on every ledger. Two rows split one set of controls across two lines and spent a row of
-    the screen saying nothing — the arrangement is a strip of facts, not a section with a toolbar
-    of its own.
+    read and change the arrangement, and the pane toggle ends the row as it does on every ledger.
+    Two rows split one set of controls across two lines and spent a row of the screen saying
+    nothing — the arrangement is a strip of facts, not a section with a toolbar of its own.
+    Recording a fee is the matter header's New Fee, not a button here (create-action.svelte.ts).
   -->
   <div class="flex flex-wrap items-center gap-8 text-sm">
     {#if inForce === null}
@@ -394,14 +393,6 @@
       >
         <SquarePen class="size-16" aria-hidden="true" />
         Amend
-      </Button>
-      <Button
-        size="sm"
-        title="Record a flat charge for professional services on this matter. It saves as a draft."
-        onclick={openNewFee}
-      >
-        <Plus class="size-16" aria-hidden="true" />
-        New Fee
       </Button>
       <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
            border of its own, and last in the row on every ledger. -->

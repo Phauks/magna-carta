@@ -39,7 +39,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import Plus from "@lucide/svelte/icons/plus";
+  import CreateControl from "@magna-carta/design-system/create-control";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import { goto } from "$app/navigation";
@@ -248,16 +248,6 @@
       <Masthead.Title>Matters</Masthead.Title>
     </Masthead.Heading>
     <Masthead.Actions>
-      <Button
-        variant="primary"
-        disabled={!mayCreate}
-        title={createDisabledReason}
-        onclick={() => (dialogOpen = true)}
-      >
-        <Plus class="size-16" aria-hidden="true" />
-        New matter
-      </Button>
-
       {#if searchOpen}
         <Input
           bind:ref={searchField}
@@ -294,6 +284,16 @@
           <FunnelX class="size-16" aria-hidden="true" />
         </Button>
       {/if}
+
+      <!-- The one create control (the design system's), LAST on the row: the search grows toward
+           the inline start as it opens, so the control after it is the one place that growth cannot
+           reach — the same order as the matter header and the custody register. -->
+      <CreateControl
+        noun="Matter"
+        title="Open a new matter or take a consultation."
+        refusal={mayCreate ? undefined : createDisabledReason}
+        onpress={() => (dialogOpen = true)}
+      />
     </Masthead.Actions>
   </Masthead.Root>
 
@@ -348,18 +348,8 @@
           </EmptyState>
         {:else}
           <EmptyState title="No Matters Yet">
-            {#snippet actions()}
-              <Button
-                variant="primary"
-                disabled={!mayCreate}
-                title={createDisabledReason}
-                onclick={() => (dialogOpen = true)}
-              >
-                <Plus class="size-16" aria-hidden="true" />
-                New matter
-              </Button>
-            {/snippet}
-            Numbering, documents, time and trust all hang from a matter.
+            Numbering, documents, time and trust all hang from a matter. New Matter, at the top of
+            the screen, opens the first.
           </EmptyState>
         {/if}
       {/snippet}

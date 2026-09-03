@@ -1,0 +1,234 @@
+/*
+ * A screen carries ONE create control — the design system's CreateControl — and nothing on the
+ * screen competes with it.
+ *
+ * On a matter, the control sits in the header beside the search and reads its label from the
+ * section registry and its behaviour from the section's page, so it serves every section from one
+ * place in the band. On the docket, the directory and the custody register it sits in the
+ * masthead's action row. What that arrangement cannot do on its own is stop the next screen from
+ * growing a create button of its own — the very thing the control replaced, which sat a different
+ * distance down the screen on every tab. A second button is not a visible defect on the day it
+ * ships: it renders, it works, and review does not scale to noticing that one of fourteen
+ * sections has quietly taken the control's job back. This gate makes that impossible rather than
+ * merely unlikely.
+ *
+ * Two questions, both refused when unanswered:
+ *
+ *   1. THE MATTER REGISTRY ANSWERS FOR EVERY SECTION. Each entry in sections.ts declares
+ *      `createNoun`: the noun the control offers ("Fee" reads as New Fee), or `null` with a
+ *      `createWaitingOn` line the disabled control carries. A noun is one capitalised word within
+ *      the budget the control's fixed width holds — CREATE_NOUN_MAX_LENGTH, read from the design
+ *      system's create-label.ts so the two cannot drift. The registry checks the same rules when it
+ *      loads; this runs them over the source before anything is built.
+ *
+ *   2. NO RIVAL CREATE BUTTON ON A SCREEN THAT CARRIES THE CONTROL. Starting from every route under
+ *      matters/[id] and from the docket, the directory and the custody register, and following each
+ *      `.svelte` import a screen renders, a `<Button>` or `<DropdownMenu.Trigger>` that wears the
+ *      plus glyph (`<Plus`), or whose label reads as a create verb ("New …", "Record a …", "Log
+ *      Time", "Write Note", "Draft Bill"), is a rival. Record windows, dialogs and menus
+ *      (`*-window.svelte`, `*-dialog.svelte`, `*-menu.svelte`) are their own surfaces and are not
+ *      walked: a plus inside a record window adds a line to a record, it does not create the
+ *      screen's record. The design system's own component is the one holder of the glyph, and it is
+ *      not under the walked roots.
+ *
+ * What this does not catch, said plainly: a button assembled at runtime, a glyph other than Plus
+ * used to mean "create", a create verb the list above does not name, or a screen not named as a
+ * root. The design-corrections ledger and review answer those; this answers what can be read from
+ * source.
+ *
+ * Usage: node tooling/lint-matter-create-control/index.mjs
+ */
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
+const WEB_SOURCE = join(ROOT, "apps/web/src");
+const SECTIONS = "apps/web/src/lib/matters/sections.ts";
+const LABEL_GRAMMAR = "packages/design-system/src/lib/components/create-control/create-label.ts";
+const ROUTES = "apps/web/src/routes/(app)/matters/[id]";
+/** The screens outside a matter that carry the control in their masthead. */
+const FIRM_SCREENS = [
+  "apps/web/src/routes/(app)/matters/+page.svelte",
+  "apps/web/src/routes/(app)/directory/+page.svelte",
+  "apps/web/src/routes/(app)/custodian/+page.svelte",
+];
+/** Surfaces of their own, opened over a section rather than composed into it. */
+const OWN_SURFACE = /-(?:window|dialog|menu)\.svelte$/u;
+
+const failures = [];
+
+// --- 1. the registry answers -----------------------------------------------------------------------
+
+const sectionsText = readFileSync(join(ROOT, SECTIONS), "utf8");
+
+const grammarText = readFileSync(join(ROOT, LABEL_GRAMMAR), "utf8");
+const budgetMatch = /export const CREATE_NOUN_MAX_LENGTH = (\d+);/u.exec(grammarText);
+if (budgetMatch === null) {
+  failures.push(
+    `${LABEL_GRAMMAR}: CREATE_NOUN_MAX_LENGTH not found. The parse broke; fix this gate.`,
+  );
+}
+const budget = budgetMatch === null ? 0 : Number(budgetMatch[1]);
+
+const sections = [];
+for (const block of sectionsText.split(/^\s*\{$/mu).slice(1)) {
+  const slug = /slug:\s*"([^"]+)"/u.exec(block);
+  if (slug === null) continue;
+  const noun = /createNoun:\s*(null|"([^"]*)")/u.exec(block);
+  sections.push({
+    slug: slug[1],
+    declared: noun !== null,
+    noun: noun?.[2] ?? null,
+    hasReason: /createWaitingOn:\s*$|createWaitingOn:\s*"/mu.test(block),
+  });
+}
+if (sections.length === 0) {
+  failures.push(
+    `${SECTIONS}: no section declarations found. The parse broke rather than the registry being ` +
+      "empty — fix this gate before trusting it.",
+  );
+}
+for (const section of sections) {
+  if (!section.declared) {
+    failures.push(
+      `${SECTIONS}: section "${section.slug}" declares no \`createNoun\`. Name the noun the header's ` +
+        "create control offers there, or declare `createNoun: null` with a `createWaitingOn` line " +
+        "saying why nothing is created from it — the disabled control carries that line.",
+    );
+    continue;
+  }
+  if (section.noun === null) {
+    if (!section.hasReason) {
+      failures.push(
+        `${SECTIONS}: section "${section.slug}" creates nothing and says nothing about why. A ` +
+          "disabled control with no line teaches the reader nothing; declare `createWaitingOn`.",
+      );
+    }
+    continue;
+  }
+  if (!/^[A-Z][a-z]+$/u.test(section.noun)) {
+    failures.push(
+      `${SECTIONS}: section "${section.slug}" names create noun "${section.noun}", which is not one ` +
+        'capitalised word. The control reads "New <Noun>" and nothing else.',
+    );
+  } else if (section.noun.length > budget) {
+    failures.push(
+      `${SECTIONS}: section "${section.slug}" names create noun "${section.noun}" ` +
+        `(${section.noun.length} characters); the control's fixed width holds ${budget}. Choose a ` +
+        "shorter noun rather than widening the control.",
+    );
+  }
+}
+
+// --- 2. no rival on a section ------------------------------------------------------------------------
+
+function svelteFilesUnder(directory) {
+  const found = [];
+  for (const entry of readdirSync(directory)) {
+    const path = join(directory, entry);
+    if (statSync(path).isDirectory()) found.push(...svelteFilesUnder(path));
+    else if (entry.endsWith(".svelte")) found.push(path);
+  }
+  return found;
+}
+
+/** Every `.svelte` module a file imports, resolved to a path, or skipped when it is not ours. */
+function renderedImports(path, text) {
+  const imports = [];
+  for (const match of text.matchAll(/from\s+"([^"]+\.svelte)"/gu)) {
+    const specifier = match[1];
+    let target;
+    if (specifier.startsWith("$lib/")) target = join(WEB_SOURCE, "lib", specifier.slice(5));
+    else if (specifier.startsWith(".")) target = resolve(dirname(path), specifier);
+    else continue;
+    if (existsSync(target)) imports.push(target);
+  }
+  return imports;
+}
+
+/**
+ * Source with its comments blanked, so prose about a button is never read as one. Blanked rather
+ * than removed — every newline is kept — so a line reported below is the line in the file.
+ */
+function withoutComments(text) {
+  const blank = (comment) => comment.replaceAll(/[^\n]/gu, " ");
+  return text
+    .replaceAll(/<!--[\s\S]*?-->/gu, blank)
+    .replaceAll(/\/\*[\s\S]*?\*\//gu, blank)
+    .replaceAll(/^\s*\/\/.*$/gmu, blank);
+}
+
+const CREATE_VERB = /^\s*(?:New\b|Record an?\b|Log Time\b|Write Note\b|Draft Bill\b)/u;
+
+/** The rival buttons in one file: each with the line it starts on and why it counts. */
+function rivalsIn(text) {
+  const rivals = [];
+  const source = withoutComments(text);
+  const blocks = source.matchAll(
+    /<(Button|DropdownMenu\.Trigger)\b[^>]*?(?<!\/)>([\s\S]*?)<\/\1>/gu,
+  );
+  for (const block of blocks) {
+    const inner = block[2];
+    const line = source.slice(0, block.index).split("\n").length;
+    if (/<Plus\b/u.test(inner)) {
+      rivals.push({ line, reason: "wears the plus glyph" });
+      continue;
+    }
+    const label = inner
+      .replaceAll(/<[^>]*>/gu, " ")
+      .replaceAll(/\{[^}]*\}/gu, " ")
+      .trim();
+    if (CREATE_VERB.test(label)) {
+      rivals.push({ line, reason: `reads "${label.split(/\s+/u).slice(0, 3).join(" ")}"` });
+    }
+  }
+  return rivals;
+}
+
+const routesDirectory = join(ROOT, ROUTES);
+if (!existsSync(routesDirectory)) {
+  failures.push(`${ROUTES}: not found. The matter routes moved; point this gate at them.`);
+}
+
+const seen = new Set();
+const queue = existsSync(routesDirectory) ? svelteFilesUnder(routesDirectory) : [];
+for (const screen of FIRM_SCREENS) {
+  const path = join(ROOT, screen);
+  if (existsSync(path)) queue.push(path);
+  else failures.push(`${screen}: not found. The screen moved; point this gate at it.`);
+}
+let walked = 0;
+while (queue.length > 0) {
+  const path = queue.pop();
+  if (seen.has(path)) continue;
+  seen.add(path);
+  const relativePath = relative(ROOT, path).replaceAll("\\", "/");
+  if (OWN_SURFACE.test(relativePath)) continue;
+  const text = readFileSync(path, "utf8");
+  walked += 1;
+  for (const rival of rivalsIn(text)) {
+    failures.push(
+      `${relativePath}:${rival.line}: a button on a screen that carries the create control ` +
+        `${rival.reason}. CreateControl is the one create button on a screen; on a matter section ` +
+        "put the action behind it with claimMatterCreate " +
+        "(apps/web/src/lib/matters/create-action.svelte.ts), elsewhere render CreateControl itself.",
+    );
+  }
+  queue.push(...renderedImports(path, text));
+}
+if (walked === 0) {
+  failures.push(`${ROUTES}: no section screens walked. The parse broke; fix this gate.`);
+}
+
+if (failures.length > 0) {
+  for (const failure of failures) console.error(failure);
+  process.exit(1);
+}
+
+const creating = sections.filter((section) => section.noun !== null).length;
+console.log(
+  `Matter create control: every one of ${sections.length} section(s) answered — ${creating} ` +
+    `creating, ${sections.length - creating} declining with a reason — and no rival create button ` +
+    `across ${walked} screen(s) that carry the control.`,
+);
