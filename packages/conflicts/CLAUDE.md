@@ -44,7 +44,11 @@ and never calls external services.
   never refuses a co-party hit, and returns a truncation record counting the refusal by tier
 - `src/subject-facts.ts` — `readSubjectFacts` (one entity) and `readSubjectFactsBatch` (one query per
   node table over a whole closure). One home for "which node table, which columns, what does an
-  absent row mean", so the two can never answer it differently
+  absent row mean", so the two can never answer it differently. `readEntityDisplayNames` is the same
+  question asked for a READER rather than the matcher — the one name the Directory shows, resolved on
+  the read rather than copied onto the append-only log, so a reviewer deciding today sees the name the
+  firm holds today. An id that resolves to nothing is absent from the map, and the caller reports that
+  as an UNRESOLVED party, never as an absent one
 - `src/imputation.ts` — `findImputationHits`: identity join `matter_party` → `directory_person` →
   `member`, never a similarity matcher
 - `src/matching.ts` — `matchOptionsFor` (the strictness → `MatchOptions` mapping), `matchPartyBatch`
@@ -67,7 +71,10 @@ and never calls external services.
   before composing the batch, then appends a `conflicts_disposition` row), `readCurrentDisposition`
   (latest row by `created_at` — the append-only table's read-side "current state" projection),
   `readHitDispositionStates` (every hit of one check with its latest disposition, in **one** query —
-  the same tie-break, without the per-hit N+1 the posture read cannot afford)
+  the same tie-break, without the per-hit N+1 the posture read cannot afford), `readDispositionTrail`
+  (EVERY answer on one hit, oldest first — the compliance artifact the append-only rule exists for, so
+  a reversed clearance stays readable beside the answer that replaced it), and `readPriorConclusions`
+  (what the firm already said about the same parties on any OTHER check)
 - `src/posture.ts` — `readMatterConflictsPosture`: the **only sanctioned way to ask where a matter
   stands on conflicts**. Computed from rows at read time, stores nothing, writes nothing. Also the
   shared readers of a stored check row (`parseCheckScope`, `parseCheckInputs`, `reportedSourcesFor`),
@@ -319,8 +326,17 @@ and never calls external services.
   can still be owed one — a party added to a matter that predates the engine — and reporting nothing
   pending because there is no check would hide exactly the case that most needs saying.
 - The posture read's counts are scoped to the **latest** check. An earlier check's hits stay on the
-  record and are read through that check; cross-check hit identity (a re-surfaced hit that cites an
-  earlier conclusion) is the adjudication read model's job and lands with it.
+  record and are read through that check.
+- **A re-surfaced hit cites an earlier conclusion as CONTEXT and is never marked concluded**
+  (`readPriorConclusions`; the owner's ruling of 2026-09-02). It matches on the ENTITY alone, and the
+  check response carries it as `previouslyAnswered` — a field deliberately separate from
+  `disposition`, so the hit stays unanswered. The case that settled it: a company cleared under Rule
+  1.9 as a FORMER client re-surfaces through the graph as the subsidiary of a CURRENT client, which is
+  a Rule 1.7 question on a higher bar. Same entity, different question. Narrowing the key does not
+  make the judgment safer — adding the source class would hide that second hit precisely BECAUSE it
+  arrived through the graph, and adding the evidence tier would make a firm turning on the
+  over-inclusive band look like a new conflict. Nothing downstream may turn this into a disposition, a
+  pre-filled answer, or a reason to suppress the hit.
 - `matchParty`'s exact-normalized-name probe is a direct SQL query against `directory_name`, not a
   fourth blocking channel added to `findDuplicateCandidates` — the directory's shared corpus reader
   stays phonetic/trigram/blind-index only; tier 2 (exact name) is scored here, in this package. The
