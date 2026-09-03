@@ -57,6 +57,7 @@
   import * as Popover from "@magna-carta/design-system/popover";
   import Separator from "@magna-carta/design-system/separator";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -410,12 +411,10 @@
     {#if readsAggregate}
       {#if value !== null || loading}
         <Separator />
-        <p
-          class="text-xs text-text-muted uppercase"
-          style="letter-spacing: var(--mc-tracking-caps)"
+        <FieldLabel as="p"
         >
           Deployment
-        </p>
+        </FieldLabel>
         {#if value !== null}
           {@render partRow({
             rowKey: "api",

@@ -263,10 +263,6 @@ export function clockText(seconds: number, toTheSecond: boolean): string {
   return `${String(wholeHours)}:${minutePart}:${String(wholeSeconds).padStart(2, "0")}`;
 }
 
-/** Hours to one decimal, the figure the arithmetic multiplies and the bill carries. */
-export function decimalHoursText(minutes: number): string {
-  return (Math.round((minutes / 60) * 10) / 10).toFixed(1);
-}
 
 /**
  * Reading a duration somebody typed into a cell, as seconds.

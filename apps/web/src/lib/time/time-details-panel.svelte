@@ -19,6 +19,7 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { personName } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import Printer from "@lucide/svelte/icons/printer";
   import X from "@lucide/svelte/icons/x";
@@ -103,7 +104,7 @@
         Open
       </Button>
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="text-xs text-text-subtle uppercase">Status</h3>
+        <FieldLabel as="h3">Status</FieldLabel>
         <div>
           <Badge {...statusBadgeAttributes(sole.status)}>{statusEntry(sole.status).label}</Badge>
         </div>
@@ -181,7 +182,7 @@
       </dl>
       {#if summary.byTimekeeper.length > 0}
         <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-          <h3 class="text-xs text-text-subtle uppercase">By Timekeeper</h3>
+          <FieldLabel as="h3">By Timekeeper</FieldLabel>
           <dl class="flex flex-col gap-4 text-sm">
             {#each summary.byTimekeeper as share (share.name)}
               {@render fact(share.name, `${share.hours} · ${money(share.amountMinor)}`)}

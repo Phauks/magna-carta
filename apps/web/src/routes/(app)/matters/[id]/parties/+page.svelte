@@ -16,6 +16,7 @@
    */
   import RecordParties, { type PartyLink, type RecordParty } from "@magna-carta/design-system/record-parties";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { matterSections } from "$lib/matters/sections.ts";
@@ -194,12 +195,10 @@
 </svelte:head>
 
 <section class="flex flex-col gap-16">
-  <h2
-    class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h2" class="border-b border-border-strong pb-8"
   >
     Parties
-  </h2>
+  </FieldLabel>
 
   {#if writeFailure !== null}
     <FailureNotice

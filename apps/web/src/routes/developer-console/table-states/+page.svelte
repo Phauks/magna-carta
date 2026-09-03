@@ -15,6 +15,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import type { BadgeVariant } from "@magna-carta/design-system/badge";
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import {
     createDataTableGrid,
     type DataTableGridOptions,
@@ -194,12 +195,10 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <p
-        class="text-xs font-semibold text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="p"
       >
         Developer console
-      </p>
+      </FieldLabel>
       <h1 class="text-2xl font-semibold">Table states</h1>
       <p class="text-sm text-text-muted">
         The platform's one table (DataTable.Grid) in every state, rendered from the real design

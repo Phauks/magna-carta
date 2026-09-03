@@ -44,6 +44,7 @@
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import X from "@lucide/svelte/icons/x";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import type { CostSummary } from "$lib/matters/cost-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
   import type { ClientCredit, InvoiceDelivery, InvoiceLine } from "./billing-api.ts";
@@ -338,12 +339,12 @@
       {#if isFinal}
         <!-- The lines, each disclosing the work behind it. -->
         <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-          <h3 class="flex items-baseline justify-between gap-8 text-xs text-text-subtle uppercase">
+          <FieldLabel as="h3" class="flex items-baseline justify-between gap-8">
             Lines
             <span class="tabular-nums normal-case">
               {lines.length} · {money(row.summary.totalMinor)}
             </span>
-          </h3>
+          </FieldLabel>
           <ul class="flex flex-col">
             {#each lines as line (line.id)}
               <li class="flex flex-col gap-4 border-b border-border-default py-8 last:border-b-0">
@@ -375,7 +376,7 @@
         </section>
 
         <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-          <h3 class="text-xs text-text-subtle uppercase">Revisions</h3>
+          <FieldLabel as="h3">Revisions</FieldLabel>
           <p class="text-xs text-text-muted">
             An adjustment to a finalized bill lands here as a numbered, reasoned revision: what
             changed, who changed it, and when. The number never changes.
@@ -392,12 +393,12 @@
       {:else if isDraft}
         <!-- The claim workbench: what this draft holds, and what is still waiting outside it. -->
         <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-          <h3 class="flex items-baseline justify-between gap-8 text-xs text-text-subtle uppercase">
+          <FieldLabel as="h3" class="flex items-baseline justify-between gap-8">
             On This Draft
             <span class="tabular-nums normal-case">
               {lines.length} · {money(draftTotalMinor(row.detail))}
             </span>
-          </h3>
+          </FieldLabel>
           {#if lines.length === 0}
             <p class="text-xs text-text-muted">
               Nothing has been claimed onto this draft yet. Claim work from the list below.
@@ -447,7 +448,7 @@
         </section>
 
         <section class="flex flex-col gap-12 border-t border-border-default pt-12">
-          <h3 class="text-xs text-text-subtle uppercase">Unbilled On This Matter</h3>
+          <FieldLabel as="h3">Unbilled On This Matter</FieldLabel>
 
           <Card.Root class="gap-8 py-12">
             <Card.Header class="flex-row items-baseline gap-8 px-12">
@@ -626,10 +627,10 @@
       </div>
 
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="flex items-baseline justify-between gap-8 text-xs text-text-subtle uppercase">
+        <FieldLabel as="h3" class="flex items-baseline justify-between gap-8">
           Applied To This Bill
           <span class="tabular-nums normal-case">{money(row.summary.appliedMinor)}</span>
-        </h3>
+        </FieldLabel>
         {#if row.summary.appliedMinor === 0}
           <p class="text-xs text-text-muted">Nothing has been applied to this bill.</p>
         {:else}
@@ -647,7 +648,7 @@
 
       {#if creditNotes.length > 0}
         <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-          <h3 class="text-xs text-text-subtle uppercase">Credit Notes Beside This Bill</h3>
+          <FieldLabel as="h3">Credit Notes Beside This Bill</FieldLabel>
           {#each creditNotes as note (note.id)}
             <Card.Root class="gap-8 py-12">
               <Card.Header class="flex-row items-baseline justify-between gap-8 px-12">
@@ -678,9 +679,9 @@
 
       {#if openedCredits.length > 0}
         <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-          <h3 class="text-xs text-text-subtle uppercase">
+          <FieldLabel as="h3">
             Client Credit Opened By This Correction
-          </h3>
+          </FieldLabel>
           {#each openedCredits as credit (credit.id)}
             <Card.Root class="gap-8 py-12">
               <Card.Header class="flex-row items-baseline justify-between gap-8 px-12">

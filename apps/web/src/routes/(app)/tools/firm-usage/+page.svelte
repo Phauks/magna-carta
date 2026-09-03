@@ -21,6 +21,7 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import ExportMenu from "$lib/export/export-menu.svelte";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import ByLocationTable from "$lib/tools/firm-usage/by-location-table.svelte";
   import { readFirmUsage, type FirmUsageResponse } from "$lib/tools/firm-usage/firm-usage-api.ts";
   import { firmUsageExportDocument } from "$lib/tools/firm-usage/firm-usage-report.ts";
@@ -374,13 +375,11 @@
     </section>
 
     <section>
-      <h2
-        class="mb-4 flex items-center gap-8 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="h2" class="mb-4 flex items-center gap-8 border-b border-border-strong pb-8"
       >
         <span>Compute and Activity</span>
         <MaturityBadge stage="soon" />
-      </h2>
+      </FieldLabel>
       <p class="mb-16 text-xs text-text-muted">
         Waits on the Cloudflare Analytics API credential.
       </p>
@@ -408,10 +407,8 @@
 {/if}
 
 {#snippet sectionHeading(title: string)}
-  <h2
-    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h2" class="mb-16 border-b border-border-strong pb-8"
   >
     {title}
-  </h2>
+  </FieldLabel>
 {/snippet}

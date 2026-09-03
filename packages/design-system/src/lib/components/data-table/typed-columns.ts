@@ -4,12 +4,15 @@
  * column without an explicit `cell` formats by its type; read `columnAlign(column)` in the head/cell
  * markup to right-align numerics with tabular figures.
  *
- * Money is formatted with `Intl.NumberFormat` for DISPLAY only (a thin, locale-correct presenter).
- * Authoritative monetary values live in `@magna-carta/money` (branded minor-units) at the data layer;
- * a money column receives the already-correct numeric amount and only presents it. Dates render in UTC
- * so a date-only value never shifts across the runner's timezone.
+ * A column DECLARES a type; it does not decide what that type reads like. Money, counts and civil
+ * dates are presented by the shared display vocabulary in ../../formatters/, so a figure reads the
+ * same in a cell as it does in the panel beside it. Authoritative monetary values live in
+ * `@magna-carta/money` (branded minor-units) at the data layer; a money column receives the
+ * already-correct amount and only presents it.
  */
 import type { CellContext, ColumnMeta, Row, RowData } from "@tanstack/table-core";
+import { formatMoney, formatNumber } from "../../formatters/money.ts";
+import { formatDate } from "../../formatters/civil-date.ts";
 import type { Column } from "@tanstack/table-core";
 
 export type ColumnValueType = "text" | "number" | "money" | "date";
@@ -35,32 +38,15 @@ declare module "@tanstack/table-core" {
   }
 }
 
-export function formatMoney(
-  value: number,
-  options: { currency?: string; locale?: string } = {},
-): string {
-  return new Intl.NumberFormat(options.locale, {
-    style: "currency",
-    currency: options.currency ?? "USD",
-  }).format(value);
-}
-
-export function formatNumber(value: number, options: { locale?: string } = {}): string {
-  return new Intl.NumberFormat(options.locale).format(value);
-}
-
-export function formatDate(
-  value: Date | string | number,
-  options: { locale?: string } = {},
-): string {
-  const date = value instanceof Date ? value : new Date(value);
-  return new Intl.DateTimeFormat(options.locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(date);
-}
+/*
+ * The three presenters a typed column reaches for live in the shared display vocabulary
+ * (../../formatters/), not here: a money figure reads the same in a cell, in the details panel
+ * beside it and on a printed sheet, and it can only do that if there is one of it. They are
+ * re-exported so `@magna-carta/design-system/data-table` stays the import a column author already
+ * knows, while the implementation stays in one place.
+ */
+export { formatMoney, formatNumber } from "../../formatters/money.ts";
+export { formatDate } from "../../formatters/civil-date.ts";
 
 /** Format a raw value by a column's declared `meta.type` — the shared core of cells and search. */
 function formatValue(value: unknown, meta: ColumnMeta<RowData, unknown> | undefined): string {

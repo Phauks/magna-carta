@@ -14,7 +14,6 @@ import type { TimeEntrySummary } from "../src/lib/matters/time-api.ts";
 import {
   NO_MATTER_TEXT,
   clockText,
-  decimalHoursText,
   incompleteCount,
   isIncomplete,
   isWorkable,
@@ -252,10 +251,6 @@ describe("durations in both literacies", () => {
   it("writes a clock, to the second only while something is ticking", () => {
     expect(clockText(5430, false)).toBe("1:30");
     expect(clockText(5430, true)).toBe("1:30:30");
-  });
-
-  it("writes the decimal the arithmetic multiplies", () => {
-    expect(decimalHoursText(90)).toBe("1.5");
   });
 
   it("rounds seconds to the minute the write is in", () => {

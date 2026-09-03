@@ -40,6 +40,7 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import List from "@lucide/svelte/icons/list";
   import Flag from "@lucide/svelte/icons/flag";
@@ -238,9 +239,9 @@
 <section class="flex flex-col gap-16">
   <div class="flex flex-col gap-8 border-b border-border-strong pb-8">
     <div class="flex items-center justify-between gap-16">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h2">
         Calendar
-      </h2>
+      </FieldLabel>
       <div class="flex items-center gap-8">
         <div class="flex items-center gap-4" role="group" aria-label="Calendar view">
           <Button
@@ -306,9 +307,9 @@
     {/if}
 
     <div class="flex flex-col gap-8">
-      <h3 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h3">
         Deadlines
-      </h3>
+      </FieldLabel>
 
       {#if deadlineFailure !== null}
         <Alert.Root variant="danger">
@@ -386,9 +387,9 @@
     </div>
 
     <div class="flex flex-col gap-8">
-      <h3 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h3">
         Events
-      </h3>
+      </FieldLabel>
 
       {#if eventFailure !== null}
         <Alert.Root variant="danger">

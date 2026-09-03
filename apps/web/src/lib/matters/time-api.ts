@@ -122,10 +122,6 @@ export function statusLabel(status: TimeEntryStatus): string {
   return statusEntry(timeEntryStatusKey(status)).label;
 }
 
-/** Minutes as hours, to one decimal, the way a timesheet reads. */
-export function hoursFromMinutes(minutes: number): string {
-  return (minutes / 60).toFixed(1);
-}
 
 /**
  * Billable minutes and their money, over the entries that still count. A voided entry is excluded

@@ -58,6 +58,7 @@
    */
   import EyebrowLink from "@magna-carta/design-system/eyebrow-link";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import MatterCreateControl from "$lib/matters/matter-create-control.svelte";
   import type { MatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
@@ -125,12 +126,10 @@
           <ArrowLeft class="size-12" aria-hidden="true" />
         </EyebrowLink>
       </nav>
-      <span
-        class="flex-none text-xs font-semibold text-text-subtle uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="span" class="flex-none"
       >
         {ledgerLine}
-      </span>
+      </FieldLabel>
       <!-- The seal is where the matter's status is read, and now also where it is changed. -->
       <span class="flex-none"><MatterStatusDialog {matter} /></span>
       <Masthead.MetaSeparator />

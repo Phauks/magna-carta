@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FieldLabel from "@magna-carta/design-system/field-label";
   /*
    * The Tools "list" view — every permitted tool as a dense row, grouped by subject. Registered
    * with the multi-view shell; it reads the shell's items (the visible tool groups) and ignores the
@@ -14,12 +15,10 @@
 <div class="flex flex-col gap-32">
   {#each items as { group, tools } (group)}
     <section class="flex flex-col gap-16">
-      <h2
-        class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="h2" class="border-b border-border-strong pb-8"
       >
         {SUBJECT_GROUP_LABELS[group]}
-      </h2>
+      </FieldLabel>
       <ul
         class="divide-y divide-border-default overflow-hidden rounded-lg border border-border-default"
       >

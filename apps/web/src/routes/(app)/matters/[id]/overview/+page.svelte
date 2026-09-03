@@ -13,6 +13,7 @@
   import { formatDate } from "@magna-carta/design-system/data-table";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import EntityIdentity, { type EntityKind } from "@magna-carta/design-system/entity-identity";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
   import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
   import { CalendarView } from "$lib/calendar/index.ts";
@@ -106,21 +107,17 @@
 
 <div class="flex flex-col gap-32">
   <section class="flex flex-col gap-16">
-    <h2
-      class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
+    <FieldLabel as="h2" class="border-b border-border-strong pb-8"
     >
       Key facts
-    </h2>
+    </FieldLabel>
     <dl class="grid grid-cols-1 gap-x-32 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
       {#each keyFacts as fact (fact.label)}
         <div class="flex flex-col gap-4">
-          <dt
-            class="text-xs text-text-muted uppercase"
-            style="letter-spacing: var(--mc-tracking-caps)"
+          <FieldLabel as="dt"
           >
             {fact.label}
-          </dt>
+          </FieldLabel>
           <dd class="text-sm">
             {#if fact.entity !== undefined}
               <EntityIdentity
@@ -139,12 +136,10 @@
 
   {#if matter.description}
     <section class="flex flex-col gap-16">
-      <h2
-        class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="h2" class="border-b border-border-strong pb-8"
       >
         Description
-      </h2>
+      </FieldLabel>
       <p class="max-w-xl text-sm">{matter.description}</p>
     </section>
   {/if}
@@ -172,12 +167,10 @@
       <Card.Root>
         <Card.Content class="flex flex-col gap-12">
           <div class="flex items-baseline justify-between gap-8">
-            <span
-              class="text-xs text-text-muted uppercase"
-              style="letter-spacing: var(--mc-tracking-caps)"
+            <FieldLabel as="span"
             >
               {tile.label}
-            </span>
+            </FieldLabel>
             <Badge variant="neutral">Soon</Badge>
           </div>
           <Skeleton class="h-20 w-96" />

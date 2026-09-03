@@ -32,6 +32,7 @@
   import * as Select from "@magna-carta/design-system/select";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import { formatDate } from "@magna-carta/design-system/data-table";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Paperclip from "@lucide/svelte/icons/paperclip";
@@ -324,9 +325,9 @@
 <section class="flex min-h-0 flex-1 flex-col gap-16">
   <div class="flex items-center justify-between gap-16 border-b border-border-strong pb-8">
     <div class="flex items-center gap-16">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h2">
         Notes
-      </h2>
+      </FieldLabel>
       <div class="flex items-center gap-4">
         <Search aria-hidden="true" class="size-16 text-text-muted" />
         <Input

@@ -16,6 +16,7 @@
   import { buttonClasses } from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import FlaskConical from "@lucide/svelte/icons/flask-conical";
   import SquareArrowOutUpRight from "@lucide/svelte/icons/square-arrow-out-up-right";
   import DeveloperConsolePanel from "./developer-console-panel.svelte";
@@ -41,9 +42,9 @@
     style="inline-size: var(--mc-size-prose); max-block-size: var(--bits-popover-content-available-height)"
   >
     <div class="flex items-baseline justify-between gap-8">
-      <p class="text-xs font-semibold text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="p">
         Developer console
-      </p>
+      </FieldLabel>
       <div class="flex items-center gap-8">
         <p class="text-xs text-text-muted">Dev builds only · saved in this browser</p>
         <Tooltip.Root>

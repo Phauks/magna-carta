@@ -28,6 +28,7 @@
   } from "@magna-carta/design-system/record-attachments";
   import RecordChain from "@magna-carta/design-system/record-chain";
   import RecordWindow from "@magna-carta/design-system/record-window";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import {
     STATUS_VOCABULARIES,
     statusVocabulary,
@@ -277,12 +278,10 @@
   ]}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <p
-        class="text-xs font-semibold text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="p"
       >
         Developer console
-      </p>
+      </FieldLabel>
       <h1 class="text-2xl font-semibold">Record Window States</h1>
       <p class="text-sm text-text-muted">
         The record family in every state it has to survive, rendered from the real design system

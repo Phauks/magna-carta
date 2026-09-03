@@ -11,6 +11,7 @@
    * Dev builds only, like the developer console itself — behind the import.meta.env.DEV gate.
    */
   import * as Select from "@magna-carta/design-system/select";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
@@ -131,12 +132,10 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex flex-col gap-4">
-      <p
-        class="text-xs font-semibold text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="p"
       >
         Developer console
-      </p>
+      </FieldLabel>
       <h1 class="text-2xl font-semibold">Failure states</h1>
       <p class="max-w-prose text-sm text-text-muted">
         Every shape a failure takes, rendered by the real components over real problem documents.

@@ -78,6 +78,38 @@
     {
       "name": "RecordParties",
       "home": "packages/design-system/src/lib/components/record-parties"
+    },
+    {
+      "name": "DataTable",
+      "home": "packages/design-system/src/lib/components/data-table"
+    },
+    {
+      "name": "Masthead",
+      "home": "packages/design-system/src/lib/components/masthead"
+    },
+    {
+      "name": "TopBar",
+      "home": "packages/design-system/src/lib/components/top-bar"
+    },
+    {
+      "name": "EmptyState",
+      "home": "packages/design-system/src/lib/components/empty-state"
+    },
+    {
+      "name": "LabelledField",
+      "home": "packages/design-system/src/lib/components/labelled-field"
+    },
+    {
+      "name": "FieldLabel",
+      "home": "packages/design-system/src/lib/components/field-label"
+    },
+    {
+      "name": "FieldRow",
+      "home": "packages/design-system/src/lib/components/field-row"
+    },
+    {
+      "name": "StatusMark",
+      "home": "packages/design-system/src/lib/components/status-mark"
     }
   ],
   "modalShellsComment": [

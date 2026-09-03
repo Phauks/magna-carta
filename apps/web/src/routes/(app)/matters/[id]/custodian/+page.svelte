@@ -24,6 +24,7 @@
    * (packages/custodian/src/close-advisory.ts) rather than as a standing paragraph here.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import { matterSections } from "$lib/matters/sections.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
@@ -102,12 +103,10 @@
 </svelte:head>
 
 <section class="flex h-full flex-col gap-16">
-  <h2
-    class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h2" class="border-b border-border-strong pb-8"
   >
     {section.label}
-  </h2>
+  </FieldLabel>
 
   {#if isSample}
     <Alert.Root variant="info">

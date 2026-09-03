@@ -30,6 +30,7 @@
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import CreateControl from "@magna-carta/design-system/create-control";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Ban from "@lucide/svelte/icons/ban";
@@ -397,9 +398,9 @@
 <section class="flex min-h-0 flex-1 flex-col gap-16">
   <div class="flex flex-wrap items-center justify-between gap-16 border-b border-border-strong pb-8">
     <div class="flex flex-wrap items-center gap-16">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h2">
         {heading}
-      </h2>
+      </FieldLabel>
       <div class="flex items-center gap-4">
         <Search aria-hidden="true" class="size-16 text-text-muted" />
         <Input

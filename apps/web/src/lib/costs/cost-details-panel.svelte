@@ -28,6 +28,7 @@
   import Stamp from "@lucide/svelte/icons/stamp";
   import X from "@lucide/svelte/icons/x";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import Receipt from "@lucide/svelte/icons/receipt";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
@@ -164,7 +165,7 @@
       </SoonAffordance>
 
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="text-xs text-text-subtle uppercase">Standing</h3>
+        <FieldLabel as="h3">Standing</FieldLabel>
         <div>
           <Badge {...statusBadgeAttributes(costStatusKey(sole.status))}>
             {statusEntry(costStatusKey(sole.status)).label}
@@ -210,12 +211,12 @@
       </dl>
 
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="text-xs text-text-subtle uppercase">Internal Memo</h3>
+        <FieldLabel as="h3">Internal Memo</FieldLabel>
         <p class="text-xs text-text-muted">{gapCellTitle("memo")}</p>
       </section>
 
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="text-xs text-text-subtle uppercase">History</h3>
+        <FieldLabel as="h3">History</FieldLabel>
         <p class="text-xs text-text-muted">{gapCellTitle("history")}</p>
       </section>
     </div>
@@ -294,7 +295,7 @@
       </dl>
       {#if summary.largestPayees.length > 0}
         <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-          <h3 class="text-xs text-text-subtle uppercase">Largest Payees</h3>
+          <FieldLabel as="h3">Largest Payees</FieldLabel>
           <dl class="flex flex-col gap-4 text-sm">
             {#each summary.largestPayees as share (share.name)}
               {@render fact(share.name, money(share.amountMinor))}

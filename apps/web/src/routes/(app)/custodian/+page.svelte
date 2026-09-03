@@ -32,6 +32,7 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -242,9 +243,9 @@
 
   <div class="grid min-h-0 flex-1 gap-24 lg:grid-cols-4">
     <div class="flex min-h-0 flex-col gap-12 lg:col-span-1">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h2">
         Where things are
-      </h2>
+      </FieldLabel>
       {#if occupancy.length === 0}
         <p class="text-xs text-text-muted">
           No container has been described yet. A custody tree is offices, safes, cabinets, shelves

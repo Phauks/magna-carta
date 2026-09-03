@@ -28,6 +28,7 @@
 @import "../components/empty-state/empty-state.css";
 @import "../components/masthead/masthead.css";
 @import "../components/eyebrow-link/eyebrow-link.css";
+@import "../components/field-label/field-label.css";
 @import "../components/top-bar/top-bar.css";
 @import "../components/card/card.css";
 @import "../components/separator/separator.css";
