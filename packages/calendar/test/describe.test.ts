@@ -229,6 +229,7 @@ describe("a matter-scoped read names its rows through each owning source", () =>
         "matterDeadline",
         "matterEvent",
         "matterNote",
+        "matterTask",
         "timeEntry",
       ].toSorted(),
     );
