@@ -2398,6 +2398,12 @@ export const conflictsCheck = sqliteTable(
       table.createdAt,
       table.id,
     ),
+    // The FIRM-WIDE history, newest first. The index above leads with the matter, so it serves a
+    // matter's own history and cannot serve a listing across every matter — the load-profile plan
+    // probe measured that read as a full table scan of a log that only grows, which is a listing
+    // that gets slower every week the firm operates. This one leads with the sort key instead, so
+    // the walk stops at the page rather than reading the table and sorting it.
+    index("conflicts_check_created_id_index").on(table.createdAt, table.id),
     check("conflicts_check_trigger_check", sql`length(${table.trigger}) > 0`),
     check(
       "conflicts_check_strictness_check",

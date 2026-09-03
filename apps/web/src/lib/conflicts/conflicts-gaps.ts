@@ -24,10 +24,6 @@ export interface ConflictsGap {
 }
 
 export const CONFLICTS_GAPS = {
-  checkHistory: {
-    field: "Earlier Checks",
-    waitsOn: "a read that lists the checks a firm has run",
-  },
   previouslyConcluded: {
     field: "Previously Concluded",
     waitsOn:

@@ -841,6 +841,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "conflicts.firmPolicy",
       "conflicts.getCheck",
       "conflicts.hitDispositions",
+      "conflicts.listChecks",
       "conflicts.matterPosture",
       "conflicts.recheckMatter",
       "conflicts.recordDisposition",

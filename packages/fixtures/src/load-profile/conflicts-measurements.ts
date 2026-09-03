@@ -10,6 +10,7 @@ import { readSubjectFactsBatch } from "@magna-carta/conflicts/subject-facts";
 import type { Strictness } from "@magna-carta/conflicts/types";
 import { fixtureContext, type FixtureContext } from "../context.ts";
 import { createProfileFirmKeyProvider, PROTECTED_FIRM_KEY_VERSION } from "./protected-generate.ts";
+import { selectConflictsChecksStatement } from "@magna-carta/conflicts/statements";
 import { explainStatement, type LabeledPlan, type Measurement } from "./runner.ts";
 import type { LoadedSnapshot } from "./snapshot.ts";
 
@@ -642,6 +643,31 @@ function hitDispositionStatesPlanStatement(snapshot: LoadedSnapshot): NodeSqlSta
   );
 }
 
+/*
+ * The firm's check history, both ways it is asked for.
+ *
+ * These two plan DIFFERENTLY and the pair is the point. Filtered by matter, the
+ * (subject_matter_id, created_at, id) index serves the narrowing and the order together — which is
+ * what that index was added for. UNFILTERED, nothing leads with created_at, so the firm-wide listing
+ * reads what matches and sorts it. Neither may become a full table SCAN of conflicts_check: a firm's
+ * check log only grows, and a listing that scanned it would get slower every week the firm operates.
+ *
+ * Uses the REAL statement builder rather than a copy of its SQL, so a change to the read is measured
+ * rather than a change to a literal in this file.
+ */
+function checkHistoryPlanStatement(
+  snapshot: LoadedSnapshot,
+  options: { readonly matterId?: string },
+): NodeSqlStatement {
+  return captured(
+    selectConflictsChecksStatement(snapshot.database as never, {
+      matterId: options.matterId,
+      cursor: { createdAt: "2026-09-02T00:00:00.000Z", id: "conflictsCheck_probe" },
+      limit: 51,
+    }) as never,
+  );
+}
+
 export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
   const { directoryProbes } = snapshot.manifest;
   const statements: readonly { label: string; statement: NodeSqlStatement }[] = [
@@ -674,6 +700,14 @@ export function conflictsHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
     {
       label: "conflicts.hit-disposition-states",
       statement: hitDispositionStatesPlanStatement(snapshot),
+    },
+    {
+      label: "conflicts.check-history-for-matter",
+      statement: checkHistoryPlanStatement(snapshot, { matterId: "matter_probe" }),
+    },
+    {
+      label: "conflicts.check-history-firm-wide",
+      statement: checkHistoryPlanStatement(snapshot, {}),
     },
   ];
   return statements.map(({ label, statement }) => ({

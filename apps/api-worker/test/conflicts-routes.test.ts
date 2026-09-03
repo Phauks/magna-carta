@@ -136,6 +136,64 @@ describe("conflicts check routes", () => {
     expect(id).toMatch(/^conflictsCheck_/);
   });
 
+  it("lists the checks the firm has run, newest first, and narrows to one matter", async () => {
+    const subjectId = await createPerson("History", "Subject");
+    const matter = await post("/api/v1/matters", {
+      title: "Check history",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+      clientDisplayName: "History Client",
+    });
+    expect(matter.status, await matter.clone().text()).toBe(201);
+    const { matterId } = (await matter.json()) as { matterId: string };
+
+    // One check against the matter, one against a bare party set with no matter at all — which the
+    // schema allows and a listing must not imply is impossible.
+    const forMatter = await post("/api/v1/conflicts/checks", {
+      trigger: "comprehensive",
+      matterId,
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(forMatter.status, await forMatter.clone().text()).toBe(201);
+    const { id: matterCheckId } = (await forMatter.json()) as { id: string };
+    const withoutMatter = await post("/api/v1/conflicts/checks", {
+      trigger: "preliminary",
+      subjectEntityIds: [subjectId],
+      scope: { sources: ["party"], strictness: "balanced", depth: 1 },
+    });
+    expect(withoutMatter.status, await withoutMatter.clone().text()).toBe(201);
+
+    const all = await get("/api/v1/conflicts/checks");
+    expect(all.status, await all.clone().text()).toBe(200);
+    const page = (await all.json()) as {
+      data: Array<{
+        id: string;
+        matterId: string | null;
+        actorUserId: string | null;
+        triggerSource: string | null;
+        hitCount: number;
+      }>;
+      nextCursor: string | null;
+    };
+    // Newest first, and the envelope is the uniform one — never a bare array.
+    expect(page.data.length).toBeGreaterThanOrEqual(2);
+    expect(page).toHaveProperty("nextCursor");
+    const listed = page.data.find((entry) => entry.id === matterCheckId);
+    expect(listed?.matterId).toBe(matterId);
+    // A person asked for it, so the row names them. An automated run would carry null here, and the
+    // two must never read alike.
+    expect(listed?.actorUserId).toBe(ownerUserId);
+    expect(typeof listed?.hitCount).toBe("number");
+
+    const narrowed = await get(`/api/v1/conflicts/checks?matterId=${matterId}`);
+    expect(narrowed.status, await narrowed.clone().text()).toBe(200);
+    const narrowedPage = (await narrowed.json()) as { data: Array<{ matterId: string | null }> };
+    expect(narrowedPage.data.length).toBeGreaterThan(0);
+    // The matterless check must not appear under a matter's own history.
+    for (const entry of narrowedPage.data) expect(entry.matterId).toBe(matterId);
+  });
+
   it("re-checks a matter on demand, against its live parties and the firm's own floor", async () => {
     /*
      * The affordance a reviewer presses. It takes no scope on purpose: "re-check this matter" has

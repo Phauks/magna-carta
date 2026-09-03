@@ -9287,6 +9287,98 @@
           "strictness"
         ]
       },
+      "ConflictsCheckPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsCheckSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "ConflictsCheckSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "preliminary",
+              "comprehensive",
+              "new_party",
+              "entity_merged",
+              "entity_renamed",
+              "relationship_recorded",
+              "identifier_recorded",
+              "personnel_changed",
+              "periodic_rescan"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "strictness": {
+            "type": "string",
+            "enum": [
+              "balanced",
+              "over_inclusive"
+            ]
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "floorRaised": {
+            "type": "boolean"
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triggerSource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hitCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "trigger",
+          "matterId",
+          "strictness",
+          "depth",
+          "floorRaised",
+          "actorUserId",
+          "triggerSource",
+          "hitCount",
+          "createdAt"
+        ]
+      },
       "ConflictsPolicyResponse": {
         "type": "object",
         "properties": {
@@ -49764,6 +49856,97 @@
           },
           "409": {
             "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "The checks this firm has run, newest first, keyset-paginated. Filter by `matterId` for one matter's own history. Each line carries what set the run going, who asked for it where anybody did, the strictness and depth it ran at, whether the firm's floor raised the scope above what was requested, and how many candidates surfaced — never a conclusion about any of them, which is a reviewer's act recorded as a disposition. A run nobody asked for carries no actor, and that is a fact about the run rather than a missing value.",
+        "operationId": "conflicts.listChecks",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.listChecks",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "matterId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the firm's conflicts checks, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictsCheckPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
             "content": {
               "application/problem+json": {
                 "schema": {

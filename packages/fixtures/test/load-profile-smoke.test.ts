@@ -134,7 +134,7 @@ describe("load-profile smoke", () => {
         iterations: 2,
       },
     );
-    expect(results.map((result) => result.name).sort()).toEqual(
+    expect(results.map((result) => result.name).toSorted()).toEqual(
       [
         "balance-read.busy-subledger",
         "create-account.trust-subledger",
@@ -160,7 +160,7 @@ describe("load-profile smoke", () => {
         "reconcile.find-conflict",
         "checkout.active-exclusive-lock",
         "version-cut.commit",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of results) {
       expect(result.iterations).toBe(2);
@@ -176,12 +176,12 @@ describe("load-profile smoke", () => {
       warmupIterations: 1,
       iterations: 2,
     });
-    expect(protectedResults.map((result) => result.name).sort()).toEqual(
+    expect(protectedResults.map((result) => result.name).toSorted()).toEqual(
       [
         "protected.incident-decrypt-page",
         "protected.firm-secret-read",
         "protected.blind-index-compute",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of protectedResults) {
       expect(result.iterations).toBe(2);
@@ -197,13 +197,13 @@ describe("load-profile smoke", () => {
       warmupIterations: 1,
       iterations: 2,
     });
-    expect(directoryResults.map((result) => result.name).sort()).toEqual(
+    expect(directoryResults.map((result) => result.name).toSorted()).toEqual(
       [
         "directory.find-by-identifier",
         "directory.read-protected-list",
         "directory.candidate-generation",
         "directory.graph-expansion",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of directoryResults) {
       expect(result.iterations).toBe(2);
@@ -219,13 +219,13 @@ describe("load-profile smoke", () => {
       warmupIterations: 1,
       iterations: 2,
     });
-    expect(customFieldResults.map((result) => result.name).sort()).toEqual(
+    expect(customFieldResults.map((result) => result.name).toSorted()).toEqual(
       [
         "custom-field.read-current-values",
         "custom-field.reference-lookup",
         "custom-field.preview-convert-scan",
         "custom-field.merge-repoint",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of customFieldResults) {
       expect(result.iterations).toBe(2);
@@ -241,7 +241,7 @@ describe("load-profile smoke", () => {
       warmupIterations: 1,
       iterations: 2,
     });
-    expect(conflictsResults.map((result) => result.name).sort()).toEqual(
+    expect(conflictsResults.map((result) => result.name).toSorted()).toEqual(
       [
         "conflicts.run-check",
         "conflicts.imputation",
@@ -249,7 +249,7 @@ describe("load-profile smoke", () => {
         "conflicts.run-check-deep-graph",
         "conflicts.run-check-matching-depth",
         "conflicts.run-check-truncating",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of conflictsResults) {
       expect(result.iterations).toBe(2);
@@ -314,7 +314,7 @@ describe("load-profile smoke", () => {
       documentAutomationMeasurements,
       { warmupIterations: 1, iterations: 2 },
     );
-    expect(automationResults.map((result) => result.name).sort()).toEqual(
+    expect(automationResults.map((result) => result.name).toSorted()).toEqual(
       [
         "templates.list-catalogue",
         "templates.version-for-assembly",
@@ -325,7 +325,7 @@ describe("load-profile smoke", () => {
         "templates.custom-field-catalog",
         "templates.merge-field-catalog",
         "templates.field-binding-lookup",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of automationResults) {
       expect(result.iterations).toBe(2);
@@ -339,14 +339,14 @@ describe("load-profile smoke", () => {
       warmupIterations: 1,
       iterations: 2,
     });
-    expect(trustResults.map((result) => result.name).sort()).toEqual(
+    expect(trustResults.map((result) => result.name).toSorted()).toEqual(
       [
         "trust-proof.three-way",
         "trust-match.suggestions",
         "trust-client-ledger.movements-by-node",
         "trust-available-balance.by-node",
         "trust-fitness.table-wide",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of trustResults) {
       expect(result.iterations).toBe(2);
@@ -363,7 +363,7 @@ describe("load-profile smoke", () => {
       warmupIterations: 1,
       iterations: 2,
     });
-    expect(custodianResults.map((result) => result.name).sort()).toEqual(
+    expect(custodianResults.map((result) => result.name).toSorted()).toEqual(
       [
         "custody-register.by-owner",
         "custody-register.by-location-subtree",
@@ -374,7 +374,7 @@ describe("load-profile smoke", () => {
         "custody-reviews.due-sweep",
         "custody-history.deep-packet-page",
         "custody-number.counter-draw",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of custodianResults) {
       expect(result.iterations).toBe(2);
@@ -388,7 +388,7 @@ describe("load-profile smoke", () => {
       warmupIterations: 1,
       iterations: 2,
     });
-    expect(calendarResults.map((result) => result.name).sort()).toEqual(
+    expect(calendarResults.map((result) => result.name).toSorted()).toEqual(
       [
         "timeline.matter-page-1",
         "timeline.matter-page-20",
@@ -398,7 +398,7 @@ describe("load-profile smoke", () => {
         "booking.availability-read",
         "booking.overlap-check",
         "continuance.chain-read",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of calendarResults) {
       expect(result.iterations).toBe(2);
@@ -412,12 +412,12 @@ describe("load-profile smoke", () => {
     // projection changes neither a plan nor, at this scale, a duration — but it changes these.
     const timelinePageSize = 50;
     const bounds = await timelinePageBounds(calendarHandle);
-    expect(bounds.map((bound) => bound.label).sort()).toEqual(
+    expect(bounds.map((bound) => bound.label).toSorted()).toEqual(
       [
         "timeline.matter-page-1",
         "timeline.firm-window-31-day",
         "timeline.firm-window-member-filtered",
-      ].sort(),
+      ].toSorted(),
     );
     for (const bound of bounds) {
       expect(bound.statementCount).toBeLessThanOrEqual(TIMELINE_SOURCES.length + 1);
@@ -459,15 +459,15 @@ describe("load-profile smoke", () => {
     // asserted first: an empty plan list would make the scan check pass vacuously, so dropped
     // probes must fail here, not slip through.
     const plans = hotPathPlans(snapshot);
-    expect(plans.map((plan) => plan.label).sort()).toEqual(
-      ["balance-read.busy-subledger", "entry-read.by-id", "lines-read.by-entry"].sort(),
+    expect(plans.map((plan) => plan.label).toSorted()).toEqual(
+      ["balance-read.busy-subledger", "entry-read.by-id", "lines-read.by-entry"].toSorted(),
     );
     const scans = findFullScans(plans, PLAN_SCAN_ALLOWLIST);
     expect(scans).toEqual([]);
 
     // The practice hot-path plans: same label-set-first guard, then the scan check.
     const practicePlans = practiceHotPathPlans(snapshot);
-    expect(practicePlans.map((plan) => plan.label).sort()).toEqual(
+    expect(practicePlans.map((plan) => plan.label).toSorted()).toEqual(
       [
         "list-matters.first-page",
         "list-matters.filtered",
@@ -479,15 +479,15 @@ describe("load-profile smoke", () => {
         "zip-resolution.folders-by-matter",
         "rescan-sweep.find-unscanned",
         "storage-meter.summary",
-      ].sort(),
+      ].toSorted(),
     );
     const practiceScans = findFullScans(practicePlans, PRACTICE_PLAN_SCAN_ALLOWLIST);
     expect(practiceScans).toEqual([]);
 
     // The shipping hot-path plans: same label-set-first guard, then the scan check.
     const shippingPlans = shippingHotPathPlans(snapshot);
-    expect(shippingPlans.map((plan) => plan.label).sort()).toEqual(
-      ["list-shipments.by-matter", "list-tracking-events.by-shipment"].sort(),
+    expect(shippingPlans.map((plan) => plan.label).toSorted()).toEqual(
+      ["list-shipments.by-matter", "list-tracking-events.by-shipment"].toSorted(),
     );
     expect(findFullScans(shippingPlans, SHIPPING_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
@@ -503,14 +503,16 @@ describe("load-profile smoke", () => {
       "zip-resolution.folders-by-matter",
     ];
     const sortedListPlans = practicePlans.filter((plan) => sortedListLabels.includes(plan.label));
-    expect(sortedListPlans.map((plan) => plan.label).sort()).toEqual([...sortedListLabels].sort());
+    expect(sortedListPlans.map((plan) => plan.label).toSorted()).toEqual(
+      [...sortedListLabels].toSorted(),
+    );
     expect(findTempBtreeSorts(sortedListPlans)).toEqual([]);
 
     // The protected keyed-read hot paths: same label-set-first guard, then the scan check. Both the
     // firm-secret name lookup and the by-id incident fetch must walk an index / the primary key.
     const protectedPlans = protectedHotPathPlans(snapshot);
-    expect(protectedPlans.map((plan) => plan.label).sort()).toEqual(
-      ["firm-secret.read-by-name", "incident.read-by-id"].sort(),
+    expect(protectedPlans.map((plan) => plan.label).toSorted()).toEqual(
+      ["firm-secret.read-by-name", "incident.read-by-id"].toSorted(),
     );
     expect(findFullScans(protectedPlans, PROTECTED_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
@@ -519,12 +521,12 @@ describe("load-profile smoke", () => {
     // duplicate-candidate phonetic channel walks the code-leading index; the related-party graph
     // expansion walks the from/to entity-id indexes.
     const directoryPlans = directoryHotPathPlans(snapshot);
-    expect(directoryPlans.map((plan) => plan.label).sort()).toEqual(
+    expect(directoryPlans.map((plan) => plan.label).toSorted()).toEqual(
       [
         "directory.candidate-generation.phonetic-channel",
         "directory.find-by-identifier",
         "directory.graph-expansion",
-      ].sort(),
+      ].toSorted(),
     );
     expect(findFullScans(directoryPlans, DIRECTORY_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
@@ -532,14 +534,14 @@ describe("load-profile smoke", () => {
     // read walks (target_row_id, is_current); the reference lookup walks (value_reference_id); the
     // convert scan walks (field_id); the merge repoint's two reads walk those same indexes.
     const customFieldPlans = customFieldHotPathPlans(snapshot);
-    expect(customFieldPlans.map((plan) => plan.label).sort()).toEqual(
+    expect(customFieldPlans.map((plan) => plan.label).toSorted()).toEqual(
       [
         "custom-field.read-current-values",
         "custom-field.reference-lookup",
         "custom-field.preview-convert-scan",
         "custom-field.merge-repoint.reference-read",
         "custom-field.merge-repoint.owned-read",
-      ].sort(),
+      ].toSorted(),
     );
     expect(findFullScans(customFieldPlans, CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
@@ -547,13 +549,13 @@ describe("load-profile smoke", () => {
     // sweep reads (tiering candidates, idle checkouts) must walk an index, never the table; the
     // reconcile + exclusive-lock lookups are file-scoped index seeks.
     const editingPlans = editingHotPathPlans(snapshot);
-    expect(editingPlans.map((plan) => plan.label).sort()).toEqual(
+    expect(editingPlans.map((plan) => plan.label).toSorted()).toEqual(
       [
         "tiering-sweep.find-candidates",
         "idle-checkout-sweep.find-idle",
         "reconcile.find-conflict",
         "checkout.active-exclusive-lock",
-      ].sort(),
+      ].toSorted(),
     );
     expect(findFullScans(editingPlans, EDITING_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
@@ -562,7 +564,7 @@ describe("load-profile smoke", () => {
     // walk an index, never the table. The two posture reads matter most here: they run on every view of
     // a matter over a log that only grows, so a scan there gets slower forever.
     const conflictsPlans = conflictsHotPathPlans(snapshot);
-    expect(conflictsPlans.map((plan) => plan.label).sort()).toEqual(
+    expect(conflictsPlans.map((plan) => plan.label).toSorted()).toEqual(
       [
         "conflicts.imputation-join",
         "conflicts.blind-index-self-join",
@@ -573,7 +575,12 @@ describe("load-profile smoke", () => {
         "conflicts.disposition-current",
         "conflicts.latest-check-for-matter",
         "conflicts.hit-disposition-states",
-      ].sort(),
+        // Both shapes of the check-history listing. They plan differently — the matter filter is
+        // index-served, the firm-wide read is not — and neither may become a scan of a log that
+        // only grows.
+        "conflicts.check-history-for-matter",
+        "conflicts.check-history-firm-wide",
+      ].toSorted(),
     );
     expect(findFullScans(conflictsPlans, CONFLICTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
@@ -583,7 +590,7 @@ describe("load-profile smoke", () => {
     // firm's field catalogue — table-wide by nature, since the dictionary IS the whole set — is
     // allowlisted.
     const automationPlans = documentAutomationHotPathPlans(automationHandle);
-    expect(automationPlans.map((plan) => plan.label).sort()).toEqual(
+    expect(automationPlans.map((plan) => plan.label).toSorted()).toEqual(
       [
         "templates.list-catalogue",
         "templates.version-for-assembly",
@@ -596,7 +603,7 @@ describe("load-profile smoke", () => {
         "assembly.merge-context.estate",
         "templates.custom-field-catalog",
         "templates.field-binding-lookup",
-      ].sort(),
+      ].toSorted(),
     );
     expect(findFullScans(automationPlans, DOCUMENT_AUTOMATION_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
@@ -605,7 +612,7 @@ describe("load-profile smoke", () => {
     // they are the reads that would silently degrade as a firm's book grows. Only the fitness sweep,
     // table-wide by nature, is allowlisted.
     const trustPlans = trustHotPathPlans(snapshot);
-    expect(trustPlans.map((plan) => plan.label).sort()).toEqual(
+    expect(trustPlans.map((plan) => plan.label).toSorted()).toEqual(
       [
         "trust-proof.book-balance-as-of",
         "trust-proof.client-total-as-of",
@@ -614,7 +621,7 @@ describe("load-profile smoke", () => {
         "trust-statement.lines-by-statement",
         "trust-client-ledger.movements-by-node",
         "trust-available-balance.by-node",
-      ].sort(),
+      ].toSorted(),
     );
     expect(findFullScans(trustPlans, TRUST_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
@@ -625,7 +632,7 @@ describe("load-profile smoke", () => {
     // reason: it is the only table in this subsystem that grows without bound, so a scan there gets
     // slower forever.
     const custodianPlans = custodianHotPathPlans(snapshot);
-    expect(custodianPlans.map((plan) => plan.label).sort()).toEqual(
+    expect(custodianPlans.map((plan) => plan.label).toSorted()).toEqual(
       [
         "custody-register.by-owner",
         "custody-register.by-location-subtree",
@@ -638,7 +645,7 @@ describe("load-profile smoke", () => {
         "custody-overdue.sweep",
         "custody-reviews.due-sweep",
         "custody-history.deep-packet-page",
-      ].sort(),
+      ].toSorted(),
     );
     expect(findFullScans(custodianPlans, CUSTODIAN_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
@@ -672,7 +679,7 @@ describe("load-profile smoke", () => {
       warmupIterations: 1,
       iterations: 2,
     });
-    expect(reportsResults.map((result) => result.name).sort()).toEqual(
+    expect(reportsResults.map((result) => result.name).toSorted()).toEqual(
       [
         "reports-client-ledgers.one-month",
         "reports-client-ledgers.twelve-months",
@@ -681,7 +688,7 @@ describe("load-profile smoke", () => {
         "reports-leaf-balances.as-of",
         "reports-pack.one-month",
         "reports-pack.twelve-months",
-      ].sort(),
+      ].toSorted(),
     );
     for (const result of reportsResults) {
       expect(result.iterations).toBe(2);
@@ -692,8 +699,8 @@ describe("load-profile smoke", () => {
     // so a scan would mean a document's cost grows with the firm's whole book rather than with the
     // period it covers.
     const reportsPlans = reportsHotPathPlans(reportsHandle);
-    expect(reportsPlans.map((plan) => plan.label).sort()).toEqual(
-      ["reports-client-ledgers", "reports-journal", "reports-leaf-balances"].sort(),
+    expect(reportsPlans.map((plan) => plan.label).toSorted()).toEqual(
+      ["reports-client-ledgers", "reports-journal", "reports-leaf-balances"].toSorted(),
     );
     expect(findFullScans(reportsPlans, REPORTS_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 

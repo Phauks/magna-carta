@@ -15,6 +15,16 @@ import {
 } from "@magna-carta/conflicts/disposition";
 import { readEntityDisplayNames } from "@magna-carta/conflicts/subject-facts";
 import {
+  selectConflictsChecksStatement,
+  type ConflictsCheckSummaryRow,
+} from "@magna-carta/conflicts/statements";
+import {
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  encodeCursor,
+} from "@magna-carta/data-access/cursor-pagination";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
+import {
   parseCheckInputs,
   parseCheckScope,
   readMatterConflictsPosture,
@@ -168,6 +178,12 @@ const checkIdParam = z.object({
   checkId: identifierPathParam("conflictsCheck", "checkId"),
 });
 
+// The listing's own query. `cursor` is the shared opaque continuation; `matterId` narrows to one
+// matter's history, which is also the shape the table's index actually serves.
+const checkHistoryQuery = cursorQuery.extend({
+  matterId: identifierField("matter").optional(),
+});
+
 const hitIdParam = z.object({
   hitId: identifierPathParam("conflictsHit", "hitId"),
 });
@@ -239,6 +255,36 @@ const ConflictsPolicyResponse = z
     balancedNameRoles: z.array(z.string()),
   })
   .openapi("ConflictsPolicyResponse");
+
+/*
+ * One line of the firm's check history. Narrow on purpose: this is a listing, and the whole check —
+ * its recorded scope, its statement, its hits — is one identifier away. Carrying the scope of every
+ * check on a page would read `inputs_json` for a surface that shows none of it.
+ */
+const CheckSummary = z
+  .object({
+    id: z.string(),
+    trigger: z.enum(CONFLICTS_TRIGGERS),
+    // Null for a check against a prospective party set with no matter — the pre-engagement screen
+    // the schema is already shaped for. A listing must not imply every check belongs to a matter.
+    matterId: z.string().nullable(),
+    strictness: z.enum(STRICTNESS_LEVELS),
+    depth: z.number().int(),
+    // True when the scope asked for fell below the firm's floor and was raised to it. On a listing
+    // it is the one fact worth carrying, because it says the check searched WIDER than requested.
+    floorRaised: z.boolean(),
+    // Null on an automated run, which is nobody's act. Distinct from a manual run whose actor the
+    // row records, and the two must never read alike.
+    actorUserId: z.string().nullable(),
+    // What set the run going: manual, event, or schedule. Null on a row written before the column
+    // existed, which reads as "the row does not say" rather than as any of the three.
+    triggerSource: z.string().nullable(),
+    hitCount: z.number().int(),
+    createdAt: z.string(),
+  })
+  .openapi("ConflictsCheckSummary");
+
+const CheckHistoryResponse = paginated(CheckSummary).openapi("ConflictsCheckPage");
 
 const CreatedRecheckResponse = z
   .object({ checkId: z.string() })
@@ -735,6 +781,29 @@ const getCheckRoute = defineOpenAPIRoute(readMeta("getCheck", "conflicts:read"),
   },
 });
 
+const checkHistoryRoute = defineOpenAPIRoute(readMeta("listChecks", "conflicts:read"), {
+  method: "get",
+  path: "/api/v1/conflicts/checks",
+  description:
+    "The checks this firm has run, newest first, keyset-paginated. Filter by `matterId` for one " +
+    "matter's own history. Each line carries what set the run going, who asked for it where anybody " +
+    "did, the strictness and depth it ran at, whether the firm's floor raised the scope above what " +
+    "was requested, and how many candidates surfaced — never a conclusion about any of them, which " +
+    "is a reviewer's act recorded as a disposition. A run nobody asked for carries no actor, and " +
+    "that is a fact about the run rather than a missing value.",
+  request: { query: checkHistoryQuery },
+  responses: {
+    200: {
+      description: "A page of the firm's conflicts checks, newest first",
+      content: { "application/json": { schema: CheckHistoryResponse } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
 const firmPolicyRoute = defineOpenAPIRoute(readMeta("firmPolicy", "conflicts:read"), {
   method: "get",
   path: "/api/v1/firm/conflicts-policy",
@@ -916,6 +985,45 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       } catch (caught) {
         return conflictsErrorResponse(c, caught);
       }
+    },
+  );
+
+  // GET /api/v1/conflicts/checks
+  app.openapi(
+    { ...checkHistoryRoute, middleware: chokepointMiddleware(chokepoint, checkHistoryRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { cursor, matterId } = c.req.valid("query");
+      // One row past the page, which is how "there is more" is measured rather than estimated —
+      // the same probe every other listing here uses.
+      const { results } = await selectConflictsChecksStatement(firm.firmDatabase, {
+        matterId,
+        cursor: decodeCursor(cursor),
+        limit: DEFAULT_PAGE_SIZE + 1,
+      }).all<ConflictsCheckSummaryRow>();
+      const hasMore = results.length > DEFAULT_PAGE_SIZE;
+      const rows = hasMore ? results.slice(0, DEFAULT_PAGE_SIZE) : results;
+      const last = rows.at(-1);
+      return c.json(
+        {
+          data: rows.map((row) => ({
+            id: row.id,
+            trigger: row.trigger,
+            matterId: row.subject_matter_id,
+            strictness: row.strictness,
+            depth: row.depth,
+            floorRaised: row.floor_raised === 1,
+            actorUserId: row.actor_user_id,
+            triggerSource: row.trigger_source,
+            hitCount: row.hit_count,
+            createdAt: row.created_at,
+          })),
+          // Keyed on the same (created_at, id) pair the statement orders by, so the walk can
+          // neither skip a check nor show one twice.
+          nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
+        } as unknown as z.infer<typeof CheckHistoryResponse>,
+        200,
+      );
     },
   );
 

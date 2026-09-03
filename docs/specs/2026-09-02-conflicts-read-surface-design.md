@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02
 **Status:** Both questions answered by the owner on 2026-09-02 — Q1 `conflicts:read`, Q2 option (c).
-**Reads 1-4 of 6 are built** (the matched party's name; the adjudication trail; re-check on demand; the firm policy). Two remain: the check history, and previously-concluded.
+**Reads 1-5 of 6 are built.** One remains: previously-concluded, under the owner's ruling (c).
 **Scope:** The **reads** the conflicts screens are already built against and the contract does not
 serve. Six of them, each named today in
 [`apps/web/src/lib/conflicts/conflicts-gaps.ts`](../../apps/web/src/lib/conflicts/conflicts-gaps.ts)
@@ -192,7 +192,13 @@ a real ruling.
    check that answered it is evidence about the firm's procedure and a manual run did not answer it.
    `GET /api/v1/firm/conflicts-policy` is `readConflictsPolicy` behind a route, on `conflicts:read`
    per Q1. The check runner now STATES the floor instead of marking it unreadable.
-4. **Check history**, behind its load-profile measurement.
+4. ~~**Check history**, behind its load-profile measurement.~~ **BUILT, and the measurement was
+   right.** Section 3.4 predicted the unfiltered listing would plan a full table scan, and the plan
+   probe measured exactly that on the first run — `conflicts.check-history-firm-wide` came back as a
+   scan of `conflicts_check`. The answer was the index this design named in advance:
+   `conflicts_check_created_id_index` on `(created_at, id)`, added in the same change rather than
+   noted for later. Both shapes of the read are now probed, because they plan differently and only
+   the matter-filtered one was ever served.
 5. **Previously concluded**, once Q2 is answered.
 
 Each step is a vertical slice — data access, route, contract, client, tests, docs — and each one

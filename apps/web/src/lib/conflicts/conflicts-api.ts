@@ -12,9 +12,9 @@
  *     log, so a reviewer deciding now sees the current name. It is null when the entity does not
  *     resolve at all, which the log's append-only rule makes reachable (a merge can reshape an
  *     entity an old hit names); that is an unresolved party and is never rendered as no party.
- *   - THERE IS NO LISTING OF CHECKS. A check is reachable by its own identifier, and a matter's
- *     latest check through that matter's standing. Nothing answers "every check this firm has run",
- *     so no screen here offers one.
+ *   - THE CHECKS A FIRM HAS RUN ARE LISTABLE, since 2026-09-02: `listConflictsChecks` pages them
+ *     newest first, optionally narrowed to one matter. A line names what set the run going and who
+ *     asked where anybody did, and never a conclusion about what it found.
  *   - THE STATEMENT IS THE SERVER'S OWN WORDS. `statement` arrives as a list of sentences the
  *     platform wrote about its own search. Nothing here rewrites, summarizes, or reorders them: the
  *     whole value of the sentence is that the firm can defend the one its system produced.
@@ -170,6 +170,33 @@ export interface DispositionTrail {
   hitId: string;
   /** Oldest first: the trail reads as a narrative, and a reversal only makes sense after what it reverses. */
   dispositions: DispositionTrailEntry[];
+}
+
+/**
+ * One line of the firm's check history. Narrow on purpose: the whole check — its recorded scope, its
+ * statement, its hits — is one identifier away, and a listing that carried all of it would read
+ * every check's inputs for a surface that shows none of them.
+ */
+export interface ConflictsCheckSummary {
+  id: string;
+  trigger: ConflictsTrigger;
+  /** Null for a check against a prospective party set with no matter. Not every check has one. */
+  matterId: string | null;
+  strictness: Strictness;
+  depth: number;
+  /** True when the firm's floor raised the scope above what was asked for — it searched WIDER. */
+  floorRaised: boolean;
+  /** Null on an automated run, which is nobody's act. Never the same as a manual run's actor. */
+  actorUserId: string | null;
+  /** manual, event or schedule. Null on a row written before the column existed. */
+  triggerSource: string | null;
+  hitCount: number;
+  createdAt: string;
+}
+
+export interface ConflictsCheckPage {
+  data: ConflictsCheckSummary[];
+  nextCursor: string | null;
 }
 
 /** The firm's mandatory minimum for every check. A per-run scope may add to it, never subtract. */
@@ -476,6 +503,24 @@ export function recheckMatterConflicts(
     `/api/v1/matters/${encodeURIComponent(matterId)}/conflicts-rechecks`,
     { method: "POST", body: {}, idempotencyKey: writeKey },
   );
+}
+
+/**
+ * The checks this firm has run, newest first, one page at a time.
+ *
+ * `matterId` narrows to one matter's own history, which is also the shape the table's index serves
+ * directly; the firm-wide read has its own index, added when the load-profile plan probe measured
+ * it as a full table scan of a log that only grows.
+ */
+export function listConflictsChecks(
+  fetchImpl: typeof fetch,
+  options: { matterId?: string; cursor?: string } = {},
+): Promise<ApiOutcome<ConflictsCheckPage>> {
+  const parameters = new URLSearchParams();
+  if (options.matterId !== undefined) parameters.set("matterId", options.matterId);
+  if (options.cursor !== undefined) parameters.set("cursor", options.cursor);
+  const query = parameters.toString();
+  return requestJson(fetchImpl, `/api/v1/conflicts/checks${query === "" ? "" : `?${query}`}`);
 }
 
 /** Where one matter stands. Derived at read time, so a policy change shows up immediately. */

@@ -2320,6 +2320,24 @@ export type ConflictsScopeRequest = {
     candidateCap?: number;
 };
 
+export type ConflictsCheckPage = {
+    data: Array<ConflictsCheckSummary>;
+    nextCursor: string | null;
+};
+
+export type ConflictsCheckSummary = {
+    id: string;
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'entity_merged' | 'entity_renamed' | 'relationship_recorded' | 'identifier_recorded' | 'personnel_changed' | 'periodic_rescan';
+    matterId: string | null;
+    strictness: 'balanced' | 'over_inclusive';
+    depth: number;
+    floorRaised: boolean;
+    actorUserId: string | null;
+    triggerSource: string | null;
+    hitCount: number;
+    createdAt: string;
+};
+
 export type ConflictsPolicyResponse = {
     floorSources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     floorStrictness: 'balanced' | 'over_inclusive';
@@ -15342,6 +15360,46 @@ export type DirectorySetPersonLifeDatesResponses = {
 };
 
 export type DirectorySetPersonLifeDatesResponse = DirectorySetPersonLifeDatesResponses[keyof DirectorySetPersonLifeDatesResponses];
+
+export type ConflictsListChecksData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        matterId?: string;
+    };
+    url: '/api/v1/conflicts/checks';
+};
+
+export type ConflictsListChecksErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsListChecksError = ConflictsListChecksErrors[keyof ConflictsListChecksErrors];
+
+export type ConflictsListChecksResponses = {
+    /**
+     * A page of the firm's conflicts checks, newest first
+     */
+    200: ConflictsCheckPage;
+};
+
+export type ConflictsListChecksResponse = ConflictsListChecksResponses[keyof ConflictsListChecksResponses];
 
 export type ConflictsRunCheckData = {
     body: CreateConflictsCheckRequest;
