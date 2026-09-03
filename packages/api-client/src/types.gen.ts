@@ -5827,6 +5827,8 @@ export type BillingArrangementVersion = {
     currency: string;
     validFrom: string;
     validTo: string | null;
+    agreementFileId: string | null;
+    agreementFileName: string | null;
 } | null;
 
 export type BillingArrangementRequest = {
@@ -5839,6 +5841,7 @@ export type BillingArrangementRequest = {
     advanceDepositDestination?: 'trust' | 'operating' | null;
     currency: 'USD';
     validFrom: string;
+    agreementFileId?: string | null;
 };
 
 export type BillingRecoveryAck = {

@@ -5783,6 +5783,14 @@ export const matterBillingArrangement = sqliteTable(
     currency: text("currency").notNull(),
     validFrom: text("valid_from").notNull(), // civil PlainDate
     validTo: text("valid_to"), // null = in force; set once, by the version that superseded it
+    // The signed agreement this version rests on — the intake agreement the client signed at
+    // opening, or the amendment they signed later — as an ordinary matter file, like the conflicts
+    // waiver's evidencing document. A reference the firm can produce on demand rather than a
+    // belief that one exists. Nullable: a version may be recorded before the paper is filed, and
+    // every version on the books predates the column.
+    agreementFileId: text("agreement_file_id")
+      .$type<FileId>()
+      .references(() => file.id),
     createdAt: text("created_at").notNull(),
     createdBy: text("created_by").$type<UserId>(),
   },

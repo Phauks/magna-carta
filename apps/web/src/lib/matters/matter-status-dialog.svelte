@@ -8,11 +8,18 @@
    * change behind an overflow menu made the two strangers: you read the status in one place and
    * changed it in another, three gestures away.
    *
-   * WHAT THE WINDOW IS AND IS NOT. It is a short answer to three questions and nothing else: what
-   * the status is, what closing requires and whether each requirement is met, and where the firm's
-   * paper file is kept. It is NOT a description of what closing does, NOT a checklist for a person
-   * to work through, and NOT a summary of the matter — everything else about the matter is on the
-   * sections that own it.
+   * WHAT THE WINDOW IS AND IS NOT. It is a short answer to four questions and nothing else: what
+   * the status is, how the matter is engaged — the agreement the client signed and the fee
+   * arrangement it rests on — what closing requires and whether each requirement is met, and where
+   * the firm's paper file is kept. It is NOT a description of what closing does, NOT a checklist
+   * for a person to work through, and NOT a summary of the matter — everything else about the
+   * matter is on the sections that own it.
+   *
+   * THE ENGAGEMENT LIVES HERE AND NOT ON THE FEES SCREEN (owner ruling, 2026-09-03). The fee
+   * arrangement is a fact of the engagement, set when the matter opens and rarely read again, and
+   * the intake agreement it rests on is the same kind of fact as the paper file's whereabouts. So
+   * it sits with the status, its version history folded away, and Amend seated beside it the way
+   * the lifecycle step is seated beside the status. The Fees screen states nothing about it.
    *
    * THE STEP IS SEATED ON THE STATUS, NOT AT THE FOOT OF THE WINDOW. Somebody may open this to read
    * where the file is kept, and a window whose bottom-right corner offers Close Matter puts the act
@@ -48,12 +55,29 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Archive from "@lucide/svelte/icons/archive";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import CircleDot from "@lucide/svelte/icons/circle-dot";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import SquarePen from "@lucide/svelte/icons/square-pen";
   import StatusMark from "@magna-carta/design-system/status-mark";
+  import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
+  import AmendAgreementDialog from "$lib/billing/amend-agreement-dialog.svelte";
+  import {
+    BILLING_PERMISSIONS,
+    readArrangement,
+    type ArrangementRecord,
+  } from "$lib/billing/billing-api.ts";
+  import {
+    ARRANGEMENT_KIND_LABELS,
+    arrangementTerms,
+    versionPeriod,
+    versionTitle,
+  } from "$lib/billing/fee-agreement.ts";
+  import { fileDownloadUrl } from "$lib/file-manager/matter-file-api.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
@@ -123,6 +147,22 @@
   let permissions = $state<readonly string[] | null>(null);
   let sessionSettled = $state(false);
 
+  /** The engagement: the fee arrangement in force and its history. Null until the read comes back. */
+  let arrangement = $state<ArrangementRecord | null>(null);
+  let arrangementFailed = $state(false);
+  let arrangementAsked = false;
+  let historyShown = $state(false);
+  let amendOpen = $state(false);
+
+  const inForce = $derived(arrangement?.inForce ?? null);
+  const history = $derived(arrangement?.history ?? []);
+  const currency = $derived(inForce?.currency ?? "USD");
+  const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
+  const mayAmend = $derived(
+    permissions === null || permissions.includes(BILLING_PERMISSIONS.configure),
+  );
+  const AMEND_REFUSAL = `Amending the fee arrangement needs the ${BILLING_PERMISSIONS.configure} capability, which this account does not hold.`;
+
   const identifier = $props.id();
   const blockedDescriptionIdentifier = `${identifier}-blocked`;
 
@@ -162,11 +202,30 @@
     })();
   });
 
+  // The engagement is read when the window opens, every time: an amendment recorded elsewhere
+  // between two openings must not leave this window stating the old deal.
+  $effect(() => {
+    if (!open || arrangementAsked || isSample) return;
+    arrangementAsked = true;
+    const matterId = matter.id;
+    void (async () => {
+      const outcome = await readArrangement(fetch, matterId);
+      if (outcome.kind === "ok") {
+        arrangement = outcome.value;
+        arrangementFailed = false;
+      } else {
+        arrangementFailed = true;
+      }
+    })();
+  });
+
   // A window opened again starts on the step, not on the last answer it gave.
   function reset(): void {
     taken = null;
     notices = [];
     failure = null;
+    arrangementAsked = false;
+    historyShown = false;
   }
 
   function report(outcome: Exclude<ApiOutcome<unknown>, { kind: "ok" }>): void {
@@ -317,6 +376,116 @@
         <p id={blockedDescriptionIdentifier} class="text-xs text-text-subtle">{block}</p>
       {/if}
 
+      {#if !isSample}
+        <!-- How the matter is engaged: the agreement the client signed, and the fee arrangement it
+             rests on. Amend is seated beside the arrangement as the step is seated beside the
+             status; the history is folded away because it is rarely read and never short. -->
+        <div class="flex flex-col gap-8">
+          <h3 class="text-xs text-text-subtle uppercase">Engagement</h3>
+          {#if arrangement === null && !arrangementFailed}
+            <p class="text-xs text-text-subtle">Reading the agreement.</p>
+          {:else if arrangementFailed}
+            <p class="text-xs text-text-subtle">The agreement could not be read.</p>
+          {:else}
+            <dl class="flex flex-col gap-8 text-sm">
+              <div class="grid grid-cols-2 items-center gap-16">
+                <dt class="text-text-muted">Agreement</dt>
+                <dd>
+                  {#if inForce?.agreementFileId != null && inForce.agreementFileName !== null}
+                    <a
+                      href={fileDownloadUrl(inForce.agreementFileId)}
+                      class="underline underline-offset-2 hover:text-text-default"
+                      title="The signed agreement, from the matter's files"
+                    >
+                      {inForce.agreementFileName}
+                    </a>
+                  {:else if inForce?.agreementFileId != null}
+                    <span class="text-text-subtle">The file named on this version has been deleted.</span>
+                  {:else}
+                    <span class="text-text-subtle">Not on file</span>
+                  {/if}
+                </dd>
+              </div>
+              <div class="grid grid-cols-2 items-center gap-16">
+                <dt class="text-text-muted">Billed As</dt>
+                <dd class="flex flex-wrap items-center gap-8">
+                  <span>
+                    {inForce === null ? ARRANGEMENT_KIND_LABELS.hourly : ARRANGEMENT_KIND_LABELS[inForce.kind]}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={!mayAmend}
+                    title={mayAmend
+                      ? "Record an amendment as a new version. The version in force stays on the record with the dates it governed."
+                      : AMEND_REFUSAL}
+                    onclick={() => (amendOpen = true)}
+                  >
+                    <SquarePen class="size-16" aria-hidden="true" />
+                    Amend
+                  </Button>
+                </dd>
+              </div>
+              {#if inForce === null}
+                <p class="text-xs text-text-subtle">
+                  Nothing was recorded, and a matter with no arrangement is billed hourly.
+                </p>
+              {:else}
+                <div class="grid grid-cols-2 items-baseline gap-16">
+                  <dt class="text-text-muted">Terms</dt>
+                  <dd>{arrangementTerms(inForce, money)}</dd>
+                </div>
+                <div class="grid grid-cols-2 items-baseline gap-16">
+                  <dt class="text-text-muted">In Force Since</dt>
+                  <dd class="tabular-nums">
+                    {formatDate(inForce.validFrom)} · version {inForce.version} of {history.length}
+                  </dd>
+                </div>
+              {/if}
+            </dl>
+            {#if history.length > 1}
+              <Button
+                variant="ghost"
+                size="sm"
+                class="self-start"
+                aria-expanded={historyShown}
+                onclick={() => (historyShown = !historyShown)}
+              >
+                {#if historyShown}
+                  <ChevronDown class="size-16" aria-hidden="true" />
+                {:else}
+                  <ChevronRight class="size-16" aria-hidden="true" />
+                {/if}
+                {historyShown ? "Hide the earlier versions" : `Show the ${history.length - 1} earlier ${history.length === 2 ? "version" : "versions"}`}
+              </Button>
+              {#if historyShown}
+                <ul class="flex flex-col gap-8 text-sm">
+                  {#each history as version (version.id)}
+                    <li class="flex flex-col gap-4">
+                      <span class="flex items-baseline justify-between gap-16">
+                        <span>{versionTitle(version)}</span>
+                        <span class="text-xs text-text-muted tabular-nums">
+                          {versionPeriod(version, formatDate)}
+                        </span>
+                      </span>
+                      <span class="text-xs text-text-subtle">{arrangementTerms(version, money)}</span>
+                      {#if version.agreementFileName !== null && version.agreementFileId !== null}
+                        <a
+                          href={fileDownloadUrl(version.agreementFileId)}
+                          class="self-start text-xs underline underline-offset-2"
+                        >
+                          {version.agreementFileName}
+                        </a>
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+            {/if}
+          {/if}
+        </div>
+      {/if}
+
       {#if step.action === "close" && !isSample}
         <!-- What closing requires, each one already answered by the rules themselves. Not a
              checklist: nothing here is a person's to tick, and the mark states what the program
@@ -386,6 +555,14 @@
     {/if}
   {/snippet}
 </ActionDialog>
+
+<!-- Amending is its own act, asked in its own panel over this one; the answer comes back here. -->
+<AmendAgreementDialog
+  bind:open={amendOpen}
+  {arrangement}
+  matterId={matter.id}
+  onRecorded={(record) => (arrangement = record)}
+/>
 
 <!-- The paper file, which the step does not touch. -->
 {#snippet physicalFile()}

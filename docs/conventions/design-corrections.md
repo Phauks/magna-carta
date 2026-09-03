@@ -862,3 +862,20 @@ decided was general, and is promoted above. The remainder that is specific to th
 
 The mockup's `data-mc` annotations name their targets; when a mockup and this file disagree about a
 detail on that surface, the mockup wins and this file gets the correction.
+
+### 2026-09-03 — the fee arrangement lives behind the status seal
+
+The owner, on the fee-arrangement window: "truthfully I don't like the fee arrangement window", then
+"move this into the matter status, which can be reached from the matter status badge", and "remove
+from fee screen".
+
+- **The fee arrangement is a fact of the engagement, not of the ledger.** It is set when the matter
+  opens, rarely read again, and rests on the intake agreement the client signed. It lives in the
+  matter status window behind the seal, in an Engagement section beside the status, with its
+  history folded away and Amend seated beside it the way the lifecycle step is seated beside the
+  status.
+- **The Fees screen states nothing about the arrangement.** No strip, no View, no Amend, no
+  summary in the details panel. Fees are recorded against whatever the status window says.
+- **An arrangement version names the signed agreement as a file**, picked from the matter's own
+  files — the conflicts waiver's precedent — never as a sentence. Optional, because the paper may
+  follow the deal.
