@@ -29,7 +29,9 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import Plus from "@lucide/svelte/icons/plus";
+  import CreateControl from "@magna-carta/design-system/create-control";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -109,22 +111,39 @@
   let grid = $state<DataTable.DataTableGridState<CustodyPacketSummary> | null>(null);
   let rereadRegister = $state<() => void>(() => {});
 
-  const query = $derived(
-    selectedLocationId === undefined ? {} : { locationSubtreeId: selectedLocationId },
-  );
+  /*
+   * The search is the register's own server-side `search`, so it reads the whole register rather
+   * than the page in the browser; it waits for typing to pause because the read leaves the
+   * machine. It sits beside the create control in the masthead, the pair every list screen
+   * carries in the same order.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+
+  const query = $derived({
+    ...(selectedLocationId === undefined ? {} : { locationSubtreeId: selectedLocationId }),
+    ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
+  });
   const selectedLocationName = $derived(
     occupancy.find((node) => node.locationId === selectedLocationId)?.name ?? null,
   );
 
-  const narrowed = $derived(selectedLocationId !== undefined || (grid?.activeFilterCount ?? 0) > 0);
-  const narrowingSummary = $derived(
-    selectedLocationId === undefined
-      ? "Show every packet"
-      : `Showing ${selectedLocationName ?? "one branch"} of the register`,
+  const narrowed = $derived(
+    selectedLocationId !== undefined ||
+      appliedSearch.trim() !== "" ||
+      (grid?.activeFilterCount ?? 0) > 0,
   );
+  const narrowingSummary = $derived.by(() => {
+    const parts: string[] = [];
+    if (selectedLocationId !== undefined) parts.push(selectedLocationName ?? "one branch");
+    if (appliedSearch.trim() !== "") parts.push(`"${appliedSearch.trim()}"`);
+    return parts.length === 0 ? "Show every packet" : `Showing ${parts.join(", ")} of the register`;
+  });
 
   function clearNarrowing(): void {
     selectedLocationId = undefined;
+    searchText = "";
+    appliedSearch = "";
     grid?.clearAllFilters();
   }
 
@@ -150,25 +169,31 @@
 
 <svelte:head><title>Custodian · Magna Carta</title></svelte:head>
 
-{#snippet newPacketButton()}
-  <Button
-    variant="primary"
-    disabled={createRefusal !== undefined}
-    title={createRefusal}
-    onclick={() => (dialogOpen = true)}
-  >
-    <Plus class="size-16" aria-hidden="true" />
-    New
-  </Button>
-{/snippet}
-
 <div class="flex h-full flex-col gap-16">
   <Masthead.Root>
     <Masthead.Heading>
       <Masthead.Title>Custodian</Masthead.Title>
     </Masthead.Heading>
     <Masthead.Actions>
-      {@render newPacketButton()}
+      <!-- The search, then the create control: the search grows toward the inline start, so the
+           control at the row's end never moves when it opens. The same pair, in the same order, as
+           the matter header. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search the register"
+        placeholder={placeholderOf("Search the register")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
+      <CreateControl
+        noun="Packet"
+        title="Log a packet into custody."
+        refusal={createRefusal}
+        onpress={() => (dialogOpen = true)}
+      />
 
       {#if narrowed}
         <!-- The control exists only while something is narrowing the view: its absence says
@@ -243,11 +268,8 @@
         {#snippet emptyBody()}
           A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
           wallet. It carries a custody number, the person or organization it is held for, and
-          everything that has ever happened to it. Logging the first one draws the firm's first
-          custody number.
-        {/snippet}
-        {#snippet emptyActions()}
-          {@render newPacketButton()}
+          everything that has ever happened to it. Logging the first one, with New Packet at the
+          top of the screen, draws the firm's first custody number.
         {/snippet}
       </PacketRegister>
     </div>

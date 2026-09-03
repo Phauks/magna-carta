@@ -32,7 +32,6 @@
   import * as Select from "@magna-carta/design-system/select";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import { formatDate } from "@magna-carta/design-system/data-table";
-  import Plus from "@lucide/svelte/icons/plus";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Paperclip from "@lucide/svelte/icons/paperclip";
@@ -53,6 +52,7 @@
   } from "$lib/matters/notes-api.ts";
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -162,6 +162,26 @@
   // Writing, editing, deleting and attaching are one permission. A member without it still reads the
   // matter's notes, so the controls are absent rather than present-and-refusing.
   const canWrite = $derived(session === null || session.permissions.includes("notes:write"));
+
+  /*
+   * The matter header's New Note opens the composer; this screen keeps no button for it. The
+   * composer exists only while it is in use, so while one is open the control says so rather than
+   * opening a second.
+   */
+  claimMatterCreate("notes", () => ({
+    title: "Write a note on this matter. It is stamped with your name and the moment it is saved.",
+    refusal: isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : !canWrite
+        ? "Writing a note needs the notes:write permission, which this account does not hold."
+        : composing
+          ? "A note is being written below. Save it or cancel it first."
+          : undefined,
+    run: () => {
+      composerNow = new Date().toISOString();
+      composing = true;
+    },
+  }));
 
   function refresh(): void {
     const matterId = matter.id;
@@ -325,6 +345,7 @@
         {/if}
       </div>
     </div>
+    <!-- Opening the composer is the matter header's New Note; only the way out of it lives here. -->
     {#if composing}
       <Button
         variant="secondary"
@@ -337,18 +358,6 @@
         }}
       >
         Cancel
-      </Button>
-    {:else}
-      <Button
-        variant="secondary"
-        disabled={isSample || !canWrite}
-        onclick={() => {
-          composerNow = new Date().toISOString();
-          composing = true;
-        }}
-      >
-        <Plus aria-hidden="true" />
-        Write Note
       </Button>
     {/if}
   </div>

@@ -17,6 +17,8 @@
 @import "../components/verification-code-input/verification-code-input.css";
 /* ScreenSearch carries the field treatment on its own wrapper, so it follows the field recipe. */
 @import "../components/screen-search/screen-search.css";
+/* CreateControl dresses a Button, so its recipe follows the button and the search it sits beside. */
+@import "../components/create-control/create-control.css";
 @import "../components/textarea/textarea.css";
 @import "../components/file-input/file-input.css";
 @import "../components/dropzone/dropzone.css";

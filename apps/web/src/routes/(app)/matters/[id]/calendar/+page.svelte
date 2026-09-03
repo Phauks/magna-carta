@@ -42,7 +42,7 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import List from "@lucide/svelte/icons/list";
-  import Plus from "@lucide/svelte/icons/plus";
+  import Flag from "@lucide/svelte/icons/flag";
   import Table from "@lucide/svelte/icons/table";
   import { CalendarView } from "$lib/calendar/index.ts";
   import {
@@ -65,6 +65,7 @@
   import RecordDeadlineDialog from "$lib/calendar/record-deadline-dialog.svelte";
   import RecordEventDialog from "$lib/calendar/record-event-dialog.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
+  import { claimMatterCreate } from "$lib/matters/create-action.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import { listFirmMembers, type FirmMemberSummary } from "$lib/members/members-api.ts";
@@ -112,6 +113,31 @@
   }
 
   // ---- the section's own reads -----------------------------------------------------------------
+
+  /*
+   * Recording goes through the matter header's one create control (the section registry names the
+   * noun, this page claims the control while it is mounted): an event or a deadline, each opening
+   * its own form. The refusal is one line for the whole control (the session's permission, or the
+   * sample matter) and the same line on each choice, because both record against the same matter.
+   */
+  claimMatterCreate("calendar", () => ({
+    title: "Record an event or a deadline on this matter.",
+    refusal: recordRefusal,
+    choices: [
+      {
+        label: "Event",
+        icon: CalendarDays,
+        run: () => (eventDialogOpen = true),
+        refusal: recordRefusal,
+      },
+      {
+        label: "Deadline",
+        icon: Flag,
+        run: () => (deadlineDialogOpen = true),
+        refusal: recordRefusal,
+      },
+    ],
+  }));
 
   // Two independent lists, so one failing does not blank the other: a firm whose deadline read
   // errored still needs to see its hearings.
@@ -245,24 +271,6 @@
             <Table class="size-16" aria-hidden="true" />
           </Button>
         </div>
-        <Button
-          variant="secondary"
-          disabled={recordRefusal !== undefined}
-          title={recordRefusal}
-          onclick={() => (deadlineDialogOpen = true)}
-        >
-          <Plus aria-hidden="true" />
-          Record a deadline
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={recordRefusal !== undefined}
-          title={recordRefusal}
-          onclick={() => (eventDialogOpen = true)}
-        >
-          <Plus aria-hidden="true" />
-          Record an event
-        </Button>
       </div>
     </div>
   </div>

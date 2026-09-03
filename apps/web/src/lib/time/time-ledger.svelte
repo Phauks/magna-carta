@@ -31,7 +31,6 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
   import {
     LedgerPanes,
     RecordMenu,
@@ -61,6 +60,7 @@
   import {
     approveTimeEntry,
     submitTimeEntry,
+    unvoidTimeEntry,
     voidTimeEntry,
     writeKey,
     type TimeEntryDraftFields,
@@ -155,7 +155,12 @@
     windowOpen = true;
   }
 
-  function openLogTime(): void {
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowEntry = null;
     windowPrefill = null;
     windowEditing = true;
@@ -210,6 +215,10 @@
       recordNoun: { singular: "Time Entry", plural: "Time Entries" },
       // Not served: with the firm's review setting unknown, the review vocabulary stays absent.
       reviewGateEnabled: false,
+      // A voided time entry can be put back. The time ledger is the only one that can say this
+      // today, which is exactly why the menu takes it as a fact about the surface rather than
+      // assuming every ledger has the route.
+      canRestoreVoid: true,
     });
   });
 
@@ -314,8 +323,21 @@
           actionFailure = refusalSentence(outcome, "The entry");
           return;
         }
-        actionNotice = "The entry was struck. It stays on the ledger and counts toward nothing.";
+        actionNotice = "The entry was voided. It stays on the ledger and counts toward nothing.";
         onChanged();
+        return;
+      }
+      case "unvoid": {
+        const outcome = await unvoidTimeEntry(fetch, first.id, writeKey());
+        if (outcome.kind !== "ok") {
+          actionNotice =
+            outcome.kind === "problem" && outcome.problem.status === 409
+              ? "The entry was not restored. Either it is not voided any more, or its value was moved onto a cost — restoring it would charge the same work twice."
+              : "The entry was not restored. It is still voided on the ledger.";
+          return;
+        }
+        onChanged();
+        actionNotice = "The entry is a draft again, with its number, its note and its files.";
         return;
       }
       default:
@@ -392,13 +414,8 @@
 
 {#snippet emptyLedger()}
   <EmptyState title="No Time Recorded Yet">
-    Timers, manual entries and the weekly grid all land here, billable or not.
-    {#snippet actions()}
-      <Button onclick={openLogTime}>
-        <Plus class="size-16" aria-hidden="true" />
-        Log Time
-      </Button>
-    {/snippet}
+    Timers, manual entries and the weekly grid all land here, billable or not. New Time, at the top
+    of the matter, records the first entry.
   </EmptyState>
 {/snippet}
 
@@ -428,17 +445,9 @@
         Clear Filters
       </Button>
     {/if}
-    <!-- Recording one entry on this matter is what this screen offers; the Time Sheet is the top
-         bar's, reachable from every screen including this one, and a second door to it here was a
-         control that took a reader somewhere they were already standing in front of. -->
-    <Button
-      size="sm"
-      title="Record one entry on this matter. It saves as a draft."
-      onclick={openLogTime}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Log Time
-    </Button>
+    <!-- Recording one entry on this matter is the matter header's New Time; the Time Sheet is the
+         top bar's, reachable from every screen including this one, and a second door to it here was
+         a control that took a reader somewhere they were already standing in front of. -->
     <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
          border of its own, reading its state through the glyph and never a filled box. -->
     <Button

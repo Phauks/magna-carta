@@ -631,6 +631,13 @@
       "when": 1788425200000,
       "tag": "20260902T230000_task-sync-seams",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "6",
+      "when": 1788428800000,
+      "tag": "20260903T000000_arrangement-agreement-file",
+      "breakpoints": true
     }
   ]
 }

@@ -444,6 +444,68 @@ export async function voidTimeEntry(
   };
 }
 
+/*
+ * RETURNING A VOIDED ENTRY TO DRAFT.
+ *
+ * Voiding is how a mistaken entry is retired, and it has always been one-way: the row stays for
+ * audit, carrying no value. That is right for the act and wrong for the accident. People void the
+ * wrong row, void on a colleague's say-so that turns out to be mistaken, and void an afternoon's
+ * work when they meant to void one line of it — and until now the only repair was to type the whole
+ * entry again, which loses its number, its memo, its codes, its attached documents and its history,
+ * exactly as re-typing a misfiled entry did before it could be moved.
+ *
+ * IT IS NOT A LIFECYCLE TRANSITION, DELIBERATELY. `canTransition` says nothing leaves a terminal
+ * state, and that stays true: the forward chain must not learn a backward move, because every other
+ * record kind in the product reads the same table and none of them has been designed for one. This
+ * is its own guarded act with its own refusals, the way refiling is its own statement rather than a
+ * field on the patch. What it restores is the state the entry was in before somebody voided it,
+ * which is a draft — never submitted, never approved: those were somebody's judgement about an
+ * entry that has since been withdrawn, and they have to be given again.
+ *
+ * THE ONE VOID THAT MUST STAY A VOID is the entry converted into a cost. That conversion moves the
+ * entry's value onto a cost record and voids the time so the firm cannot count it twice; restoring
+ * the time without touching the cost would do precisely what the conversion existed to prevent. The
+ * conversion is recorded as an audit event on the entry and nowhere else, so that is what is asked,
+ * and the caller reads it — this service takes the answer rather than the database, because the
+ * question is the route's to ask alongside the reads it already makes.
+ */
+export async function unvoidTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  facts: {
+    /** Whether this entry was voided by being converted into a cost entry. */
+    readonly convertedToCost: boolean;
+  },
+  options: TimekeepingServiceOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  const from = await loadStatus(database, timeEntryId);
+  if (from !== "void") {
+    throw new TimeEntryValidationError(
+      "not-void",
+      `time entry ${timeEntryId} is ${from}, not void — there is nothing to restore`,
+    );
+  }
+  if (facts.convertedToCost) {
+    throw new TimeEntryValidationError(
+      "converted-to-cost",
+      `time entry ${timeEntryId} was voided by conversion to a cost entry; restoring it would charge the same work twice`,
+    );
+  }
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId,
+    effect: {
+      statements: [
+        // Guarded on the void status, so two callers racing produce one restore: the second one
+        // matches no row and the service's own read has already refused it anyway.
+        transitionStatusStatement(database, timeEntryId, "void", "draft", updatedAt),
+        audit(database, options, "time_entry.unvoided", timeEntryId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
 // The single WIP-store writer. The route has already resolved the rate (precedence + effective date)
 // and rounded the duration, then folded both into `input.rate` — this composes the insert + audit into
 // one EffectWrite. A null rate ("non-billable internal time") stores null rate columns; the table's

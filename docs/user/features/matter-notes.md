@@ -5,7 +5,7 @@ standing instruction, the reasoning behind a decision. Find them on a matter und
 
 ## Writing a Note
 
-Press **Write Note**. Before you type anything the composer shows you what the note will carry: which
+Press **New Note** at the top of the matter, beside the search. Before you type anything the composer shows you what the note will carry: which
 matter it lands on, whose name goes on it, and the moment it will be stamped with. Nothing is stored
 that you were not shown.
 
