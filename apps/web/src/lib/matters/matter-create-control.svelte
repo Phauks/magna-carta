@@ -11,31 +11,28 @@
    * The page then claims the behaviour (create-action.svelte.ts); until it has, and whenever it
    * states a refusal, the control is disabled carrying the line that says why.
    *
-   * A CLAIM IS CHECKED AGAINST THE ADDRESS. A page that claims for a section other than the one the
-   * reader is standing on is a defect refused loudly rather than rendered: the label would say one
-   * thing and the press would do another.
+   * A CLAIM IS CHECKED AGAINST THE ADDRESS, AND A MISMATCH IS IGNORED RATHER THAN THROWN. The label
+   * comes from the address and the behaviour from the claim, so a claim belonging to another section
+   * must never be pressable — the label would say one thing and the press would do another. It is
+   * NOT, however, a defect: leaving a section updates `page.url` before the outgoing page's effect
+   * cleanup releases its claim, so for one flush every ordinary navigation holds a claim for the
+   * section the reader has just left. This threw on that window, which crashed the screen on any tab
+   * change (Files to Parties, and every other pair). Ignoring the stale claim closes the window
+   * honestly: the control falls back to disabled carrying the line that says it has no action yet,
+   * which is exactly what it shows in the moment before a section claims — and the same treatment
+   * makes a genuine mismatch visible as a control that never becomes pressable, instead of a
+   * white screen.
    */
   import { page } from "$app/state";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import type { MatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
+  import { honouredClaim, type MatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
   import { sectionForPathname } from "$lib/matters/sections.ts";
 
   let { slot, matterId }: { slot: MatterCreateSlot; matterId: string } = $props();
 
   const section = $derived(sectionForPathname(matterId, page.url.pathname));
 
-  const claim = $derived.by(() => {
-    const held = slot.held;
-    if (held === null) return null;
-    if (section === undefined || held.section !== section.slug) {
-      throw new Error(
-        `The create control is claimed for "${held.section}" but the reader is on ` +
-          `${section === undefined ? "no section" : `"${section.slug}"`}. A page claims the ` +
-          "control only for the section it renders.",
-      );
-    }
-    return held;
-  });
+  const claim = $derived(honouredClaim(slot.held, section?.slug));
 
   /** Why the control cannot be pressed right now, or undefined while it can. */
   const refusal = $derived.by((): string | undefined => {

@@ -21,6 +21,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -157,30 +158,26 @@
   </div>
 {:else}
   <div class="mb-24 flex flex-col gap-16">
-    <Masthead.Root>
-      <Masthead.Heading>
-        <Masthead.Eyebrow>{entityKindLabel(entity.kind)}</Masthead.Eyebrow>
-        <Masthead.Title>{name}</Masthead.Title>
-        <Masthead.Meta>
+    <ScreenHeader title={name} back="directory" eyebrow={entityKindLabel(entity.kind)}>
+      {#snippet meta()}
+        {#if pronouns !== null}
+          <span>{pronounShortForm(pronouns)}</span>
+        {/if}
+        {#if legalNameAside !== null}
           {#if pronouns !== null}
-            <span>{pronounShortForm(pronouns)}</span>
+            <Masthead.MetaSeparator />
           {/if}
-          {#if legalNameAside !== null}
-            {#if pronouns !== null}
-              <Masthead.MetaSeparator />
-            {/if}
-            <span>{legalNameAside}</span>
-          {/if}
-        </Masthead.Meta>
-      </Masthead.Heading>
-      <Masthead.Actions>
+          <span>{legalNameAside}</span>
+        {/if}
+      {/snippet}
+      {#snippet actions()}
         {#if mergedInto !== null}
           <Badge variant="neutral" class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
             Folded in
           </Badge>
         {/if}
-      </Masthead.Actions>
-    </Masthead.Root>
+      {/snippet}
+    </ScreenHeader>
 
     {#if mergedInto !== null}
       <Alert.Root variant="info">
