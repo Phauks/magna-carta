@@ -1,19 +1,16 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/r2-bucket-isolation-review-pckokv
-area: Per-firm R2 bucket isolation — the call-site sort ahead of the S3 adapter
+area: The first production upload — CORS at provisioning, the Upload dialog that sends nothing until asked, Retry beside a failed download
 status: review
-touches: apps/api-worker/src, apps/api-worker/test, tooling/lint-firm-bucket-seam.mjs, tooling/lint-one-ui/registry.json, docs/specs/, docs/decisions/pending/, changelog.d/
+touches: apps/api-worker/src/firm-resource-provider.ts, apps/api-worker/src/firm-provisioner.ts, apps/api-worker/src/files/browser-upload-cors.ts, apps/web/src/lib/file-manager, apps/web/src/lib/export, apps/web/src/routes/(app)/downloads, packages/design-system/src/lib/components/dropzone, docs/conventions/operations.md, docs/conventions/file-manager-rulings.md, changelog.d/
 ---
 
-Option A of the per-firm R2 bucket brief, complete and merged with `main`: every firm-scoped R2
-access resolves through `src/files/firm-bucket.ts`; when the firm's bucket is not the bound one the
-seam returns an S3-API-backed handle (`s3-firm-bucket.ts`) instead of refusing; provisioning applies
-the firm bucket's expiry rules; `lint:firm-bucket-seam` holds the line. Ready for review and merge.
+The stream that landed per-firm bucket isolation (#484) continues with what the first real upload
+against a firm bucket found: the bucket had no CORS policy, so the browser's presigned PUT died at
+the preflight. Provisioning now applies the policy to every new firm bucket; the pre-existing buckets
+take it by hand (runbook section 15). On the web side the Upload dialog now opens first and sends
+nothing until Upload is pressed (files, several files, or a whole folder, recreated under the chosen
+location), "did not land" reads "Upload failed", and a failed download gets a Retry beside it.
 
-Owns `apps/api-worker/src/files/firm-bucket*.ts`, `s3-firm-bucket.ts`, `r2-s3-endpoint.ts`, and the
-R2 call sites across downloads, conversions, emails, search, editing and preview. Also carries a
-one-entry deletion in `tooling/lint-one-ui/registry.json` that `main` owed itself after #479.
-
-Still open after this lands, named in the ADR: threading a firm's real data region to the
-name-taking resolver and the presigner (every firm is `us` today), and a bucket listing to confirm
-no firm holds objects in the shared bucket.
+Owns `apps/web/src/lib/file-manager/upload-dialog.svelte` and the upload section of
+`file-manager.svelte`, the download tray and page, and the Dropzone's new `onEntries`.
