@@ -6,10 +6,12 @@
    * details panel is not an act on the records, so it does not belong where a surface's verbs are;
    * and the four financial ledgers, which have no toolbar of their own, each drew a row to hold it
    * whose only occupant most of the time was this glyph. The strip beneath the table already holds
-   * one line at a fixed height and already carries the surface's trailing figures and its own quiet
-   * controls, so the toggle costs nothing there — and every surface in the product answers the same
-   * question in the same place. The size is the strip's own: `icon-sm` fits inside the strip's
-   * minimum height, where the default icon square would push it four points taller.
+   * one line and already carries the surface's trailing figures and its own quiet controls, so the
+   * toggle joins something rather than summoning something — and every surface in the product then
+   * answers the same question in the same place. It is not free: measured, the strip grows from 32
+   * to 41 points to seat the control, against the 41 the row above the table cost. That is a net 32
+   * points back to the table AND one less band on the screen, which is the whole of the trade. The
+   * size is the strip's own: `icon-sm`, where the default icon square would cost four points more.
    *
    * IT READS ITS STATE THROUGH THE GLYPH. `aria-pressed` alone, which the ghost recipe draws as the
    * accent hairline — never a filled box, and never a second word beside it.

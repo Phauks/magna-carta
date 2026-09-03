@@ -184,9 +184,10 @@ is usually the fastest way to understand the rule.
   side pane is not an act on the record, so it never wears a button's border or fill and it does not
   belong where a surface's verbs are: it is the ghost glyph, reading its state through `aria-pressed`
   alone, at the inline end of the strip beneath the table — after the surface's figures, last on the
-  line, on every surface that has a pane. The strip already holds one line at a fixed height, so the
-  toggle costs nothing there; a row above the table costs a control's height plus the stack gap, and
-  on the four financial ledgers that row had no other occupant most of the time. A surface with a
+  line, on every surface that has a pane. It is not free and does not need to be: measured, the strip
+  grows from 32 points to 41 to seat the control, against the 41 the row above the table cost — a net
+  32 points back to the table, and one less band between the reader and the records. On the four
+  financial ledgers that row had no other occupant most of the time. A surface with a
   toolbar it draws anyway is not an exception — the file manager's two toggles came down to the strip
   as well, so a reader never has to remember which screen keeps the answer at the top. One component
   (`$lib/records/pane-toggle.svelte`), because four ledgers each drawing their own is how a reader

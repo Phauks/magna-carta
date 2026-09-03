@@ -57,7 +57,9 @@
         Every candidate home for the show-and-hide-the-pane control, rendered from the real design
         system over one fixture. Each specimen is the same fixed height, so what a placement takes
         from the table is the visible difference between two of them. Press the glyphs — the panes
-        really open.
+        really open. The figures under each heading are measured from these specimens, not estimated:
+        today's row costs 41 points above the table, and the counts strip grows from 32 to 41 to seat
+        the control.
       </p>
       <p class="text-sm text-text-muted">
         The ledger specimens come first, then the file manager, which carries two of these toggles
@@ -98,7 +100,7 @@
       {/snippet}
       {@render specimen(
         "The counts strip's inline end",
-        "Costs nothing: the strip is drawn either way.",
+        "Grows the strip 32 to 41 points, and removes a 41-point row: a net 32 back to the table.",
         "The strip under the table already holds one line at a fixed height and already carries the surface's own trailing figures. The file manager already puts undo, redo and the zoom steps in exactly this slot, which makes this the product's existing answer for a quiet control that acts on the surface rather than on a record — the ledgers simply never followed it. The pane's own state stays legible: the glyph reads pressed.",
         ledgerFooter,
       )}
@@ -108,7 +110,7 @@
       {/snippet}
       {@render specimen(
         "The pane's own edge",
-        "Costs nothing: it floats over the frame.",
+        "Costs no height at all: it floats over the frame.",
         "The control sits on the boundary it moves, which is the most literal thing it could say. Two prices: it floats over the pane's content when the pane is open, so the panel needs inline-end room kept clear for it, and it sits close enough to the resize divider that the standing ruling against a grip handle in the middle of the screen is worth re-testing against it.",
         ledgerEdge,
       )}
@@ -118,7 +120,7 @@
       {/snippet}
       {@render specimen(
         "The matter's header band",
-        "Costs nothing new: the band is drawn over every section.",
+        "Costs the ledger no height: the band is drawn over every section already.",
         "The band already carries the matter's search and the one create control, and the layout draws it over all fourteen sections — so the toggle would sit in one place on every screen that has a pane, rather than a different distance down the page on each. It needs a seam: the band would take the toggle the way it takes the create control, claimed by whichever section has a pane and absent on the ones that do not. The band is also further from the pane than any other candidate.",
         ledgerBand,
       )}
@@ -128,7 +130,7 @@
       {/snippet}
       {@render specimen(
         "No toggle: the selection opens it",
-        "Costs nothing, and removes a control.",
+        "Costs no height, and removes a control.",
         "Select a row and the pane is what that looks like; let go and it goes. The counts strip's Select none already closes it, so nothing new is drawn anywhere. This is the only candidate that changes a settled decision rather than moving a button: the details panel's own rule today is that selection is not presentation — clicking a row selects it and does nothing else, and the pane opens from its own control alone.",
         ledgerSelection,
       )}
@@ -142,7 +144,7 @@
       {/snippet}
       {@render specimen(
         "Today — both glyphs end the toolbar",
-        "Costs nothing: the toolbar is drawn either way.",
+        "Costs no height: the toolbar is drawn either way.",
         "Back, forward, up, the breadcrumb and the search all have to be here, so the two toggles end a row the screen was always going to draw. This is why Files never had the ledgers' problem, and why it is the one surface where leaving the toggles where they are is defensible.",
         filesRow,
       )}
@@ -152,7 +154,7 @@
       {/snippet}
       {@render specimen(
         "Both glyphs in the counts strip",
-        "Costs nothing, and gives all five surfaces one answer.",
+        "Nine points on the strip, and one answer for all five surfaces.",
         "If the ledgers move to the strip, Files can follow and the platform has one place a reader looks for either pane on any screen. Files already has controls in this slot, so the two would join undo, redo and the zoom steps rather than arriving alone.",
         filesFooter,
       )}
@@ -162,7 +164,7 @@
       {/snippet}
       {@render specimen(
         "Each glyph on its own pane's edge",
-        "Costs nothing: they float over the frame.",
+        "Costs no height: they float over the frame.",
         "The clearest reading of the two: the left glyph on the left edge, the right glyph on the right, each on the boundary it moves. It is also the arrangement that most needs the panes to keep room clear at their outer edges, on the surface that has the most content pressed against them.",
         filesEdge,
       )}
