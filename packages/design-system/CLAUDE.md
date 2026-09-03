@@ -27,6 +27,9 @@ properties; off-token values are machine-rejected.
   own arithmetic, reads and vocabulary live with its one consumer, `apps/web/src/lib/calendar/`
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
+- `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
+  the timing, the focus rules, and the one-hover-menu-at-a-time arbitration, shared from Root to
+  Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only)
 - `src/lib/styles/components.css` — the semantic component-class layer (`mc-*` recipes)
 - `src/stories/**.stories.svelte` — the catalog; stories triple as browser-mode behavior tests and
   per-story axe checks
@@ -42,8 +45,8 @@ properties; off-token values are machine-rejected.
 `AlertDialog.Content` / `Sheet.Content` into a panel of its own — `lint:one-ui`'s
 `hand-composed-modal` rule fails it, and the homes allowed to compose one are DECLARED in
 `tooling/lint-one-ui/registry.json` (`modalShells`), not hardcoded in the rule. Being a registered
-component is not enough on its own: `RecordAttachments` is registered and still carries an allowance
-because the confirmation inside it should be an `ActionDialog`.
+component is not enough on its own: `RecordAttachments` is registered and its detach confirmation
+is still an `ActionDialog` inside it, not a panel of its own.
 
 - **What `ActionDialog` owns, it owns by having no prop for it**: the footer's geometry and the
   order of its two controls, the dismissal's word, the busy state, whether the corner dismiss shows,
@@ -51,23 +54,98 @@ because the confirmation inside it should be an `ActionDialog`.
   `class` prop. A caller differs on a closed set — `fields`, `notice`, `kind`, `width`, and a commit
   returning `"committed" | "refused"`.
 - **`kind` selects the primitive.** `form` → `Dialog` (corner dismiss, dismissed by a press
-  outside, "Cancel"); `confirm`/`destructive` → `AlertDialog` (the `alertdialog` role, no incidental
-  dismiss, "Never mind"). The trait table describes what Bits already does rather than fighting it.
+  outside); `confirm`/`destructive` → `AlertDialog` (the `alertdialog` role, no incidental dismiss).
+  The dismissal says "Cancel" for every acting kind, held as one constant. The trait table describes
+  what Bits already does rather than fighting it.
+- **`kind="reading"` is the fourth kind, and it is an arm of a discriminated union, not an
+  optional commit.** A reading panel — the matter-status window is the model — states a fact and
+  seats any step it offers in the body beside that fact, so its bar holds one control that says
+  "Close" (nothing was begun). The props type has two arms: acting kinds REQUIRE `commitLabel` and
+  `onCommit`; the reading kind forbids them (`?: never`). Neither arm got weaker to admit the other.
+  Its row in the kind table carries `commitVariant: null`, which is what hides the commit; it runs
+  no unsaved-work guard unless the caller says `unsavedChanges`. It is not a read-only
+  `RecordWindow`: a record with tabs, history or an editing mode still opens in the record window.
+- **The primary pane is a `<form>` and the commit is its submit button, by `form` attribute.** That
+  is how Enter commits in every panel without a caller wiring it: the platform's implicit submission
+  presses the form's default button, and only while it is enabled, so a refused or `commitSoon`
+  commit refuses Enter too. Ctrl+Enter or Cmd+Enter commits from a textarea (the form's keydown
+  listener; the a11y warning on it is ignored with its reason). The form is `novalidate` — a refusal
+  is stated beside the commit, never as a browser bubble. A caller must not put a second `<form>`
+  inside `fields`, and a raw `<button>` inside it needs `type="button"` (the design system's Button
+  already defaults to it).
+- **`subtitle` is `string | Snippet`.** A string where it is plain text (most panels); a snippet
+  where it carries markup. Rendered through one `subtitleContent` snippet in the shell.
+- **`commitSoon: { reason }` is the acting arm's seam for an act not served yet.** The shell wraps
+  its own commit in `SoonAffordance` (`../maturity`), so the commit is disabled with the Soon mark
+  beside it and the dependency as its accessible description. The commit is ONE snippet rendered
+  one of two ways so the bar holds exactly one `<Button` carrying the commit marker in this file's
+  source — that is what keeps `footer-set` true; do not duplicate the control to add a branch.
+- **`restoreFocus={false}` is the one focus seam, for a trigger revealed on focus.** Bits returns
+  focus to the trigger on close; a per-row control that reveals on focus then stays latched open
+  after the panel has gone (owner-reported twice on the settings rows). The default is true and
+  right for every other trigger; do not reach for it to tidy focus elsewhere.
 - **The `notice` slot is the layering seam.** The design system cannot know what a failure reads
   like, so the shell reserves the PLACE and the app puts `FailureNotice` in it. Never import an app
   module here to close that gap.
-- **The commit owns the close.** `onCommit` reports an outcome; the shell closes on `"committed"`
-  and stands its ground on `"refused"`. A caller never writes `open` on the way out — that is what
-  keeps the close to one path, and a one-entrance close path is the only kind a guard can cover.
+- **The commit owns the close.** `onCommit` reports an outcome; the shell closes on `"committed"`,
+  stands its ground on `"refused"`, and on `"done"` stays open as a panel with nothing left to ask:
+  the commit leaves the bar, the dismissal reads Close, the guard stands down, and `fields` /
+  `context` are handed `done` so one snippet shows what the act came to (a reference, a batch
+  still landing). A caller never writes `open` on the way out — that is what keeps the close to
+  one path, and a one-entrance close path is the only kind a guard can cover. A host MAY close a
+  done panel itself by writing the bound `open` (the upload panel's host does, once the last file
+  lands); that is a prop changing, not a gesture, and runs no guard.
 - **Both shells stamp `data-modal-shell`** on their panel, and `ActionDialog`'s two footer controls
   carry `data-action-dialog-action`. These are the hooks a scan and a rendered-DOM check read;
   `footer-set` asserts the bar against the shell's source the way `header-set` asserts the record
   window's header. Do not remove or rename them to tidy up markup.
+- **Both shells sit on one frame — `styles/recipes/modal-frame.css` — and no panel builds a pane
+  system.** The frame is the record window's own, extracted: `mc-modal-frame` (the panel),
+  `-header` / `-identity` / `-heading` / `-subtitle` / `-header-actions` / `-header-action`,
+  `-body`, `-pane` (the primary pane, which stops at `size.record-pane` beside a context and fills
+  the frame when alone via `:only-child`), `-context` (+ `-context-body` for a context that is not
+  tabs), `-notice` (outside the scroll, directly above the bar; `:empty` collapses it), and
+  `-actions`. `RecordWindow` keeps every `mc-record-window-*` name as a hook beside the frame's
+  class; its own recipe is the tab strip only. Do not re-declare any of these in a shell's recipe,
+  and do not give `ActionDialog` a `class` prop to reach past them. A form that needs something
+  beside its fields hands `ActionDialog` a `context` snippet; a context pane implies the record
+  width, whatever `width` said.
+- **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
+  in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
+  specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the
+  import breaks one or the other silently.
+- **The standard for touching the frame is byte-identical screenshots** of the record window's four
+  frame-bearing stories (default, editing-in-place, fits-without-scrolling,
+  caps-and-scrolls-its-body) from the static catalog before and after. The extraction met it; a
+  change to the frame that cannot is a change to the owner's pane system and needs the owner.
 - **The unit test project carries `svelte()`** (in `vitest.config.ts`, at the top level AND on the
   `unit` project) because `.svelte.ts` runes modules — the close guard — do not compile without it;
   from the repo root only the top-level fallback is used, so a plugin on the project alone passes
   locally and fails in `pnpm test`. The package still has no `vite.config.ts`; that note is about
   the Storybook pipeline's plugin ORDER, which this does not touch.
+
+## The maturity family, and the field primitives
+
+- **`src/lib/components/maturity/` is the one home of the maturity vocabulary** — the stage model
+  (`maturity.ts`: `MaturityStage`, `MATURITY_PRESENTATION`, `hasSurface`), `MaturityBadge`,
+  `MaturityDot`, and `SoonAffordance` with its wording (`soon-affordance.ts`). It moved here from
+  `apps/web/src/lib/maturity/` on 2026-09-02 because the ActionDialog shell renders the "soon" stage
+  on a commit and a shell cannot import the app. The app imports `@magna-carta/design-system/maturity`
+  and keeps only its registries' `stage` fields. `SoonAffordance` is in `lint:one-ui`'s
+  one-implementation registry: a second composition of "disabled + badge + dependency" anywhere is
+  the defect it exists to prevent. Only `soon` wears a mark (owner ruling in
+  `docs/conventions/design-corrections.md`).
+- **`LabelledField` is the label-over-control stack for a panel's own fields; `Form.Field` is for a
+  superforms-validated form.** They are not interchangeable and one is not a shortcut for the other.
+  `LabelledField` mints the control's id (`$props.id()`) unless given one, joins the hint and the
+  error into `aria-describedby`, sets `aria-invalid` on an error, and hands the control its
+  attributes as `children({ props })` to spread — formsnap's own idiom. Its recipe gap is space-8
+  (the panels'); `mc-form-field` is space-4. That difference is deliberate and stated on the recipe;
+  do not quietly align one to the other — it is the owner's to settle. The hint and error reuse
+  `mc-form-description` / `mc-form-errors`, so the satellites are one recipe across both.
+- **`FieldRow` is utilities, not a recipe** (`grid gap-12 sm:grid-cols-2|3`), because a breakpoint
+  cannot be expressed with a custom property inside a media query. Its class strings are literal in
+  `field-row/variants.ts` for Tailwind's scanner.
 
 ## Invariants that apply here
 

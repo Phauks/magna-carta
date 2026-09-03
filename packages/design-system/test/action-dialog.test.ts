@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DISCARD_SENTENCE,
   DISMISS_LABEL,
+  LEAVE_LABEL,
   traitsOf,
   widthClass,
 } from "../src/lib/components/action-dialog/action-dialog-model.ts";
@@ -21,7 +22,7 @@ import { CloseGuard } from "../src/lib/internal/close-guard.svelte.ts";
  * pinned directly rather than inferred from a screenshot of one panel that happens to agree today.
  */
 
-const EVERY_KIND: readonly ActionDialogKind[] = ["form", "confirm", "destructive"];
+const EVERY_KIND: readonly ActionDialogKind[] = ["form", "confirm", "destructive", "reading"];
 const EVERY_WIDTH: readonly ActionDialogWidth[] = ["narrow", "default", "wide", "record"];
 
 describe("what a kind of ask implies", () => {
@@ -35,6 +36,8 @@ describe("what a kind of ask implies", () => {
     // The owner's ruling, and it is a constant rather than a per-kind field so that no kind can
     // drift back to a word of its own. The split it settled was thirteen "Cancel" to five "Close".
     expect(DISMISS_LABEL).toBe("Cancel");
+    // And a panel that asked for nothing leaves through the record window's own reading word.
+    expect(LEAVE_LABEL).toBe("Close");
   });
 
   it("gives a question no incidental dismiss — no corner control, no press outside", () => {
@@ -55,6 +58,16 @@ describe("what a kind of ask implies", () => {
     expect(traitsOf("destructive").commitVariant).toBe("destructive");
   });
 
+  it("gives a reading panel no commit at all, by type and by trait", () => {
+    // A panel that shows a thing asks for nothing. Its bar ends at the way out, and any step it
+    // offers is seated in its body beside the fact the step changes — the matter's status window
+    // is the case, and it refused a footer commit on purpose before this kind existed.
+    expect(traitsOf("reading").commitVariant).toBeNull();
+    expect(traitsOf("reading").primitive).toBe("dialog");
+    expect(traitsOf("reading").showsCornerDismiss).toBe(true);
+    expect(traitsOf("reading").dismissOnPressOutside).toBe(true);
+  });
+
   it("answers every kind, so a new one cannot be added without deciding what it implies", () => {
     for (const kind of EVERY_KIND) expect(traitsOf(kind)).toBeDefined();
   });
@@ -72,7 +85,15 @@ describe("how wide a panel opens", () => {
   });
 
   it("gives the four widths four distinct answers", () => {
-    expect(new Set(EVERY_WIDTH.map(widthClass)).size).toBe(EVERY_WIDTH.length);
+    expect(new Set(EVERY_WIDTH.map((width) => widthClass(width))).size).toBe(EVERY_WIDTH.length);
+  });
+
+  it("opens at the record width whenever there is a context pane, whatever was asked for", () => {
+    // Two panes have bases of their own; a frame narrower than both squeezes each into something
+    // neither was designed for. The shell decides it rather than letting a caller find out by eye.
+    for (const width of EVERY_WIDTH) {
+      expect(widthClass(width, { withContext: true })).toBe("max-w-record-window");
+    }
   });
 });
 

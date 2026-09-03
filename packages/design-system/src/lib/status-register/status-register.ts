@@ -360,11 +360,6 @@ export function statusBadgeAttributes(key: StatusKey): { variant: BadgeVariant; 
   return { variant: entry.tone, title: entry.meaning };
 }
 
-/** The recipe class for the bare mark: the circle-check, filled, with the check knocked out. */
-export function statusMarkClasses(): string {
-  return "mc-status-mark";
-}
-
 /**
  * Whether showing this status beside the given heading would say the same word twice.
  *

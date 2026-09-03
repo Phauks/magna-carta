@@ -29,8 +29,7 @@
   import Label from "@magna-carta/design-system/label";
   import Separator from "@magna-carta/design-system/separator";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
-  import MaturityBadge from "$lib/maturity/maturity-badge.svelte";
-  import { soonControlProperties } from "$lib/maturity/soon-affordance.ts";
+  import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
   import SubjectPartyPicker from "./subject-party-picker.svelte";
   import { gapReason } from "./conflicts-gaps.ts";
   import {

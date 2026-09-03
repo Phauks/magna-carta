@@ -25,6 +25,13 @@ import type { ActionDialogKind, ActionDialogWidth } from "./types.ts";
  */
 export const DISMISS_LABEL = "Cancel";
 
+/**
+ * The word on the way out of a panel that asked for nothing. "Cancel" is the ruling for an act —
+ * something was begun — and nothing was begun here; the record window's own reading mode leaves
+ * through "Close", so a reading panel does too.
+ */
+export const LEAVE_LABEL = "Close";
+
 /** Everything a kind decides, resolved in one place. */
 export interface KindTraits {
   /** Which primitive renders it. An alert dialog takes the `alertdialog` role and traps a decision. */
@@ -33,8 +40,8 @@ export interface KindTraits {
   readonly showsCornerDismiss: boolean;
   /** Whether a press outside the panel dismisses it. */
   readonly dismissOnPressOutside: boolean;
-  /** The commit control's variant. */
-  readonly commitVariant: "primary" | "destructive";
+  /** The commit control's variant. A reading panel has no commit, and says so. */
+  readonly commitVariant: "primary" | "destructive" | null;
 }
 
 const KIND_TRAITS: Record<ActionDialogKind, KindTraits> = {
@@ -55,6 +62,12 @@ const KIND_TRAITS: Record<ActionDialogKind, KindTraits> = {
     showsCornerDismiss: false,
     dismissOnPressOutside: false,
     commitVariant: "destructive",
+  },
+  reading: {
+    primitive: "dialog",
+    showsCornerDismiss: true,
+    dismissOnPressOutside: true,
+    commitVariant: null,
   },
 };
 
@@ -77,9 +90,17 @@ const WIDTH_CLASSES: Record<ActionDialogWidth, string> = {
   record: "max-w-record-window",
 };
 
-/** The max-width utility for a panel of this width. */
-export function widthClass(width: ActionDialogWidth): string {
-  return WIDTH_CLASSES[width];
+/**
+ * The max-width utility for a panel of this width.
+ *
+ * A context pane implies the record width, whatever `width` says. The two panes have bases of
+ * their own (the primary stops at size.record-pane, the context asks for size.record-context), and
+ * a frame narrower than the two together squeezes both into something neither was designed for.
+ * Rather than let a caller discover that by eye, the shell decides it: context beside the fields
+ * is the record window's geometry, so it opens at the record window's width.
+ */
+export function widthClass(width: ActionDialogWidth, { withContext = false } = {}): string {
+  return WIDTH_CLASSES[withContext ? "record" : width];
 }
 
 /**

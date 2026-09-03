@@ -11,7 +11,7 @@
    */
   import type { Snippet } from "svelte";
   import Button from "@magna-carta/design-system/button";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
 
   let {
     action,

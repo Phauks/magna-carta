@@ -12,15 +12,19 @@
    * dialog while the other sent it from its own module. Reaching it also required having first found
    * a broken panel in one of those two areas, which during a real incident is the difference between
    * one usable signal per affected member and none.
+   *
+   * A sent report is a DONE panel: it stays open to show the reference the report was recorded
+   * under, with nothing left to ask, and leaves through Close.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import Button from "@magna-carta/design-system/button";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Label from "@magna-carta/design-system/label";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
   import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import SoonAffordance from "$lib/maturity/soon-affordance.svelte";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { isReportableErrorId, reportProblem } from "./report.ts";
   import { breadcrumbs } from "./breadcrumbs.ts";
 
@@ -46,16 +50,14 @@
   const fieldPrefix = $props.id();
 
   let description = $state("");
-  let sending = $state(false);
   let failure = $state<string | null>(null);
   let sentIdentifier = $state<string | null>(null);
 
-  $effect(() => {
-    if (!open) return;
+  function reset(): void {
     description = "";
     failure = null;
     sentIdentifier = null;
-  });
+  }
 
   /*
    * Only a handle the contract recognises is sent. An identifier in some other shape would be
@@ -65,12 +67,19 @@
   const crumbCount = $derived(breadcrumbs().length);
 
   const refusal = $derived(
-    description.trim() === "" ? "Say what happened: the report is read by a person" : null,
+    description.trim() === "" ? "Say what happened: the report is read by a person." : undefined,
   );
 
-  async function send(): Promise<void> {
-    if (refusal !== null || sending) return;
-    sending = true;
+  const travelling = $derived(
+    `Sent with the report: ${
+      errorId === null ? "the failing request" : `the Error ID (${errorId}), the failing request`
+    }, the time, your app version${
+      crumbCount > 0 ? `, and the last ${crumbCount} things you did in the app` : ""
+    }.`,
+  );
+
+  async function send(): Promise<ActionOutcome> {
+    if (refusal !== undefined) return "refused";
     failure = null;
     const words =
       errorId === null || reportableErrorIds.length > 0
@@ -81,33 +90,32 @@
       errorIds: reportableErrorIds,
       route,
     });
-    sending = false;
     if (outcome.kind === "ok") {
       sentIdentifier = outcome.value.id;
-      return;
+      return "done";
     }
     failure =
       outcome.kind === "transport"
         ? "Nothing answered. The report was not sent."
         : (outcome.problem.detail ?? "The report was not sent.");
+    return "refused";
   }
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Content showClose={false}>
-    <Dialog.Title>Report a Problem</Dialog.Title>
-    <Dialog.Description>
-      This goes to the firm&rsquo;s own reporting pipeline, not to a third party.
-    </Dialog.Description>
-
-    {#if failure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Not Sent</Alert.Title>
-        <Alert.Description>{failure}</Alert.Description>
-      </Alert.Root>
-    {/if}
-
-    {#if sentIdentifier !== null}
+<ActionDialog
+  bind:open
+  kind="form"
+  heading="Report a Problem"
+  subtitle="This goes to the firm's own reporting pipeline, not to a third party."
+  commitLabel="Send Report"
+  commitBusyLabel="Sending"
+  commitRefusal={refusal}
+  unsavedChanges={description.trim() !== ""}
+  onOpen={reset}
+  onCommit={send}
+>
+  {#snippet fields({ busy, done })}
+    {#if done && sentIdentifier !== null}
       <Alert.Root variant="success">
         <Alert.Title>Report Sent</Alert.Title>
         <Alert.Description>
@@ -115,56 +123,41 @@
         </Alert.Description>
       </Alert.Root>
     {:else}
-      <div class="flex flex-col gap-8">
-        <Label for="{fieldPrefix}-what">What Happened</Label>
-        <Textarea
-          id="{fieldPrefix}-what"
-          rows={3}
-          placeholder={placeholderOf("What Happened")}
-          disabled={sending}
-          bind:value={description}
-        />
-        <p class="text-xs text-text-muted">Say what you were doing when it failed.</p>
-        <p class="text-xs text-text-muted">
-          Sent with the report: {errorId === null
-            ? "the failing request"
-            : `the Error ID (${errorId}), the failing request`}, the time, your app version{crumbCount >
-          0
-            ? `, and the last ${crumbCount} things you did in the app`
-            : ""}.
-        </p>
-      </div>
+      <LabelledField label="What Happened" hint="Say what you were doing when it failed.">
+        {#snippet children({ props })}
+          <Textarea
+            {...props}
+            rows={3}
+            placeholder={placeholderOf("What Happened")}
+            disabled={busy}
+            bind:value={description}
+          />
+        {/snippet}
+      </LabelledField>
+      <p class="text-xs text-text-muted">{travelling}</p>
 
-      <div class="flex flex-col gap-8">
-        {#if screenshotReason !== undefined}
-          <SoonAffordance reason={screenshotReason} reasonPlacement="line">
-            {#snippet control(soon)}
-              <span class="flex items-center gap-8">
-                <Checkbox id="{fieldPrefix}-shot" {...soon} />
-                <Label for="{fieldPrefix}-shot">Include a screenshot of this screen</Label>
-              </span>
-            {/snippet}
-          </SoonAffordance>
-        {/if}
-        <p class="text-xs text-text-muted">
-          No document, file name, client name or matter content leaves the firm.
-        </p>
-      </div>
-    {/if}
-
-    <div class="flex justify-end gap-8">
-      <Button variant="secondary" disabled={sending} onclick={() => (open = false)}>
-        {sentIdentifier === null ? "Cancel" : "Close"}
-      </Button>
-      {#if sentIdentifier === null}
-        <Button
-          disabled={refusal !== null || sending}
-          title={refusal ?? "Send the report through the firm's own reporting pipeline"}
-          onclick={() => void send()}
-        >
-          Send Report
-        </Button>
+      {#if screenshotReason !== undefined}
+        <SoonAffordance reason={screenshotReason} reasonPlacement="line">
+          {#snippet control(soon)}
+            <span class="flex items-center gap-8">
+              <Checkbox id="{fieldPrefix}-shot" {...soon} />
+              <Label for="{fieldPrefix}-shot">Include a screenshot of this screen</Label>
+            </span>
+          {/snippet}
+        </SoonAffordance>
       {/if}
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+      <p class="text-xs text-text-muted">
+        No document, file name, client name or matter content leaves the firm.
+      </p>
+    {/if}
+  {/snippet}
+
+  {#snippet notice()}
+    {#if failure !== null}
+      <Alert.Root variant="danger">
+        <Alert.Title>Not Sent</Alert.Title>
+        <Alert.Description>{failure}</Alert.Description>
+      </Alert.Root>
+    {/if}
+  {/snippet}
+</ActionDialog>

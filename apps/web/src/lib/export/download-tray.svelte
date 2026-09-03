@@ -19,7 +19,7 @@
   import Download from "@lucide/svelte/icons/download";
   import * as Popover from "@magna-carta/design-system/popover";
   import { toast } from "@magna-carta/design-system/toast";
-  import MaturityDot from "$lib/maturity/maturity-dot.svelte";
+  import { MaturityDot } from "@magna-carta/design-system/maturity";
   import {
     DESTINATIONS,
     destinationStage,

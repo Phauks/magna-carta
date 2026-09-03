@@ -18,7 +18,7 @@
 import type { Component } from "svelte";
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
-import type { MaturityStage } from "$lib/maturity/maturity.ts";
+import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import type { WorkbenchFile } from "./workbench-file.ts";
 
 /** Whether a capability has anything to do on a file, and the plain reason when it does not. */

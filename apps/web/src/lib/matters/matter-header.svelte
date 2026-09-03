@@ -37,19 +37,32 @@
    *
    * Status never gates or varies the screen flow — it changes only what this header showcases: the
    * seal and the number-or-Consultation line.
+   *
+   * THE SEAL IS THE CONTROL. Pressing the status seal opens the status window, which is where a
+   * matter is opened, closed or reopened (matter-status-dialog.svelte). An action that belongs to a
+   * fact belongs on it.
+   *
+   * THE WAY BACK LEADS THE CITATION, AS AN ARROW ALONE. The return to the docket is the first thing
+   * on the line, ahead of the ledger line, wearing the same eyebrow register the ledger line wears.
+   * It holds its width with them, so the citation is still what gives when the band narrows. It
+   * carries no visible label: above a masthead a bare arrow is ambiguous, which is the labelled
+   * BackLink's whole reason, but here a matter came from the docket, the docket is the only place up
+   * from it, and the line the arrow sits on names the matter it is leaving. A second caps label
+   * competed with the number for the same register and read as a breadcrumb trail with one crumb.
+   * The accessible name is on the anchor, so the destination is still spoken.
    */
-  import Badge from "@magna-carta/design-system/badge";
+  import EyebrowLink from "@magna-carta/design-system/eyebrow-link";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import MatterSearchControl from "$lib/matters/matter-search-control.svelte";
   import MatterSectionNav from "$lib/matters/matter-section-nav.svelte";
+  import MatterStatusDialog from "$lib/matters/matter-status-dialog.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
-  import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
+
+  /** The docket. Every matter came from it, and it is where the way out leads. */
+  const MATTERS_HREF = "/matters";
 
   let { matter }: { matter: MatterRecord } = $props();
-
-  // The status seal comes from the one matter-status register, so the header and the docket's
-  // status column can never disagree about what "Closed" looks like.
-  const seal = $derived(matterStatusPresentation(matter.status));
 
   // The citation line's entries in reading order, nulls dropped — a consultation simply has a
   // shorter citation, never an empty slot.
@@ -94,22 +107,25 @@
   <Masthead.Heading class="min-w-0 max-w-2xl flex-1 pb-16">
     <Masthead.Title class="truncate" title={matter.title}>{matter.title}</Masthead.Title>
     <Masthead.Meta class="flex-nowrap">
-      <!-- The ledger line and the status seal lead the citation: still the first thing read on the
-           line, without costing a line of their own. Both hold their width so the citation is what
-           gives when the band narrows. -->
+      <!-- The way back, the ledger line and the status seal lead the citation: still the first
+           things read on the line, without costing a line of their own. All three hold their width
+           so the citation is what gives when the band narrows.
+           One link back to the docket is not a breadcrumb trail, so the landmark is named for what
+           it is; announcing it as a breadcrumb would send a reader looking for a path that is not
+           there. -->
+      <nav aria-label="Back to Matters" class="flex flex-none">
+        <EyebrowLink href={MATTERS_HREF} aria-label="Back to Matters">
+          <ArrowLeft class="size-12" aria-hidden="true" />
+        </EyebrowLink>
+      </nav>
       <span
         class="flex-none text-xs font-semibold text-text-subtle uppercase"
         style="letter-spacing: var(--mc-tracking-caps)"
       >
         {ledgerLine}
       </span>
-      <Badge
-        variant={seal.variant}
-        class="flex-none uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
-      >
-        {seal.label}
-      </Badge>
+      <!-- The seal is where the matter's status is read, and now also where it is changed. -->
+      <span class="flex-none"><MatterStatusDialog {matter} /></span>
       <Masthead.MetaSeparator />
       <span class="truncate" title={citation}>{citation}</span>
     </Masthead.Meta>

@@ -89,6 +89,15 @@ is usually the fastest way to understand the rule.
   select. So an empty table does not light up under the pointer — stretching the hover across the
   whole frame would be worse, because it invites a click that does nothing. Absence is the signal.
   _(matters docket, 2026-08-30)_
+- **A placeholder's content centres in the FRAME, not in the table.** A placeholder row spans every
+  column, so its cell is as wide as the table — wider than what the reader can see the moment the
+  columns overflow, and far wider once anybody has widened one. Content centred in that cell lands
+  off past the inline end, heading and watermark included. The frame's own width is the only width
+  that means anything here, and the block holding the content is stuck to the frame's leading edge
+  so scrolling the table sideways carries the state along. Two things quietly beat a rule written to
+  say so, and both were found by measuring rather than looking: the cell's own inline padding, and
+  the transparent border every row's first cell reserves for the selection rail. _(every list
+  surface, 2026-09-02)_
 - **A control that undoes a state exists only while that state is in play.** The clear-filters
   control appears when something is narrowing the view and is absent otherwise, so its absence is
   itself the answer to "is anything hidden". _(matters docket, 2026-08-30)_
@@ -131,6 +140,19 @@ is usually the fastest way to understand the rule.
 
 ### Controls and patterns
 
+- **A pane toggle is a quiet chrome affordance, and it ends the row.** Showing or hiding a details
+  panel is not an act on the record, so it never wears a button's border or fill: it is the ghost
+  icon control the file manager uses, reading its state through its glyph, and it sits last among a
+  surface's controls. Four ledgers each drew it differently, which is how a reader learns that two
+  screens are two products. _(the financial ledgers, 2026-09-02)_
+- **A resizable divider carries no grip handle.** The whole edge drags and the separator takes the
+  keyboard, so a centred grip is a second affordance for a gesture already answered — and it reads
+  as a control parked in the middle of the screen. The hairline that thickens under the pointer is
+  the whole of it. _(the financial ledgers, 2026-09-02)_
+- **Controls sitting in one band wear one chrome.** A border drawn round one of three controls in
+  the top bar does not emphasise it, it reclassifies it: the reader takes it for a status readout,
+  or for a control of a different kind. Whatever a control has to say, it says with its own content.
+  _(the top bar, 2026-09-02)_
 - **A calendar's week begins on the day the firm chose, and that is a firm setting, never a
   personal preference.** The week is the unit a firm plans in, so two members of one firm looking
   at the same week must see the same columns: a deadline "next week" has to name the same seven
@@ -147,7 +169,7 @@ is usually the fastest way to understand the rule.
   ships visible and marked Soon" rule depends on. The stages themselves survive and still decide
   whether a destination is a live link or a stub; reaching one just stopped being something the
   product says out loud. Enforced in the model: `alpha` and `beta` present as null in
-  `apps/web/src/lib/maturity/maturity.ts`, exactly as `ready` does. _(matter section strip,
+  `packages/design-system/src/lib/components/maturity/maturity.ts`, exactly as `ready` does. _(matter section strip,
   2026-08-31)_
 - **Find which column sets a band's height before you spend design shrinking one.** Where two
   columns share a band, the taller one owns the height and work on the other is invisible. The
@@ -403,6 +425,17 @@ surface, which is most of the product.
   synonym: the enum, the ledger and the filter are unchanged, and the word chosen is the domain's
   own (the ledger row for this state records a `borrower`). _(Custodian register, 2026-09-01)_
 
+### Layout
+
+- **A working surface takes the rest of the screen and keeps it.** Most pages are documents and are
+  as tall as what is on them. A few — the file manager, the financial ledgers — are surfaces you
+  work in: the list scrolls inside itself and the counts footer belongs on the bottom of the screen.
+  Those are exactly as tall as the viewport whatever is in them, or the page grows a second
+  scrollbar as records arrive and the footer walks off the bottom. The height comes down an unbroken
+  chain of flex-grow over min-height-0 — never a percentage, which resolves against an indefinite
+  height and quietly does nothing — and the chain is one shared component, not a class list each
+  page repeats. _(the file manager and the financial ledgers, 2026-09-02)_
+
 ### Spacing and rhythm
 
 - **Meta text sits at a fixed offset under the element it annotates**, expressed as one rule, not
@@ -425,6 +458,52 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-09-02 — the four financial ledgers, chrome round
+
+The owner walked Time, Fees, Costs and Billing together and reported that they did not agree with
+each other or with Files: four different pane toggles, tables that grew down the page instead of
+filling it, empty states running off the right, a grip handle in the middle of the screen, a
+duplicate door to the Time Sheet, and the Fees verbs spread over two rows.
+
+What is local to these surfaces:
+
+- **The matter Time tab drops its Time Sheet button.** The sheet opens from the top bar on every
+  screen, so a second door on one of them is a control that takes a reader where they already are.
+- **The Fees toolbar is one row**: the arrangement's facts lead, then View, Amend, New Fee and the
+  pane toggle. The verbs and the strip they act on are one line, not two.
+
+What generalizes, and is promoted above:
+
+- A working surface takes the rest of the screen and keeps it.
+- A pane toggle is the quiet chrome affordance, never a bordered button, and it ends the row.
+- A resizable divider carries no grip handle.
+- A placeholder's content centres in the frame, not in the table.
+- Controls sitting in one band wear one chrome.
+
+### 2026-09-01 — the matter status window
+
+Six corrections against the window behind the matter's status seal, all from the owner. What is
+local to this surface:
+
+- The seal itself is the control. The lifecycle action left the masthead's overflow menu, which held
+  nothing else and went with it: the status was read in one corner and changed in another.
+- The requirements to close are not checkboxes. A checkbox asks a person to work through what the
+  program already decides, so the window lists the requirements and the program marks each met or
+  unmet from its own reading of the firm's rules.
+- The word is **status**, not standing. The page is called Matter Status.
+- Two sides, and the physical file is the right one. It is a standing fact rather than a consequence
+  of closing: a firm keeps a matter's folder in a box, a cabinet, a safe or on a shelf, commonly with
+  other matters' folders and commonly at a remote store, and closing the matter moves none of that.
+  Nor may the row name a medium, because firms do not agree on one.
+- The step does not sit at the foot of the window. Somebody may open this window to read where the
+  paper file is kept, and a bottom-right primary button puts the act they did not come for where a
+  hand goes by habit. The step is a quiet control on the status row, beside the fact it changes; the
+  window's corner offers only the way out of it.
+- The Soon rows carry no dependency sentence and no note about the close. A row reading "Not
+  recorded" beside the Soon mark has already said it is not built; the paragraphs repeating it were
+  the loudest copy on a window whose point is to be short. Recorded here rather than promoted: the
+  standing Soon rule still holds for a CONTROL, where the sentence is the only thing that explains a
+  disabled affordance.
 ### 2026-09-02 — the calendar
 
 The first slice of the calendar interface shipped with the week starting on Sunday and the plan

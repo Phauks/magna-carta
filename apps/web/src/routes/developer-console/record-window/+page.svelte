@@ -14,8 +14,8 @@
    * Dev builds only, like the developer console itself: behind the import.meta.env.DEV gate, so
    * production serves the unavailable notice and the whole page tree shakes away.
    */
-  import CircleCheckBig from "@lucide/svelte/icons/circle-check-big";
   import Badge from "@magna-carta/design-system/badge";
+  import StatusMark from "@magna-carta/design-system/status-mark";
   import Button from "@magna-carta/design-system/button";
   import EventRail from "@magna-carta/design-system/event-rail";
   import Label from "@magna-carta/design-system/label";
@@ -30,7 +30,6 @@
   import RecordWindow from "@magna-carta/design-system/record-window";
   import {
     STATUS_VOCABULARIES,
-    statusMarkClasses,
     statusVocabulary,
     type StatusVocabulary,
   } from "@magna-carta/design-system/status-register";
@@ -247,7 +246,7 @@
   <div class="flex flex-wrap items-center gap-8">
     {#each statusVocabulary(vocabulary) as entry (entry.label)}
       {#if entry.presentation === "mark"}
-        <CircleCheckBig class={statusMarkClasses()} aria-label={entry.label} />
+        <StatusMark label={entry.label} />
       {:else}
         <Badge variant={entry.tone} title={entry.meaning}>{entry.label}</Badge>
       {/if}

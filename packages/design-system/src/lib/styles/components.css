@@ -52,6 +52,10 @@
 @import "./recipes/presence.css";
 @import "../components/dialog/dialog.css";
 @import "../components/alert-dialog/alert-dialog.css";
+/* The modal frame dresses BOTH the Dialog and the AlertDialog panels (padding, gap, overflow, and the
+   fit-first/cap-second sizing), so it follows both of their recipes: at equal specificity the
+   later declaration is the one that wins. Both modal shells sit on it. */
+@import "./recipes/modal-frame.css";
 @import "../components/sheet/sheet.css";
 @import "../components/popover/popover.css";
 @import "../components/dropdown-menu/dropdown-menu.css";
@@ -65,6 +69,7 @@
 @import "../components/date-range-picker/date-range-picker.css";
 @import "./recipes/scrollbar.css";
 @import "../components/form/form.css";
+@import "../components/labelled-field/labelled-field.css";
 @import "../components/data-table/data-table.css";
 @import "../components/sidebar/sidebar.css";
 @import "../components/resizable/resizable.css";
@@ -81,7 +86,7 @@
 @import "../components/print-sheet/print-sheet.css";
 /* The status register's one recipe (the clean file's filled circle-check) and the record chain,
    which reads its step labels out of that same register. */
-@import "../status-register/status-register.css";
+@import "../components/status-mark/status-mark.css";
 @import "../components/record-chain/record-chain.css";
 /* The attachments tab dresses rows inside a record window's context pane and hosts a Popover with a
    Command listbox in it, so it follows all three: at equal specificity the later rule wins. */

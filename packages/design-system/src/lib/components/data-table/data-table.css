@@ -705,8 +705,51 @@
    * was never that screen's defect: any surface whose empty state runs past one short line has it,
    * which is why the fix is here and not there.
    */
-  .mc-table-grid-placeholder {
+  /*
+   * Both selectors are deliberate, and both are needed: the cell rules this has to beat are
+   * `.mc-table-grid .mc-table-cell` (the padding) and `.mc-table-grid[data-fixed-columns="on"]
+   * .mc-table-grid-cell` (the ellipsis overflow), and a bare `.mc-table-grid-placeholder` is
+   * weaker than either. Written weakly it silently loses, which is worse than not being written:
+   * the cell keeps its inset and the frame sits eight pixels off centre for ever.
+   */
+  .mc-table-grid .mc-table-grid-placeholder,
+  .mc-table-grid[data-fixed-columns="on"] .mc-table-grid-placeholder {
     white-space: normal;
+    /* The frame inside owns the inset, so the cell's own padding does not push it past the edge. */
+    padding-inline: var(--mc-space-0);
+    /* And nor does the selection rail. Every row's first cell reserves a transparent border for it
+       (the accent edge a selected row lights up); a placeholder is not a row and is never selected,
+       so on this one cell the reservation is two pixels of silent offset — enough, measured, to
+       put the empty state off centre. */
+    border-inline-start-width: var(--mc-space-0);
+    /* `overflow: hidden` (the fixed-column ellipsis rule) would make this cell the sticky frame's
+       own scrollport, which is the one box that cannot help it: the frame would then hold still
+       relative to a box that never scrolls, and slide away the moment the table did. */
+    overflow: visible;
+  }
+  /*
+   * THE PLACEHOLDER'S CONTENT IS CENTRED IN WHAT THE READER CAN SEE.
+   *
+   * The cell spans every column, so it is as wide as the table — wider than the frame whenever the
+   * columns are, and far wider once a member has resized them and the layout went fixed. Content
+   * centred in THAT box lands off past the inline end: the watermark and the heading sit out of
+   * view and the sentence trails after them, which is the "empty tables look weird" defect.
+   *
+   * So the content sits in a block stuck to the frame's leading edge and sized to the frame, whose
+   * width the grid measures and publishes as --mc-table-frame-inline-size. Centring then happens in
+   * the visible width, and scrolling a filtered-empty table sideways carries the state along rather
+   * than leaving it behind.
+   *
+   * The custom property carries no fallback, deliberately: unset — server-rendered markup, the
+   * instant before the grid's observer has measured — the declaration is simply invalid and the
+   * block falls back to filling its cell, which is what it did before any of this existed. A `100%`
+   * written here would be a raw length in a recipe, and the length that is right is not a constant
+   * anyway; it is whatever the frame currently measures.
+   */
+  .mc-table-grid-placeholder-frame {
+    position: sticky;
+    inset-inline-start: var(--mc-space-0);
+    inline-size: var(--mc-table-frame-inline-size);
   }
   /* The filtered-empty state says WHY the table is empty and hands over the way out. */
   .mc-table-grid-empty {

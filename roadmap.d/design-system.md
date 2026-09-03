@@ -60,7 +60,7 @@
   scope: In-house @magna-carta/design-system styled directly on headless Bits UI v2 — the only primitives the app may compose.
   status: shipped
   adrs: ADR-0076
-  evidence: packages/design-system/src/lib/components holds fifty-two component directories across four tiers, DataTable, Sidebar, Resizable and the brand components among them
+  evidence: packages/design-system/src/lib/components holds sixty component directories across four tiers, DataTable, Sidebar, Resizable and the brand components among them
   notes: shadcn-svelte (original choice) replaced after an adversarial stress test; Bits scroll-lock CSP patch carried in patches/.
 
 - id: design-system.components.storybook-catalog
@@ -90,7 +90,7 @@
   surface: internal
   spec: docs/specs/2026-09-01-consolidated-modal-architecture-design.md
   evidence: packages/design-system/src/lib/components/action-dialog (the shell, its kind table and its six stories), src/lib/internal/close-guard.svelte.ts + discard-question.svelte (the guard both shells share), tooling/lint-one-ui rules `hand-composed-modal` and `footer-set`
-  notes: The shell, the shared guard and the two rules are built and the shells are declared in tooling/lint-one-ui/registry.json. Two families have migrated — the custodian's three panels and ten across billing and costs — leaving twenty-eight printed allowances, of which thirteen are named exclusions with the shell or the dependency each belongs to.
+  notes: The shell, the shared guard, the two rules, and the frame both shells sit on (styles/recipes/modal-frame.css — the record window's pane system, extracted with byte-identical screenshots as proof) are built. Three families have migrated — the custodian's three panels, ten across billing and costs, and the new-matter window as the frame's first context-pane caller — and the matter-status window landed on a fourth kind, `reading`, added as a strict arm of the props union for a panel that states a fact and seats its step beside it. The shell then took the seams its first fifteen callers repeated: Enter commits (the pane is a form, the commit its submit), `subtitle` takes a string, and `commitSoon` renders a commit not served yet inside the Soon affordance — for which the maturity family moved whole into the design system — beside two field primitives, `LabelledField` and `FieldRow`. The confirmation family followed — the file manager's three panels, the note and party removals, the settings recap and the attachment detach — and the shell gained the `done` outcome for a commit that stays to show what it came to. The four forms followed — move to another ledger (the first caller of `commitSoon`), fold two directory records, a new person or organization (the first caller of `LabelledField` and `FieldRow`), and the conflicts answer. The three send panels followed — the issue report, the problem report and the settings change request — each staying open on `done` to show its reference, its copy seated beside what it copies. The new-document flow was the last: its two paths share the one commit, whose verb follows the open path, and a document that landed leaves the panel done. Apply Trust Funds, excluded while the Soon affordance lived in the app, is a plain form with `commitSoon`. Every panel in scope is migrated. Ten printed allowances remain, every one a named exclusion: a launcher, four panes, a Sheet, three full-screen surfaces, and a record window's shape.
 
 - id: design-system.enforcement.off-token-lint
   name: Off-token value gates

@@ -9,12 +9,14 @@ import { assertTransition, isFrozen, type TimeEntryStatus } from "./lifecycle.ts
 import type { RateSource } from "./rate-resolution.ts";
 import {
   insertTimeEntryStatement,
+  refileStatement,
   selectMatterEBillingStatement,
   selectTimeEntryStatusStatement,
   setKickBackReasonStatement,
   transitionStatusStatement,
   updateDraftStatement,
   type DraftPatch,
+  type RefilePatch,
   type TimeEntrySource,
 } from "./time-entry-statements.ts";
 import { TimeEntryValidationError } from "./time-entry-validation.ts";
@@ -195,6 +197,90 @@ export async function updateDraftTimeEntry(
               .filter(([, value]) => value !== undefined)
               .map(([field]) => field),
           },
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+/*
+ * MOVING A MISFILED ENTRY ONTO THE MATTER IT BELONGS TO.
+ *
+ * Time gets recorded against the wrong matter — a person is on two of them in one afternoon, the
+ * picker was left where it was, the timer was bound before anybody decided. Without this the only
+ * remedy is to strike the entry and type it again, which loses its number, its history and its
+ * attachments, and leaves a struck row on a matter it was never really on.
+ *
+ * WHAT MAY MOVE. A draft this account may work, on no bill and held by no claim. Past that the entry
+ * is evidence somebody is relying on: an approved entry is a reviewer's decision about a matter, a
+ * billed one is a line on a finalized invoice, and the answer to both is a void and a fresh record
+ * rather than a move nobody can see. The refusal always says which of those it is, because "you
+ * cannot" and "you cannot, because it is on invoice 2026-0031" are different sentences to be told.
+ *
+ * WHAT CARRIES, AND WHAT IS RE-ASKED. The entry number carries: a reference that changes is a
+ * reference that lies, and anything that cited it must keep resolving. The consequence is stated
+ * rather than hidden — the number's own shape names the matter it was FIRST written on, so after a
+ * move that prefix is provenance and not an assertion about where the entry lives now. The
+ * description, the memo, the codes, the attachments and the whole history carry untouched.
+ *
+ * The RATE and the ROUNDING are re-asked, because both are resolved against the matter. The rate
+ * chain reads matter, then client, then timekeeper; the rounding increment resolves matter, then
+ * client, then user. Carrying the old matter's answers to a new client is how a firm bills one
+ * client at another's rate. This is not the snapshot invariant bending: that rule says a rate card
+ * edited later never re-rates a standing entry, and it still holds — what changed here is the
+ * question, not somebody's later edit to the answer. The caller resolves against the destination and
+ * hands the result in, exactly as capture does.
+ *
+ * THE MOVE IS ON THE RECORD. One audit row naming both matters, so a reader of the entry's history
+ * can see where it came from and when it moved. A move nobody can see is indistinguishable from a
+ * misfiling nobody noticed.
+ */
+export interface RefileTimeEntryInput extends RefilePatch {
+  /** The matter it is leaving, read by the caller, so the audit row can name both ends. */
+  readonly fromMatterId: string;
+}
+
+export async function refileTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  input: RefileTimeEntryInput,
+  options: TimekeepingServiceOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  if (input.matterId === input.fromMatterId) {
+    throw new TimeEntryValidationError(
+      "same-matter",
+      `time entry ${timeEntryId} is already on matter ${input.matterId}`,
+    );
+  }
+  const status = await loadStatus(database, timeEntryId);
+  if (isFrozen(status)) {
+    throw new TimeEntryValidationError(
+      "frozen-entry",
+      `time entry ${timeEntryId} is ${status} and frozen`,
+    );
+  }
+  if (status !== "draft") {
+    throw new TimeEntryValidationError(
+      "draft-only",
+      `time entry ${timeEntryId} is ${status}, not draft`,
+    );
+  }
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId,
+    effect: {
+      statements: [
+        refileStatement(database, timeEntryId, input, updatedAt),
+        // Both matters by name, because the question a reader asks of this event is "where did it
+        // come from". No business text rides here: the audit records the move, never the entry.
+        domainAuditStatement(database, {
+          event: "time_entry.refiled",
+          subjectId: timeEntryId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          metadata: { fromMatterId: input.fromMatterId, toMatterId: input.matterId },
         }),
       ],
       outboxMessages: [],
