@@ -331,6 +331,56 @@ name. What the two streams share is files: `apps/web/src/lib/matters/matter-head
 `apps/web/src/lib/matters/sections.ts` and `roadmap.d/core-domain.md`. Slice 1 stays off the first
 two, and the matter header's client mark (§3 item 3) lands in slice 2 after that branch does.
 
+### 7.1 The rulings of 2026-09-03 — the New Person screen and the two models it rebuilt
+
+Put to the owner after the first stream merged, on the live site and on a canvas of four mockups,
+and answered the same day.
+
+**R-1 — Every field of a person's record is reachable at creation. Answered on the canvas: direction
+B, the side rail.** Not a wizard and not a long column: the record's sections stand as a vertical
+rail with a count each, the chosen section's fields beside it, and the duplicate gate on the right,
+permanently in view, with a summary of everything the record will hold so nothing behind a rail item
+is out of sight. The draft is recorded in ONE request and one batch (`createPersonRecord`), so a
+person is never half-recorded and a retry never makes a second one. The sections are components of
+their own under `apps/web/src/lib/directory/sections/`, used by the dialog to draft and by the
+record's panes to persist, so entering a thing and reading it back are one design. The three
+directions not taken (tabs across, one sheet, the record window from birth) stay on the canvas.
+
+**R-2 — Pronouns are a dropdown.** The sets most people state are offered by name; "Another set…"
+opens the five forms with the verb agreement, because a label names two of five and a document needs
+all of them.
+
+**R-3 — Identifiers are shapes.** "Recording identifiers is not smart": the type decides the fields
+and checks the form before anything is sealed — a social security number is nine digits that format
+as typed, an employer number nine in two groups, a licence is the region that issued it plus its
+number, a bar number its jurisdiction plus its number. "An account number is bare … you would need
+multiple fields": an account is who it is held with plus the number, with the username and secret
+that belong to it, sealed as one value and blind-indexed on the number alone. The check lives once
+(`packages/directory/src/identifier-shape.ts`) and the API and the screen refuse the same values
+with the same sentence. `directory_identifier` gains a plaintext `label` (the region, the
+jurisdiction, who an account is held with) so the list can say what it holds without a reveal.
+"Date of birth is already elsewhere": the `dob` kind leaves the catalog, and the sealed
+`client.dateOfBirth` merge field goes with it; a plain merge field from the person's own date column
+is a document-assembly follow-up.
+
+**R-4 — Duplicates is not a tab; it is the gate.** The check runs beside the entry, on the right, as
+the new record is typed. The record's own Duplicates pane stands until the merge flow moves into
+the gate's shape.
+
+**R-5 — A category is not a thing a person has.** "wtf is a category for a person": the section
+applies to organizations only (court, vendor, expert firm). The pane and the catalog are unchanged
+for organizations.
+
+**R-6 — Contact is four kinds, chosen first, and dense.** "What is being recorded is Type;
+telephone and fax should be separate": Email, Telephone, Fax, Address, and the kind decides the
+fields. An email is refused without a mailbox and a domain, by one rule shared with the API
+(`packages/directory/src/email-address.ts`). A number carries its country from a dial-code control
+and formats as it is typed in that country's national form (`libphonenumber-js`, the memory-safe
+port the workspace already carried through `class-validator`); what is stored is the international
+form with the region beside it, and what is shown is national at home and international abroad.
+The list is one line per way to reach them — the kind as a glyph, the use beside the value, the
+record's marks after — in place of three tables, one per channel.
+
 ---
 
 ## 8. Test plan

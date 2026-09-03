@@ -233,7 +233,10 @@ Still an operator step **for the shared platform bucket**: add the R2 lifecycle 
 the rule exists they accumulate ([`docs/deploy-queue.md`](../../docs/deploy-queue.md)). A firm's OWN
 bucket no longer needs the step: `firm-resource-provider.ts` applies the `bundles/` and
 `conversions/` expiries (and the abandoned-multipart abort) at provisioning, unconditionally on every
-run that reaches the bucket step.
+run that reaches the bucket step — and, in the same step, the **browser-upload CORS policy** from
+`src/files/browser-upload-cors.ts`, without which the file-manager upload's presigned PUT dies at the
+preflight and the firm cannot upload at all. Buckets provisioned before 2026-09-03 take that policy
+by hand: `pnpm run emit-r2-cors` prints it as the dashboard's JSON (the deploy runbook, section 15).
 
 The dedicated-worker split is a cross-cutting decision shared with the scan, editing, and PDF-engine
 subsystems (search is the exception — its index is durable per-firm data), with `apps/scan-worker`

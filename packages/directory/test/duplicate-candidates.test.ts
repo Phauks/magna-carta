@@ -138,7 +138,7 @@ test("identifier channel finds a person by SSN blind index", async () => {
   expect(candidates.map((c) => c.entityId)).toContain(personId);
 });
 
-test("non-indexable identifier types (dob, ssn_last_four) are silently skipped", async () => {
+test("non-indexable identifier types (bar_number, ssn_last_four) are silently skipped", async () => {
   const { database, ctx } = await directoryTestContext("t12-identifier-dob");
 
   const personId = await createPerson(
@@ -146,14 +146,14 @@ test("non-indexable identifier types (dob, ssn_last_four) are silently skipped",
     { given: "Riley", family: "Morgan" },
     { clock, actorUserId: null, randomSource: seededRandomSource("t12-identifier-dob-target") },
   );
-  await addIdentifier(ctx, personId, { type: "dob", value: "1980-01-01" });
+  await addIdentifier(ctx, personId, { type: "ssn_last_four", value: "6789" });
 
-  // Including a dob identifier must not throw — it is simply skipped.
+  // Including a last-four identifier must not throw — it is simply skipped.
   const candidates = await findDuplicateCandidates(ctx, {
     kind: "person",
     given: "Riley",
     family: "Morgan",
-    identifiers: [{ type: "dob", value: "1980-01-01" }],
+    identifiers: [{ type: "ssn_last_four", value: "6789" }],
   });
 
   // No error was thrown; result may or may not contain personId via other channels.

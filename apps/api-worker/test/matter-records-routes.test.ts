@@ -268,7 +268,8 @@ beforeAll(async () => {
     .run();
   const sealed = await post(`/api/v1/directory/entities/${supervisorEntityId}/identifiers`, {
     type: "bar_number",
-    value: SEALED_BAR_NUMBER,
+    label: "Illinois",
+    number: SEALED_BAR_NUMBER,
   });
   expect(sealed.status, await sealed.clone().text()).toBe(201);
   identifierRowId =

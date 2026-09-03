@@ -17,6 +17,7 @@
  * that stands and one that does not — and it is also frequently wrong about the future. So the
  * record holds it, the screen shows it beside the address, and a send proceeds.
  */
+import type { ComposedContactWrite } from "./contact-email.ts";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -116,12 +117,13 @@ function storedParts(parts: PostalAddressParts) {
  * Setting `isPrimary` demotes the entity's other live primary ADDRESSES; setting the preference
  * `preferred` demotes the entity's preferred contact point across all three channels at once.
  */
-export async function addAddress(
+// Composes the rows one address writes without committing and without checking the entity: the
+// caller either checked it or is creating it in the same batch (person-record.ts).
+export function composeAddAddress(
   database: BatchDatabase,
   input: AddAddressInput,
   options: DirectoryWriteOptions,
-): Promise<DirectoryAddressId> {
-  await assertEntityExists(database, input.entityId);
+): ComposedContactWrite<DirectoryAddressId> {
   if (postalAddressIsEmpty(input)) throw new EmptyPostalAddressError();
 
   const addressUse = input.addressUse ?? null;
@@ -155,6 +157,16 @@ export async function addAddress(
     }),
     directoryAuditStatement(database, options, "directory.address.added", addressId),
   );
+  return { id: addressId, statements };
+}
+
+export async function addAddress(
+  database: BatchDatabase,
+  input: AddAddressInput,
+  options: DirectoryWriteOptions,
+): Promise<DirectoryAddressId> {
+  await assertEntityExists(database, input.entityId);
+  const { id: addressId, statements } = composeAddAddress(database, input, options);
 
   return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
     statements,

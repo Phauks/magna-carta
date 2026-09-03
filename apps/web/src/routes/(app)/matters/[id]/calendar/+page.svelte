@@ -78,7 +78,7 @@
 
   // ---- the section's view ----------------------------------------------------------------------
 
-  /** Which of the section's three views is showing; `calendar` is the component in one of its views. */
+  /** Which of the section's views is showing; `calendar` is the component in one of its views. */
   type SectionView = "list" | "calendar";
 
   const arrivalView = page.url.searchParams.get("view");

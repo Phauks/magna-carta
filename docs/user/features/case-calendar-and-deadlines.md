@@ -1,6 +1,6 @@
 # Case calendar and deadlines
 
-_The firm calendar and the matter's Calendar section are live. The matter timeline as a view, the room grid, and the Home card are still to come and are recorded through the API meanwhile._
+_The firm calendar, the matter's Calendar section, the room grid and the Home card are live. A matter's whole history is its [Activity section](matter-activity.md)._
 
 ## What it does
 
@@ -64,6 +64,11 @@ links and its history on the right, and the verbs it allows along the bottom. Ed
 record in place. A scheduled setting can be **cancelled** with a reason or **continued**; an open
 deadline can be **satisfied**, **vacated** with a reason, or **superseded** by a new one. A verb the
 record's state or your permissions refuse stays visible and says why.
+
+**Related settings.** Open an event and press **Relate** to link it to another setting on the same
+matter (or, for a firm event, to another firm event within six months), with a note on why they
+belong together. The Links tab lists them by title and opens either; **Remove** takes a relation off
+without touching either setting. A continuance is never related by hand: the record makes that link.
 
 **Who is at an event.** When recording, pick a person from the firm, from the directory, or type a
 name once for somebody who is neither, such as a judge or a court reporter; each can carry a role.

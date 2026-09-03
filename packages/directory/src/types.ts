@@ -94,11 +94,13 @@ export type EdgeType = (typeof EDGE_TYPES)[number];
 // The kind of a directory_identifier row. The schema allows any non-empty string
 // (directory_identifier.identifier_type CHECK is length > 0 only); this union is the
 // application-level catalog of well-known values used in the protected-field declarations
-// and blind-index policy.
+// and blind-index policy. What each kind is made of, and whether a value fits it, is
+// identifier-shape.ts. A date of birth is not a kind: it is a date on the person, in the clear,
+// beside the date of death, because a birthday sealed as a secret can be neither shown on a
+// record nor used to tell two people of one name apart.
 export const IDENTIFIER_TYPES = [
   "ssn",
   "ein",
-  "dob",
   "account",
   "drivers_license",
   "ssn_last_four",

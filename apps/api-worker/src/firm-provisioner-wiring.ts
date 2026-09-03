@@ -21,7 +21,21 @@ export function resourceProviderForEnv(env: Bindings): FirmResourceProvider {
       accountId,
       apiToken,
       eventNotificationQueueId: env.FILES_INGEST_QUEUE_ID,
+      browserOrigins: browserOriginsForEnv(env),
     });
   }
   return createDevFirmResourceProvider();
+}
+
+// The origin this deployment serves the app from, joining the checked-in CORS artifact's list on
+// every firm bucket — so a deployment at an address the artifact does not name still takes browser
+// uploads. An unparseable value contributes nothing rather than a rule the API would refuse.
+function browserOriginsForEnv(env: Bindings): string[] {
+  const base = env.APP_BASE_URL;
+  if (base === undefined || base === "") return [];
+  try {
+    return [new URL(base).origin];
+  } catch {
+    return [];
+  }
 }

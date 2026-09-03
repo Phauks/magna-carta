@@ -55,6 +55,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import {
     cancelFirmEvent,
     cancelMatterEvent,
@@ -93,6 +94,12 @@
     resourceKindLabel,
     type EventBooking,
     type FirmResource,
+    createEventLink,
+    deleteEventLink,
+    listEventLinks,
+    listMatterEvents,
+    listFirmEvents,
+    type EventLink,
   } from "./calendar-api.ts";
   import type { CalendarContext } from "./calendar-context.svelte.ts";
   import {
@@ -266,6 +273,7 @@
     record = next;
     unreachableDeadline = unreachable;
     void readBookings(next);
+    void readLinks(next);
     readFailure = failure === null ? null : stated(failure, "The record could not be read.");
     reading = false;
     seedDrafts();
@@ -279,6 +287,156 @@
   /** Re-open this window on a neighbouring setting. */
   function openEvent(eventId: string): void {
     current = { kind: "event", recordId: eventId };
+  }
+
+  // ---- the links an event carries ---------------------------------------------------------------
+  //
+  // Two kinds on one read: the continuance the setting is part of (written only by the continue
+  // operation, and already on the record as continued-from and continued-to), and the settings a
+  // person RELATED it to by hand. The Links tab lists the related ones here with the other end's
+  // title, read on that end's own path under its own visibility; a related end this reader may not
+  // see reads as its identifier's kind and nothing more.
+
+  interface RelatedLink {
+    readonly id: string;
+    readonly note: string | null;
+    readonly other: { readonly kind: "event" | "firmEvent"; readonly id: string };
+    readonly title: string | null;
+  }
+
+  let relatedLinks = $state<readonly RelatedLink[] | null>(null);
+  let linksFailure = $state<StatedFailure | null>(null);
+  let linksGeneration = 0;
+
+  function otherEnd(link: EventLink, self: { kind: "event" | "firmEvent"; id: string }): RelatedLink["other"] | null {
+    const ends = [link.from, link.to].map((end) =>
+      end.matterEventId !== null
+        ? ({ kind: "event", id: end.matterEventId } as const)
+        : end.firmEventId !== null
+          ? ({ kind: "firmEvent", id: end.firmEventId } as const)
+          : null,
+    );
+    return ends.find((end) => end !== null && !(end.kind === self.kind && end.id === self.id)) ?? null;
+  }
+
+  async function readLinks(target: EntryRecord | null): Promise<void> {
+    linksGeneration += 1;
+    const generation = linksGeneration;
+    relatedLinks = null;
+    linksFailure = null;
+    if (target === null || target.kind === "deadline") return;
+    const self = { kind: target.kind, id: target.event.id } as const;
+    const outcome = await listEventLinks(fetch, {
+      kind: target.kind === "event" ? "matterEvent" : "firmEvent",
+      id: target.event.id,
+    });
+    if (generation !== linksGeneration) return;
+    if (outcome.kind !== "ok") {
+      linksFailure = stated(outcome.failure, "The event's links could not be read.");
+      return;
+    }
+    const related = outcome.value.data.filter((link) => link.kind === "related");
+    const resolved = await Promise.all(
+      related.map(async (link): Promise<RelatedLink | null> => {
+        const other = otherEnd(link, self);
+        if (other === null) return null;
+        const title =
+          other.kind === "event"
+            ? await readMatterEvent(fetch, other.id).then((read) =>
+                read.kind === "ok" ? read.value.event.title : null,
+              )
+            : await readFirmEvent(fetch, other.id).then((read) =>
+                read.kind === "ok" ? read.value.event.title : null,
+              );
+        return { id: link.id, note: link.note, other, title };
+      }),
+    );
+    if (generation !== linksGeneration) return;
+    relatedLinks = resolved.filter((link): link is RelatedLink => link !== null);
+  }
+
+  function openOther(other: RelatedLink["other"]): void {
+    current = other.kind === "event" ? { kind: "event", recordId: other.id } : { kind: "firmEvent", recordId: other.id };
+  }
+
+  async function unrelate(linkId: string): Promise<void> {
+    if (record === null) return;
+    verbFailure = null;
+    const outcome = await deleteEventLink(fetch, linkId, crypto.randomUUID());
+    if (outcome.kind === "ok") {
+      void readLinks(record);
+      return;
+    }
+    verbFailure = stated(outcome.failure, "The link was not removed.");
+  }
+
+  // Relating: the other setting is picked from the same matter's own events (or, for a firm
+  // event, the firm's events around it), because a link across matters is a link across
+  // visibility and nothing here can offer one honestly.
+  let relateOpen = $state(false);
+  let relateChoices = $state<readonly { value: string; label: string }[]>([]);
+  let relateTargetId = $state("");
+  let relateNote = $state("");
+  let relateFailure = $state<StatedFailure | null>(null);
+  let relateAttemptKey: string | null = null;
+  const relateRefusal = $derived(relateTargetId === "" ? "Choose the setting to relate." : undefined);
+
+  async function openRelate(): Promise<void> {
+    if (record === null || record.kind === "deadline") return;
+    relateTargetId = "";
+    relateNote = "";
+    relateFailure = null;
+    relateAttemptKey = null;
+    verbFailure = null;
+    relateChoices = [];
+    relateOpen = true;
+    const self = record.event.id;
+    const already = new Set((relatedLinks ?? []).map((link) => link.other.id));
+    if (record.kind === "event") {
+      const outcome = await listMatterEvents(fetch, record.event.matterId);
+      if (outcome.kind === "ok") {
+        relateChoices = outcome.value.data
+          .filter((event) => event.id !== self && !already.has(event.id))
+          .map((event) => ({ value: event.id, label: `${event.startsOn} · ${event.title}` }));
+      }
+    } else {
+      const anchor = parseDate(record.event.startsOn);
+      const outcome = await listFirmEvents(fetch, {
+        from: anchor.subtract({ days: 180 }).toString(),
+        to: anchor.add({ days: 180 }).toString(),
+      });
+      if (outcome.kind === "ok") {
+        relateChoices = outcome.value.data
+          .filter((event) => event.id !== self && !already.has(event.id))
+          .map((event) => ({ value: event.id, label: `${event.startsOn} · ${event.title}` }));
+      }
+    }
+  }
+
+  async function commitRelate(): Promise<ActionOutcome> {
+    if (record === null || record.kind === "deadline" || relateTargetId === "") return "refused";
+    relateFailure = null;
+    relateAttemptKey ??= crypto.randomUUID();
+    const note = optionalText(relateNote);
+    const outcome = await createEventLink(
+      fetch,
+      record.kind === "event"
+        ? { fromMatterEventId: record.event.id, toMatterEventId: relateTargetId, note }
+        : { fromFirmEventId: record.event.id, toFirmEventId: relateTargetId, note },
+      relateAttemptKey,
+    );
+    if (outcome.kind === "ok") {
+      relateAttemptKey = null;
+      void readLinks(record);
+      return "committed";
+    }
+    if (outcome.kind === "problem") relateAttemptKey = null;
+    relateFailure = stated(
+      outcome.failure,
+      "The settings were not related.",
+      "Nothing answered, so nothing was related; pressing again tries once.",
+    );
+    return "refused";
   }
 
   // ---- the rooms an event has booked ------------------------------------------------------------
@@ -913,13 +1071,16 @@
 
   const linkCount = $derived.by((): number | undefined => {
     if (record === null) return undefined;
+    const related = relatedLinks?.length ?? 0;
     if (record.kind === "event") {
-      return [record.event.continuedFromEventId, record.event.continuedToEventId].filter(
-        (id) => id !== null,
-      ).length;
+      return (
+        [record.event.continuedFromEventId, record.event.continuedToEventId].filter(
+          (id) => id !== null,
+        ).length + related
+      );
     }
     if (record.kind === "deadline") return record.deadline.triggerEventId === null ? 0 : 1;
-    return 0;
+    return related;
   });
 
   const participantCount = $derived.by((): number | undefined => {
@@ -1496,9 +1657,60 @@
         </dd>
       </div>
     </dl>
-  {:else}
+  {/if}
+  {#if record !== null && record.kind !== "deadline"}
+    {@render relatedLinksList()}
+  {:else if record !== null && record.kind === "deadline" && record.deadline.triggerEventId === null}
     <p class="text-sm text-text-muted">No links.</p>
   {/if}
+{/snippet}
+
+{#snippet relatedLinksList()}
+  <div class="flex flex-col gap-8">
+    <FieldLabel as="p">
+      Related
+    </FieldLabel>
+    {#if linksFailure !== null}
+      <FailureNotice
+        failure={linksFailure.failure}
+        title="The Links Could Not Be Read"
+        fallback={linksFailure.fallback}
+        onRetry={() => void readLinks(record)}
+      />
+    {:else if relatedLinks === null}
+      <Skeleton class="h-16 w-full" />
+    {:else if relatedLinks.length === 0}
+      <p class="text-sm text-text-muted">Related to nothing.</p>
+    {:else}
+      <ul class="flex flex-col gap-8 text-sm">
+        {#each relatedLinks as link (link.id)}
+          <li class="flex items-baseline justify-between gap-16">
+            <div class="flex min-w-0 flex-col">
+              <button
+                type="button"
+                class="text-start underline underline-offset-2"
+                onclick={() => openOther(link.other)}
+              >
+                {link.title ?? (link.other.kind === "event" ? "A setting you cannot see" : "A firm event")}
+              </button>
+              {#if link.note !== null}
+                <span class="text-text-muted">{link.note}</span>
+              {/if}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={eventVerbRefusal !== undefined}
+              title={eventVerbRefusal ?? "Remove the relation; both settings stay as they are"}
+              onclick={() => void unrelate(link.id)}
+            >
+              Remove
+            </Button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
 {/snippet}
 
 {#snippet historyTab()}
@@ -1542,6 +1754,14 @@
       >
         Book a Room
       </Button>
+      <Button
+        variant="secondary"
+        disabled={eventVerbRefusal !== undefined}
+        title={eventVerbRefusal ?? "Relate this setting to another on the same matter"}
+        onclick={() => void openRelate()}
+      >
+        Relate
+      </Button>
     {:else if current?.kind === "deadline"}
       <Button
         variant="secondary"
@@ -1583,6 +1803,14 @@
         onclick={openBook}
       >
         Book a Room
+      </Button>
+      <Button
+        variant="secondary"
+        disabled={eventVerbRefusal !== undefined}
+        title={eventVerbRefusal ?? "Relate this event to another of the firm's"}
+        onclick={() => void openRelate()}
+      >
+        Relate
       </Button>
     {/if}
     <Button onclick={() => (open = false)}>Close</Button>
@@ -1873,5 +2101,52 @@
       {/if}
     </div>
   </div>
+  {/snippet}
+</ActionDialog>
+
+<ActionDialog
+  bind:open={relateOpen}
+  heading="Relate Settings"
+  commitLabel="Relate"
+  commitBusyLabel="Relating"
+  commitRefusal={relateRefusal}
+  unsavedChanges={relateTargetId !== "" || relateNote !== ""}
+  onCommit={commitRelate}
+>
+  {#snippet notice()}
+    {#if relateFailure !== null}
+      <FailureNotice
+        failure={relateFailure.failure}
+        title="The Settings Were Not Related"
+        fallback={relateFailure.fallback}
+        whenSilent={relateFailure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+  {#snippet fields()}
+    <div class="flex flex-col gap-16">
+      <div class="flex flex-col gap-4">
+        <Label for="entry-relate-target">Setting</Label>
+        {#if relateChoices.length === 0}
+          <p class="text-sm text-text-muted">Nothing else to relate this to.</p>
+        {:else}
+          <Select.Root type="single" items={[...relateChoices]} bind:value={relateTargetId} allowDeselect={false}>
+            <Select.Trigger id="entry-relate-target" class="w-full">
+              <Select.Value placeholder={placeholderOf("Setting")} />
+            </Select.Trigger>
+            <Select.Content>
+              {#each relateChoices as choice (choice.value)}
+                <Select.Item value={choice.value} label={choice.label} />
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        {/if}
+      </div>
+      <div class="flex flex-col gap-4">
+        <Label for="entry-relate-note">Note</Label>
+        <Input id="entry-relate-note" bind:value={relateNote} />
+        <p class="text-xs text-text-muted">Why they belong together, in a few words; optional.</p>
+      </div>
+    </div>
   {/snippet}
 </ActionDialog>
