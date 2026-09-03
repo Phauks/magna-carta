@@ -171,7 +171,7 @@ function handleNaturalLanguageFeedDeletionRequest(
     logger.count("costs.recovery.unhandled_topic", { topic: message.topic }, 1);
     return Promise.resolve();
   }
-  return handleNaturalLanguageFeedDeletion(env, firmDatabase, scope, logger);
+  return handleNaturalLanguageFeedDeletion(env, message.firmId, firmDatabase, scope, logger);
 }
 
 // A corpus change that could have changed an already-checked matter's answer: resolve the affected

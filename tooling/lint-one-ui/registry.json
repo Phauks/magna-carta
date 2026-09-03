@@ -62,6 +62,18 @@
     {
       "name": "CalendarView",
       "home": "apps/web/src/lib/calendar"
+    },
+    {
+      "name": "EntityIdentity",
+      "home": "packages/design-system/src/lib/components/entity-identity"
+    },
+    {
+      "name": "EntityPicker",
+      "home": "packages/design-system/src/lib/components/entity-picker"
+    },
+    {
+      "name": "RecordParties",
+      "home": "packages/design-system/src/lib/components/record-parties"
     }
   ],
   "modalShellsComment": [
@@ -114,6 +126,16 @@
   ],
   "allowances": [
     {
+      "rule": "raw-table",
+      "file": "packages/design-system/src/lib/components/calendar-grid/calendar-grid-month.svelte",
+      "reason": "A calendar grid is a table of DAYS, not of records: its columns are weekdays, its cells are days holding entries, and its recipe (calendar-grid.css) sizes rows by the week rather than by a row of facts. The <table> is there for its semantics, a screen reader announcing the weekday column over each day, and none of DataTable's machinery (sorting, filters, selection, totals) applies; the mc-table recipe's cell padding, hover tint and row rule would fight the day cell. It is the design system's own presentation, registered above as CalendarGrid, and the one place a raw table stands."
+    },
+    {
+      "rule": "raw-table",
+      "file": "packages/design-system/src/lib/components/calendar-grid/calendar-grid-week.svelte",
+      "reason": "A calendar grid is a table of DAYS, not of records: its columns are weekdays, its cells are days holding entries, and its recipe (calendar-grid.css) sizes rows by the week rather than by a row of facts. The <table> is there for its semantics, a screen reader announcing the weekday column over each day, and none of DataTable's machinery (sorting, filters, selection, totals) applies; the mc-table recipe's cell padding, hover tint and row rule would fight the day cell. It is the design system's own presentation, registered above as CalendarGrid, and the one place a raw table stands."
+    },
+    {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/billing/arrangement-dialog.svelte",
       "reason": "Belongs to the OTHER shell. It reads a record — the fee arrangement in force, its terms, and its version history — and its one act (Amend) opens a different panel. That is RecordWindow's shape: a record pane, a history tab, and an action bar. Migrating it to ActionDialog would be the wrong shell, and a read-only ActionDialog kind would be a second answer to 'read a thing'."
@@ -125,43 +147,13 @@
     },
     {
       "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/costs/cost-review-window.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader. It belongs to the full-screen presentation question, which is a separate design and deliberately not folded into this one."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/categories-pane.svelte",
-      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/contact-pane.svelte",
-      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/identifiers-pane.svelte",
-      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/names-pane.svelte",
-      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/settings/components/settings-ledger.svelte",
       "reason": "a Sheet, and an edge panel holding a change history is context rather than an act. It stays; the allowance records that a Sheet was considered and left alone."
     },
     {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/time/time-sheet.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader — same full-screen family as cost-review-window, same separate design."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/tools/safe-browse/website-shell.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader — same full-screen family, same separate design."
+      "rule": "table-machinery",
+      "file": "apps/web/src/lib/tools/firm-usage/by-location-table.svelte",
+      "reason": "predates the rule; a sort written locally over the presentational primitives, with the remainder, offsite and totals rows held outside it by hand. It should be a DataTable.Grid — the Grid's row groups and scope-honest totals row already model the three rows this table keeps outside its sort — and that port is a design round on the firm-usage surface, reviewed on the deployed site, not a lint fix."
     },
     {
       "rule": "status-tone",

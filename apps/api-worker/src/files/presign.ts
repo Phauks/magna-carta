@@ -1,10 +1,12 @@
 import { AwsClient } from "aws4fetch";
+import type { DataRegion } from "@magna-carta/database/data-region";
 import { BULK_PREFIX } from "@magna-carta/file-manager/file-statements";
 import {
   objectDimensionHeaders,
   type ObjectDimensions,
 } from "@magna-carta/object-dimensions/dimensions";
 import type { R2EventMessage } from "./ingest-consumer.ts";
+import { r2S3Endpoint } from "./r2-s3-endpoint.ts";
 
 // The R2 presigner: every byte of an upload or download flows DIRECTLY between the client and R2's
 // S3-compatible endpoint, never through the Worker (the Worker only mints the credential). Each URL
@@ -65,6 +67,11 @@ export interface R2PresignerOptions {
   readonly secretAccessKey: string;
   // Injectable for tests; defaults to the runtime fetch. Used only by the server-side multipart calls.
   readonly fetchImpl?: (request: Request) => Promise<Response>;
+  // The data region of the firm whose bucket these URLs address, which selects the S3 endpoint host
+  // (r2-s3-endpoint.ts) — a jurisdiction-bound bucket exists at no other host. Defaults to the column
+  // default; every firm is "us" today, and the per-firm-R2 ADR carries threading a firm's real region
+  // to this presigner as a named remaining gap.
+  readonly region?: DataRegion;
 }
 
 // R2 keys are opaque and already URL-safe (the data-access layer mints them from identifier handles),
@@ -77,7 +84,7 @@ function encodeKey(key: string): string {
 }
 
 export function createR2Presigner(options: R2PresignerOptions): R2Presigner {
-  const endpoint = `https://${options.accountId}.r2.cloudflarestorage.com`;
+  const endpoint = r2S3Endpoint(options.accountId, options.region ?? "us");
   // region "auto" is R2's S3 region; service "s3" selects the S3 signing canonicalization.
   const client = new AwsClient({
     accessKeyId: options.accessKeyId,

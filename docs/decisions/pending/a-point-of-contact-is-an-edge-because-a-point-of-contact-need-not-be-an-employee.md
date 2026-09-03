@@ -1,6 +1,6 @@
 ---
 slug: a-point-of-contact-is-an-edge-because-a-point-of-contact-need-not-be-an-employee
-status: Accepted — build pending
+status: Accepted — built 2026-09-02 (the type is in the catalog and classed; the record screen offers it)
 area: Directory
 date: 2026-08-30
 summary: "The owner's direction is that the platform must record who the point person with an organization is. The design left two options open: a new edge type, or a flag on an employment edge. The flag is wrong, and the reason is not aesthetic — the people a firm actually talks to at an organization are frequently not its employees. A court's clerk of court, an insurer's assigned adjuster at a third-party administrator, opposing counsel's paralegal, a designated agent for service, a trustee's accountant: every one of them is the point of contact and none of them is on the organization's payroll. A flag on an employment edge cannot express any of them without first asserting an employment that is false, and a false employment edge is not a cosmetic error — the conflicts traversal spends a control-class budget on it. So point of contact is its own edge type, point_of_contact_for, and it stands alone: a person who is BOTH an employee and the point of contact carries two edges, which is correct because they are two facts with two validity periods. The build is blocked on one line outside this stream's ownership: a new edge type must be classed in packages/conflicts/src/edge-classes.ts in the same change, which the existing coverage test enforces."

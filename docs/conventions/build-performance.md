@@ -613,7 +613,7 @@ already produced. So each trigger runs the pass that **only it** can run:
 | `pull_request` | full closure **minus the fan-out sinks** | full         | The tier a human waits on — optimized for latency.                                                                |
 | `push` to main | full closure **including the sinks**     | skipped      | The whole-repo type-check plus the sink lint: exactly what the pull request deliberately did not do.              |
 | `schedule`     | **whole repo**, unscoped, cold           | full         | Nightly backstop for anything the per-change tiers could miss. It now lands **after** the deploy, not before one. |
-| `merge_group`  | full closure including the sinks         | full         | Full proof of a queued merge's real post-merge tree, if a merge queue is enabled.                                 |
+| `merge_group`  | full closure including the sinks         | full         | Full proof of a queued merge's real post-merge tree. Sinks deferred while the austerity window holds.             |
 
 ### TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset
 
@@ -622,19 +622,21 @@ reduced until they reset (owner decision, 2026-08-05). Every suspension carries 
 `TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset` in the file it touches, so
 finding all of them is one `grep -r "TEMPORARY CI AUSTERITY"`.
 
-> **The austerity was not enough, and "still running" below is aspirational, not observed.** On the
-> same day this posture was written the account stopped being able to start **any** billable job, so
-> the pull-request tier described as "still running" has in fact run nothing since 2026-08-05. Every
-> merge since has rested on local verification alone. This is not something the workflow can fix and
-> not something that reverting the austerity would fix: it clears when the owner completes the billing
-> step on the [deploy queue](../deploy-queue.md). How to recognise the state — and why it is not a
-> runner-label problem — is in [`operations.md`](operations.md) under _Quality gates_.
+> **What happened between 2026-08-05 and 2026-09-01.** On the day this posture was written the
+> account stopped being able to start **any** billable job, so the pull-request tier ran nothing for
+> the rest of August and every merge in that window rested on local verification alone. The billing
+> step on the [deploy queue](../deploy-queue.md) cleared it, and the gate has executed since
+> 2026-09-01 (jobs with real runner ids). The first full battery, on 2026-09-02, found a month of
+> checks that merges had outrun — every one of them two branches merged minutes apart and never tested
+> together — and fixed them the same day. How to recognise the blocked state if it recurs is in
+> [`operations.md`](operations.md) under _Quality gates_.
 >
-> **Two consequences for the revert below.** The trigger for step 1 is not "the minutes reset" on its
-> own; it is **a gate run that demonstrably executed** (a job reporting a real `runner_id`). And the
-> austerity's own premise should be re-examined when it does: the suspended tiers were suspended to
-> conserve an allotment that has been exhausted for the whole period regardless, so restoring them
-> costs whatever they cost and the saving they bought was never realised.
+> **What that changes about the revert below.** Step 0 is met. Steps 1 to 4 are now a budget
+> decision rather than a blocked one: the substrate gating and the seeded WASM cache
+> (2026-09-02) cut the per-pull-request bill, but the suspended tiers cost what they cost, and a full
+> month's spend under the new gate is the number to decide against. The merge queue is the exception:
+> it is the structural fix for the class of failure the first battery found, its workflow side is
+> ready, and its setting is an entry on the deploy queue rather than a step here.
 
 **Suspended** (in [`gate.yml`](../../.github/workflows/gate.yml)):
 
@@ -651,7 +653,9 @@ suite, governance, contracts, containers) with the type-aware lint scoped to the
 their full dependent closure minus the fan-out sinks, and the Workers and Chromium test substrates
 skipped when that closure proves the change cannot reach them (_Test substrates follow the dependent
 closure_ above; added 2026-09-02, when the gate's first month of real runs showed those two jobs to be
-most of the bill); `merge_group`, if a merge queue is ever enabled; `workflow_dispatch`;
+most of the bill); `merge_group`, once the merge queue is enabled (the full battery on the exact
+post-merge tree, with the sinks deferred exactly as on the pull request while the window holds);
+`workflow_dispatch`;
 [`seed-caches.yml`](../../.github/workflows/seed-caches.yml) on every push to `main` (under a minute,
 and what keeps every branch's first run off the cold WASM build); and
 [`assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) on every push to `main` (a
@@ -700,8 +704,9 @@ sweep. **The clause that used to close this argument is now false and must not b
 intervenes first." Since 2026-08-29 `main` **is** the deploy branch, so the nightly sweep intervenes
 after production has already shipped the tree, and the two-branches-in-quick-succession gap is a
 production gap for however long it takes the sweep to run. The pull-request tier is what stands
-between a defect and real users; the merge queue is the fix that restores the old argument's force,
-and it is not enabled.
+between a defect and real users; the merge queue is the fix that restores the old argument's force.
+Its workflow side is ready (the `merge_group` tier resolves its base from the queue's payload), and
+its setting is the first entry on the [deploy queue](../deploy-queue.md).
 
 **Why deferring the fan-out sinks is sound.** Which tier pays for a package's dependent re-lint is a
 cost dial, not a correctness one, because the _undeferred_ closure still runs before anything can ship

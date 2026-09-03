@@ -110,6 +110,15 @@ is still an `ActionDialog` inside it, not a panel of its own.
   and do not give `ActionDialog` a `class` prop to reach past them. A form that needs something
   beside its fields hands `ActionDialog` a `context` snippet; a context pane implies the record
   width, whatever `width` said.
+- **The frame owns expand, and each shell keeps its own control.** `internal/frame-expansion.svelte.ts`
+  holds the state, the per-shell session memory (`recordWindowExpansion`, `actionDialogExpansion`
+  — never persisted, never shared between the shells), the two control names, and the expanded
+  geometry (`EXPANDED_FRAME_CLASSES`, utilities, since only a utility can replace the panel's own
+  cap). The corner control's markup stays in each shell's source because `header-set` asserts the
+  record window's set at the source. `ActionDialog` offers expand on the kinds with something to
+  gain — `form` and `reading`, the Dialog kinds; `expandable` in the trait table — and never on a
+  question. Both shells take a bindable `expanded`, which is also how a panel OPENS expanded by
+  design; the caller's binding wins over the memory.
 - **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
   in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
   specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the
@@ -123,6 +132,29 @@ is still an `ActionDialog` inside it, not a panel of its own.
   from the repo root only the top-level fallback is used, so a plugin on the project alone passes
   locally and fails in `pnpm test`. The package still has no `vite.config.ts`; that note is about
   the Storybook pipeline's plugin ORDER, which this does not touch.
+
+## The directory-linking family: one mark, one field, one tab
+
+**Every surface that names, picks or links a person or an organization goes through
+`EntityIdentity`, `EntityPicker` and `RecordParties`** (`src/lib/components/entity-identity`,
+`entity-picker`, `record-parties`). Three app surfaces had each hand-built a combobox over the
+directory search before these existed; the one-implementation registry now refuses a fourth.
+
+- **The picker never fetches.** It takes `search: EntitySearch` and owns the settle, the floor, the
+  abort of a superseded question and the three states (`picker-search.ts`, tested on its own). The
+  app supplies the directory — `apps/web/src/lib/directory/directory-picker-source.ts` is the one
+  adapter. Same layering as `ActionDialog`'s `notice` slot: the design system knows how a search
+  behaves, never what is searched.
+- **A failed search is stated, never rendered as no matches.** The two are the same picture and not
+  the same fact. A capped answer says so and is never re-sorted: the order is the server's.
+- **An association carries its own identity apart from the entity's** (`RecordParty.identifier` vs
+  `entityIdentifier`), which is what lets one person be on a record twice in two roles and never
+  twice in one (`linkable-entities.ts`), and what lets removing a link leave the person in the
+  directory. The remove control is the `unlink` glyph, never a waste bin, never the danger colour.
+- **The tab's confirmation is an `ActionDialog`**, from the first commit — the attachments tab
+  carries an allowance for its hand-composed one; this family does not.
+- **`PARTIES_TAB_KEY`** is the agreement every record window imports, the twin of
+  `ATTACHMENTS_TAB_KEY`.
 
 ## The maturity family, and the field primitives
 

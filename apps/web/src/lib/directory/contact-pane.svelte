@@ -27,14 +27,17 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import FieldRow from "@magna-carta/design-system/field-row";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import Textarea from "@magna-carta/design-system/textarea";
   import AtSign from "@lucide/svelte/icons/at-sign";
@@ -120,7 +123,6 @@
 
   let open = $state(false);
   let channel = $state<Channel>("phones");
-  let submitting = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
   let emailAddress = $state("");
@@ -197,6 +199,22 @@
         : addressHasSomething,
   );
 
+  const refusal = $derived.by((): string | undefined => {
+    if (readyToRecord) return undefined;
+    if (channel === "emails") return "An address is required.";
+    if (channel === "phones") return "A number is required.";
+    return "At least one part of the address is required.";
+  });
+
+  /** Whether anything has been typed: what the guard asks about before a stray Escape. */
+  const started = $derived(
+    emailAddress.trim() !== "" ||
+      phoneNumber.trim() !== "" ||
+      phoneExtension.trim() !== "" ||
+      addressHasSomething ||
+      preferenceNote.trim() !== "",
+  );
+
   function preferenceForDraft() {
     return {
       permitted,
@@ -205,9 +223,8 @@
     };
   }
 
-  async function record(): Promise<void> {
-    if (!readyToRecord || submitting) return;
-    submitting = true;
+  async function record(): Promise<ActionOutcome> {
+    if (!readyToRecord) return "refused";
     failure = null;
     const key = crypto.randomUUID();
     const preference = preferenceForDraft();
@@ -261,17 +278,16 @@
               key,
             );
 
-    submitting = false;
     if (outcome.kind === "ok") {
-      open = false;
       reloadToken += 1;
-      return;
+      return "committed";
     }
     failure = stated(
       outcome.failure,
       "This could not be recorded.",
       "Nothing was recorded.",
     );
+    return "refused";
   }
 
   // ---- changing one ------------------------------------------------------------------------------
@@ -551,17 +567,19 @@
   {/if}
 </section>
 
-<Dialog.Root bind:open>
-  <Dialog.Content class="max-w-2xl">
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <Dialog.Title>Record A Way To Reach Them</Dialog.Title>
-        <Dialog.Description>
-          A number is stored exactly as it is written here. Nothing is reformatted, and a number this
-          system cannot take apart is still kept and still shown.
-        </Dialog.Description>
-      </div>
-
+<ActionDialog
+  bind:open
+  kind="form"
+  width="wide"
+  heading="Record A Way To Reach Them"
+  subtitle="A number is stored exactly as it is written here. Nothing is reformatted, and a number this system cannot take apart is still kept and still shown."
+  commitLabel="Record"
+  commitBusyLabel="Recording"
+  commitRefusal={refusal}
+  unsavedChanges={started}
+  onCommit={record}
+>
+  {#snippet fields({ busy })}
       <div class="flex flex-col gap-8">
         <Label id="contact-channel-label">What is being recorded</Label>
         <Select.Root
@@ -569,254 +587,274 @@
           items={channelItems}
           bind:value={() => channel, (chosen) => (channel = chosen as Channel)}
           allowDeselect={false}
+          disabled={busy}
         >
           <Select.Trigger class="min-w-64" aria-labelledby="contact-channel-label">
             <Select.Value />
           </Select.Trigger>
           <Select.Content>
-            {#each channelItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
+            {#each channelItems as entry (entry.value)}
+              <Select.Item value={entry.value} label={entry.label} />
             {/each}
           </Select.Content>
         </Select.Root>
       </div>
 
-      {#if channel === "phones"}
-        <div class="grid grid-cols-2 gap-16">
-          <div class="flex flex-col gap-8">
-            <Label for="contact-phone-number">Number</Label>
+    {#if channel === "phones"}
+      <FieldRow>
+      <LabelledField label="Number">
+          {#snippet children({ props })}
             <Input
-              id="contact-phone-number"
+              {...props}
+              disabled={busy}
               bind:value={phoneNumber}
               autocomplete="off"
               placeholder={placeholderOf("Number")}
             />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-phone-extension">Extension</Label>
+          {/snippet}
+        </LabelledField>
+      <LabelledField label="Extension">
+          {#snippet children({ props })}
             <Input
-              id="contact-phone-extension"
+              {...props}
+              disabled={busy}
               bind:value={phoneExtension}
               autocomplete="off"
               placeholder={placeholderOf("Extension")}
             />
-          </div>
-        </div>
-        <div class="flex flex-col gap-8">
-          <Label id="contact-phone-kind-label">Kind</Label>
-          <Select.Root
-            type="single"
-            items={PHONE_KINDS.map((entry) => ({ value: entry.value, label: entry.label }))}
-            bind:value={() => phoneKind, (chosen) => (phoneKind = chosen)}
-            allowDeselect={false}
-          >
-            <Select.Trigger class="min-w-64" aria-labelledby="contact-phone-kind-label">
-              <Select.Value />
-            </Select.Trigger>
-            <Select.Content>
-              {#each PHONE_KINDS as entry (entry.value)}
-                <Select.Item value={entry.value} label={entry.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      {:else if channel === "emails"}
-        <div class="flex flex-col gap-8">
-          <Label for="contact-email-address">Address</Label>
+          {/snippet}
+        </LabelledField>
+      </FieldRow>
+      <div class="flex flex-col gap-8">
+        <Label id="contact-phone-kind-label">Kind</Label>
+        <Select.Root
+          type="single"
+          items={PHONE_KINDS.map((entry) => ({ value: entry.value, label: entry.label }))}
+          bind:value={() => phoneKind, (chosen) => (phoneKind = chosen)}
+          allowDeselect={false}
+          disabled={busy}
+        >
+          <Select.Trigger class="min-w-64" aria-labelledby="contact-phone-kind-label">
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Content>
+            {#each PHONE_KINDS as entry (entry.value)}
+              <Select.Item value={entry.value} label={entry.label} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+    {:else if channel === "emails"}
+      <LabelledField label="Address">
+        {#snippet children({ props })}
           <Input
-            id="contact-email-address"
-            type="email"
+            {...props}
+            disabled={busy}
             bind:value={emailAddress}
             autocomplete="off"
+            type="email"
             placeholder={placeholderOf("Address")}
           />
-        </div>
-        <div class="flex flex-col gap-8">
-          <Label id="contact-email-use-label">Kind</Label>
-          <Select.Root
-            type="single"
-            items={EMAIL_USES.map((entry) => ({ value: entry.value, label: entry.label }))}
-            bind:value={() => emailUse, (chosen) => (emailUse = chosen as DirectoryContactUse)}
-            allowDeselect={false}
-          >
-            <Select.Trigger class="min-w-64" aria-labelledby="contact-email-use-label">
-              <Select.Value />
-            </Select.Trigger>
-            <Select.Content>
-              {#each EMAIL_USES as entry (entry.value)}
-                <Select.Item value={entry.value} label={entry.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      {:else}
-        <!-- No field is required and none is assumed. Which fields a country's addresses use, what
-             they are called and what order they read in are properties of the country, so a
-             half-held address is stored as a half-held address rather than refused. -->
-        <div class="grid grid-cols-2 gap-16">
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-street">Address line</Label>
+        {/snippet}
+      </LabelledField>
+      <div class="flex flex-col gap-8">
+        <Label id="contact-email-use-label">Kind</Label>
+        <Select.Root
+          type="single"
+          items={EMAIL_USES.map((entry) => ({ value: entry.value, label: entry.label }))}
+          bind:value={() => emailUse, (chosen) => (emailUse = chosen as DirectoryContactUse)}
+          allowDeselect={false}
+          disabled={busy}
+        >
+          <Select.Trigger class="min-w-64" aria-labelledby="contact-email-use-label">
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Content>
+            {#each EMAIL_USES as entry (entry.value)}
+              <Select.Item value={entry.value} label={entry.label} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+    {:else}
+      <!-- No field is required and none is assumed. Which fields a country's addresses use, what
+           they are called and what order they read in are properties of the country, so a
+           half-held address is stored as a half-held address rather than refused. -->
+      <FieldRow>
+      <LabelledField label="Address line">
+          {#snippet children({ props })}
             <Input
-              id="contact-address-street"
+              {...props}
+              disabled={busy}
               bind:value={addressStreet}
               autocomplete="off"
               placeholder={placeholderOf("Address line")}
             />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-street-two">Second address line</Label>
+          {/snippet}
+        </LabelledField>
+      <LabelledField label="Second address line">
+          {#snippet children({ props })}
             <Input
-              id="contact-address-street-two"
+              {...props}
+              disabled={busy}
               bind:value={addressStreetTwo}
               autocomplete="off"
               placeholder={placeholderOf("Second address line")}
             />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-dependent-locality">District or neighbourhood</Label>
+          {/snippet}
+        </LabelledField>
+      </FieldRow>
+      <FieldRow>
+      <LabelledField label="District or neighbourhood">
+          {#snippet children({ props })}
             <Input
-              id="contact-address-dependent-locality"
+              {...props}
+              disabled={busy}
               bind:value={addressDependentLocality}
               autocomplete="off"
               placeholder={placeholderOf("District or neighbourhood")}
             />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-city">Town or city</Label>
+          {/snippet}
+        </LabelledField>
+      <LabelledField label="Town or city">
+          {#snippet children({ props })}
             <Input
-              id="contact-address-city"
+              {...props}
+              disabled={busy}
               bind:value={addressCity}
               autocomplete="off"
               placeholder={placeholderOf("Town or city")}
             />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-region">State, province or region</Label>
+          {/snippet}
+        </LabelledField>
+      </FieldRow>
+      <FieldRow>
+      <LabelledField label="State, province or region">
+          {#snippet children({ props })}
             <Input
-              id="contact-address-region"
+              {...props}
+              disabled={busy}
               bind:value={addressRegion}
               autocomplete="off"
               placeholder={placeholderOf("State, province or region")}
             />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-postal">Postal code</Label>
+          {/snippet}
+        </LabelledField>
+      <LabelledField label="Postal code">
+          {#snippet children({ props })}
             <Input
-              id="contact-address-postal"
+              {...props}
+              disabled={busy}
               bind:value={addressPostal}
               autocomplete="off"
               placeholder={placeholderOf("Postal code")}
             />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-sorting-code">Sorting code</Label>
+          {/snippet}
+        </LabelledField>
+      </FieldRow>
+      <FieldRow>
+      <LabelledField label="Sorting code">
+          {#snippet children({ props })}
             <Input
-              id="contact-address-sorting-code"
+              {...props}
+              disabled={busy}
               bind:value={addressSortingCode}
               autocomplete="off"
               placeholder={placeholderOf("Sorting code")}
             />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-country">Country</Label>
+          {/snippet}
+        </LabelledField>
+      <LabelledField label="Country">
+          {#snippet children({ props })}
             <Input
-              id="contact-address-country"
+              {...props}
+              disabled={busy}
               bind:value={addressCountry}
               autocomplete="off"
               maxlength={2}
               placeholder={placeholderOf("Country")}
             />
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-16">
-          <div class="flex flex-col gap-8">
-            <Label id="contact-address-use-label">Kind</Label>
-            <Select.Root
-              type="single"
-              items={ADDRESS_USES.map((entry) => ({ value: entry.value, label: entry.label }))}
-              bind:value={
-                () => addressUse, (chosen) => (addressUse = chosen as DirectoryAddressUse)
-              }
-              allowDeselect={false}
-            >
-              <Select.Trigger class="min-w-64" aria-labelledby="contact-address-use-label">
-                <Select.Value />
-              </Select.Trigger>
-              <Select.Content>
-                {#each ADDRESS_USES as entry (entry.value)}
-                  <Select.Item value={entry.value} label={entry.label} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label id="contact-address-type-label">Whether it can be served</Label>
-            <Select.Root
-              type="single"
-              items={ADDRESS_TYPES.map((entry) => ({ value: entry.value, label: entry.label }))}
-              bind:value={
-                () => addressType, (chosen) => (addressType = chosen as DirectoryAddressType)
-              }
-              allowDeselect={false}
-            >
-              <Select.Trigger class="min-w-64" aria-labelledby="contact-address-type-label">
-                <Select.Value />
-              </Select.Trigger>
-              <Select.Content>
-                {#each ADDRESS_TYPES as entry (entry.value)}
-                  <Select.Item value={entry.value} label={entry.label} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-        </div>
-      {/if}
-
+          {/snippet}
+        </LabelledField>
+      </FieldRow>
+      <FieldRow>
       <div class="flex flex-col gap-8">
-        <Label class="flex items-center gap-8" for="contact-permitted">
-          <Checkbox id="contact-permitted" bind:checked={permitted} />
-          The firm may use this
-        </Label>
-        <Label class="flex items-center gap-8" for="contact-preferred">
-          <Checkbox id="contact-preferred" bind:checked={makePreferred} />
-          This is how they asked to be reached
-        </Label>
-        <Label class="flex items-center gap-8" for="contact-primary">
-          <Checkbox id="contact-primary" bind:checked={makePrimary} />
-          Use this one by default
-        </Label>
-      </div>
-
+          <Label id="contact-address-use-label">Kind</Label>
+          <Select.Root
+            type="single"
+            items={ADDRESS_USES.map((entry) => ({ value: entry.value, label: entry.label }))}
+            bind:value={() => addressUse, (chosen) => (addressUse = chosen as DirectoryAddressUse)}
+            allowDeselect={false}
+            disabled={busy}
+          >
+            <Select.Trigger class="min-w-64" aria-labelledby="contact-address-use-label">
+              <Select.Value />
+            </Select.Trigger>
+            <Select.Content>
+              {#each ADDRESS_USES as entry (entry.value)}
+                <Select.Item value={entry.value} label={entry.label} />
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
       <div class="flex flex-col gap-8">
-        <Label for="contact-note">Note</Label>
+          <Label id="contact-address-type-label">Whether it can be served</Label>
+          <Select.Root
+            type="single"
+            items={ADDRESS_TYPES.map((entry) => ({ value: entry.value, label: entry.label }))}
+            bind:value={() => addressType, (chosen) => (addressType = chosen as DirectoryAddressType)}
+            allowDeselect={false}
+            disabled={busy}
+          >
+            <Select.Trigger class="min-w-64" aria-labelledby="contact-address-type-label">
+              <Select.Value />
+            </Select.Trigger>
+            <Select.Content>
+              {#each ADDRESS_TYPES as entry (entry.value)}
+                <Select.Item value={entry.value} label={entry.label} />
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+      </FieldRow>
+    {/if}
+
+    <div class="flex flex-col gap-8">
+      <Label class="flex items-center gap-8" for="contact-permitted">
+        <Checkbox id="contact-permitted" disabled={busy} bind:checked={permitted} />
+        The firm may use this
+      </Label>
+      <Label class="flex items-center gap-8" for="contact-preferred">
+        <Checkbox id="contact-preferred" disabled={busy} bind:checked={makePreferred} />
+        This is how they asked to be reached
+      </Label>
+      <Label class="flex items-center gap-8" for="contact-primary">
+        <Checkbox id="contact-primary" disabled={busy} bind:checked={makePrimary} />
+        Use this one by default
+      </Label>
+    </div>
+
+    <LabelledField label="Note">
+      {#snippet children({ props })}
         <Textarea
-          id="contact-note"
+          {...props}
+          disabled={busy}
           bind:value={preferenceNote}
           rows={2}
           placeholder={placeholderOf("Note")}
         />
-      </div>
+      {/snippet}
+    </LabelledField>
+  {/snippet}
 
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="Nothing Was Recorded"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex justify-end gap-8">
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button variant="primary" disabled={!readyToRecord || submitting} onclick={record}>
-          {submitting ? "Recording" : "Record"}
-        </Button>
-      </div>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="Nothing Was Recorded"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>

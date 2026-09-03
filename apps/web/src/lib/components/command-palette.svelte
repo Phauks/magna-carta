@@ -11,9 +11,10 @@
    * search can never lag the app. A surface that is in no registry is by definition not
    * discoverable; if a new kind of surface has no registry yet, create one and add a provider
    * group here — do NOT hardcode an item (a hardcoded item is invisible to the registry's
-   * owners and silently rots). Matters/contacts/actions join as their registries ship.
+   * owners and silently rots). Matters/directory/actions join as their registries ship.
    */
   import { goto } from "$app/navigation";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import * as Command from "@magna-carta/design-system/command";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Keyboard from "@magna-carta/design-system/keyboard";
@@ -135,7 +136,7 @@
 
   function openEcosystemSite(href: string): void {
     open = false;
-    window.open(href, "_blank", "noopener,noreferrer");
+    openBeside(href, "external");
   }
 </script>
 

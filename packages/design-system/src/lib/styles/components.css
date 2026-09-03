@@ -91,6 +91,13 @@
 /* The attachments tab dresses rows inside a record window's context pane and hosts a Popover with a
    Command listbox in it, so it follows all three: at equal specificity the later rule wins. */
 @import "../components/record-attachments/record-attachments.css";
+/* The directory-linking family. The identity mark is imported before the picker and the parties tab
+   because both of those render the mark, so its base recipe must already be in the cascade; the
+   picker dresses a Combobox and the parties tab hosts the picker and dresses rows inside a record
+   window's pane, so each follows what it dresses. */
+@import "../components/entity-identity/entity-identity.css";
+@import "../components/entity-picker/entity-picker.css";
+@import "../components/record-parties/record-parties.css";
 /* The file manager left rail, dressed over the tree recipe it extends, so its rules win where
    the two meet. */
 @import "../components/folder-tree/folder-tree.css";

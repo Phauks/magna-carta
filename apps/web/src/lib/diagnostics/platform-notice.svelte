@@ -11,6 +11,7 @@
    * none of them can see the others.
    */
   import Button from "@magna-carta/design-system/button";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import * as Alert from "@magna-carta/design-system/alert";
   import { platformHealth } from "./platform-health.svelte.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
@@ -47,8 +48,7 @@
             variant="secondary"
             size="sm"
             href={statusHref}
-            target="_blank"
-            rel="noreferrer noopener"
+            {...opensBeside("external")}
           >
             Service status
           </Button>

@@ -2,9 +2,9 @@
   /*
    * One directory record — the Record Detail archetype, for a person or an organization.
    *
-   * The header names the record and says what it is; the panes beneath are the seven questions the
-   * firm keeps an answer to about it, and every one of them is now answered from the firm's own
-   * record rather than rendered as a shape waiting on a read.
+   * The header names the record and says what it is; the panes beneath are the questions the firm
+   * keeps an answer to about it (entity-sections.ts lists them), and every one of them is answered
+   * from the firm's own record rather than rendered as a shape waiting on a read.
    *
    * TWO THINGS THIS SCREEN REFUSES TO BLUR.
    *
@@ -51,7 +51,7 @@
   import MattersPane from "$lib/directory/matters-pane.svelte";
   import NamesPane from "$lib/directory/names-pane.svelte";
   import PronounsPane from "$lib/directory/pronouns-pane.svelte";
-  import RelationshipsPane from "$lib/directory/relationships-pane.svelte";
+  import EdgesPane from "$lib/directory/edges-pane.svelte";
 
   let { data }: { data: { entityId: string; kind: "person" | "organization" } } = $props();
 
@@ -249,9 +249,45 @@
       <DuplicatesPane {entity} {mayEdit} {editDisabledReason} onMerged={reread} />
     </Tabs.Content>
 
+    <!--
+      One pane, three filters: every relationship, and the membership family read from whichever
+      side this record is on. The sentence each row reads names this record, so the pane takes the
+      name the header already settled.
+    -->
     <Tabs.Content value="relationships">
-      <RelationshipsPane entityId={data.entityId} />
+      <EdgesPane
+        entityId={data.entityId}
+        kind={entity.kind}
+        {name}
+        filter="all"
+        {mayEdit}
+        {editDisabledReason}
+      />
     </Tabs.Content>
+
+    {#if entity.kind === "organization"}
+      <Tabs.Content value="people">
+        <EdgesPane
+          entityId={data.entityId}
+          kind={entity.kind}
+          {name}
+          filter="people"
+          {mayEdit}
+          {editDisabledReason}
+        />
+      </Tabs.Content>
+    {:else}
+      <Tabs.Content value="organizations">
+        <EdgesPane
+          entityId={data.entityId}
+          kind={entity.kind}
+          {name}
+          filter="organizations"
+          {mayEdit}
+          {editDisabledReason}
+        />
+      </Tabs.Content>
+    {/if}
 
     <Tabs.Content value="matters">
       <MattersPane entityId={data.entityId} />
