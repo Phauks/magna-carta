@@ -525,6 +525,7 @@ surface, which is most of the product.
   before they have typed — the scope, the way through to the full results — is unreachable if the
   panel is gated on a query, and gating it made changing where the search looked require starting a
   search first. Empty, the panel is its header row and nothing else. _(matter search, 2026-09-02)_
+
 ### Layout
 
 - **A working surface takes the rest of the screen and keeps it.** Most pages are documents and are
@@ -589,6 +590,7 @@ Still open at the end of the round: where the scope filter sits. It spells out "
 matter" on the header line and takes most of the rail. Three placements were put to the owner (a
 chip inside the field, the panel's header row, chips beneath the field); this entry gets the ruling
 when it is issued.
+
 ### 2026-09-03 — the create control, moved up and made one component
 
 The owner asked for the "+ New" button to move next to the search at the top of the matter screen,
