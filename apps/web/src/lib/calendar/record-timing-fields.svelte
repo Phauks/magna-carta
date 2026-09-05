@@ -15,7 +15,8 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
-  import { parseDate, type DateValue } from "@internationalized/date";
+  import type { DateValue } from "@internationalized/date";
+  import { civilDateValue } from "./draft-text.ts";
   import type { EventTimingDraft } from "./event-draft.ts";
   import TimeZonePicker from "./time-zone-picker.svelte";
 
@@ -34,18 +35,8 @@
     disabled?: boolean;
   } = $props();
 
-  /** A civil date as the picker holds it, or undefined while it is empty or half-entered. */
-  function dateValue(civilDate: string | null): DateValue | undefined {
-    if (civilDate === null) return undefined;
-    try {
-      return parseDate(civilDate);
-    } catch {
-      return undefined;
-    }
-  }
-
-  const startsOnValue = $derived(dateValue(draft.startsOn));
-  const endsOnValue = $derived(dateValue(draft.endsOn));
+  const startsOnValue = $derived(civilDateValue(draft.startsOn));
+  const endsOnValue = $derived(civilDateValue(draft.endsOn));
 
   function recordStartsOn(next: DateValue | undefined): void {
     draft.startsOn = next ? next.toString() : null;

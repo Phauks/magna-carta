@@ -18,11 +18,9 @@
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
-  import * as Select from "@magna-carta/design-system/select";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
@@ -38,6 +36,7 @@
     type EventDraft,
   } from "./event-draft.ts";
   import ParticipantPicker from "./participant-picker.svelte";
+  import EventTypeSelect from "./event-type-select.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
 
   let {
@@ -175,25 +174,13 @@
           <Label for="{idPrefix}-title">Title</Label>
           <Input id="{idPrefix}-title" disabled={busy} bind:value={draft.title} />
         </div>
-        <div class="flex flex-col gap-8">
-          <Label id="{idPrefix}-type-label">Type</Label>
-          <Select.Root
-            type="single"
-            items={typeItems}
-            value={draft.eventTypeId ?? ""}
-            onValueChange={(value) => (draft.eventTypeId = value === "" ? null : value)}
-            disabled={busy || typeItems.length === 0}
-          >
-            <Select.Trigger aria-labelledby="{idPrefix}-type-label">
-              <Select.Value placeholder={placeholderOf("Type")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each typeItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
+        <EventTypeSelect
+          id="{idPrefix}-type"
+          items={typeItems}
+          value={draft.eventTypeId}
+          disabled={busy}
+          onchange={(value) => (draft.eventTypeId = value)}
+        />
       </div>
 
       <RecordTimingFields
