@@ -106,7 +106,15 @@ is usually the fastest way to understand the rule.
   the row hover means "this is a thing you can select and open" and there is nothing there to
   select. So an empty table does not light up under the pointer — stretching the hover across the
   whole frame would be worse, because it invites a click that does nothing. Absence is the signal.
-  _(matters docket, 2026-08-30)_
+  **Reissued 2026-09-05, because the ruling was recorded and only half carried out.** The
+  placeholders were still `<tr class="mc-table-row">` in the same body as the records, so the row
+  hover found them: an empty table answered the pointer with a grey band as tall as its message and
+  no taller, leaving the rest of the frame white — which the owner read, correctly, as a hover that
+  gives out partway down the table. It is not enough for the placeholder's CELL to be marked; the
+  treatment the ruling withholds is the ROW's, so the row is what says it holds no record —
+  `data-placeholder="true"`, which the shared recipe passes over for both the fill and the pointer
+  cursor, and which the loading rows need too (they carry a skeleton per column and no placeholder
+  cell at all). _(matters docket, 2026-08-30; the empty table, 2026-09-05)_
 - **A placeholder's content centres in the FRAME, not in the table.** A placeholder row spans every
   column, so its cell is as wide as the table — wider than what the reader can see the moment the
   columns overflow, and far wider once anybody has widened one. Content centred in that cell lands
