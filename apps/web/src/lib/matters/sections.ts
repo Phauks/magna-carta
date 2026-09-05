@@ -129,6 +129,25 @@ export const matterSections: readonly MatterSection[] = [
     searchWaitingOn: "Activity consolidates the other sections; searching it would answer twice",
   },
   {
+    slug: "intake",
+    timelineSources: [],
+    label: "Intake",
+    stage: "alpha",
+    description:
+      "What this kind of matter must clear before it opens — the firm's own intake procedure, " +
+      "each step answered by whoever holds the fact: the conflicts record, the fee arrangement, a " +
+      "document produced onto the matter, the trust ledger, or a member recording that they did it.",
+    // The checklist is derived at the moment it is read and holds no text of its own beyond the
+    // firm's step titles; a search source over it would find the procedure, not the matter.
+    searchSource: null,
+    searchWaitingOn:
+      "Intake is derived from the firm's procedure; there is no matter text to search",
+    // A step is created on the firm's procedure under Settings, never from a matter: a step added
+    // to one consultation would be a requirement the firm's procedure does not know about.
+    createNoun: null,
+    createWaitingOn: "Steps come from the firm's intake procedure, written under Settings",
+  },
+  {
     slug: "files",
     timelineSources: ["documentFiled", "documentAssembly", "fileHistory"],
     label: "Files",
@@ -316,7 +335,11 @@ export type MatterStripEntry =
  * that names no section, and a section placed twice are all module-load failures rather than a tab
  * that silently stops existing.
  *
- * Overview leads because it is where the bare matter address lands. Activity leads the Record group
+ * Overview leads because it is where the bare matter address lands. Intake follows it because it
+ * is the front of the file: what a consultation must clear before it is a matter at all, read
+ * before anything else on a new file and rarely after. It stands on the row rather than in a group
+ * because it belongs to neither neighbourhood — it is not money the matter moved and not a record
+ * the matter accumulated — and a group of one is forbidden below. Activity leads the Record group
  * because it is the record read in order: the chronology of everything the group's other sections
  * hold, one click from Overview's own recent-activity tile. Files stands alone because it
  * is the section members are in most — putting the busiest destination behind a menu would spend a
@@ -337,6 +360,7 @@ const ARRANGEMENT: readonly (
   | { readonly label: string; readonly slugs: readonly string[] }
 )[] = [
   "overview",
+  "intake",
   "files",
   { label: "Money", slugs: ["time", "fees", "costs", "billing", "trust"] },
   "parties",

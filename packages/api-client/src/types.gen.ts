@@ -1031,6 +1031,16 @@ export type MatterDetail = {
     responsibleMemberName: string | null;
 };
 
+export type MatterOpenReadiness = {
+    matterId: string;
+    status: 'prospective' | 'open' | 'closed';
+    openable: boolean;
+    blockers: Array<{
+        code: string;
+        message: string;
+    }>;
+};
+
 export type MatterCloseReadiness = {
     matterId: string;
     status: 'prospective' | 'open' | 'closed';
@@ -3413,6 +3423,123 @@ export type AcceptMatterPlanRequest = {
         timeZone?: string | null;
         assigneeUserId?: string | null;
     }>;
+};
+
+export type IntakeProcedureList = {
+    data: Array<IntakeProcedure>;
+};
+
+export type IntakeProcedure = {
+    id: string;
+    name: string;
+    description: string | null;
+    matterTypeId: string | null;
+    active: boolean;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+    steps?: Array<IntakeProcedureStep>;
+};
+
+export type IntakeProcedureStep = {
+    id: string;
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    title: string;
+    instructions: string | null;
+    required: boolean;
+    referenceId: string | null;
+    position: number;
+};
+
+export type CreatedIntakeProcedure = {
+    id: string;
+};
+
+export type IntakeProcedureRequest = {
+    name: string;
+    description?: string | null;
+    matterTypeId: string | null;
+};
+
+export type IntakeAcknowledged = {
+    acknowledged: true;
+};
+
+export type IntakeProcedureStepRequest = {
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    title: string;
+    instructions?: string | null;
+    required?: boolean | null;
+    referenceId?: string | null;
+    position?: number | null;
+};
+
+export type IntakeProcedureStepEditRequest = {
+    title: string;
+    instructions?: string | null;
+    required?: boolean | null;
+    referenceId?: string | null;
+    position?: number | null;
+};
+
+export type IntakeChecklist = {
+    matterId: string;
+    matterStatus: 'prospective' | 'open' | 'closed';
+    procedures: Array<{
+        id: string;
+        name: string;
+    }>;
+    steps: Array<IntakeChecklistStep>;
+    outstandingRequired: number;
+    history: Array<IntakeChecklistHistoryRecord>;
+};
+
+export type IntakeChecklistStep = {
+    stepId: string;
+    procedureId: string;
+    procedureName: string;
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    title: string;
+    instructions: string | null;
+    required: boolean;
+    referenceId: string | null;
+    position: number;
+    recordable: boolean;
+    standing: IntakeChecklistStanding;
+    record: IntakeChecklistRecord;
+};
+
+export type IntakeChecklistStanding = {
+    satisfied: boolean;
+    answeredBy: 'subsystem' | 'record' | 'nobody';
+    statement: string;
+};
+
+export type IntakeChecklistRecord = {
+    id: string;
+    outcome: 'completed' | 'waived';
+    rationale: string | null;
+    note: string | null;
+    recordedBy: string;
+    recordedAt: string;
+} | null;
+
+export type IntakeChecklistHistoryRecord = IntakeChecklistRecord & {
+    stepId: string;
+    supersededAt: string | null;
+    supersededBy: string | null;
+};
+
+export type IntakeStepRecorded = {
+    recordId: string;
+};
+
+export type IntakeRecordStepRequest = {
+    note?: string | null;
+};
+
+export type IntakeWaiveStepRequest = {
+    rationale: string;
 };
 
 export type CustodyLocation = {
@@ -11147,6 +11274,45 @@ export type MattersUpdateResponses = {
 
 export type MattersUpdateResponse = MattersUpdateResponses[keyof MattersUpdateResponses];
 
+export type MattersOpenReadinessData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/open-readiness';
+};
+
+export type MattersOpenReadinessErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersOpenReadinessError = MattersOpenReadinessErrors[keyof MattersOpenReadinessErrors];
+
+export type MattersOpenReadinessResponses = {
+    /**
+     * Whether the consultation can open, and what stands in the way
+     */
+    200: MatterOpenReadiness;
+};
+
+export type MattersOpenReadinessResponse = MattersOpenReadinessResponses[keyof MattersOpenReadinessResponses];
+
 export type MattersCloseReadinessData = {
     body?: never;
     path: {
@@ -11216,7 +11382,7 @@ export type MattersOpenErrors = {
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     * An opening rule refused the consultation, or a request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -19850,6 +20016,612 @@ export type MatterPlansAcceptResponses = {
 };
 
 export type MatterPlansAcceptResponse = MatterPlansAcceptResponses[keyof MatterPlansAcceptResponses];
+
+export type IntakeListProceduresData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeInactive?: 'true' | 'false';
+    };
+    url: '/api/v1/intake-procedures';
+};
+
+export type IntakeListProceduresErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeListProceduresError = IntakeListProceduresErrors[keyof IntakeListProceduresErrors];
+
+export type IntakeListProceduresResponses = {
+    /**
+     * The firm's procedures
+     */
+    200: IntakeProcedureList;
+};
+
+export type IntakeListProceduresResponse = IntakeListProceduresResponses[keyof IntakeListProceduresResponses];
+
+export type IntakeCreateProcedureData = {
+    body: IntakeProcedureRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/intake-procedures';
+};
+
+export type IntakeCreateProcedureErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeCreateProcedureError = IntakeCreateProcedureErrors[keyof IntakeCreateProcedureErrors];
+
+export type IntakeCreateProcedureResponses = {
+    /**
+     * The procedure
+     */
+    201: CreatedIntakeProcedure;
+};
+
+export type IntakeCreateProcedureResponse = IntakeCreateProcedureResponses[keyof IntakeCreateProcedureResponses];
+
+export type IntakeReadProcedureData = {
+    body?: never;
+    path: {
+        procedureId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedures/{procedureId}';
+};
+
+export type IntakeReadProcedureErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeReadProcedureError = IntakeReadProcedureErrors[keyof IntakeReadProcedureErrors];
+
+export type IntakeReadProcedureResponses = {
+    /**
+     * The procedure
+     */
+    200: IntakeProcedure;
+};
+
+export type IntakeReadProcedureResponse = IntakeReadProcedureResponses[keyof IntakeReadProcedureResponses];
+
+export type IntakeEditProcedureData = {
+    body: IntakeProcedureRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        procedureId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedures/{procedureId}';
+};
+
+export type IntakeEditProcedureErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeEditProcedureError = IntakeEditProcedureErrors[keyof IntakeEditProcedureErrors];
+
+export type IntakeEditProcedureResponses = {
+    /**
+     * The procedure was changed
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeEditProcedureResponse = IntakeEditProcedureResponses[keyof IntakeEditProcedureResponses];
+
+export type IntakeSetProcedureActiveData = {
+    body: {
+        active: boolean;
+    };
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        procedureId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedures/{procedureId}/active';
+};
+
+export type IntakeSetProcedureActiveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeSetProcedureActiveError = IntakeSetProcedureActiveErrors[keyof IntakeSetProcedureActiveErrors];
+
+export type IntakeSetProcedureActiveResponses = {
+    /**
+     * The procedure's standing was changed
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeSetProcedureActiveResponse = IntakeSetProcedureActiveResponses[keyof IntakeSetProcedureActiveResponses];
+
+export type IntakeAddStepData = {
+    body: IntakeProcedureStepRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        procedureId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedures/{procedureId}/steps';
+};
+
+export type IntakeAddStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeAddStepError = IntakeAddStepErrors[keyof IntakeAddStepErrors];
+
+export type IntakeAddStepResponses = {
+    /**
+     * The step
+     */
+    201: CreatedIntakeProcedure;
+};
+
+export type IntakeAddStepResponse = IntakeAddStepResponses[keyof IntakeAddStepResponses];
+
+export type IntakeRetireStepData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedure-steps/{stepId}';
+};
+
+export type IntakeRetireStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeRetireStepError = IntakeRetireStepErrors[keyof IntakeRetireStepErrors];
+
+export type IntakeRetireStepResponses = {
+    /**
+     * The step was retired
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeRetireStepResponse = IntakeRetireStepResponses[keyof IntakeRetireStepResponses];
+
+export type IntakeEditStepData = {
+    body: IntakeProcedureStepEditRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedure-steps/{stepId}';
+};
+
+export type IntakeEditStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeEditStepError = IntakeEditStepErrors[keyof IntakeEditStepErrors];
+
+export type IntakeEditStepResponses = {
+    /**
+     * The step was changed
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeEditStepResponse = IntakeEditStepResponses[keyof IntakeEditStepResponses];
+
+export type IntakeReadChecklistData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/intake';
+};
+
+export type IntakeReadChecklistErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeReadChecklistError = IntakeReadChecklistErrors[keyof IntakeReadChecklistErrors];
+
+export type IntakeReadChecklistResponses = {
+    /**
+     * The checklist
+     */
+    200: IntakeChecklist;
+};
+
+export type IntakeReadChecklistResponse = IntakeReadChecklistResponses[keyof IntakeReadChecklistResponses];
+
+export type IntakeRecordStepData = {
+    body: IntakeRecordStepRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/intake/steps/{stepId}/completion';
+};
+
+export type IntakeRecordStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeRecordStepError = IntakeRecordStepErrors[keyof IntakeRecordStepErrors];
+
+export type IntakeRecordStepResponses = {
+    /**
+     * The record
+     */
+    201: IntakeStepRecorded;
+};
+
+export type IntakeRecordStepResponse = IntakeRecordStepResponses[keyof IntakeRecordStepResponses];
+
+export type IntakeWaiveStepData = {
+    body: IntakeWaiveStepRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/intake/steps/{stepId}/waiver';
+};
+
+export type IntakeWaiveStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeWaiveStepError = IntakeWaiveStepErrors[keyof IntakeWaiveStepErrors];
+
+export type IntakeWaiveStepResponses = {
+    /**
+     * The record
+     */
+    201: IntakeStepRecorded;
+};
+
+export type IntakeWaiveStepResponse = IntakeWaiveStepResponses[keyof IntakeWaiveStepResponses];
+
+export type IntakeReopenStepData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/intake/steps/{stepId}/record';
+};
+
+export type IntakeReopenStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeReopenStepError = IntakeReopenStepErrors[keyof IntakeReopenStepErrors];
+
+export type IntakeReopenStepResponses = {
+    /**
+     * The step was reopened
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeReopenStepResponse = IntakeReopenStepResponses[keyof IntakeReopenStepResponses];
 
 export type CustodyListLocationsData = {
     body?: never;

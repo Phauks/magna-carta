@@ -3,6 +3,7 @@ import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { ClosePreconditionError, type ClosePrecondition } from "../src/close-preconditions.ts";
+import { OpenPreconditionError, type OpenPrecondition } from "../src/open-preconditions.ts";
 import {
   closeMatter,
   createMatter,
@@ -792,4 +793,96 @@ it("ClosePreconditionError carries its failures", () => {
 
 it("MatterValidationError carries a stable code", () => {
   expect(new MatterValidationError("scheme-missing", "x").code).toBe("scheme-missing");
+});
+
+describe("openMatter — the open-precondition hook", () => {
+  // The registry the matter shell ships is empty; a rule arrives from the composition root. This
+  // stands in for one: it refuses until a flag flips, and counts how often it was asked.
+  function rule(state: { refuse: boolean; asked: number }): OpenPrecondition {
+    return {
+      check: async () => {
+        state.asked += 1;
+        return state.refuse
+          ? [{ code: "test-rule-refused", message: "the test rule is not satisfied" }]
+          : [];
+      },
+    };
+  }
+
+  it("refuses the open with every failure named, and draws no number", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(
+      database,
+      { ...baseInput, status: "prospective" },
+      options,
+    );
+    const state = { refuse: true, asked: 0 };
+    await expect(
+      openMatter(database, matterId, {}, { ...options, openPreconditions: [rule(state)] }),
+    ).rejects.toSatisfy(
+      (caught: unknown) =>
+        caught instanceof OpenPreconditionError &&
+        caught.failures.length === 1 &&
+        caught.failures[0]?.code === "test-rule-refused",
+    );
+    expect(state.asked).toBe(1);
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "prospective",
+      matter_number: null,
+    });
+    // Only the consultation draw at creation; the matter counter was never touched.
+    const allocations = await readAllocations(database);
+    expect(allocations.length).toBe(1);
+    expect(allocations.every((row) => row.scope_key.startsWith("consultation/"))).toBe(true);
+  });
+
+  it("opens once the rule is satisfied, and never consults the rule on a matter already open", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(
+      database,
+      { ...baseInput, status: "prospective" },
+      options,
+    );
+    const state = { refuse: false, asked: 0 };
+    const { matterNumber } = await openMatter(
+      database,
+      matterId,
+      {},
+      { ...options, openPreconditions: [rule(state)] },
+    );
+    expect(matterNumber).toBe("2026-0001");
+    expect(state.asked).toBe(1);
+    // An open matter is refused for its own lifecycle reason before any rule is asked: a rule that
+    // ran here would be answering a question about a matter that has already left the funnel.
+    state.refuse = true;
+    await expect(
+      openMatter(database, matterId, {}, { ...options, openPreconditions: [rule(state)] }),
+    ).rejects.toMatchObject({ code: "matter-not-prospective" });
+    expect(state.asked).toBe(1);
+  });
+
+  it("carries a rule's commit guard at the head of the open batch", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(
+      database,
+      { ...baseInput, status: "prospective" },
+      options,
+    );
+    // A guard that always aborts: a statement violating a constraint, never one storing a row.
+    const guarded: OpenPrecondition = {
+      check: async () => [],
+      commitGuard: () => [
+        database
+          .prepare("INSERT INTO matter_number_allocation (scope_key, drawn_value) VALUES (?1, ?2)")
+          .bind("consultation/", 1),
+      ],
+    };
+    await expect(
+      openMatter(database, matterId, {}, { ...options, openPreconditions: [guarded] }),
+    ).rejects.toBeDefined();
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "prospective",
+      matter_number: null,
+    });
+  });
 });

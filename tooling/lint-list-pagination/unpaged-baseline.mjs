@@ -69,6 +69,16 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "The plans offered on one matter — a filter over matterPlans.listPlans above (active, and " +
     "bound to this matter's type or to no type), so it is bounded by the same insert path and is " +
     "strictly smaller than it.",
+  // The intake procedure is the same species again: a row appears when a PERSON authors a procedure
+  // through a route behind intake:manageProcedures (apps/api-worker/src/routes/intake.ts,
+  // createProcedure), whose one insert is insertProcedureStatement in
+  // packages/intake/src/procedure-statements.ts; no queue, sweep or import reaches the table, and
+  // the platform seeds nothing into it. The read carries MAX_PROCEDURE_PAGE_SIZE as a backstop.
+  "intake.listProcedures":
+    "The firm's intake procedures. Rows come only from the createProcedure route behind " +
+    "intake:manageProcedures (apps/api-worker/src/routes/intake.ts), whose one insert is " +
+    "insertProcedureStatement in packages/intake/src/procedure-statements.ts; no queue, sweep or " +
+    "import reaches the table, and the platform seeds nothing into it.",
   "matterTypes.list":
     "The firm's matter-type vocabulary. Rows come only from the create route of the shared " +
     "classification-type factory (apps/api-worker/src/routes/classification-type-routes.ts), " +
