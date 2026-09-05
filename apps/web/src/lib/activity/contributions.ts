@@ -9,7 +9,6 @@
  * source joining the timeline cannot reach a person's screen as an unexplained row.
  */
 import { emailActivityContribution } from "./awaiting/email-activity-contribution.ts";
-import { trustMovementActivityContribution } from "./awaiting/trust-activity-contribution.ts";
 import type { ActivityContribution, OpenTarget } from "./contribution.ts";
 import { conflictsCheckActivityContribution } from "$lib/conflicts/activity-contribution.ts";
 import { costEntryActivityContribution } from "$lib/costs/activity-contribution.ts";
@@ -33,6 +32,7 @@ import { matterLifecycleActivityContribution } from "$lib/matters/matter-lifecyc
 import { noteActivityContribution } from "$lib/matters/note-activity-contribution.ts";
 import { taskActivityContribution } from "$lib/matters/task-activity-contribution.ts";
 import { timeEntryActivityContribution } from "$lib/time/activity-contribution.ts";
+import { trustMovementActivityContribution } from "$lib/trust/activity-contribution.ts";
 
 export const ACTIVITY_CONTRIBUTIONS: readonly ActivityContribution[] = Object.freeze([
   matterEventActivityContribution,

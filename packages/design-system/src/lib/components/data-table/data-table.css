@@ -70,7 +70,10 @@
    * where they meet, because a row stops being hovered the moment the pointer leaves and does not
    * stop being chosen.
    */
-  .mc-table-body .mc-table-row:hover {
+  /* A placeholder row is not a row and takes none of a row's treatment: the hover means "this is
+     a thing you can select and open", and an empty table has nothing to select, so it does not
+     light up under the pointer (docs/conventions/design-corrections.md, lists and tables). */
+  .mc-table-body .mc-table-row:hover:not(:has(> .mc-table-grid-placeholder)) {
     background-color: var(--mc-action-secondary);
   }
   .mc-table-body .mc-table-row[data-state="selected"] {
@@ -383,7 +386,7 @@
     block-size: var(--mc-control-xs);
     padding-block: var(--mc-space-0);
   }
-  .mc-table-grid .mc-table-body .mc-table-row {
+  .mc-table-grid .mc-table-body .mc-table-row:not(:has(> .mc-table-grid-placeholder)) {
     cursor: pointer;
     user-select: none;
   }
