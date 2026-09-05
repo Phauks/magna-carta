@@ -53,6 +53,7 @@
   import NamesPane from "$lib/directory/names-pane.svelte";
   import PronounsPane from "$lib/directory/pronouns-pane.svelte";
   import EdgesPane from "$lib/directory/edges-pane.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { data }: { data: { entityId: string; kind: "person" | "organization" } } = $props();
 
@@ -107,7 +108,7 @@
       ? "Reading your session."
       : mayEdit
         ? undefined
-        : "Changing a directory record needs the directory:edit permission, which this account does not hold.",
+        : permissionRefusal("Changing a directory record", "directory:edit"),
   );
 
   const mayReveal = $derived(
@@ -118,7 +119,7 @@
       ? "Reading your session."
       : mayReveal
         ? undefined
-        : "Reading a sealed identifier needs the directory:viewSensitiveIdentifiers permission, which this account does not hold.",
+        : permissionRefusal("Reading a sealed identifier", "directory:viewSensitiveIdentifiers"),
   );
 
   // ---- what the header says --------------------------------------------------------------------
@@ -172,7 +173,7 @@
       {/snippet}
       {#snippet actions()}
         {#if mergedInto !== null}
-          <Badge variant="neutral" class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+          <Badge variant="neutral" caps>
             Folded in
           </Badge>
         {/if}

@@ -295,6 +295,160 @@
           "buildTime"
         ]
       },
+      "DatabaseHealthResponse": {
+        "type": "object",
+        "properties": {
+          "controlPlane": {
+            "$ref": "#/components/schemas/DatabaseHealthControlPlane"
+          },
+          "firmDatabase": {
+            "$ref": "#/components/schemas/DatabaseHealthFirmDatabase"
+          },
+          "schema": {
+            "$ref": "#/components/schemas/DatabaseHealthSchema"
+          },
+          "membership": {
+            "$ref": "#/components/schemas/DatabaseHealthMembership"
+          },
+          "provisioning": {
+            "$ref": "#/components/schemas/DatabaseHealthProvisioning"
+          },
+          "observedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "controlPlane",
+          "firmDatabase",
+          "schema",
+          "membership",
+          "provisioning",
+          "observedAt"
+        ]
+      },
+      "DatabaseHealthControlPlane": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "reachable",
+              "unreachable"
+            ]
+          },
+          "bucketProvisioned": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "bucketProvisioned"
+        ]
+      },
+      "DatabaseHealthFirmDatabase": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "reachable",
+              "unreachable"
+            ]
+          },
+          "roundTripMilliseconds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "roundTripMilliseconds"
+        ]
+      },
+      "DatabaseHealthSchema": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "current",
+              "behind",
+              "unknown"
+            ]
+          },
+          "appliedCount": {
+            "type": "integer"
+          },
+          "appliedHead": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expectedHead": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "appliedCount",
+          "appliedHead",
+          "expectedHead"
+        ]
+      },
+      "DatabaseHealthMembership": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "missing",
+              "inactive",
+              "unknown"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permissionCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "roles",
+          "permissionCount"
+        ]
+      },
+      "DatabaseHealthProvisioning": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "read",
+              "unknown"
+            ]
+          },
+          "pending": {
+            "type": "integer"
+          },
+          "deadLettered": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "pending",
+          "deadLettered"
+        ]
+      },
       "FirmUsageResponse": {
         "type": "object",
         "properties": {
@@ -31527,6 +31681,70 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MetaVersionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (absent, never an existence oracle)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meta/database-health": {
+      "get": {
+        "description": "Whether this session can reach and use its firm's data: a timed round trip to the firm's database, the control plane's own answer, the applied migration lineage against the one this build expects, this account's member row and roles with the permission count they resolve to, and any member-provisioning message for the firm still pending or dead-lettered. Each check reports its own state, so one failing read never hides the others, and a check that could not run says so rather than reporting health.",
+        "operationId": "meta.databaseHealth",
+        "tags": [
+          "meta"
+        ],
+        "x-mc-operationId": "meta.databaseHealth",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meta"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm database's health, as seen by this session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseHealthResponse"
                 }
               }
             }

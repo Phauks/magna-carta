@@ -34,7 +34,8 @@
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import TimeSheet from "./time-sheet.svelte";
   import { listTimeEntries, readTimer } from "./time-operations.ts";
-  import { clockText, incompleteCount, sheetRowFromEntry } from "./time-sheet-model.ts";
+  import { incompleteCount, sheetRowFromEntry } from "./time-sheet-model.ts";
+  import { formatClock } from "@magna-carta/design-system/formatters";
 
   let sheetOpen = $state(false);
   /** Bumped whenever the sheet wrote something, so the firm's time is read again. */
@@ -103,7 +104,7 @@
   });
 
   const running = $derived(runStartedAt !== null);
-  const readout = $derived(running ? clockText(elapsedSeconds, false) : "0:00");
+  const readout = $derived(running ? formatClock(elapsedSeconds) : "0:00");
 
   /** Rows on the firm's record that are still short of something, once anything has been read. */
   const unfinished = $derived(

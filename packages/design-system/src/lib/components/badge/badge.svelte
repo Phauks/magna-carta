@@ -12,6 +12,7 @@
 
   let {
     variant = "primary",
+    caps = false,
     ref = $bindable(null),
     class: className,
     children,
@@ -19,9 +20,11 @@
   }: WithElementRef<HTMLAttributes<HTMLSpanElement>, HTMLSpanElement> & {
     /** Visual style of the badge. */
     variant?: BadgeVariant;
+    /** Wear the letterspaced small-caps register, for a badge that labels a standing. */
+    caps?: boolean;
   } = $props();
 </script>
 
-<span bind:this={ref} class={mergeClasses(badgeClasses({ variant }), className)} {...restProps}>
+<span bind:this={ref} class={mergeClasses(badgeClasses({ variant, caps }), className)} {...restProps}>
   {@render children?.()}
 </span>

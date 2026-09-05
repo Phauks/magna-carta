@@ -81,6 +81,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import type { MatterRecord } from "./matter-record.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
   import {
@@ -104,6 +105,7 @@
     type MatterCloseReadiness,
   } from "./matters-api.ts";
   import type { ApiOutcome } from "$lib/api/request.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { matter }: { matter: MatterRecord } = $props();
 
@@ -161,7 +163,7 @@
   const mayAmend = $derived(
     permissions === null || permissions.includes(BILLING_PERMISSIONS.configure),
   );
-  const AMEND_REFUSAL = `Amending the fee arrangement needs the ${BILLING_PERMISSIONS.configure} capability, which this account does not hold.`;
+  const AMEND_REFUSAL = permissionRefusal("Amending the fee arrangement", BILLING_PERMISSIONS.configure);
 
   const identifier = $props.id();
   const blockedDescriptionIdentifier = `${identifier}-blocked`;
@@ -307,11 +309,7 @@
   title={seal.meaning}
   onclick={() => (open = true)}
 >
-  <Badge
-    variant={seal.variant}
-    class="border-border-default uppercase hover:border-border-strong"
-    style="letter-spacing: var(--mc-tracking-caps)"
-  >
+  <Badge variant={seal.variant} class="border-border-default hover:border-border-strong" caps>
     {seal.label}
   </Badge>
 </button>
@@ -348,11 +346,7 @@
                beside the fact it changes, and the requirements that gate it read as the reason
                it is disabled rather than as a paragraph somewhere above a button. -->
           <dd class="flex flex-wrap items-center gap-8">
-            <Badge
-              variant={seal.variant}
-              class="uppercase"
-              style="letter-spacing: var(--mc-tracking-caps)"
-            >
+            <Badge variant={seal.variant} caps>
               {seal.label}
             </Badge>
             <Button
@@ -381,7 +375,7 @@
              rests on. Amend is seated beside the arrangement as the step is seated beside the
              status; the history is folded away because it is rarely read and never short. -->
         <div class="flex flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">Engagement</h3>
+          <FieldLabel as="h3">Engagement</FieldLabel>
           {#if arrangement === null && !arrangementFailed}
             <p class="text-xs text-text-subtle">Reading the agreement.</p>
           {:else if arrangementFailed}
@@ -491,7 +485,7 @@
              checklist: nothing here is a person's to tick, and the mark states what the program
              found rather than what anybody is being asked to confirm. -->
         <div class="flex flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">Requirements To Close</h3>
+          <FieldLabel as="h3">Requirements To Close</FieldLabel>
           <ul class="flex flex-col gap-8 text-sm">
             {#each requirements as requirement (requirement.key)}
               <li class="flex items-start gap-8">
@@ -567,7 +561,7 @@
 <!-- The paper file, which the step does not touch. -->
 {#snippet physicalFile()}
   <div class="flex flex-col gap-8">
-    <h3 class="text-xs text-text-subtle uppercase">Physical File</h3>
+    <FieldLabel as="h3">Physical File</FieldLabel>
     <!-- The firm's own paper file, which is not the custody register: that one holds client
          property left with the firm to guard. Nothing here is served yet, and the rows say so
          the way a row says it — "Not recorded" beside the Soon mark. There is deliberately no

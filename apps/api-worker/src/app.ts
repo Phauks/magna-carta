@@ -109,6 +109,7 @@ import { registerDevR2UploadRoute } from "./routes/dev-r2-upload.ts";
 import { registerDevSeedRoute } from "./routes/dev-seed.ts";
 import { devControlPlaneMigrationMiddleware } from "./dev-control-plane-bootstrap.ts";
 import { registerMeRoute } from "./routes/me.ts";
+import { registerMetaDatabaseHealthRoute } from "./routes/meta-database-health.ts";
 import { registerMetaVersionsRoute } from "./routes/meta-versions.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerInvitationRoutes } from "./routes/invitations.ts";
@@ -624,6 +625,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
   registerMetaVersionsRoute(app, chokepoint);
+  registerMetaDatabaseHealthRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
   registerReportExportRoutes(app, chokepoint);
   registerDownloadRegisterRoutes(app, chokepoint);

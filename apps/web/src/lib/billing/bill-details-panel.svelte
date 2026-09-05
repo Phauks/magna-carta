@@ -8,7 +8,9 @@
    * corrections and every money act, which made it a second, smaller invoice window that a reader
    * had to learn separately and that could disagree with the first.
    *
-   * THREE FACES, ONE PANEL. Nothing selected, it speaks for the matter's billing position. One bill
+   * THREE FACES, ONE PANEL, over the shared shell ($lib/details-panel), which carries the frame, the
+   * header grammar and the ruled runs of facts. Nothing selected, it speaks for the billing position.
+   * One bill
    * selected, it shows that bill. Several selected, it counts them and offers nothing: there is no
    * bulk act on invoice evidence, and a panel that implied one would be lying.
    */
@@ -18,7 +20,7 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FileMinus from "@lucide/svelte/icons/file-minus";
   import Receipt from "@lucide/svelte/icons/receipt";
-  import X from "@lucide/svelte/icons/x";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
   import type { BillFigure } from "./bill-figures.ts";
   import {
     creditedMinor,
@@ -77,35 +79,20 @@
   );
 </script>
 
-{#snippet fact(label: string, value: string, title?: string)}
-  <div class="flex items-baseline justify-between gap-16">
-    <dt class="text-text-muted">{label}</dt>
-    <dd class="text-right tabular-nums" {title}>{value}</dd>
-  </div>
-{/snippet}
-
-<aside
-  class="flex h-full w-full flex-col border-l border-border-default bg-surface-default"
-  aria-label="Bill details"
->
+<DetailsPanel.Root label="Bill details">
   {#if row !== null && standing !== null}
-    <header class="flex items-start gap-8 border-b border-border-default p-12">
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base leading-tight font-semibold">{heading}</h2>
-        <p class="text-xs text-text-muted">{clientName}</p>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Let go of this bill and show the matter's position"
-        aria-label="Let go of this bill and show the matter's position"
-        onclick={onLetGo}
-      >
-        <X class="size-16" aria-hidden="true" />
-      </Button>
-    </header>
+    <DetailsPanel.Header>
+      <DetailsPanel.Title>{heading}</DetailsPanel.Title>
+      <DetailsPanel.Subtitle>{clientName}</DetailsPanel.Subtitle>
+      {#snippet actions()}
+        <DetailsPanel.Close
+          label="Let go of this bill and show the matter's position"
+          onclick={onLetGo}
+        />
+      {/snippet}
+    </DetailsPanel.Header>
 
-    <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
+    <DetailsPanel.Body>
       <Button onclick={() => onOpenInvoice(row)}>
         <Receipt class="size-16" aria-hidden="true" />
         Open Invoice
@@ -125,73 +112,63 @@
         </div>
       {/if}
 
-      <dl class="flex flex-col gap-4 border-t border-border-default pt-12 text-sm">
-        {@render fact("Client", clientName)}
+      <DetailsPanel.Facts ruled>
+        <DetailsPanel.Fact label="Client" value={clientName} />
         {#if row.summary.issueDate !== null}
-          {@render fact("Issued", formatDate(row.summary.issueDate))}
+          <DetailsPanel.Fact label="Issued" value={formatDate(row.summary.issueDate)} />
         {/if}
         {#if row.summary.dueDate !== null}
-          <div class="flex items-baseline justify-between gap-16">
-            <dt class="text-text-muted">Due</dt>
-            <dd
-              class="text-right tabular-nums {late > 0
-                ? 'font-semibold text-status-danger-subtle-foreground'
-                : ''}"
-            >
-              {formatDate(row.summary.dueDate)}{late > 0 ? ` · ${late} days past due` : ""}
-            </dd>
-          </div>
+          <DetailsPanel.Fact
+            label="Due"
+            value={`${formatDate(row.summary.dueDate)}${late > 0 ? ` · ${late} days past due` : ""}`}
+            valueClass={late > 0 ? "font-semibold text-status-danger-subtle-foreground" : ""}
+          />
         {/if}
-        {@render fact("This Matter", share === null ? "—" : money(share))}
+        <DetailsPanel.Fact label="This Matter" value={share === null ? "—" : money(share)} />
         {#if owed !== null}
-          {@render fact("Unpaid", money(owed))}
+          <DetailsPanel.Fact label="Unpaid" value={money(owed)} />
         {/if}
         {#if delivered !== null}
-          {@render fact("Delivered", delivered.text, delivered.title)}
+          <DetailsPanel.Fact label="Delivered" value={delivered.text} title={delivered.title} />
         {/if}
-      </dl>
-    </div>
+      </DetailsPanel.Facts>
+    </DetailsPanel.Body>
   {:else if selectedCount > 1}
-    <header class="flex items-start gap-8 border-b border-border-default p-12">
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base leading-tight font-semibold">{selectedCount} Bills Selected</h2>
-        <p class="text-xs text-text-muted">Nothing here acts on more than one</p>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Let go of all {selectedCount} selected bills"
-        aria-label="Let go of all {selectedCount} selected bills"
-        onclick={onLetGo}
-      >
-        <X class="size-16" aria-hidden="true" />
-      </Button>
-    </header>
-    <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
+    <DetailsPanel.Header>
+      <DetailsPanel.Title>{selectedCount} Bills Selected</DetailsPanel.Title>
+      <DetailsPanel.Subtitle>Nothing here acts on more than one</DetailsPanel.Subtitle>
+      {#snippet actions()}
+        <DetailsPanel.Close
+          label="Let go of all {selectedCount} selected bills"
+          onclick={onLetGo}
+        />
+      {/snippet}
+    </DetailsPanel.Header>
+    <DetailsPanel.Body>
       <p class="text-sm text-text-muted">
         A bill is evidence: nothing here finalizes, credits or voids in bulk. Select one bill to open
         it.
       </p>
-    </div>
+    </DetailsPanel.Body>
   {:else}
-    <header class="border-b border-border-default p-12">
-      <h2 class="text-base leading-tight font-semibold">This Matter&rsquo;s Billing</h2>
-      <p class="text-xs text-text-muted">Select a bill for its details</p>
-    </header>
-    <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
-      <dl class="flex flex-col gap-4 text-sm">
+    <DetailsPanel.Header>
+      <DetailsPanel.Title>This Matter&rsquo;s Billing</DetailsPanel.Title>
+      <DetailsPanel.Subtitle>Select a bill for its details</DetailsPanel.Subtitle>
+    </DetailsPanel.Header>
+    <DetailsPanel.Body>
+      <DetailsPanel.Facts>
         {#each figures as figure (figure.identifier)}
-          {@render fact(
-            figure.label.replace(/^./, (first) => first.toUpperCase()),
-            money(figure.amountMinor),
-            figure.caption,
-          )}
+          <DetailsPanel.Fact
+            label={figure.label.replace(/^./, (first) => first.toUpperCase())}
+            value={money(figure.amountMinor)}
+            title={figure.caption}
+          />
         {/each}
-      </dl>
+      </DetailsPanel.Facts>
       <p class="text-xs text-text-muted">
         An invoice belongs to one client and may bill several of that client&rsquo;s matters, so this
         register shows every bill of {clientName} and states this matter&rsquo;s own share of each.
       </p>
-    </div>
+    </DetailsPanel.Body>
   {/if}
-</aside>
+</DetailsPanel.Root>

@@ -60,7 +60,7 @@
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import { formatMoney } from "@magna-carta/design-system/data-table";
-  import { formatDuration } from "@magna-carta/design-system/formatters";
+  import { formatDuration, formatClock } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import { mergeClasses } from "@magna-carta/design-system/internal/merge-classes";
   import { parseDate } from "@internationalized/date";
@@ -101,7 +101,6 @@
   import { historyAnnouncement } from "./time-sheet-history.svelte.ts";
   import {
     NO_MATTER_TEXT,
-    clockText,
     isIncomplete,
     isWorkable,
     matterDisplay,
@@ -616,9 +615,9 @@
   <Input
     class="text-end"
     value={running
-      ? clockText(liveSeconds(row), true)
+      ? formatClock(liveSeconds(row), { toTheSecond: true })
       : liveSeconds(row) > 0
-        ? clockText(liveSeconds(row), false)
+        ? formatClock(liveSeconds(row))
         : ""}
     placeholder="Worked"
     title={refusal ??

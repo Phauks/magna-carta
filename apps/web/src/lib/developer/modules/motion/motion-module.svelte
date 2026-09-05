@@ -13,6 +13,7 @@
   import * as Select from "@magna-carta/design-system/select";
   import Separator from "@magna-carta/design-system/separator";
   import Switch from "@magna-carta/design-system/switch";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Check from "@lucide/svelte/icons/check";
   import ClipboardCopy from "@lucide/svelte/icons/clipboard-copy";
   import Play from "@lucide/svelte/icons/play";
@@ -174,9 +175,9 @@
 {#if baseline !== null}
   <div class="flex flex-col gap-12">
     <div class="flex items-center justify-between gap-8">
-      <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="p">
         Apply overrides
-      </p>
+      </FieldLabel>
       <Switch
         bind:checked={() => overridesEnabled, setOverridesEnabled}
         aria-label="Apply motion overrides"
@@ -187,9 +188,9 @@
 
     <div class="flex flex-col gap-8">
       <div class="flex items-baseline justify-between gap-8">
-        <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        <FieldLabel as="p">
           Transition speed
-        </p>
+        </FieldLabel>
         <p class="text-sm">{formatMultiplier(speedMultiplier)}</p>
       </div>
       <!-- A native range input: range is deliberately outside the Input component's remit, and
@@ -233,9 +234,9 @@
 
     <div class="flex flex-col gap-8">
       <div class="flex items-center justify-between gap-8">
-        <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        <FieldLabel as="p">
           Surface
-        </p>
+        </FieldLabel>
         {#if surface.replay !== null}
           <Button variant="secondary" size="sm" onclick={surface.replay}>
             <Play class="size-16" aria-hidden="true" />
@@ -267,9 +268,9 @@
 
     <div class="flex flex-col gap-8">
       <div class="flex items-center justify-between gap-8">
-        <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        <FieldLabel as="p">
           Easing curves
-        </p>
+        </FieldLabel>
         <div class="flex gap-4">
           {#each EASING_NAMES as name (name)}
             <Button
@@ -291,9 +292,9 @@
     <Separator />
 
     <div class="flex flex-col gap-8">
-      <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="p">
         Palette entrance
-      </p>
+      </FieldLabel>
       <Select.Root
         type="single"
         items={PALETTE_ENTRANCE_VARIANTS.map((variant) => ({

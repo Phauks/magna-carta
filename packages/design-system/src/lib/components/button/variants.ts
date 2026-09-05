@@ -6,7 +6,7 @@
  */
 
 export type ButtonVariant = "primary" | "accent" | "secondary" | "destructive" | "ghost";
-export type ButtonSize = "sm" | "default" | "lg" | "icon";
+export type ButtonSize = "sm" | "default" | "lg" | "icon" | "icon-sm";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "mc-button-primary",
@@ -21,6 +21,7 @@ const SIZE: Record<ButtonSize, string> = {
   default: "mc-button-md",
   lg: "mc-button-lg",
   icon: "mc-button-icon",
+  "icon-sm": "mc-button-icon-sm",
 };
 
 /** The full recipe class string for a button: the base recipe plus its variant and size. */
