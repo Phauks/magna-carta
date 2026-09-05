@@ -10,7 +10,7 @@ import {
   type ActivityContribution,
   type Fact,
 } from "$lib/activity/contribution.ts";
-import { hoursFromMinutes } from "$lib/matters/time-api.ts";
+import { formatDuration } from "@magna-carta/design-system/formatters";
 import { ledgerStatusWord } from "$lib/records/ledger-status-word.ts";
 
 export const timeEntryActivityContribution: ActivityContribution = {
@@ -24,7 +24,11 @@ export const timeEntryActivityContribution: ActivityContribution = {
   factsOf: (row) => {
     const result: Fact[] = [];
     const minutes = factNumber(row.facts, "durationMinutes");
-    if (minutes !== null) result.push({ value: `${hoursFromMinutes(minutes)} h` });
+    // One decimal is what an activity row can carry beside a narrative; the billing convention's
+    // two decimals belong on the ledger, where the figure is the arithmetic rather than a gloss.
+    if (minutes !== null) {
+      result.push({ value: `${formatDuration(minutes, { decimalPlaces: 1 }).decimal} h` });
+    }
     if (factNumber(row.facts, "billable") === 0) result.push({ value: "Non-billable" });
     const entryNumber = factText(row.facts, "entryNumber");
     if (entryNumber !== null) result.push({ value: entryNumber, tone: "muted" });

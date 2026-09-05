@@ -1179,6 +1179,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "members.list",
       "members.professionalProfile",
       "members.setProfessionalProfile",
+      "meta.databaseHealth",
       "meta.versions",
       "metadata.inspect",
       "metadata.scrub",

@@ -1724,8 +1724,6 @@
               {manager}
               {trail}
               viewTitle={VIEW_TITLES[manager.view]}
-              onToggleRail={toggleRail}
-              onTogglePanel={togglePanel}
               onSearch={runSearch}
             />
 
@@ -1778,6 +1776,8 @@
                 onRedo={() => void redoMove()}
                 onUndoSteps={(steps) => void undoMoves(steps)}
                 onRedoSteps={(steps) => void redoMoves(steps)}
+                onToggleRail={toggleRail}
+                onTogglePanel={togglePanel}
               />
             {:else}
 
@@ -1941,6 +1941,8 @@
                 onRedo={() => void redoMove()}
                 onUndoSteps={(steps) => void undoMoves(steps)}
                 onRedoSteps={(steps) => void redoMoves(steps)}
+                onToggleRail={toggleRail}
+                onTogglePanel={togglePanel}
               />
             {:else if manager.view === "history"}
               <FileManagerFooter
@@ -1950,6 +1952,8 @@
                 onRedo={() => void redoMove()}
                 onUndoSteps={(steps) => void undoMoves(steps)}
                 onRedoSteps={(steps) => void redoMoves(steps)}
+                onToggleRail={toggleRail}
+                onTogglePanel={togglePanel}
               />
             {:else}
               <FileManagerFooter
@@ -1961,6 +1965,8 @@
                 onRedo={() => void redoMove()}
                 onUndoSteps={(steps) => void undoMoves(steps)}
                 onRedoSteps={(steps) => void redoMoves(steps)}
+                onToggleRail={toggleRail}
+                onTogglePanel={togglePanel}
               />
             {/if}
 

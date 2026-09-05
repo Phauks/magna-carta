@@ -10,6 +10,7 @@
    * `stats` is an optional row of secondary figures (e.g. median/95th/peak/samples) below that.
    */
   import * as Card from "@magna-carta/design-system/card";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import type { Snippet } from "svelte";
 
   let {
@@ -33,15 +34,13 @@
 
 <Card.Root>
   <Card.Content>
-    <div
-      class="flex items-center gap-4 text-xs text-text-muted uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
+    <FieldLabel as="div" class="flex items-center gap-4"
     >
       <span>{label}</span>
       {#if info}
         {@render info()}
       {/if}
-    </div>
+    </FieldLabel>
     <!-- Every caller passes a formatted value or the absence marker, never an empty string, so the
          line box always has content and never needs a non-breaking-space guard. -->
     <div class={["mt-4", size === "large" ? "text-3xl" : "text-2xl"]}>{value}</div>
@@ -55,12 +54,10 @@
       <div class="mt-4 flex flex-wrap gap-16">
         {#each stats as stat (stat.label)}
           <div>
-            <div
-              class="text-xs text-text-muted uppercase"
-              style="letter-spacing: var(--mc-tracking-caps)"
+            <FieldLabel as="div"
             >
               {stat.label}
-            </div>
+            </FieldLabel>
             <div class="text-sm">{stat.value}</div>
           </div>
         {/each}

@@ -18,7 +18,7 @@
     args: { variant: "primary", size: "default" },
     argTypes: {
       variant: { control: "select", options: ["primary", "secondary", "destructive", "ghost"] },
-      size: { control: "select", options: ["sm", "default", "lg", "icon"] },
+      size: { control: "select", options: ["sm", "default", "lg", "icon", "icon-sm"] },
       // disabled + href are declared (with JSDoc) on the component, so docgen surfaces them under
       // "Properties" with their descriptions — no story-level argTypes needed for them.
     },

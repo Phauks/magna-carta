@@ -1065,3 +1065,155 @@ export function applyAllowances(problems, allowances) {
 
   return { problems: remaining, excused };
 }
+// --- rule: one caps register ------------------------------------------------------------------
+
+/** The design system's own recipes, which ARE the caps register and so may spell it out. */
+export const CAPS_REGISTER_HOMES = [
+  "packages/design-system/src/lib/components",
+  "packages/design-system/src/lib/styles",
+];
+
+/**
+ * The letterspaced small-caps voice, written out by hand.
+ *
+ * Two shapes, and the second is the reason this rule exists at all. The first is a class list that
+ * builds the voice from utilities — `text-xs` + `uppercase` + a `text-text-*` tone. The second is an
+ * inline `letter-spacing: var(--mc-tracking-caps)`, which is what a surface reaches for once it
+ * notices the utilities alone give uppercase WITHOUT the tracking: Tailwind has no utility for the
+ * tracking token, so the only way to finish the voice by hand is raw CSS in a codebase that forbids
+ * it. 77 sites had done exactly that.
+ *
+ * The remedy is FieldLabel, or the `caps` option on the component being dressed (Badge has one).
+ */
+const CAPS_BY_UTILITIES =
+  /class\s*=\s*"(?=[^"]*\btext-xs\b)(?=[^"]*\buppercase\b)(?=[^"]*\btext-text-[a-z-]+\b)[^"]*"/g;
+const CAPS_BY_INLINE_STYLE = /style\s*=\s*"[^"]*letter-spacing\s*:[^"]*"/g;
+
+export function findHandWrittenCapsRegister(filePath, source) {
+  if (CAPS_REGISTER_HOMES.some((home) => filePath.startsWith(`${home}/`))) return [];
+  const text = stripComments(source);
+  const problems = [];
+  for (const match of text.matchAll(CAPS_BY_UTILITIES)) {
+    problems.push({
+      rule: "caps-register",
+      file: filePath,
+      line: lineOf(text, match.index),
+      detail:
+        "builds the letterspaced small-caps label out of utilities. That voice is one component — " +
+        "`FieldLabel` (@magna-carta/design-system/field-label), which renders whichever element the " +
+        "surrounding document structure needs. Built by hand it drifts a tone at a time, and it " +
+        "arrives without the caps tracking every recipe in the package carries",
+    });
+  }
+  for (const match of text.matchAll(CAPS_BY_INLINE_STYLE)) {
+    problems.push({
+      rule: "caps-register",
+      file: filePath,
+      line: lineOf(text, match.index),
+      detail:
+        "sets letter-spacing in an inline style, which is raw CSS. If this is the caps voice, it is " +
+        "`FieldLabel`, or the `caps` option on the component being dressed; if it is a component " +
+        "that ought to wear the voice itself, give its recipe the register rather than every caller",
+    });
+  }
+  return problems;
+}
+
+// --- rule: one money presenter -----------------------------------------------------------------
+
+/**
+ * The two files allowed to turn an amount into a string.
+ *
+ * `packages/money` owns what an amount IS and prints it exactly from its own decimal; the design
+ * system's formatter prints the major-unit numbers a surface hands it. A third would be a third
+ * answer to "how much", and the first correction to any of them would leave the others behind.
+ */
+export const MONEY_PRESENTATION_HOMES = [
+  "packages/money/src/format.ts",
+  "packages/design-system/src/lib/formatters/money.ts",
+];
+
+const CURRENCY_FORMATTING = /style\s*:\s*"currency"/g;
+
+export function findMoneyPresentation(filePath, source) {
+  if (MONEY_PRESENTATION_HOMES.includes(filePath)) return [];
+  const text = stripComments(source);
+  return [...text.matchAll(CURRENCY_FORMATTING)].map((match) => ({
+    rule: "money-presentation",
+    file: filePath,
+    line: lineOf(text, match.index),
+    detail:
+      "formats currency here. Money reads the same in a cell, a details panel and a printed sheet " +
+      "only if one function prints it: `formatMoney` from @magna-carta/design-system/formatters " +
+      "for a major-unit number, or `format` from @magna-carta/money for an exact Money",
+  }));
+}
+
+// --- rule: one refusal sentence ----------------------------------------------------------------
+
+/** Where the sentence a refused control carries is written. */
+export const REFUSAL_HOME = "apps/web/src/lib/access/refusal.ts";
+
+/*
+ * Both wordings the sentence ever had, and NEITHER of them loosely.
+ *
+ * "does not hold" on its own is ordinary English — a dev-console note about somebody who "does not
+ * hold the address" is not a refusal — so both alternatives require the word the sentence is
+ * actually about. That is the difference between a rule people keep and a rule people switch off.
+ */
+const REFUSAL_PROSE =
+  /needs the [^"`\n]{0,80}?(?:permission|capability)|does not hold the [^"`\n]{0,80}?(?:permission|capability)/g;
+
+export function findHandWrittenRefusals(filePath, source) {
+  if (filePath === REFUSAL_HOME) return [];
+  const text = stripComments(source);
+  return [...text.matchAll(REFUSAL_PROSE)].map((match) => ({
+    rule: "permission-refusal",
+    file: filePath,
+    line: lineOf(text, match.index),
+    detail:
+      "writes the refusal sentence out. It had two wordings before it had one, and the shorter of " +
+      "them lost the half a reader can act on: use `permissionRefusal(act, permission)` from " +
+      "$lib/access/refusal.ts",
+  }));
+}
+
+// --- rule: one details panel -------------------------------------------------------------------
+
+/** The shell every ledger's smaller altitude is composed from. */
+export const DETAILS_PANEL_HOME = "apps/web/src/lib/details-panel";
+
+/**
+ * The panel's frame and its scrolling body, written out rather than composed.
+ *
+ * Both are matched as the exact utility runs the four copies shared, because that is what a fifth
+ * copy is made of: somebody opens one of the four, reads its aside, and writes the same one. A
+ * panel assembled from different utilities that happens to look the same is not caught here, and
+ * review is the answer to that one.
+ */
+const PANEL_FRAME =
+  /flex h-full w-full flex-col border-l border-border-default bg-surface-default/g;
+const PANEL_BODY = /flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16/g;
+
+export function findHandComposedDetailsPanels(filePath, source) {
+  if (filePath.startsWith(`${DETAILS_PANEL_HOME}/`)) return [];
+  const text = stripComments(source);
+  const problems = [];
+  for (const [pattern, part] of [
+    [PANEL_FRAME, "frame"],
+    [PANEL_BODY, "scrolling body"],
+  ]) {
+    for (const match of text.matchAll(pattern)) {
+      problems.push({
+        rule: "details-panel",
+        file: filePath,
+        line: lineOf(text, match.index),
+        detail:
+          `writes the details panel's ${part} out. Four ledgers each had their own copy of this ` +
+          "shape and a correction to it was four edits: compose `$lib/details-panel` " +
+          "(DetailsPanel.Root / Header / Body / Section / Facts / Fact) instead",
+      });
+    }
+  }
+  return problems;
+}

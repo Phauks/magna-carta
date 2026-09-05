@@ -11,6 +11,8 @@
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import CircleSlash from "@lucide/svelte/icons/circle-slash";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
+  import FieldLabel from "@magna-carta/design-system/field-label";
+  import { mergeClasses } from "@magna-carta/design-system/internal/merge-classes";
 
   let {
     kind,
@@ -40,15 +42,13 @@
 </script>
 
 <div class="flex flex-col items-start gap-8 py-16">
-  <span
-    class="flex items-center gap-8 text-xs uppercase"
-    class:text-text-subtle={kind !== "failed"}
-    class:text-status-danger={kind === "failed"}
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel
+    as="span"
+    class={mergeClasses("flex items-center gap-8", kind === "failed" && "text-status-danger")}
   >
     <Mark class="size-16" aria-hidden="true" />
     {HEADINGS[kind]}
-  </span>
+  </FieldLabel>
   <p class="max-w-prose text-sm text-text-muted">{reason}</p>
   {#if actions}
     <div class="flex flex-wrap gap-8">{@render actions()}</div>
