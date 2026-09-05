@@ -11,7 +11,8 @@ holds no binding, reads no clock, and never calls an external service.
 **White paper:** _Client intake / CRM_, with _Matters and File Manager_, _Conflicts Check_ and
 _Tasks and workflows / matter plans_ as the surrounding context —
 [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md).
-**Spec:** [`docs/specs/2026-09-03-intake-procedure-design.md`](../../docs/specs/2026-09-03-intake-procedure-design.md),
+**Spec:** [`docs/specs/2026-09-03-intake-procedure-design.md`](../../docs/specs/2026-09-03-intake-procedure-design.md)
+and [`docs/specs/2026-09-05-intake-desk-design.md`](../../docs/specs/2026-09-05-intake-desk-design.md),
 against the wider intake design in
 [`docs/specs/2026-08-15-client-intake-design.md`](../../docs/specs/2026-08-15-client-intake-design.md).
 
@@ -28,6 +29,9 @@ against the wider intake design in
   supersedes it in the same batch; reopening supersedes and writes nothing
 - `src/checklist.ts` — **`readIntakeChecklist`**, the one read every intake surface and the gate
   share, and the **reader seam** (`IntakeStepReader`, `IntakeStepReaders`)
+- `src/desk.ts` — **`readIntakeDesk`**: every consultation in flight, firm-wide, with the names it
+  needs in one batched read each, the next scheduled event, and one checklist read per row for the
+  counts; the page is capped at fifty because that last read is derived, never stored
 - `src/open-precondition.ts` — `matterIntakeOpenPrecondition(readers)`: the opening gate the
   composition root registers against `@magna-carta/matters`'s open hook
 - `src/readers/` — the built readers: conflicts posture, billing arrangement, trust position,
@@ -51,8 +55,10 @@ against the wider intake design in
   `record-service.ts`; `test/no-automated-writer.test.ts` holds it on the source text.
 - **The platform seeds no procedure**, on the matter plan's argument.
 - **Readers are registered, never imported, by the checklist.** A kind may exist ahead of the
-  subsystem that will answer it (`identity-verification` today); adding the reader is the whole
-  change when the subsystem lands.
+  subsystem that will answer it (`identity-verification`, `client-forms` and `payment` today);
+  adding the reader is the whole change when the subsystem lands.
+- **The desk adds no table.** An intake in flight is a prospective matter; `readIntakeDesk` reads
+  the matters listing and derives the rest, so nothing here can disagree with the docket.
 
 ## Dependencies & contracts
 

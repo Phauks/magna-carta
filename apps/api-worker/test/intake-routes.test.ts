@@ -345,4 +345,101 @@ describe("intake procedure routes", () => {
     };
     expect(all.data.some((row) => row.id === id)).toBe(true);
   });
+
+  it("lists every consultation in flight on the desk, with who it is for, where it stands, and whether it is scheduled", async () => {
+    const type = await send("POST", "/api/v1/matter-types", { name: "Estate planning" });
+    expect(type.status).toBe(201);
+    const { id: matterTypeId } = await readJson<{ id: string }>(type);
+    const procedure = await send("POST", "/api/v1/intake-procedures", {
+      name: "Estate intake",
+      matterTypeId,
+    });
+    expect(procedure.status).toBe(201);
+    const { id: procedureId } = await readJson<{ id: string }>(procedure);
+    for (const step of [
+      { kind: "conflicts-check", title: "Run the conflicts check" },
+      { kind: "client-forms", title: "Send the estate questionnaire", required: false },
+    ]) {
+      const added = await send("POST", `/api/v1/intake-procedures/${procedureId}/steps`, step);
+      expect(added.status).toBe(201);
+    }
+
+    const person = await send("POST", "/api/v1/directory/persons", {
+      given: "Rosalind",
+      family: "Chase",
+    });
+    expect(person.status).toBe(201);
+    const { id: clientEntityId } = await readJson<{ id: string }>(person);
+    const consultation = await send("POST", "/api/v1/matters", {
+      title: "Chase estate consultation",
+      status: "prospective",
+      responsibleMemberId: ownerUserId,
+      matterTypeId,
+      clientEntityId,
+      clientDisplayName: "Rosalind Chase",
+    });
+    expect(consultation.status).toBe(201);
+    const { matterId } = await readJson<{ matterId: string }>(consultation);
+
+    // Nothing scheduled yet: the desk says so.
+    interface DeskRow {
+      matterId: string;
+      title: string;
+      matterTypeName: string | null;
+      responsibleMemberName: string | null;
+      clientEntityId: string | null;
+      clientDisplayName: string | null;
+      isStale: boolean;
+      checklist: { bound: boolean; steps: number; answered: number; outstandingRequired: number };
+      nextConsultation: { eventId: string; title: string; startsOn: string } | null;
+    }
+    interface Desk {
+      data: DeskRow[];
+      nextCursor: string | null;
+    }
+    const before = await readJson<Desk>(await get("/api/v1/intake/consultations"));
+    const unscheduled = before.data.find((row) => row.matterId === matterId);
+    expect(unscheduled).toMatchObject({
+      title: "Chase estate consultation",
+      matterTypeName: "Estate planning",
+      responsibleMemberName: "Intake Owner",
+      clientEntityId,
+      clientDisplayName: "Rosalind Chase",
+      isStale: false,
+      checklist: { bound: true, steps: 2, answered: 0, outstandingRequired: 1 },
+      nextConsultation: null,
+    });
+    // A consultation whose kind no procedure binds is on the desk and says it is unbound; the
+    // matter the first test opened has left it.
+    const unbound = before.data.find((row) => row.title === "Untyped consultation");
+    expect(unbound?.checklist).toEqual({
+      bound: false,
+      steps: 0,
+      answered: 0,
+      outstandingRequired: 0,
+    });
+    expect(before.data.some((row) => row.title === "Herrera consultation")).toBe(false);
+
+    // The consultation is scheduled: the desk carries the next setting.
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const scheduled = await send("POST", `/api/v1/matters/${matterId}/events`, {
+      title: "Consultation with Rosalind Chase",
+      startsOn: tomorrow,
+      startsAtTime: "10:00",
+      timeZone: "America/Los_Angeles",
+    });
+    expect(scheduled.status).toBe(201);
+    const after = await readJson<Desk>(await get("/api/v1/intake/consultations?search=Chase"));
+    expect(after.data.map((row) => row.matterId)).toEqual([matterId]);
+    expect(after.data[0]?.nextConsultation).toMatchObject({
+      title: "Consultation with Rosalind Chase",
+      startsOn: tomorrow,
+    });
+    const none = await readJson<Desk>(await get("/api/v1/intake/consultations?search=Zzzz"));
+    expect(none.data).toEqual([]);
+
+    // The desk is behind intake:read, which every working seat holds.
+    const byParalegal = await get("/api/v1/intake/consultations", paralegalCookie);
+    expect(byParalegal.status).toBe(200);
+  });
 });

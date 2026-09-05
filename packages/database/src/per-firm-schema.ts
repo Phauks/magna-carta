@@ -9541,6 +9541,8 @@ export const intakeProcedureStep = sqliteTable(
         "retainer",
         "identity-verification",
         "acknowledgement",
+        "client-forms",
+        "payment",
       ],
     }).notNull(),
     title: text("title").notNull(),
@@ -9557,10 +9559,13 @@ export const intakeProcedureStep = sqliteTable(
   (table) => [
     index("intake_procedure_step_procedure_position_index").on(table.procedureId, table.position),
     check("intake_procedure_step_title_nonempty_check", sql`length(${table.title}) > 0`),
-    // The kind vocabulary, as a CHECK so a ninth kind is a reviewed migration rather than a commit.
+    // The kind vocabulary, as a CHECK so an eleventh kind is a reviewed migration rather than a
+    // commit. client-forms and payment name two steps a receptionist's intake always has — the forms
+    // the client fills in online, and the money that changes hands — ahead of the portal and the
+    // payments subsystem that will one day answer them; today each is a member's record.
     check(
       "intake_procedure_step_kind_check",
-      sql`${table.kind} IN ('conflicts-check', 'fee-agreement', 'engagement-letter', 'document', 'questionnaire', 'retainer', 'identity-verification', 'acknowledgement')`,
+      sql`${table.kind} IN ('conflicts-check', 'fee-agreement', 'engagement-letter', 'document', 'questionnaire', 'retainer', 'identity-verification', 'acknowledgement', 'client-forms', 'payment')`,
     ),
     check("intake_procedure_step_required_check", sql`${table.required} IN (0, 1)`),
     check("intake_procedure_step_active_check", sql`${table.active} IN (0, 1)`),

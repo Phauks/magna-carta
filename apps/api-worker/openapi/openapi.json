@@ -14472,7 +14472,9 @@
               "conflicts-check",
               "fee-agreement",
               "engagement-letter",
+              "client-forms",
               "retainer",
+              "payment",
               "document",
               "questionnaire",
               "acknowledgement"
@@ -14573,7 +14575,9 @@
               "conflicts-check",
               "fee-agreement",
               "engagement-letter",
+              "client-forms",
               "retainer",
+              "payment",
               "document",
               "questionnaire",
               "acknowledgement"
@@ -14659,6 +14663,160 @@
           "title"
         ]
       },
+      "IntakeDeskList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntakeDeskRow"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "IntakeDeskRow": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTypeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTypeName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "responsibleMemberId": {
+            "type": "string"
+          },
+          "responsibleMemberName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clientDisplayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "isStale": {
+            "type": "boolean"
+          },
+          "checklist": {
+            "$ref": "#/components/schemas/IntakeDeskChecklist"
+          },
+          "nextConsultation": {
+            "$ref": "#/components/schemas/IntakeDeskConsultationSetting"
+          }
+        },
+        "required": [
+          "matterId",
+          "title",
+          "consultationNumber",
+          "matterTypeId",
+          "matterTypeName",
+          "responsibleMemberId",
+          "responsibleMemberName",
+          "clientEntityId",
+          "clientDisplayName",
+          "createdAt",
+          "isStale",
+          "checklist",
+          "nextConsultation"
+        ]
+      },
+      "IntakeDeskChecklist": {
+        "type": "object",
+        "properties": {
+          "bound": {
+            "type": "boolean"
+          },
+          "steps": {
+            "type": "integer"
+          },
+          "answered": {
+            "type": "integer"
+          },
+          "outstandingRequired": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bound",
+          "steps",
+          "answered",
+          "outstandingRequired"
+        ]
+      },
+      "IntakeDeskConsultationSetting": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "startsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "eventId",
+          "title",
+          "startsOn",
+          "startsAtTime",
+          "timeZone"
+        ]
+      },
       "IntakeChecklist": {
         "type": "object",
         "properties": {
@@ -14735,7 +14893,9 @@
               "conflicts-check",
               "fee-agreement",
               "engagement-letter",
+              "client-forms",
               "retainer",
+              "payment",
               "document",
               "questionnaire",
               "acknowledgement"
@@ -63078,6 +63238,108 @@
           },
           "422": {
             "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake/consultations": {
+      "get": {
+        "description": "The intake desk: every consultation the firm has in flight, newest first, with the client, the responsible member, the matter type, where it stands against the intake procedure binding its kind (how many steps, how many answered, how many required ones outstanding), whether it has sat past the firm's stale-consultation age, and the next scheduled event on it. A consultation leaves the desk when it opens or closes. Cursor-paginated; the page is capped at fifty because each row's standing is derived from the subsystems that own its facts.",
+        "operationId": "intake.listConsultations",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.listConsultations",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 50
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the desk",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeDeskList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {

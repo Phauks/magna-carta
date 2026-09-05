@@ -25,6 +25,10 @@ decides who answers the step:
   recording a retainer the trust ledger cannot see.
 - **Questionnaire**: answered when the custom field the step names holds a value on the matter, or
   by a member recording that the questionnaire was completed.
+- **Client Forms**: the forms the client fills in online have gone out and come back. Answered by
+  a member recording it; the client portal will answer it when it exists.
+- **Payment**: a payment sent or received before the firm acts, such as a consultation fee.
+  Answered by a member recording it; payments will answer it when they are built.
 - **Identity Verification** and **Acknowledgement**: answered by a member recording that they did
   it.
 
@@ -88,6 +92,8 @@ A consultation of a kind no procedure binds has nothing standing between it and 
 
 ## Related
 
+- [`intake.md`](intake.md): the intake desk, where an intake starts, is resumed, and leads to the
+  consultation.
 - [`opening-and-finding-matters.md`](opening-and-finding-matters.md): recording a consultation and
   opening a matter.
 - [`conflicts-reports.md`](conflicts-reports.md): reading a conflicts check.

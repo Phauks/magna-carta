@@ -3443,7 +3443,7 @@ export type IntakeProcedure = {
 
 export type IntakeProcedureStep = {
     id: string;
-    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'client-forms' | 'retainer' | 'payment' | 'document' | 'questionnaire' | 'acknowledgement';
     title: string;
     instructions: string | null;
     required: boolean;
@@ -3466,7 +3466,7 @@ export type IntakeAcknowledged = {
 };
 
 export type IntakeProcedureStepRequest = {
-    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'client-forms' | 'retainer' | 'payment' | 'document' | 'questionnaire' | 'acknowledgement';
     title: string;
     instructions?: string | null;
     required?: boolean | null;
@@ -3481,6 +3481,42 @@ export type IntakeProcedureStepEditRequest = {
     referenceId?: string | null;
     position?: number | null;
 };
+
+export type IntakeDeskList = {
+    data: Array<IntakeDeskRow>;
+    nextCursor: string | null;
+};
+
+export type IntakeDeskRow = {
+    matterId: string;
+    title: string;
+    consultationNumber: string | null;
+    matterTypeId: string | null;
+    matterTypeName: string | null;
+    responsibleMemberId: string;
+    responsibleMemberName: string | null;
+    clientEntityId: string | null;
+    clientDisplayName: string | null;
+    createdAt: string;
+    isStale: boolean;
+    checklist: IntakeDeskChecklist;
+    nextConsultation: IntakeDeskConsultationSetting;
+};
+
+export type IntakeDeskChecklist = {
+    bound: boolean;
+    steps: number;
+    answered: number;
+    outstandingRequired: number;
+};
+
+export type IntakeDeskConsultationSetting = {
+    eventId: string;
+    title: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    timeZone: string;
+} | null;
 
 export type IntakeChecklist = {
     matterId: string;
@@ -3498,7 +3534,7 @@ export type IntakeChecklistStep = {
     stepId: string;
     procedureId: string;
     procedureName: string;
-    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'client-forms' | 'retainer' | 'payment' | 'document' | 'questionnaire' | 'acknowledgement';
     title: string;
     instructions: string | null;
     required: boolean;
@@ -20418,6 +20454,47 @@ export type IntakeEditStepResponses = {
 };
 
 export type IntakeEditStepResponse = IntakeEditStepResponses[keyof IntakeEditStepResponses];
+
+export type IntakeListConsultationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/intake/consultations';
+};
+
+export type IntakeListConsultationsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeListConsultationsError = IntakeListConsultationsErrors[keyof IntakeListConsultationsErrors];
+
+export type IntakeListConsultationsResponses = {
+    /**
+     * A page of the desk
+     */
+    200: IntakeDeskList;
+};
+
+export type IntakeListConsultationsResponse = IntakeListConsultationsResponses[keyof IntakeListConsultationsResponses];
 
 export type IntakeReadChecklistData = {
     body?: never;

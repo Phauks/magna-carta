@@ -1091,6 +1091,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "intake.createProcedure",
       "intake.editProcedure",
       "intake.editStep",
+      "intake.listConsultations",
       "intake.listProcedures",
       "intake.readChecklist",
       "intake.readProcedure",

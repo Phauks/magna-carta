@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 795 nodes of the feature ledger in
+is the complete register rather than a digest: all 796 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**795 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**796 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **655 that are units of work**, for the reason set out under [What a roll-up is
+count the **656 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 290 | 44% |
+| Done | shipped | 291 | 45% |
 | Part-built | partial, in-build | 119 | 18% |
-| Ahead | designed, planned, researching, not-started | 205 | 32% |
+| Ahead | designed, planned, researching, not-started | 205 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **655** | **100%** |
+| **All units of work** | | **656** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 290 | 44% |
+| `shipped` | 291 | 44% |
 | `partial` | 118 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 138 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 1% |
-| **All statuses** | **655** | **100%** |
+| **All statuses** | **656** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 795 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 796 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 290 of 655 (44%). Shipped plus partial is 408 (62%).**
+**Shipped alone is 291 of 656 (44%). Shipped plus partial is 409 (62%).**
 
 The 118 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**409 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**410 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 60 | 15% |
+| A person can open it today (`screen`) | 61 | 15% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 172 | 42% |
 | No user surface by nature (`internal`) | 177 | 43% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **409** | **100%** |
+| **Everything with something built** | **410** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -109,7 +109,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 17 | 15 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 54 | 31% |
-| Client Intake / CRM | 1 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 7 | 14% |
+| Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **290** | **118** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **655** | **44%** |
+| **All areas** | **291** | **118** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **656** | **44%** |
 
 ## Where we have been
 
@@ -289,7 +289,7 @@ in this one.
 
 ## Waiting on you
 
-**30 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**29 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -303,7 +303,6 @@ in this one.
 - **Fiscal-period close** (`financial.ledger.operating-gl.period-close`) — **Not built.** Five flags, and the first decides whether this sub-slice exists — period close is not in the slice map's scope, and against that, statements nobody can rely on are not worth assembling. Then: who may close, and does closing take a second person the way a trust act does. What an operator may do to a closed period — reopen with a reason and an append-only event, post into it under a permission, or never. Whether the hard lock ever gets a route or stays a column nothing sets until a jurisdiction requires it. And whether the lock is checked inside the posting primitive itself, which is the one with reach: after it, a trust movement or an invoice finalization backdated into a closed period refuses, which is a behaviour change in shipped subsystems and is also the only version of a lock a caller cannot decline to honour. General ledger design, flags G3, G4, G5, G6 and G12.
 - **Accounts payable** (`financial.ledger.operating-gl.accounts-payable`) — **Not built.** May accounts payable pay from anything but the resolved operating account — a firm with two operating banks has a legitimate need the single role cannot express, and the recommendation is a second role rather than a caller-supplied parameter. At what status a bill-originated cost enters the cost store, where draft respects the billability review and a firm whose lawyers never review costs would leave advanced costs unbilled forever. And whether vendor credits are in this pass or their own design, given they are the mirror of billing's credit note and need the same care about attribution. General ledger design, flags G7, G8 and G9.
 - **Financial statements** (`financial.ledger.operating-gl.financial-statements`) — **Not built.** Are trust accounts on the firm's balance sheet? Correct accounting includes them — the firm holds an asset and an equal liability — and some accountants present a firm balance sheet without them; the recommendation is to include them in labelled sections that must net to zero, and to refuse the statement when they do not, because omitting them hides the one relationship an examiner checks. Also whether a derived cash-basis view is in scope here at all, which it is recommended not to be: the book is accrual and cannot be otherwise, and a cash view is not a tax basis and must never be presented as one. And who is seeded the capability to read statements, where a bookkeeper reads them and posts nothing. General ledger design, flags G16, G2 and G14.
-- **Lead pipeline** (`intake.lead-pipeline`) — **Not built.** Is the pipeline board visible to the whole firm, or per-attorney like the Consultations folder? A shared board is what an intake coordinator needs and what every competitor ships; the narrowing to per-attorney was a deliberate decision (ADR-0080), so widening it is a reversal only the owner can make. Client intake design flag J4.
 - **Public intake forms** (`intake.public-forms`) — **Not built.** Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 - **Firm-wide note search** (`notes.search.firm-wide`) — **Not built.** Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
 - **Payments port** (`payments.port`) — **Not built.** Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
@@ -991,10 +990,11 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Client Intake / CRM
 
-[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 7 units of work, 14% shipped. 1 done, 2 part-built, 4 ahead, 0 parked.
+[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 8 units of work, 25% shipped. 2 done, 2 part-built, 4 ahead, 0 parked.
 
 - `intake` · `partial` · **Client intake / CRM** — Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, receptionist call intake, and the per-matter-type intake procedure a consultation clears before it opens.
-  - `intake.procedure` · `shipped` · **Intake procedure** — A firm-authored, per-matter-type list of steps a consultation must clear before it opens, each answered by the subsystem that owns the fact or by a member's record, gating the open. _Note: Eight step kinds held by a CHECK. Conflicts, billing, document assembly, trust and custom fields answer their kinds today; identity verification and acknowledgement are a member's record until a subsystem exists, and adding the reader is the whole change. The checklist is derived on every read, never stored. A required step refuses the open; the override is a waiver under intake:waive with a rationale, append-and-flip. The platform seeds no procedure._
+  - `intake.procedure` · `shipped` · **Intake procedure** — A firm-authored, per-matter-type list of steps a consultation must clear before it opens, each answered by the subsystem that owns the fact or by a member's record, gating the open. _Note: Ten step kinds held by a CHECK. Conflicts, billing, document assembly, trust and custom fields answer their kinds today; identity verification, the client's online forms, a payment and an acknowledgement are a member's record until a subsystem exists, and adding the reader is the whole change. The checklist is derived on every read, never stored. A required step refuses the open; the override is a waiver under intake:waive with a rationale, append-and-flip. The platform seeds no procedure._
+  - `intake.desk` · `shipped` · **Intake desk** — The sidebar's Intake: every intake in flight, firm-wide, with who it is for, who carries it and how far it is against the procedure; starting one; resuming one; scheduling the consultation once the intake is complete. _Note: An intake in flight is a prospective matter; the desk reads the firm's consultations and adds no table. The desk is firm-wide (the wider design's flag J4, answered by the owner's workflow); the per-attorney Consultations view is unchanged. Complete means no required step outstanding — the opening gate's own number — and Schedule is refused with the reason until then. The row states counts, never a verdict._
   - `intake.lead-pipeline` · `not-started` · **Lead pipeline** — Pipeline stages and lead lifecycle feeding prospective matters.
   - `intake.public-forms` · `not-started` · **Public intake forms** — Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus prospective matters.
   - `intake.call-intake` · `not-started` · **Receptionist call intake** — Recorded, transcribed inbound calls turned into a Directory prospect plus prospective matter with the transcript attached.

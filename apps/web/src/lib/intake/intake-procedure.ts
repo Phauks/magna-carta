@@ -31,9 +31,10 @@ export interface IntakeStepKindVocabulary {
 }
 
 /**
- * The eight kinds, in the order a procedure usually meets them. `answeredBy` is deliberately
- * honest about the two the platform cannot see yet: an identity check and an acknowledgement are a
- * member's word today, and the sentence says so rather than implying a system behind it.
+ * The ten kinds, in the order a procedure usually meets them. `answeredBy` is deliberately honest
+ * about the four the platform cannot see yet: an identity check, the client's online forms, a
+ * payment and an acknowledgement are a member's word today, and the sentence says so rather than
+ * implying a system behind it.
  */
 export const INTAKE_STEP_KIND_VOCABULARY: readonly IntakeStepKindVocabulary[] = [
   {
@@ -74,6 +75,15 @@ export const INTAKE_STEP_KIND_VOCABULARY: readonly IntakeStepKindVocabulary[] = 
     sectionSlug: "files",
   },
   {
+    kind: "client-forms",
+    label: "Client Forms",
+    description: "The client has been sent the firm's online forms and has returned them.",
+    answeredBy:
+      "A member records that the forms went out and came back. The client portal will answer this step when it exists.",
+    reference: null,
+    sectionSlug: null,
+  },
+  {
     kind: "retainer",
     label: "Retainer",
     description: "The client's retainer has been received.",
@@ -81,6 +91,16 @@ export const INTAKE_STEP_KIND_VOCABULARY: readonly IntakeStepKindVocabulary[] = 
       "Client funds held in trust for the matter, or a member recording a retainer the trust ledger cannot see.",
     reference: null,
     sectionSlug: "trust",
+  },
+  {
+    kind: "payment",
+    label: "Payment",
+    description:
+      "A payment has been sent or received before the firm acts: a consultation fee, a deposit.",
+    answeredBy:
+      "A member records that the payment was made. Payments will answer this step when they are built.",
+    reference: null,
+    sectionSlug: null,
   },
   {
     kind: "document",

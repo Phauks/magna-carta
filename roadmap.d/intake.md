@@ -8,9 +8,9 @@
   name: Client intake / CRM
   scope: Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, receptionist call intake, and the per-matter-type intake procedure a consultation clears before it opens.
   status: partial
-  slices: 6-4-intake-procedure
+  slices: 6-4-intake-procedure, 6-5-intake-desk
   spec: docs/specs/2026-08-15-client-intake-design.md
-  evidence: The intake procedure shipped first (intake.procedure below): packages/intake, three per-firm tables, four permissions, twelve routes, the open-precondition hook on the matter shell, Settings · Intake Procedures and the matter's Intake section. The rest of the area — the submission, the public form, the pipeline board, call intake — is designed in docs/specs/2026-08-15-client-intake-design.md and unbuilt.
+  evidence: The intake procedure shipped first (intake.procedure below), then the desk (intake.desk): the sidebar's Intake destination at apps/web/src/routes/(app)/intake, packages/intake/src/desk.ts behind GET /api/v1/intake/consultations, the New Matter window's intake purpose, Schedule through the calendar's event window, and the directory picker that records a caller in place (apps/web/src/lib/directory/directory-entity-picker.svelte). The rest of the area — the submission, the public form, the pipeline board over stages, call intake — is designed in docs/specs/2026-08-15-client-intake-design.md and unbuilt.
   audience: public
   public-name: Client intake
   public-summary: Take an enquiry, check it for conflicts, and turn it into a matter without typing anything twice.
@@ -24,14 +24,23 @@
   surface: screen
   spec: docs/specs/2026-09-03-intake-procedure-design.md
   evidence: packages/intake (procedure-service.ts, checklist.ts with the reader seam, record-service.ts, open-precondition.ts, readers/), the intake_procedure, intake_procedure_step and matter_intake_step_record tables, intake:read/record/waive/manageProcedures, apps/api-worker/src/routes/intake.ts, the openPreconditions hook in packages/matters/src/open-preconditions.ts threaded through openMatter, GET /api/v1/matters/{id}/open-readiness, /settings/intake-procedures, the matter's Intake section, and Requirements To Open in the status window.
-  notes: Eight step kinds held by a CHECK. Conflicts, billing, document assembly, trust and custom fields answer their kinds today; identity verification and acknowledgement are a member's record until a subsystem exists, and adding the reader is the whole change. The checklist is derived on every read, never stored. A required step refuses the open; the override is a waiver under intake:waive with a rationale, append-and-flip. The platform seeds no procedure.
+  notes: Ten step kinds held by a CHECK. Conflicts, billing, document assembly, trust and custom fields answer their kinds today; identity verification, the client's online forms, a payment and an acknowledgement are a member's record until a subsystem exists, and adding the reader is the whole change. The checklist is derived on every read, never stored. A required step refuses the open; the override is a waiver under intake:waive with a rationale, append-and-flip. The platform seeds no procedure.
+
+- id: intake.desk
+  name: Intake desk
+  scope: The sidebar's Intake: every intake in flight, firm-wide, with who it is for, who carries it and how far it is against the procedure; starting one; resuming one; scheduling the consultation once the intake is complete.
+  status: shipped
+  slices: 6-5-intake-desk
+  surface: screen
+  spec: docs/specs/2026-09-05-intake-desk-design.md
+  evidence: packages/intake/src/desk.ts and GET /api/v1/intake/consultations (apps/api-worker/src/routes/intake.ts, intake:read, cursor-paged, capped at fifty), apps/web/src/routes/(app)/intake/+page.svelte over apps/web/src/lib/intake/intake-desk.ts, the intake purpose of apps/web/src/lib/matters/new-matter-dialog.svelte, the seeded title and participants of apps/web/src/lib/calendar/record-event-dialog.svelte, and the shipped Intake row in apps/web/src/lib/navigation/destinations.ts.
+  notes: An intake in flight is a prospective matter; the desk reads the firm's consultations and adds no table. The desk is firm-wide (the wider design's flag J4, answered by the owner's workflow); the per-attorney Consultations view is unchanged. Complete means no required step outstanding — the opening gate's own number — and Schedule is refused with the reason until then. The row states counts, never a verdict.
 
 - id: intake.lead-pipeline
   name: Lead pipeline
   scope: Pipeline stages and lead lifecycle feeding prospective matters.
   status: not-started
-  evidence: No lead entity or pipeline; stages and lifecycle are explicitly unspecified.
-  awaiting-owner: Is the pipeline board visible to the whole firm, or per-attorney like the Consultations folder? A shared board is what an intake coordinator needs and what every competitor ships; the narrowing to per-attorney was a deliberate decision (ADR-0080), so widening it is a reversal only the owner can make. Client intake design flag J4.
+  evidence: No stage entity or board. The desk (intake.desk) lists every intake in flight and how far it is against the procedure, which answers the question a board would until a firm needs a word the procedure cannot express. The visibility question is settled: the desk is firm-wide.
 
 - id: intake.public-forms
   name: Public intake forms
@@ -53,7 +62,7 @@
   slices: 6-4-intake-procedure
   surface: screen
   adrs: ADR-0013
-  evidence: The check, its reporting posture, the event triggers, the re-check ledger and the cron backstop all shipped in packages/conflicts; the New Matter window runs a preliminary check on the client before the matter exists; and the intake procedure's conflicts-check step (packages/intake/src/readers/conflicts.ts) gates the open on the posture's four procedure facts — checked, at the floor, every hit answered, no re-check owed — concluding nothing about the client. What is missing is a prospect that can be checked before a matter exists and the submission flow in front of it.
+  evidence: The check, its reporting posture, the event triggers, the re-check ledger and the cron backstop all shipped in packages/conflicts; the New Matter window — now also the desk's New Intake — runs a preliminary check on the client before the matter exists, and the client can be recorded into the directory from that field; and the intake procedure's conflicts-check step (packages/intake/src/readers/conflicts.ts) gates the open on the posture's four procedure facts — checked, at the floor, every hit answered, no re-check owed — concluding nothing about the client. What is missing is the anonymous submission flow in front of the desk.
   awaiting-owner: A professional-conduct question with a build attached: may a decline be recorded before a conflicts check has completed? A firm declining instantly on subject matter — we do not do that kind of work — should not be forced through a check; a firm declining because of a conflict must have the record. The two are indistinguishable to the platform at the moment of the click, so the answer decides whether the decline path gates on the check or merely notes its absence. Client intake design flag J5.
 
 - id: intake.crm

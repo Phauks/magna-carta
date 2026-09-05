@@ -36,6 +36,7 @@
     eventDraftShortfalls,
     eventDraftStarted,
     type EventDraft,
+    type ParticipantDraft,
   } from "./event-draft.ts";
   import ParticipantPicker from "./participant-picker.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
@@ -49,6 +50,8 @@
     members,
     preferredTimeZones,
     initialDate,
+    initialTitle = "",
+    initialParticipants = [],
     onRecorded,
   }: {
     open?: boolean;
@@ -66,6 +69,10 @@
     preferredTimeZones: readonly string[];
     /** The date the form opens on, where it was opened from a day. */
     initialDate: string | null;
+    /** A title the surface already knows — "Consultation with Rosalind Chase" from the intake desk. */
+    initialTitle?: string;
+    /** People the surface already knows are attending: the client, the responsible attorney. Editable. */
+    initialParticipants?: readonly ParticipantDraft[];
     onRecorded: (recorded: { id: string; matterId: string }) => void;
   } = $props();
 
@@ -102,8 +109,16 @@
 
   function reset(): void {
     const timeZone = preferredTimeZones[0] ?? "";
-    draft = emptyEventDraft(timeZone, initialDate);
-    since = emptyEventDraft(timeZone, initialDate);
+    // The seeds are the draft's starting point and the baseline alike, so a window opened with a
+    // title and two people and closed untouched does not ask about unsaved work.
+    const seeded = (): EventDraft => ({
+      ...emptyEventDraft(timeZone, initialDate),
+      title: initialTitle,
+      // The drafts are immutable records, so a fresh array is a fresh draft.
+      participants: [...initialParticipants],
+    });
+    draft = seeded();
+    since = seeded();
     chosenMatterId = null;
     failure = null;
     attemptKey = null;

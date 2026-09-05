@@ -223,6 +223,15 @@ is usually the fastest way to understand the rule.
   statement about a route and a wrong one about the work: the person has the document open in front
   of them. Hold the picks and apply them when the record is written. _(Time record window,
   2026-09-03)_
+- **A field that chooses a record can MAKE one, from where it stands, through a top-level New.**
+  Wherever a person or an organization is picked — a client, a payee, a conflicts subject, an
+  event's participant — a New control stands beside the field before anything is typed, and the
+  list ends with an add row for what was. It opens the record's own creation window (the same
+  window, the same duplicate gate) over the surface the field is on, seeded with what was typed,
+  and the new record lands in the field. Sending somebody to the Directory to add the caller and
+  then back to the matter they were opening is the same work twice and loses the sentence they were
+  halfway through. A reader who may not create sees the control refused with the reason, never
+  absent. _(the intake desk's client field, and every picker over the directory, 2026-09-05)_
 
 ### Controls and patterns
 
@@ -638,6 +647,29 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-05 — the intake desk, and New beside every person field
+
+The owner described the receptionist's workflow: open Intake from the sidebar; choose the caller
+from the directory or create them; collect what the intake requires and clear its criteria — the
+conflicts check, the agreement out and back, the client's online forms, the payment, and whatever
+else the firm requires; run several intakes at once and resume any; and, once one is complete,
+schedule the consultation. And: "on this field and other places in the app where a user can select
+a person, we need a way to create an entity from that location. A top level '+ New'." The
+generalization is promoted under _Data entry_ above. What is local:
+
+- **The desk is one table**, on the list archetype every register uses: search and the create
+  control in the masthead, the columns' own filters, the consultation number anchoring the row.
+  The standing reads as counts of the firm's own steps ("3 of 5 answered, 1 required
+  outstanding"), never a word about the client.
+- **New Intake is the New Matter window** in an intake purpose — status fixed at Prospective and
+  not offered, Start Intake, no money block — not a second window for the same act.
+- **Schedule stands on every row and is refused with the reason** until every required step is
+  answered; it opens the calendar's own event window on the consultation with the client and the
+  responsible attorney already on it.
+- **The picker's New is a button for one kind and a menu for both**, in the field's row, at the
+  small secondary size; the add rows in the list say which kind they will make when both are
+  offered ("Add "Northwind Couriers" as an organization").
 
 ### 2026-09-05 — the money sections, one surface
 

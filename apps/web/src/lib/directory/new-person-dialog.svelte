@@ -28,6 +28,7 @@
   import {
     emptyPersonDraft,
     personCreateRequest,
+    personDraftDisplayName,
     personDraftRefusal,
     personDraftStarted,
     personDraftSummary,
@@ -47,10 +48,17 @@
 
   let {
     open = $bindable(false),
+    prefill = null,
     onCreated,
   }: {
     open?: boolean;
-    onCreated: (entityId: string) => void;
+    /**
+     * A name already typed somewhere else — a picker that could not find it — seeding the name
+     * fields so it is not typed twice. Read at every opening; every part stays editable.
+     */
+    prefill?: { given: string; family: string } | null;
+    /** The record's handle, and the name as this window recorded it (for a field that must show one). */
+    onCreated: (entityId: string, recordedName: string) => void;
   } = $props();
 
   let draft = $state<PersonDraft>(emptyPersonDraft());
@@ -69,7 +77,11 @@
   );
 
   function reset(): void {
-    draft = emptyPersonDraft();
+    const empty = emptyPersonDraft();
+    draft =
+      prefill === null
+        ? empty
+        : { ...empty, name: { ...empty.name, given: prefill.given, family: prefill.family } };
     section = "names";
     failure = null;
   }
@@ -80,7 +92,7 @@
     // server answers the repeat with the first result.
     const outcome = await createDirectoryPerson(fetch, personCreateRequest(draft), crypto.randomUUID());
     if (outcome.kind === "ok") {
-      onCreated(outcome.value.id);
+      onCreated(outcome.value.id, personDraftDisplayName(draft));
       return "committed";
     }
     failure = stated(

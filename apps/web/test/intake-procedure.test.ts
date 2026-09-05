@@ -55,6 +55,13 @@ describe("the kind vocabulary", () => {
     expect(identity?.answeredBy).toContain("A member records");
     const conflicts = INTAKE_STEP_KIND_VOCABULARY.find((entry) => entry.kind === "conflicts-check");
     expect(conflicts?.answeredBy).toContain("cannot be recorded by hand");
+    // The two kinds named ahead of their subsystems say so, and say which subsystem.
+    const forms = INTAKE_STEP_KIND_VOCABULARY.find((entry) => entry.kind === "client-forms");
+    expect(forms?.answeredBy).toContain("A member records");
+    expect(forms?.answeredBy).toContain("portal");
+    const payment = INTAKE_STEP_KIND_VOCABULARY.find((entry) => entry.kind === "payment");
+    expect(payment?.answeredBy).toContain("A member records");
+    expect(payment?.sectionSlug).toBeNull();
   });
 
   it("names a reference only on the kinds that are about one thing", () => {
