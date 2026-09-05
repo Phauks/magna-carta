@@ -5,9 +5,10 @@ audience: internal
 
 **Reversibility becomes route metadata, and the first census it produced answers a question the
 platform could not answer before: of the thirty-three things it deletes, what puts each one back?**
-`RouteMeta` carries `reversal` — one of `restoration`, `inverse`, `compensating` or `none`, the
-first three naming the operation that does it (a route that reverses itself names itself) and `none`
-obliged to carry the reason nothing does. `defineOpenAPIRoute` refuses a DELETE that declares nothing, and a conformance fitness
+`RouteMeta` carries `reversal` — one of `inverse`, `compensating` or `none`, the first two naming
+the operation involved (a route that reverses itself names itself) and `none` obliged to carry the
+reason nothing does. An arm earns its place by changing what a SURFACE does, which is why there are
+three and not five. `defineOpenAPIRoute` refuses a DELETE that declares nothing, and a conformance fitness
 function checks the cross-references over the emitted document: a declaration reading "files.restore
 puts it back" is worth exactly as much as `files.restore` existing, and a surface rendering that
 sentence has no way to find out that it does not.
@@ -35,7 +36,7 @@ That third group was a suspicion and is now a list.
 operations declared in one pass would be 349 guesses, and deletion is where the question is asked
 most and was answered least — thirty-three deletions against five reversals of any kind. Widening it
 is its own slice, and the two that most want declaring next are the void family
-(`timeEntries.void` → `timeEntries.unvoid` is a restoration the platform already has) and the
+(`timeEntries.void` → `timeEntries.unvoid` is an inverse the platform already has) and the
 ledger's compensating pairs, which is where that arm earns its place.
 
 The declaration is emitted as `x-mc-reversal` and carried into the generated client, because the

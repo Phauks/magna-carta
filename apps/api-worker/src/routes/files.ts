@@ -537,7 +537,7 @@ const patchFileRoute = defineOpenAPIRoute(patchFileMeta, {
 });
 
 const deleteFileRoute = defineOpenAPIRoute(
-  { ...deleteFileMeta, reversal: { kind: "restoration", by: "files.restore" } },
+  { ...deleteFileMeta, reversal: { kind: "inverse", by: "files.restore" } },
   {
     method: "delete",
     path: "/api/v1/files/{id}",

@@ -23,7 +23,7 @@ void for the same reason and has to say so in a hand-written sentence naming two
 **The proposal is that reversibility becomes route metadata.** `RouteMeta` already carries
 `operationId`, `permission`, `audited` and `idempotency`, emitted as `x-mc-*` and gated by conformance
 fitness functions; a `reversal` field joins them, as a discriminated union over what the platform can
-actually do — `restoration`, `inverse`, `compensating`, `none` — required on every
+actually do — `inverse`, `compensating`, `none` — required on every
 mutating route, with a `none` obliged to carry the sentence that says why. The count of irreversible
 operations becomes a number CI knows. The dialog's recoverability line stops being a string in a
 Svelte file and becomes the rendering of the declaration, so "It moves out of the list and stays

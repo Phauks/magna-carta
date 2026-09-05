@@ -1412,7 +1412,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
           operation: rawOperation({
             operationId: "widgets.remove",
             "x-mc-operationId": "widgets.remove",
-            "x-mc-reversal": { kind: "restoration", by: "widgets.restore" },
+            "x-mc-reversal": { kind: "inverse", by: "widgets.restore" },
           }),
         },
       ]);

@@ -256,9 +256,9 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
   if (routeConfig.method === "delete" && meta.reversal === undefined) {
     throw new TypeError(
       `Route ${JSON.stringify(meta.operationId)} is a DELETE and declares no reversal — say what ` +
-        `putting it back means: a restoration or inverse naming the operation that does it (a route ` +
-        `that reverses itself names itself), a compensating record, or none with the reason ` +
-        `nothing does.`,
+        `putting it back means: an inverse naming the operation that does it (a route that reverses ` +
+        `itself names itself), a compensating record that offsets it without putting it back, or ` +
+        `none with the reason nothing does.`,
     );
   }
   const reversalProblem =

@@ -44564,7 +44564,7 @@
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
         "x-mc-reversal": {
-          "kind": "restoration",
+          "kind": "inverse",
           "by": "files.restore"
         },
         "x-mc-tags": [

@@ -234,7 +234,7 @@ describe("fail-closed access-control guard at definition time", () => {
     const route = defineOpenAPIRoute(
       sampleMeta({
         operationId: "matters.remove",
-        reversal: { kind: "restoration", by: "matters.restore" },
+        reversal: { kind: "inverse", by: "matters.restore" },
       }),
       {
         method: "delete",
@@ -244,7 +244,7 @@ describe("fail-closed access-control guard at definition time", () => {
       },
     );
     expect(emitDocumentFor(route).paths["/api/v1/matters/{id}"].delete["x-mc-reversal"]).toEqual({
-      kind: "restoration",
+      kind: "inverse",
       by: "matters.restore",
     });
   });

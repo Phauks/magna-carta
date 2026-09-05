@@ -7,19 +7,25 @@
  * looking, how long ago the act happened, or whether the browser was closed in between. It is a
  * property of the OPERATION, so it belongs where the platform already declares per-operation facts.
  *
- * THE VOCABULARY IS WHAT THE PLATFORM CAN ACTUALLY DO, not a taxonomy. Each arm names a mechanism
- * that exists in the code today: a restore route, a route that answers this one, a compensating
- * record, or nothing at all. An arm nobody can point at a member of is an arm nobody applies
- * consistently, which is why `restatement` was removed rather than kept for a case that had not
- * arisen — the one it described is an `inverse` naming its own operation.
+ * AN ARM EARNS ITS PLACE BY CHANGING WHAT A SURFACE DOES, and by nothing else. That is the whole
+ * test, and it is short on purpose — a vocabulary sorted by how a route FEELS is a vocabulary two
+ * people apply two ways. `inverse` says offer the way back and call the named route. `compensating`
+ * says do NOT offer a way back: the act stands and a new record offsets it. `none` says do not
+ * offer, and here is the sentence explaining why. Three answers, three behaviours.
  *
- * `compensating` IS THE ONE ARM WITH NO MEMBERS, and it is held deliberately rather than by
- * oversight: the ledger is where it lands, and its rule is an invariant rather than a preference —
- * a posted entry is never edited or removed, so a correction is a new balancing entry that leaves
- * the original standing (`packages/ledger/src/reverse-entry.ts` composes exactly that mirror).
- * Without the arm the mirror would be declared an `inverse`, which says the original went away.
- * It is the next thing to declare when the gate widens past DELETE; if that widening does not
- * happen, it should go the way `restatement` did.
+ * TWO ARMS WERE CUT FOR FAILING IT. `restatement` described a route reversed by calling it again,
+ * which is an `inverse` naming its own operation. `restoration` described a reversing route that
+ * exists only to reverse — which is a fact about the route author's intent, not about anything a
+ * caller does: a surface calls a named operationId either way, and the claim that a restoration
+ * needs nothing but an id was false of its own only member (`files.restore` takes a body like every
+ * other counterpart). Both were sorting on feel.
+ *
+ * `compensating` has no members yet and is held anyway, because it is the one arm that changes the
+ * answer rather than the wording. The ledger is where it lands, and its rule is an invariant rather
+ * than a preference: a posted entry is never edited or removed, so a correction is a new balancing
+ * entry that leaves the original standing (`packages/ledger/src/reverse-entry.ts` composes exactly
+ * that mirror). Declared as an `inverse`, that mirror would tell a surface to offer "undo" for an
+ * entry that is never going away.
  *
  * A `none` MUST SAY WHY, and that sentence is the one a surface renders. It is the only arm that
  * carries prose, deliberately: an act nothing puts back is the one a reader must be told about
@@ -31,14 +37,9 @@ type By = { readonly by: string };
 
 export type RouteReversal =
   /**
-   * A named operation returns the subject to what it was. The subject survives the act — a
-   * soft-delete flag, a status, a completion — and the reversal clears it in place.
-   */
-  | ({ readonly kind: "restoration" } & By)
-  /**
-   * The counterpart of a two-sided pair: an attach answering a detach, a link answering an unlink, a
-   * grant answering a revoke, a set answering a clear, a complete answering a reopen. Nothing was
-   * destroyed, so the reversal is the other half of the pair rather than a repair of this one.
+   * A counterpart operation undoes this one's effect on the same subject, and the declaration names
+   * it: an attach answering a detach, a link answering an unlink, a grant answering a revoke, a set
+   * answering a clear, a complete answering a reopen, a restore answering a soft delete.
    *
    * THE LINE AGAINST `none`, since it is the one that gets argued: a counterpart route exists whose
    * job is to undo this one's effect on the SAME subject. Where the way back is to CREATE something
