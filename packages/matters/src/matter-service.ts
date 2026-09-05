@@ -33,6 +33,12 @@ import {
   type ClosePrecondition,
 } from "./close-preconditions.ts";
 import {
+  OpenPreconditionError,
+  openPreconditionGuardStatements,
+  runOpenPreconditions,
+  type OpenPrecondition,
+} from "./open-preconditions.ts";
+import {
   collectCloseAdvisories,
   type CloseAdvisory,
   type CloseAdvisoryNotice,
@@ -126,6 +132,11 @@ export interface MatterServiceOptions {
   // shell's own registry, which is empty: this package never imports the subsystems whose money or
   // property a close has to answer for.
   readonly closePreconditions?: readonly ClosePrecondition[];
+  // The opening rules other subsystems own — what a consultation must clear before the firm acts —
+  // supplied by the composition root. Absent = the matter shell's own registry, which is empty: this
+  // package never imports the conflicts engine or the intake procedure to find out whether a matter
+  // may open.
+  readonly openPreconditions?: readonly OpenPrecondition[];
   // The informational notices other subsystems want a person to see when they close a matter,
   // supplied by the composition root. Absent = the matter shell's own registry, which is empty. An
   // advisory never blocks a close and has no path by which it could: `collectCloseAdvisories` returns
@@ -557,6 +568,25 @@ export async function openMatter(
       `matter ${matterId} is ${matter.status}, not prospective`,
     );
   }
+  // The opening rules, run before the draw and skipped on the same idempotent retry the lifecycle
+  // check above skips: the mutation this key names already opened the matter, and a rule refusing
+  // now would 409 the caller on its own completed work. Everything a rule reads is read here, before
+  // the batch is composed — D1 has no interactive transaction — and the guards a rule supplies ride
+  // the batch itself.
+  const openContext = { matterId, database };
+  const openPreconditions = options.openPreconditions;
+  if (
+    matter.status === "prospective" &&
+    openPreconditions !== undefined &&
+    openPreconditions.length > 0
+  ) {
+    const failures = await runOpenPreconditions(openContext, openPreconditions);
+    if (failures.length > 0) throw new OpenPreconditionError(failures);
+  }
+  const guards =
+    openPreconditions === undefined
+      ? []
+      : openPreconditionGuardStatements(openContext, openPreconditions);
   // The consultation number the matter already carries is untouched here: opening ADDS the permanent
   // number, it does not rewrite the tentative one, so a document filed under the tentative number
   // still resolves after the matter opens.
@@ -568,6 +598,7 @@ export async function openMatter(
     input.numberContext ?? {},
     (number, now) => ({
       statements: [
+        ...guards,
         openMatterStatement(database, matterId, number, now),
         auditStatement(database, options, "matter.opened", matterId),
       ],

@@ -377,10 +377,18 @@
 </script>
 
 <!--
-  The frame is a positioned shell around the scroll region, and the consumer's layout classes land
-  on it: a surface asks for the FRAME's box (`min-h-0 flex-1`, `h-full`) and the scrollport fills
-  that box exactly as it did when it was the root. The shell exists so the gilt edge rule below has
-  the scrollport's own box to resolve against.
+  The frame is a positioned shell around the scroll region, and it exists so the gilt edge rule at
+  the bottom of this file has the scrollport's own box to resolve an absolute position against.
+
+  THE CONSUMER'S CLASS LANDS ON BOTH BOXES, because a surface passes one class describing one thing
+  — its frame — and the two halves of that description now live on two elements. The box is the
+  shell's (`min-h-0 flex-1`, `h-full`, `max-h-svh`: a surface says how much of the screen the frame
+  takes, and the scrollport fills whatever that comes to), while the card is still the scrollport's,
+  which is what carries the hairline and the radius — so a flush surface asking for
+  `rounded-none border-0` has to reach the element wearing them. Sent to the shell alone, every
+  money ledger and the file manager's archive listing would grow the rounded card back. Each half is
+  inert on the box it does not describe. The one thing it must therefore not carry is SPACING: a
+  margin or a padding utility would apply twice.
 -->
 <div class={mergeClasses("relative flex min-h-0 w-full flex-col", className)}>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions --
@@ -388,7 +396,7 @@
        scrollable region must be reachable; the click listener only clears selection on empty space. -->
   <div
     bind:this={scrollElement}
-    class="mc-table-grid-scroll mc-scrollbar min-h-0 w-full grow"
+    class={mergeClasses("mc-table-grid-scroll mc-scrollbar min-h-0 w-full grow", className)}
     tabindex="0"
     role="group"
     aria-label={caption}

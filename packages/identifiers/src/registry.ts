@@ -284,6 +284,13 @@ export const ENTITY_PREFIXES = {
   // wrong the moment the template is used twice.
   matterPlanTemplate: "matterPlanTemplate",
   matterPlanTaskTemplate: "matterPlanTaskTemplate",
+  // The intake procedure: what a kind of matter must clear before it opens. An `intakeProcedure` is
+  // the firm's list for one matter type (or every type); an `intakeProcedureStep` is one thing on it,
+  // answered by the subsystem its kind names or by a member; a `matterIntakeStepRecord` is a
+  // member's answer to one step on one matter, append-and-flip.
+  intakeProcedure: "intakeProcedure",
+  intakeProcedureStep: "intakeProcedureStep",
+  matterIntakeStepRecord: "matterIntakeStepRecord",
   // The firm's own calendar scope. A `firmEvent` is something the firm schedules for itself — a
   // meeting, an office closure, training, a firm holiday — which belongs to no matter and so gets
   // its own table rather than a null where a case should be; a `firmEventParticipant` is one person

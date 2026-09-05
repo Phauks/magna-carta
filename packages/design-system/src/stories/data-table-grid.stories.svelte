@@ -683,6 +683,38 @@
 </Story>
 
 <!--
+  A FLUSH SURFACE GETS A FLUSH TABLE. The money ledgers and the file manager's archive listing
+  render the grid with no card around it — `rounded-none border-0` — because the table meets the
+  toolbar above it directly. The hairline and the radius belong to the scroll frame, and the frame
+  is now one of two boxes (a positioned shell holds the gilt edge rule beside it), so a class that
+  reached the only box there used to be has to keep reaching the one that wears the card. Sent to
+  the shell alone it would be inert, and five money sections plus the archive would quietly grow
+  their frames back. Measured on the computed style, since both spellings look identical in markup.
+-->
+<Story
+  name="Flush, with no card around it"
+  args={{}}
+  play={async ({ canvas, step }) => {
+    const frame = canvas.getByRole("group", { name: "Time entries" });
+
+    await step("The card the surface asked to lose is gone", async () => {
+      const painted = globalThis.getComputedStyle(frame);
+      await expect(painted.borderTopWidth).toBe("0px");
+      await expect(painted.borderTopLeftRadius).toBe("0px");
+    });
+
+    await step("And it is still the scroll frame, holding its records", async () => {
+      await expect(frame.scrollHeight).toBeGreaterThan(0);
+      await expect(bodyRows(canvas.getByRole("table")).length).toBeGreaterThan(0);
+    });
+  }}
+>
+  {#snippet template()}
+    <LitigationGrid frameClass="max-h-96 rounded-none border-0" />
+  {/snippet}
+</Story>
+
+<!--
   Empty (unfiltered): distinct from filtered-empty — nothing exists yet, nothing is hidden.
 
   AND IT DOES NOT LIGHT UP UNDER THE POINTER. The placeholder sits inside the table so the frame

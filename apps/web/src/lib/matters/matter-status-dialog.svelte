@@ -86,10 +86,13 @@
   import { matterStatusPresentation } from "./matter-status.ts";
   import {
     matterCanClose,
+    matterCanOpen,
     matterCloseRefusals,
     matterCloseRequirements,
     matterLifecycleBlock,
     matterLifecycleStep,
+    matterOpenRefusals,
+    matterOpenRequirements,
     MATTER_LIFECYCLE_TRANSPORT_FAILURE,
     MATTER_PHYSICAL_FILE_FACTS,
     type MatterCloseRequirementState,
@@ -99,10 +102,12 @@
     closeMatter,
     openMatter,
     readMatterCloseReadiness,
+    readMatterOpenReadiness,
     readSession,
     reopenMatter,
     type MatterCloseNotice,
     type MatterCloseReadiness,
+    type MatterOpenReadiness,
   } from "./matters-api.ts";
   import type { ApiOutcome } from "$lib/api/request.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
@@ -145,6 +150,10 @@
   let readiness = $state<MatterCloseReadiness | null>(null);
   let readinessFailed = $state(false);
 
+  /** What the program says about opening: the intake steps outstanding. Null until it answers. */
+  let openReadiness = $state<MatterOpenReadiness | null>(null);
+  let openReadinessFailed = $state(false);
+
   /** Null until the session read comes back, either way; `settled` is what tells the two apart. */
   let permissions = $state<readonly string[] | null>(null);
   let sessionSettled = $state(false);
@@ -172,11 +181,17 @@
   const isSample = $derived(matter.source === "sample");
   const requirements = $derived(matterCloseRequirements(readiness, readinessFailed));
   const canClose = $derived(matterCanClose(readiness));
+  const openRequirements = $derived(matterOpenRequirements(openReadiness, openReadinessFailed));
+  const canOpen = $derived(matterCanOpen(openReadiness));
+  const intakeHref = $derived(`/matters/${encodeURIComponent(matter.id)}/intake`);
   const block = $derived(matterLifecycleBlock({ step, isSample, sessionSettled, permissions }));
   // A control does not offer a press whose refusal is already on the screen. An unanswered question
   // is NOT a refusal and never disables it: nothing has been predicted there, and the close is the
   // authority either way.
-  const refused = $derived(step.action === "close" && canClose === false);
+  const refused = $derived(
+    (step.action === "close" && canClose === false) ||
+      (step.action === "open" && canOpen === false),
+  );
 
   // Who is asking, read once and only when somebody actually opens the window. Every matter page in
   // the app would otherwise pay for a request that only this control uses. A sample matter is
@@ -201,6 +216,20 @@
       const outcome = await readMatterCloseReadiness(fetch, matterId);
       if (outcome.kind === "ok") readiness = outcome.value;
       else readinessFailed = true;
+    })();
+  });
+
+  // Whether the consultation can open, asked of the opening rules themselves — the firm's intake
+  // procedure. Only where opening is the step in front of the reader.
+  let openReadinessAsked = false;
+  $effect(() => {
+    if (!open || openReadinessAsked || isSample || step.action !== "open") return;
+    openReadinessAsked = true;
+    const matterId = matter.id;
+    void (async () => {
+      const outcome = await readMatterOpenReadiness(fetch, matterId);
+      if (outcome.kind === "ok") openReadiness = outcome.value;
+      else openReadinessFailed = true;
     })();
   });
 
@@ -236,13 +265,24 @@
     // accounts of what closing requires at once. Anything else is a failure, and it travels whole —
     // the Error ID and the remedy come with the record rather than being squeezed into a sentence.
     if (outcome.kind === "problem") {
-      const refused = matterCloseRefusals(outcome.problem);
-      if (refused.length > 0) {
+      const refusedOpen = matterOpenRefusals(outcome.problem);
+      if (refusedOpen.length > 0) {
+        openReadiness = {
+          matterId: matter.id,
+          status: matter.status,
+          openable: false,
+          blockers: [...refusedOpen],
+        };
+        openReadinessFailed = false;
+        return;
+      }
+      const refusedClose = matterCloseRefusals(outcome.problem);
+      if (refusedClose.length > 0) {
         readiness = {
           matterId: matter.id,
           status: matter.status,
           closable: false,
-          blockers: [...refused],
+          blockers: [...refusedClose],
         };
         readinessFailed = false;
         return;
@@ -477,6 +517,46 @@
               {/if}
             {/if}
           {/if}
+        </div>
+      {/if}
+
+      {#if step.action === "open" && !isSample}
+        <!-- What opening requires: the firm's own intake procedure, each required step that has no
+             satisfying answer, in the words of whoever should answer it. The rows are the refusals
+             themselves — there is no fixed roster to state as met, because what a consultation must
+             clear is the firm's to write and may be nothing at all. -->
+        <div class="flex flex-col gap-8">
+          <FieldLabel as="h3">Requirements To Open</FieldLabel>
+          {#if openReadiness === null && !openReadinessFailed}
+            <p class="text-xs text-text-subtle">Reading the intake procedure.</p>
+          {:else if openReadinessFailed}
+            <p class="text-xs text-text-subtle">
+              These could not be checked, so the open will check them.
+            </p>
+          {:else if openRequirements.length === 0}
+            <p class="flex items-center gap-8 text-sm text-text-muted">
+              <StatusMark decorative class="size-16" />
+              Every required intake step is answered.
+            </p>
+          {:else}
+            <ul class="flex flex-col gap-8 text-sm">
+              {#each openRequirements as requirement (requirement.key)}
+                <li class="flex items-start gap-8">
+                  <CircleAlert
+                    class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE.unmet}"
+                    aria-hidden="true"
+                  />
+                  <span class="text-text-default">{requirement.label}</span>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+          <a
+            href={intakeHref}
+            class="self-start text-xs underline underline-offset-2 hover:text-text-default"
+          >
+            Open the Intake section
+          </a>
         </div>
       {/if}
 

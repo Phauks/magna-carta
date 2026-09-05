@@ -43,6 +43,7 @@
     "@magna-carta/government-links": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/inference": "workspace:*",
+    "@magna-carta/intake": "workspace:*",
     "@magna-carta/integrations": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/locations": "workspace:*",

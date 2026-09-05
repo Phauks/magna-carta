@@ -559,6 +559,41 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "pseudonymize-keep",
     note: "who authored the plan; the reference is replaced at the member tombstone, never dropped",
   },
+  // The intake procedure, on the matter plan's line: a procedure's name and description describe
+  // what the firm requires before it acts on a kind of matter, not anybody it acts for. A member's
+  // record on a consultation is attributed activity on the matter_task line — who recorded the
+  // step, who set the record aside — and its two free-text columns are a member's own words about
+  // a client's intake, written to be read on the file and with no safe automated rewrite.
+  {
+    table: "intake_procedure",
+    subjectKey: "created_by",
+    action: "pseudonymize-keep",
+    note: "who authored the procedure; the reference is replaced at the member tombstone, never dropped",
+  },
+  {
+    table: "matter_intake_step_record",
+    subjectKey: "recorded_by",
+    action: "pseudonymize-keep",
+    note: "who answered the step; the answer itself is the fact the row exists to carry",
+  },
+  {
+    table: "matter_intake_step_record",
+    subjectKey: "superseded_by",
+    action: "pseudonymize-keep",
+    note: "who set the answer aside",
+  },
+  {
+    table: "matter_intake_step_record",
+    subjectKey: "note",
+    action: "report-manual",
+    note: "a word on what was done, free text a member typed about a consultation and routinely naming the client",
+  },
+  {
+    table: "matter_intake_step_record",
+    subjectKey: "rationale",
+    action: "report-manual",
+    note: "why the firm opened without the step; free text a member typed about a consultation",
+  },
   // The firm's own calendar scope. A firm event's participant table takes the same three keys as a
   // matter event's, for the same three shapes — but the retention basis differs: attendance at the
   // all-hands or a training session is the firm's operational record, not a matter's litigation
@@ -1113,6 +1148,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // against the matter's team at proposal time, never a member handle — which is the whole reason a
   // template names a role: one that named Sarah would be wrong the moment Sarah's matters moved.
   "matter_plan_task_template",
+  // A procedure's steps, on the plan step's line: a step is written once and asked on every
+  // consultation of its kind, so one that named a client would be wrong on every matter but one.
+  // `reference_id` names a document template or a custom field definition, never a person.
+  "intake_procedure_step",
   // The three structured attribute tables that describe an OBJECT and reference no person: a vehicle's
   // make, model, identification number, and plate; a firearm's make, model, calibre, and serial; a
   // digital asset's platform, its public handle, and who holds it. Every identifier on them is public
