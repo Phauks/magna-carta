@@ -32,7 +32,9 @@
   import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { DIRECTORY_EDIT_PERMISSION } from "$lib/directory/directory-api.ts";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
-  import { entityRecordHref, UNNAMED_ENTITY } from "$lib/directory/entity-presentation.ts";
+  import { UNNAMED_ENTITY } from "$lib/directory/entity-presentation.ts";
+  import EntityWindow from "$lib/directory/entity-window.svelte";
+  import { standingOnMatter } from "$lib/matters/party-standing.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
@@ -134,7 +136,9 @@
    * The tab's shape from the matter's. The association keeps its own id apart from the entity's, so
    * a person on the matter twice is two rows that end on their own. An entity the directory no longer
    * resolves is handed over with no kind, so the mark says so rather than guessing a glyph, and is
-   * named by the one wording the product uses for a record with nothing readable on it.
+   * named by the one wording the product uses for a record with nothing readable on it. A row
+   * carries no address: a party opens in the entity window over this tab, so the matter stays where
+   * it was and its own way back stays true.
    */
   const recordParties = $derived<readonly RecordParty[]>(
     (parties ?? []).map((party) => {
@@ -143,7 +147,6 @@
         entityIdentifier: party.entityId,
         name: party.displayName ?? UNNAMED_ENTITY,
         kind: party.entityKind === "unknown" ? null : party.entityKind,
-        href: entityRecordHref(party.entityId),
         role: party.role,
         roleLabel: roleLabel(party.role),
       };
@@ -151,6 +154,20 @@
       return row;
     }),
   );
+
+  // ---- the open party --------------------------------------------------------------------------
+
+  let entityOpen = $state(false);
+  let openEntityId = $state("");
+  // What this matter knows about the open party and the directory does not: its roles here.
+  const standing = $derived(
+    openEntityId === "" ? null : standingOnMatter(matter.title, parties ?? [], openEntityId),
+  );
+
+  function openParty(party: RecordParty): void {
+    openEntityId = party.entityIdentifier;
+    entityOpen = true;
+  }
 
   const search = directoryPickerSearch(fetch);
 
@@ -233,6 +250,16 @@
       onRetry={() => (reloadToken += 1)}
       onLink={(request) => void link(request)}
       onUnlink={(party) => void unlink(party)}
+      onOpen={openParty}
     />
   {/if}
 </section>
+
+<!-- A party's record, over this tab rather than in the directory's place. A name changed in the
+     window is read back into the list. -->
+<EntityWindow
+  bind:open={entityOpen}
+  bind:entityId={openEntityId}
+  {standing}
+  onChanged={() => (reloadToken += 1)}
+/>

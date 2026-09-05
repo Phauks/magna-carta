@@ -103,7 +103,24 @@ export function entityDetailIdentifier(entity: DirectoryEntityDetail): string {
   return entity.kind === "person" ? entity.person.id : entity.organization.id;
 }
 
-/** Where an entity's record lives. One address, so nothing links to it two ways. */
+/** The query parameter the directory reads to know which record's window to open. */
+export const RECORD_PARAMETER = "record";
+
+/**
+ * Where an entity's record lives. One address, so nothing links to it two ways.
+ *
+ * A record has no screen of its own: it opens in the entity window over whatever the reader was
+ * doing, and from the directory's list that window is what the address names. So the address is
+ * the directory's, carrying which record to open — a link pasted into a message still lands on the
+ * record, and the way back from the directory is still the directory's own.
+ */
 export function entityRecordHref(entityId: string): string {
-  return `/directory/${encodeURIComponent(entityId)}`;
+  return `/directory?${RECORD_PARAMETER}=${encodeURIComponent(entityId)}`;
+}
+
+/** The record an address names, or null where it names none. */
+export function entityRecordFromAddress(url: URL): string | null {
+  const identifier = url.searchParams.get(RECORD_PARAMETER);
+  if (identifier === null || identifier.trim() === "") return null;
+  return identifier;
 }

@@ -917,19 +917,19 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Directory</span>
 <code>directory</code>
 <p>Single source of truth for every person and organization, modeled as a graph of entities and typed edges.</p>
-<p class="note">Backend complete; the list, the record screen and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md).</p>
+<p class="note">Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md).</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Person and Organization entities</span>
 <code>directory.entities</code>
 <p>Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role.</p>
-<p class="note">Backend shipped; the record screen is built. The organization stays thin by the owner's ruling.</p>
+<p class="note">Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Entity categories</span>
 <code>directory.entities.categories</code>
 <p>Per-firm classification labels (attorney, judge, court, expert, vendor, client) that are not schema variants.</p>
-<p class="note">Backend shipped; assignment and creation are on the record screen. Archiving a category has no route yet.</p>
+<p class="note">Backend shipped; assignment and creation are on the record's window. Archiving a category has no route yet.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Category-specific custom fields</span>

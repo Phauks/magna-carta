@@ -9,7 +9,8 @@ and a conflicts check can see who is on what.
 
 Open a matter and choose **Parties**. Each row shows the person or organization, the role they hold
 on this matter, and the capacity they act in where one was recorded ("Administrator", "Trustee").
-The name opens their Directory record.
+The name opens their Directory record in a window over the list, with their roles on this matter
+shown beside it; closing it leaves you on the matter where you were.
 
 One person can hold more than one role on the same matter. An executor who is also a beneficiary is
 two rows, and each is removed on its own.

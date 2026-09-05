@@ -51,7 +51,9 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import UserPlus from "@lucide/svelte/icons/user-plus";
-  import { goto } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
+  import { page } from "$app/state";
+  import { untrack } from "svelte";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -75,10 +77,13 @@
     type DirectoryListingKind,
   } from "$lib/directory/directory-listing.ts";
   import {
+    entityRecordFromAddress,
     entityRecordHref,
     searchHitKindLabel,
+    RECORD_PARAMETER,
   } from "$lib/directory/entity-presentation.ts";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
+  import EntityWindow from "$lib/directory/entity-window.svelte";
   import NewOrganizationDialog from "$lib/directory/new-organization-dialog.svelte";
   import NewPersonDialog from "$lib/directory/new-person-dialog.svelte";
 
@@ -249,6 +254,50 @@
     };
   });
 
+  // ---- the open record -------------------------------------------------------------------------
+
+  /*
+   * THE ADDRESS SAYS WHICH RECORD IS OPEN. A record has no screen of its own; it opens in the entity
+   * window over this list, and `/directory?record=<id>` is its address (entity-presentation.ts).
+   * So the names in the table stay real links, a row's activation is a navigation to that address,
+   * and a link pasted into a message lands on the record with the book beneath it. The window
+   * follows the address rather than the other way round: opening one is a navigation, so the
+   * reader's history holds the list, then the record. A record opened from INSIDE the window (a
+   * duplicate, a related organization) swaps the window's subject, and that swap is mirrored back
+   * into the address in place, so the address never lies about what is on screen.
+   */
+  let recordOpen = $state(false);
+  let recordId = $state("");
+
+  $effect(() => {
+    const addressed = entityRecordFromAddress(page.url);
+    untrack(() => {
+      if (addressed === null) {
+        recordOpen = false;
+        return;
+      }
+      if (recordId !== addressed) recordId = addressed;
+      recordOpen = true;
+    });
+  });
+
+  /** Put a record's identity into the address in place, or take it out. */
+  function mirrorRecord(identifier: string | null): void {
+    const url = new URL(page.url);
+    if (identifier === null) url.searchParams.delete(RECORD_PARAMETER);
+    else url.searchParams.set(RECORD_PARAMETER, identifier);
+    if (url.href === page.url.href) return;
+    replaceState(url, page.state);
+  }
+
+  // The window's subject changed from inside it; the address follows.
+  $effect(() => {
+    const identifier = recordId;
+    untrack(() => {
+      if (recordOpen && identifier !== "") mirrorRecord(identifier);
+    });
+  });
+
   // ---- adding a record -------------------------------------------------------------------------
 
   let dialogOpen = $state(false);
@@ -257,6 +306,12 @@
   function openNew(kindToAdd: DirectoryEntityKind): void {
     dialogKind = kindToAdd;
     dialogOpen = true;
+  }
+
+  /** A record was made: the index is read again so it is listed, and its window opens over it. */
+  function created(entityId: string): void {
+    rereadIndex();
+    void goto(entityRecordHref(entityId));
   }
 </script>
 
@@ -498,7 +553,17 @@
 <!-- A person is recorded whole, every section reachable, on the side rail; an organization keeps
      the one-section form until its record grows the same sections. -->
 {#if dialogKind === "person"}
-  <NewPersonDialog bind:open={dialogOpen} onCreated={(entityId) => void goto(entityRecordHref(entityId))} />
+  <NewPersonDialog bind:open={dialogOpen} onCreated={created} />
 {:else}
-  <NewOrganizationDialog bind:open={dialogOpen} onCreated={(entityId) => void goto(entityRecordHref(entityId))} />
+  <NewOrganizationDialog bind:open={dialogOpen} onCreated={created} />
 {/if}
+
+<!-- The one surface a record opens in, over the book it belongs to. Closing it takes the record
+     out of the address; a change to the record re-reads the index, so a renamed person is listed
+     under the new name while the window is still up. -->
+<EntityWindow
+  bind:open={recordOpen}
+  bind:entityId={recordId}
+  onChanged={rereadIndex}
+  onDismiss={() => mirrorRecord(null)}
+/>
