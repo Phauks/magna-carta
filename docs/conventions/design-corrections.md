@@ -620,6 +620,18 @@ surface, which is most of the product.
   of something; at full size there is nothing underneath, and the curve reads as four notches of
   desktop showing through the corners of the application. Fixed on the shared modal frame, so any
   shell that grows an expand gesture inherits it. _(Time record window, 2026-09-03)_
+- **A windowed modal never touches the edge of the screen.** On a laptop a long record ran from the
+  top edge of the screen to the bottom edge with its rounded corners cut off against them, and at a
+  laptop's width the record-width panels touched both sides too; the owner read it as the modal
+  taking the screen. A panel is a thing lying over the application, and it keeps a gutter of screen
+  around it on every side (`size.modal-gutter`, 32px) that its width cap and its content are measured
+  inside: a panel that fits opens at its own height with air around it, and one that does not caps
+  at the screen less the gutter and scrolls inside. The gutter is a fixed length rather than a share
+  of the screen, because a share swells on a large monitor, where the width caps already leave room,
+  and shrinks on a small one, where the air is needed most. Expanding is the one exception, by
+  design: filling the screen is that gesture. Every dialog, alert dialog, action dialog and record
+  window inherits it from the shared modal stage; edge sheets are drawers and stay on their edge.
+  _(the modal shells on a laptop, 2026-09-03)_
 - **A totals strip sits on the bottom edge of its frame, not under the last row.** A ledger fills
   the height it is given, so the ordinary case is a table with room beneath it; totals that come to
   rest halfway up the screen with a band of empty surface below them read as a table that failed to

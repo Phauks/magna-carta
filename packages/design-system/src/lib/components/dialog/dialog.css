@@ -1,11 +1,11 @@
 @layer components {
   /*
    * Dialog (Tier 3 exemplar, Bits UI). A centered modal panel over a scrim. The z-layers and the
-   * presence (the scrim fades; the panel scale-fades) come from the floating module; only the look
-   * lives here. The panel is centered WITHOUT a centering transform — `position: fixed; inset: 0;
-   * margin: auto` with a fit-content block size — so the scale-fade presence (a Tailwind `scale-*`
-   * transform) has nothing to fight; a translate-based centre would be clobbered by that transform.
-   * Width and max-height are layout, set by utilities on the wrapper, not here. The panel is a flex
+   * presence (the scrim fades; the panel scale-fades) come from the floating module; WHERE the
+   * panel sits — centred in the modal stage inside the screen's gutter, capped there, never by a
+   * centering transform the scale-fade would fight — is the stage recipe's (`mc-modal-stage` and
+   * `mc-modal-panel` in styles/recipes/modal-stage.css), and the panel's width is a utility on the
+   * wrapper. Only the LOOK lives here: the panel is a flex
    * column (title, description, body, footer) with the elevation reserved for floating layers. The
    * built-in corner dismiss is a quiet icon button (mc-dialog-close); the Trigger and the reusable
    * Close part carry NO recipe — they are caller-styled buttons (typically the mc-button recipes),
@@ -17,10 +17,6 @@
     background-color: var(--mc-surface-scrim);
   }
   .mc-dialog-content {
-    position: fixed;
-    inset: var(--mc-space-0);
-    margin: auto;
-    block-size: fit-content;
     overflow-y: auto;
     display: flex;
     flex-direction: column;

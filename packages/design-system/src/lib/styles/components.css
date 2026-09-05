@@ -53,6 +53,9 @@
 @import "../components/accordion/accordion.css";
 @import "../components/tooltip/tooltip.css";
 @import "./recipes/presence.css";
+/* The stage both modal panels are centred in (and kept off the screen's edges by). Its own rules
+   touch nothing of the panels', so it only has to be in the cascade before them. */
+@import "./recipes/modal-stage.css";
 @import "../components/dialog/dialog.css";
 @import "../components/alert-dialog/alert-dialog.css";
 /* The modal frame dresses BOTH the Dialog and the AlertDialog panels (padding, gap, overflow, and the
