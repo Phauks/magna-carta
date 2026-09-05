@@ -68,6 +68,10 @@
       "home": "apps/web/src/lib/calendar"
     },
     {
+      "name": "MoneySurface",
+      "home": "apps/web/src/lib/money"
+    },
+    {
       "name": "EntityIdentity",
       "home": "packages/design-system/src/lib/components/entity-identity"
     },

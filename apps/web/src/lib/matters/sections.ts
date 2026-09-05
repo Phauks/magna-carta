@@ -194,14 +194,15 @@ export const matterSections: readonly MatterSection[] = [
     slug: "trust",
     timelineSources: ["trustMovement"],
     label: "Trust",
-    stage: "soon",
+    stage: "alpha",
     description:
       "The matter's trust ledger — client funds held, disbursed, and reconciled under the " +
       "governing jurisdiction's rules. Fees never touch trust until earned.",
     searchSource: null,
-    searchWaitingOn: "The Trust section itself is not built yet",
-    createNoun: null,
-    createWaitingOn: "The Trust section itself is not built yet",
+    searchWaitingOn:
+      "A matter-wide trust source is not wired yet; the ledger itself waits on a read of the " +
+      "firm's trust accounts",
+    createNoun: "Deposit",
   },
   {
     slug: "notes",

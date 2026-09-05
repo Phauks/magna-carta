@@ -244,7 +244,7 @@
   audience: public
   public-summary: Hold client money in trust with a balance per client that cannot go negative, and the rules of your jurisdiction enforced rather than described.
   awaiting-owner: Three controls are analysed and deliberately not built. Whether one person may relax the two-person release control and then act alone; whether matter-to-matter reallocations, which move no money out of trust, stay outside the authorization policy; and whether to close the structuring gap where two at-threshold requests pass where one larger request would not.
-  notes: Backend only - no trust screen exists, and nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
+  notes: The matter's Trust section renders the ledger surface (apps/web/src/lib/trust) built whole against the movement record, empty until a route lists the firm's trust accounts; nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code.
 
 - id: financial.trust.client-ledgers
   name: Per-client trust ledgers, no negative balance
