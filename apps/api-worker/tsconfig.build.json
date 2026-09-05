@@ -99,6 +99,9 @@
       "path": "../../packages/inference/tsconfig.build.json"
     },
     {
+      "path": "../../packages/intake/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/integrations/tsconfig.build.json"
     },
     {

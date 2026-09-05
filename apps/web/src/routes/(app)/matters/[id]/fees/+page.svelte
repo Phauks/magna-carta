@@ -6,7 +6,9 @@
    * the same way a cost does: a draft invoice claims it. Bills themselves live in Billing.
    *
    * The arrangement read rides the same billing state the Billing section reads, so the two
-   * sections cannot disagree about what the matter's fee agreement says.
+   * sections cannot disagree about what the matter's fee agreement says. The ledger renders inside
+   * the money surface, which takes the rest of the screen and keeps it; the page's part is the
+   * read and the state set.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import { readSession } from "$lib/matters/matters-api.ts";
@@ -14,7 +16,6 @@
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import FeeLedger from "$lib/billing/fee-ledger.svelte";
-  import FullHeightSection from "$lib/components/full-height-section.svelte";
   import { MatterBilling } from "$lib/billing/matter-billing.svelte.ts";
   import type { FeeRecord } from "$lib/billing/fee-record.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -113,16 +114,14 @@
     </Alert.Root>
   </section>
 {:else}
-  <FullHeightSection>
-    <FeeLedger
-      bind:this={ledger}
-      {fees}
-      loading={rows === null}
-      matterId={matter.id}
-      matterTitle={matter.title}
-      matterNumber={matter.matterNumber}
-      {currency}
-      {permissions}
-    />
-  </FullHeightSection>
+  <FeeLedger
+    bind:this={ledger}
+    {fees}
+    loading={rows === null}
+    matterId={matter.id}
+    matterTitle={matter.title}
+    matterNumber={matter.matterNumber}
+    {currency}
+    {permissions}
+  />
 {/if}

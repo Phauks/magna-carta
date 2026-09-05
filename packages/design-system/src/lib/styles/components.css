@@ -53,6 +53,9 @@
 @import "../components/accordion/accordion.css";
 @import "../components/tooltip/tooltip.css";
 @import "./recipes/presence.css";
+/* The stage both modal panels are centred in (and kept off the screen's edges by). Its own rules
+   touch nothing of the panels', so it only has to be in the cascade before them. */
+@import "./recipes/modal-stage.css";
 @import "../components/dialog/dialog.css";
 @import "../components/alert-dialog/alert-dialog.css";
 /* The modal frame dresses BOTH the Dialog and the AlertDialog panels (padding, gap, overflow, and the
@@ -71,6 +74,10 @@
 @import "../components/date-picker/date-picker.css";
 @import "../components/date-range-picker/date-range-picker.css";
 @import "./recipes/scrollbar.css";
+/* The gilt scroll-edge rule, beside the scrollbar recipe because the two answer the same
+   question: the scrollbar where a surface shows one, this where it does not or cannot.
+   Both the sidebar and the table grid draw it, so it precedes their recipes. */
+@import "../components/scroll-edge-hint/scroll-edge-hint.css";
 @import "../components/form/form.css";
 @import "../components/labelled-field/labelled-field.css";
 @import "../components/data-table/data-table.css";

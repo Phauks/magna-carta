@@ -5,28 +5,35 @@
    * followed by a default top-right Close button (the Lucide X, deep-imported) when showClose is set
    * (the default).
    *
-   * Centering vs. presence — the one subtlety. Bits' Dialog.Content is fixed/centered, NOT
+   * Where the panel sits is not this file's: it renders inside ModalStage (internal/modal-stage.svelte)
+   * and carries `mc-modal-panel`, and the stage recipe (styles/recipes/modal-stage.css) centres it
+   * in the screen less its gutter and caps it there — by flex, never by a centering transform,
+   * which matters because the presence here is PRESENCE_SCALE_FADE, a Tailwind `scale-*` transform
+   * that would overwrite a `translate(-50%, -50%)` and send the panel to a corner mid-animation.
+   * The one choice a caller has about placement is the `placement` prop (internal/modal-placement.ts):
+   * `centered` (the default) or `anchored`, for a panel that positions itself against the viewport
+   * with its own insets, as the command palette does on its trigger. The panel's width is layout,
+   * so it rides utilities on the wrapper (like Tabs' `max-w-md`), not the token-only recipe; its
+   * height needs no utility, because the stage is the cap. Bits' Dialog.Content is NOT
    * Floating-UI-anchored, so the two-level wrapper rule does NOT apply: classes go straight on the
-   * Content element. The centering itself is done in the CSS recipe with `position: fixed;
-   * inset: 0; margin: auto; <fit-content size>` — i.e. NO centering transform. That matters because
-   * the presence here is PRESENCE_SCALE_FADE, whose animation is opacity + Tailwind `scale-*` only
-   * (no translate). A transform-based centre (`translate(-50%, -50%)`) would be overwritten by that
-   * `scale-*` transform and the panel would jump to a corner mid-animation; with inset/margin
-   * centering there is no transform to fight, so the scale-fade composes cleanly and the panel
-   * stays centered throughout. The panel's width/max-height are layout, so they ride utilities on
-   * the wrapper (like Tabs' `max-w-md`), not the token-only recipe.
+   * Content element.
    */
   import { Dialog as DialogPrimitive } from "bits-ui";
   import X from "@lucide/svelte/icons/x";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import {
-    Z_LAYER_CLASSES,
     PRESENCE_FADE,
     PRESENCE_NONE,
     PRESENCE_SCALE_FADE,
     type PresenceClass,
   } from "../../internal/floating.ts";
   import type { WithoutChild } from "../../internal/types.ts";
+  import {
+    DEFAULT_MODAL_PLACEMENT,
+    MODAL_PLACEMENT_ATTRIBUTE,
+    type ModalPlacement,
+  } from "../../internal/modal-placement.ts";
+  import ModalStage from "../../internal/modal-stage.svelte";
   import DialogOverlay from "./dialog-overlay.svelte";
 
   let {
@@ -41,12 +48,17 @@
     // not read as growing from center picks fade, settle-fade, or none. Destructured out so it
     // does NOT spread onto Bits' Content.
     presence = PRESENCE_SCALE_FADE,
+    // Where the panel sits: centred in the stage, or anchored against the viewport by its own
+    // insets. Destructured out so it does NOT spread onto Bits' Content; it lands as an attribute
+    // the stage recipe matches and a reader of the DOM can see.
+    placement = DEFAULT_MODAL_PLACEMENT,
     class: className,
     children,
     ...restProps
   }: WithoutChild<DialogPrimitive.ContentProps> & {
     showClose?: boolean;
     presence?: PresenceClass;
+    placement?: ModalPlacement;
   } = $props();
 
   // An instant panel needs an instant scrim: the overlay fading in beneath a panel that is
@@ -57,21 +69,19 @@
 
 <DialogPrimitive.Portal>
   <DialogOverlay presence={overlayPresence} />
-  <DialogPrimitive.Content
-    bind:ref
-    class={mergeClasses(
-      Z_LAYER_CLASSES.modal,
-      presence,
-      "mc-dialog-content max-h-screen w-full max-w-lg",
-      className,
-    )}
-    {...restProps}
-  >
-    {@render children?.()}
-    {#if showClose}
-      <DialogPrimitive.Close class="mc-dialog-close" aria-label="Close">
-        <X class="mc-dialog-close-icon" aria-hidden="true" />
-      </DialogPrimitive.Close>
-    {/if}
-  </DialogPrimitive.Content>
+  <ModalStage>
+    <DialogPrimitive.Content
+      bind:ref
+      class={mergeClasses(presence, "mc-modal-panel mc-dialog-content w-full max-w-lg", className)}
+      {...{ [MODAL_PLACEMENT_ATTRIBUTE]: placement }}
+      {...restProps}
+    >
+      {@render children?.()}
+      {#if showClose}
+        <DialogPrimitive.Close class="mc-dialog-close" aria-label="Close">
+          <X class="mc-dialog-close-icon" aria-hidden="true" />
+        </DialogPrimitive.Close>
+      {/if}
+    </DialogPrimitive.Content>
+  </ModalStage>
 </DialogPrimitive.Portal>

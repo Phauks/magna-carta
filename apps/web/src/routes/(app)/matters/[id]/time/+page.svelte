@@ -19,7 +19,6 @@
   import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
-  import FullHeightSection from "$lib/components/full-height-section.svelte";
   import TimeLedger from "$lib/time/time-ledger.svelte";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
 
@@ -83,6 +82,21 @@
   <title>Time · {matter.title} · Magna Carta</title>
 </svelte:head>
 
+<!-- The next page is asked for on the surface's line directly above the counts strip, and the
+     line exists only while there is a next page: the surface draws the band whenever it is
+     handed the snippet, so the page hands it over only then. -->
+{#snippet beneath()}
+  <div class="flex flex-col items-start gap-8">
+    <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
+      {list.loadingMore ? "Loading" : "Load more time"}
+    </Button>
+    <p class="text-xs text-text-muted">
+      Showing the {(entries ?? []).length} most recent. The figures below cover only what is
+      loaded, so they are not the matter's whole time record until every page is read.
+    </p>
+  </div>
+{/snippet}
+
 {#if loadFailure !== null}
   <section class="flex flex-col gap-16">
     <Alert.Root variant="danger">
@@ -105,30 +119,20 @@
     </Alert.Root>
   </section>
 {:else}
-  <!-- The ledger takes the rest of the screen and keeps it: the table scrolls inside itself and
-       the counts footer stays on the bottom, so the page does not grow taller as entries arrive. -->
-  <FullHeightSection>
-    <TimeLedger
-      bind:this={ledger}
-      entries={entries ?? []}
-      loading={entries === null}
-      matterId={matter.id}
-      matterTitle={matter.title}
-      members={roster.members ?? []}
-      {sessionUserId}
-      openEntryId={entryFromUrl()}
-      onChanged={() => (reloadToken += 1)}
-    />
-    {#if list.nextCursor !== null}
-      <div class="flex flex-none flex-col items-start gap-8 pt-12 pb-24">
-        <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
-          {list.loadingMore ? "Loading" : "Load more time"}
-        </Button>
-        <p class="text-xs text-text-muted">
-          Showing the {(entries ?? []).length} most recent. The figures above cover only what is loaded,
-          so they are not the matter's whole time record until every page is read.
-        </p>
-      </div>
-    {/if}
-  </FullHeightSection>
+  <!-- The ledger renders inside the money surface, which takes the rest of the screen and runs it
+       to the edges: the table scrolls inside itself and the counts strip stays on the bottom, so
+       the page does not grow taller as entries arrive. Load more sits on the surface's line
+       directly above that strip, so the next page is asked for where the count is read. -->
+  <TimeLedger
+    bind:this={ledger}
+    entries={entries ?? []}
+    loading={entries === null}
+    matterId={matter.id}
+    matterTitle={matter.title}
+    members={roster.members ?? []}
+    {sessionUserId}
+    openEntryId={entryFromUrl()}
+    onChanged={() => (reloadToken += 1)}
+    beneath={list.nextCursor !== null ? beneath : undefined}
+  />
 {/if}

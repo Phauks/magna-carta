@@ -8,9 +8,11 @@
    * else. Every dialog on this surface is a decision about money and opens over the list rather than
    * navigating away from it.
    *
-   * ONE TABLE. Sorting, the in-header filters, show/hide, drag-reorder, pinning, resize, selection,
-   * the totals row, the filtered-empty state and the counts strip are the product's one grid; this
-   * file declares columns and renders cells and decides none of that behaviour.
+   * ONE TABLE, ONE FRAME. Sorting, the in-header filters, show/hide, drag-reorder, pinning, resize,
+   * selection, the totals row and the filtered-empty state are the product's one grid. The frame
+   * around it, the acts row, the counts strip and the pane toggle are the money surface's
+   * (apps/web/src/lib/money/), the same on every money section. This file declares columns, cells,
+   * figures and verbs, and the panel beside the list; it decides none of that behaviour.
    *
    * THE REGISTER IS CLIENT-WIDE AND THE FIGURES ARE MATTER-WIDE, DELIBERATELY. An invoice belongs to
    * one client and may bill several of that client's matters, and there is no per-matter listing to
@@ -18,19 +20,18 @@
    * of each. Presenting a client-wide list as though it were the matter's own would misstate every
    * total on the screen.
    */
+  import type { Snippet } from "svelte";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import * as DetailsPanel from "$lib/details-panel/index.ts";
   import FileMinus from "@lucide/svelte/icons/file-minus";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import { LedgerPanes, RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
+  import { MoneySurface, type MoneySurfaceDensity } from "$lib/money/index.ts";
+  import { RecordMenu, type RecordMenuAction } from "$lib/records/index.ts";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import type { CostSummary } from "$lib/matters/cost-api.ts";
@@ -92,6 +93,7 @@
     clientCredits,
     permissions,
     onChanged,
+    beneath = undefined,
   }: {
     /** Every bill of this matter's client, with whatever of each one's detail has been read. */
     rows: readonly InvoiceRow[];
@@ -109,6 +111,8 @@
     permissions: readonly string[] | null;
     /** Something was written; the matter's billing wants re-reading. */
     onChanged: () => void;
+    /** Rendered by the surface directly above the counts strip: the page's "more bills" line. */
+    beneath?: Snippet;
   } = $props();
 
   const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
@@ -219,6 +223,14 @@
   });
 
   const aDraftIsOpen = $derived(rows.some((row) => row.summary.status === "draft"));
+
+  /*
+   * A bill belongs to a client, so a matter whose party record names none is warned before
+   * anything else on the surface; the warning waits for the read, because "not read yet" and
+   * "names nobody" are different facts. The surface draws the notices band only when this is true.
+   */
+  const clientUnnamed = $derived(clientEntityId === null && !loading);
+  const hasNotices = $derived(clientUnnamed || actionFailure !== null || actionNotice !== null);
 
   /*
    * What the row menu speaks for. Right-clicking inside the selection speaks for it; right-clicking
@@ -432,7 +444,8 @@
   </EmptyState>
 {/snippet}
 
-{#snippet footerEnd()}
+<!-- The counts strip's trailing figures. The surface seats the pane toggle after them. -->
+{#snippet figuresStrip()}
   {#if grid.isFiltered}
     <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
   {/if}
@@ -443,92 +456,93 @@
       <span class="text-text-subtle">{figure.label}</span>
     </span>
   {/each}
-  <!-- The toggle ends the strip, after the figures: the last thing on the line, on every surface
-       in the product that has a panel. -->
-  <DetailsPanel.Toggle
-    open={panelOpen}
-    onToggle={(open) => panelPreference.set(open ? "open" : "closed")}
+{/snippet}
+
+<!-- The notices band: the missing client first, because it governs every act below it, then the
+     last act's failure or its confirmation. Passed to the surface only while one of them is on. -->
+{#snippet notices()}
+  <div class="flex flex-col gap-12">
+    {#if clientUnnamed}
+      <Alert.Root variant="warning">
+        <Alert.Title>This Matter Names No Client</Alert.Title>
+        <Alert.Description>
+          A bill belongs to a client, and this matter's party record does not name one yet. The
+          agreement can still be recorded; nothing can be billed until a party wearing the client
+          role is linked on the Parties tab.
+        </Alert.Description>
+      </Alert.Root>
+    {/if}
+
+    {#if actionFailure !== null}
+      <FailureNotice
+        failure={actionFailure.failure}
+        title="Nothing Changed"
+        fallback={actionFailure.fallback}
+      />
+    {:else if actionNotice !== null}
+      <Alert.Root variant="info">
+        <Alert.Title>Recorded</Alert.Title>
+        <Alert.Description>{actionNotice}</Alert.Description>
+      </Alert.Root>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet list({ density, tableClass }: { density: MoneySurfaceDensity; tableClass: string })}
+  <RecordMenu
+    class="flex min-h-0 flex-1 flex-col"
+    {menu}
+    onAction={runAction}
+    onChoice={() => undefined}
+  >
+    <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+         product uses everywhere is still the thing that opens. -->
+    <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+      <DataTable.Grid
+        {grid}
+        {cell}
+        class={tableClass}
+        {density}
+        caption="Bills this matter's client has been given"
+        empty={emptyRegister}
+        {loading}
+      />
+    </div>
+  </RecordMenu>
+{/snippet}
+
+{#snippet panel()}
+  <BillDetailsPanel
+    row={openRow ?? soleRow}
+    selectedCount={selectedRows.length}
+    {matterId}
+    {clientName}
+    {today}
+    {figures}
+    {money}
+    onOpenInvoice={openInvoice}
+    onLetGo={() => grid.clearSelection()}
   />
 {/snippet}
 
-<section class="flex min-h-0 flex-1 flex-col gap-12">
-  <!-- The row above the table exists ONLY when something has to be in it. The pane toggle rides the
-       counts strip beneath the table, so what is left is the way out of a filter — which is there
-       only while a filter is on. Unfiltered, the register starts at the top of the screen. -->
-  {#if grid.isFiltered}
-    <div class="flex flex-wrap items-center justify-end gap-8">
-      <Button
-        variant="secondary"
-        size="sm"
-        title="Clear all filters and show all {grid.totalRowCount} bills"
-        onclick={() => grid.clearAllFilters()}
-      >
-        <FunnelX class="size-16" aria-hidden="true" />
-        Clear Filters
-      </Button>
-    </div>
-  {/if}
-
-  {#if actionFailure !== null}
-    <FailureNotice
-      failure={actionFailure.failure}
-      title="Nothing Changed"
-      fallback={actionFailure.fallback}
-    />
-  {:else if actionNotice !== null}
-    <Alert.Root variant="info">
-      <Alert.Title>Recorded</Alert.Title>
-      <Alert.Description>{actionNotice}</Alert.Description>
-    </Alert.Root>
-  {/if}
-
-  <!-- An invoice's details are a bigger read than a time entry's, so this one pane opens wider —
-       a number handed to the shared frame, never a frame of its own. -->
-  <LedgerPanes
-    autoSaveId="matter-billing-panes"
-    {panelOpen}
-    panelSize={34}
-    panelMinSize={22}
-    panelMaxSize={50}
-  >
-    {#snippet list()}
-      <RecordMenu
-        class="flex min-h-0 flex-1 flex-col"
-        {menu}
-        onAction={runAction}
-        onChoice={() => undefined}
-      >
-        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-             product uses everywhere is still the thing that opens. -->
-        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
-          <DataTable.Grid
-            {grid}
-            {cell}
-            class="min-h-0 flex-1"
-            caption="Bills this matter's client has been given"
-            empty={emptyRegister}
-            {loading}
-          />
-        </div>
-      </RecordMenu>
-    {/snippet}
-    {#snippet panel()}
-      <BillDetailsPanel
-        row={openRow ?? soleRow}
-        selectedCount={selectedRows.length}
-        {matterId}
-        {clientName}
-        {today}
-        {figures}
-        {money}
-        onOpenInvoice={openInvoice}
-        onLetGo={() => grid.clearSelection()}
-      />
-    {/snippet}
-  </LedgerPanes>
-
-  <DataTable.GridFooter {grid} end={footerEnd} />
-</section>
+<!-- An invoice's details are a bigger read than a time entry's, so this one pane opens wider:
+     a number handed to the shared surface, never a frame of its own. -->
+<MoneySurface
+  {matterId}
+  section="billing"
+  {grid}
+  autoSaveId="matter-billing-panes"
+  panelSize={34}
+  panelMinSize={22}
+  panelMaxSize={50}
+  {panelOpen}
+  onTogglePanel={(open) => panelPreference.set(open ? "open" : "closed")}
+  notices={hasNotices ? notices : undefined}
+  {list}
+  {panel}
+  figures={figuresStrip}
+  {beneath}
+/>
 
 {#if clientEntityId !== null}
   <DraftBillDialog
