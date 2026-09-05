@@ -101,6 +101,7 @@
     "storybook-build": "storybook build",
     "visual-regression": "playwright test --config visual-regression/playwright.config.ts",
     "visual-regression-update": "playwright test --config visual-regression/playwright.config.ts --update-snapshots",
+    "modal-geometry": "playwright test --config modal-geometry/playwright.config.ts",
     "csp-spike": "vite build --config test/csp-spike/vite.config.mjs && node test/csp-spike/run-csp-spike.mjs"
   },
   "dependencies": {

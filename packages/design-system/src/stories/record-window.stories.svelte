@@ -526,7 +526,8 @@
     await step("A record that cannot fit caps at the screen less its gutter", async () => {
       // The stage the panel is centred in is the viewport pulled in by size.modal-gutter on every
       // side; a panel taller than that box shrinks to it, and never to the screen's own edges.
-      const gutter = Number.parseFloat(getComputedStyle(dialog.parentElement!).insetBlockStart);
+      const stage = dialog.closest<HTMLElement>("[data-modal-stage]")!;
+      const gutter = Number.parseFloat(getComputedStyle(stage).insetBlockStart);
       await expect(gutter).toBeGreaterThan(0);
       const panel = boxOf(dialog);
       await expect(Math.abs(panel.height - (window.innerHeight - gutter * 2))).toBeLessThanOrEqual(1);

@@ -54,10 +54,11 @@
   // surfaces as a disabled "— soon" row, exactly as an announced destination does.
   const tools = toolDestinations();
 
-  // The panel leaves the dialog's stage with the `fixed` utility (below) and centres itself the
-  // way the recipe once did, `inset: 0; margin: auto`; starting the inset past the rail centers
-  // the palette over the WORK CANVAS, not the screen (owner review 2026-07-02). This is the
-  // FALLBACK position, used only when the top-bar trigger cannot be measured.
+  // An anchored panel (placement="anchored", below) positions itself against the viewport with
+  // its own insets; centring it the way a centred panel is, `inset: 0; margin: auto`, and starting
+  // the inset past the rail centers the palette over the WORK CANVAS, not the screen (owner review
+  // 2026-07-02). This is the FALLBACK position, used only when the top-bar trigger cannot be
+  // measured.
   const insetStart = $derived(
     sidebarCollapsed ? "var(--mc-size-sidebar-rail)" : "var(--mc-size-sidebar)",
   );
@@ -144,9 +145,9 @@
   }
 </script>
 
-<!-- fixed: the palette opens ON its trigger, not in the centre of the dialog's stage, so it steps
-     out of the stage's flex layout and positions itself against the viewport with the insets in
-     contentStyle. rounded-md: the container's radius must match the trigger's (.mc-top-bar-search,
+<!-- placement="anchored": the palette opens ON its trigger, not in the centre of the dialog's
+     stage, so it positions itself against the viewport with the insets in contentStyle.
+     rounded-md: the container's radius must match the trigger's (.mc-top-bar-search,
      radius-md) so the anchored open reads as the same shape awake — geometry only; the panel
      keeps its own light overlay surface. The pairing is documented in the two recipes
      (design-system: top-bar/top-bar.css and command/command.css). -->
@@ -154,7 +155,8 @@
   <Dialog.Content
     showClose={false}
     {presence}
-    class="fixed overflow-hidden rounded-md p-0"
+    placement="anchored"
+    class="overflow-hidden rounded-md p-0"
     style={contentStyle}
   >
     <Dialog.Title class="sr-only">Command menu</Dialog.Title>

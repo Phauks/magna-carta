@@ -119,20 +119,34 @@ is still an `ActionDialog` inside it, not a panel of its own.
   gain — `form` and `reading`, the Dialog kinds; `expandable` in the trait table — and never on a
   question. Both shells take a bindable `expanded`, which is also how a panel OPENS expanded by
   design; the caller's binding wins over the memory.
-- **Every windowed modal panel is centred in the modal stage, and the stage is why no panel touches
-  the screen.** `styles/recipes/modal-stage.css`: a fixed box pulled in from every screen edge by
-  `size.modal-gutter` (32px), rendered by `Dialog.Content` and `AlertDialog.Content` around Bits'
-  Content, carrying the modal z-layer (a fixed box is a stacking context, so a z-index on the panel
-  alone leaves it beneath the scrim). It centres the panel with flex, and flex is also the height
-  cap: the panel is `block-size: fit-content` with `min-block-size: 0`, so a short panel opens
-  short and a tall one shrinks to the stage and scrolls inside — fit first, then cap, in keywords
-  alone, where `calc(100dvh - …)` fails the purity gate and `stretch` reaches only Chromium. So the
-  panels carry NO `max-h-*` utility any more (the stage caps them; a `max-h-screen` would reach past
-  it), only their `max-w-*`. A panel that must sit somewhere other than the stage's centre (the
-  command palette, anchored on its trigger) adds the `fixed` utility and its own insets, which
-  takes it out of the stage's layout and back against the viewport. The stage reads the panel's
-  `data-expanded` and drops its inset to zero, which is how the expanded utilities fill the screen.
-  Pinned in `test/modal-stage.test.ts`. _(owner ruling 2026-09-03)_
+- **Where a modal panel sits on the screen is one module, in four named parts, and no panel
+  touches the screen's edges.** _(owner ruling 2026-09-03)_ A panel's LOOK is its own recipe
+  (`dialog.css`, `alert-dialog.css`); what it is MADE OF is the frame's; WHERE it sits is this:
+  - `styles/recipes/modal-stage.css` — every placement rule. `mc-modal-stage` is the viewport pulled
+    in by `size.modal-gutter` (32px) on every side, centring its panel with flex; flex is also the
+    height cap, because a column flex item with `min-block-size: 0` shrinks to its container — fit
+    first, then cap, in keywords alone, where `calc(100dvh - …)` fails the purity gate and
+    `stretch` reaches only Chromium. `mc-modal-panel` is what makes any panel its well-behaved
+    child (positioned, content-height, free to shrink, taking pointer events), and the panel
+    recipes never restate a placement declaration (`test/modal-stage.test.ts` refuses one). The
+    stage drops its gutter when its direct child says `data-expanded="true"`.
+  - `internal/modal-stage.svelte` — the stage's one piece of markup, rendered by `Dialog.Content`
+    and `AlertDialog.Content` around Bits' Content. It carries the modal z-layer (a fixed box is a
+    stacking context, so a z-index on the panel alone leaves it beneath the scrim) and
+    `data-modal-stage`, which the sweep, the story tests and the print sheet find it by.
+  - `internal/modal-placement.ts` — the closed placement axis, `centered | anchored`, stamped on
+    every panel as `data-modal-placement`. `Dialog.Content` takes it as `placement`; `AlertDialog`
+    is always centred. `anchored` is the command palette, positioned against the viewport by its
+    own insets; a new placement is a member here, a rule in the recipe, and a row in the sweep.
+  - `modal-geometry/` — the diagnostic: a Playwright sweep over the Storybook dev server that
+    loads every specimen in `src/stories/modal-geometry.stories.svelte` (each shell, already open,
+    one story per way a panel can meet the screen; no trigger, no play function, so a measurement
+    never races a story) at every screen size in its `matrix.ts`, prints the panel's size and
+    edges, screenshots it, and fails an edge nearer than the gutter (or, expanded, an edge not
+    touched). `pnpm --filter @magna-carta/design-system run modal-geometry`; its README says how to
+    read a failure and how to add a screen or a panel. The arithmetic is `geometry.ts`, unit tested.
+    So the panels carry NO `max-h-*` utility any more (the stage caps them; a `max-h-screen` would
+    reach past it), only their `max-w-*`, and no app code knows how the stage works.
 - **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
   in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
   specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the

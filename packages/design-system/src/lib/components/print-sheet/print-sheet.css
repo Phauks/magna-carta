@@ -258,7 +258,7 @@
      * gutter; on paper it would hold the whole sheet to one page's box. It stops being a box at
      * all: the sheet flows down the pages from the panel's own static position.
      */
-    .mc-modal-stage:has(> .mc-print-sheet-page) {
+    [data-modal-stage]:has(> .mc-print-sheet-page) {
       position: static;
       display: block;
     }

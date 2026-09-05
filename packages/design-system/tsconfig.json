@@ -12,6 +12,7 @@
     "test/**/*.ts",
     "test/**/*.svelte",
     ".storybook/**/*.ts",
-    "visual-regression/**/*.ts"
+    "visual-regression/**/*.ts",
+    "modal-geometry/**/*.ts"
   ]
 }

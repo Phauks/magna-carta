@@ -1,23 +1,23 @@
 @layer components {
   /*
-   * The modal stage — the box a windowed modal panel is centred in, and the reason no panel ever
-   * touches the edge of the screen.
+   * The modal stage and the panel's placement in it — every rule about WHERE a modal panel sits on
+   * the screen, in one file. What a panel LOOKS like stays in that panel's own recipe (dialog.css,
+   * alert-dialog.css), and what a panel is made of is the frame's (modal-frame.css); this file
+   * never states a colour, a radius or a pane.
    *
-   * WHY THERE IS A STAGE AT ALL. A panel that sat directly on the viewport (`position: fixed;
-   * inset: 0; margin: auto`) had exactly two sizes available to it on a short screen: its own
-   * content height, or the whole viewport. On a laptop a record window ran from the top edge of the
-   * screen to the bottom edge with its rounded corners cut off against them, and at a laptop's
-   * width the record-width panels touched both sides too. A panel is a thing lying over the
-   * application; one that fills the screen reads as the application replaced.
+   * THE STAGE (.mc-modal-stage) is the viewport pulled in by size.modal-gutter on every side, and
+   * the panel is laid out INSIDE it rather than on the viewport, so the gutter is not a margin the
+   * panel remembers to keep but the edge of the only space it has. It exists because a panel that
+   * sat directly on the viewport had exactly two sizes available to it on a short screen: its own
+   * content height, or the whole viewport — and a laptop got the second, edge to edge, with the
+   * panel's rounded corners cut off against the screen.
    *
-   * The stage is the viewport pulled in by size.modal-gutter on every side, and the panel is laid
-   * out INSIDE it rather than on the viewport, so the gutter is not a margin the panel remembers to
-   * keep but the edge of the only space it has. It centres the panel with flex rather than with
-   * auto margins because flex is also what caps the panel: a column flex item shrinks to its
-   * container when its content is taller, provided it may (`min-block-size: 0` on the panel), and
-   * keeps its content height when it is not. That is the frame's own rule — fit first, then cap —
-   * expressed in structural keywords alone, where a viewport-relative length (`calc(100dvh - ...)`,
-   * `stretch`) would either fail this package's token-purity gate or reach only one engine.
+   * It centres the panel with flex rather than with auto margins because flex is also what caps the
+   * panel: a column flex item shrinks to its container when its content is taller, provided it may
+   * (`min-block-size: 0` on the panel), and keeps its content height when it is not. That is the
+   * frame's own rule — fit first, then cap — expressed in structural keywords alone, where a
+   * viewport-relative length (`calc(100dvh - ...)`, `stretch`) would either fail this package's
+   * token-purity gate or reach only one engine.
    *
    * The stage takes no pointer events itself: a press in the gutter lands on the scrim beneath and
    * is the outside press the dialog dismisses on. The panel turns them back on for its own box.
@@ -37,5 +37,27 @@
   }
   .mc-modal-stage:has(> [data-expanded="true"]) {
     inset: var(--mc-space-0);
+  }
+
+  /*
+   * THE PANEL'S PLACEMENT (.mc-modal-panel) — what makes any panel a well-behaved child of the
+   * stage, whichever panel it is. Positioned, so a corner control can pin to it; its own content's
+   * height, so a short panel opens short; free to shrink, so a tall one caps at the stage; and
+   * back to taking pointer events, which the stage gave up. Both panel recipes carry this class
+   * beside their own, and a panel's look never restates any of it.
+   *
+   * The placement axis (internal/modal-placement.ts) is read off `data-modal-placement`. The
+   * default, `centered`, is the stage's layout and needs no rule. `anchored` takes the panel out of
+   * that layout and back against the viewport: it becomes fixed, and the insets it supplies inline
+   * decide where it sits (the command palette, on its trigger). A new placement is a new rule here.
+   */
+  .mc-modal-panel {
+    position: relative;
+    pointer-events: auto;
+    block-size: fit-content;
+    min-block-size: var(--mc-space-0);
+  }
+  .mc-modal-panel[data-modal-placement="anchored"] {
+    position: fixed;
   }
 }
