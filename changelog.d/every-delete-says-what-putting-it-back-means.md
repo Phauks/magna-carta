@@ -5,9 +5,9 @@ audience: internal
 
 **Reversibility becomes route metadata, and the first census it produced answers a question the
 platform could not answer before: of the thirty-three things it deletes, what puts each one back?**
-`RouteMeta` carries `reversal` — one of `restoration`, `inverse`, `restatement`, `compensating` or
-`none`, the first three naming the operation that does it and `none` obliged to carry the reason
-nothing does. `defineOpenAPIRoute` refuses a DELETE that declares nothing, and a conformance fitness
+`RouteMeta` carries `reversal` — one of `restoration`, `inverse`, `compensating` or `none`, the
+first three naming the operation that does it (a route that reverses itself names itself) and `none`
+obliged to carry the reason nothing does. `defineOpenAPIRoute` refuses a DELETE that declares nothing, and a conformance fitness
 function checks the cross-references over the emitted document: a declaration reading "files.restore
 puts it back" is worth exactly as much as `files.restore` existing, and a surface rendering that
 sentence has no way to find out that it does not.

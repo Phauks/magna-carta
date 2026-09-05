@@ -8,8 +8,18 @@
  * property of the OPERATION, so it belongs where the platform already declares per-operation facts.
  *
  * THE VOCABULARY IS WHAT THE PLATFORM CAN ACTUALLY DO, not a taxonomy. Each arm names a mechanism
- * that exists in the code today: a restore route, an attach route that answers a detach, an update
- * route the previous values go back through, a compensating record, or nothing at all.
+ * that exists in the code today: a restore route, a route that answers this one, a compensating
+ * record, or nothing at all. An arm nobody can point at a member of is an arm nobody applies
+ * consistently, which is why `restatement` was removed rather than kept for a case that had not
+ * arisen — the one it described is an `inverse` naming its own operation.
+ *
+ * `compensating` IS THE ONE ARM WITH NO MEMBERS, and it is held deliberately rather than by
+ * oversight: the ledger is where it lands, and its rule is an invariant rather than a preference —
+ * a posted entry is never edited or removed, so a correction is a new balancing entry that leaves
+ * the original standing (`packages/ledger/src/reverse-entry.ts` composes exactly that mirror).
+ * Without the arm the mirror would be declared an `inverse`, which says the original went away.
+ * It is the next thing to declare when the gate widens past DELETE; if that widening does not
+ * happen, it should go the way `restatement` did.
  *
  * A `none` MUST SAY WHY, and that sentence is the one a surface renders. It is the only arm that
  * carries prose, deliberately: an act nothing puts back is the one a reader must be told about
@@ -35,24 +45,15 @@ export type RouteReversal =
    * new — a new field, a new rule, a new mapping — that is not this act reversed, and the arm is
    * `none` with a reason that says what making a new one costs. A row identity that changes on the
    * way back does not by itself disqualify `inverse`; a subject that changes does.
+   *
+   * A ROUTE MAY NAME ITSELF, and that is the sanctioned form rather than a bug: a field edit is
+   * reversed by another field edit, so `{ kind: "inverse", by: "<this operationId>" }` is the true
+   * statement. It was briefly a separate arm on the reasoning that the caller must hold the old
+   * value — which separates nothing, because nearly every `inverse` needs that too (re-attaching a
+   * receipt needs the document, re-adding an address needs the address). What the declaration is
+   * for is telling a surface WHICH ROUTE to call; when the answer is "this one", say so.
    */
   | ({ readonly kind: "inverse" } & By)
-  /**
-   * The route reverses ITSELF: called again with the previous values, it lands the same state. There
-   * is no other operation to name, which is why this arm carries no `by` — a field edit's reversal
-   * is another field edit, and `{ kind: "inverse", by: "<this route>" }` would be a self-reference
-   * that reads as a bug.
-   *
-   * NOT THE SAME AS `inverse` MERELY BECAUSE THE CALLER HOLDS THE OLD VALUE. Nearly every `inverse`
-   * needs that too — re-attaching a receipt needs the document, re-adding an address needs the
-   * address — so "who holds it" separates nothing. What separates this arm is that there is no
-   * COUNTERPART OPERATION: a clear answered by a set is `inverse`, because set and clear are two
-   * operations; a patch answered by a patch is this.
-   *
-   * It has no members while the gate is DELETE-only, because a DELETE that reverses itself does not
-   * arise. Its population is the PATCH and PUT tier.
-   */
-  | { readonly kind: "restatement" }
   /**
    * The act stands and a new record cancels it — the ledger's mirror entry, a credit note, a
    * retraction. Nothing is edited and nothing is removed, so the history reads as what happened
@@ -62,7 +63,7 @@ export type RouteReversal =
   /** Nothing in the product puts this back, and the reason is the sentence that says so. */
   | { readonly kind: "none"; readonly reason: string };
 
-/** The arms that name another operation, so one check covers all three. */
+/** The arms that name an operation, so one check covers all of them. */
 export function reversalOperationId(reversal: RouteReversal): string | undefined {
   return "by" in reversal ? reversal.by : undefined;
 }
