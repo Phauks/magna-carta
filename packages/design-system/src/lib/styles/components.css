@@ -71,6 +71,10 @@
 @import "../components/date-picker/date-picker.css";
 @import "../components/date-range-picker/date-range-picker.css";
 @import "./recipes/scrollbar.css";
+/* The gilt scroll-edge rule, beside the scrollbar recipe because the two answer the same
+   question: the scrollbar where a surface shows one, this where it does not or cannot.
+   Both the sidebar and the table grid draw it, so it precedes their recipes. */
+@import "../components/scroll-edge-hint/scroll-edge-hint.css";
 @import "../components/form/form.css";
 @import "../components/labelled-field/labelled-field.css";
 @import "../components/data-table/data-table.css";

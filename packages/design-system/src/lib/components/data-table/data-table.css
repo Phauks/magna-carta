@@ -70,10 +70,17 @@
    * where they meet, because a row stops being hovered the moment the pointer leaves and does not
    * stop being chosen.
    */
-  /* A placeholder row is not a row and takes none of a row's treatment: the hover means "this is
-     a thing you can select and open", and an empty table has nothing to select, so it does not
-     light up under the pointer (docs/conventions/design-corrections.md, lists and tables). */
-  .mc-table-body .mc-table-row:hover:not(:has(> .mc-table-grid-placeholder)) {
+  /*
+   * A PLACEHOLDER ROW IS NOT A ROW, so it never lights up: `data-placeholder` is what the empty,
+   * filtered-empty and loading rows carry to say they hold no record. The hover fill means "this is
+   * a thing you can select and open", and stretching it over an empty table both promises a click
+   * that does nothing and paints a grey band across whatever height the message happens to need —
+   * the top four-fifths of the frame on a short one, its top half on a tall one, with the rest left
+   * white, which reads as a hover that quit halfway down the table. Absence is the signal, so the
+   * marker is on the ROW rather than inferred from the cell: the loading rows carry a skeleton per
+   * column and no placeholder cell at all, and they are no more clickable than the message is.
+   */
+  .mc-table-body .mc-table-row:not([data-placeholder]):hover {
     background-color: var(--mc-action-secondary);
   }
   .mc-table-body .mc-table-row[data-state="selected"] {
@@ -386,7 +393,9 @@
     block-size: var(--mc-control-xs);
     padding-block: var(--mc-space-0);
   }
-  .mc-table-grid .mc-table-body .mc-table-row:not(:has(> .mc-table-grid-placeholder)) {
+  /* Records answer to the pointer; the placeholders in the same body do not (see the hover rule
+     above) — a cursor that says "press me" over an empty table is the same false promise. */
+  .mc-table-grid .mc-table-body .mc-table-row:not([data-placeholder]) {
     cursor: pointer;
     user-select: none;
   }

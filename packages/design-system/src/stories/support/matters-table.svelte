@@ -208,7 +208,7 @@
     <DataTable.Body>
       {#if loading}
         {#each Array.from({ length: skeletonRows }, (_, index) => index) as rowIndex (rowIndex)}
-          <DataTable.Row>
+          <DataTable.Row data-placeholder="true">
             <DataTable.Cell><Skeleton class="mc-table-skeleton w-full" /></DataTable.Cell>
             {#each table.getVisibleLeafColumns() as column (column.id)}
               <DataTable.Cell><Skeleton class="mc-table-skeleton w-full" /></DataTable.Cell>
@@ -216,7 +216,7 @@
           </DataTable.Row>
         {/each}
       {:else if table.getRowModel().rows.length === 0}
-        <DataTable.Row>
+        <DataTable.Row data-placeholder="true">
           <DataTable.Cell colspan={spanCount} class="mc-table-empty">No matters found.</DataTable.Cell>
         </DataTable.Row>
       {:else}

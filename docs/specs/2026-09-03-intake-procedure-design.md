@@ -50,16 +50,16 @@ manage permission of its own.
 
 **A step has a kind, and the kind decides who answers it.** Eight kinds, held by a CHECK:
 
-| Kind                    | Answered by                                                        | Recordable by a member |
-| ----------------------- | ------------------------------------------------------------------ | ---------------------- |
-| `identity-verification` | A member's record (no verification port exists yet)                | yes                    |
-| `conflicts-check`       | The conflicts posture: checked, at the floor, every hit answered, no re-check owed | no       |
-| `fee-agreement`         | The billing arrangement in force                                   | no                     |
-| `engagement-letter`     | An assembly of the named template landing on the matter            | yes                    |
-| `retainer`              | Client funds held in trust for the matter                          | yes                    |
-| `document`              | An assembly of the named template landing on the matter            | yes                    |
-| `questionnaire`         | The named custom field holding a value on the matter               | yes                    |
-| `acknowledgement`       | A member's record                                                  | yes                    |
+| Kind                    | Answered by                                                                        | Recordable by a member |
+| ----------------------- | ---------------------------------------------------------------------------------- | ---------------------- |
+| `identity-verification` | A member's record (no verification port exists yet)                                | yes                    |
+| `conflicts-check`       | The conflicts posture: checked, at the floor, every hit answered, no re-check owed | no                     |
+| `fee-agreement`         | The billing arrangement in force                                                   | no                     |
+| `engagement-letter`     | An assembly of the named template landing on the matter                            | yes                    |
+| `retainer`              | Client funds held in trust for the matter                                          | yes                    |
+| `document`              | An assembly of the named template landing on the matter                            | yes                    |
+| `questionnaire`         | The named custom field holding a value on the matter                               | yes                    |
+| `acknowledgement`       | A member's record                                                                  | yes                    |
 
 Every kind may be **waived** by a member holding `intake:waive`, with a rationale; a waiver is
 recorded as a waiver and never as a completion. The two kinds no member may record complete are the
