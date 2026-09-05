@@ -22,6 +22,7 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Badge from "@magna-carta/design-system/badge";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Label from "@magna-carta/design-system/label";
@@ -169,9 +170,7 @@
 
 <div class="flex flex-col gap-16">
   <div class="flex flex-col gap-4 border-b border-border-strong pb-8">
-    <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-      Intake
-    </h2>
+    <FieldLabel as="h2">Intake</FieldLabel>
     {#if summary !== ""}
       <p class="text-sm text-text-muted">{summary}</p>
     {/if}

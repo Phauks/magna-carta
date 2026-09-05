@@ -19,6 +19,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -210,9 +211,7 @@
     {/if}
 
     <div class="flex items-center justify-between gap-16 border-b border-border-strong pb-8">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-        The Firm's Procedures
-      </h2>
+      <FieldLabel as="h2">The Firm's Procedures</FieldLabel>
       {#if composing}
         <Button variant="secondary" disabled={saving} onclick={() => (composing = false)}>Cancel</Button>
       {:else}

@@ -526,7 +526,7 @@
              themselves — there is no fixed roster to state as met, because what a consultation must
              clear is the firm's to write and may be nothing at all. -->
         <div class="flex flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">Requirements To Open</h3>
+          <FieldLabel as="h3">Requirements To Open</FieldLabel>
           {#if openReadiness === null && !openReadinessFailed}
             <p class="text-xs text-text-subtle">Reading the intake procedure.</p>
           {:else if openReadinessFailed}
