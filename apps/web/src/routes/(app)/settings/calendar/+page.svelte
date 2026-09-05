@@ -17,7 +17,7 @@
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import { MANAGE_CALENDAR_PERMISSION } from "$lib/calendar/calendar-api.ts";
+  import { mayManageCalendar } from "$lib/calendar/calendar-permission.ts";
   import {
     CalendarSettingsDraft,
     CALENDAR_SETTINGS_SECTION_ID,
@@ -30,7 +30,7 @@
   let session = $state<SessionBootstrap | null>(null);
   // Read-only until the session says otherwise: a control that appears and then vanishes when
   // the permission turns out to be missing reads as a broken page.
-  const canEdit = $derived(session?.permissions.includes(MANAGE_CALENDAR_PERMISSION) ?? false);
+  const canEdit = $derived(mayManageCalendar(session));
 
   $effect(() => {
     void draft.load();

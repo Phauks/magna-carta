@@ -25,26 +25,27 @@
   import {
     createEventType,
     deactivateEventType,
+    EVENT_TYPE_CATEGORIES,
     eventTypeCategoryLabel,
     listEventTypes,
-    MANAGE_CALENDAR_PERMISSION,
     updateEventType,
     type EventType,
     type EventTypeCategory,
   } from "$lib/calendar/calendar-api.ts";
+  import { mayManageCalendar } from "$lib/calendar/calendar-permission.ts";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
 
-  const CATEGORIES: readonly { value: EventTypeCategory; label: string }[] = [
-    { value: "litigation", label: "Litigation" },
-    { value: "transaction", label: "Transaction" },
-    { value: "firm", label: "Firm" },
-    { value: "other", label: "Other" },
-  ];
+  /** The categories as the select offers them, worded by the one label helper every surface uses. */
+  const CATEGORIES: readonly { value: EventTypeCategory; label: string }[] =
+    EVENT_TYPE_CATEGORIES.map((category) => ({
+      value: category,
+      label: eventTypeCategoryLabel(category),
+    }));
 
   let session = $state<SessionBootstrap | null>(null);
-  const canEdit = $derived(session?.permissions.includes(MANAGE_CALENDAR_PERMISSION) ?? false);
+  const canEdit = $derived(mayManageCalendar(session));
 
   let types = $state<readonly EventType[] | null>(null);
   let readFailure = $state<Failure | null>(null);

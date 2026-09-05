@@ -10,6 +10,7 @@ import {
   MAX_PAGES_PER_READ,
   describeReadFailure,
   readCalendarWindow,
+  readFailureTitle,
 } from "$lib/calendar/calendar-reads.ts";
 import { calendarWindow } from "$lib/calendar/calendar-window.ts";
 
@@ -382,5 +383,29 @@ describe("readCalendarWindow, matter scope", () => {
     ]);
     const result = await readCalendarWindow(fetch, scope, window, context);
     expect(result.entries.map((entry) => entry.recordId)).toEqual(["trial"]);
+  });
+});
+
+describe("how a failed read is named", () => {
+  it("leads with a sentence naming which read it was", () => {
+    expect(describeReadFailure("events")).toBe("The events could not be read.");
+    expect(describeReadFailure("deadlines")).toBe("The deadlines could not be read.");
+    expect(describeReadFailure("firmEvents")).toBe("The firm's own events could not be read.");
+    expect(describeReadFailure("bookings")).toBe("The resource's bookings could not be read.");
+  });
+
+  it("stands under a title that says the same thing as a heading", () => {
+    expect(readFailureTitle("events")).toBe("The Events Could Not Be Read");
+    expect(readFailureTitle("deadlines")).toBe("The Deadlines Could Not Be Read");
+    expect(readFailureTitle("firmEvents")).toBe("The Firm's Own Events Could Not Be Read");
+    expect(readFailureTitle("bookings")).toBe("The Resource's Bookings Could Not Be Read");
+  });
+
+  it("never lets the title and the sentence name different reads", () => {
+    for (const read of ["events", "deadlines", "firmEvents", "bookings"] as const) {
+      expect(readFailureTitle(read).toLowerCase()).toBe(
+        describeReadFailure(read).toLowerCase().replace(/\.$/, ""),
+      );
+    }
   });
 });

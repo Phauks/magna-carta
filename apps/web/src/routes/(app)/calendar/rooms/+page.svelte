@@ -27,7 +27,12 @@
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { Failure } from "$lib/api/request.ts";
-  import { listResources, resourceKindLabel, type FirmResource } from "$lib/calendar/calendar-api.ts";
+  import {
+    listResources,
+    resourceChipLabel,
+    resourceKindLabel,
+    type FirmResource,
+  } from "$lib/calendar/calendar-api.ts";
   import { CalendarView } from "$lib/calendar/index.ts";
   import type { CalendarViewKind } from "$lib/calendar/index.ts";
   import { todayCivil } from "$lib/calendar/calendar-window.ts";
@@ -66,7 +71,7 @@
   const items = $derived(
     (resources ?? []).map((candidate) => ({
       value: candidate.id,
-      label: `${candidate.name} · ${resourceKindLabel(candidate.kind)}`,
+      label: resourceChipLabel(candidate),
     })),
   );
 
