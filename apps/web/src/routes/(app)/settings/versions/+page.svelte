@@ -25,6 +25,7 @@
    * element; settings-plate.svelte is the reference for the recipe.
    */
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
@@ -121,12 +122,10 @@
          vertical edge. -->
     <div class="flex items-baseline gap-16 py-12">
       <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
-      <dt
-        class="min-w-0 grow text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="dt" class="min-w-0 grow"
       >
         {component}
-      </dt>
+      </FieldLabel>
       <dd
         class="flex shrink-0 flex-col items-end gap-4 text-end"
         style="inline-size: var(--mc-size-popover)"
@@ -152,12 +151,10 @@
   {#snippet loadingRow(component: string)}
     <div class="flex items-baseline gap-16 py-12">
       <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
-      <dt
-        class="min-w-0 grow text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="dt" class="min-w-0 grow"
       >
         {component}
-      </dt>
+      </FieldLabel>
       <dd class="flex shrink-0 justify-end" style="inline-size: var(--mc-size-popover)">
         <Skeleton class="h-16 w-96" />
       </dd>
@@ -165,12 +162,10 @@
   {/snippet}
 
   <section class="flex flex-col">
-    <h3
-      class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
+    <FieldLabel as="h3" class="border-b border-border-strong pb-8"
     >
       Application
-    </h3>
+    </FieldLabel>
     <dl class="flex flex-col divide-y divide-border-default border-b border-border-strong">
       {@render row(
         "Application Build",
@@ -181,12 +176,10 @@
   </section>
 
   <section class="flex flex-col">
-    <h3
-      class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
+    <FieldLabel as="h3" class="border-b border-border-strong pb-8"
     >
       Platform services
-    </h3>
+    </FieldLabel>
     <dl
       class="flex flex-col divide-y divide-border-default border-b border-border-strong"
       aria-busy={scanEngine.status === "loading"}

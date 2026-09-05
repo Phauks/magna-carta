@@ -18,6 +18,8 @@
  */
 
 const MINUTES_PER_HOUR = 60;
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 3600;
 
 /** Two decimal places is the billing convention: the increment a firm bills in is never finer. */
 const DEFAULT_DECIMAL_PLACES = 2;
@@ -46,6 +48,12 @@ export interface FormattedDuration {
  * arrived rather than dressed up as "0.00" — a rendering that quietly reports no time where the
  * data holds something else is worse than a visibly wrong one.
  */
+/** How a clock is rendered. */
+export interface ClockOptions {
+  /** Show the seconds field, for a duration that is still ticking. */
+  toTheSecond?: boolean;
+}
+
 export function formatDuration(minutes: number, options: DurationOptions = {}): FormattedDuration {
   if (!Number.isFinite(minutes)) {
     const raw = String(minutes);
@@ -58,13 +66,36 @@ export function formatDuration(minutes: number, options: DurationOptions = {}): 
   );
   const decimal = (minutes / MINUTES_PER_HOUR).toFixed(decimalPlaces);
 
-  // The clock form is whole minutes by construction, so a fractional minute rounds rather than
-  // producing a seconds field the firm never bills in.
-  const wholeMinutes = Math.round(Math.abs(minutes));
-  const sign = minutes < 0 ? "-" : "";
-  const hours = Math.floor(wholeMinutes / MINUTES_PER_HOUR);
-  const remainingMinutes = String(wholeMinutes % MINUTES_PER_HOUR).padStart(2, "0");
-  const clock = `${sign}${String(hours)}:${remainingMinutes}`;
+  // A billed duration is whole minutes by construction, so a fractional minute rounds rather than
+  // producing a seconds field the firm never bills in. The MAGNITUDE rounds and the sign is carried
+  // separately, which is what the two together have always done: Math.round breaks a .5 tie toward
+  // positive infinity, so rounding the signed value would send -90.5 to -1:30 while sending 90.5 to
+  // 1:31, and a duration and its negation would differ in size. Carrying the sign here also keeps a
+  // magnitude that rounds to nothing reading as "-0:00" rather than losing its sign to negative zero.
+  const magnitude = Math.round(Math.abs(minutes));
+  const clock = `${minutes < 0 ? "-" : ""}${formatClock(magnitude * SECONDS_PER_MINUTE)}`;
 
   return { decimal, clock, text: `${decimal} (${clock})` };
+}
+
+/**
+ * A duration as a CLOCK, from seconds — `H:MM`, or `H:MM:SS` while something is ticking.
+ *
+ * Seconds rather than minutes because this is the form a running timer wears, and a timer that
+ * rounded to the minute would sit still for sixty seconds at a time. It is the same clock
+ * `formatDuration` reports, and it is the same function: the timer and the billed figure disagreeing
+ * about what "1:30" means is exactly the drift a shared vocabulary exists to prevent, and they did
+ * disagree — the sheet's own copy dropped the negative sign this one keeps.
+ */
+export function formatClock(seconds: number, options: ClockOptions = {}): string {
+  if (!Number.isFinite(seconds)) return String(seconds);
+  const sign = seconds < 0 ? "-" : "";
+  const whole = Math.floor(Math.abs(seconds));
+  const hours = Math.floor(whole / SECONDS_PER_HOUR);
+  const minutes = String(Math.floor((whole % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE)).padStart(
+    2,
+    "0",
+  );
+  if (options.toTheSecond !== true) return `${sign}${String(hours)}:${minutes}`;
+  return `${sign}${String(hours)}:${minutes}:${String(whole % SECONDS_PER_MINUTE).padStart(2, "0")}`;
 }

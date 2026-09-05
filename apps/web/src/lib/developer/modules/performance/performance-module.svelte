@@ -8,6 +8,7 @@
    * taxes the very responsiveness it measures.
    */
   import Switch from "@magna-carta/design-system/switch";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import { applyStaticSkeletons, readStaticSkeletons } from "../../static-skeletons.ts";
 
   let fps = $state(0);
@@ -49,9 +50,9 @@
 
 <div class="flex flex-col gap-16">
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Frame rate
-    </p>
+    </FieldLabel>
     <div class="flex items-baseline gap-8">
       <span class="text-3xl font-semibold tabular-nums">{fps}</span>
       <span class="text-sm text-text-muted">fps</span>

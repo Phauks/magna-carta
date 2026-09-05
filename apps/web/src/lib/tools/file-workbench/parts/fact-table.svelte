@@ -41,7 +41,7 @@
 <DataTable.Root class="w-full">
   <DataTable.Header>
     <DataTable.Row>
-      <DataTable.Head colspan={2} style="letter-spacing: var(--mc-tracking-caps)">
+      <DataTable.Head colspan={2}>
         {title}
       </DataTable.Head>
     </DataTable.Row>

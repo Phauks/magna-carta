@@ -46,6 +46,7 @@
   import Button from "@magna-carta/design-system/button";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
   import { QUIET_LINK } from "$lib/auth/quiet-link.ts";
@@ -261,14 +262,12 @@
         {@render loadingRows()}
       {:else if view !== null}
         {#if view.links.length > 0}
-          <p
-            class="mb-8 text-xs text-text-muted uppercase"
-            style="letter-spacing: var(--mc-tracking-caps)"
+          <FieldLabel as="p" class="mb-8"
           >
             {view.links.length === 1
               ? "1 outbound address"
               : `${view.links.length} outbound addresses`}
-          </p>
+          </FieldLabel>
           <ul class="flex flex-col divide-y divide-border-default">
             {#each view.links as link, index (index)}
               <li class="min-w-0 py-8 first:pt-0 last:pb-0">
@@ -416,12 +415,10 @@
 </Tabs.Root>
 
 {#snippet fieldLabel(label: string)}
-  <dt
-    class="shrink-0 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="dt" class="shrink-0"
   >
     {label}
-  </dt>
+  </FieldLabel>
 {/snippet}
 
 {#snippet factRow(label: string, value: string, mono: boolean)}

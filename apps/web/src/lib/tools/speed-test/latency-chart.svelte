@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FieldLabel from "@magna-carta/design-system/field-label";
   /*
    * One latency phase as a point series — a small multiple. The three phases (idle, during
    * download, during upload) each get their own chart rather than sharing one axis, which is how
@@ -28,12 +29,10 @@
 </script>
 
 <figure class="m-0">
-  <figcaption
-    class="mb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="figcaption" class="mb-8"
   >
     {title}
-  </figcaption>
+  </FieldLabel>
 
   <svg
     viewBox={`0 0 ${width} ${HEIGHT}`}

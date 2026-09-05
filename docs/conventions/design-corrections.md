@@ -251,11 +251,24 @@ is usually the fastest way to understand the rule.
   a file, it is a separate working session, or it is opened from a surface holding unsaved work —
   and a source scan refuses any other `_blank`. Adding a reason is a reviewed change to that file.
   _(new matter, 2026-09-02)_
-- **A pane toggle is a quiet chrome affordance, and it ends the row.** Showing or hiding a details
-  panel is not an act on the record, so it never wears a button's border or fill: it is the ghost
-  icon control the file manager uses, reading its state through its glyph, and it sits last among a
-  surface's controls. Four ledgers each drew it differently, which is how a reader learns that two
-  screens are two products. _(the financial ledgers, 2026-09-02)_
+- **A pane toggle is a quiet chrome affordance, and it ends the counts strip.** Showing or hiding a
+  side pane is not an act on the record, so it never wears a button's border or fill and it does not
+  belong where a surface's verbs are: it is the ghost glyph, reading its state through `aria-pressed`
+  alone, at the inline end of the strip beneath the table — after the surface's figures, last on the
+  line, on every surface that has a pane. It is not free and does not need to be: measured, the strip
+  grows from 32 points to 41 to seat the control, against the 41 the row above the table cost — a net
+  32 points back to the table, and one less band between the reader and the records. On the four
+  financial ledgers that row had no other occupant most of the time. A surface with a
+  toolbar it draws anyway is not an exception — the file manager's two toggles came down to the strip
+  as well, so a reader never has to remember which screen keeps the answer at the top. One component
+  (`$lib/records/pane-toggle.svelte`), because four ledgers each drawing their own is how a reader
+  learns that two screens are two products. _(the financial ledgers, 2026-09-02; placement corrected
+  2026-09-03)_
+- **A row above a table renders only when something has to be in it.** Not an empty band a reader
+  meets before they meet the records. The corollary of moving the pane toggle off it: what is left on
+  the ledgers is the way out of a filter, and Costs' Review where the firm runs review, so an
+  unfiltered ledger draws no row at all and its table starts at the top of the screen.
+  _(the financial ledgers, 2026-09-03)_
 - **A resizable divider carries no grip handle.** The whole edge drags and the separator takes the
   keyboard, so a centred grip is a second affordance for a gesture already answered — and it reads
   as a control parked in the middle of the screen. The hairline that thickens under the pointer is

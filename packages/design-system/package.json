@@ -43,6 +43,7 @@
     "./failure-state": "./src/lib/components/failure-state/index.ts",
     "./eyebrow-link": "./src/lib/components/eyebrow-link/index.ts",
     "./file-icon": "./src/lib/components/file-icon/index.ts",
+    "./field-label": "./src/lib/components/field-label/index.ts",
     "./field-row": "./src/lib/components/field-row/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",
     "./input": "./src/lib/components/input/index.ts",
