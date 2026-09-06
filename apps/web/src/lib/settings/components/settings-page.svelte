@@ -27,6 +27,7 @@
    */
   import RequestChangeDialog from "$lib/settings/components/request-change-dialog.svelte";
   import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
@@ -45,7 +46,10 @@
     preview = false,
   }: {
     sectionId: string;
-    /** The one-line meta sentence under the title — the page's voice, not registry data. */
+    /**
+     * The one-line descriptor of what this page governs — the page's voice, not registry data.
+     * It leads the page's CONTENT, not the header band (settings-description.svelte).
+     */
     meta: string;
     /** Demonstration pages: settings not yet in effect (the masthead's Preview badge). */
     preview?: boolean;
@@ -102,7 +106,6 @@
 <SettingsMasthead
   {sectionId}
   title={section.label}
-  {meta}
   {posture}
   draft={posture === "draft" ? draft : undefined}
   {preview}
@@ -113,6 +116,8 @@
      identical width. Full canvas width (owner-directed): the table uses the space. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>{meta}</SettingsDescription>
+
   {#each platesForSection(sectionId, canEdit) as plate (plate.label)}
     <SettingsPlate heading={plate.label}>
       <!-- Without the edit right, a restricted setting is absent from the plates entirely —

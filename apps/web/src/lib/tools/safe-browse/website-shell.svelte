@@ -80,6 +80,7 @@
     capturingUrl = null,
     canSubmit = false,
     invalidHint = null,
+    note = null,
     canGoBack = false,
     canGoForward = false,
     canRefresh = false,
@@ -104,6 +105,12 @@
     canSubmit?: boolean;
     /** What is wrong with the entered address, or null when nothing is. */
     invalidHint?: string | null;
+    /**
+     * A standing fact about the shell itself, stated at the address bar because that is where it
+     * bears on the press. It yields to `invalidHint`: the two share one band, and what is wrong
+     * with THIS address outranks what is always true of the shell.
+     */
+    note?: string | null;
     /** Whether the capture history holds an entry behind the current one. */
     canGoBack?: boolean;
     /** Whether the capture history holds an entry ahead of the current one. */
@@ -303,6 +310,10 @@
         class="border-b border-border-default px-12 py-8 text-xs text-text-muted"
       >
         {invalidHint}
+      </p>
+    {:else if note !== null}
+      <p class="border-b border-border-default px-12 py-8 text-xs text-text-muted">
+        {note}
       </p>
     {/if}
 

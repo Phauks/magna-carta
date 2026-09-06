@@ -29,11 +29,17 @@ while the firm-wide list lets the page's own header speak. `mergeGroupOrder` ski
 longer knows, so a member who had dragged the old row to a custom sidebar position finds Tasks at
 its canonical position and keeps the rest of their arrangement.
 
-Two exclusions are deliberate and recorded with the rule. `settings-masthead.svelte` makes its
-descriptor a required prop by an earlier owner direction, so the seventeen settings pages were not
-touched. The safe website viewer keeps its line: "the page renders in an isolated remote browser" is
-a consequence a reader needs before pressing, which the rule protects. The `tasks.my-work-*`
-load-profile measurement names are left alone — recorded measurements, not user-facing text.
+**What a header gives up, the page takes back.** Neither line that carried a real fact was deleted;
+each moved to where the fact is used. The safe website viewer's isolation notice now renders in
+`WebsiteShell`'s new `note` band, at the address bar beside the control it qualifies, yielding to
+`invalidHint` because a fault with the address in hand outranks a standing fact. The seventeen
+settings pages give up their masthead descriptor the same way: `SettingsMasthead` no longer takes a
+`meta`, and the sentence renders through `settings-description.svelte` as the first line of the
+page's own scroll area, so it travels with the plates it describes. `SettingsPage` still takes
+`meta` and passes it there, so a standard settings page is unchanged at its call site.
+
+The `tasks.my-work-*` load-profile measurement names are left alone — recorded measurements, not
+user-facing text.
 
 ## Public
 
@@ -47,3 +53,9 @@ real stay put, like the date on Home and the seats in a room.
 **My Work is now called Tasks**, matching the Tasks section inside a matter — one name for one
 thing. It works exactly as before. If you had dragged My Work to a particular spot in your sidebar,
 Tasks will be back at its default position; everything else you arranged stays as you left it.
+
+**Nothing worth knowing was lost.** Where a line under a title told you something real, it moved to
+where it matters rather than disappearing. The safe website viewer's reminder that a page opens in
+an isolated browser and never loads in yours now sits at the address bar, next to where you type.
+Each settings page still opens with the line describing what it governs — it just reads as the first
+line of the page now, above the settings themselves, instead of in the header band.

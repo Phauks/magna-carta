@@ -14,6 +14,7 @@
    * flip appends to the section's trail; a cascade the master's kill causes in the store is not
    * itemized — the master's own entry records the kill.
    */
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
@@ -126,7 +127,6 @@
 <SettingsMasthead
   sectionId="developer"
   title="Developer"
-  meta="Controls that exist only in development builds."
   posture="instant"
   {restoreAction}
 />
@@ -136,6 +136,8 @@
      identical width. Full canvas width (owner-directed): the table uses the space. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>Controls that exist only in development builds.</SettingsDescription>
+
   <!-- The master switch stands in its OWN plate (owner-directed), apart from the settings it
        governs; the reveal hint lives beneath the plate, never inside the row's box. -->
   <div class="flex flex-col gap-8">

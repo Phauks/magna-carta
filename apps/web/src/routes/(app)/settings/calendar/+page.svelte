@@ -13,6 +13,7 @@
    * the audit row the server writes, and a per-browser ledger would misstate a firm-wide fact.
    */
   import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
@@ -48,7 +49,6 @@
 <SettingsMasthead
   sectionId={CALENDAR_SETTINGS_SECTION_ID}
   title="Calendar"
-  meta="How every calendar in the firm is read."
   posture={canEdit ? "draft" : "readOnly"}
   draft={canEdit ? draft : undefined}
   showHistory={false}
@@ -59,6 +59,8 @@
      identical width. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>How every calendar in the firm is read.</SettingsDescription>
+
     {#if draft.saveFailure !== null}
       <FailureNotice
         failure={draft.saveFailure}

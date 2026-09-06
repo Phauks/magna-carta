@@ -608,9 +608,20 @@ name, which is every screen outside a matter.
   the section keeps its label. `TaskList`'s `heading` is optional for exactly this reason.
   _(main screens, 2026-09-06)_
 
-**Settings is a deliberate exception, not drift.** `settings-masthead.svelte` makes its descriptor a
-required prop and marks it owner-directed, so every settings page carries one line under its title.
-That archetype was not touched by this pass and needs its own ruling before it is.
+- **Information a screen owes the reader lives on the page, not in the header.** The header states
+  the name; a fact the reader needs stands where it bears on what they do. The safe website
+  viewer's "the page renders in an isolated remote browser" was not deleted — it moved to the
+  address bar, beside the control it qualifies, in the band that otherwise carries an invalid
+  address. This is the disposal route for anything the no-sub-text rule removes from a header:
+  ask where the fact is actually used, and put it there. _(safe website viewer, 2026-09-06)_
+- **A settings page's descriptor leads its content, and its header is only its name.** Settings is
+  a nested archetype — every page is a sub-page of Settings, named already by the section nav — and
+  it was the one place still carrying a sentence in the band. The descriptor now renders as the
+  first line of the page's own scroll area (`settings-description.svelte`), so it scrolls with the
+  plates it describes instead of being pinned above them, and `SettingsMasthead` no longer takes a
+  `meta` at all. The band keeps the page name and the standing facts about it — the posture badge,
+  the documentation seam, the history trail — because those are facts and controls, not
+  description. _(settings pages, 2026-09-06)_
 
 ### Screen search
 
