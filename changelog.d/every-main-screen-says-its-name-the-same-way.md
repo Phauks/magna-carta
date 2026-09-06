@@ -38,6 +38,17 @@ settings pages give up their masthead descriptor the same way: `SettingsMasthead
 page's own scroll area, so it travels with the plates it describes. `SettingsPage` still takes
 `meta` and passes it there, so a standard settings page is unchanged at its call site.
 
+**And the rule becomes a gate.** `pnpm run lint:screen-headers` (`tooling/lint-screen-headers/`,
+nineteen unit tests) refuses an eyebrow on any screen, a destination screen titled something
+`destinations.ts` does not call it, and a meta line that is fixed prose rather than a read value.
+It earned itself immediately: the uploads screen landed on `main` mid-consolidation carrying
+`eyebrow="Uploads"` over `title="Uploads"`, and the file workbench was found stating three fixed
+sentences under its title — including the same "Runs outside any matter" removed from Tools — from a
+header in `lib/` that the route-level pass never saw. Its privacy consequence now reads full width
+under the header, where the narrow file rail could not have held it. Membership derives from the
+`lint:*` scripts, so the scan joins both the inner loop and CI's governance job with no further
+wiring.
+
 The `tasks.my-work-*` load-profile measurement names are left alone — recorded measurements, not
 user-facing text.
 

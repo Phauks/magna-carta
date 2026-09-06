@@ -625,6 +625,16 @@ name, which is every screen outside a matter.
   a maturity badge all stay. "Alerts, mentions, and updates across your matters", "Runs outside any
   matter" and "Registration records for a domain or IP address" were removed — each restated its
   own title in a sentence. _(main screens, 2026-09-06)_
+- **The rule is a gate, not a ledger entry.** `pnpm run lint:screen-headers`
+  (`tooling/lint-screen-headers/`) refuses an eyebrow on any screen, a destination screen whose
+  title is not what `destinations.ts` calls it, and a meta line that is fixed prose rather than a
+  read value. It exists because the drift reappeared while the consolidation was still open: the
+  uploads screen shipped `eyebrow="Uploads"` over `title="Uploads"`, written by somebody with no
+  way to know the rule had been made. A rule in this file binds whoever reads this file; a rule
+  with a gate binds the diff. The meta test is a shape rather than a judgement — a fact is READ
+  from somewhere, a description is typed in place — and every line the consolidation removed was
+  static text while every line it kept interpolates or renders. Exemptions are named in the scan
+  with their reason, and there are none. _(main screens, 2026-09-06)_
 - **A screen with a page header does not also label its content region.** Where a page owns an
   `h1`, the component beneath it drops its own heading rather than saying the name twice; where the
   page's masthead names something else — a matter's Tasks section under the matter's own name —
