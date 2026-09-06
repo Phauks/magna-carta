@@ -19,9 +19,8 @@ import type {
   ParticipantKind,
 } from "./calendar-api.ts";
 import { isCivilDate } from "./calendar-window.ts";
+import { isWallClockTime, optionalText } from "./draft-text.ts";
 import { isResolvableTimeZone } from "./time-zone-options.ts";
-
-const WALL_CLOCK_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** One person on the draft, with the name the form shows beside the handle it will send. */
 export interface ParticipantDraft {
@@ -77,7 +76,7 @@ export function timingShortfalls(draft: EventTimingDraft): string[] {
   if (draft.startsOn === null || !isCivilDate(draft.startsOn)) {
     shortfalls.push("A date is needed.");
   }
-  if (draft.startsAtTime !== "" && !WALL_CLOCK_TIME.test(draft.startsAtTime)) {
+  if (draft.startsAtTime !== "" && !isWallClockTime(draft.startsAtTime)) {
     shortfalls.push("The start time does not read as a time of day.");
   }
   if (draft.endsOn !== null && !isCivilDate(draft.endsOn)) {
@@ -85,7 +84,7 @@ export function timingShortfalls(draft: EventTimingDraft): string[] {
   } else if (draft.endsOn !== null && draft.startsOn !== null && draft.endsOn < draft.startsOn) {
     shortfalls.push("The end date is before the start.");
   }
-  if (draft.endsAtTime !== "" && !WALL_CLOCK_TIME.test(draft.endsAtTime)) {
+  if (draft.endsAtTime !== "" && !isWallClockTime(draft.endsAtTime)) {
     shortfalls.push("The end time does not read as a time of day.");
   } else if (
     draft.endsAtTime !== "" &&
@@ -136,11 +135,6 @@ export function eventDraftStarted(draft: EventDraft, since: EventDraft): boolean
       );
     })
   );
-}
-
-function optionalText(text: string): string | null {
-  const trimmed = text.trim();
-  return trimmed === "" ? null : trimmed;
 }
 
 export function participantInput(participant: ParticipantDraft): ParticipantInput {

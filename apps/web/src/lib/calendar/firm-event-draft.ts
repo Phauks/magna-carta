@@ -12,6 +12,7 @@ import type {
   FirmEvent,
   FirmEventAudience,
 } from "./calendar-api.ts";
+import { optionalText } from "./draft-text.ts";
 import {
   participantDraftFrom,
   participantInput,
@@ -83,11 +84,6 @@ export function firmEventDraftStarted(draft: FirmEventDraft, since: FirmEventDra
       );
     })
   );
-}
-
-function optionalText(text: string): string | null {
-  const trimmed = text.trim();
-  return trimmed === "" ? null : trimmed;
 }
 
 /** The request a ready draft becomes. Call only when `firmEventDraftReady` is true. */

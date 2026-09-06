@@ -11,19 +11,19 @@
   slices: 1-3-directory
   adrs: ADR-0006, ADR-0085
   spec: docs/specs/2026-06-12-slice-1-3-directory-design.md
-  evidence: packages/directory on main; the Directory list and record at apps/web/src/routes/(app)/directory; the linking family at packages/design-system/src/lib/components/{entity-identity,entity-picker,record-parties}
+  evidence: packages/directory on main; the Directory list at apps/web/src/routes/(app)/directory and the entity window every record opens in at apps/web/src/lib/directory/entity-window.svelte; the linking family at packages/design-system/src/lib/components/{entity-identity,entity-picker,record-parties}
   audience: public
   public-name: One record for every person and organization
   public-summary: Clients, opposing parties, courts, experts and vendors in one place, with the relationships between them held as facts rather than notes.
-  notes: Backend complete; the list, the record screen and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md).
+  notes: Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md).
 
 - id: directory.entities
   name: Person and Organization entities
   scope: Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role.
   status: partial
   slices: 1-3-directory
-  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts, person-record.ts (a whole person in one batch); apps/web/src/lib/directory/new-person-dialog.svelte (every section reachable at creation, on the side rail) and apps/web/src/routes/(app)/directory/[id]/+page.svelte with the Names, Contact, Pronouns, Dates, Identifiers, Duplicates, Relationships, Matters and (organizations only) Categories panes
-  notes: Backend shipped; the record screen is built. The organization stays thin by the owner's ruling.
+  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts, person-record.ts (a whole person in one batch); apps/web/src/lib/directory/new-person-dialog.svelte (every section reachable at creation, on the side rail) and apps/web/src/lib/directory/entity-window.svelte, the one window a record opens in from the directory, a matter or a conflicts hit, with the Names, Contact, Pronouns, Dates, Identifiers, Duplicates, Relationships, Matters and (organizations only) Categories panes on the same rail
+  notes: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling.
 
 - id: directory.entities.categories
   name: Entity categories
@@ -32,7 +32,7 @@
   surface: screen
   slices: 1-3-directory
   evidence: packages/directory/src/categories.ts; apps/web/src/lib/directory/categories-pane.svelte, on organizations only, assigns and creates a category the firm has not named yet through the add row; category repointing handled in merge.ts
-  notes: Backend shipped; assignment and creation are on the record screen. Archiving a category has no route yet.
+  notes: Backend shipped; assignment and creation are on the record's window. Archiving a category has no route yet.
 
 - id: directory.entities.category-fields
   name: Category-specific custom fields

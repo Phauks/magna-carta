@@ -64,7 +64,12 @@ export const EXCLUDED_SUBTREES = new Map([
  * Routes that decline the affordance, each with the reason a reader still has a way back. Declining
  * is allowed; what is refused is declining silently. Empty is the healthy state.
  */
-export const STANDING_EXEMPTIONS = new Map([]);
+export const STANDING_EXEMPTIONS = new Map([
+  [
+    "/directory/[id]",
+    "a directory record has no screen: this is its former address, whose loader redirects to the directory with that record's window open, so nothing renders here",
+  ],
+]);
 
 /** How many component hops the search will follow out of a route file before giving up. */
 const MAX_COMPONENT_DEPTH = 4;
@@ -260,6 +265,9 @@ export function auditBackNavigation({
   webSource,
   destinations = new Map(),
   spelledOut = new Map(),
+  /* The standing register by default; the gate's own tests hand in their own so a fixture route
+     that happens to share a real route's path is still judged. */
+  exemptions = STANDING_EXEMPTIONS,
   readDirectory = readdirSync,
   readFile = readFileSync,
   exists = (file) => {
@@ -284,7 +292,7 @@ export function auditBackNavigation({
       excluded.push(here);
       continue;
     }
-    const exemption = STANDING_EXEMPTIONS.get(here);
+    const exemption = exemptions.get(here);
     if (exemption !== undefined) {
       exempted.push(`${here} — ${exemption}`);
       continue;

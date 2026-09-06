@@ -14,8 +14,8 @@ import {
   type PersistedPreference,
 } from "$lib/preferences/persisted-preference.svelte.ts";
 import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
+import { HistoryStack } from "@magna-carta/design-system/history-stack";
 import { NavigationHistory, type NavigationPlace } from "./navigation-history.ts";
-import { MoveHistory } from "./move-history.ts";
 
 /** The scale steps the slider snaps to, from half size to double. */
 export const SCALE_STEPS = [50, 62.5, 75, 87.5, 100, 112.5, 125, 150, 175, 200] as const;
@@ -70,9 +70,16 @@ export class FileManagerState {
   clipboard = $state<Clipboard | null>(null);
   /** Pinned row keys, in the reader's own arranged order. Pinning is arranging, not sorting. */
   pinnedKeys = $state<string[]>([]);
-  readonly moves = new MoveHistory();
-  /** Bumped whenever a move is recorded or reversed, so the undo controls re-derive. */
-  moveRevision = $state(0);
+  /*
+   * Undo and redo for MOVEMENT — moves between folders, drag-and-drop, cut-and-paste. Deliberately
+   * movement only: a delete is already recoverable through Deleted Files, and a rename that undid
+   * itself while somebody was still typing the next one would be worse than no undo at all. What is
+   * here is the class of act that is easy to perform by accident with a pointer.
+   *
+   * The stack is the design system's, so its steps are reactive and the controls re-derive from it
+   * directly — there is no revision counter to bump, and nothing to forget to bump.
+   */
+  readonly history = new HistoryStack();
 
   // --- search ------------------------------------------------------------------------------------
 

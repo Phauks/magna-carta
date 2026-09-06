@@ -3,6 +3,7 @@ import {
   anchorFromAddress,
   calendarWindow,
   isCivilDate,
+  restOfCalendarAddress,
   shiftAnchor,
   viewFromAddress,
   windowContains,
@@ -126,5 +127,45 @@ describe("the address", () => {
     expect(viewFromAddress("week", "month")).toBe("week");
     expect(viewFromAddress("year", "month")).toBe("month");
     expect(isCivilDate("2026-13-01")).toBe(false);
+  });
+});
+
+describe("restOfCalendarAddress", () => {
+  it("names a colleague by identifier, and everyone while nobody is chosen yet", () => {
+    expect(restOfCalendarAddress({ kind: "firm" }, "2026-09-02", "member", "user_1")).toBe(
+      "/calendar?view=agenda&date=2026-09-02&scope=member%3Auser_1",
+    );
+    expect(restOfCalendarAddress({ kind: "firm" }, "2026-09-02", "member", null)).toBe(
+      "/calendar?view=agenda&date=2026-09-02&scope=everyone",
+    );
+  });
+
+  it("opens the matter's own calendar as an agenda on the same day, with the identifier escaped", () => {
+    expect(
+      restOfCalendarAddress({ kind: "matter", matterId: "matter 1/a" }, "2026-09-02", "everyone"),
+    ).toBe("/matters/matter%201%2Fa/calendar?view=agenda&date=2026-09-02");
+  });
+
+  it("opens the room grid on the resource", () => {
+    const resource = { kind: "resource", resourceId: "firmResource_1" } as const;
+    expect(restOfCalendarAddress(resource, "2026-09-02", "everyone")).toBe(
+      "/calendar/rooms?view=agenda&date=2026-09-02&resource=firmResource_1",
+    );
+  });
+
+  it("opens the firm calendar on Mine for a mine scope, whatever was chosen", () => {
+    const mine = { kind: "mine", memberId: "user_me" } as const;
+    expect(restOfCalendarAddress(mine, "2026-09-02", "everyone")).toBe(
+      "/calendar?view=agenda&date=2026-09-02&scope=mine",
+    );
+  });
+
+  it("opens the firm calendar on the choice the card was painted under", () => {
+    expect(restOfCalendarAddress({ kind: "firm" }, "2026-09-02", "everyone")).toBe(
+      "/calendar?view=agenda&date=2026-09-02&scope=everyone",
+    );
+    expect(restOfCalendarAddress({ kind: "firm" }, "2026-09-02", "mine")).toBe(
+      "/calendar?view=agenda&date=2026-09-02&scope=mine",
+    );
   });
 });

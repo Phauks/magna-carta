@@ -32,16 +32,21 @@
  * differs by the row it was started from: a row that is already an entry takes the elapsed time on
  * to its own duration, and a row that is not becomes the entry the timer commits.
  *
- * UNDO PUTS THE SHEET BACK, THEN PUTS THE RECORD BACK. A step restores the rows immediately, so the
- * screen answers at once, and then writes the restored values through. An undo is itself a change
- * the firm made, and it reaches the record as one.
+ * UNDO IS A PAIR OF WRITES, NOT A PICTURE OF THE SHEET. Each step holds the field it changed, as it
+ * was and as it became, and walks it back through the same update route the cell used. That is why
+ * an undo touches ONE row: a snapshot of the whole sheet cannot say which field moved, so putting
+ * one back meant writing every row on the sheet — over rows the step never touched, and over
+ * whatever somebody had changed in another window meanwhile.
  *
- * SO ONLY WHAT CAN ACTUALLY BE PUT BACK IS OFFERED AS A STEP. The stack writes changed FIELDS back
- * through the update route, which is the only reversal this surface has. Voiding an entry is not
- * one of them — it is a status change on its own route, not a field the stack can rewrite — so a
- * void pushes no step and says at the moment it happens that undo does not reach it. Offering the
- * step and then announcing a reversal that never ran is the worse failure, because the reader
- * believes the record went back.
+ * AND NOTHING IS ANNOUNCED UNTIL THE WRITE HAS ANSWERED. A step that says the record went back
+ * before the record agrees has told the reader something untrue about their own entry.
+ *
+ * SO ONLY WHAT CAN ACTUALLY BE PUT BACK IS OFFERED AS A STEP. Voiding an entry is not one of them —
+ * it is a status change on its own route, not a field the stack can rewrite — so a void pushes no
+ * step and says at the moment it happens that undo does not reach it. An inverse whose row has
+ * since left draft REFUSES rather than writing: the record moved under the step, and putting a
+ * value back on an entry somebody voided in between would be a second act wearing the first one's
+ * name.
  *
  * WHAT IT SAYS INSTEAD IS WHERE THE REPAIR IS. A void is no longer permanent: the entry can be put
  * back to draft with everything it carries, from the ledger's own menu or from the record window.
@@ -51,7 +56,7 @@
 import { untrack } from "svelte";
 import type { FirmMemberSummary } from "$lib/members/members-api.ts";
 import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
-import { SheetHistory } from "./time-sheet-history.svelte.ts";
+import { HistoryStack } from "@magna-carta/design-system/history-stack";
 import {
   isWorkable,
   minutesFromSeconds,
@@ -98,9 +103,6 @@ export interface SheetContext {
   readonly announce: (message: string) => void;
 }
 
-/** A row's fields, held for the undo stack. */
-type RowSnapshot = readonly SheetRow[];
-
 export class TimeSheetStore {
   readonly #context: SheetContext;
 
@@ -116,7 +118,7 @@ export class TimeSheetStore {
   tick = $state(0);
   timerFailure = $state<string | null>(null);
 
-  readonly history: SheetHistory<RowSnapshot>;
+  readonly history = new HistoryStack();
 
   #newRowCount = 0;
   /** How many provisional codes this sheet has minted, so each row gets its own. */
@@ -133,25 +135,14 @@ export class TimeSheetStore {
   /**
    * Entries voided since this sheet opened.
    *
-   * A snapshot taken before a void still holds that row as a draft, so restoring it would put a
-   * voided entry back on the sheet as workable and then try to write to it. The void is the newer
-   * fact and it survives the restore.
+   * A step recorded before a void names a row that is now on the record as void, and an inverse
+   * that wrote to it would be a second act wearing the first one's name. This is what an inverse
+   * checks before it writes: the void is the newer fact, and it wins.
    */
   readonly #voidedIdentifiers = new Set<string>();
 
   constructor(context: SheetContext) {
     this.#context = context;
-    this.history = new SheetHistory<RowSnapshot>(
-      () => this.rows.map((row) => ({ ...row })),
-      (snapshot) => {
-        this.rows = snapshot.map((row) =>
-          row.entryIdentifier !== null && this.#voidedIdentifiers.has(row.entryIdentifier)
-            ? { ...row, status: "void" as const }
-            : { ...row },
-        );
-        void this.#writeBackEverySavedRow();
-      },
-    );
   }
 
   /**
@@ -241,7 +232,12 @@ export class TimeSheetStore {
       void this.#refile(key, row.entryIdentifier, matterId);
       return;
     }
-    this.history.push("the matter on this entry");
+    this.#recordFieldChange(
+      key,
+      "the matter on this entry",
+      { matterId: row.matterId },
+      { matterId },
+    );
     this.#patchRow(key, { matterId });
     this.#save(key);
   }
@@ -292,7 +288,12 @@ export class TimeSheetStore {
   setWorkDate(key: string, workDate: string): void {
     const row = this.rowByKey(key);
     if (row === undefined || row.workDate === workDate || workDate === "") return;
-    this.history.push(`the work date on this entry`);
+    this.#recordFieldChange(
+      key,
+      "the work date on this entry",
+      { workDate: row.workDate },
+      { workDate },
+    );
     this.#patchRow(key, { workDate });
     this.#save(key);
   }
@@ -300,7 +301,12 @@ export class TimeSheetStore {
   setDescription(key: string, description: string): void {
     const row = this.rowByKey(key);
     if (row === undefined || row.description === description) return;
-    this.history.push("the description on this entry");
+    this.#recordFieldChange(
+      key,
+      "the description on this entry",
+      { description: row.description },
+      { description },
+    );
     this.#patchRow(key, { description });
     this.#save(key);
   }
@@ -314,7 +320,7 @@ export class TimeSheetStore {
   setMemo(key: string, memo: string): void {
     const row = this.rowByKey(key);
     if (row === undefined || row.memo === memo) return;
-    this.history.push("the internal memo on this entry");
+    this.#recordFieldChange(key, "the internal memo on this entry", { memo: row.memo }, { memo });
     this.#patchRow(key, { memo });
     this.#save(key);
   }
@@ -322,7 +328,12 @@ export class TimeSheetStore {
   setWorkedSeconds(key: string, workedSeconds: number): void {
     const row = this.rowByKey(key);
     if (row === undefined || row.workedSeconds === workedSeconds) return;
-    this.history.push("the duration on this entry");
+    this.#recordFieldChange(
+      key,
+      "the duration on this entry",
+      { workedSeconds: row.workedSeconds },
+      { workedSeconds },
+    );
     if (this.timerRowKey === key) void this.pauseTimerOnRow();
     this.#patchRow(key, { workedSeconds });
     this.#save(key);
@@ -368,14 +379,18 @@ export class TimeSheetStore {
     );
   }
 
-  async #writeRow(key: string): Promise<void> {
+  /** Answers whether the record now holds the row's values, so an inverse can tell. */
+  async #writeRow(key: string): Promise<boolean> {
     const row = this.rowByKey(key);
-    if (row === undefined || !this.#acceptable(row)) return;
+    if (row === undefined) return false;
+    // Not a failure: a row the capture route would refuse is a row that has not been sent, and the
+    // mark on it already says so.
+    if (!this.#acceptable(row)) return true;
     // The row's own matter, never the surface's: on a firm-wide sheet the two are different
     // questions and only the row knows the answer. Acceptability has already established it is
     // there; reading it into a constant is what lets the type system agree.
     const matterId = row.matterId;
-    if (matterId === null) return;
+    if (matterId === null) return true;
     const outcome =
       row.entryIdentifier === null
         ? await createTimeEntry(
@@ -412,7 +427,7 @@ export class TimeSheetStore {
             ? `Not saved. The server answered ${String(outcome.problem.status)}. The record is unchanged.`
             : "Nothing answered. The change was not saved and the record is unchanged.",
       });
-      return;
+      return false;
     }
     // A capture answers with the identity it minted AND the number it drew; an update answers with
     // the whole entry. Both are read for the number, because the Time Code cell should stop saying
@@ -425,15 +440,53 @@ export class TimeSheetStore {
       entryNumber: written.entryNumber ?? row.entryNumber,
     });
     this.#context.onChanged();
+    return true;
   }
 
-  /** After an undo, write every row that already exists back the way the stack put it. */
-  async #writeBackEverySavedRow(): Promise<void> {
-    await Promise.all(
-      this.rows
-        .filter((row) => row.entryIdentifier !== null && isWorkable(row) && this.#acceptable(row))
-        .map((row) => this.#writeRow(row.key)),
-    );
+  /**
+   * Record one field's change as the pair of writes that walk it back and forward.
+   *
+   * The two patches are the field as it WAS and as it BECAME, and nothing else — which is what
+   * keeps an undo to the one row the reader changed. Pushed before the change lands, because a step
+   * holds the state to return to.
+   */
+  #recordFieldChange(
+    key: string,
+    label: string,
+    was: Partial<SheetRow>,
+    became: Partial<SheetRow>,
+  ): void {
+    this.history.push({
+      label,
+      undo: () => this.#applyAndWrite(key, was),
+      redo: () => this.#applyAndWrite(key, became),
+    });
+  }
+
+  /**
+   * Put a field back and send it, now rather than after the settle — a reader who pressed Undo has
+   * already stopped typing.
+   *
+   * It THROWS on anything that stops the record moving, because that is how the stack learns to
+   * keep the step: a refused write leaves the act on the stack, still offered, and the reader gets
+   * another attempt at the same one instead of the one beneath it.
+   */
+  async #applyAndWrite(key: string, values: Partial<SheetRow>): Promise<void> {
+    const row = this.rowByKey(key);
+    if (row === undefined) throw new Error("that row is no longer on the sheet");
+    // The record moved under the step. Refusing is the honest answer: the void, the submission or
+    // the approval is the newer fact, and it is not this stack's to rewrite.
+    if (!isWorkable(row)) throw new Error("that entry is no longer a draft");
+    this.#patchRow(key, values);
+    const next = this.rowByKey(key);
+    // Nothing to send: the row is not on the record at all, so the screen going back IS the whole
+    // reversal and there is no write to wait for.
+    if (next === undefined || !this.#acceptable(next)) {
+      this.#patchRow(key, { saveState: "unsaved", saveFailure: null });
+      return;
+    }
+    this.#patchRow(key, { saveState: "saving", saveFailure: null });
+    if (!(await this.#writeRow(key))) throw new Error("the change was not written");
   }
 
   /**
@@ -450,7 +503,21 @@ export class TimeSheetStore {
     const row = this.rowByKey(key);
     if (row === undefined) return;
     if (row.entryIdentifier === null) {
-      this.history.push("removing this row");
+      // The row itself is the step: nothing reached the record, so putting it back is putting the
+      // row back where it stood, with everything typed into it. The place is clamped on the way in
+      // rather than remembered as a promise — rows come and go while a step sits on the stack.
+      const removed = row;
+      const stoodAt = this.rows.indexOf(row);
+      this.history.push({
+        label: "removing this row",
+        undo: () => {
+          const at = Math.min(Math.max(stoodAt, 0), this.rows.length);
+          this.rows = [...this.rows.slice(0, at), removed, ...this.rows.slice(at)];
+        },
+        redo: () => {
+          this.rows = this.rows.filter((other) => other.key !== key);
+        },
+      });
       this.rows = this.rows.filter((other) => other.key !== key);
       this.#context.announce("The row was removed. It had not been written to the record.");
       return;
@@ -628,7 +695,14 @@ export class TimeSheetStore {
       return;
     }
     await discardTimer(fetch);
-    if (row.entryIdentifier !== null) this.history.push("the timer's time on this entry");
+    if (row.entryIdentifier !== null) {
+      this.#recordFieldChange(
+        key,
+        "the timer's time on this entry",
+        { workedSeconds: row.workedSeconds },
+        { workedSeconds: row.workedSeconds + elapsed },
+      );
+    }
     this.#patchRow(key, { workedSeconds: row.workedSeconds + elapsed });
     this.#save(key);
   }

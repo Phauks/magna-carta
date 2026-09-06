@@ -237,16 +237,24 @@ function collectFailures(
   return failures;
 }
 
+/** What each read is a read OF, as a notice names it; the sentence and the title both read from here. */
+const READ_SUBJECTS: Record<CalendarReadName, string> = {
+  events: "the events",
+  deadlines: "the deadlines",
+  firmEvents: "the firm's own events",
+  bookings: "the resource's bookings",
+};
+
 /** The sentence a notice leads with for a failed read, in this surface's own words. */
 export function describeReadFailure(read: CalendarReadName): string {
-  switch (read) {
-    case "events":
-      return "The events could not be read.";
-    case "deadlines":
-      return "The deadlines could not be read.";
-    case "firmEvents":
-      return "The firm's own events could not be read.";
-    case "bookings":
-      return "The resource's bookings could not be read.";
-  }
+  const subject = READ_SUBJECTS[read];
+  return `${subject.charAt(0).toUpperCase()}${subject.slice(1)} could not be read.`;
+}
+
+/** The title a notice stands under for a failed read: the same fact, set as a heading. */
+export function readFailureTitle(read: CalendarReadName): string {
+  return `${READ_SUBJECTS[read]} could not be read`.replaceAll(
+    /(^|\s)([a-z])/g,
+    (_match: string, before: string, letter: string) => `${before}${letter.toUpperCase()}`,
+  );
 }

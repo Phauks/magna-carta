@@ -35,6 +35,11 @@
   import Checkbox from "@magna-carta/design-system/checkbox";
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import {
+    historyAnnouncement,
+    historyShortcuts,
+    type HistoryOutcome,
+  } from "@magna-carta/design-system/history";
   import { statusEntry } from "@magna-carta/design-system/status-register";
   import type {
     FolderColorName,
@@ -601,10 +606,41 @@
       actionFailure = "Some of those could not be moved. Nothing else changed.";
     }
     if (origins.size > 0) {
-      manager.moves.record({ description, keys: [...origins.keys()], origins, destinationFolderId });
-      manager.moveRevision += 1;
+      manager.history.push({
+        label: description,
+        undo: () => moveEachBack(origins),
+        redo: () => moveEachTo([...origins.keys()], destinationFolderId),
+      });
     }
     reload();
+  }
+
+  /*
+   * The two inverses of a recorded move, and the whole reason the stack holds commands rather than a
+   * snapshot: each key goes back to where IT came from, which a snapshot of the surface could not
+   * say. A write that refuses THROWS rather than returning, so the stack keeps the step and the
+   * reader gets another attempt at the same move instead of the one beneath it.
+   */
+  async function moveEachBack(origins: ReadonlyMap<string, string | null>): Promise<void> {
+    for (const [key, origin] of origins) await moveOne(key, origin);
+    reload();
+  }
+
+  async function moveEachTo(keys: readonly string[], folderId: string | null): Promise<void> {
+    for (const key of keys) await moveOne(key, folderId);
+    reload();
+  }
+
+  async function moveOne(key: string, folderId: string | null): Promise<void> {
+    const row = findRowAnywhere(key);
+    // A row the surface can no longer see is not a failure: it was deleted, or it is in a part of
+    // the tree this view has not read. The rest of the step still goes back.
+    if (row === null) return;
+    const outcome =
+      row.kind === "folder"
+        ? await patchFolder(fetch, row.folder.id, { parentFolderId: folderId }, writeKey())
+        : await patchFile(fetch, row.file.id, { folderId }, writeKey());
+    if (outcome.kind !== "ok") throw new Error("the move was refused");
   }
 
   function findRowAnywhere(key: string): FileManagerRow | null {
@@ -615,47 +651,13 @@
     return null;
   }
 
-  async function undoMove(): Promise<void> {
-    const move = manager.moves.takeUndo();
-    manager.moveRevision += 1;
-    if (move === null) return;
-    for (const [key, origin] of move.origins) {
-      const row = findRowAnywhere(key);
-      if (row === null) continue;
-      if (row.kind === "folder") await patchFolder(fetch, row.folder.id, { parentFolderId: origin }, writeKey());
-      else await patchFile(fetch, row.file.id, { folderId: origin }, writeKey());
-    }
-    reload();
-  }
-
-  /** Walk back through several recorded moves at once, from the stack. */
-  async function undoMoves(steps: number): Promise<void> {
-    for (let taken = 0; taken < steps; taken += 1) await undoMove();
-  }
-
-  async function redoMoves(steps: number): Promise<void> {
-    for (let taken = 0; taken < steps; taken += 1) await redoMove();
-  }
-
-  async function redoMove(): Promise<void> {
-    const move = manager.moves.takeRedo();
-    manager.moveRevision += 1;
-    if (move === null) return;
-    for (const key of move.keys) {
-      const row = findRowAnywhere(key);
-      if (row === null) continue;
-      if (row.kind === "folder") {
-        await patchFolder(
-          fetch,
-          row.folder.id,
-          { parentFolderId: move.destinationFolderId },
-          writeKey(),
-        );
-      } else {
-        await patchFile(fetch, row.file.id, { folderId: move.destinationFolderId }, writeKey());
-      }
-    }
-    reload();
+  /*
+   * What a walk came to. Only a REFUSAL is spoken here: the rows moving back is the surface saying
+   * it did, and this view has never announced a successful move either. A refusal has nowhere to
+   * show itself, so it goes to the same band every other refused act on this surface uses.
+   */
+  function historyOutcome(outcome: HistoryOutcome): void {
+    if (outcome.failure !== null) actionFailure = historyAnnouncement(outcome);
   }
 
   // --- deleting ------------------------------------------------------------------------------------
@@ -1288,16 +1290,15 @@
       void runCommand("paste");
       return;
     }
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
-      event.preventDefault();
-      void (event.shiftKey ? redoMove() : undoMove());
-      return;
-    }
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") {
-      event.preventDefault();
-      void redoMove();
-    }
+    historyKeys(event);
   }
+
+  /*
+   * Ctrl+Z, Ctrl+Y and Shift+Ctrl+Z, from the design system rather than spelled out here. It is
+   * attached to this surface's own element, so a second surface with a stack of its own never
+   * receives these presses.
+   */
+  const historyKeys = historyShortcuts(manager.history, { onOutcome: historyOutcome });
 
   // --- dropping files onto the list -------------------------------------------------------------------
 
@@ -1772,10 +1773,7 @@
               <FileManagerFooter
                 {manager}
                 grid={archiveGrid}
-                onUndo={() => void undoMove()}
-                onRedo={() => void redoMove()}
-                onUndoSteps={(steps) => void undoMoves(steps)}
-                onRedoSteps={(steps) => void redoMoves(steps)}
+                onHistoryOutcome={historyOutcome}
                 onToggleRail={toggleRail}
                 onTogglePanel={togglePanel}
               />
@@ -1937,10 +1935,7 @@
               <FileManagerFooter
                 {manager}
                 grid={deletedGrid}
-                onUndo={() => void undoMove()}
-                onRedo={() => void redoMove()}
-                onUndoSteps={(steps) => void undoMoves(steps)}
-                onRedoSteps={(steps) => void redoMoves(steps)}
+                onHistoryOutcome={historyOutcome}
                 onToggleRail={toggleRail}
                 onTogglePanel={togglePanel}
               />
@@ -1948,10 +1943,7 @@
               <FileManagerFooter
                 {manager}
                 grid={historyGrid}
-                onUndo={() => void undoMove()}
-                onRedo={() => void redoMove()}
-                onUndoSteps={(steps) => void undoMoves(steps)}
-                onRedoSteps={(steps) => void redoMoves(steps)}
+                onHistoryOutcome={historyOutcome}
                 onToggleRail={toggleRail}
                 onTogglePanel={togglePanel}
               />
@@ -1961,10 +1953,7 @@
                 {grid}
                 tally={footerTally}
                 extras={manager.view === "analysis" ? analysisExtras : undefined}
-                onUndo={() => void undoMove()}
-                onRedo={() => void redoMove()}
-                onUndoSteps={(steps) => void undoMoves(steps)}
-                onRedoSteps={(steps) => void redoMoves(steps)}
+                onHistoryOutcome={historyOutcome}
                 onToggleRail={toggleRail}
                 onTogglePanel={togglePanel}
               />

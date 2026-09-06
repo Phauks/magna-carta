@@ -13,9 +13,9 @@
  */
 import type { CalendarDeadline, CreateDeadlineRequest, DeadlineSource } from "./calendar-api.ts";
 import { isCivilDate } from "./calendar-window.ts";
+import { isWallClockTime, optionalText } from "./draft-text.ts";
 import { isResolvableTimeZone } from "./time-zone-options.ts";
 
-const WALL_CLOCK_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 /** The priority scale the record takes: 1 is the most urgent, 9 the least. */
 export const DEADLINE_PRIORITY_MAX = 9;
 
@@ -59,7 +59,7 @@ export function deadlineDraftShortfalls(draft: DeadlineDraft): string[] {
   const shortfalls: string[] = [];
   if (draft.title.trim() === "") shortfalls.push("A title is needed.");
   if (draft.dueOn === null || !isCivilDate(draft.dueOn)) shortfalls.push("A due date is needed.");
-  if (draft.dueAtTime !== "" && !WALL_CLOCK_TIME.test(draft.dueAtTime)) {
+  if (draft.dueAtTime !== "" && !isWallClockTime(draft.dueAtTime)) {
     shortfalls.push("The time does not read as a time of day.");
   }
   if (draft.timeZone.trim() === "") {
@@ -91,11 +91,6 @@ export function deadlineDraftStarted(draft: DeadlineDraft, since: DeadlineDraft)
     draft.triggerEventId !== since.triggerEventId ||
     draft.priority !== since.priority
   );
-}
-
-function optionalText(text: string): string | null {
-  const trimmed = text.trim();
-  return trimmed === "" ? null : trimmed;
 }
 
 /** The request a ready draft becomes. Call only when `deadlineDraftReady` is true. */

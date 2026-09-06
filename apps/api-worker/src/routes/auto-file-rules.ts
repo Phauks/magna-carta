@@ -460,29 +460,39 @@ const resumeRoute = defineOpenAPIRoute(resumeMeta, {
   },
 });
 
-const revokeRoute = defineOpenAPIRoute(revokeMeta, {
-  method: "delete",
-  path: "/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}",
-  description:
-    "Retire this rule for good. Still not a delete: the rule row survives so that every message it " +
-    "placed can still say which rule placed it, and the messages themselves are untouched. A revoked " +
-    "rule cannot be resumed — create a new one instead.",
-  request: { params: ruleParam, headers: idempotencyKeyHeader },
-  responses: {
-    200: {
-      description: "The revoked rule",
-      content: { "application/json": { schema: AutoFileRule } },
+const revokeRoute = defineOpenAPIRoute(
+  {
+    ...revokeMeta,
+    reversal: {
+      kind: "none",
+      reason:
+        "A revoked rule is kept so every message it placed can still name it, and it cannot be resumed. The way back is a new rule.",
     },
-    401: unauthenticated,
-    403: forbiddenManage,
-    404: ruleAbsent,
-    409: {
-      description: "The rule is already revoked",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    429: rateLimited,
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/matters/{matterId}/auto-file-rules/{emailAutoFileRuleId}",
+    description:
+      "Retire this rule for good. Still not a delete: the rule row survives so that every message it " +
+      "placed can still say which rule placed it, and the messages themselves are untouched. A revoked " +
+      "rule cannot be resumed — create a new one instead.",
+    request: { params: ruleParam, headers: idempotencyKeyHeader },
+    responses: {
+      200: {
+        description: "The revoked rule",
+        content: { "application/json": { schema: AutoFileRule } },
+      },
+      401: unauthenticated,
+      403: forbiddenManage,
+      404: ruleAbsent,
+      409: {
+        description: "The rule is already revoked",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      429: rateLimited,
+    },
+  },
+);
 
 const decisionsRoute = defineOpenAPIRoute(decisionsMeta, {
   method: "get",

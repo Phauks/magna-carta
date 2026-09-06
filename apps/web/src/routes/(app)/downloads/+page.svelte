@@ -24,7 +24,7 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { toast } from "@magna-carta/design-system/toast";
   import {
     exportFromStored,
@@ -195,7 +195,58 @@
     if (formats.length === 0) return "Not yet";
     return formats.map((entry) => entry.toUpperCase()).join(", ");
   }
+
+  /*
+   * The shape the shelf takes while it is read: the same table, over invented items. Inert and
+   * hidden from assistive technology while it stands, so no row in it reads as something the
+   * platform made for this member.
+   */
+  const SHELF_FIXTURE = [
+    {
+      id: "fixture-1",
+      title: "Matters docket, 12 Feb 2026",
+      source: PRODUCER_LABELS.export ?? "Export",
+      format: "XLSX",
+      taken: "XLSX, PDF",
+      created: "12 Feb 2026, 09:14",
+      until: "19 Feb 2026, 09:14",
+    },
+    {
+      id: "fixture-2",
+      title: "Trust ledger, January",
+      source: PRODUCER_LABELS.export ?? "Export",
+      format: "PDF",
+      taken: "Not yet",
+      created: "10 Feb 2026, 16:40",
+      until: "17 Feb 2026, 16:40",
+    },
+    {
+      id: "fixture-3",
+      title: "Pemberton discovery bundle",
+      source: PRODUCER_LABELS.bundle ?? "File Bundle",
+      format: "ZIP",
+      taken: "ZIP",
+      created: "9 Feb 2026, 11:02",
+      until: "16 Feb 2026, 11:02",
+    },
+  ] as const;
 </script>
+
+{#snippet shelfHead()}
+  <DataTable.Caption class="sr-only">Your downloads</DataTable.Caption>
+  <DataTable.Header>
+    <DataTable.Row>
+      <DataTable.Head><span class="sr-only">Select</span></DataTable.Head>
+      <DataTable.Head>Name</DataTable.Head>
+      <DataTable.Head>Source</DataTable.Head>
+      <DataTable.Head>Format</DataTable.Head>
+      <DataTable.Head>Downloaded</DataTable.Head>
+      <DataTable.Head>Created</DataTable.Head>
+      <DataTable.Head>Available Until</DataTable.Head>
+      <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
+    </DataTable.Row>
+  </DataTable.Header>
+{/snippet}
 
 <svelte:head>
   <title>Downloads · Magna Carta</title>
@@ -221,129 +272,148 @@
     fallback={failure.fallback}
     onRetry={() => void load()}
   />
-{:else if items === null}
-  <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading your downloads">
-    <Skeleton class="h-32 w-full" />
-    <Skeleton class="h-32 w-full" />
-    <Skeleton class="h-32 w-full" />
-  </div>
-{:else if items.length === 0}
-  <EmptyState title="Nothing here yet">
-    Reports and files the platform makes for you gather here for a week. Export something from any
-    screen and it appears here, ready to download whenever you want it — on its own, or together
-    with everything else you have gathered.
-  </EmptyState>
 {:else}
-  {#if selectedItems.length > 0}
-    <!-- Present only while a selection is in play: its absence is itself the answer to whether
-         anything is selected. -->
-    <div class="mb-16 flex items-center gap-8">
-      <Button onclick={() => void takeSelected()} disabled={gathering}>
-        <Download class="size-16" aria-hidden="true" />
-        {gathering ? "Gathering" : `Download ${String(selectedItems.length)} Selected`}
-      </Button>
-      <Button variant="ghost" onclick={() => (selectedIds = [])} disabled={gathering}>
-        Clear selection
-      </Button>
-    </div>
-  {/if}
-  <DataTable.Root>
-    <DataTable.Caption class="sr-only">Your downloads</DataTable.Caption>
-    <DataTable.Header>
-      <DataTable.Row>
-        <DataTable.Head><span class="sr-only">Select</span></DataTable.Head>
-        <DataTable.Head>Name</DataTable.Head>
-        <DataTable.Head>Source</DataTable.Head>
-        <DataTable.Head>Format</DataTable.Head>
-        <DataTable.Head>Downloaded</DataTable.Head>
-        <DataTable.Head>Created</DataTable.Head>
-        <DataTable.Head>Available Until</DataTable.Head>
-        <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
-      </DataTable.Row>
-    </DataTable.Header>
-    <DataTable.Body>
-      {#each items as item (item.id)}
-        <DataTable.Row>
-          <DataTable.Cell>
-            <Checkbox
-              checked={selectedIds.includes(item.id)}
-              onCheckedChange={() => toggleSelected(item.id)}
-              aria-label={`Select ${item.title}`}
-            />
-          </DataTable.Cell>
-          <DataTable.Cell>{item.title}</DataTable.Cell>
-          <DataTable.Cell>{PRODUCER_LABELS[item.producer] ?? item.producer}</DataTable.Cell>
-          <DataTable.Cell>
-            {item.requestedFormat === null ? "" : item.requestedFormat.toUpperCase()}
-          </DataTable.Cell>
-          <DataTable.Cell>{formatTaken(item.downloadedFormats)}</DataTable.Cell>
-          <DataTable.Cell>{formatStamp(item.createdAt)}</DataTable.Cell>
-          <DataTable.Cell>{formatStamp(item.expiresAt)}</DataTable.Cell>
-          <DataTable.Cell data-align="end">
-            <div class="flex items-center justify-end gap-8">
-              {#if failedTakes[item.id] !== undefined}
-                <span
-                  class="text-xs text-status-danger-subtle-foreground"
-                  role="status"
-                  title={failedTakes[item.id]?.message}
-                >
-                  Download failed
-                </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onclick={() => void take(item, failedTakes[item.id]?.format ?? "file")}
-                  aria-label={`Retry downloading ${item.title}`}
-                >
-                  <RotateCcw class="size-16" aria-hidden="true" />
-                  Retry
-                </Button>
-              {/if}
-              {#if item.kind === "snapshot"}
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger
-                    class={buttonClasses({ variant: "ghost", size: "sm" })}
+  <LoadingRegion loading={items === null} label="Reading your downloads">
+    {#snippet fixture()}
+      <DataTable.Root>
+        {@render shelfHead()}
+        <DataTable.Body>
+          {#each SHELF_FIXTURE as item (item.id)}
+            <DataTable.Row>
+              <DataTable.Cell>
+                <Checkbox checked={false} aria-label={`Select ${item.title}`} />
+              </DataTable.Cell>
+              <DataTable.Cell>{item.title}</DataTable.Cell>
+              <DataTable.Cell>{item.source}</DataTable.Cell>
+              <DataTable.Cell>{item.format}</DataTable.Cell>
+              <DataTable.Cell>{item.taken}</DataTable.Cell>
+              <DataTable.Cell>{item.created}</DataTable.Cell>
+              <DataTable.Cell>{item.until}</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                <div class="flex items-center justify-end gap-8">
+                  <Button variant="ghost" size="sm">
+                    <Download class="size-16" aria-hidden="true" />
+                    Download
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Trash2 class="size-16" aria-hidden="true" />
+                    Remove
+                  </Button>
+                </div>
+              </DataTable.Cell>
+            </DataTable.Row>
+          {/each}
+        </DataTable.Body>
+      </DataTable.Root>
+    {/snippet}
+    {@const shown = items ?? []}
+    {#if shown.length === 0}
+    <EmptyState title="Nothing here yet">
+      Reports and files the platform makes for you gather here for a week. Export something from any
+      screen and it appears here, ready to download whenever you want it — on its own, or together
+      with everything else you have gathered.
+    </EmptyState>
+    {:else}
+    {#if selectedItems.length > 0}
+      <!-- Present only while a selection is in play: its absence is itself the answer to whether
+           anything is selected. -->
+      <div class="mb-16 flex items-center gap-8">
+        <Button onclick={() => void takeSelected()} disabled={gathering}>
+          <Download class="size-16" aria-hidden="true" />
+          {gathering ? "Gathering" : `Download ${String(selectedItems.length)} Selected`}
+        </Button>
+        <Button variant="ghost" onclick={() => (selectedIds = [])} disabled={gathering}>
+          Clear selection
+        </Button>
+      </div>
+    {/if}
+    <DataTable.Root>
+      {@render shelfHead()}
+      <DataTable.Body>
+        {#each shown as item (item.id)}
+          <DataTable.Row>
+            <DataTable.Cell>
+              <Checkbox
+                checked={selectedIds.includes(item.id)}
+                onCheckedChange={() => toggleSelected(item.id)}
+                aria-label={`Select ${item.title}`}
+              />
+            </DataTable.Cell>
+            <DataTable.Cell>{item.title}</DataTable.Cell>
+            <DataTable.Cell>{PRODUCER_LABELS[item.producer] ?? item.producer}</DataTable.Cell>
+            <DataTable.Cell>
+              {item.requestedFormat === null ? "" : item.requestedFormat.toUpperCase()}
+            </DataTable.Cell>
+            <DataTable.Cell>{formatTaken(item.downloadedFormats)}</DataTable.Cell>
+            <DataTable.Cell>{formatStamp(item.createdAt)}</DataTable.Cell>
+            <DataTable.Cell>{formatStamp(item.expiresAt)}</DataTable.Cell>
+            <DataTable.Cell data-align="end">
+              <div class="flex items-center justify-end gap-8">
+                {#if failedTakes[item.id] !== undefined}
+                  <span
+                    class="text-xs text-status-danger-subtle-foreground"
+                    role="status"
+                    title={failedTakes[item.id]?.message}
+                  >
+                    Download failed
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onclick={() => void take(item, failedTakes[item.id]?.format ?? "file")}
+                    aria-label={`Retry downloading ${item.title}`}
+                  >
+                    <RotateCcw class="size-16" aria-hidden="true" />
+                    Retry
+                  </Button>
+                {/if}
+                {#if item.kind === "snapshot"}
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger
+                      class={buttonClasses({ variant: "ghost", size: "sm" })}
+                      aria-label={`Download ${item.title} again`}
+                    >
+                      <Download class="size-16" aria-hidden="true" />
+                      Download
+                      <ChevronDown class="size-16" aria-hidden="true" />
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content
+                      align="end"
+                      style="inline-size: var(--mc-size-popover)"
+                    >
+                      {#each SNAPSHOT_FORMATS as format (format.label)}
+                        <DropdownMenu.Item onSelect={() => void take(item, format.extension)}>
+                          {format.label}
+                        </DropdownMenu.Item>
+                      {/each}
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                {:else}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onclick={() => void take(item, "file")}
                     aria-label={`Download ${item.title} again`}
                   >
                     <Download class="size-16" aria-hidden="true" />
                     Download
-                    <ChevronDown class="size-16" aria-hidden="true" />
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content
-                    align="end"
-                    style="inline-size: var(--mc-size-popover)"
-                  >
-                    {#each SNAPSHOT_FORMATS as format (format.label)}
-                      <DropdownMenu.Item onSelect={() => void take(item, format.extension)}>
-                        {format.label}
-                      </DropdownMenu.Item>
-                    {/each}
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
-              {:else}
+                  </Button>
+                {/if}
                 <Button
                   variant="ghost"
                   size="sm"
-                  onclick={() => void take(item, "file")}
-                  aria-label={`Download ${item.title} again`}
+                  onclick={() => void remove(item)}
+                  aria-label={`Remove ${item.title}`}
                 >
-                  <Download class="size-16" aria-hidden="true" />
-                  Download
+                  <Trash2 class="size-16" aria-hidden="true" />
+                  Remove
                 </Button>
-              {/if}
-              <Button
-                variant="ghost"
-                size="sm"
-                onclick={() => void remove(item)}
-                aria-label={`Remove ${item.title}`}
-              >
-                <Trash2 class="size-16" aria-hidden="true" />
-                Remove
-              </Button>
-            </div>
-          </DataTable.Cell>
-        </DataTable.Row>
-      {/each}
-    </DataTable.Body>
-  </DataTable.Root>
+              </div>
+            </DataTable.Cell>
+          </DataTable.Row>
+        {/each}
+      </DataTable.Body>
+    </DataTable.Root>
+    {/if}
+  </LoadingRegion>
 {/if}

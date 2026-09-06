@@ -1,7 +1,7 @@
 # Calendar interface — design and plan
 
 **Date:** 2026-09-02
-**Status:** Plan, with slice 1 in build on branch `claude/calendar-ui-plan-eu523y`. The owner flags
+**Status:** Built through the fifth round on branch `claude/calendar-ui-plan-eu523y` (section 10). The owner flags
 in section 12 are recommendations this build proceeds on, not open architecture.
 **Scope:** The user interface over the calendar the two backend slices built: one reusable calendar
 component every surface that needs a calendar reaches for, the firm-wide `/calendar` screen it
@@ -332,6 +332,7 @@ independently and the notice names which one did.
 | **2** | Layers on the firm calendar (custody dates: due-backs and review dates, the timeline's date-bearing sources; its history sources stay in the timeline) and a "hide settled" filter on the agenda; the Home "Today" card and the matter overview's "Coming up" agenda, both the one component capped at six rows; a colleague picker on the firm scope beside Mine/Everyone                                                                                                                                                                                                                                                | `claude/calendar-ui-plan-eu523y` (second round) |
 | **3** | The room grid at `/calendar/rooms` (the resource scope over the availability read, a week at a time, conflicts painted danger with a "Double-booked" line), the Rooms tab on an event's window (its bookings through the new `GET /api/v1/events/{id}/bookings` and `/firm-events/{id}/bookings` reads, Book a Room as a verb, Release per row), and the resource catalog under Settings › Practice › Rooms and Resources. Event links (related) as a reader in the Links tab moved to slice 4 with the links list read it needs                                                                                          | `claude/calendar-ui-plan-eu523y` (third round)  |
 | **4** | The event-type catalog under Settings › Practice › Event Types (a platform type recategorized or retired, a firm type added, renamed or retired; retiring is one way, as the contract is); related links on the entry window's Links tab over the new `GET /api/v1/events/{id}/links` and `/firm-events/{id}/links` reads, with Relate (a setting on the same matter, or a firm event within six months) and Remove. The matter timeline as a Calendar-section view was dropped from this round: the Activity section (#464) is that read's one screen. A time-axis week view waits on the owner using the civil-day form | `claude/calendar-ui-plan-eu523y` (fourth round) |
+| **5** | The interface taken apart along its own rules, behaviour preserved: the entry window's decisions into tested pure modules (`entry-verbs.ts`, `entry-updates.ts`, `continue-draft.ts`, `entry-links.ts`, `calendar-permission.ts`, `draft-text.ts`); the Links and Rooms tabs as their own components; the window's panes over the shared timing fields and a shared type select; the matter section's List view into the module and the page onto the shared context (owner ruling 2026-09-05); the view's per-scope sentences and addresses down into scope, window and reads; tests for the pure modules that had none  | `claude/calendar-ui-plan-eu523y` (fifth round)  |
 
 ## 11. File ownership in slice 1
 

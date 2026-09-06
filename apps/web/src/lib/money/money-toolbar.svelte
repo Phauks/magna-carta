@@ -22,12 +22,12 @@
    * rather than a pair of equals.
    */
   import type { Snippet } from "svelte";
+  import * as DataTable from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
   import type { DataTableGridState } from "@magna-carta/design-system/data-table";
   import Coins from "@lucide/svelte/icons/coins";
   import Expand from "@lucide/svelte/icons/expand";
   import Frame from "@lucide/svelte/icons/frame";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import Rows3 from "@lucide/svelte/icons/rows-3";
   import Rows4 from "@lucide/svelte/icons/rows-4";
   import {
@@ -71,9 +71,6 @@
   const layoutTitle = $derived(
     flush ? "Frame the table inside the page" : "Run the table to the edges of the screen",
   );
-  const clearFiltersTitle = $derived(
-    `Clear all filters and show all ${String(grid.totalRowCount)} ${grid.itemNoun.plural}`,
-  );
 </script>
 
 <!-- Flush, the strip is the file manager's: a rule beneath it and the list's own gutter. Framed,
@@ -100,17 +97,7 @@
   </nav>
 
   <div class="ms-auto flex shrink-0 items-center gap-4">
-    {#if grid.isFiltered}
-      <Button
-        variant="secondary"
-        size="sm"
-        title={clearFiltersTitle}
-        onclick={() => grid.clearAllFilters()}
-      >
-        <FunnelX class="size-16" aria-hidden="true" />
-        Clear Filters
-      </Button>
-    {/if}
+    <DataTable.ClearFilters {grid} />
     {#if acts}
       {@render acts()}
     {/if}

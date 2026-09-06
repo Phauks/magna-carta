@@ -584,6 +584,17 @@ export function deadlineStateLabel(state: DeadlineState): string {
  * on, so it is the only thing that gets the danger tone. A satisfied or vacated deadline is settled
  * history however late it was met.
  */
+/**
+ * The word a deadline's badge carries: its state, except that an OPEN deadline past its day says
+ * so, because that is the one fact a reader opened the calendar to find. Decided once, so the entry
+ * window and the matter's List cannot disagree about which deadline is late.
+ */
+export function deadlineStateBadgeLabel(deadline: CalendarDeadline): string {
+  return deadline.overdue && deadline.state === "open"
+    ? "Past due"
+    : deadlineStateLabel(deadline.state);
+}
+
 export function deadlineTone(deadline: CalendarDeadline): "neutral" | "success" | "danger" {
   if (deadline.overdue && deadline.state === "open") return "danger";
   if (deadline.state === "satisfied") return "success";
@@ -846,6 +857,19 @@ export function deleteBooking(
   });
 }
 
+/** Every kind a resource can be, in the order a catalog offers them. */
+export const FIRM_RESOURCE_KINDS: readonly FirmResourceKind[] = [
+  "room",
+  "vehicle",
+  "equipment",
+  "other",
+];
+
+/** How a resource is named wherever it is picked or listed beside its kind: "Boardroom · Room". */
+export function resourceChipLabel(resource: { name: string; kind: FirmResourceKind }): string {
+  return `${resource.name} · ${resourceKindLabel(resource.kind)}`;
+}
+
 /** The word a resource kind reads as. */
 export function resourceKindLabel(kind: FirmResourceKind): string {
   switch (kind) {
@@ -912,6 +936,14 @@ export function deactivateEventType(
 }
 
 /** The word a category reads as. */
+/** Every category an event type can take, in the order a catalog offers them. */
+export const EVENT_TYPE_CATEGORIES: readonly EventTypeCategory[] = [
+  "litigation",
+  "transaction",
+  "firm",
+  "other",
+];
+
 export function eventTypeCategoryLabel(category: EventTypeCategory): string {
   switch (category) {
     case "litigation":

@@ -200,29 +200,39 @@ const recoverCancelMeta: RouteMeta = {
   rateLimit: "default",
 };
 
-const recoverCancelRoute = defineOpenAPIRoute(recoverCancelMeta, {
-  method: "delete",
-  path: "/api/v1/decryption/recover/{jobId}",
-  description:
-    "Cancels a password-recovery job. A no-op if the job is already terminal (found, exhausted, " +
-    "needsGpu, or already cancelled) — cancel never overwrites an outcome already reached.",
-  request: { params: RecoveryJobIdParam },
-  responses: {
-    204: { description: "The job was cancelled (or was already terminal — a no-op either way)" },
-    401: {
-      description: "No valid session",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    403: {
-      description: "Authenticated but the member lacks tools:decryption",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    429: {
-      description: "Rate limit exceeded",
-      content: { "application/problem+json": { schema: Problem } },
+const recoverCancelRoute = defineOpenAPIRoute(
+  {
+    ...recoverCancelMeta,
+    reversal: {
+      kind: "none",
+      reason:
+        "A cancelled recovery job is terminal. Searching again is a new job with its own budget, never this one resumed.",
     },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/decryption/recover/{jobId}",
+    description:
+      "Cancels a password-recovery job. A no-op if the job is already terminal (found, exhausted, " +
+      "needsGpu, or already cancelled) — cancel never overwrites an outcome already reached.",
+    request: { params: RecoveryJobIdParam },
+    responses: {
+      204: { description: "The job was cancelled (or was already terminal — a no-op either way)" },
+      401: {
+        description: "No valid session",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      403: {
+        description: "Authenticated but the member lacks tools:decryption",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      429: {
+        description: "Rate limit exceeded",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+    },
+  },
+);
 
 type RecoveryApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 

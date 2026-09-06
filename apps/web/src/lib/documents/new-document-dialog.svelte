@@ -27,7 +27,7 @@
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Dropzone from "@magna-carta/design-system/dropzone";
   import Label from "@magna-carta/design-system/label";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import {
     listTemplates,
     type AssemblyOutputFormat,
@@ -100,6 +100,17 @@
   const OUTPUT_FORMAT_ITEMS: readonly { value: AssemblyOutputFormat; label: string }[] = [
     { value: "docx", label: "Word document — still editable" },
     { value: "pdf", label: "PDF — ready to sign" },
+  ];
+
+  /*
+   * The shape the template path takes while the catalogue is read: the same two labelled pickers,
+   * over invented templates. Inert and hidden from assistive technology while it stands, so
+   * nothing in it can be picked or read as one of the firm's own.
+   */
+  const FIXTURE_TEMPLATE_VALUE = "fixture-engagement";
+  const TEMPLATE_FIXTURE_ITEMS = [
+    { value: FIXTURE_TEMPLATE_VALUE, label: "Engagement letter" },
+    { value: "fixture-retainer", label: "Retainer agreement" },
   ];
 
   const STAGE_NARRATION: Record<CreationStage, string> = {
@@ -266,60 +277,99 @@
                   Adding a document from a file still works. Reopen this dialog to try again.
                 </Alert.Description>
               </Alert.Root>
-            {:else if templates === null}
-              <Skeleton class="h-32 w-full" />
-            {:else if templates.length === 0}
-              <Alert.Root variant="info">
-                <Alert.Title>This firm has no templates yet.</Alert.Title>
-                <Alert.Description>
-                  A template is registered once and then assembled against any matter. Until one is
-                  registered there is nothing to build from, so this list is genuinely empty rather
-                  than showing examples.
-                </Alert.Description>
-              </Alert.Root>
             {:else}
-              <div class="flex flex-col gap-8">
-                <Label id="new-document-template-label">Template</Label>
-                <Select.Root
-                  type="single"
-                  items={templateItems}
-                  bind:value={selectedTemplateVersionId}
-                  allowDeselect={false}
-                  disabled={busy}
-                >
-                  <Select.Trigger class="max-w-sm" aria-labelledby="new-document-template-label">
-                    <Select.Value placeholder="Choose a template" />
-                  </Select.Trigger>
-                  <Select.Content>
-                    {#each templateItems as item (item.value)}
-                      <Select.Item value={item.value} label={item.label} />
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
-              </div>
-              <div class="flex flex-col gap-8">
-                <Label id="new-document-format-label">Build it as</Label>
-                <Select.Root
-                  type="single"
-                  items={[...OUTPUT_FORMAT_ITEMS]}
-                  bind:value={outputFormat}
-                  allowDeselect={false}
-                  disabled={busy}
-                >
-                  <Select.Trigger class="max-w-sm" aria-labelledby="new-document-format-label">
-                    <Select.Value placeholder="Choose a format" />
-                  </Select.Trigger>
-                  <Select.Content>
-                    {#each OUTPUT_FORMAT_ITEMS as item (item.value)}
-                      <Select.Item value={item.value} label={item.label} />
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
-                <p class="text-sm text-text-muted">
-                  A PDF is converted from the merged document before it is filed, so it takes a
-                  little longer. Choose it when the document is going out to be signed.
-                </p>
-              </div>
+              <LoadingRegion
+                loading={templates === null}
+                label="Reading the firm's templates"
+                class="flex flex-col gap-12"
+              >
+                {#snippet fixture()}
+                  <div class="flex flex-col gap-8">
+                    <Label>Template</Label>
+                    <Select.Root
+                      type="single"
+                      items={TEMPLATE_FIXTURE_ITEMS}
+                      value={FIXTURE_TEMPLATE_VALUE}
+                      allowDeselect={false}
+                    >
+                      <Select.Trigger class="max-w-sm" aria-label="Template">
+                        <Select.Value />
+                      </Select.Trigger>
+                    </Select.Root>
+                  </div>
+                  <div class="flex flex-col gap-8">
+                    <Label>Build it as</Label>
+                    <Select.Root
+                      type="single"
+                      items={[...OUTPUT_FORMAT_ITEMS]}
+                      value="docx"
+                      allowDeselect={false}
+                    >
+                      <Select.Trigger class="max-w-sm" aria-label="Build it as">
+                        <Select.Value />
+                      </Select.Trigger>
+                    </Select.Root>
+                    <p class="text-sm text-text-muted">
+                      A PDF is converted from the merged document before it is filed, so it takes a
+                      little longer. Choose it when the document is going out to be signed.
+                    </p>
+                  </div>
+                {/snippet}
+                {@const shown = templates ?? []}
+                {#if shown.length === 0}
+                <Alert.Root variant="info">
+                  <Alert.Title>This firm has no templates yet.</Alert.Title>
+                  <Alert.Description>
+                    A template is registered once and then assembled against any matter. Until one is
+                    registered there is nothing to build from, so this list is genuinely empty rather
+                    than showing examples.
+                  </Alert.Description>
+                </Alert.Root>
+                {:else}
+                <div class="flex flex-col gap-8">
+                  <Label id="new-document-template-label">Template</Label>
+                  <Select.Root
+                    type="single"
+                    items={templateItems}
+                    bind:value={selectedTemplateVersionId}
+                    allowDeselect={false}
+                    disabled={busy}
+                  >
+                    <Select.Trigger class="max-w-sm" aria-labelledby="new-document-template-label">
+                      <Select.Value placeholder="Choose a template" />
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each templateItems as item (item.value)}
+                        <Select.Item value={item.value} label={item.label} />
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                </div>
+                <div class="flex flex-col gap-8">
+                  <Label id="new-document-format-label">Build it as</Label>
+                  <Select.Root
+                    type="single"
+                    items={[...OUTPUT_FORMAT_ITEMS]}
+                    bind:value={outputFormat}
+                    allowDeselect={false}
+                    disabled={busy}
+                  >
+                    <Select.Trigger class="max-w-sm" aria-labelledby="new-document-format-label">
+                      <Select.Value placeholder="Choose a format" />
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each OUTPUT_FORMAT_ITEMS as item (item.value)}
+                        <Select.Item value={item.value} label={item.label} />
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                  <p class="text-sm text-text-muted">
+                    A PDF is converted from the merged document before it is filed, so it takes a
+                    little longer. Choose it when the document is going out to be signed.
+                  </p>
+                </div>
+                {/if}
+              </LoadingRegion>
             {/if}
           </div>
         </Tabs.Content>

@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 796 nodes of the feature ledger in
+is the complete register rather than a digest: all 797 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**796 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**797 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **656 that are units of work**, for the reason set out under [What a roll-up is
+count the **657 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 291 | 45% |
+| Done | shipped | 292 | 45% |
 | Part-built | partial, in-build | 119 | 18% |
 | Ahead | designed, planned, researching, not-started | 205 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **656** | **100%** |
+| **All units of work** | | **657** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 291 | 44% |
+| `shipped` | 292 | 44% |
 | `partial` | 118 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 138 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 1% |
-| **All statuses** | **656** | **100%** |
+| **All statuses** | **657** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 796 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 797 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 291 of 656 (44%). Shipped plus partial is 409 (62%).**
+**Shipped alone is 292 of 657 (44%). Shipped plus partial is 410 (62%).**
 
 The 118 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,7 +74,7 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**410 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**411 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
@@ -83,9 +83,9 @@ ledger records it separately, in `surface:`.
 | --- | ---: | ---: |
 | A person can open it today (`screen`) | 61 | 15% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 172 | 42% |
-| No user surface by nature (`internal`) | 177 | 43% |
+| No user surface by nature (`internal`) | 178 | 43% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **410** | **100%** |
+| **Everything with something built** | **411** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -103,7 +103,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Conflicts Check | 5 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 63% |
 | Core Domain — Directory, Matters & Locations | 33 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 54% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
-| Design System, UI Consistency & Design Quality | 11 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 17 | 65% |
+| Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **291** | **118** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **656** | **44%** |
+| **All areas** | **292** | **118** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **657** | **44%** |
 
 ## Where we have been
 
@@ -609,9 +609,9 @@ to change a line here, edit the node in its area file and re-run the build.
 
 [`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 61 units of work, 54% shipped. 33 done, 20 part-built, 7 ahead, 1 parked.
 
-- `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete; the list, the record screen and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md)._
-  - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record screen is built. The organization stays thin by the owner's ruling._
-    - `directory.entities.categories` · `partial` · **Entity categories** — Per-firm classification labels (attorney, judge, court, expert, vendor, client) that are not schema variants. _Note: Backend shipped; assignment and creation are on the record screen. Archiving a category has no route yet._
+- `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md)._
+  - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling._
+    - `directory.entities.categories` · `partial` · **Entity categories** — Per-firm classification labels (attorney, judge, court, expert, vendor, client) that are not schema variants. _Note: Backend shipped; assignment and creation are on the record's window. Archiving a category has no route yet._
     - `directory.entities.category-fields` · `partial` · **Category-specific custom fields** — Category-specific data (bar number, jurisdiction, specialty/rate) defined through the shared custom-fields engine; add-only, equal depth preserved. _Note: Engine shipped (see custom-fields.\*); field-definition and entry UI not built._
   - `directory.names` · `partial` · **Structured names and name history** — Structured person names (prefix/first/middle/last/suffix), aliases/AKAs, maiden and former names, preferred/display name; org legal name, DBAs/trade names, former names; retained name-change history. _Note: Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. display_text and the legal/preferred roles remain._
   - `directory.pronouns` · `partial` · **Pronouns on a person** — Optional, owner-entered pronouns on a Directory person — the whole declension plus verb agreement — feeding the document-assembly pronoun helpers; never inferred from a name, a title, or a gender attribute. _Note: Backend shipped and the Pronouns pane on the record screen enters them. A separate gender field is deliberately not built and is flagged for the owner._
@@ -707,7 +707,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Design System, UI Consistency & Design Quality
 
-[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 17 units of work, 65% shipped. 11 done, 5 part-built, 1 ahead, 0 parked.
+[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 18 units of work, 67% shipped. 12 done, 5 part-built, 1 ahead, 0 parked.
 
 - `design-system` · `partial` · **Design system** — UI consistency prevented by construction (tokens, one component source, CI) and design quality set by a human foundation with an enforced review step. _Note: Foundation built and merged; close-out items open (NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass)._
   - `design-system.tokens` · `partial` · **Design tokens** — Every color/spacing/radius/shadow/type/z/motion/breakpoint value a named DTCG token; no raw values elsewhere.
@@ -726,6 +726,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `design-system.enforcement.visual-regression` · `partial` · **Visual regression testing** — Playwright screenshots across every theme and mode over the story matrix; Argos the named upgrade. _Note: Harness and CI job built; first container-rendered baselines still pending; Argos not adopted._
   - `design-system.design-language` · `shipped` · **Design language foundation** — Human-set distinctive, restrained language: type system, palette with intent, legal power-user density, functional motion, signature elements. _Note: Dark design pass named as a remaining close-out item._
   - `design-system.page-archetypes` · `shipped` · **Page archetypes** — Canonical page templates (List/Index, Record Detail, Editor, Form/Wizard, Dashboard) fixing layout grammar, hierarchy, and full state sets. _Note: Archetype application across feature screens rides each UI slice._
+  - `design-system.loading-region` · `shipped` · **One loading state** — LoadingRegion renders a surface's real markup over a fixture and one recipe greys its leaves; Skeleton retired from the public surface; a lint:one-ui rule keeps a second way from growing back. _Note: Every loading state in apps/web migrated in the same stream; busy live acts that are not placeholders stand as recorded allowances._
   - `design-system.ui-pipeline` · `partial` · **UI build pipeline** — Per-slice staged roles: interaction design, implementation, design critique against an anti-generic rubric, accessibility, visual regression.
     - `design-system.ui-pipeline.critique-rubric` · `shipped` · **Design critique standard** — Explicit anti-generic and usability rubric as the practitioner standard for the judgment gate.
     - `design-system.ui-pipeline.accessibility` · `partial` · **Keyboard-first accessibility** — Keyboard-first and WCAG; axe checks enforced in stories; screen-reader passes per tier. _Note: Per-tier NVDA passes pending per STATUS close-out list. The high-contrast axis is a working preference that only the checkbox and the switch answer, and its token context is deliberately unpopulated — see settings.area-ui.personal-preferences._

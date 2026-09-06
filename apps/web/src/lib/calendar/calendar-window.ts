@@ -21,6 +21,7 @@ import {
   startOfWeek,
   today as todayIn,
 } from "@internationalized/date";
+import type { CalendarScope, ScopeChoice } from "./calendar-scope.ts";
 
 export const CALENDAR_VIEWS = ["month", "week", "agenda"] as const;
 export type CalendarView = (typeof CALENDAR_VIEWS)[number];
@@ -181,4 +182,42 @@ export function anchorFromAddress(text: string | null, fallback: string): string
 /** The view a page opens on, on the same rule. */
 export function viewFromAddress(text: string | null, fallback: CalendarView): CalendarView {
   return isCalendarView(text) ? text : fallback;
+}
+
+/**
+ * Where the rest of a capped calendar is: the same span as an agenda, on the screen that owns the
+ * scope, so a card's "N more" is one press from the answer. On the firm side the address carries
+ * the choice the card was painted under, so the screen opens on the same calendar.
+ */
+export function restOfCalendarAddress(
+  scope: CalendarScope,
+  anchor: string,
+  choice: ScopeChoice,
+  memberChoice: string | null = null,
+): string {
+  const query = new URLSearchParams({ view: "agenda", date: anchor });
+  if (scope.kind === "matter") {
+    return `/matters/${encodeURIComponent(scope.matterId)}/calendar?${query.toString()}`;
+  }
+  if (scope.kind === "resource") {
+    query.set("resource", scope.resourceId);
+    return `/calendar/rooms?${query.toString()}`;
+  }
+  query.set("scope", scope.kind === "mine" ? "mine" : scopeAddressValue(choice, memberChoice));
+  return `/calendar?${query.toString()}`;
+}
+
+/** The `scope` value naming one colleague: `member:<userId>`. */
+export const MEMBER_SCOPE_PREFIX = "member:";
+
+/**
+ * The `scope` value an address carries for a choice on the firm calendar. A colleague is named by
+ * identifier; a member choice with nobody chosen yet reads as everyone, because that is what the
+ * grid shows until somebody is picked.
+ */
+export function scopeAddressValue(choice: ScopeChoice, memberChoice: string | null): string {
+  if (choice === "member") {
+    return memberChoice === null ? "everyone" : `${MEMBER_SCOPE_PREFIX}${memberChoice}`;
+  }
+  return choice;
 }

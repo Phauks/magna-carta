@@ -363,7 +363,7 @@ export function findDomainLeaks(filePath, source) {
         "the caller supplies",
     });
   }
-  return problems.toSorted((first, second) => first.line - second.line);
+  return problems.toSorted((first, second) => first.at - second.at);
 }
 
 // --- rule: the one-implementation registry ---------------------------------------------------
@@ -1216,4 +1216,58 @@ export function findHandComposedDetailsPanels(filePath, source) {
     }
   }
   return problems;
+}
+
+// --- rule: one loading state ------------------------------------------------------------------
+
+/**
+ * The signals of a loading state drawn by hand rather than rendered through LoadingRegion.
+ *
+ * The rule has two sides, like the modal rule. In the app, NONE of these may appear: a loading
+ * region is `<LoadingRegion loading label>` around real markup, so an app file has no reason to
+ * import the Skeleton box, paint its class, write `aria-busy` itself, pulse a utility, or reach
+ * for a spinner glyph (the archetype state set names skeleton rows, never a spinner-only screen).
+ * Inside the design system, the same signals are allowed only in the homes the registry declares
+ * as owning a loading state — the region itself, the box it is built from, and the few components
+ * that render placeholder rows of their own shape — so a second loading mechanism inside the
+ * package is caught as readily as one outside it.
+ *
+ * Each signal is named in the problem so the fix is obvious from the line alone.
+ */
+const LOADING_SIGNALS = [
+  {
+    pattern: /@magna-carta\/design-system\/skeleton\b|<Skeleton\b/g,
+    what: "places the Skeleton box by hand",
+  },
+  { pattern: /\bmc-skeleton\b/g, what: "paints the Skeleton recipe class by hand" },
+  { pattern: /\baria-busy\b/g, what: "writes aria-busy itself" },
+  { pattern: /\banimate-pulse\b/g, what: "pulses a utility class as a placeholder" },
+  {
+    pattern: /@lucide\/svelte\/icons\/(?:loader-circle|loader-pinwheel|loader)\b/g,
+    what: "reaches for a spinner glyph",
+  },
+];
+
+export function findHandPlacedLoading(filePath, source, loadingHomes) {
+  if (loadingHomes.some((home) => filePath.startsWith(`${home}/`))) return [];
+  const text = stripComments(source);
+  const problems = [];
+  for (const { pattern, what } of LOADING_SIGNALS) {
+    for (const match of text.matchAll(pattern)) {
+      problems.push({
+        rule: "hand-placed-loading",
+        file: filePath,
+        line: lineOf(text, match.index),
+        at: match.index,
+        text: match[0],
+        detail:
+          `${what} (\`${match[0]}\`). A region whose data has not arrived is ` +
+          "`<LoadingRegion loading label>` around its real markup, with a `fixture` snippet where " +
+          "the markup cannot render on null data; the recipe turns the leaves into bones and the " +
+          "region announces the state once. Nothing else draws a placeholder, and nothing shows " +
+          "a spinner where a shape belongs",
+      });
+    }
+  }
+  return problems.toSorted((first, second) => first.at - second.at);
 }

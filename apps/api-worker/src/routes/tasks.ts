@@ -588,27 +588,33 @@ const recordSyncRoute = defineOpenAPIRoute(writeMeta("recordExternalSync"), {
   },
 });
 
-const unlinkTaskRoute = defineOpenAPIRoute(writeMeta("unlinkExternalTask"), {
-  method: "delete",
-  path: "/api/v1/task-external-links/{linkId}",
-  description:
-    "Stop mirroring. The task is untouched: unlinking is a statement about the correspondence and " +
-    "never about the work, so nothing here completes, cancels or deletes anything.",
-  request: { headers: idempotencyKeyHeader, params: externalLinkIdParam },
-  responses: {
-    200: {
-      description: "Unlinked",
-      content: { "application/json": { schema: AcknowledgedResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const unlinkTaskRoute = defineOpenAPIRoute(
+  {
+    ...writeMeta("unlinkExternalTask"),
+    reversal: { kind: "inverse", by: "tasks.linkExternalTask" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/task-external-links/{linkId}",
+    description:
+      "Stop mirroring. The task is untouched: unlinking is a statement about the correspondence and " +
+      "never about the work, so nothing here completes, cancels or deletes anything.",
+    request: { headers: idempotencyKeyHeader, params: externalLinkIdParam },
+    responses: {
+      200: {
+        description: "Unlinked",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const createTaskRoute = defineOpenAPIRoute(writeMeta("createTask"), {
   method: "post",
@@ -709,27 +715,30 @@ const completeTaskRoute = defineOpenAPIRoute(writeMeta("completeTask"), {
   },
 });
 
-const reopenTaskRoute = defineOpenAPIRoute(writeMeta("reopenTask"), {
-  method: "delete",
-  path: "/api/v1/tasks/{taskId}/completion",
-  description:
-    "Puts a completed or cancelled task back on the list. The completion and cancellation details " +
-    "are cleared from the task, and that it was closed and reopened stays in the firm's audit log.",
-  request: { headers: idempotencyKeyHeader, params: taskIdParam },
-  responses: {
-    200: {
-      description: "The task was reopened",
-      content: { "application/json": { schema: AcknowledgedResponse } },
+const reopenTaskRoute = defineOpenAPIRoute(
+  { ...writeMeta("reopenTask"), reversal: { kind: "inverse", by: "tasks.completeTask" } },
+  {
+    method: "delete",
+    path: "/api/v1/tasks/{taskId}/completion",
+    description:
+      "Puts a completed or cancelled task back on the list. The completion and cancellation details " +
+      "are cleared from the task, and that it was closed and reopened stays in the firm's audit log.",
+    request: { headers: idempotencyKeyHeader, params: taskIdParam },
+    responses: {
+      200: {
+        description: "The task was reopened",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
     },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
   },
-});
+);
 
 const cancelTaskRoute = defineOpenAPIRoute(writeMeta("cancelTask"), {
   method: "post",
@@ -758,28 +767,38 @@ const cancelTaskRoute = defineOpenAPIRoute(writeMeta("cancelTask"), {
   },
 });
 
-const deleteTaskRoute = defineOpenAPIRoute(writeMeta("deleteTask"), {
-  method: "delete",
-  path: "/api/v1/tasks/{taskId}",
-  description:
-    "Deletes a task outright, for one that should not exist: a typo, a duplicate, a line somebody " +
-    "abandoned. Anything waiting on it stops waiting. Documents it pointed at are untouched and " +
-    "stay in the matter's files. Where the firm decided not to do real work, cancel it instead.",
-  request: { headers: idempotencyKeyHeader, params: taskIdParam },
-  responses: {
-    200: {
-      description: "The task was deleted",
-      content: { "application/json": { schema: AcknowledgedResponse } },
+const deleteTaskRoute = defineOpenAPIRoute(
+  {
+    ...writeMeta("deleteTask"),
+    reversal: {
+      kind: "none",
+      reason:
+        "A deleted task leaves a tombstone carrying identifiers and nothing else, which is what a mirror learns the deletion from. The work itself is gone and nothing puts it back.",
     },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/tasks/{taskId}",
+    description:
+      "Deletes a task outright, for one that should not exist: a typo, a duplicate, a line somebody " +
+      "abandoned. Anything waiting on it stops waiting. Documents it pointed at are untouched and " +
+      "stay in the matter's files. Where the firm decided not to do real work, cancel it instead.",
+    request: { headers: idempotencyKeyHeader, params: taskIdParam },
+    responses: {
+      200: {
+        description: "The task was deleted",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const attachDocumentRoute = defineOpenAPIRoute(writeMeta("attachTaskDocument"), {
   method: "post",
@@ -808,27 +827,33 @@ const attachDocumentRoute = defineOpenAPIRoute(writeMeta("attachTaskDocument"), 
   },
 });
 
-const detachDocumentRoute = defineOpenAPIRoute(writeMeta("detachTaskDocument"), {
-  method: "delete",
-  path: "/api/v1/task-documents/{attachmentId}",
-  description:
-    "Ends the association between a task and a document. The document is untouched and stays in " +
-    "the matter's files.",
-  request: { headers: idempotencyKeyHeader, params: attachmentIdParam },
-  responses: {
-    200: {
-      description: "The link was removed",
-      content: { "application/json": { schema: AcknowledgedResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const detachDocumentRoute = defineOpenAPIRoute(
+  {
+    ...writeMeta("detachTaskDocument"),
+    reversal: { kind: "inverse", by: "tasks.attachTaskDocument" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/task-documents/{attachmentId}",
+    description:
+      "Ends the association between a task and a document. The document is untouched and stays in " +
+      "the matter's files.",
+    request: { headers: idempotencyKeyHeader, params: attachmentIdParam },
+    responses: {
+      200: {
+        description: "The link was removed",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 // ---- shared handler plumbing ----
 

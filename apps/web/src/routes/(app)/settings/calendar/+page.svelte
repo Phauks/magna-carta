@@ -16,8 +16,9 @@
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import { MANAGE_CALENDAR_PERMISSION } from "$lib/calendar/calendar-api.ts";
+  import { mayManageCalendar } from "$lib/calendar/calendar-permission.ts";
   import {
     CalendarSettingsDraft,
     CALENDAR_SETTINGS_SECTION_ID,
@@ -30,7 +31,7 @@
   let session = $state<SessionBootstrap | null>(null);
   // Read-only until the session says otherwise: a control that appears and then vanishes when
   // the permission turns out to be missing reads as a broken page.
-  const canEdit = $derived(session?.permissions.includes(MANAGE_CALENDAR_PERMISSION) ?? false);
+  const canEdit = $derived(mayManageCalendar(session));
 
   $effect(() => {
     void draft.load();
@@ -78,17 +79,25 @@
     {/if}
 
     <SettingsPlate heading="The Week">
-      {#if draft.loaded}
-        {#if canEdit}
-          <SettingsRow definition={WEEK_STARTS_ON_DEFINITION} {draft} />
-        {:else}
-          <SettingsRow
-            definition={WEEK_STARTS_ON_DEFINITION}
-            value={draft.value(WEEK_STARTS_ON_DEFINITION)}
-          />
-        {/if}
-      {:else if draft.readFailure === null}
-        <p class="py-12 text-sm text-text-muted" aria-busy="true">Reading the firm's settings.</p>
+      {#if draft.loaded || draft.readFailure === null}
+        <LoadingRegion loading={!draft.loaded} label="Reading the firm's calendar settings">
+          <!-- The row is its own shape: the setting's name stays readable, the description and
+               the engraved value grey, and the plate keeps its geometry while the read is out. -->
+          {#snippet fixture()}
+            <SettingsRow
+              definition={WEEK_STARTS_ON_DEFINITION}
+              value={WEEK_STARTS_ON_DEFINITION.defaultValue}
+            />
+          {/snippet}
+          {#if canEdit}
+            <SettingsRow definition={WEEK_STARTS_ON_DEFINITION} {draft} />
+          {:else}
+            <SettingsRow
+              definition={WEEK_STARTS_ON_DEFINITION}
+              value={draft.value(WEEK_STARTS_ON_DEFINITION)}
+            />
+          {/if}
+        </LoadingRegion>
       {/if}
     </SettingsPlate>
   </div>

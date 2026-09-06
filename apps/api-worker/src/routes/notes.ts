@@ -323,28 +323,38 @@ const editNoteRoute = defineOpenAPIRoute(writeMeta("editNote"), {
   },
 });
 
-const deleteNoteRoute = defineOpenAPIRoute(writeMeta("deleteNote"), {
-  method: "delete",
-  path: "/api/v1/notes/{noteId}",
-  description:
-    "Deletes a note. The note and its text are removed and cannot be recovered. Documents the note " +
-    "pointed at are untouched and stay in the matter's files: deleting a note has never been a way " +
-    "to delete a document.",
-  request: { headers: idempotencyKeyHeader, params: noteIdParam },
-  responses: {
-    200: {
-      description: "The note was deleted",
-      content: { "application/json": { schema: AcknowledgedResponse } },
+const deleteNoteRoute = defineOpenAPIRoute(
+  {
+    ...writeMeta("deleteNote"),
+    reversal: {
+      kind: "none",
+      reason:
+        "The note and its text are removed outright. Nothing puts a deleted note back — the revision chain and retraction that would replace this delete are designed and not built.",
     },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/notes/{noteId}",
+    description:
+      "Deletes a note. The note and its text are removed and cannot be recovered. Documents the note " +
+      "pointed at are untouched and stay in the matter's files: deleting a note has never been a way " +
+      "to delete a document.",
+    request: { headers: idempotencyKeyHeader, params: noteIdParam },
+    responses: {
+      200: {
+        description: "The note was deleted",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const attachDocumentRoute = defineOpenAPIRoute(writeMeta("attachNoteDocument"), {
   method: "post",
@@ -373,26 +383,32 @@ const attachDocumentRoute = defineOpenAPIRoute(writeMeta("attachNoteDocument"), 
   },
 });
 
-const detachDocumentRoute = defineOpenAPIRoute(writeMeta("detachNoteDocument"), {
-  method: "delete",
-  path: "/api/v1/note-documents/{attachmentId}",
-  description:
-    "Stops a note pointing at a document. The document is untouched and stays in the matter's files.",
-  request: { headers: idempotencyKeyHeader, params: attachmentIdParam },
-  responses: {
-    200: {
-      description: "The document was detached",
-      content: { "application/json": { schema: AcknowledgedResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const detachDocumentRoute = defineOpenAPIRoute(
+  {
+    ...writeMeta("detachNoteDocument"),
+    reversal: { kind: "inverse", by: "notes.attachNoteDocument" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/note-documents/{attachmentId}",
+    description:
+      "Stops a note pointing at a document. The document is untouched and stays in the matter's files.",
+    request: { headers: idempotencyKeyHeader, params: attachmentIdParam },
+    responses: {
+      200: {
+        description: "The document was detached",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 // ---- helpers ----
 
