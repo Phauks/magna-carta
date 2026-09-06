@@ -23,6 +23,7 @@
   import { CalendarView } from "$lib/calendar/index.ts";
   import { shiftAnchor, todayCivil } from "$lib/calendar/calendar-window.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { sampleMatter, sampleOrganization } from "@magna-carta/design-system/loading-fixtures";
 
   const now = new Date();
   const hour = now.getHours();
@@ -40,7 +41,8 @@
   const TODAY_CARD_ROWS = 6;
 
   // The loading fixture: three invented entries across today and tomorrow, in the agenda the card
-  // really draws. Sample words only, never a reader's own calendar.
+  // really draws. The matters and the organization come from the sample vocabulary, never a
+  // reader's own calendar; the kinds of entry are this card's own words.
   const fixtureToday = todayCivil();
   const fixtureTomorrow = shiftAnchor("agenda", fixtureToday, 1, 1);
   const TODAY_CARD_FIXTURE: readonly CalendarGridEntry[] = [
@@ -49,7 +51,7 @@
       date: fixtureToday,
       time: "9:30 AM",
       label: "Status conference",
-      detail: "Ashby v. Ridley",
+      detail: sampleMatter(3).title,
       tone: "info",
     },
     {
@@ -57,7 +59,7 @@
       date: fixtureToday,
       time: "5:00 PM",
       label: "Response due",
-      detail: "Harlow Estate",
+      detail: sampleMatter(1).title,
       tone: "warning",
     },
     {
@@ -65,7 +67,7 @@
       date: fixtureTomorrow,
       time: "11:00 AM",
       label: "Client meeting",
-      detail: "Perrin Holdings",
+      detail: sampleOrganization(1).name,
       tone: "neutral",
     },
   ];
@@ -74,6 +76,11 @@
   $effect(() => {
     void context.load(fetch);
   });
+
+  /** The same re-ask the failure notice offers, so the region's stalled line asks the same way. */
+  function retrySession(): void {
+    void context.reload(fetch);
+  }
 </script>
 
 <svelte:head>
@@ -96,44 +103,48 @@
       <Button variant="ghost" size="sm" href="/calendar?scope=mine&view=agenda">Open calendar</Button>
     </Card.Header>
     <Card.Content class="flex flex-col gap-12">
-      <!-- A failed session read settles the card to the notice with Retry; a session that already
-           landed keeps its calendar even if a later re-read fails. -->
-      {#if context.memberId === null && context.sessionFailure !== null}
-        <FailureNotice
-          failure={context.sessionFailure}
-          title="Your Day Could Not Be Read"
-          fallback="Who is asking could not be read, so what is on your calendar today cannot be shown."
-          onRetry={() => void context.load(fetch)}
-        />
-      {:else}
-        <LoadingRegion
-          loading={context.memberId === null}
-          label="Reading your calendar"
-          class="flex flex-col gap-12"
-        >
-          {#snippet fixture()}
-            <div class="min-h-0 flex-1 overflow-y-auto">
-              <CalendarGrid.Agenda
-                class="h-full"
-                entries={TODAY_CARD_FIXTURE}
-                label="Today and tomorrow"
-                from={fixtureToday}
-                to={fixtureTomorrow}
-              />
-            </div>
-          {/snippet}
-          {#if context.memberId !== null}
-            <CalendarView
-              scope={{ kind: "mine", memberId: context.memberId }}
-              view="agenda"
-              anchor={todayCivil()}
-              toolbar={false}
-              agendaDays={TODAY_CARD_DAYS}
-              limit={TODAY_CARD_ROWS}
+      <!-- The region holds the session read's state set: a failed read settles the card to the
+           notice with Retry, and a session that already landed keeps its calendar even if a later
+           re-read fails. -->
+      <LoadingRegion
+        loading={context.memberId === null}
+        failed={context.memberId === null && context.sessionFailure !== null}
+        label="Reading your calendar"
+        onRetry={retrySession}
+        class="flex flex-col gap-12"
+      >
+        {#snippet failure()}
+          {#if context.sessionFailure !== null}
+            <FailureNotice
+              failure={context.sessionFailure}
+              title="Your Day Could Not Be Read"
+              fallback="Who is asking could not be read, so what is on your calendar today cannot be shown."
+              onRetry={retrySession}
             />
           {/if}
-        </LoadingRegion>
-      {/if}
+        {/snippet}
+        {#snippet fixture()}
+          <div class="min-h-0 flex-1 overflow-y-auto">
+            <CalendarGrid.Agenda
+              class="h-full"
+              entries={TODAY_CARD_FIXTURE}
+              label="Today and tomorrow"
+              from={fixtureToday}
+              to={fixtureTomorrow}
+            />
+          </div>
+        {/snippet}
+        {#if context.memberId !== null}
+          <CalendarView
+            scope={{ kind: "mine", memberId: context.memberId }}
+            view="agenda"
+            anchor={todayCivil()}
+            toolbar={false}
+            agendaDays={TODAY_CARD_DAYS}
+            limit={TODAY_CARD_ROWS}
+          />
+        {/if}
+      </LoadingRegion>
     </Card.Content>
   </Card.Root>
 </div>

@@ -66,6 +66,8 @@
 
   let checklist = $state<IntakeChecklist | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
+  /** True while a checklist already on screen is being read again after a write. */
+  let rereading = $state(false);
   let writeFailure = $state<StatedFailure | null>(null);
   let permissions = $state<readonly string[]>([]);
   let historyShown = $state(false);
@@ -96,7 +98,9 @@
   });
 
   async function refresh(): Promise<void> {
+    rereading = checklist !== null;
     const outcome = await readIntakeChecklist(fetch, matter.id);
+    rereading = false;
     if (outcome.kind !== "ok") {
       readFailure = stated(outcome.failure, "The matter's intake could not be read.");
       return;
@@ -164,7 +168,8 @@
   });
 
   // The shape drawn while the checklist is read: three steps in the list's own row, each with its
-  // kind and the standing sentence. Sample words only.
+  // kind and the standing sentence. Sample words only; a step's title, kind and standing are the
+  // procedure's own words, which the sample vocabulary does not carry.
   const INTAKE_FIXTURE = [
     { title: "Run the conflicts check", kind: "Conflicts check", statement: "Cleared by the conflicts record." },
     { title: "Sign the fee agreement", kind: "Fee arrangement", statement: "Not yet recorded." },
@@ -189,18 +194,34 @@
       This matter is one of the in-repo samples and has no firm behind it, so there is no procedure
       to hold it to.
     </EmptyState>
-  {:else if readFailure !== null}
-    <FailureNotice
-      failure={readFailure.failure}
-      title="Intake Unavailable"
-      fallback={readFailure.fallback}
-    />
   {:else}
+    <!-- A failed first read settles to the notice with Retry; a failed re-read after a write keeps
+         the checklist on screen and says so above it. -->
     <LoadingRegion
       loading={checklist === null}
+      failed={readFailure !== null && checklist === null}
+      refreshing={rereading}
+      empty={checklist !== null && checklist.steps.length === 0}
       label="Reading the matter's intake"
+      onRetry={() => void refresh()}
       class="flex flex-col gap-16"
     >
+      {#snippet failure()}
+        {#if readFailure !== null}
+          <FailureNotice
+            failure={readFailure.failure}
+            title="Intake Unavailable"
+            fallback={readFailure.fallback}
+            onRetry={() => void refresh()}
+          />
+        {/if}
+      {/snippet}
+      {#snippet emptyState()}
+        <EmptyState title="No procedure binds this kind of matter">
+          The firm's intake procedures are written under Settings. A procedure bound to this matter's
+          kind, or to every kind, would list its steps here.
+        </EmptyState>
+      {/snippet}
       {#snippet fixture()}
         <ul class="flex flex-col gap-8">
           {#each INTAKE_FIXTURE as step (step.title)}
@@ -225,12 +246,15 @@
         </ul>
       {/snippet}
       {#if checklist !== null}
-        {#if checklist.steps.length === 0}
-          <EmptyState title="No procedure binds this kind of matter">
-            The firm's intake procedures are written under Settings. A procedure bound to this matter's
-            kind, or to every kind, would list its steps here.
-          </EmptyState>
-        {:else}
+        {#if readFailure !== null}
+          <FailureNotice
+            failure={readFailure.failure}
+            title="Intake Not Re-read"
+            fallback={readFailure.fallback}
+            onRetry={() => void refresh()}
+          />
+        {/if}
+        {#if checklist.steps.length > 0}
           {#if writeFailure !== null}
             <FailureNotice
               failure={writeFailure.failure}

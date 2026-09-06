@@ -45,6 +45,7 @@
   import Input from "@magna-carta/design-system/input";
   import Separator from "@magna-carta/design-system/separator";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleOrganization, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import Building2 from "@lucide/svelte/icons/building-2";
   import ListFilter from "@lucide/svelte/icons/list-filter";
   import CreateControl from "@magna-carta/design-system/create-control";
@@ -228,14 +229,14 @@
 
   /**
    * The shape the answer takes while the directory is being searched: the same rows the real
-   * answer renders, over sample names of both kinds. Not anybody the firm holds.
+   * answer renders, over the sample vocabulary, both kinds. Not anybody the firm holds.
    */
   const HIT_FIXTURE: readonly DirectorySearchHit[] = [
     {
       entityId: "fixture-1",
       entityKind: "person",
-      displayName: "Eleanor Whitcombe",
-      matchedName: "Eleanor Whitcombe",
+      displayName: samplePerson(0).name,
+      matchedName: samplePerson(0).name,
       matchedNameRole: "current",
       matchedNameIsCurrent: true,
       relevance: 0,
@@ -243,8 +244,8 @@
     {
       entityId: "fixture-2",
       entityKind: "organization",
-      displayName: "Whitcombe Holdings",
-      matchedName: "Whitcombe Holdings",
+      displayName: sampleOrganization(1).name,
+      matchedName: sampleOrganization(1).name,
       matchedNameRole: "current",
       matchedNameIsCurrent: true,
       relevance: 0,
@@ -252,13 +253,17 @@
     {
       entityId: "fixture-3",
       entityKind: "person",
-      displayName: "Marcus Whitcombe-Adeyemi",
-      matchedName: "Marcus Whitcombe-Adeyemi",
+      displayName: samplePerson(1).name,
+      matchedName: samplePerson(1).name,
       matchedNameRole: "current",
       matchedNameIsCurrent: true,
       relevance: 0,
     },
   ];
+
+  function searchAgain(): void {
+    searchToken += 1;
+  }
 
   $effect(() => {
     const query = asked.trim();
@@ -497,49 +502,51 @@
   {#if searching}
     <!-- The firm's own ranked answer. Not a table the reader can re-sort, because the rows are the
          best of a capped set and re-ordering them would read as the best of the firm's record. -->
-    {#if searchFailure !== null}
-      <FailureNotice
-        failure={searchFailure.failure}
-        title="The Directory Could Not Be Searched"
-        fallback={searchFailure.fallback}
-        whenSilent={searchFailure.whenSilent}
-        onRetry={() => searchToken += 1}
-      />
-    {:else}
-      <LoadingRegion
-        loading={hits === null}
-        label="Searching the directory"
-        class="flex min-h-0 flex-1 flex-col gap-8"
-      >
-        {#snippet fixture()}
-          <div class="min-h-0 flex-1 overflow-auto">
-            {@render hitTable(HIT_FIXTURE)}
-          </div>
-          <p class="text-xs text-text-muted">Every match the firm holds, in its own relevance order.</p>
-        {/snippet}
-        {@const shown = hits ?? []}
-        {#if shown.length === 0}
-          <div class="min-h-0 flex-1">
-            <EmptyState title="Nothing Matches That Search">
-              No name on the firm's record answers to that, current or former. Recording them, with
-              New at the top of the screen, is what puts them in front of the next conflicts check.
-            </EmptyState>
-          </div>
-        {:else}
-          <div class="min-h-0 flex-1 overflow-auto">
-            {@render hitTable(shown)}
-          </div>
-          <p class="text-xs text-text-muted">
-            {#if capped}
-              The firm holds more matches than are shown. These are the closest; narrowing the
-              search reaches the rest.
-            {:else}
-              Every match the firm holds, in its own relevance order.
-            {/if}
-          </p>
+    <LoadingRegion
+      loading={hits === null}
+      failed={searchFailure !== null}
+      empty={hits !== null && hits.length === 0}
+      label="Searching the directory"
+      onRetry={searchAgain}
+      class="flex min-h-0 flex-1 flex-col gap-8"
+    >
+      {#snippet failure()}
+        {#if searchFailure !== null}
+          <FailureNotice
+            failure={searchFailure.failure}
+            title="The Directory Could Not Be Searched"
+            fallback={searchFailure.fallback}
+            whenSilent={searchFailure.whenSilent}
+            onRetry={searchAgain}
+          />
         {/if}
-      </LoadingRegion>
-    {/if}
+      {/snippet}
+      {#snippet fixture()}
+        <div class="min-h-0 flex-1 overflow-auto">
+          {@render hitTable(HIT_FIXTURE)}
+        </div>
+        <p class="text-xs text-text-muted">Every match the firm holds, in its own relevance order.</p>
+      {/snippet}
+      {#snippet emptyState()}
+        <div class="min-h-0 flex-1">
+          <EmptyState title="Nothing Matches That Search">
+            No name on the firm's record answers to that, current or former. Recording them, with
+            New at the top of the screen, is what puts them in front of the next conflicts check.
+          </EmptyState>
+        </div>
+      {/snippet}
+      <div class="min-h-0 flex-1 overflow-auto">
+        {@render hitTable(hits ?? [])}
+      </div>
+      <p class="text-xs text-text-muted">
+        {#if capped}
+          The firm holds more matches than are shown. These are the closest; narrowing the
+          search reaches the rest.
+        {:else}
+          Every match the firm holds, in its own relevance order.
+        {/if}
+      </p>
+    </LoadingRegion>
   {:else if listFailure !== null}
     <Alert.Root variant="danger">
       <Alert.Title>The Directory Could Not Be Read</Alert.Title>

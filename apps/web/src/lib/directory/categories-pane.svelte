@@ -64,8 +64,14 @@
 
   let carried = $state<readonly DirectoryCategory[] | null>(null);
   let vocabulary = $state<readonly DirectoryCategory[]>([]);
-  let failure = $state<StatedFailure | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
+  /** True while a list already on screen is being read again, after a category was assigned. */
+  let refreshing = $state(false);
+  // The record whose categories last landed. Only a change of RECORD discards what is on screen:
+  // a re-read after an assignment keeps the rows where the reader is looking and marks the region
+  // busy instead.
+  let shownFor: string | null = null;
 
   /**
    * The shape the list takes while the record's categories are being read: the same rows the real
@@ -80,26 +86,38 @@
     const id = entityId;
     void reloadToken;
     let cancelled = false;
-    carried = null;
-    failure = null;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
+      carried = null;
+    }
+    readFailure = null;
     void (async () => {
       const [assigned, all] = await Promise.all([
         readDirectoryEntityCategories(fetch, id),
         readDirectoryCategories(fetch),
       ]);
       if (cancelled) return;
+      refreshing = false;
       if (all.kind === "ok") vocabulary = all.value.data;
       if (assigned.kind === "ok") {
+        shownFor = id;
         carried = assigned.value.data;
         return;
       }
+      shownFor = null;
       carried = [];
-      failure = stated(assigned.failure, "This record's categories could not be read.");
+      readFailure = stated(assigned.failure, "This record's categories could not be read.");
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
+
+  function retry(): void {
+    reloadToken += 1;
+  }
 
   // Only labels that fit this side of the directory, and only ones the record does not already
   // carry — the composite key means assigning a label twice is a refusal, not a second row.
@@ -258,34 +276,38 @@
     </Button>
   </div>
 
-  {#if failure !== null}
-    <FailureNotice
-      failure={failure.failure}
-      title="The Categories Could Not Be Read"
-      fallback={failure.fallback}
-      whenSilent={failure.whenSilent}
-    />
-  {:else}
-    <LoadingRegion
-      loading={carried === null}
-      label="Reading this record's categories"
-      class="flex flex-col gap-8"
-    >
-      {#snippet fixture()}
-        {@render categoryTable(CATEGORY_FIXTURE)}
-      {/snippet}
-      {@const shown = carried ?? []}
-      {#if shown.length === 0}
-        <EmptyState title="Filed Under Nothing">
-          The firm has not filed this record under any of its own categories. Categories are the
-          firm's words for the kinds of people and organizations it deals with, and a record without
-          one is simply unlabelled.
-        </EmptyState>
-      {:else}
-        {@render categoryTable(shown)}
+  <LoadingRegion
+    loading={carried === null}
+    {refreshing}
+    failed={readFailure !== null}
+    empty={carried !== null && carried.length === 0}
+    label="Reading this record's categories"
+    onRetry={retry}
+    class="flex flex-col gap-8"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The Categories Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={retry}
+        />
       {/if}
-    </LoadingRegion>
-  {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render categoryTable(CATEGORY_FIXTURE)}
+    {/snippet}
+    {#snippet emptyState()}
+      <EmptyState title="Filed Under Nothing">
+        The firm has not filed this record under any of its own categories. Categories are the
+        firm's words for the kinds of people and organizations it deals with, and a record without
+        one is simply unlabelled.
+      </EmptyState>
+    {/snippet}
+    {@render categoryTable(carried ?? [])}
+  </LoadingRegion>
 </section>
 
 <!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->

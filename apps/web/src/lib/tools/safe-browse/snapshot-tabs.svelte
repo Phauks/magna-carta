@@ -24,9 +24,11 @@
    * continuous bar). The structure renders from page load: with no capture the panels sit empty,
    * while a capture is running each panel is a LoadingRegion over a fixture of its own rows (the
    * same row components the finished capture fills, over sample words, greyed by the recipe), and
-   * a completed capture fills them. On wide screens each panel stretches to the frame's remaining
-   * height (on stacked narrow screens it keeps a fixed square instead), and each is its own scroll
-   * region either way, so switching tabs never reflows the column. A capture that landed on a
+   * a completed capture fills them; a panel a capture leaves nothing for (no text, no links, no
+   * headers) says so as the region's own empty posture. On wide screens each panel stretches to
+   * the frame's remaining height (on stacked narrow screens it keeps a fixed square instead), and
+   * each is its own scroll region either way, so switching tabs never reflows the column. A
+   * capture that landed on a
    * different site than it was asked for reports that here, on the Overview tab's Different Site
    * row — the warning mark, the landed address, and its copy control — which is that fact's one
    * home; the shell's chrome carries none of it.
@@ -65,6 +67,11 @@
     formatTimestamp,
     problemGuidance as whoisProblemGuidance,
   } from "$lib/tools/whois/whois-lookup.ts";
+  import {
+    SAMPLE_SENTENCE,
+    sampleDate,
+    sampleOrganization,
+  } from "@magna-carta/design-system/loading-fixtures";
 
   let {
     view = null,
@@ -140,6 +147,13 @@
   const PANEL_CLASS = "mc-scrollbar aspect-square overflow-y-auto p-12 lg:aspect-auto lg:h-full";
 
   // Sample words for the loading fixtures: an invented newsletter address, never a real capture.
+  // Dates, the registrant and running text come from the sample vocabulary; addresses, headers,
+  // a page title and a registration record's own kinds of word have no sample there and stay here.
+  const FIXTURE_PAGE_TITLE = "Quarterly newsletter offer";
+  const FIXTURE_DOMAIN = "example.com";
+  const FIXTURE_REGISTRAR = "Example Registrar, Inc.";
+  const FIXTURE_REGISTRANT = sampleOrganization(1).name;
+  const FIXTURE_NAME_SERVERS = ["a.iana-servers.net", "b.iana-servers.net"];
   const FIXTURE_REQUESTED_ADDRESS = "https://example.com/newsletter/offer";
   const FIXTURE_LANDED_ADDRESS = "https://www.example.com/newsletter/offer/";
   const FIXTURE_OUTBOUND_ADDRESSES = [
@@ -178,8 +192,8 @@
           {@render factRow("Server", "cloudflare", true)}
           {@render factRow("Redirects", "1", false)}
           {@render factRow("Outbound Links", "18", false)}
-          {@render factRow("Page Title", "Quarterly newsletter offer", false)}
-          {@render factRow("Captured", "Sep 4, 2026, 9:14 AM", false)}
+          {@render factRow("Page Title", FIXTURE_PAGE_TITLE, false)}
+          {@render factRow("Captured", sampleDate(0), false)}
           {@render factRow("Capture Duration", "6.2 s", false)}
         </dl>
       {/snippet}
@@ -248,7 +262,7 @@
           {@render addressField("Final URL", FIXTURE_LANDED_ADDRESS)}
           <div class="flex flex-col gap-4 py-8 first:pt-0 last:pb-0">
             {@render fieldLabel("Page Title")}
-            <dd class="min-w-0 text-sm break-words text-text-default">Quarterly newsletter offer</dd>
+            <dd class="min-w-0 text-sm break-words text-text-default">{FIXTURE_PAGE_TITLE}</dd>
           </div>
           <div class="flex flex-col gap-4 py-8 first:pt-0 last:pb-0">
             {@render fieldLabel("Redirect Chain")}
@@ -304,29 +318,24 @@
   <Tabs.Content value="page-text" class="lg:min-h-0 lg:flex-1">
     <LoadingRegion
       loading={capturing}
+      empty={view !== null && !view.markdown}
       label="Reading the captured page's text"
       class={PANEL_CLASS}
     >
       {#snippet fixture()}
         <!-- Three lines of running text, in the extracted text's own face. -->
         <div class="flex flex-col gap-4">
-          <p class="font-mono text-sm text-text-default">Quarterly newsletter offer</p>
-          <p class="font-mono text-sm text-text-default">
-            Thank you for reading. This month we are sharing three updates from the team and one
-            request.
-          </p>
-          <p class="font-mono text-sm text-text-default">
-            Read the full announcement on our site, or reply to this message with any questions.
-          </p>
+          <p class="font-mono text-sm text-text-default">{FIXTURE_PAGE_TITLE}</p>
+          <p class="font-mono text-sm text-text-default">{SAMPLE_SENTENCE}</p>
+          <p class="font-mono text-sm text-text-default">{SAMPLE_SENTENCE}</p>
         </div>
       {/snippet}
-      {#if view !== null}
-        {#if view.markdown}
-          <pre
-            class="font-mono text-sm break-words whitespace-pre-wrap text-text-default">{view.markdown}</pre>
-        {:else}
-          <p class="text-sm text-text-muted">The capture returned no page text.</p>
-        {/if}
+      {#snippet emptyState()}
+        <p class="text-sm text-text-muted">The capture returned no page text.</p>
+      {/snippet}
+      {#if view !== null && view.markdown}
+        <pre
+          class="font-mono text-sm break-words whitespace-pre-wrap text-text-default">{view.markdown}</pre>
       {/if}
     </LoadingRegion>
   </Tabs.Content>
@@ -334,6 +343,7 @@
   <Tabs.Content value="links" class="lg:min-h-0 lg:flex-1">
     <LoadingRegion
       loading={capturing}
+      empty={view !== null && view.links.length === 0}
       label="Reading the captured page's outbound addresses"
       class={PANEL_CLASS}
     >
@@ -346,30 +356,34 @@
           {/each}
         </ul>
       {/snippet}
-      {#if view !== null}
-        {#if view.links.length > 0}
-          <FieldLabel as="p" class="mb-8"
-          >
-            {view.links.length === 1
-              ? "1 outbound address"
-              : `${view.links.length} outbound addresses`}
-          </FieldLabel>
-          <ul class="flex flex-col divide-y divide-border-default">
-            {#each view.links as link, index (index)}
-              <li class="min-w-0 py-8 first:pt-0 last:pb-0">
-                {@render addressButton(link)}
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <p class="text-sm text-text-muted">The page links out to no addresses.</p>
-        {/if}
+      {#snippet emptyState()}
+        <p class="text-sm text-text-muted">The page links out to no addresses.</p>
+      {/snippet}
+      {#if view !== null && view.links.length > 0}
+        <FieldLabel as="p" class="mb-8"
+        >
+          {view.links.length === 1
+            ? "1 outbound address"
+            : `${view.links.length} outbound addresses`}
+        </FieldLabel>
+        <ul class="flex flex-col divide-y divide-border-default">
+          {#each view.links as link, index (index)}
+            <li class="min-w-0 py-8 first:pt-0 last:pb-0">
+              {@render addressButton(link)}
+            </li>
+          {/each}
+        </ul>
       {/if}
     </LoadingRegion>
   </Tabs.Content>
 
   <Tabs.Content value="headers" class="lg:min-h-0 lg:flex-1">
-    <LoadingRegion loading={capturing} label="Reading the response headers" class={PANEL_CLASS}>
+    <LoadingRegion
+      loading={capturing}
+      empty={view !== null && headers.length === 0}
+      label="Reading the response headers"
+      class={PANEL_CLASS}
+    >
       {#snippet fixture()}
         <dl class="flex flex-col divide-y divide-border-default">
           {#each FIXTURE_HEADERS as [name, value] (name)}
@@ -380,19 +394,18 @@
           {/each}
         </dl>
       {/snippet}
-      {#if view !== null}
-        {#if headers.length > 0}
-          <dl class="flex flex-col divide-y divide-border-default">
-            {#each headers as [name, value] (name)}
-              <div class="flex flex-col gap-4 py-8 first:pt-0 last:pb-0">
-                <dt class="min-w-0 font-mono text-xs break-all text-text-muted">{name}</dt>
-                <dd class="min-w-0 font-mono text-sm break-all text-text-default">{value}</dd>
-              </div>
-            {/each}
-          </dl>
-        {:else}
-          <p class="text-sm text-text-muted">The response carried no headers.</p>
-        {/if}
+      {#snippet emptyState()}
+        <p class="text-sm text-text-muted">The response carried no headers.</p>
+      {/snippet}
+      {#if view !== null && headers.length > 0}
+        <dl class="flex flex-col divide-y divide-border-default">
+          {#each headers as [name, value] (name)}
+            <div class="flex flex-col gap-4 py-8 first:pt-0 last:pb-0">
+              <dt class="min-w-0 font-mono text-xs break-all text-text-muted">{name}</dt>
+              <dd class="min-w-0 font-mono text-sm break-all text-text-default">{value}</dd>
+            </div>
+          {/each}
+        </dl>
       {/if}
     </LoadingRegion>
   </Tabs.Content>
@@ -417,16 +430,17 @@
           </div>
         {/if}
         <dl class="flex flex-col divide-y divide-border-default">
-          {@render factRow("Domain", "example.com", true)}
-          {@render factRow("Registrar", "Example Registrar, Inc.", false)}
-          {@render factRow("Registered", "Aug 14, 1995, 12:00 AM", false)}
-          {@render factRow("Expires", "Aug 13, 2027, 12:00 AM", false)}
-          {@render factRow("Registrant", "Example Holdings", false)}
+          {@render factRow("Domain", FIXTURE_DOMAIN, true)}
+          {@render factRow("Registrar", FIXTURE_REGISTRAR, false)}
+          {@render factRow("Registered", sampleDate(2), false)}
+          {@render factRow("Expires", sampleDate(3), false)}
+          {@render factRow("Registrant", FIXTURE_REGISTRANT, false)}
           <div class="flex flex-col gap-4 py-8 first:pt-0 last:pb-0">
             {@render fieldLabel("Name Servers")}
             <dd class="flex min-w-0 flex-col gap-4">
-              <span class="font-mono text-sm break-all text-text-default">a.iana-servers.net</span>
-              <span class="font-mono text-sm break-all text-text-default">b.iana-servers.net</span>
+              {#each FIXTURE_NAME_SERVERS as nameserver (nameserver)}
+                <span class="font-mono text-sm break-all text-text-default">{nameserver}</span>
+              {/each}
             </dd>
           </div>
         </dl>
