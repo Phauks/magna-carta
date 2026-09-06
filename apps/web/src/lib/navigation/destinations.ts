@@ -164,8 +164,11 @@ const DESTINATION_LIST = [
     // It sits in the workspace group beside Notifications rather than under a matter, because "what
     // is on my plate" is a question about the person and not about any one case — and a task list
     // somebody has to go looking for inside each matter is a task list nobody looks at.
-    id: "my-work",
-    label: "My Work",
+    //
+    // Named for the record it holds, not for whose it is: a matter's own section is Tasks, so a
+    // second name for the same noun made the sidebar and the matter disagree about one word.
+    id: "tasks",
+    label: "Tasks",
     href: "/tasks",
     icon: ListChecks,
     description: "Every task with your name on it, across your matters and the firm's own work.",

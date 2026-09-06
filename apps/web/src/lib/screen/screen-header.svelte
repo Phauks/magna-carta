@@ -20,6 +20,15 @@
    * sharing the eyebrow's line, so the two never compete for the same register: one names where you
    * would go, the other names what you are looking at (owner's selection, 2026-09-03).
    *
+   * THE TITLE IS THE DESTINATION'S OWN NAME, and on a main screen it is the whole header. A screen
+   * that names itself something the sidebar calls something else costs the two a shared vocabulary
+   * and buys a reader nothing, so the title comes from navigation/destinations.ts. The EYEBROW is
+   * for what the screen's SUBJECT is — PERSON over a person's name — never for what the screen is:
+   * on a destination screen the title is already that answer, so an eyebrow there can only repeat
+   * it. No main screen carries one, and the META line takes facts (a date, a seat count, a maturity
+   * badge), never a sentence restating the title. Ruled in docs/conventions/design-corrections.md,
+   * "Screen headers".
+   *
    * THE WAY BACK IS NAMED, NOT DRAWN. A screen passes `back="directory"` — a destination id — and
    * the href, the label and the glyph come from the sidebar's own registry (screen-header.ts). A
    * screen cannot invent a destination, call it something the sidebar calls something else, or go
@@ -51,7 +60,10 @@
     title: string;
     /** Where this screen was entered from: a sidebar destination's id, or a spelled-out screen. */
     back?: BackTarget;
-    /** What the screen's subject is — a directory record's kind, a section's name. */
+    /**
+     * What the screen's SUBJECT is — a record's kind, a section's name. Never what the screen is:
+     * a main screen's title already says that, so a main screen passes no eyebrow.
+     */
     eyebrow?: string;
     density?: MastheadDensity;
     /** The citation line beneath the title. */
