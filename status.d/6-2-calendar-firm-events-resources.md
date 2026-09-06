@@ -6,10 +6,12 @@ research: n/a
 spec: done
 plan: done
 built: done
-ui: todo
+ui: in-progress
 load-profile: done
 tested: done
-next: The calendar user interface (month grid, week view, agenda, room grid) consumes the reads named in the spec; notification wiring subscribes to the ten declared emission points; a per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams awaiting an owner ask
+next: The room grid and the bookings surface over the availability read, the resource catalog under Settings, and the related-links surface; notification wiring subscribes to the ten declared emission points; a per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams awaiting an owner ask
+branch: claude/calendar-ui-plan-eu523y
+active-work: docs/active-work/claude/calendar-ui-plan-eu523y.md
 link-spec: docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md
 link-plan: docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md
 adrs: ADR-0261
@@ -40,3 +42,5 @@ stays green) and derivation-released bookings; the chain read is depth-capped at
 does not scale with the firm's event count. Four notification points declared, wired to nothing.
 The five load-profile bounds asserted over the section-9 corpus. Owner flags R1/R2/R3 built as
 confirmed recommendations.
+
+**Interface, in build** (`docs/specs/2026-09-02-calendar-interface-design.md`): firm events on the firm calendar and its Record menu, opened and edited in the entry window; continuance as a verb in that window. The room grid, bookings and the resource catalog are the plan's slice 3.

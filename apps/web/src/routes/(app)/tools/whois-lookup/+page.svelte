@@ -22,8 +22,9 @@
   import Label from "@magna-carta/design-system/label";
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Card from "@magna-carta/design-system/card";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Skeleton from "@magna-carta/design-system/skeleton";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import {
     formatTimestamp,
     lookupWhoisWithRetries,
@@ -86,14 +87,15 @@
 
 <svelte:head><title>WHOIS Lookup · Magna Carta</title></svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>WHOIS Lookup</Masthead.Title>
-    <Masthead.Meta>
-      <span>Registration records for a domain or IP address</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<ScreenHeader
+  title="WHOIS Lookup"
+  back="tools"
+  class="mb-24"
+>
+  {#snippet meta()}
+    <span>Registration records for a domain or IP address</span>
+  {/snippet}
+</ScreenHeader>
 
 <form onsubmit={runLookup} class="mb-16 flex items-center gap-8">
   <Label for="whois-query" class="sr-only">Domain or IP address</Label>
@@ -118,12 +120,10 @@
 <div aria-live="polite" class="sr-only">{announcement}</div>
 
 <section aria-busy={loading}>
-  <h2
-    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h2" class="mb-16 border-b border-border-strong pb-8"
   >
     Result
-  </h2>
+  </FieldLabel>
 
   <!-- The result frame is furniture: this one Card renders from page load and every state fills
        it. At rest it holds the record's field rows, empty and calm. -->
@@ -133,12 +133,10 @@
         <dl class="flex flex-col gap-16">
           {#each restingFieldLabels as label (label)}
             <div class="flex flex-col gap-4 sm:flex-row sm:gap-16">
-              <dt
-                class="text-xs text-text-muted uppercase sm:w-96 sm:shrink-0"
-                style="letter-spacing: var(--mc-tracking-caps)"
+              <FieldLabel as="dt" class="sm:w-96 sm:shrink-0"
               >
                 {label}
-              </dt>
+              </FieldLabel>
               <dd class="text-sm text-text-default"></dd>
             </div>
           {/each}
@@ -244,12 +242,10 @@
             {/if}
             {#if outcome.result.nameservers && outcome.result.nameservers.length > 0}
               <div class="flex flex-col gap-4 sm:flex-row sm:gap-16">
-                <dt
-                  class="text-xs text-text-muted uppercase sm:w-96 sm:shrink-0"
-                  style="letter-spacing: var(--mc-tracking-caps)"
+                <FieldLabel as="dt" class="sm:w-96 sm:shrink-0"
                 >
                   Name servers
-                </dt>
+                </FieldLabel>
                 <dd class="flex flex-col gap-4 text-sm text-text-default">
                   {#each outcome.result.nameservers as nameserver (nameserver)}
                     <span class="font-mono">{nameserver}</span>
@@ -259,12 +255,10 @@
             {/if}
             {#if outcome.result.statuses && outcome.result.statuses.length > 0}
               <div class="flex flex-col gap-4 sm:flex-row sm:gap-16">
-                <dt
-                  class="text-xs text-text-muted uppercase sm:w-96 sm:shrink-0"
-                  style="letter-spacing: var(--mc-tracking-caps)"
+                <FieldLabel as="dt" class="sm:w-96 sm:shrink-0"
                 >
                   Status
-                </dt>
+                </FieldLabel>
                 <dd class="flex flex-wrap gap-4">
                   {#each outcome.result.statuses as status (status)}
                     <Badge variant="neutral">{status}</Badge>
@@ -281,12 +275,10 @@
 
 {#snippet scalarField(label: string, value: string)}
   <div class="flex flex-col gap-4 sm:flex-row sm:gap-16">
-    <dt
-      class="text-xs text-text-muted uppercase sm:w-96 sm:shrink-0"
-      style="letter-spacing: var(--mc-tracking-caps)"
+    <FieldLabel as="dt" class="sm:w-96 sm:shrink-0"
     >
       {label}
-    </dt>
+    </FieldLabel>
     <dd class="text-sm text-text-default">{value}</dd>
   </div>
 {/snippet}

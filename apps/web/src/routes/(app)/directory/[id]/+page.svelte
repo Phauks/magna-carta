@@ -21,6 +21,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -52,6 +53,7 @@
   import NamesPane from "$lib/directory/names-pane.svelte";
   import PronounsPane from "$lib/directory/pronouns-pane.svelte";
   import EdgesPane from "$lib/directory/edges-pane.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { data }: { data: { entityId: string; kind: "person" | "organization" } } = $props();
 
@@ -106,7 +108,7 @@
       ? "Reading your session."
       : mayEdit
         ? undefined
-        : "Changing a directory record needs the directory:edit permission, which this account does not hold.",
+        : permissionRefusal("Changing a directory record", "directory:edit"),
   );
 
   const mayReveal = $derived(
@@ -117,7 +119,7 @@
       ? "Reading your session."
       : mayReveal
         ? undefined
-        : "Reading a sealed identifier needs the directory:viewSensitiveIdentifiers permission, which this account does not hold.",
+        : permissionRefusal("Reading a sealed identifier", "directory:viewSensitiveIdentifiers"),
   );
 
   // ---- what the header says --------------------------------------------------------------------
@@ -157,30 +159,26 @@
   </div>
 {:else}
   <div class="mb-24 flex flex-col gap-16">
-    <Masthead.Root>
-      <Masthead.Heading>
-        <Masthead.Eyebrow>{entityKindLabel(entity.kind)}</Masthead.Eyebrow>
-        <Masthead.Title>{name}</Masthead.Title>
-        <Masthead.Meta>
+    <ScreenHeader title={name} back="directory" eyebrow={entityKindLabel(entity.kind)}>
+      {#snippet meta()}
+        {#if pronouns !== null}
+          <span>{pronounShortForm(pronouns)}</span>
+        {/if}
+        {#if legalNameAside !== null}
           {#if pronouns !== null}
-            <span>{pronounShortForm(pronouns)}</span>
+            <Masthead.MetaSeparator />
           {/if}
-          {#if legalNameAside !== null}
-            {#if pronouns !== null}
-              <Masthead.MetaSeparator />
-            {/if}
-            <span>{legalNameAside}</span>
-          {/if}
-        </Masthead.Meta>
-      </Masthead.Heading>
-      <Masthead.Actions>
+          <span>{legalNameAside}</span>
+        {/if}
+      {/snippet}
+      {#snippet actions()}
         {#if mergedInto !== null}
-          <Badge variant="neutral" class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+          <Badge variant="neutral" caps>
             Folded in
           </Badge>
         {/if}
-      </Masthead.Actions>
-    </Masthead.Root>
+      {/snippet}
+    </ScreenHeader>
 
     {#if mergedInto !== null}
       <Alert.Root variant="info">

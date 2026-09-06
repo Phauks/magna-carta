@@ -16,10 +16,11 @@
    *   1. A panel that FITS does not scroll. The frame sizes to its content (`block-size:
    *      fit-content`), so a short panel opens short: no scrollbar, no band of empty space, nothing
    *      to move. This is the preferred outcome and most panels reach it.
-   *   2. A panel that genuinely does NOT fit caps at the viewport, and then the PANES ALONE move.
-   *      The header and the action bar are `flex: none`, so they never shrink and never scroll
-   *      away — a long form can no more push its own close control off the screen than it can
-   *      hide the commit.
+   *   2. A panel that genuinely does NOT fit caps at the screen less its gutter (the modal stage
+   *      it is centred in, styles/recipes/modal-stage.css, is what caps it), and then the PANES
+   *      ALONE move. The header and the action bar are `flex: none`, so they never shrink and
+   *      never scroll away — a long form can no more push its own close control off the screen
+   *      than it can hide the commit.
    *
    * Both are true; the first is preferred and the second is what happens when the first is
    * impossible. Nothing here should be changed to make the panel always full height or always

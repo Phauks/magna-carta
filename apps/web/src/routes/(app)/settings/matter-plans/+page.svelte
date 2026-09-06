@@ -28,6 +28,7 @@
   import Label from "@magna-carta/design-system/label";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import Textarea from "@magna-carta/design-system/textarea";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
@@ -162,9 +163,9 @@
     {/if}
 
     <div class="flex items-center justify-between gap-16 border-b border-border-strong pb-8">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h2">
         The Firm's Plans
-      </h2>
+      </FieldLabel>
       {#if composing}
         <Button variant="secondary" disabled={saving} onclick={() => (composing = false)}>Cancel</Button>
       {:else}

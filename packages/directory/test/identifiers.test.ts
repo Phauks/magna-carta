@@ -16,9 +16,11 @@ import {
   addIdentifier,
   findByIdentifier,
   IdentifierNotIndexableError,
+  listIdentifierRecords,
   readIdentifier,
   type DirectoryIdentifierContext,
 } from "../src/identifiers.ts";
+import { checkIdentifier, parseAccountValue } from "../src/identifier-shape.ts";
 
 // End-to-end exercise of the directory sensitive-identifier path over real SQLite and a real seeded
 // firm key — write→match→read through the @magna-carta/data-access protected-field chokepoint. The firm key is minted
@@ -158,30 +160,75 @@ test("an EIN on an organization is standalone-indexed and matches formatting-ins
   expect(decryptAuditCount(t)).toBe(0);
 });
 
-test("DOB is stored protected but never standalone-indexed", async () => {
-  const t = await directoryTestContext("t9-dob");
+test("a bar number is stored protected, labelled by its jurisdiction, and never standalone-indexed", async () => {
+  const t = await directoryTestContext("t9-bar");
   const personId = await createPerson(
     t.database,
     { given: "Dana", family: "Okafor" },
     { clock, actorUserId: ACTOR, randomSource: t.randomSource },
   );
-  await addIdentifier(t.ctx, personId, { type: "dob", value: "1980-01-02" });
+  await addIdentifier(t.ctx, personId, { type: "bar_number", value: "6301234", label: "Illinois" });
 
-  // Stored protected, but the blind-index column is NULL — no standalone exact-match channel.
-  const stored = identifierRow(t, personId, "dob");
-  expect(stored.value_ciphertext).not.toContain("1980-01-02");
+  // Stored protected, but the blind-index column is NULL — no standalone exact-match channel. The
+  // label is the one part in the clear: what a list shows without a reveal.
+  const stored = identifierRow(t, personId, "bar_number");
+  expect(stored.value_ciphertext).not.toContain("6301234");
   expect(stored.value_blind_index).toBeNull();
+  const [record] = await listIdentifierRecords(t.database, personId);
+  expect(record?.label).toBe("Illinois");
 
   // Matching a never-indexed type is refused with a named code — nothing to match against.
   await expect(
-    findByIdentifier(t.ctx, { type: "dob", value: "1980-01-02" }),
+    findByIdentifier(t.ctx, { type: "bar_number", value: "6301234" }),
   ).rejects.toBeInstanceOf(IdentifierNotIndexableError);
-  await expect(findByIdentifier(t.ctx, { type: "dob", value: "1980-01-02" })).rejects.toThrow(
+  await expect(findByIdentifier(t.ctx, { type: "bar_number", value: "6301234" })).rejects.toThrow(
     /no-standalone-index/,
   );
 
   // But the value still decrypts with the permission (it is protected, just not indexed).
-  expect(await readIdentifier(t.ctx, personId, "dob")).toBe("1980-01-02");
+  expect(await readIdentifier(t.ctx, personId, "bar_number")).toBe("6301234");
+});
+
+test("an account seals its number, username and secret together and indexes the number alone", async () => {
+  const t = await directoryTestContext("t9-account");
+  const personId = await createPerson(
+    t.database,
+    { given: "Margaret", family: "Okafor" },
+    { clock, actorUserId: ACTOR, randomSource: t.randomSource },
+  );
+  const checked = checkIdentifier("account", {
+    label: "Cook County e-filing",
+    number: "CC-2291-0087",
+    username: "mokafor",
+    secret: "hunter2",
+  });
+  if (!checked.ok) throw new Error(checked.reason);
+  await addIdentifier(t.ctx, personId, {
+    type: "account",
+    value: checked.value,
+    label: checked.label,
+  });
+
+  const stored = identifierRow(t, personId, "account");
+  expect(stored.value_ciphertext).not.toContain("hunter2");
+  expect(stored.value_ciphertext).not.toContain("CC-2291");
+  expect(stored.value_blind_index).not.toBeNull();
+
+  // The number alone matches, however it is spelled; the secret never reaches an index.
+  expect(await findByIdentifier(t.ctx, { type: "account", value: "cc 2291 0087" })).toEqual([
+    personId,
+  ]);
+  expect(await findByIdentifier(t.ctx, { type: "account", value: "hunter2" })).toEqual([]);
+
+  // The reveal returns the three parts together, and the list names who it is held with.
+  const revealed = await readIdentifier(t.ctx, personId, "account");
+  expect(parseAccountValue(revealed ?? "")).toEqual({
+    number: "CC-2291-0087",
+    username: "mokafor",
+    secret: "hunter2",
+  });
+  const [record] = await listIdentifierRecords(t.database, personId);
+  expect(record?.label).toBe("Cook County e-filing");
 });
 
 test("ssn_last_four is protected but never standalone-indexed", async () => {

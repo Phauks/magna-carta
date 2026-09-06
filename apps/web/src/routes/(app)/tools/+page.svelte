@@ -7,7 +7,7 @@
    * matter: the standing line states it. Every entry is `soon` until its own page is built.
    */
   import type { GroupedTools } from "@magna-carta/tools/select";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import List from "@lucide/svelte/icons/list";
   import { visibleToolGroups } from "$lib/tools/tool-presentation.ts";
@@ -36,14 +36,16 @@
 
 <svelte:head><title>Tools · Magna Carta</title></svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Tools</Masthead.Title>
-    <Masthead.Meta><span>Runs outside any matter</span></Masthead.Meta>
-  </Masthead.Heading>
-  <Masthead.Actions>
+<ScreenHeader
+  title="Tools"
+  class="mb-24"
+>
+  {#snippet meta()}
+    <span>Runs outside any matter</span>
+  {/snippet}
+  {#snippet actions()}
     <ViewSwitch controller={shell} label="Choose a view" />
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 <ViewShellBody controller={shell} />

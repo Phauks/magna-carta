@@ -21,6 +21,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Button from "@magna-carta/design-system/button";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import Separator from "@magna-carta/design-system/separator";
@@ -105,10 +106,9 @@
   );
   const signedInName = $derived(session?.user.name ?? null);
   const check = $derived(result?.check ?? null);
-  const openPartyName = $derived(
-    openHit === null ? null : (entityNames.get(openHit.entityId) ?? null),
-  );
-  const openPartyFailed = $derived(openHit !== null && unnameable.has(openHit.entityId));
+  // The matched party arrives ON THE HIT — the check read resolves every hit's entity in one query
+  // — so opening one costs no read at all. It used to cost one per hit opened, cached for the visit.
+  const openPartyName = $derived(openHit?.party?.displayName ?? null);
   // A waiver names the entity that consented, which is often not the entity that matched. It costs
   // the same one read, on the same cache, for the same reason: the log answers handles.
   const openConsentingPartyName = $derived.by((): string | null => {
@@ -116,7 +116,7 @@
     return consentingPartyId === null ? null : (entityNames.get(consentingPartyId) ?? null);
   });
 
-  /** One read, for the one entity a reviewer opened. What it learns is kept for the rest of the visit. */
+  /** One read, for a waiver's consenting party. What it learns is kept for the rest of the visit. */
   async function nameEntity(entityId: string): Promise<void> {
     if (entityNames.has(entityId) || unnameable.has(entityId)) return;
     const outcome = await readDirectoryEntity(fetch, entityId);
@@ -130,7 +130,9 @@
   function openOne(hit: HitDetail): void {
     openHit = hit;
     windowOpen = true;
-    void nameEntity(hit.entityId);
+    // Only the CONSENTING party still needs a read: a waiver names the entity that consented, which
+    // is often not the entity that matched, and the disposition carries it as a handle. The matched
+    // party came with the hit.
     const consentingPartyId = hit.disposition?.waiver?.givenByEntityId ?? null;
     if (consentingPartyId !== null) void nameEntity(consentingPartyId);
   }
@@ -146,11 +148,8 @@
   <title>Conflicts Check · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Eyebrow>Conflicts</Masthead.Eyebrow>
-    <Masthead.Title>The Check</Masthead.Title>
-    <Masthead.Meta>
+<ScreenHeader title="The Check" back="conflicts" class="mb-24">
+  {#snippet meta()}
       {#if check !== null}
         <span>{formatInstant(check.createdAt)}</span>
         <Masthead.MetaSeparator />
@@ -166,9 +165,8 @@
               })}
         </span>
       {/if}
-    </Masthead.Meta>
-  </Masthead.Heading>
-  <Masthead.Actions>
+  {/snippet}
+  {#snippet actions()}
     {#if check !== null && check.matterId !== null}
       <Button variant="secondary" href="/conflicts/matters/{check.matterId}">
         <ScrollText class="size-16" aria-hidden="true" />
@@ -179,8 +177,8 @@
       <Printer class="size-16" aria-hidden="true" />
       The report
     </Button>
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if failure !== null}
   <FailureNotice
@@ -226,8 +224,6 @@
   <HitWindow
     bind:open={windowOpen}
     hit={openHit}
-    partyName={openPartyName}
-    partyNameFailed={openPartyFailed}
     consentingPartyName={openConsentingPartyName}
     {reviewerName}
     checkInstant={check.createdAt}

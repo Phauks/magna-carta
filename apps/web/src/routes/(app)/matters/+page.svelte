@@ -33,7 +33,7 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
@@ -67,6 +67,7 @@
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
   import NewMatterDialog from "$lib/matters/new-matter-dialog.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   // ---- what the screen is asking for ----------------------------------------------------------
 
@@ -145,7 +146,7 @@
       ? "Reading your session."
       : mayCreate
         ? undefined
-        : "Opening a matter needs the matters:create permission, which this account does not hold.",
+        : permissionRefusal("Opening a matter", "matters:create"),
   );
 
   // ---- the docket ------------------------------------------------------------------------------
@@ -242,11 +243,8 @@
 {/snippet}
 
 <div class="flex h-full flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>Matters</Masthead.Title>
-    </Masthead.Heading>
-    <Masthead.Actions>
+  <ScreenHeader title="Matters">
+    {#snippet actions()}
       {#if searchOpen}
         <Input
           bind:ref={searchField}
@@ -283,8 +281,8 @@
         refusal={mayCreate ? undefined : createDisabledReason}
         onpress={() => (dialogOpen = true)}
       />
-    </Masthead.Actions>
-  </Masthead.Root>
+    {/snippet}
+  </ScreenHeader>
 
   {#if lastCreated !== null}
     <!-- The heading follows the outcome, never the intent: a consultation was not opened. -->

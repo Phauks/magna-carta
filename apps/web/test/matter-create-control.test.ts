@@ -17,7 +17,7 @@ import {
   CREATE_NOUN_MAX_LENGTH,
   createLabel,
 } from "@magna-carta/design-system/create-label";
-import { MatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
+import { honouredClaim, MatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
 import { matterSections } from "$lib/matters/sections.ts";
 import Harness from "./create-claim-harness.svelte";
 
@@ -128,5 +128,32 @@ describe("a page swap hands the control over without a moment of two claimants",
       flushSync();
     }).toThrow(/already claimed/u);
     target.remove();
+  });
+});
+
+describe("the control honours only the claim for the section on screen", () => {
+  const feesClaim = { section: "fees", title: "New fee", run: () => undefined } as const;
+
+  it("honours a claim that answers for the section the reader is standing on", () => {
+    expect(honouredClaim(feesClaim, "fees")).toBe(feesClaim);
+  });
+
+  it("ignores the claim of the section just left, which every navigation passes through", () => {
+    /*
+     * The regression: leaving Files for Parties updates the address before the outgoing page's
+     * effect cleanup releases its claim, so for one flush the control is asked about a claim for
+     * "files" while the reader is on "parties". This threw, which crashed the screen on every tab
+     * change. It reads as unclaimed instead — which is what the control already shows in the moment
+     * before a section claims.
+     */
+    expect(honouredClaim({ ...feesClaim, section: "files" }, "parties")).toBeNull();
+  });
+
+  it("ignores every claim on a screen the registry does not name", () => {
+    expect(honouredClaim(feesClaim, undefined)).toBeNull();
+  });
+
+  it("has nothing to honour while no section holds the control", () => {
+    expect(honouredClaim(null, "fees")).toBeNull();
   });
 });

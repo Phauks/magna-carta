@@ -1,4 +1,5 @@
-import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryNameId, DirectoryPersonId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
@@ -98,11 +99,22 @@ function renderDisplayName(input: CreatePersonInput): string {
     .join(" ");
 }
 
-export async function createPerson(
+/** What creating a person contributes to a batch: the id it will have, its rows, its announcement. */
+export interface ComposedPersonCreate {
+  readonly personId: DirectoryPersonId;
+  readonly statements: SqlStatement[];
+  readonly outboxMessages: EffectWrite["outboxMessages"];
+}
+
+// Composes the person's own rows without committing: the node row, the current-name history row
+// with its phonetic codes, and the audit row. createPerson commits exactly this; the create that
+// records a whole person in one batch (person-record.ts) composes this first and everything else
+// beside it, so a person is never half-recorded.
+export function composeCreatePerson(
   database: BatchDatabase,
   input: CreatePersonInput,
   options: DirectoryWriteOptions,
-): Promise<DirectoryPersonId> {
+): ComposedPersonCreate {
   const personId = newIdentifier("directoryPerson", options.randomSource);
   const nameId: DirectoryNameId = newIdentifier("directoryName", options.randomSource);
   const now = options.clock.now();
@@ -119,7 +131,8 @@ export async function createPerson(
   const phoneticSource = family.length > 0 ? family : given;
   const codes = phoneticCodes(normalizeName(phoneticSource));
 
-  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+  return {
+    personId,
     statements: [
       insertPersonStatement(database, {
         id: personId,
@@ -153,11 +166,49 @@ export async function createPerson(
       directoryAuditStatement(database, options, "directory.person.created", personId),
     ],
     outboxMessages: [{ topic: DIRECTORY_ENTITY_CREATED_TOPIC, payload: { personId } }],
+  };
+}
+
+export async function createPerson(
+  database: BatchDatabase,
+  input: CreatePersonInput,
+  options: DirectoryWriteOptions,
+): Promise<DirectoryPersonId> {
+  const composed = composeCreatePerson(database, input, options);
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: composed.statements,
+    outboxMessages: composed.outboxMessages,
     responseCode: 201,
-    responseBody: { id: personId },
-    value: personId,
+    responseBody: { id: composed.personId },
+    value: composed.personId,
     fromBody: (body) => (body as { id: DirectoryPersonId }).id,
   }));
+}
+
+/** The life dates a person may be recorded with, checked as setPersonLifeDates checks them. */
+export interface CheckedLifeDates {
+  readonly dateOfBirth: string | null;
+  readonly dateOfDeath: string | null;
+  readonly deceased: boolean;
+}
+
+export function checkLifeDates(input: {
+  readonly dateOfBirth?: string | null;
+  readonly dateOfDeath?: string | null;
+  readonly deceased?: boolean;
+}): CheckedLifeDates {
+  const dateOfBirth = validCalendarDate(input.dateOfBirth, "date of birth");
+  const dateOfDeath = validCalendarDate(input.dateOfDeath, "date of death");
+  if (dateOfBirth !== null && dateOfDeath !== null && dateOfDeath < dateOfBirth) {
+    throw new InvalidPersonLifeDatesError("a date of death cannot precede a date of birth");
+  }
+  const deceased = input.deceased ?? dateOfDeath !== null;
+  if (dateOfDeath !== null && !deceased) {
+    throw new InvalidPersonLifeDatesError(
+      "a person with a recorded date of death cannot be marked not deceased",
+    );
+  }
+  return { dateOfBirth, dateOfDeath, deceased };
 }
 
 export async function readPerson(

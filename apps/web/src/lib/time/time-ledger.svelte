@@ -13,25 +13,30 @@
    * this file declares columns and renders cells, and decides none of that behaviour. A gap between
    * this table and any other table in the product would be a defect by definition.
    *
+   * THE FRAME IS THE MONEY SURFACE'S (apps/web/src/lib/money/). The toolbar under the section strip,
+   * the acts row with the way out of a filter, the counts strip and the pane toggle are drawn once
+   * there, for every money section; this file declares its columns, its cells, its figures, its
+   * verbs and its panel, and hands them over. Drawing any of the frame here again is the defect the
+   * surface exists to remove.
+   *
    * THE REVIEW VOCABULARY IS ABSENT, NOT DISABLED. Whether a firm runs review is a firm setting and
    * it is not served, so the lifecycle reads draft to billed, nothing solicits a submission, and no
    * Review control appears. A disabled "Submit" would be soliciting a workflow this firm has not
    * been asked about.
    */
+  import type { Snippet } from "svelte";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
+  import { MoneySurface, type MoneySurfaceDensity } from "$lib/money/index.ts";
   import {
-    LedgerPanes,
     RecordMenu,
     ledgerRecordMenu,
     type RecordMenuAction,
@@ -40,7 +45,7 @@
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
   import type { FirmMemberSummary } from "$lib/members/members-api.ts";
-  import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
+  import { readTimeEntry, type TimeEntrySummary } from "$lib/matters/time-api.ts";
   import {
     TIME_COLUMN_IDENTIFIERS,
     chargeAmount,
@@ -72,7 +77,9 @@
     members,
     sessionUserId,
     loading = false,
+    openEntryId = null,
     onChanged,
+    beneath = undefined,
   }: {
     /** Every entry on the matter, in every status: that is what a matter's time record is. */
     entries: readonly TimeEntrySummary[];
@@ -81,8 +88,12 @@
     members: readonly FirmMemberSummary[];
     sessionUserId: string | null;
     loading?: boolean;
+    /** An entry to open on arrival — what a deep link into this section names. */
+    openEntryId?: string | null;
     /** Something was written; the matter's time wants re-reading. */
     onChanged: () => void;
+    /** What the page puts directly above the counts strip: its Load more control. */
+    beneath?: Snippet;
   } = $props();
 
   const currency = $derived(ledgerCurrency(entries));
@@ -153,6 +164,26 @@
     windowEditing = editing && canWorkDraft(entry).allowed;
     windowOpen = true;
   }
+
+  /*
+   * The entry this ledger was asked to open, opened the way any entry opens: from the loaded page
+   * where it is on it, else read by its id — an entry older than the first page opens all the same.
+   * Once per id.
+   */
+  let honouredEntryId = $state<string | null>(null);
+  $effect(() => {
+    const wanted = openEntryId;
+    if (wanted === null || loading || honouredEntryId === wanted) return;
+    honouredEntryId = wanted;
+    const loaded = entries.find((entry) => entry.id === wanted);
+    if (loaded !== undefined) {
+      openRecord(loaded, false);
+      return;
+    }
+    void readTimeEntry(fetch, wanted).then((outcome) => {
+      if (outcome.kind === "ok") openRecord(outcome.value, false);
+    });
+  });
 
   /*
    * The one create action this surface has, exported for the section page: the matter header's
@@ -360,16 +391,6 @@
     footerFigures(grid.isFiltered ? grid.rowsInView : entries, { filtered: grid.isFiltered }),
   );
 
-  /* The domain figures as the shared strip reads them: money formatted here, arrangement there. */
-  const footerReading = $derived(
-    figures.map((figure) => ({
-      identifier: figure.identifier,
-      label: figure.label,
-      value: money(figure.amountMinor / 100),
-      caption: figure.caption,
-    })),
-  );
-
   const sheet = $derived(
     printEntry === null
       ? null
@@ -379,6 +400,24 @@
           date: (isoDate) => formatDate(isoDate),
           printedAt: formatInstant(new Date()),
         }),
+  );
+
+  /* The surface draws the notices band only while there is something to put in it. */
+  const hasNotices = $derived(
+    actionFailure !== null || actionRefusal !== null || actionNotice !== null,
+  );
+
+  /*
+   * The domain figures as the shared strip reads them: the money is turned into text HERE, in the
+   * matter's own currency, because the strip owns the arrangement and never the formatting.
+   */
+  const footerReading = $derived(
+    figures.map((figure) => ({
+      identifier: figure.identifier,
+      label: figure.label,
+      value: money(figure.amountMinor / 100),
+      caption: figure.caption,
+    })),
   );
 </script>
 
@@ -428,30 +467,11 @@
   </EmptyState>
 {/snippet}
 
-{#snippet footerEnd()}
+{#snippet ledgerFigures()}
   <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
-<section class="flex min-h-0 flex-1 flex-col gap-12">
-  <div class="flex flex-wrap items-center justify-end gap-8">
-    <DataTable.ClearFilters {grid} />
-    <!-- Recording one entry on this matter is the matter header's New Time; the Time Sheet is the
-         top bar's, reachable from every screen including this one, and a second door to it here was
-         a control that took a reader somewhere they were already standing in front of. -->
-    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
-         border of its own, reading its state through the glyph and never a filled box. -->
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-pressed={panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
-  </div>
-
+{#snippet notices()}
   {#if actionFailure !== null}
     <FailureNotice
       failure={actionFailure.failure}
@@ -469,46 +489,59 @@
       <Alert.Description>{actionNotice}</Alert.Description>
     </Alert.Root>
   {/if}
+{/snippet}
 
-  <LedgerPanes autoSaveId="matter-time-panes" {panelOpen}>
-    {#snippet list()}
-      <RecordMenu
-        class="flex min-h-0 flex-1 flex-col"
-        {menu}
-        onAction={(action) => void runMenuAction(action)}
-        onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
-      >
-        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-             product uses everywhere is still the thing that opens. The role is presentational:
-             this element adds no semantics of its own, it only notices where the pointer was. -->
-        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
-          <!-- The list takes the height it is given and scrolls inside itself, so a long ledger
-               never grows the page and never pushes its own counts strip out of reach. -->
-          <DataTable.Grid
-            {grid}
-            {cell}
-            class="min-h-0 flex-1"
-            caption="Time recorded on this matter"
-            empty={emptyLedger}
-            {loading}
-          />
-        </div>
-      </RecordMenu>
-    {/snippet}
-    {#snippet panel()}
-      <TimeDetailsPanel
-        {entries}
-        selected={selectedEntries}
-        {currency}
-        onOpen={(entry) => openRecord(entry, canWorkDraft(entry).allowed)}
-        onPrint={print}
-        onLetGo={() => grid.clearSelection()}
+{#snippet list({ density, tableClass }: { density: MoneySurfaceDensity; tableClass: string })}
+  <RecordMenu
+    class="flex min-h-0 flex-1 flex-col"
+    {menu}
+    onAction={(action) => void runMenuAction(action)}
+    onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
+  >
+    <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+         product uses everywhere is still the thing that opens. The role is presentational:
+         this element adds no semantics of its own, it only notices where the pointer was. -->
+    <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+      <!-- The list takes the height it is given and scrolls inside itself, so a long ledger
+           never grows the page and never pushes its own counts strip out of reach. The class
+           and the density are the surface's: flush, it takes the grid's frame away. -->
+      <DataTable.Grid
+        {grid}
+        {cell}
+        class={tableClass}
+        {density}
+        caption="Time recorded on this matter"
+        empty={emptyLedger}
+        {loading}
       />
-    {/snippet}
-  </LedgerPanes>
+    </div>
+  </RecordMenu>
+{/snippet}
 
-  <DataTable.GridFooter {grid} end={footerEnd} />
-</section>
+{#snippet panel()}
+  <TimeDetailsPanel
+    {entries}
+    selected={selectedEntries}
+    {currency}
+    onOpen={(entry) => openRecord(entry, canWorkDraft(entry).allowed)}
+    onPrint={print}
+    onLetGo={() => grid.clearSelection()}
+  />
+{/snippet}
+
+<MoneySurface
+  {matterId}
+  section="time"
+  {grid}
+  autoSaveId="matter-time-panes"
+  {panelOpen}
+  onTogglePanel={(open) => panelPreference.set(open ? "open" : "closed")}
+  notices={hasNotices ? notices : undefined}
+  {list}
+  {panel}
+  figures={ledgerFigures}
+  {beneath}
+/>
 
 <TimeRecordWindow
   bind:open={windowOpen}

@@ -1,3 +1,4 @@
+import { isEmailAddress } from "./email-address.ts";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -71,19 +72,11 @@ export function normalizeEmailAddress(address: string): string {
 }
 
 // Validate and split an address into its stored form (trimmed, as entered) and its normalized key.
+// The check is the one the screen runs beside the field (email-address.ts), so what the API refuses
+// is exactly what the screen already refused.
 function prepareAddress(address: string): { stored: string; normalized: string } {
   const stored = address.trim();
-  const atIndex = stored.indexOf("@");
-  const lastAtIndex = stored.lastIndexOf("@");
-  // Exactly one '@', with a non-empty local part and domain. length>0 also satisfies the table CHECK.
-  if (
-    stored.length === 0 ||
-    atIndex <= 0 ||
-    atIndex !== lastAtIndex ||
-    atIndex === stored.length - 1
-  ) {
-    throw new InvalidEmailAddressError(address);
-  }
+  if (!isEmailAddress(stored)) throw new InvalidEmailAddressError(address);
   return { stored, normalized: normalizeEmailAddress(stored) };
 }
 
@@ -102,12 +95,19 @@ export interface AddEmailInput {
 // Attach an email address to a directory entity within an atomic batch that also writes the domain
 // audit row. Rejects a missing or soft-deleted entity, and a malformed address, before any write. When
 // isPrimary is set, the entity's other live primaries are demoted first so at most one primary survives.
-export async function addEmail(
+/** What recording one email contributes to a batch. */
+export interface ComposedContactWrite<Id extends string> {
+  readonly id: Id;
+  readonly statements: SqlStatement[];
+}
+
+// Composes the rows one email writes without committing and without checking the entity: the
+// caller either checked it or is creating it in the same batch (person-record.ts).
+export function composeAddEmail(
   database: BatchDatabase,
   input: AddEmailInput,
   options: DirectoryWriteOptions,
-): Promise<DirectoryEmailId> {
-  await assertEntityExists(database, input.entityId);
+): ComposedContactWrite<DirectoryEmailId> {
   const { stored, normalized } = prepareAddress(input.address);
   const contactUse = input.contactUse ?? null;
   assertContactUse(contactUse);
@@ -140,6 +140,16 @@ export async function addEmail(
     }),
     directoryAuditStatement(database, options, "directory.email.added", emailId),
   );
+  return { id: emailId, statements };
+}
+
+export async function addEmail(
+  database: BatchDatabase,
+  input: AddEmailInput,
+  options: DirectoryWriteOptions,
+): Promise<DirectoryEmailId> {
+  await assertEntityExists(database, input.entityId);
+  const { id: emailId, statements } = composeAddEmail(database, input, options);
 
   return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
     statements,

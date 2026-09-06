@@ -36,7 +36,8 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
@@ -78,7 +79,9 @@
     searchHitKindLabel,
   } from "$lib/directory/entity-presentation.ts";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
-  import NewEntityDialog from "$lib/directory/new-entity-dialog.svelte";
+  import NewOrganizationDialog from "$lib/directory/new-organization-dialog.svelte";
+  import NewPersonDialog from "$lib/directory/new-person-dialog.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   // ---- who is asking ---------------------------------------------------------------------------
 
@@ -100,7 +103,7 @@
       ? "Reading your session."
       : mayEdit
         ? undefined
-        : "Adding to the directory needs the directory:edit permission, which this account does not hold.",
+        : permissionRefusal("Adding to the directory", "directory:edit"),
   );
 
   // ---- what the screen is being asked -----------------------------------------------------------
@@ -278,11 +281,8 @@
 {/snippet}
 
 <div class="flex h-full flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>Directory</Masthead.Title>
-    </Masthead.Heading>
-    <Masthead.Actions>
+  <ScreenHeader title="Directory">
+    {#snippet actions()}
       {#if searchOpen}
         <Input
           bind:ref={searchField}
@@ -345,7 +345,6 @@
         </Popover.Root>
 
       {/if}
-
       <!-- The one create control (the design system's), LAST on the row: the search grows toward
            the inline start as it opens, so the control after it is the one place that growth cannot
            reach — the same order as the matter header and the custody register. -->
@@ -360,8 +359,8 @@
           { label: "Organization", icon: Building2, onselect: () => openNew("organization") },
         ]}
       />
-    </Masthead.Actions>
-  </Masthead.Root>
+    {/snippet}
+  </ScreenHeader>
 
   {#if createDisabledReason !== undefined && session !== null}
     <Alert.Root variant="info">
@@ -501,8 +500,10 @@
   {/if}
 </div>
 
-<NewEntityDialog
-  bind:open={dialogOpen}
-  kind={dialogKind}
-  onCreated={(entityId) => void goto(entityRecordHref(entityId))}
-/>
+<!-- A person is recorded whole, every section reachable, on the side rail; an organization keeps
+     the one-section form until its record grows the same sections. -->
+{#if dialogKind === "person"}
+  <NewPersonDialog bind:open={dialogOpen} onCreated={(entityId) => void goto(entityRecordHref(entityId))} />
+{:else}
+  <NewOrganizationDialog bind:open={dialogOpen} onCreated={(entityId) => void goto(entityRecordHref(entityId))} />
+{/if}

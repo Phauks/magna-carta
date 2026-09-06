@@ -25,11 +25,12 @@
    * also this screen's answer to "where are things kept", which is half of what a register is for.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Alert from "@magna-carta/design-system/alert";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -46,6 +47,7 @@
   import NewPacketDialog from "$lib/custodian/new-packet-dialog.svelte";
   import PacketRegister from "$lib/custodian/packet-register.svelte";
   import PacketWindow from "$lib/custodian/packet-window.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   // ---- the firm's own container tree -----------------------------------------------------------
 
@@ -91,7 +93,7 @@
   const createRefusal = $derived.by((): string | undefined => {
     if (session === null) return "Reading your session.";
     if (!mayManage) {
-      return "Logging a packet needs the custody:manage permission, which this account does not hold.";
+      return permissionRefusal("Logging a packet", "custody:manage");
     }
     if (locations.length > 0 && !locations.some((location) => location.status === "active")) {
       return "A packet is logged into a container, and the firm has no open one to put it in.";
@@ -168,11 +170,8 @@
 <svelte:head><title>Custodian · Magna Carta</title></svelte:head>
 
 <div class="flex h-full flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>Custodian</Masthead.Title>
-    </Masthead.Heading>
-    <Masthead.Actions>
+  <ScreenHeader title="Custodian">
+    {#snippet actions()}
       <!-- The search, then the create control: the search grows toward the inline start, so the
            control at the row's end never moves when it opens. The same pair, in the same order, as
            the matter header. -->
@@ -197,8 +196,8 @@
         grid={grid ?? undefined}
         narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }}
       />
-    </Masthead.Actions>
-  </Masthead.Root>
+    {/snippet}
+  </ScreenHeader>
 
   {#if lastLogged !== null}
     <!-- The number the register drew, which is what somebody writes on the physical label. It
@@ -230,9 +229,9 @@
 
   <div class="grid min-h-0 flex-1 gap-24 lg:grid-cols-4">
     <div class="flex min-h-0 flex-col gap-12 lg:col-span-1">
-      <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="h2">
         Where things are
-      </h2>
+      </FieldLabel>
       {#if occupancy.length === 0}
         <p class="text-xs text-text-muted">
           No container has been described yet. A custody tree is offices, safes, cabinets, shelves

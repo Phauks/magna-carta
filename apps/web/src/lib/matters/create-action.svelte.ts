@@ -13,9 +13,11 @@
  * while a first still holds the control is refused with an error rather than quietly winning: two
  * claimants means two parts of one screen both believe they own the create action, which is
  * exactly the drift the control exists to end. Svelte tears the leaving page down before it mounts
- * the next, so ordinary navigation never trips this; only a genuine double claim does. The control
- * also refuses a claim whose section is not the one the address names, so a page cannot stand on
- * Costs and answer for Fees.
+ * the next, so ordinary navigation never trips this; only a genuine double claim does. A claim whose
+ * section is not the one the address names is a different matter, and is IGNORED rather than
+ * refused — see honouredClaim below: a page cannot stand on Costs and answer for Fees, but the
+ * window where the address has moved and the leaving page has not yet released is every ordinary
+ * navigation, not a defect.
  *
  * WHY A CONTEXT AND NOT A MODULE SINGLETON. The slot belongs to one matter layout: constructed
  * there, handed down through context, and gone with it. A module-level store would outlive the
@@ -103,6 +105,27 @@ export class MatterCreateSlot {
     if (!this.#holdings.some((holding) => holding.owner === owner)) return;
     this.#holdings = this.#holdings.filter((holding) => holding.owner !== owner);
   }
+}
+
+/**
+ * The claim the control may honour: the one in force, but only when it answers for the section the
+ * reader is standing on.
+ *
+ * A claim for another section is IGNORED rather than refused. Leaving a section updates the address
+ * before the outgoing page's effect cleanup releases its claim, so for one flush every ordinary
+ * navigation holds a claim for the section just left — this was thrown on, which crashed the screen
+ * on every tab change. Ignoring closes that window honestly: the control falls back to disabled
+ * carrying the line that says it has no action yet, exactly as it reads in the moment before a
+ * section claims. A genuine mismatch — a page answering for a section it does not render — then
+ * shows as a control that never becomes pressable, which is visible without being fatal.
+ */
+export function honouredClaim(
+  held: MatterCreateClaim | null,
+  sectionSlug: string | undefined,
+): MatterCreateClaim | null {
+  if (held === null) return null;
+  if (sectionSlug === undefined || held.section !== sectionSlug) return null;
+  return held;
 }
 
 const SLOT_KEY = Symbol("matter-create-slot");

@@ -48,6 +48,13 @@ const CONFLICTS_TREES = [
   "apps/api-worker/src/routes/conflicts.ts",
   "apps/web/src/routes/conflicts",
   "apps/web/src/lib/conflicts",
+  // Intake gates a consultation's opening on the conflicts posture, which is exactly where a
+  // verdict-shaped word tempts a builder: the package, its route, and its web surfaces.
+  "packages/intake",
+  "apps/api-worker/src/routes/intake.ts",
+  "apps/web/src/lib/intake",
+  "apps/web/src/routes/(app)/matters/[id]/intake",
+  "apps/web/src/routes/(app)/settings/intake-procedures",
   "docs/user",
 ];
 

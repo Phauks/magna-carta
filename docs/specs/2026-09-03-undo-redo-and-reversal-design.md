@@ -176,14 +176,14 @@ An implementation plan is deliberately not written yet. Slice 1's census changes
 
 ## 8a. The census — what the platform deletes, and what puts it back
 
-Produced by slice 1, over the thirty-three DELETE operations in the emitted contract. It is a fact about the contract rather than a claim in this document: `x-mc-reversal` carries each row, and CI fails if any of them names an operation that does not exist.
+Produced by slice 1, over the thirty-five DELETE operations in the emitted contract. It is a fact about the contract rather than a claim in this document: `x-mc-reversal` carries each row, and CI fails if any of them names an operation that does not exist.
 
 | Kind      | Count | What it means                                                                                                           |
 | --------- | ----- | ----------------------------------------------------------------------------------------------------------------------- |
 | `inverse` | 21    | A counterpart operation undoes it, and the declaration names it — an attach, a link, a grant, a mint, a set, a restore. |
 | `none`    | 12    | Nothing in the product puts it back, and each carries the sentence that says why.                                       |
 
-**The twenty-one `inverse` rows are the finding nobody expected.** More than half of what the platform calls deletion is not deletion at all — it is detaching, unlinking, revoking, clearing: a statement about a relationship, fully reversible by the route that made it, and in several cases already worded that way in the route's own description (`tasks.unlinkExternalTask`: "unlinking is a statement about the correspondence and never about the work"). None of those needs a confirmation dialog, and several have one.
+**The twenty-two `inverse` rows are the finding nobody expected.** More than half of what the platform calls deletion is not deletion at all — it is detaching, unlinking, revoking, clearing: a statement about a relationship, fully reversible by the route that made it, and in several cases already worded that way in the route's own description (`tasks.unlinkExternalTask`: "unlinking is a statement about the correspondence and never about the work"). None of those needs a confirmation dialog, and several have one.
 
 **The twelve `none` rows are the real deletion surface, and they are not one thing.** Reading their reasons sorts them into three groups:
 

@@ -212,6 +212,18 @@ export const PERMISSIONS = [
   // riding tasks:write. Accepting a proposed plan needs no key of its own: it creates tasks, which is
   // what tasks:write and tasks:assign already govern. Binds resource: "firm" like the rest.
   "tasks:managePlans", // author, edit and deactivate the firm's matter plans and the tasks they propose
+  // Intake — what a kind of matter must clear before it opens. Four keys, on the tasks split: reading
+  // where a consultation stands and recording that a step was done reach every seat that does firm
+  // work, Billing included, because the retainer arriving and the fee being agreed are a billing
+  // clerk's own facts to record. Waiving a REQUIRED step is a different act — it is the recorded
+  // override of an opening gate, under a named member's rationale — so it is its own key and stops at
+  // Owner/Admin and Attorney. Authoring the procedure is the firm's statement of how it takes work on,
+  // the matter plan's argument, and stops at the same two seats. Authoring binds resource: "firm";
+  // the three matter-side keys bind resource: "matter", because a record IS one matter's record.
+  "intake:read", // read a matter's intake checklist: the steps its procedure requires and where each stands
+  "intake:record", // record that a step was completed on a matter, or reopen one
+  "intake:waive", // waive a required step on a matter, with a rationale, so the matter may open without it
+  "intake:manageProcedures", // author, edit and deactivate the firm's intake procedures and their steps
   // Matter assets — the register of what a client or an estate owns, kept on a matter. Two keys,
   // because the register concentrates a matter's financially sensitive facts (what the estate owns,
   // what it is worth, account suffixes, home addresses) in one surface: a firm that gives a

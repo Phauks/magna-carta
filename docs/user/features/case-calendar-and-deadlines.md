@@ -1,6 +1,6 @@
 # Case calendar and deadlines
 
-_The backend is built. The calendar screens — a month grid, a week view, an agenda list, and the matter timeline — are authored when those surfaces ship; today events and deadlines are recorded through the API._
+_The firm calendar, the matter's Calendar section, the room grid and the Home card are live. A matter's whole history is its [Activity section](matter-activity.md)._
 
 ## What it does
 
@@ -17,6 +17,61 @@ the ledger, or the file it came from.
 **A place to record the litigation itself**, which the platform has no other way to know about.
 Hearings, filings, service, orders, depositions, mediations, trials, client meetings, site visits —
 and separately, the dates you must act by.
+
+## The calendar screens
+
+**Calendar**, in the sidebar, is the firm's calendar. It opens on the whole firm's month: every
+setting and deadline on every matter you can see, and the firm's own events beside them.
+
+- **Mine, Everyone, or a colleague.** Mine narrows the month to what is on your own calendar:
+  settings you are a participant at or the responsible attorney for, and every firm event whose
+  audience is everyone. The colleague picker beside the pair reads one colleague's calendar the
+  same way, over the matters you can see. The address remembers the choice, so a link you send
+  opens the same way.
+- **Custody dates.** Press it to add the safe custody register's dates to the calendar: when an
+  original checked out is due back, and when a packet or an item is due for review. Each shows its
+  custody number and opens the register. Off unless you turn it on, and the address remembers.
+- **Hide settled.** On the agenda, press it to leave out what is no longer coming: cancelled
+  settings and satisfied, vacated or superseded deadlines. The agenda says how many it left out.
+  The month and the week always show them, struck through.
+- **Month, week, agenda.** Three views of the same calendar. The month grid shows a few entries per
+  day and says how many more there are; press that and the agenda opens on that day. The week is
+  seven days side by side with each day's entries listed. The agenda is a fortnight as a list. The
+  view and the date live in the address. The week begins on the day your firm chose, Sunday unless
+  an administrator changed it under Settings › Calendar; it is the firm's setting rather than a
+  personal one, so everybody in the firm reads the same week
+  ([the administrator's guide](../admin/calendar-week-start.md)).
+- **What an entry says on the firm calendar.** The kind and the matter, never the title: "Hearing,
+  2026-0042". A calendar that spans every case does not broadcast what each case is about. Press
+  the entry and it opens with its title, its people, its place and the zone its time is read in.
+  Deadlines are the exception: they show their titles, because a deadline is read per matter you
+  can see, and they say when they are past due.
+- **Cancelled settings stay on the calendar, struck through.** A setting that was called off and one
+  that never existed are different facts.
+- **Record** at the top right records an event on a matter, a deadline on a matter, or a firm event.
+
+**A matter's Calendar section** keeps its two tables (Deadlines, then Events) as the **List** view and
+adds **Month** and **Agenda** beside them, which are the firm calendar narrowed to this one matter
+and showing titles. **Record a deadline** and **Record an event** are on the section's own row.
+
+**Two cards read the same calendar.** **Today** on Home is what is on your own calendar today and
+tomorrow, six entries deep, with a line to the rest. **Coming up** on a matter's Overview is that
+matter's next thirty days, six entries deep, with a line to its Calendar section. Neither is a
+second calendar: press an entry on either and it opens the same window.
+
+**Opening an entry.** Every entry opens in the same window: the record on the left, its people, its
+links and its history on the right, and the verbs it allows along the bottom. Edit changes the
+record in place. A scheduled setting can be **cancelled** with a reason or **continued**; an open
+deadline can be **satisfied**, **vacated** with a reason, or **superseded** by a new one. A verb the
+record's state or your permissions refuse stays visible and says why.
+
+**Related settings.** Open an event and press **Relate** to link it to another setting on the same
+matter (or, for a firm event, to another firm event within six months), with a note on why they
+belong together. The Links tab lists them by title and opens either; **Remove** takes a relation off
+without touching either setting. A continuance is never related by hand: the record makes that link.
+
+**Who is at an event.** When recording, pick a person from the firm, from the directory, or type a
+name once for somebody who is neither, such as a judge or a court reporter; each can carry a role.
 
 ## Recording an event
 
@@ -126,7 +181,12 @@ retired type keeps its meaning. The shipped types can be retired or regrouped bu
   record itself — email subject lines, document names, narratives, and people's names stay behind that
   link and out of any list that spans several matters.
 - **Reading the calendar and setting dates on it are separate permissions.** Everyone can see what is
-  coming; asserting when a hearing is, is its own capability.
+  coming; asserting when a hearing is, is its own capability. A record control you cannot use stays
+  on the screen, disabled, and says which permission it needs.
+- **A month never asks for more than six weeks**, so the firm calendar never meets the one-year cap
+  on its own; the cap still applies to anything reading the calendar through the API.
+- **A very busy window says so.** The calendar walks each read to its end, up to a ceiling; past
+  it, the screen says it is showing the first entries rather than pretending the month is complete.
 
 ## Related features
 

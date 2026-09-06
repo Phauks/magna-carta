@@ -15,6 +15,7 @@
     "./breadcrumb": "./src/lib/components/breadcrumb/index.ts",
     "./button": "./src/lib/components/button/index.ts",
     "./calendar": "./src/lib/components/calendar/index.ts",
+    "./calendar-grid": "./src/lib/components/calendar-grid/index.ts",
     "./card": "./src/lib/components/card/index.ts",
     "./checkbox": "./src/lib/components/checkbox/index.ts",
     "./choice-row": "./src/lib/components/choice-row/index.ts",
@@ -42,6 +43,7 @@
     "./failure-state": "./src/lib/components/failure-state/index.ts",
     "./eyebrow-link": "./src/lib/components/eyebrow-link/index.ts",
     "./file-icon": "./src/lib/components/file-icon/index.ts",
+    "./field-label": "./src/lib/components/field-label/index.ts",
     "./field-row": "./src/lib/components/field-row/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",
     "./history": "./src/lib/components/history/index.ts",
@@ -70,6 +72,7 @@
     "./record-window": "./src/lib/components/record-window/index.ts",
     "./resizable": "./src/lib/components/resizable/index.ts",
     "./screen-search": "./src/lib/components/screen-search/index.ts",
+    "./scroll-edge-hint": "./src/lib/components/scroll-edge-hint/index.ts",
     "./select": "./src/lib/components/select/index.ts",
     "./separator": "./src/lib/components/separator/index.ts",
     "./sidebar": "./src/lib/components/sidebar/index.ts",
@@ -103,6 +106,7 @@
     "storybook-build": "storybook build",
     "visual-regression": "playwright test --config visual-regression/playwright.config.ts",
     "visual-regression-update": "playwright test --config visual-regression/playwright.config.ts --update-snapshots",
+    "modal-geometry": "playwright test --config modal-geometry/playwright.config.ts",
     "csp-spike": "vite build --config test/csp-spike/vite.config.mjs && node test/csp-spike/run-csp-spike.mjs"
   },
   "dependencies": {

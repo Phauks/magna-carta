@@ -19,10 +19,11 @@
    * BOTH HALVES ARE HELD WHILE A WALK IS IN FLIGHT. A stack whose steps write to the server takes
    * real time, and a second press landing mid-walk would interleave two sequences of inverses.
    *
-   * THE ONE THING A SURFACE VARIES is which register the pair wears, because that is a fact about
-   * the chrome it sits in rather than about undo: quiet ghost buttons in a counts footer, bordered
-   * secondary ones in a toolbar of secondary buttons. It is a closed set for that reason, and there
-   * is no `class` prop to reach past it.
+   * IT VARIES NOTHING. The pair lives in the counts strip on every surface that has a stack, and one
+   * band wears one chrome: the ghost small square, like every other glyph control in the strip
+   * (`docs/conventions/file-manager-rulings.md`, N31 and N32). It briefly took a `variant` so a
+   * toolbar could dress it differently, which is precisely what that ruling is against — a control
+   * taking its look from its caller is how one band ends up wearing two.
    *
    * THE HEADING SITS INSIDE A GROUP, WHICH IS NOT DECORATION. A GroupHeading with no Group above it
    * throws when the menu opens — the group is where the heading finds the identity it labels — and
@@ -45,22 +46,16 @@
      * through `historyAnnouncement`, into whatever live region it already owns.
      */
     onOutcome?: (outcome: HistoryOutcome) => void;
-    /** The register the surrounding chrome is in. Ghost for a counts footer, secondary for a toolbar. */
-    variant?: "ghost" | "secondary";
     class?: string;
   };
 
-  let { history, onOutcome, variant = "ghost", class: className }: Props = $props();
+  let { history, onOutcome, class: className }: Props = $props();
 
   // The caret is fused to the button: the button loses its trailing radius, the caret its leading
-  // one, so the pair reads as one control with two halves rather than two controls that touch. A
-  // bordered register also drops the caret's leading edge, or the seam shows as a double rule.
-  const caretClasses = $derived(
-    mergeClasses(
-      buttonClasses({ variant, size: "icon" }),
-      "rounded-s-none",
-      variant === "secondary" && "border-s-0",
-    ),
+  // one, so the pair reads as one control with two halves rather than two controls that touch.
+  const caretClasses = mergeClasses(
+    buttonClasses({ variant: "ghost", size: "icon-sm" }),
+    "rounded-s-none",
   );
 
   async function walk(direction: "undo" | "redo", steps: number): Promise<void> {
@@ -72,8 +67,8 @@
 <span class={mergeClasses("flex items-center gap-4", className)} data-undo-redo-controls>
   <span class="inline-flex">
     <Button
-      {variant}
-      size="icon"
+      variant="ghost"
+      size="icon-sm"
       class="rounded-e-none"
       disabled={!history.canUndo}
       title={history.undoTitle}
@@ -105,8 +100,8 @@
   </span>
   <span class="inline-flex">
     <Button
-      {variant}
-      size="icon"
+      variant="ghost"
+      size="icon-sm"
       class="rounded-e-none"
       disabled={!history.canRedo}
       title={history.redoTitle}

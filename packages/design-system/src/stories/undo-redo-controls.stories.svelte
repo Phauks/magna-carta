@@ -48,7 +48,6 @@
   const shortStack = stackOf("the rename", "moving 3 files to Discovery");
   const deepStack = stackOf("the first move", "the rename", "moving 3 files to Discovery");
   const stoppedStack = refusingStack("the move that refuses");
-  const toolbarStack = stackOf("the description on this entry");
 
   // One holder per story rather than one shared: the docs page renders every story at once, and a
   // shared line would show the last story's words under all four.
@@ -56,7 +55,6 @@
   let shortNote = $state("");
   let deepNote = $state("");
   let stoppedNote = $state("");
-  let toolbarNote = $state("");
 </script>
 
 {#snippet strip(history: HistoryStack, note: string, say: (spoken: string) => void)}
@@ -168,36 +166,5 @@
 >
   {#snippet template()}
     {@render strip(stoppedStack, stoppedNote, (spoken) => (stoppedNote = spoken))}
-  {/snippet}
-</Story>
-
-<Story
-  name="In a toolbar of secondary buttons"
-  play={async ({ canvas, step }) => {
-    await step("The pair takes the surrounding register and behaves identically", async () => {
-      const undo = canvas.getByRole("button", { name: "Undo the description on this entry" });
-      await expect(undo).toBeEnabled();
-      await userEvent.click(undo);
-      await expect(canvas.getByRole("status")).toHaveTextContent(
-        "Undid the description on this entry.",
-      );
-    });
-  }}
->
-  {#snippet template()}
-    <!--
-      The register is the only thing a surface varies, and it is a fact about the chrome the pair
-      sits in rather than about undo: quiet in a counts footer, bordered in a toolbar of secondary
-      buttons. Everything else — the wording, the split, the order — is the control's.
-    -->
-    <div class="flex items-center gap-8 p-8">
-      <UndoRedoControls
-        history={toolbarStack}
-        variant="secondary"
-        onOutcome={(outcome: HistoryOutcome) =>
-          (toolbarNote = historyAnnouncement(outcome) ?? "")}
-      />
-      <span class="text-xs text-text-muted" role="status" aria-live="polite">{toolbarNote}</span>
-    </div>
   {/snippet}
 </Story>

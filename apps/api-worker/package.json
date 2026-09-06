@@ -9,6 +9,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "emit-openapi": "node scripts/emit-openapi.mts",
+    "emit-r2-cors": "node scripts/emit-r2-cors.mts",
     "test": "vp test run"
   },
   "dependencies": {
@@ -42,6 +43,7 @@
     "@magna-carta/government-links": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/inference": "workspace:*",
+    "@magna-carta/intake": "workspace:*",
     "@magna-carta/integrations": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/locations": "workspace:*",

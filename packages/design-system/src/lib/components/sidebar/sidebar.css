@@ -88,26 +88,10 @@
     display: none;
   }
   /*
-   * The gilt scroll-edge hint — the affordance the hidden scrollbar gave up: a thin gold rule
-   * at the scroll area's top edge while scrolled below the top, and at its bottom edge while
-   * more lies below (sidebar-content.svelte drives the state). Gold never fades — it DRAWS
-   * (the mc-draw-x keyframes, from the start edge); removal is instant by unmount. Reusable
-   * for any invisible-scrollbar area.
+   * The gilt scroll-edge rule this region depends on is the shared ScrollEdgeHint recipe
+   * (components/scroll-edge-hint/scroll-edge-hint.css). Sidebar.Content renders it beside the
+   * scrollport whose scrollbar is hidden above; the rail declares nothing of its own here.
    */
-  .mc-sidebar-scroll-hint {
-    position: absolute;
-    inset-inline: var(--mc-space-8);
-    block-size: var(--mc-focus-ring-width);
-    background-color: var(--mc-accent-default);
-    pointer-events: none;
-    transform-origin: left center;
-    animation: mc-draw-x var(--mc-duration-fast) var(--mc-easing-standard);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .mc-sidebar-scroll-hint {
-      animation-duration: var(--mc-duration-instant);
-    }
-  }
   .mc-sidebar-footer {
     display: flex;
     flex-direction: column;

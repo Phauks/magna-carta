@@ -1,13 +1,17 @@
+import { assertPermission, type Permission } from "@magna-carta/access-control/registry";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   boundedFirmScopedSelect,
   boundedSelect,
   civilDateWindowConditions,
+  describeSelect,
+  firstLineExpression,
   instantWindowConditions,
   projectRow,
 } from "./build.ts";
 import {
   TimelineSourceRegistry,
+  type DescribeRequest,
   type SourceReadRequest,
   type TimelineScope,
   type TimelineSource,
@@ -15,8 +19,10 @@ import {
 
 // The declared sources. Each is a read-side declaration — where the rows live, how to read a bounded
 // page of them, and how to project one — and NOT a write-side obligation on the subsystem that owns
-// them. Adding a source is one entry here: one statement builder, one projection, and one decision
-// about whether the source has a non-privileged label. It is never a change to anybody's write path.
+// them. Adding a source is one entry here: one statement builder, one projection, one decision
+// about whether the source has a non-privileged label, the read capability a description of its
+// rows sits behind, and — where the rows have names — one `describe` statement that names a page of
+// them for one matter. It is never a change to anybody's write path.
 
 // The deep link a person follows to see the row itself, in the subsystem that owns it and behind
 // that subsystem's own access gate. This is what lets an entry carry no content: the detail is one
@@ -24,8 +30,8 @@ import {
 // every page.
 function matterSectionLink(
   section: string,
-): (row: { matter_id: string | null; row_id: string }) => string {
-  return (row) => `/matters/${row.matter_id ?? ""}/${section}?entry=${row.row_id}`;
+): (row: { matter_id: string | null; row_id: string; link_id?: string | null }) => string {
+  return (row) => `/matters/${row.matter_id ?? ""}/${section}?entry=${row.link_id ?? row.row_id}`;
 }
 
 // ---- the two recorded sources ----
@@ -34,9 +40,15 @@ function matterSectionLink(
 // can name the people it concerns, so they are NOT projected: the label is the event's PLATFORM type
 // code where it has one, which is a shared vocabulary term rather than anything about a case, and
 // null for a type the firm invented (a firm-authored type name is free text like any other).
+//
+// A setting that was called off is its own KIND, `cancelledEvent`, rather than a status column the
+// projection does not carry: a firm-wide calendar has to draw a vacated hearing struck, because a
+// thing that was cancelled and a thing that never existed are different facts, and the status is a
+// closed word that says nothing about the case. The row stays on the calendar either way.
 const matterEventSource: TimelineSource = {
   key: "matterEvent",
-  kinds: ["event"],
+  permission: assertPermission("calendar:read"),
+  kinds: ["event", "cancelledEvent"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
   declaresLabel: true,
@@ -69,7 +81,8 @@ const matterEventSource: TimelineSource = {
         sortColumn: "matter_event.starts_on",
         idColumn: "matter_event.id",
         matterExpression: "matter_event.matter_id",
-        kindExpression: "'event'",
+        kindExpression:
+          "CASE WHEN matter_event.status = 'cancelled' THEN 'cancelledEvent' ELSE 'event' END",
         actorExpression: "matter_event.recorded_by",
         labelExpression:
           "CASE WHEN matter_event_type.origin = 'platform' THEN matter_event_type.code ELSE NULL END",
@@ -79,6 +92,24 @@ const matterEventSource: TimelineSource = {
     ];
   },
   project: projectRow("matterEvent", matterSectionLink("calendar")),
+  // Named for the one matter the reader stands in: the title, the type (the firm's own name for it
+  // too — this read is matter-scoped, so the projection's platform-only rule does not apply), and
+  // where and when it is held.
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: "matter_event LEFT JOIN matter_event_type ON matter_event_type.id = matter_event.event_type_id",
+      idColumn: "matter_event.id",
+      matterExpression: "matter_event.matter_id",
+      titleExpression: "matter_event.title",
+      typeExpression: "matter_event_type.name",
+      factsExpression:
+        "json_object('status', matter_event.status, 'startsOn', matter_event.starts_on, " +
+        "'startsAtTime', matter_event.starts_at_time, 'endsOn', matter_event.ends_on, " +
+        "'timeZone', matter_event.time_zone, 'locationText', matter_event.location_text, " +
+        "'courtReference', matter_event.court_reference)",
+    }),
+  ],
 };
 
 // A deadline. The title, the authority note, and the reason it is no longer in force are all free
@@ -87,6 +118,7 @@ const matterEventSource: TimelineSource = {
 // against now, made where the reader is, and never a stored fact.
 const matterDeadlineSource: TimelineSource = {
   key: "matterDeadline",
+  permission: assertPermission("calendar:read"),
   kinds: ["deadline"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
@@ -120,6 +152,110 @@ const matterDeadlineSource: TimelineSource = {
     ];
   },
   project: projectRow("matterDeadline", matterSectionLink("calendar")),
+  // Overdue is deliberately NOT a fact here either: it is a comparison against now, made where the
+  // reader is, from the due date this carries.
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: "matter_deadline",
+      idColumn: "matter_deadline.id",
+      matterExpression: "matter_deadline.matter_id",
+      titleExpression: "matter_deadline.title",
+      typeExpression: "NULL",
+      factsExpression:
+        "json_object('state', matter_deadline.state, 'dueOn', matter_deadline.due_on, " +
+        "'dueAtTime', matter_deadline.due_at_time, 'timeZone', matter_deadline.time_zone, " +
+        "'authorityText', matter_deadline.authority_text, 'source', matter_deadline.source, " +
+        "'priority', matter_deadline.priority)",
+    }),
+  ],
+};
+
+// ---- what happened to a document after it arrived ----
+
+// The file manager's own history — what the File History view already reads out of the audit log,
+// one event per act — admitted to the chronology through the one join that confines the audit log's
+// polymorphic subject to a matter: a file-subject or version-subject row resolved to its file, and
+// the file to its matter. A closed allowlist of events, reviewed here; the upload events stay out
+// because a document's arrival is the documentFiled row, and a first version's commit is the same
+// arrival told twice.
+export const FILE_HISTORY_EVENT_KEYS = Object.freeze([
+  "file.renamed",
+  "file.moved",
+  "file.deleted",
+  "file.restored",
+  "file.version_committed",
+  "file.version_restored",
+  "file.document_type_assigned",
+  "file.quarantined",
+] as const);
+
+const FILE_HISTORY_FROM =
+  "audit_log LEFT JOIN file_version ON file_version.id = audit_log.subject_id " +
+  "JOIN file ON file.id = COALESCE(file_version.file_id, audit_log.subject_id)";
+
+const fileHistorySource: TimelineSource = {
+  key: "fileHistory",
+  kinds: FILE_HISTORY_EVENT_KEYS,
+  visibilityAnchor: "matter",
+  timeColumnShape: "instant",
+  // The label is the event itself — a closed vocabulary that says what was done and nothing about
+  // the document. The Files section's own action words are the reading of it.
+  declaresLabel: true,
+  supportsMemberFilter: false,
+  // The file list is a firm-open read, and so is what happened to it.
+  permission: null,
+  buildStatements: (request) => {
+    const window = instantWindowConditions(
+      "audit_log.created_at",
+      request.scope.fromDate,
+      request.scope.toDate,
+    );
+    const allowlistPlaceholders = FILE_HISTORY_EVENT_KEYS.map(() => "?").join(", ");
+    const conditions = [
+      ...window.conditions,
+      `audit_log.event IN (${allowlistPlaceholders})`,
+      // A first version's commit is the document's arrival, which documentFiled already tells.
+      "NOT (audit_log.event = 'file.version_committed' AND file_version.version_number = 1)",
+    ];
+    const bindings: unknown[] = [...window.bindings, ...FILE_HISTORY_EVENT_KEYS];
+    if (request.scope.matterId !== undefined) {
+      conditions.push("file.matter_id = ?");
+      bindings.push(request.scope.matterId);
+    }
+    return [
+      boundedSelect(request.database, {
+        request,
+        from: FILE_HISTORY_FROM,
+        sortColumn: "audit_log.created_at",
+        idColumn: "audit_log.id",
+        // The Files section opens a FILE; the audit row is the row, the file is the door.
+        linkIdExpression: "file.id",
+        matterExpression: "file.matter_id",
+        kindExpression: "audit_log.event",
+        actorExpression: "audit_log.actor_user_id",
+        labelExpression: "audit_log.event",
+        conditions,
+        bindings,
+      }),
+    ];
+  },
+  project: projectRow("fileHistory", matterSectionLink("files")),
+  // Named by the file it happened to, as the file is called NOW, with the version the act concerned
+  // and the redacted metadata the writer recorded — the file manager's own contribution reads it.
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: FILE_HISTORY_FROM,
+      idColumn: "audit_log.id",
+      matterExpression: "file.matter_id",
+      titleExpression: "file.name",
+      typeExpression: "NULL",
+      factsExpression:
+        "json_object('event', audit_log.event, 'fileId', file.id, " +
+        "'versionNumber', file_version.version_number, 'metadata', json(audit_log.metadata))",
+    }),
+  ],
 };
 
 // ---- the directly matter-linked federated sources ----
@@ -138,6 +274,8 @@ function directInstantSource(options: {
   declaresLabel: boolean;
   extraConditions?: readonly string[];
   section: string;
+  permission: Permission | null;
+  describe?: (request: DescribeRequest) => readonly SqlStatement[];
 }): TimelineSource {
   return {
     key: options.key,
@@ -146,6 +284,8 @@ function directInstantSource(options: {
     timeColumnShape: "instant",
     declaresLabel: options.declaresLabel,
     supportsMemberFilter: false,
+    permission: options.permission,
+    ...(options.describe === undefined ? {} : { describe: options.describe }),
     buildStatements: (request) => {
       const window = instantWindowConditions(
         options.sortColumn,
@@ -183,6 +323,7 @@ function directInstantSource(options: {
 // the link.
 const emailFiledSource = directInstantSource({
   key: "emailFiled",
+  permission: assertPermission("emails:read"),
   kind: "emailFiled",
   table: "email_matter_link",
   sortColumn: "email_matter_link.created_at",
@@ -191,13 +332,15 @@ const emailFiledSource = directInstantSource({
   actorExpression: "email_matter_link.linked_by",
   labelExpression: "NULL",
   declaresLabel: false,
-  section: "email",
+  section: "emails",
 });
 
 // A document assembled onto the matter. The outcome and the count of fields the matter supplied no
 // value for are provenance about the RUN, never about the document's contents.
 const documentAssemblySource = directInstantSource({
   key: "documentAssembly",
+  // Provenance about a run, on a matter every member may read the files of.
+  permission: null,
   kind: "documentAssembly",
   table: "document_assembly",
   sortColumn: "document_assembly.created_at",
@@ -215,6 +358,8 @@ const documentAssemblySource = directInstantSource({
 // client. Soft-deleted rows are excluded: a document a firm deleted is not on its timeline.
 const documentFiledSource = directInstantSource({
   key: "documentFiled",
+  // The file list is a firm-open read, exactly as matter-search declares it.
+  permission: null,
   kind: "documentFiled",
   table: "file",
   from: "file LEFT JOIN document_type ON document_type.id = file.document_type_id",
@@ -226,6 +371,27 @@ const documentFiledSource = directInstantSource({
   declaresLabel: true,
   extraConditions: ["file.deleted_at IS NULL"],
   section: "files",
+  // The file's own identity, as the file manager keeps it: its name, its document type where the
+  // firm set one, and the current version's sniffed content type, size, number and safety — the
+  // inputs the file manager's own presentation runs on, so a file reads the same here as there.
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from:
+        "file LEFT JOIN file_version ON file_version.id = file.current_version_id " +
+        "LEFT JOIN document_type ON document_type.id = file.document_type_id",
+      idColumn: "file.id",
+      matterExpression: "file.matter_id",
+      titleExpression: "file.name",
+      typeExpression: "document_type.name",
+      factsExpression:
+        "json_object('contentType', file_version.sniffed_content_type, 'sizeBytes', file_version.size_bytes, " +
+        "'versionNumber', file_version.version_number, 'status', file_version.status, " +
+        "'scanVerdict', file_version.scan_verdict, 'hasVersion', file.current_version_id IS NOT NULL, " +
+        "'documentTypeId', file.document_type_id)",
+      conditions: ["file.deleted_at IS NULL"],
+    }),
+  ],
 });
 
 // A note written on the matter. DECLARES NO LABEL, and it is not close.
@@ -249,6 +415,7 @@ const documentFiledSource = directInstantSource({
 // of a "T".
 const matterNoteSource: TimelineSource = {
   key: "matterNote",
+  permission: assertPermission("notes:read"),
   kinds: ["matterNote"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
@@ -283,6 +450,22 @@ const matterNoteSource: TimelineSource = {
     ];
   },
   project: projectRow("matterNote", matterSectionLink("notes")),
+  // The opening line and nothing more of the body: this is the read a member holding notes:read
+  // could make by opening the section, made for the rows on their screen.
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: "matter_note",
+      idColumn: "matter_note.id",
+      matterExpression: "matter_note.matter_id",
+      titleExpression: firstLineExpression("matter_note.body"),
+      typeExpression: "NULL",
+      factsExpression:
+        "json_object('occurredOn', matter_note.occurred_on, 'occurredAtTime', matter_note.occurred_at_time, " +
+        "'timeZone', matter_note.time_zone, 'attachmentCount', " +
+        "(SELECT COUNT(*) FROM matter_note_document WHERE matter_note_document.note_id = matter_note.id))",
+    }),
+  ],
 };
 
 // A task on the matter's history, sorted by WHEN IT IS DUE.
@@ -313,6 +496,9 @@ const matterTaskSource: TimelineSource = {
   // rather than after the rows come back, for the reason the registry insists on: a post-filter
   // under-fills the page and turns the page size into an existence oracle for the rows it removed.
   supportsMemberFilter: true,
+  // A task's title and body are the words a member writing the matter's work chooses; the
+  // description sits behind the tasks read like the section it opens into.
+  permission: assertPermission("tasks:read"),
   buildStatements: (request) => {
     const window = civilDateWindowConditions(
       "matter_task.due_on",
@@ -351,6 +537,22 @@ const matterTaskSource: TimelineSource = {
     ];
   },
   project: projectRow("matterTask", matterSectionLink("tasks")),
+  // Named by its title, with the facts that say whether the firm still owes it: the state, when it
+  // is due, how urgent, and whose it is. Overdue is the reader's comparison, never a stored fact.
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: "matter_task",
+      idColumn: "matter_task.id",
+      matterExpression: "matter_task.matter_id",
+      titleExpression: "matter_task.title",
+      typeExpression: "NULL",
+      factsExpression:
+        "json_object('state', matter_task.state, 'dueOn', matter_task.due_on, " +
+        "'dueAtTime', matter_task.due_at_time, 'priority', matter_task.priority, " +
+        "'assigneeUserId', matter_task.assignee_user_id)",
+    }),
+  ],
 };
 
 // Time and cost entries are the densest sources in the platform by row count and would dominate an
@@ -359,6 +561,8 @@ const matterTaskSource: TimelineSource = {
 // interface default, not a decision this schema or this registry makes for anybody.
 const timeEntrySource: TimelineSource = {
   key: "timeEntry",
+  // The ledgers have no read capability of their own: a member who may not book time still reads it.
+  permission: null,
   kinds: ["timeEntry"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
@@ -398,10 +602,25 @@ const timeEntrySource: TimelineSource = {
     ];
   },
   project: projectRow("timeEntry", matterSectionLink("time")),
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: "time_entry",
+      idColumn: "time_entry.id",
+      matterExpression: "time_entry.matter_id",
+      titleExpression: firstLineExpression("time_entry.narrative"),
+      typeExpression: "NULL",
+      factsExpression:
+        "json_object('durationMinutes', time_entry.duration_minutes, 'billable', time_entry.billable, " +
+        "'status', time_entry.status, 'entryNumber', time_entry.entry_number, " +
+        "'amountMinor', time_entry.amount_minor, 'currency', time_entry.currency)",
+    }),
+  ],
 };
 
 const costEntrySource: TimelineSource = {
   key: "costEntry",
+  permission: null,
   kinds: ["costEntry"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
@@ -436,12 +655,27 @@ const costEntrySource: TimelineSource = {
     ];
   },
   project: projectRow("costEntry", matterSectionLink("costs")),
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: "cost_entry",
+      idColumn: "cost_entry.id",
+      matterExpression: "cost_entry.matter_id",
+      titleExpression: firstLineExpression("cost_entry.description"),
+      typeExpression: "NULL",
+      factsExpression:
+        "json_object('amountMinor', cost_entry.amount_minor, 'currency', cost_entry.currency, " +
+        "'status', cost_entry.status, 'billable', cost_entry.billable, " +
+        "'disbursementClass', cost_entry.disbursement_class)",
+    }),
+  ],
 };
 
 // A conflicts check run against this matter. The trigger is a closed vocabulary and the hit count is
 // a number; neither says who was surfaced, which is the part a conflicts log gates.
 const conflictsCheckSource = directInstantSource({
   key: "conflictsCheck",
+  permission: assertPermission("conflicts:read"),
   kind: "conflictsCheck",
   table: "conflicts_check",
   sortColumn: "conflicts_check.created_at",
@@ -485,6 +719,8 @@ export const MATTER_LIFECYCLE_EVENT_KEYS = Object.freeze([
 
 const matterLifecycleSource: TimelineSource = {
   key: "matterLifecycle",
+  // The matter's own standing is readable by anybody who can see the matter.
+  permission: null,
   kinds: MATTER_LIFECYCLE_EVENT_KEYS,
   visibilityAnchor: "matter",
   timeColumnShape: "instant",
@@ -571,6 +807,7 @@ function inClausePlaceholders(keys: readonly string[]): string {
 // Jane Smith" needs no document attached).
 const custodyMovementSource: TimelineSource = {
   key: "custodyMovement",
+  permission: assertPermission("custody:read"),
   kinds: [
     "logged",
     "itemized",
@@ -615,6 +852,8 @@ const custodyMovementSource: TimelineSource = {
         from: "custody_movement JOIN custody_packet ON custody_packet.id = custody_movement.packet_id",
         sortColumn: "custody_movement.occurred_at",
         idColumn: "custody_movement.id",
+        // The Custodian section opens a PACKET; the movement is the row, the packet is the door.
+        linkIdExpression: "custody_packet.id",
         matterExpression: "custody_packet.matter_id",
         kindExpression: "custody_movement.kind",
         actorExpression: "custody_movement.recorded_by_user_id",
@@ -624,7 +863,7 @@ const custodyMovementSource: TimelineSource = {
       }),
     ];
   },
-  project: projectRow("custodyMovement", matterSectionLink("custody")),
+  project: projectRow("custodyMovement", matterSectionLink("custodian")),
 };
 
 // The status predicates the custody register's own reads carry, restated here as named constants so
@@ -648,6 +887,7 @@ const CUSTODY_ITEM_STILL_HELD = "custody_item.status IN ('held', 'out')";
 // review date sits on a packet AND on an item and both are real.
 const custodyReviewDueSource: TimelineSource = {
   key: "custodyReviewDue",
+  permission: assertPermission("custody:read"),
   kinds: ["packetReviewDue", "itemReviewDue"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
@@ -703,6 +943,7 @@ const custodyReviewDueSource: TimelineSource = {
         from: "custody_item JOIN custody_packet ON custody_packet.id = custody_item.packet_id",
         sortColumn: "custody_item.review_on",
         idColumn: "custody_item.id",
+        linkIdExpression: "custody_packet.id",
         matterExpression: "custody_packet.matter_id",
         kindExpression: "'itemReviewDue'",
         actorExpression: "NULL",
@@ -714,7 +955,7 @@ const custodyReviewDueSource: TimelineSource = {
       }),
     ];
   },
-  project: projectRow("custodyReviewDue", matterSectionLink("custody")),
+  project: projectRow("custodyReviewDue", matterSectionLink("custodian")),
 };
 
 // When an original that went out is due back.
@@ -729,6 +970,7 @@ const custodyReviewDueSource: TimelineSource = {
 // the number of things that are out, and it does not fall when the scope narrows to one matter.
 const custodyDueBackSource: TimelineSource = {
   key: "custodyDueBack",
+  permission: assertPermission("custody:read"),
   kinds: ["dueBack"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
@@ -770,6 +1012,8 @@ const custodyDueBackSource: TimelineSource = {
                   ORDER BY latest.occurred_at DESC, latest.id DESC LIMIT 1)`,
         sortColumn: "custody_movement.due_back_on",
         idColumn: "custody_movement.id",
+        // The Custodian section opens a PACKET; the movement is the row, the packet is the door.
+        linkIdExpression: "custody_packet.id",
         matterExpression: "custody_packet.matter_id",
         kindExpression: "'dueBack'",
         actorExpression: "custody_movement.recorded_by_user_id",
@@ -779,7 +1023,7 @@ const custodyDueBackSource: TimelineSource = {
       }),
     ];
   },
-  project: projectRow("custodyDueBack", matterSectionLink("custody")),
+  project: projectRow("custodyDueBack", matterSectionLink("custodian")),
 };
 
 // Client money on the matter, reached through the matter's trust ledger leaves. The label is the
@@ -787,6 +1031,7 @@ const custodyDueBackSource: TimelineSource = {
 // firm to keep. Never the counterparty, which is free text and frequently a person.
 const trustMovementSource: TimelineSource = {
   key: "trustMovement",
+  permission: assertPermission("trust:read"),
   kinds: ["deposit", "disbursement", "matter_transfer"],
   visibilityAnchor: "matter",
   timeColumnShape: "civilDate",
@@ -849,6 +1094,7 @@ export const FIRM_ANCHORED_SOURCE_KEYS = Object.freeze(["firmEvent"] as const);
 // On a MATTER timeline this source returns no statements — a firm event is on no matter's history.
 const firmEventSource: TimelineSource = {
   key: "firmEvent",
+  permission: assertPermission("calendar:read"),
   kinds: ["firmEvent"],
   visibilityAnchor: "firm",
   timeColumnShape: "civilDate",
@@ -898,6 +1144,7 @@ export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   emailFiledSource,
   documentAssemblySource,
   documentFiledSource,
+  fileHistorySource,
   matterNoteSource,
   matterTaskSource,
   timeEntrySource,

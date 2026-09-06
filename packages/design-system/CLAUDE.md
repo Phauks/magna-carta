@@ -21,6 +21,10 @@ properties; off-token values are machine-rejected.
   animation constants; `floatingContentClasses()` is the canonical Tier 3/4 content-class builder
 - `src/lib/internal/close-guard.svelte.ts` + `discard-question.svelte` — the unsaved-work guard and
   the question BOTH modal shells run every exit through; owned here, never re-implemented in a shell
+- `src/lib/components/calendar-grid/` — `CalendarGrid` (Month, Week, Agenda): the domain-free
+  month, week and agenda presentation on the EventRail division — entries with a civil day, a label,
+  a caller-formatted time and a tone come in, and it never learns what a hearing is. The calendar's
+  own arithmetic, reads and vocabulary live with its one consumer, `apps/web/src/lib/calendar/`
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
@@ -115,6 +119,34 @@ is still an `ActionDialog` inside it, not a panel of its own.
   gain — `form` and `reading`, the Dialog kinds; `expandable` in the trait table — and never on a
   question. Both shells take a bindable `expanded`, which is also how a panel OPENS expanded by
   design; the caller's binding wins over the memory.
+- **Where a modal panel sits on the screen is one module, in four named parts, and no panel
+  touches the screen's edges.** _(owner ruling 2026-09-03)_ A panel's LOOK is its own recipe
+  (`dialog.css`, `alert-dialog.css`); what it is MADE OF is the frame's; WHERE it sits is this:
+  - `styles/recipes/modal-stage.css` — every placement rule. `mc-modal-stage` is the viewport pulled
+    in by `size.modal-gutter` (32px) on every side, centring its panel with flex; flex is also the
+    height cap, because a column flex item with `min-block-size: 0` shrinks to its container — fit
+    first, then cap, in keywords alone, where `calc(100dvh - …)` fails the purity gate and
+    `stretch` reaches only Chromium. `mc-modal-panel` is what makes any panel its well-behaved
+    child (positioned, content-height, free to shrink, taking pointer events), and the panel
+    recipes never restate a placement declaration (`test/modal-stage.test.ts` refuses one). The
+    stage drops its gutter when its direct child says `data-expanded="true"`.
+  - `internal/modal-stage.svelte` — the stage's one piece of markup, rendered by `Dialog.Content`
+    and `AlertDialog.Content` around Bits' Content. It carries the modal z-layer (a fixed box is a
+    stacking context, so a z-index on the panel alone leaves it beneath the scrim) and
+    `data-modal-stage`, which the sweep, the story tests and the print sheet find it by.
+  - `internal/modal-placement.ts` — the closed placement axis, `centered | anchored`, stamped on
+    every panel as `data-modal-placement`. `Dialog.Content` takes it as `placement`; `AlertDialog`
+    is always centred. `anchored` is the command palette, positioned against the viewport by its
+    own insets; a new placement is a member here, a rule in the recipe, and a row in the sweep.
+  - `modal-geometry/` — the diagnostic: a Playwright sweep over the Storybook dev server that
+    loads every specimen in `src/stories/modal-geometry.stories.svelte` (each shell, already open,
+    one story per way a panel can meet the screen; no trigger, no play function, so a measurement
+    never races a story) at every screen size in its `matrix.ts`, prints the panel's size and
+    edges, screenshots it, and fails an edge nearer than the gutter (or, expanded, an edge not
+    touched). `pnpm --filter @magna-carta/design-system run modal-geometry`; its README says how to
+    read a failure and how to add a screen or a panel. The arithmetic is `geometry.ts`, unit tested.
+    So the panels carry NO `max-h-*` utility any more (the stage caps them; a `max-h-screen` would
+    reach past it), only their `max-w-*`, and no app code knows how the stage works.
 - **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
   in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
   specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the
@@ -409,6 +441,12 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   - **Every `play` wraps its assertions in named `step()` calls** (the play context's `step`, no import) — one step per beat (`"Starts unchecked"` → `"Clicking checks it"`). The play functions ARE the behaviour tests, but a bare list of `expect(...)` lines reads as noise in the Interactions panel; `step()` turns each into a labelled, collapsible checklist that doubles as living documentation of what the component guarantees. Keep element lookups above the steps; put each interaction + its assertions inside the step it proves. (Owner-directed 2026-06-13 — the panel must read as a checklist, not a wall of assertions.)
   - **Never two stories rendering the SAME thing** (duplicates stack on the Docs page — the owner saw "two cards on top of each other").
   - **Visual-tests addon** (`@chromatic-com/storybook`) is installed but **inert** until a Chromatic token is set; the recorded primary VRT is the self-hosted Playwright harness (Argos the named upgrade) — revisit which SaaS before relying on Chromatic.
+- **`ContextMenu.GroupHeading` outside a `ContextMenu.Group` stops the menu OPENING, silently.** No
+  console error, no failed render, no thrown exception a caller can see — the right-click simply does
+  nothing, which reads as "context menus do not work here" and sends you looking at the trigger. A
+  heading that names no group has no group to name: either wrap the items in `ContextMenu.Group`, or
+  use the plain heading element the other menus use (`<p class="mc-table-filter-heading">`), which is
+  what the grid's column filter menus do. Found the hard way, 2026-09-02.
 - **`#NNNN` issue references in `src/` comments trip the raw-hex gate** (four hex digits) — cite
   issues in full URL form or use a justified `fitness-allow`.
 - **No-emoji gate (golden rule 2)** is the fifth off-token scanner (`test/fitness/off-token.test.ts`):

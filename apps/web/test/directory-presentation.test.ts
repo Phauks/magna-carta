@@ -32,7 +32,7 @@ import {
   appendableNameRoles,
   edgeTypeLabel,
   identifierTypeLabel,
-  identifierTypesFor,
+  identifierShapesFor,
   nameRoleLabel,
 } from "../src/lib/directory/directory-vocabulary.ts";
 
@@ -183,10 +183,10 @@ describe("the vocabularies", () => {
   });
 
   it("offers each kind only the identifier types that kind can hold", () => {
-    const personTypes = identifierTypesFor("person").map((entry) => entry.type);
+    const personTypes = identifierShapesFor("person").map((entry) => entry.type);
     expect(personTypes).toContain("ssn");
     expect(personTypes).not.toContain("ein");
-    const organizationTypes = identifierTypesFor("organization").map((entry) => entry.type);
+    const organizationTypes = identifierShapesFor("organization").map((entry) => entry.type);
     expect(organizationTypes).toContain("ein");
     expect(organizationTypes).not.toContain("ssn");
   });

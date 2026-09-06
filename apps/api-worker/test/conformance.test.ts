@@ -284,6 +284,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // matter-scoped list still narrows by matter and still composes the visible-matter predicate;
   // what the binding names is which root the chokepoint resolves, not what a read returns.
   tasks: "firm",
+  // intake:* governs two things at two roots: the firm's procedures (firm configuration, the
+  // matter-plan posture) and one matter's checklist and records, which are that matter's.
+  intake: ["firm", "matter"],
   // downloads:* governs a member's own shelf of what the platform produced for them. It binds the
   // FIRM rather than the matter, on the custody:* reasoning: a shelf spans every matter a member
   // bundled or exported from, and an export that ran outside any matter (the Firm Usage report) has
@@ -818,7 +821,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
   // Guards the suite against vacuity: if operations() yielded nothing, every `toEqual([])` below would
   // pass trivially. Assert the document exposes exactly the operations we expect to enforce over.
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
-    const ids = [...operations(document)].map((entry) => entry.operationId).sort();
+    const ids = [...operations(document)].map((entry) => entry.operationId).toSorted();
     expect(ids).toEqual([
       "aiDetection.detect",
       "assemblies.status",
@@ -877,9 +880,14 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "calendar.firmCalendar",
       "calendar.getEvent",
       "calendar.getFirmEvent",
+      "calendar.getSettings",
       "calendar.listDeadlines",
+      "calendar.listEventBookings",
+      "calendar.listEventLinks",
       "calendar.listEventTypes",
       "calendar.listEvents",
+      "calendar.listFirmEventBookings",
+      "calendar.listFirmEventLinks",
       "calendar.listFirmEvents",
       "calendar.listResources",
       "calendar.matterTimeline",
@@ -892,9 +900,14 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "calendar.updateEventType",
       "calendar.updateFirmEvent",
       "calendar.updateResource",
+      "calendar.updateSettings",
       "calendar.vacateDeadline",
+      "conflicts.firmPolicy",
       "conflicts.getCheck",
+      "conflicts.hitDispositions",
+      "conflicts.listChecks",
       "conflicts.matterPosture",
+      "conflicts.recheckMatter",
       "conflicts.recordDisposition",
       "conflicts.runCheck",
       "conversions.events",
@@ -1122,6 +1135,18 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "folders.update",
       "health.read",
       "incidents.report",
+      "intake.addStep",
+      "intake.createProcedure",
+      "intake.editProcedure",
+      "intake.editStep",
+      "intake.listProcedures",
+      "intake.readChecklist",
+      "intake.readProcedure",
+      "intake.recordStep",
+      "intake.reopenStep",
+      "intake.retireStep",
+      "intake.setProcedureActive",
+      "intake.waiveStep",
       "invitations.issue",
       "invitations.redeem",
       "locations.assignMember",
@@ -1191,6 +1216,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matters.listAssignments",
       "matters.listConsultations",
       "matters.open",
+      "matters.openReadiness",
       "matters.renumber",
       "matters.reopen",
       "matters.setCourtCase",
@@ -1201,6 +1227,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "members.list",
       "members.professionalProfile",
       "members.setProfessionalProfile",
+      "meta.databaseHealth",
       "meta.versions",
       "metadata.inspect",
       "metadata.scrub",
@@ -1217,6 +1244,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "notes.deleteNote",
       "notes.detachNoteDocument",
       "notes.editNote",
+      "notes.getNote",
       "notes.listNotes",
       "notificationPreferences.get",
       "notificationPreferences.getTrustComplianceRecipients",

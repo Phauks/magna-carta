@@ -24,10 +24,9 @@
   import Skeleton from "@magna-carta/design-system/skeleton";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import type { Snippet } from "svelte";
-  import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
   import ScopeInForce from "./scope-in-force.svelte";
-  import { gapReason } from "./conflicts-gaps.ts";
   import type { MatterConflictsPosture } from "./conflicts-api.ts";
   import {
     causeTopicLabel,
@@ -45,6 +44,7 @@
     memberNames = new Map<string, string>(),
     checkHref,
     actions,
+    recheckAction,
   }: {
     /** The matter's standing. Null while it is being read. */
     posture: MatterConflictsPosture | null;
@@ -55,10 +55,9 @@
     checkHref?: (checkId: string) => string;
     /** What a reader may do from here — running a check, most of the time. */
     actions?: Snippet;
+    /** Offered beside "Re-checks Owed": asking for one now, where the reader may run checks. */
+    recheckAction?: Snippet;
   } = $props();
-
-  const recheckDescription = $props.id();
-  const soonRecheck = soonControlProperties(gapReason("rescanNow"), recheckDescription);
 
   const latest = $derived(posture?.latestCheck ?? null);
   const openQuestions = $derived(
@@ -104,7 +103,7 @@
   <div class="flex flex-col gap-24">
     <section class="flex flex-col gap-8">
       <div class="flex flex-wrap items-center justify-between gap-16">
-        <h3 class="text-xs text-text-subtle uppercase">Open Questions</h3>
+        <FieldLabel as="h3">Open Questions</FieldLabel>
         {#if openQuestions > 0}
           <Badge variant={UNANSWERED.tone} title={UNANSWERED.meaning}>
             {String(openQuestions)}
@@ -124,7 +123,7 @@
 
     {#if posture.dispositionsByKind.length > 0}
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="text-xs text-text-subtle uppercase">Answered</h3>
+        <FieldLabel as="h3">Answered</FieldLabel>
         <dl class="flex flex-col gap-4 text-sm">
           {#each posture.dispositionsByKind as entry (entry.kind)}
             {@const word = dispositionVocabulary(entry.kind)}
@@ -150,7 +149,7 @@
 
     {#if latest !== null}
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="text-xs text-text-subtle uppercase">The Latest Check</h3>
+        <FieldLabel as="h3">The Latest Check</FieldLabel>
         <dl class="flex flex-col gap-4 text-sm">
           {@render fact("Run", formatInstant(latest.createdAt))}
           {@render fact(
@@ -178,14 +177,14 @@
       </section>
 
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="text-xs text-text-subtle uppercase">What It Searched</h3>
+        <FieldLabel as="h3">What It Searched</FieldLabel>
         <ScopeInForce scope={latest.scope} />
       </section>
     {/if}
 
     {#if posture.scopeShortfall.sources.length > 0 || posture.scopeShortfall.strictness !== null || posture.scopeShortfall.depth !== null}
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="text-xs text-text-subtle uppercase">Below The Firm's Current Policy</h3>
+        <FieldLabel as="h3">Below The Firm's Current Policy</FieldLabel>
         <dl class="flex flex-col gap-4 text-sm">
           {#if posture.scopeShortfall.sources.length > 0}
             {@render fact(
@@ -215,7 +214,7 @@
 
     {#if posture.unavailableSources.length > 0}
       <section class="flex flex-col gap-8 border-t border-border-default pt-12">
-        <h3 class="text-xs text-text-subtle uppercase">Could Not Be Searched</h3>
+        <FieldLabel as="h3">Could Not Be Searched</FieldLabel>
         <dl class="flex flex-col gap-4 text-sm">
           {#each posture.unavailableSources as entry (entry.source)}
             <div class="flex flex-col gap-4">
@@ -229,20 +228,16 @@
 
     <section class="flex flex-col gap-8 border-t border-border-default pt-12">
       <div class="flex flex-wrap items-center justify-between gap-16">
-        <h3 class="text-xs text-text-subtle uppercase">Re-checks Owed</h3>
-        <div class="flex items-center gap-8">
-          <MaturityBadge stage="soon" />
-          <span class="text-xs text-text-muted" title={soonRecheck.title}>
-            Asking for one on demand
-          </span>
-        </div>
+        <FieldLabel as="h3">Re-checks Owed</FieldLabel>
+        <!-- Whatever the surface offers here — asking for a re-check now, most of the time. It is
+             the page's to supply: this panel reports where a matter stands and performs nothing. -->
+        {#if recheckAction}{@render recheckAction()}{/if}
       </div>
       <EventRail
         events={pendingEvents}
         label="Re-checks this matter is owed"
         emptyMessage="The platform knows of no corpus change since the last check that would have changed its answer."
       />
-      <p id={recheckDescription} class="sr-only">{soonRecheck.title}</p>
       <dl class="flex flex-col gap-4 text-sm">
         {@render fact(
           "Scheduled Re-screening",

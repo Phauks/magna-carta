@@ -75,6 +75,44 @@ export type ServiceVersion = {
     buildTime: string | null;
 };
 
+export type DatabaseHealthResponse = {
+    controlPlane: DatabaseHealthControlPlane;
+    firmDatabase: DatabaseHealthFirmDatabase;
+    schema: DatabaseHealthSchema;
+    membership: DatabaseHealthMembership;
+    provisioning: DatabaseHealthProvisioning;
+    observedAt: string;
+};
+
+export type DatabaseHealthControlPlane = {
+    state: 'reachable' | 'unreachable';
+    bucketProvisioned: boolean;
+};
+
+export type DatabaseHealthFirmDatabase = {
+    state: 'reachable' | 'unreachable';
+    roundTripMilliseconds: number | null;
+};
+
+export type DatabaseHealthSchema = {
+    state: 'current' | 'behind' | 'unknown';
+    appliedCount: number;
+    appliedHead: string | null;
+    expectedHead: string;
+};
+
+export type DatabaseHealthMembership = {
+    state: 'active' | 'missing' | 'inactive' | 'unknown';
+    roles: Array<string>;
+    permissionCount: number;
+};
+
+export type DatabaseHealthProvisioning = {
+    state: 'read' | 'unknown';
+    pending: number;
+    deadLettered: number;
+};
+
 export type FirmUsageResponse = {
     storage: {
         totalBytes: number;
@@ -993,6 +1031,16 @@ export type MatterDetail = {
     responsibleMemberName: string | null;
 };
 
+export type MatterOpenReadiness = {
+    matterId: string;
+    status: 'prospective' | 'open' | 'closed';
+    openable: boolean;
+    blockers: Array<{
+        code: string;
+        message: string;
+    }>;
+};
+
 export type MatterCloseReadiness = {
     matterId: string;
     status: 'prospective' | 'open' | 'closed';
@@ -1726,19 +1774,24 @@ export type CreateDirectoryPersonRequest = {
     prefix?: string | null;
     middle?: string | null;
     suffix?: string | null;
+    otherNames?: Array<CreateDirectoryPersonOtherName>;
+    pronouns?: DirectoryPronounSet;
+    dateOfBirth?: string | null;
+    dateOfDeath?: string | null;
+    emails?: Array<AddDirectoryEmailRequest>;
+    phones?: Array<AddDirectoryPhoneRequest>;
+    addresses?: Array<AddDirectoryAddressRequest>;
+    identifiers?: Array<AddDirectoryIdentifierRequest>;
+    organizations?: Array<CreateDirectoryPersonOrganization>;
 };
 
-export type DirectoryPersonDetail = {
-    id: string;
-    prefix: string | null;
-    given: string | null;
-    middle: string | null;
-    family: string | null;
-    suffix: string | null;
-    displayName: string | null;
-    status: string;
-    mergedIntoId: string | null;
-    pronouns: DirectoryPronounSet;
+export type CreateDirectoryPersonOtherName = {
+    given: string;
+    family: string;
+    nameRole: 'current' | 'former' | 'alias' | 'aka' | 'maiden' | 'dba';
+    prefix?: string | null;
+    middle?: string | null;
+    suffix?: string | null;
 };
 
 /**
@@ -1770,6 +1823,115 @@ export type DirectoryPronounSet = {
      */
     verbNumber: 'singular' | 'plural';
 } | null;
+
+export type AddDirectoryEmailRequest = {
+    address: string;
+    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type DirectoryContactPreference = {
+    /**
+     * May the firm use this contact point. Defaults to true. A contact point the person asked the firm not to use is recorded with the permission withdrawn and a note saying so, never deleted: deleting it loses the instruction along with the value.
+     */
+    permitted?: boolean;
+    /**
+     * Is this the one route the person asked to be reached by. At most one per entity across email, phone and address together, because that preference is a single answer about every channel; promoting one demotes whichever was preferred before, in any of the three.
+     */
+    preferred?: boolean;
+    /**
+     * Why the contact point may not be used, or how it should be.
+     */
+    note?: string | null;
+};
+
+export type DirectoryContactVerification = {
+    /**
+     * What the firm found when it last tried to confirm this contact point. A failed status records returned mail, a bounced message or a disconnected line. It never blocks a send: it is surfaced to whoever is about to send, and the send proceeds.
+     */
+    status?: 'unverified' | 'verified' | 'failed';
+    /**
+     * What the failure said, in the words it said it.
+     */
+    detail?: string | null;
+};
+
+export type AddDirectoryPhoneRequest = {
+    /**
+     * The number as it was written. Stored verbatim and never rewritten; the structured columns beside it go null when it cannot be split, so an unparseable number is still recorded.
+     */
+    number: string;
+    contactSystem?: 'voice' | 'fax' | 'sms' | 'pager';
+    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
+    extension?: string | null;
+    countryRegionCode?: string | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type AddDirectoryAddressRequest = {
+    recipient?: string | null;
+    organizationName?: string | null;
+    street?: string | null;
+    streetTwo?: string | null;
+    dependentLocality?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    sortingCode?: string | null;
+    country?: string | null;
+    addressUse?: 'residential' | 'business' | 'postal' | 'registered' | 'service' | 'former' | 'temporary' | null;
+    addressType?: 'physical' | 'postal' | 'both';
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+    verification?: DirectoryContactVerification;
+};
+
+export type AddDirectoryIdentifierRequest = {
+    type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    /**
+     * The plaintext part a list shows without a reveal: the state or country that issued a licence, the jurisdiction behind a bar number, who an account is held with. Required where the type has one; never any part of the value.
+     */
+    label?: string | null;
+    number: string;
+    /**
+     * An account's username.
+     */
+    username?: string | null;
+    /**
+     * An account's secret, sealed beside its number and never indexed.
+     */
+    secret?: string | null;
+    validFrom?: string | null;
+    validTo?: string | null;
+};
+
+export type CreateDirectoryPersonOrganization = {
+    organizationId: string;
+    edgeType: 'affiliation' | 'relationship' | 'corporate_parent' | 'corporate_subsidiary' | 'corporate_successor' | 'representation' | 'role_assignment' | 'officer_of' | 'director_of' | 'partner_of' | 'trustee_of' | 'personal_representative_of' | 'agent_of' | 'employment' | 'member_of' | 'shareholder_of' | 'beneficiary_of' | 'guardian_of' | 'point_of_contact_for';
+    /**
+     * Which end of the edge the person is. The type says which way a membership reads (employment runs person to organization); the screen decides and the record keeps it.
+     */
+    personIs: 'from' | 'to';
+    role?: string | null;
+    note?: string | null;
+};
+
+export type DirectoryPersonDetail = {
+    id: string;
+    prefix: string | null;
+    given: string | null;
+    middle: string | null;
+    family: string | null;
+    suffix: string | null;
+    displayName: string | null;
+    status: string;
+    mergedIntoId: string | null;
+    pronouns: DirectoryPronounSet;
+};
 
 export type DirectoryAckResponse = {
     ok: boolean;
@@ -1965,21 +2127,23 @@ export type DirectoryIdentifierRecordsResponse = {
 
 export type DirectoryIdentifierRecord = {
     id: string;
-    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+    /**
+     * The plaintext part: the issuing region, the jurisdiction, who an account is held with.
+     */
+    label: string | null;
     validFrom: string | null;
     validTo: string | null;
     recordedAt: string;
 };
 
-export type AddDirectoryIdentifierRequest = {
-    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
-    value: string;
-    validFrom?: string | null;
-    validTo?: string | null;
-};
-
 export type DirectoryIdentifierValueResponse = {
+    /**
+     * The decrypted value — for an account, its number; the username and secret ride beside it.
+     */
     value: string | null;
+    username?: string | null;
+    secret?: string | null;
 };
 
 export type CreateDirectoryEdgeRequest = {
@@ -2047,7 +2211,7 @@ export type DirectoryDuplicateCandidatesRequest = {
     family?: string;
     legalName?: string;
     identifiers?: Array<{
-        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+        type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
         value: string;
     }>;
     excludeEntityId?: string;
@@ -2179,40 +2343,6 @@ export type DirectoryEmailsResponse = {
     data: Array<DirectoryEmailEntry>;
 };
 
-export type AddDirectoryEmailRequest = {
-    address: string;
-    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
-    isPrimary?: boolean;
-    preference?: DirectoryContactPreference;
-    verification?: DirectoryContactVerification;
-};
-
-export type DirectoryContactPreference = {
-    /**
-     * May the firm use this contact point. Defaults to true. A contact point the person asked the firm not to use is recorded with the permission withdrawn and a note saying so, never deleted: deleting it loses the instruction along with the value.
-     */
-    permitted?: boolean;
-    /**
-     * Is this the one route the person asked to be reached by. At most one per entity across email, phone and address together, because that preference is a single answer about every channel; promoting one demotes whichever was preferred before, in any of the three.
-     */
-    preferred?: boolean;
-    /**
-     * Why the contact point may not be used, or how it should be.
-     */
-    note?: string | null;
-};
-
-export type DirectoryContactVerification = {
-    /**
-     * What the firm found when it last tried to confirm this contact point. A failed status records returned mail, a bounced message or a disconnected line. It never blocks a send: it is surfaced to whoever is about to send, and the send proceeds.
-     */
-    status?: 'unverified' | 'verified' | 'failed';
-    /**
-     * What the failure said, in the words it said it.
-     */
-    detail?: string | null;
-};
-
 export type UpdateDirectoryEmailRequest = {
     address?: string;
     contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
@@ -2223,20 +2353,6 @@ export type UpdateDirectoryEmailRequest = {
 
 export type DirectoryPhonesResponse = {
     data: Array<DirectoryPhoneEntry>;
-};
-
-export type AddDirectoryPhoneRequest = {
-    /**
-     * The number as it was written. Stored verbatim and never rewritten; the structured columns beside it go null when it cannot be split, so an unparseable number is still recorded.
-     */
-    number: string;
-    contactSystem?: 'voice' | 'fax' | 'sms' | 'pager';
-    contactUse?: 'work' | 'home' | 'mobile' | 'other' | 'former' | 'temporary' | null;
-    extension?: string | null;
-    countryRegionCode?: string | null;
-    isPrimary?: boolean;
-    preference?: DirectoryContactPreference;
-    verification?: DirectoryContactVerification;
 };
 
 export type UpdateDirectoryPhoneRequest = {
@@ -2252,24 +2368,6 @@ export type UpdateDirectoryPhoneRequest = {
 
 export type DirectoryAddressesResponse = {
     data: Array<DirectoryAddressEntry>;
-};
-
-export type AddDirectoryAddressRequest = {
-    recipient?: string | null;
-    organizationName?: string | null;
-    street?: string | null;
-    streetTwo?: string | null;
-    dependentLocality?: string | null;
-    city?: string | null;
-    region?: string | null;
-    postal?: string | null;
-    sortingCode?: string | null;
-    country?: string | null;
-    addressUse?: 'residential' | 'business' | 'postal' | 'registered' | 'service' | 'former' | 'temporary' | null;
-    addressType?: 'physical' | 'postal' | 'both';
-    isPrimary?: boolean;
-    preference?: DirectoryContactPreference;
-    verification?: DirectoryContactVerification;
 };
 
 export type UpdateDirectoryAddressRequest = {
@@ -2324,6 +2422,40 @@ export type ConflictsScopeRequest = {
     };
     closureCap?: number;
     candidateCap?: number;
+};
+
+export type ConflictsCheckPage = {
+    data: Array<ConflictsCheckSummary>;
+    nextCursor: string | null;
+};
+
+export type ConflictsCheckSummary = {
+    id: string;
+    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'entity_merged' | 'entity_renamed' | 'relationship_recorded' | 'identifier_recorded' | 'personnel_changed' | 'periodic_rescan';
+    matterId: string | null;
+    strictness: 'balanced' | 'over_inclusive';
+    depth: number;
+    floorRaised: boolean;
+    actorUserId: string | null;
+    triggerSource: string | null;
+    hitCount: number;
+    createdAt: string;
+};
+
+export type ConflictsPolicyResponse = {
+    floorSources: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    floorStrictness: 'balanced' | 'over_inclusive';
+    defaultDepth: number;
+    edgeClassBudgets: {
+        [key: string]: number;
+    };
+    closureCap: number;
+    candidateCap: number;
+    balancedNameRoles: Array<string>;
+};
+
+export type CreatedConflictsRecheckResponse = {
+    checkId: string;
 };
 
 export type ConflictsCheckWithHitsResponse = {
@@ -2382,6 +2514,7 @@ export type ConflictsCandidateRecord = {
 export type ConflictsHitDetail = {
     id: string;
     entityId: string;
+    party: ConflictsHitParty;
     sourceClass: 'party' | 'graph' | 'imputation' | 'content';
     evidenceTier: number;
     matchedFields: Array<string>;
@@ -2390,6 +2523,11 @@ export type ConflictsHitDetail = {
     createdAt: string;
     disposition: ConflictsDispositionDetail;
 };
+
+export type ConflictsHitParty = {
+    kind: 'person' | 'organization';
+    displayName: string | null;
+} | null;
 
 export type ConflictsGraphPathStep = {
     edgeId: string;
@@ -2415,6 +2553,21 @@ export type ConflictsWaiverDetail = {
     documentFileId: string | null;
     givenOn: string | null;
 } | null;
+
+export type ConflictsDispositionTrailResponse = {
+    hitId: string;
+    dispositions: Array<ConflictsDispositionTrailEntry>;
+};
+
+export type ConflictsDispositionTrailEntry = {
+    id: string;
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    rationale: string;
+    reviewerUserId: string;
+    waiver: ConflictsWaiverDetail;
+    shortfalls: Array<'consenting-party-unrecorded' | 'consent-not-confirmed-in-writing' | 'confirmation-not-filed' | 'date-given-unrecorded'>;
+    createdAt: string;
+};
 
 export type MatterConflictsPostureResponse = {
     matterId: string;
@@ -2525,6 +2678,11 @@ export type TimelineEntry = {
     actorUserId: string | null;
     label: string | null;
     link: string;
+    title: string | null;
+    typeText: string | null;
+    facts: {
+        [key: string]: unknown;
+    } | null;
 };
 
 export type MatterEventPage = {
@@ -2608,6 +2766,16 @@ export type MatterEventTypeDetail = {
     category: 'litigation' | 'transaction' | 'firm' | 'other';
     origin: 'platform' | 'firm';
     active: boolean;
+};
+
+export type CalendarSettingsResponse = {
+    weekStartsOn: CalendarWeekStartsOn;
+};
+
+export type CalendarWeekStartsOn = 0 | 1;
+
+export type PatchCalendarSettingsRequest = {
+    weekStartsOn?: CalendarWeekStartsOn;
 };
 
 export type CalendarCreatedResponse = {
@@ -2814,6 +2982,20 @@ export type ResourceAvailabilityEntry = {
     overlappingBookingIds: Array<string>;
 };
 
+export type EventBookings = {
+    data: Array<EventBooking>;
+};
+
+export type EventBooking = {
+    id: string;
+    resourceId: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    endsOn: string | null;
+    endsAtTime: string | null;
+    timeZone: string;
+};
+
 export type BookingCreatedResponse = {
     id: string;
     conflicts: Array<BookingConflict>;
@@ -2888,6 +3070,24 @@ export type ContinueMatterEventRequest = {
     locationText?: string | null;
     courtReference?: string | null;
     statusReason?: string | null;
+};
+
+export type CalendarEventLinks = {
+    data: Array<CalendarEventLinkDetail>;
+};
+
+export type CalendarEventLinkDetail = {
+    id: string;
+    kind: 'continuance_of' | 'related';
+    from: CalendarEventLinkEnd;
+    to: CalendarEventLinkEnd;
+    note: string | null;
+    createdAt: string;
+};
+
+export type CalendarEventLinkEnd = {
+    matterEventId: string | null;
+    firmEventId: string | null;
 };
 
 export type ContinuanceChain = {
@@ -3223,6 +3423,123 @@ export type AcceptMatterPlanRequest = {
         timeZone?: string | null;
         assigneeUserId?: string | null;
     }>;
+};
+
+export type IntakeProcedureList = {
+    data: Array<IntakeProcedure>;
+};
+
+export type IntakeProcedure = {
+    id: string;
+    name: string;
+    description: string | null;
+    matterTypeId: string | null;
+    active: boolean;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+    steps?: Array<IntakeProcedureStep>;
+};
+
+export type IntakeProcedureStep = {
+    id: string;
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    title: string;
+    instructions: string | null;
+    required: boolean;
+    referenceId: string | null;
+    position: number;
+};
+
+export type CreatedIntakeProcedure = {
+    id: string;
+};
+
+export type IntakeProcedureRequest = {
+    name: string;
+    description?: string | null;
+    matterTypeId: string | null;
+};
+
+export type IntakeAcknowledged = {
+    acknowledged: true;
+};
+
+export type IntakeProcedureStepRequest = {
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    title: string;
+    instructions?: string | null;
+    required?: boolean | null;
+    referenceId?: string | null;
+    position?: number | null;
+};
+
+export type IntakeProcedureStepEditRequest = {
+    title: string;
+    instructions?: string | null;
+    required?: boolean | null;
+    referenceId?: string | null;
+    position?: number | null;
+};
+
+export type IntakeChecklist = {
+    matterId: string;
+    matterStatus: 'prospective' | 'open' | 'closed';
+    procedures: Array<{
+        id: string;
+        name: string;
+    }>;
+    steps: Array<IntakeChecklistStep>;
+    outstandingRequired: number;
+    history: Array<IntakeChecklistHistoryRecord>;
+};
+
+export type IntakeChecklistStep = {
+    stepId: string;
+    procedureId: string;
+    procedureName: string;
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    title: string;
+    instructions: string | null;
+    required: boolean;
+    referenceId: string | null;
+    position: number;
+    recordable: boolean;
+    standing: IntakeChecklistStanding;
+    record: IntakeChecklistRecord;
+};
+
+export type IntakeChecklistStanding = {
+    satisfied: boolean;
+    answeredBy: 'subsystem' | 'record' | 'nobody';
+    statement: string;
+};
+
+export type IntakeChecklistRecord = {
+    id: string;
+    outcome: 'completed' | 'waived';
+    rationale: string | null;
+    note: string | null;
+    recordedBy: string;
+    recordedAt: string;
+} | null;
+
+export type IntakeChecklistHistoryRecord = IntakeChecklistRecord & {
+    stepId: string;
+    supersededAt: string | null;
+    supersededBy: string | null;
+};
+
+export type IntakeStepRecorded = {
+    recordId: string;
+};
+
+export type IntakeRecordStepRequest = {
+    note?: string | null;
+};
+
+export type IntakeWaiveStepRequest = {
+    rationale: string;
 };
 
 export type CustodyLocation = {
@@ -7190,6 +7507,39 @@ export type MetaVersionsResponses = {
 
 export type MetaVersionsResponse2 = MetaVersionsResponses[keyof MetaVersionsResponses];
 
+export type MetaDatabaseHealthData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meta/database-health';
+};
+
+export type MetaDatabaseHealthErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (absent, never an existence oracle)
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MetaDatabaseHealthError = MetaDatabaseHealthErrors[keyof MetaDatabaseHealthErrors];
+
+export type MetaDatabaseHealthResponses = {
+    /**
+     * The firm database's health, as seen by this session
+     */
+    200: DatabaseHealthResponse;
+};
+
+export type MetaDatabaseHealthResponse = MetaDatabaseHealthResponses[keyof MetaDatabaseHealthResponses];
+
 export type FirmUsageGetData = {
     body?: never;
     path?: never;
@@ -10924,6 +11274,45 @@ export type MattersUpdateResponses = {
 
 export type MattersUpdateResponse = MattersUpdateResponses[keyof MattersUpdateResponses];
 
+export type MattersOpenReadinessData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/open-readiness';
+};
+
+export type MattersOpenReadinessErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersOpenReadinessError = MattersOpenReadinessErrors[keyof MattersOpenReadinessErrors];
+
+export type MattersOpenReadinessResponses = {
+    /**
+     * Whether the consultation can open, and what stands in the way
+     */
+    200: MatterOpenReadiness;
+};
+
+export type MattersOpenReadinessResponse = MattersOpenReadinessResponses[keyof MattersOpenReadinessResponses];
+
 export type MattersCloseReadinessData = {
     body?: never;
     path: {
@@ -10993,7 +11382,7 @@ export type MattersOpenErrors = {
      */
     404: Problem;
     /**
-     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     * An opening rule refused the consultation, or a request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -14512,7 +14901,7 @@ export type DirectoryReadIdentifierData = {
     body?: never;
     path: {
         id: string;
-        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
+        type: 'ssn' | 'ein' | 'account' | 'drivers_license' | 'ssn_last_four' | 'bar_number';
     };
     query?: never;
     url: '/api/v1/directory/entities/{id}/identifiers/{type}';
@@ -15601,6 +15990,46 @@ export type DirectorySetPersonLifeDatesResponses = {
 
 export type DirectorySetPersonLifeDatesResponse = DirectorySetPersonLifeDatesResponses[keyof DirectorySetPersonLifeDatesResponses];
 
+export type ConflictsListChecksData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        matterId?: string;
+    };
+    url: '/api/v1/conflicts/checks';
+};
+
+export type ConflictsListChecksErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsListChecksError = ConflictsListChecksErrors[keyof ConflictsListChecksErrors];
+
+export type ConflictsListChecksResponses = {
+    /**
+     * A page of the firm's conflicts checks, newest first
+     */
+    200: ConflictsCheckPage;
+};
+
+export type ConflictsListChecksResponse = ConflictsListChecksResponses[keyof ConflictsListChecksResponses];
+
 export type ConflictsRunCheckData = {
     body: CreateConflictsCheckRequest;
     headers: {
@@ -15653,6 +16082,93 @@ export type ConflictsRunCheckResponses = {
 
 export type ConflictsRunCheckResponse = ConflictsRunCheckResponses[keyof ConflictsRunCheckResponses];
 
+export type ConflictsFirmPolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/conflicts-policy';
+};
+
+export type ConflictsFirmPolicyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsFirmPolicyError = ConflictsFirmPolicyErrors[keyof ConflictsFirmPolicyErrors];
+
+export type ConflictsFirmPolicyResponses = {
+    /**
+     * The firm's conflicts policy floor
+     */
+    200: ConflictsPolicyResponse;
+};
+
+export type ConflictsFirmPolicyResponse = ConflictsFirmPolicyResponses[keyof ConflictsFirmPolicyResponses];
+
+export type ConflictsRecheckMatterData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/conflicts-rechecks';
+};
+
+export type ConflictsRecheckMatterErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsRecheckMatterError = ConflictsRecheckMatterErrors[keyof ConflictsRecheckMatterErrors];
+
+export type ConflictsRecheckMatterResponses = {
+    /**
+     * The check that ran
+     */
+    201: CreatedConflictsRecheckResponse;
+};
+
+export type ConflictsRecheckMatterResponse = ConflictsRecheckMatterResponses[keyof ConflictsRecheckMatterResponses];
+
 export type ConflictsGetCheckData = {
     body?: never;
     path: {
@@ -15692,16 +16208,16 @@ export type ConflictsGetCheckResponses = {
 
 export type ConflictsGetCheckResponse = ConflictsGetCheckResponses[keyof ConflictsGetCheckResponses];
 
-export type ConflictsMatterPostureData = {
+export type ConflictsHitDispositionsData = {
     body?: never;
     path: {
-        matterId: string;
+        hitId: string;
     };
     query?: never;
-    url: '/api/v1/matters/{matterId}/conflicts-posture';
+    url: '/api/v1/conflicts/hits/{hitId}/dispositions';
 };
 
-export type ConflictsMatterPostureErrors = {
+export type ConflictsHitDispositionsErrors = {
     /**
      * No valid session
      */
@@ -15715,25 +16231,21 @@ export type ConflictsMatterPostureErrors = {
      */
     404: Problem;
     /**
-     * The request is invalid, or the Idempotency-Key was reused with a different payload
-     */
-    422: Problem;
-    /**
      * Rate limit exceeded
      */
     429: Problem;
 };
 
-export type ConflictsMatterPostureError = ConflictsMatterPostureErrors[keyof ConflictsMatterPostureErrors];
+export type ConflictsHitDispositionsError = ConflictsHitDispositionsErrors[keyof ConflictsHitDispositionsErrors];
 
-export type ConflictsMatterPostureResponses = {
+export type ConflictsHitDispositionsResponses = {
     /**
-     * The matter's conflicts posture, derived at read time
+     * Every disposition recorded against the hit, oldest first
      */
-    200: MatterConflictsPostureResponse;
+    200: ConflictsDispositionTrailResponse;
 };
 
-export type ConflictsMatterPostureResponse = ConflictsMatterPostureResponses[keyof ConflictsMatterPostureResponses];
+export type ConflictsHitDispositionsResponse = ConflictsHitDispositionsResponses[keyof ConflictsHitDispositionsResponses];
 
 export type ConflictsRecordDispositionData = {
     body: RecordConflictsDispositionRequest;
@@ -15788,6 +16300,49 @@ export type ConflictsRecordDispositionResponses = {
 };
 
 export type ConflictsRecordDispositionResponse = ConflictsRecordDispositionResponses[keyof ConflictsRecordDispositionResponses];
+
+export type ConflictsMatterPostureData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/conflicts-posture';
+};
+
+export type ConflictsMatterPostureErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsMatterPostureError = ConflictsMatterPostureErrors[keyof ConflictsMatterPostureErrors];
+
+export type ConflictsMatterPostureResponses = {
+    /**
+     * The matter's conflicts posture, derived at read time
+     */
+    200: MatterConflictsPostureResponse;
+};
+
+export type ConflictsMatterPostureResponse = ConflictsMatterPostureResponses[keyof ConflictsMatterPostureResponses];
 
 export type CalendarMatterTimelineData = {
     body?: never;
@@ -16213,6 +16768,95 @@ export type CalendarCreateEventTypeResponses = {
 };
 
 export type CalendarCreateEventTypeResponse = CalendarCreateEventTypeResponses[keyof CalendarCreateEventTypeResponses];
+
+export type CalendarGetSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar/settings';
+};
+
+export type CalendarGetSettingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarGetSettingsError = CalendarGetSettingsErrors[keyof CalendarGetSettingsErrors];
+
+export type CalendarGetSettingsResponses = {
+    /**
+     * The firm's calendar settings
+     */
+    200: CalendarSettingsResponse;
+};
+
+export type CalendarGetSettingsResponse = CalendarGetSettingsResponses[keyof CalendarGetSettingsResponses];
+
+export type CalendarUpdateSettingsData = {
+    body: PatchCalendarSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/calendar/settings';
+};
+
+export type CalendarUpdateSettingsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is settled
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarUpdateSettingsError = CalendarUpdateSettingsErrors[keyof CalendarUpdateSettingsErrors];
+
+export type CalendarUpdateSettingsResponses = {
+    /**
+     * The firm's calendar settings after the write
+     */
+    200: CalendarSettingsResponse;
+};
+
+export type CalendarUpdateSettingsResponse = CalendarUpdateSettingsResponses[keyof CalendarUpdateSettingsResponses];
 
 export type CalendarCancelEventData = {
     body?: CancelEventRequest;
@@ -17085,6 +17729,84 @@ export type CalendarResourceAvailabilityResponses = {
 
 export type CalendarResourceAvailabilityResponse = CalendarResourceAvailabilityResponses[keyof CalendarResourceAvailabilityResponses];
 
+export type CalendarListEventBookingsData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/bookings';
+};
+
+export type CalendarListEventBookingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListEventBookingsError = CalendarListEventBookingsErrors[keyof CalendarListEventBookingsErrors];
+
+export type CalendarListEventBookingsResponses = {
+    /**
+     * The event's bookings
+     */
+    200: EventBookings;
+};
+
+export type CalendarListEventBookingsResponse = CalendarListEventBookingsResponses[keyof CalendarListEventBookingsResponses];
+
+export type CalendarListFirmEventBookingsData = {
+    body?: never;
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}/bookings';
+};
+
+export type CalendarListFirmEventBookingsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListFirmEventBookingsError = CalendarListFirmEventBookingsErrors[keyof CalendarListFirmEventBookingsErrors];
+
+export type CalendarListFirmEventBookingsResponses = {
+    /**
+     * The firm event's bookings
+     */
+    200: EventBookings;
+};
+
+export type CalendarListFirmEventBookingsResponse = CalendarListFirmEventBookingsResponses[keyof CalendarListFirmEventBookingsResponses];
+
 export type CalendarCreateBookingData = {
     body: CreateBookingRequest;
     headers: {
@@ -17405,6 +18127,84 @@ export type CalendarContinueEventResponses = {
 
 export type CalendarContinueEventResponse = CalendarContinueEventResponses[keyof CalendarContinueEventResponses];
 
+export type CalendarListEventLinksData = {
+    body?: never;
+    path: {
+        eventId: string;
+    };
+    query?: never;
+    url: '/api/v1/events/{eventId}/links';
+};
+
+export type CalendarListEventLinksErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListEventLinksError = CalendarListEventLinksErrors[keyof CalendarListEventLinksErrors];
+
+export type CalendarListEventLinksResponses = {
+    /**
+     * The event's links
+     */
+    200: CalendarEventLinks;
+};
+
+export type CalendarListEventLinksResponse = CalendarListEventLinksResponses[keyof CalendarListEventLinksResponses];
+
+export type CalendarListFirmEventLinksData = {
+    body?: never;
+    path: {
+        firmEventId: string;
+    };
+    query?: never;
+    url: '/api/v1/firm-events/{firmEventId}/links';
+};
+
+export type CalendarListFirmEventLinksErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CalendarListFirmEventLinksError = CalendarListFirmEventLinksErrors[keyof CalendarListFirmEventLinksErrors];
+
+export type CalendarListFirmEventLinksResponses = {
+    /**
+     * The firm event's links
+     */
+    200: CalendarEventLinks;
+};
+
+export type CalendarListFirmEventLinksResponse = CalendarListFirmEventLinksResponses[keyof CalendarListFirmEventLinksResponses];
+
 export type CalendarContinuanceChainData = {
     body?: never;
     path: {
@@ -17597,6 +18397,45 @@ export type NotesDeleteNoteResponses = {
 };
 
 export type NotesDeleteNoteResponse = NotesDeleteNoteResponses[keyof NotesDeleteNoteResponses];
+
+export type NotesGetNoteData = {
+    body?: never;
+    path: {
+        noteId: string;
+    };
+    query?: never;
+    url: '/api/v1/notes/{noteId}';
+};
+
+export type NotesGetNoteErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the note is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type NotesGetNoteError = NotesGetNoteErrors[keyof NotesGetNoteErrors];
+
+export type NotesGetNoteResponses = {
+    /**
+     * The note
+     */
+    200: MatterNoteDetail;
+};
+
+export type NotesGetNoteResponse = NotesGetNoteResponses[keyof NotesGetNoteResponses];
 
 export type NotesEditNoteData = {
     body: EditMatterNoteRequest;
@@ -19177,6 +20016,612 @@ export type MatterPlansAcceptResponses = {
 };
 
 export type MatterPlansAcceptResponse = MatterPlansAcceptResponses[keyof MatterPlansAcceptResponses];
+
+export type IntakeListProceduresData = {
+    body?: never;
+    path?: never;
+    query?: {
+        includeInactive?: 'true' | 'false';
+    };
+    url: '/api/v1/intake-procedures';
+};
+
+export type IntakeListProceduresErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeListProceduresError = IntakeListProceduresErrors[keyof IntakeListProceduresErrors];
+
+export type IntakeListProceduresResponses = {
+    /**
+     * The firm's procedures
+     */
+    200: IntakeProcedureList;
+};
+
+export type IntakeListProceduresResponse = IntakeListProceduresResponses[keyof IntakeListProceduresResponses];
+
+export type IntakeCreateProcedureData = {
+    body: IntakeProcedureRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/intake-procedures';
+};
+
+export type IntakeCreateProcedureErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeCreateProcedureError = IntakeCreateProcedureErrors[keyof IntakeCreateProcedureErrors];
+
+export type IntakeCreateProcedureResponses = {
+    /**
+     * The procedure
+     */
+    201: CreatedIntakeProcedure;
+};
+
+export type IntakeCreateProcedureResponse = IntakeCreateProcedureResponses[keyof IntakeCreateProcedureResponses];
+
+export type IntakeReadProcedureData = {
+    body?: never;
+    path: {
+        procedureId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedures/{procedureId}';
+};
+
+export type IntakeReadProcedureErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeReadProcedureError = IntakeReadProcedureErrors[keyof IntakeReadProcedureErrors];
+
+export type IntakeReadProcedureResponses = {
+    /**
+     * The procedure
+     */
+    200: IntakeProcedure;
+};
+
+export type IntakeReadProcedureResponse = IntakeReadProcedureResponses[keyof IntakeReadProcedureResponses];
+
+export type IntakeEditProcedureData = {
+    body: IntakeProcedureRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        procedureId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedures/{procedureId}';
+};
+
+export type IntakeEditProcedureErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeEditProcedureError = IntakeEditProcedureErrors[keyof IntakeEditProcedureErrors];
+
+export type IntakeEditProcedureResponses = {
+    /**
+     * The procedure was changed
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeEditProcedureResponse = IntakeEditProcedureResponses[keyof IntakeEditProcedureResponses];
+
+export type IntakeSetProcedureActiveData = {
+    body: {
+        active: boolean;
+    };
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        procedureId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedures/{procedureId}/active';
+};
+
+export type IntakeSetProcedureActiveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeSetProcedureActiveError = IntakeSetProcedureActiveErrors[keyof IntakeSetProcedureActiveErrors];
+
+export type IntakeSetProcedureActiveResponses = {
+    /**
+     * The procedure's standing was changed
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeSetProcedureActiveResponse = IntakeSetProcedureActiveResponses[keyof IntakeSetProcedureActiveResponses];
+
+export type IntakeAddStepData = {
+    body: IntakeProcedureStepRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        procedureId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedures/{procedureId}/steps';
+};
+
+export type IntakeAddStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeAddStepError = IntakeAddStepErrors[keyof IntakeAddStepErrors];
+
+export type IntakeAddStepResponses = {
+    /**
+     * The step
+     */
+    201: CreatedIntakeProcedure;
+};
+
+export type IntakeAddStepResponse = IntakeAddStepResponses[keyof IntakeAddStepResponses];
+
+export type IntakeRetireStepData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedure-steps/{stepId}';
+};
+
+export type IntakeRetireStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeRetireStepError = IntakeRetireStepErrors[keyof IntakeRetireStepErrors];
+
+export type IntakeRetireStepResponses = {
+    /**
+     * The step was retired
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeRetireStepResponse = IntakeRetireStepResponses[keyof IntakeRetireStepResponses];
+
+export type IntakeEditStepData = {
+    body: IntakeProcedureStepEditRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-procedure-steps/{stepId}';
+};
+
+export type IntakeEditStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeEditStepError = IntakeEditStepErrors[keyof IntakeEditStepErrors];
+
+export type IntakeEditStepResponses = {
+    /**
+     * The step was changed
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeEditStepResponse = IntakeEditStepResponses[keyof IntakeEditStepResponses];
+
+export type IntakeReadChecklistData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/intake';
+};
+
+export type IntakeReadChecklistErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeReadChecklistError = IntakeReadChecklistErrors[keyof IntakeReadChecklistErrors];
+
+export type IntakeReadChecklistResponses = {
+    /**
+     * The checklist
+     */
+    200: IntakeChecklist;
+};
+
+export type IntakeReadChecklistResponse = IntakeReadChecklistResponses[keyof IntakeReadChecklistResponses];
+
+export type IntakeRecordStepData = {
+    body: IntakeRecordStepRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/intake/steps/{stepId}/completion';
+};
+
+export type IntakeRecordStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeRecordStepError = IntakeRecordStepErrors[keyof IntakeRecordStepErrors];
+
+export type IntakeRecordStepResponses = {
+    /**
+     * The record
+     */
+    201: IntakeStepRecorded;
+};
+
+export type IntakeRecordStepResponse = IntakeRecordStepResponses[keyof IntakeRecordStepResponses];
+
+export type IntakeWaiveStepData = {
+    body: IntakeWaiveStepRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/intake/steps/{stepId}/waiver';
+};
+
+export type IntakeWaiveStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeWaiveStepError = IntakeWaiveStepErrors[keyof IntakeWaiveStepErrors];
+
+export type IntakeWaiveStepResponses = {
+    /**
+     * The record
+     */
+    201: IntakeStepRecorded;
+};
+
+export type IntakeWaiveStepResponse = IntakeWaiveStepResponses[keyof IntakeWaiveStepResponses];
+
+export type IntakeReopenStepData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        stepId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/intake/steps/{stepId}/record';
+};
+
+export type IntakeReopenStepErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeReopenStepError = IntakeReopenStepErrors[keyof IntakeReopenStepErrors];
+
+export type IntakeReopenStepResponses = {
+    /**
+     * The step was reopened
+     */
+    200: IntakeAcknowledged;
+};
+
+export type IntakeReopenStepResponse = IntakeReopenStepResponses[keyof IntakeReopenStepResponses];
 
 export type CustodyListLocationsData = {
     body?: never;

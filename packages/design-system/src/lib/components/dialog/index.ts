@@ -13,6 +13,9 @@ import Title from "./dialog-title.svelte";
 import Description from "./dialog-description.svelte";
 import Close from "./dialog-close.svelte";
 
+/* The one placement choice a caller may make on Content — see internal/modal-placement.ts. */
+export type { ModalPlacement } from "../../internal/modal-placement.ts";
+
 export {
   Root,
   Trigger,

@@ -331,6 +331,15 @@ describe("end-to-end", () => {
         "firm:reportIncident",
         "firm:scanFile",
         "incidents:viewDescription",
+        // The four intake keys. intake:read and intake:record reach every seat that does firm work
+        // (Owner/Admin, Attorney, Paralegal, Billing); intake:waive and intake:manageProcedures stop
+        // at Owner/Admin and Attorney, because waiving a required step is the recorded override of
+        // an opening gate and the procedure is the firm's statement of how it takes work on
+        // (20260903T150000_intake-procedure).
+        "intake:manageProcedures",
+        "intake:read",
+        "intake:record",
+        "intake:waive",
         "locations:manage",
         // Both assistant keys reach Owner/Admin: magnus:converse is seeded to the seats that do
         // legal work (Owner/Admin, Attorney, Paralegal), and magnus:readAllConversations — reading

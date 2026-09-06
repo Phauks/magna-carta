@@ -6,6 +6,7 @@
    * applies instantly and survives reload — this is the real preference, not a preview layer.
    */
   import * as Select from "@magna-carta/design-system/select";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import {
     applyThemePreference,
     readThemePreference,
@@ -51,9 +52,9 @@
 
 <div class="flex flex-col gap-12">
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Theme
-    </p>
+    </FieldLabel>
     <Select.Root
       type="single"
       items={THEMES}
@@ -78,9 +79,9 @@
   </div>
 
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Mode
-    </p>
+    </FieldLabel>
     <Select.Root
       type="single"
       items={MODES}
@@ -105,9 +106,9 @@
   </div>
 
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Density
-    </p>
+    </FieldLabel>
     <Select.Root
       type="single"
       items={DENSITIES}
@@ -132,9 +133,9 @@
   </div>
 
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Motion
-    </p>
+    </FieldLabel>
     <Select.Root
       type="single"
       items={MOTIONS}

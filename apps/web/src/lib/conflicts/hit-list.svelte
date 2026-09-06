@@ -27,6 +27,7 @@
     HIT_INITIAL_SORT,
     hitColumns,
     partyCellTitle,
+    partyText,
   } from "./hit-columns.ts";
 
   let {
@@ -57,9 +58,12 @@
     {@const tier = evidenceTier(row.evidenceTier)}
     <span class="tabular-nums" title={tier.meaning}>{tier.label}</span>
   {:else if column.id === HIT_COLUMN_IDENTIFIERS.party}
-    <!-- The column is real and its value is not served. It states the gap on the hover rather than
-         rendering a blank that would read as a hit with no party. -->
-    <span class="text-text-muted" title={partyCellTitle()}>Not served</span>
+    <!-- Named, or told why not. An unresolved entity and an unnamed record are different facts and
+         both are stated; neither renders blank, which would read as a hit with no party. -->
+    {@const title = partyCellTitle(row)}
+    <span class={row.party?.displayName == null ? "text-text-muted" : undefined} {title}>
+      {partyText(row)}
+    </span>
   {:else if column.id === HIT_COLUMN_IDENTIFIERS.source}
     {@const source = sourceVocabulary(row.sourceClass)}
     <span title={source.meaning}>{source.label}</span>
@@ -79,9 +83,6 @@
   <div class="flex flex-wrap items-center gap-8">
     <h2 class="text-base font-semibold">Candidates</h2>
     <MaturityBadge stage="soon" />
-    <span class="text-xs text-text-muted" title={partyCellTitle()}>
-      The Party column waits on a read that names many Directory entities at once.
-    </span>
   </div>
 
   <DataTable.Grid {grid} caption="What this check surfaced" cell={hitCell} {loading}>

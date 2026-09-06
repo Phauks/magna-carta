@@ -13,7 +13,8 @@
   import { onDestroy, onMount } from "svelte";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import Button from "@magna-carta/design-system/button";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import FieldLabel from "@magna-carta/design-system/field-label";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { bandwidthStats } from "$lib/tools/speed-test/bandwidth-stats.ts";
   import BandwidthSparkline from "$lib/tools/speed-test/bandwidth-sparkline.svelte";
   import InfoHint from "$lib/tools/speed-test/info-hint.svelte";
@@ -271,20 +272,21 @@
 
 <svelte:head><title>Network Speed Test · Magna Carta</title></svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Network Speed Test</Masthead.Title>
-    <Masthead.Meta>
-      {#if store.finishedAt}
-        <span>
-          Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
-        </span>
-      {:else}
-        <span>&nbsp;</span>
-      {/if}
-    </Masthead.Meta>
-  </Masthead.Heading>
-  <Masthead.Actions>
+<ScreenHeader
+  title="Network Speed Test"
+  back="tools"
+  class="mb-24"
+>
+  {#snippet meta()}
+    {#if store.finishedAt}
+      <span>
+        Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
+      </span>
+    {:else}
+      <span>&nbsp;</span>
+    {/if}
+  {/snippet}
+  {#snippet actions()}
     <RunProgressPanel
       phaseText={phaseText}
       stepIndex={displayStepIndex}
@@ -317,8 +319,8 @@
       onAutoStartChange={setAutoStart}
       onDownloadReport={downloadReport}
     />
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if store.error}
   <section class="mb-24">
@@ -392,9 +394,7 @@
 </section>
 
 <section class="mb-24">
-  <h2
-    class="mb-16 flex items-center gap-4 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h2" class="mb-16 flex items-center gap-4 border-b border-border-strong pb-8"
   >
     <span>Network quality score</span>
     <InfoHint label="What do these scores mean?">
@@ -421,29 +421,25 @@
     >
       Learn more
     </a>
-  </h2>
+  </FieldLabel>
   <!-- The engine rescores on every sample, so a rating shown mid-run climbs and falls before the
        measurements it weighs even exist. A verdict is worth showing only once it is final. -->
   <QualityScores scores={store.phase === "finished" ? results?.getScores() : undefined} />
 </section>
 
 <section class="mb-24">
-  <h2
-    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h2" class="mb-16 border-b border-border-strong pb-8"
   >
     Your connection
-  </h2>
+  </FieldLabel>
   <ServerPanel meta={store.meta} probe={store.probe} />
 </section>
 
 <section class="mb-24">
-  <h2
-    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h2" class="mb-16 border-b border-border-strong pb-8"
   >
     Latency measurements
-  </h2>
+  </FieldLabel>
   <div class="grid grid-cols-1 gap-16 lg:grid-cols-3">
     <LatencyChart title="Idle" points={results?.getUnloadedLatencyPoints() ?? []} />
     <LatencyChart title="During download" points={results?.getDownLoadedLatencyPoints() ?? []} />

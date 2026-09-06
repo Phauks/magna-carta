@@ -9,9 +9,11 @@
    * consolidated from them.
    *
    * THE SAME SURFACE AS TIME AND COSTS. One table machinery, one status register, one details
-   * panel, one record window, one footer grammar. What this file contributes is the columns, the
-   * words and the arrangement strip; every behaviour a reader has learned on the other two ledgers
-   * is the behaviour they get here.
+   * panel, one record window, one footer grammar. The frame, the acts row, the counts strip and
+   * the pane toggle are the money surface's (apps/web/src/lib/money/), the same on every money
+   * section; what this file contributes is the columns, the cells, the figures, the verbs and the
+   * panel beside the list. Every behaviour a reader has learned on the other ledgers is the
+   * behaviour they get here.
    *
    * THREE ALTITUDES, AND THEY STAY IN THEIR PLACES. The LIST is what a person came for. The PANEL
    * beside it is the smaller details, and it opens from its own control alone — clicking a row
@@ -26,16 +28,16 @@
    * fee IS, the list stands empty and says why, and every write renders where the design puts it,
    * refused, naming what it waits on.
    */
+  import type { Snippet } from "svelte";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
-  import { LedgerPanes, RecordMenu } from "$lib/records/index.ts";
+  import { MoneySurface, type MoneySurfaceDensity } from "$lib/money/index.ts";
+  import { RecordMenu } from "$lib/records/index.ts";
   import { ledgerRecordMenu } from "$lib/records/ledger-record-menu.ts";
   import type { LedgerRecord } from "$lib/records/ledger-record-menu.ts";
   import type { RecordMenuAction, RecordMenuModel } from "$lib/records/record-menu-model.ts";
@@ -75,6 +77,7 @@
     matterNumber,
     currency,
     permissions,
+    beneath = undefined,
   }: {
     /** Every fee on the matter, in every status: that is what a matter's fee record is. */
     fees: readonly FeeRecord[];
@@ -84,6 +87,8 @@
     matterNumber: string | null;
     currency: string;
     permissions: readonly string[] | null;
+    /** Rendered by the surface directly above the counts strip. */
+    beneath?: Snippet;
   } = $props();
 
   const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
@@ -254,6 +259,7 @@
           printedAt: formatInstant(new Date()),
         }),
   );
+
   /*
    * The two figures this ledger ends with, as the shared strip reads them. The captions are the
    * whole reason the pair is not a bare total: "unbilled" and "billed" are positions in a process,
@@ -322,78 +328,73 @@
   </EmptyState>
 {/snippet}
 
-{#snippet footerEnd()}
+<!-- The counts strip's trailing figures. The surface seats the pane toggle after them. -->
+{#snippet figures()}
   <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
-<section class="flex min-h-0 flex-1 flex-col gap-12">
-  <!--
-    ONE ROW of verbs, and no strip of facts above the ledger. The fee arrangement used to lead this
-    row; it now lives in the matter's status window, behind the seal in the masthead (owner ruling,
-    2026-09-03), because it is a fact of the engagement rather than of the ledger and is rarely read.
-    Recording a fee is the matter header's New Fee, not a button here (create-action.svelte.ts);
-    the pane toggle ends the row as it does on every ledger.
-  -->
-  <div class="flex flex-wrap items-center justify-end gap-8 text-sm">
-    <span class="flex flex-1 flex-wrap items-center justify-end gap-8">
-      <DataTable.ClearFilters {grid} />
-      <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
-           border of its own, and last in the row on every ledger. -->
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-pressed={panelOpen}
-        title="Show or hide the details panel"
-        aria-label="Show or hide the details panel"
-        onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-      >
-        <PanelRight class="size-16" aria-hidden="true" />
-      </Button>
-    </span>
-  </div>
-
-  <!-- The one honest line about why this ledger stands empty: the record it lists is not served. -->
+<!--
+  The notices band holds one standing line: the honest word about why this ledger stands empty,
+  because the record it lists is not served. It is always on, so the band is always passed. No
+  strip of facts joins it: the fee arrangement used to lead a row here and now lives in the
+  matter's status window, behind the seal in the masthead, because it is a fact of the engagement
+  rather than of the ledger and is rarely read. Recording a fee is the matter header's New Fee,
+  not a button here (create-action.svelte.ts).
+-->
+{#snippet notices()}
   <p class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
     <MaturityBadge stage="soon" />
     {soonDependencySentence(gapReason("store"))}
   </p>
+{/snippet}
 
-  <LedgerPanes autoSaveId="matter-fees-panes" {panelOpen}>
-    {#snippet list()}
-      <RecordMenu
-        class="flex min-h-0 flex-1 flex-col"
-        {menu}
-        onAction={runMenuAction}
-        onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
-      >
-        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-             product uses everywhere is still the thing that opens. -->
-        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
-          <DataTable.Grid
-            {grid}
-            {cell}
-            class="min-h-0 flex-1"
-            caption="Fees recorded on this matter"
-            empty={emptyLedger}
-            {loading}
-          />
-        </div>
-      </RecordMenu>
-    {/snippet}
-    {#snippet panel()}
-      <FeeDetailsPanel
-        {fees}
-        selected={selectedFees}
-        {money}
-        onOpen={(fee) => openRecord(fee, canWorkDraft(fee).allowed)}
-        onPrint={print}
-        onLetGo={() => grid.clearSelection()}
+{#snippet list({ density, tableClass }: { density: MoneySurfaceDensity; tableClass: string })}
+  <RecordMenu
+    class="flex min-h-0 flex-1 flex-col"
+    {menu}
+    onAction={runMenuAction}
+    onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
+  >
+    <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+         product uses everywhere is still the thing that opens. -->
+    <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+      <DataTable.Grid
+        {grid}
+        {cell}
+        class={tableClass}
+        {density}
+        caption="Fees recorded on this matter"
+        empty={emptyLedger}
+        {loading}
       />
-    {/snippet}
-  </LedgerPanes>
+    </div>
+  </RecordMenu>
+{/snippet}
 
-  <DataTable.GridFooter {grid} end={footerEnd} />
-</section>
+{#snippet panel()}
+  <FeeDetailsPanel
+    {fees}
+    selected={selectedFees}
+    {money}
+    onOpen={(fee) => openRecord(fee, canWorkDraft(fee).allowed)}
+    onPrint={print}
+    onLetGo={() => grid.clearSelection()}
+  />
+{/snippet}
+
+<MoneySurface
+  {matterId}
+  section="fees"
+  {grid}
+  autoSaveId="matter-fees-panes"
+  {panelOpen}
+  onTogglePanel={(open) => panelPreference.set(open ? "open" : "closed")}
+  {notices}
+  {list}
+  {panel}
+  {figures}
+  {beneath}
+/>
 
 <FeeRecordWindow
   bind:open={windowOpen}

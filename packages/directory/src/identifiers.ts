@@ -1,4 +1,4 @@
-import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   blindIndexValue,
@@ -22,9 +22,10 @@ import { assertEntityExists } from "./entity-kind.ts";
 import { runDirectoryEffect, type DirectoryIdempotencyContext } from "./run-directory-effect.ts";
 import { DIRECTORY_IDENTIFIER_TABLE } from "./statements.ts";
 import { DIRECTORY_IDENTIFIER_ADDED_TOPIC } from "./topics.ts";
+import { accountNumberOf } from "./identifier-shape.ts";
 import type { IdentifierType } from "./types.ts";
 
-// Sensitive typed identifiers (SSN, EIN, driver's license, account number, DOB, SSN-last-four) live in
+// Sensitive typed identifiers (SSN, EIN, driver's license, account, bar number, SSN-last-four) live in
 // directory_identifier, one physical (value_ciphertext, value_blind_index) column pair per row. Every
 // value is sealed through the protected-field chokepoint in `@magna-carta/data-access` — the plaintext never reaches a
 // column or a log. The identifier_type discriminates the per-type policy: which exact-match blind-index
@@ -41,7 +42,7 @@ export type DirectoryIdentifierContext = ProtectedReadContext & {
 };
 
 // Thrown when a lookup is attempted against an identifier type that carries no standalone blind index
-// (DOB, SSN-last-four — too low-entropy to index without leaking distribution). There is nothing to
+// (bar number, SSN-last-four — too low-entropy to index without leaking distribution). There is nothing to
 // match on; conflicts resolves these by decrypt-and-compare over a candidate set, never a direct
 // equality probe. The code is stable for callers to branch on.
 export class IdentifierNotIndexableError extends Error {
@@ -69,7 +70,7 @@ function normalizeDriversLicense(value: string): string {
 // directory:viewSensitiveIdentifiers permission, and the AAD column); a type the policy
 // standalone-indexes clones that declaration and adds its blind-index spec — the frozen normalize plus
 // the truncation length in bits (16 for the lower-entropy identifiers, 24 for higher-entropy account
-// numbers). DOB and SSN-last-four get the bare declaration — protected, never standalone-indexed,
+// numbers). The bar number and SSN-last-four get the bare declaration — protected, never standalone-indexed,
 // because their entropy is too low to index without leaking the value distribution.
 const IDENTIFIER_DECLARATIONS: Readonly<Record<IdentifierType, ProtectedFieldDeclaration>> = {
   // SSN — standalone blind index, L=16, digit-strip.
@@ -102,33 +103,36 @@ const IDENTIFIER_DECLARATIONS: Readonly<Record<IdentifierType, ProtectedFieldDec
       column: "value_blind_index",
     },
   }),
-  // Financial / account number — standalone blind index, L=24 (higher entropy), uppercase+strip.
+  // An account — the number with the username and secret that belong to it, sealed as one value
+  // (identifier-shape.ts says the shape). Standalone blind index on the NUMBER alone, L=24 (higher
+  // entropy), uppercase+strip: the username and secret never reach an index.
   account: protectedField({
     ...directoryIdentifierValue,
     blindIndex: {
       name: "account_exact",
-      normalize: normalizeUppercaseStrip,
+      normalize: (value) => normalizeUppercaseStrip(accountNumberOf(value)),
       lengthBits: 24,
       column: "value_blind_index",
     },
   }),
-  // DOB — protected, NEVER standalone-indexed (low entropy leaks distribution); decrypt-and-compare.
-  dob: directoryIdentifierValue,
   // SSN last-four — protected, NEVER standalone-indexed.
   ssn_last_four: directoryIdentifierValue,
   // Bar number — professional public record the firm nonetheless holds encrypted, so reading one is
   // still permission-gated and audited. NEVER standalone-indexed: a bar number is a short
   // state-scoped integer whose entropy is too low to index without leaking the value distribution,
-  // the same reasoning DOB takes, and nothing needs to equality-search one.
+  // and nothing needs to equality-search one.
   bar_number: directoryIdentifierValue,
 };
 
 // A directory_identifier row. value_ciphertext is the chokepoint-sealed value; value_blind_index is the
-// exact-match index, NULL for a never-indexed type (DOB, SSN-last-four).
+// exact-match index, NULL for a never-indexed type (bar number, SSN-last-four). label is the plaintext
+// part a list shows without a reveal — the issuing region, the jurisdiction, who an account is held
+// with — and never any part of the value.
 interface InsertIdentifierRow {
   readonly id: DirectoryIdentifierId;
   readonly entityId: string;
   readonly identifierType: IdentifierType;
+  readonly label: string | null;
   readonly valueCiphertext: string;
   readonly valueBlindIndex: string | null;
   readonly validFrom: string | null;
@@ -142,12 +146,13 @@ interface InsertIdentifierRow {
 function insertIdentifierStatement(database: SqlDatabase, row: InsertIdentifierRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${DIRECTORY_IDENTIFIER_TABLE} (id, entity_id, identifier_type, value_ciphertext, value_blind_index, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, NULL)`,
+      `INSERT INTO ${DIRECTORY_IDENTIFIER_TABLE} (id, entity_id, identifier_type, label, value_ciphertext, value_blind_index, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, NULL)`,
     )
     .bind(
       row.id,
       row.entityId,
       row.identifierType,
+      row.label,
       row.valueCiphertext,
       row.valueBlindIndex,
       row.validFrom,
@@ -268,37 +273,42 @@ export async function findEntitiesSharingIdentifiersBatch(
 // validity. The value is sealed immediately — it is never held beyond composing the batch.
 export interface AddIdentifierInput {
   readonly type: IdentifierType;
+  /** The plaintext to seal, already in the type's canonical shape (identifier-shape.ts checks it). */
   readonly value: string;
+  /** The plaintext part a list shows: the issuing region, the jurisdiction, who an account is held with. */
+  readonly label?: string | null;
   readonly validFrom?: string | null;
   readonly validTo?: string | null;
 }
 
-// Seals a typed identifier value for an entity and composes the directory_identifier INSERT plus a
-// domain audit row into one atomic batch. The ciphertext (and, where the policy standalone-indexes the
-// type, the blind index) are the ONLY representations stored — never the plaintext. Computing the blind
-// index needs no permission; sealing is a property of the write.
-export async function addIdentifier(
+/** What sealing one identifier contributes to a batch: its insert, its audit row, its announcement. */
+export interface ComposedIdentifierWrite {
+  readonly identifierId: DirectoryIdentifierId;
+  readonly statements: readonly SqlStatement[];
+  readonly outboxMessages: EffectWrite["outboxMessages"];
+}
+
+// Seals the value and composes everything one identifier writes, without committing. addIdentifier
+// commits exactly this; a create that records a whole person in one batch composes several of these
+// beside the person's own rows, so a person is never half-recorded with a sealed number and no name.
+export async function composeIdentifierWrite(
   context: DirectoryIdentifierContext,
   entityId: string,
   input: AddIdentifierInput,
-): Promise<void> {
-  // Fail fast before sealing or writing: an identifier must attach to a live entity (directory_identifier
-  // carries no FK to the node tables, so an unchecked entity id would insert an orphan row and falsely
-  // report 201).
-  await assertEntityExists(context.database, entityId);
-
+): Promise<ComposedIdentifierWrite> {
   const declaration = IDENTIFIER_DECLARATIONS[input.type];
   const identifierId = newIdentifier("directoryIdentifier", context.randomSource);
   const now = context.clock.now();
-
   const sealed = await composeProtectedWrite(context, declaration, identifierId, input.value);
-
-  await runDirectoryEffect(context.database, context.idempotency, context.clock, () => ({
+  const label = input.label?.trim() ?? "";
+  return {
+    identifierId,
     statements: [
       insertIdentifierStatement(context.database, {
         id: identifierId,
         entityId,
         identifierType: input.type,
+        label: label === "" ? null : label,
         valueCiphertext: sealed.ciphertextValue,
         valueBlindIndex: sealed.blindIndexValue ?? null,
         validFrom: input.validFrom ?? null,
@@ -329,6 +339,27 @@ export async function addIdentifier(
         payload: { identifierId, entityId, identifierType: input.type },
       },
     ],
+  };
+}
+
+// Seals a typed identifier value for an entity and composes the directory_identifier INSERT plus a
+// domain audit row into one atomic batch. The ciphertext (and, where the policy standalone-indexes the
+// type, the blind index) are the ONLY representations stored — never the plaintext. Computing the blind
+// index needs no permission; sealing is a property of the write.
+export async function addIdentifier(
+  context: DirectoryIdentifierContext,
+  entityId: string,
+  input: AddIdentifierInput,
+): Promise<void> {
+  // Fail fast before sealing or writing: an identifier must attach to a live entity (directory_identifier
+  // carries no FK to the node tables, so an unchecked entity id would insert an orphan row and falsely
+  // report 201).
+  await assertEntityExists(context.database, entityId);
+  const composed = await composeIdentifierWrite(context, entityId, input);
+
+  await runDirectoryEffect(context.database, context.idempotency, context.clock, () => ({
+    statements: [...composed.statements],
+    outboxMessages: composed.outboxMessages,
     responseCode: 201,
     responseBody: { ok: true },
     value: undefined,
@@ -336,8 +367,6 @@ export async function addIdentifier(
   }));
 }
 
-// The caller-supplied lookup: an identifier type and the plaintext value to match. Formatting-insensitive
-// — the value is normalized by the type's frozen transform before the index is computed.
 export interface FindByIdentifierInput {
   readonly type: IdentifierType;
   readonly value: string;
@@ -406,6 +435,8 @@ function selectIdentifierRowStatement(
 export interface IdentifierRecord {
   readonly id: string;
   readonly type: IdentifierType;
+  /** The plaintext part: the issuing region, the jurisdiction, who an account is held with. */
+  readonly label: string | null;
   readonly validFrom: string | null;
   readonly validTo: string | null;
   readonly recordedAt: string;
@@ -430,7 +461,7 @@ export async function listIdentifierRecords(
 ): Promise<IdentifierRecord[]> {
   const { results } = await database
     .prepare(
-      `SELECT id, identifier_type, valid_from, valid_to, created_at
+      `SELECT id, identifier_type, label, valid_from, valid_to, created_at
          FROM ${DIRECTORY_IDENTIFIER_TABLE}
         WHERE entity_id = ?1 AND deleted_at IS NULL
         ORDER BY identifier_type ASC, created_at DESC, id DESC`,
@@ -439,6 +470,7 @@ export async function listIdentifierRecords(
     .all<{
       id: string;
       identifier_type: string;
+      label: string | null;
       valid_from: string | null;
       valid_to: string | null;
       created_at: string;
@@ -446,6 +478,7 @@ export async function listIdentifierRecords(
   return results.map((row) => ({
     id: row.id,
     type: row.identifier_type as IdentifierType,
+    label: row.label,
     validFrom: row.valid_from,
     validTo: row.valid_to,
     recordedAt: row.created_at,

@@ -295,6 +295,160 @@
           "buildTime"
         ]
       },
+      "DatabaseHealthResponse": {
+        "type": "object",
+        "properties": {
+          "controlPlane": {
+            "$ref": "#/components/schemas/DatabaseHealthControlPlane"
+          },
+          "firmDatabase": {
+            "$ref": "#/components/schemas/DatabaseHealthFirmDatabase"
+          },
+          "schema": {
+            "$ref": "#/components/schemas/DatabaseHealthSchema"
+          },
+          "membership": {
+            "$ref": "#/components/schemas/DatabaseHealthMembership"
+          },
+          "provisioning": {
+            "$ref": "#/components/schemas/DatabaseHealthProvisioning"
+          },
+          "observedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "controlPlane",
+          "firmDatabase",
+          "schema",
+          "membership",
+          "provisioning",
+          "observedAt"
+        ]
+      },
+      "DatabaseHealthControlPlane": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "reachable",
+              "unreachable"
+            ]
+          },
+          "bucketProvisioned": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "bucketProvisioned"
+        ]
+      },
+      "DatabaseHealthFirmDatabase": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "reachable",
+              "unreachable"
+            ]
+          },
+          "roundTripMilliseconds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "roundTripMilliseconds"
+        ]
+      },
+      "DatabaseHealthSchema": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "current",
+              "behind",
+              "unknown"
+            ]
+          },
+          "appliedCount": {
+            "type": "integer"
+          },
+          "appliedHead": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expectedHead": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "appliedCount",
+          "appliedHead",
+          "expectedHead"
+        ]
+      },
+      "DatabaseHealthMembership": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "missing",
+              "inactive",
+              "unknown"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permissionCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "roles",
+          "permissionCount"
+        ]
+      },
+      "DatabaseHealthProvisioning": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "read",
+              "unknown"
+            ]
+          },
+          "pending": {
+            "type": "integer"
+          },
+          "deadLettered": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "pending",
+          "deadLettered"
+        ]
+      },
       "FirmUsageResponse": {
         "type": "object",
         "properties": {
@@ -4200,6 +4354,49 @@
           "responsibleMemberName"
         ]
       },
+      "MatterOpenReadiness": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "prospective",
+              "open",
+              "closed"
+            ]
+          },
+          "openable": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "status",
+          "openable",
+          "blockers"
+        ]
+      },
       "MatterCloseReadiness": {
         "type": "object",
         "properties": {
@@ -7125,11 +7322,537 @@
               "string",
               "null"
             ]
+          },
+          "otherNames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateDirectoryPersonOtherName"
+            },
+            "maxItems": 20
+          },
+          "pronouns": {
+            "$ref": "#/components/schemas/DirectoryPronounSet"
+          },
+          "dateOfBirth": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dateOfDeath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddDirectoryEmailRequest"
+            },
+            "maxItems": 20
+          },
+          "phones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddDirectoryPhoneRequest"
+            },
+            "maxItems": 20
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddDirectoryAddressRequest"
+            },
+            "maxItems": 20
+          },
+          "identifiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddDirectoryIdentifierRequest"
+            },
+            "maxItems": 20
+          },
+          "organizations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateDirectoryPersonOrganization"
+            },
+            "maxItems": 50
           }
         },
         "required": [
           "given",
           "family"
+        ]
+      },
+      "CreateDirectoryPersonOtherName": {
+        "type": "object",
+        "properties": {
+          "given": {
+            "type": "string",
+            "minLength": 1
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nameRole": {
+            "type": "string",
+            "enum": [
+              "current",
+              "former",
+              "alias",
+              "aka",
+              "maiden",
+              "dba"
+            ]
+          },
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "middle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "suffix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "given",
+          "family",
+          "nameRole"
+        ]
+      },
+      "DirectoryPronounSet": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: she signed."
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: we served her."
+          },
+          "possessiveDeterminer": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: her signature."
+          },
+          "possessivePronoun": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: the signature is hers."
+          },
+          "reflexive": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in: she represented herself."
+          },
+          "verbNumber": {
+            "type": "string",
+            "enum": [
+              "singular",
+              "plural"
+            ],
+            "description": "Which verb form the set takes: \"singular\" for she is / he is, \"plural\" for they are. Recorded rather than worked out — nothing about the forms themselves says which."
+          }
+        },
+        "required": [
+          "subject",
+          "object",
+          "possessiveDeterminer",
+          "possessivePronoun",
+          "reflexive",
+          "verbNumber"
+        ],
+        "description": "The complete set of pronouns a person stated, or null where they stated none — which is the ordinary case and not a gap to fill in. Recorded whole: a partly supplied set is refused, because a document rendering one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it."
+      },
+      "AddDirectoryEmailRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 320
+          },
+          "contactUse": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "work",
+              "home",
+              "mobile",
+              "other",
+              "former",
+              "temporary",
+              null
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "preference": {
+            "$ref": "#/components/schemas/DirectoryContactPreference"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/DirectoryContactVerification"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "DirectoryContactPreference": {
+        "type": "object",
+        "properties": {
+          "permitted": {
+            "type": "boolean",
+            "description": "May the firm use this contact point. Defaults to true. A contact point the person asked the firm not to use is recorded with the permission withdrawn and a note saying so, never deleted: deleting it loses the instruction along with the value."
+          },
+          "preferred": {
+            "type": "boolean",
+            "description": "Is this the one route the person asked to be reached by. At most one per entity across email, phone and address together, because that preference is a single answer about every channel; promoting one demotes whichever was preferred before, in any of the three."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000,
+            "description": "Why the contact point may not be used, or how it should be."
+          }
+        }
+      },
+      "DirectoryContactVerification": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unverified",
+              "verified",
+              "failed"
+            ],
+            "description": "What the firm found when it last tried to confirm this contact point. A failed status records returned mail, a bounced message or a disconnected line. It never blocks a send: it is surfaced to whoever is about to send, and the send proceeds."
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000,
+            "description": "What the failure said, in the words it said it."
+          }
+        }
+      },
+      "AddDirectoryPhoneRequest": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The number as it was written. Stored verbatim and never rewritten; the structured columns beside it go null when it cannot be split, so an unparseable number is still recorded."
+          },
+          "contactSystem": {
+            "type": "string",
+            "enum": [
+              "voice",
+              "fax",
+              "sms",
+              "pager"
+            ]
+          },
+          "contactUse": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "work",
+              "home",
+              "mobile",
+              "other",
+              "former",
+              "temporary",
+              null
+            ]
+          },
+          "extension": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 16
+          },
+          "countryRegionCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "preference": {
+            "$ref": "#/components/schemas/DirectoryContactPreference"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/DirectoryContactVerification"
+          }
+        },
+        "required": [
+          "number"
+        ]
+      },
+      "AddDirectoryAddressRequest": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "organizationName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "street": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "streetTwo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "dependentLocality": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "postal": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32
+          },
+          "sortingCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "addressUse": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "residential",
+              "business",
+              "postal",
+              "registered",
+              "service",
+              "former",
+              "temporary",
+              null
+            ]
+          },
+          "addressType": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "postal",
+              "both"
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "preference": {
+            "$ref": "#/components/schemas/DirectoryContactPreference"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/DirectoryContactVerification"
+          }
+        }
+      },
+      "AddDirectoryIdentifierRequest": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "ssn",
+              "ein",
+              "account",
+              "drivers_license",
+              "ssn_last_four",
+              "bar_number"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120,
+            "description": "The plaintext part a list shows without a reveal: the state or country that issued a licence, the jurisdiction behind a bar number, who an account is held with. Required where the type has one; never any part of the value."
+          },
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "description": "An account's username."
+          },
+          "secret": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256,
+            "description": "An account's secret, sealed beside its number and never indexed."
+          },
+          "validFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "number"
+        ]
+      },
+      "CreateDirectoryPersonOrganization": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "pattern": "^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$"
+          },
+          "edgeType": {
+            "type": "string",
+            "enum": [
+              "affiliation",
+              "relationship",
+              "corporate_parent",
+              "corporate_subsidiary",
+              "corporate_successor",
+              "representation",
+              "role_assignment",
+              "officer_of",
+              "director_of",
+              "partner_of",
+              "trustee_of",
+              "personal_representative_of",
+              "agent_of",
+              "employment",
+              "member_of",
+              "shareholder_of",
+              "beneficiary_of",
+              "guardian_of",
+              "point_of_contact_for"
+            ]
+          },
+          "personIs": {
+            "type": "string",
+            "enum": [
+              "from",
+              "to"
+            ],
+            "description": "Which end of the edge the person is. The type says which way a membership reads (employment runs person to organization); the screen decides and the record keeps it."
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "organizationId",
+          "edgeType",
+          "personIs"
         ]
       },
       "DirectoryPersonDetail": {
@@ -7199,56 +7922,6 @@
           "mergedIntoId",
           "pronouns"
         ]
-      },
-      "DirectoryPronounSet": {
-        "type": [
-          "object",
-          "null"
-        ],
-        "properties": {
-          "subject": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: she signed."
-          },
-          "object": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: we served her."
-          },
-          "possessiveDeterminer": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: her signature."
-          },
-          "possessivePronoun": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: the signature is hers."
-          },
-          "reflexive": {
-            "type": "string",
-            "minLength": 1,
-            "description": "As in: she represented herself."
-          },
-          "verbNumber": {
-            "type": "string",
-            "enum": [
-              "singular",
-              "plural"
-            ],
-            "description": "Which verb form the set takes: \"singular\" for she is / he is, \"plural\" for they are. Recorded rather than worked out — nothing about the forms themselves says which."
-          }
-        },
-        "required": [
-          "subject",
-          "object",
-          "possessiveDeterminer",
-          "possessivePronoun",
-          "reflexive",
-          "verbNumber"
-        ],
-        "description": "The complete set of pronouns a person stated, or null where they stated none — which is the ordinary case and not a gap to fill in. Recorded whole: a partly supplied set is refused, because a document rendering one set's pronoun in one clause and another's in the next is wrong in a way nobody catches by reading it."
       },
       "DirectoryAckResponse": {
         "type": "object",
@@ -7885,12 +8558,18 @@
             "enum": [
               "ssn",
               "ein",
-              "dob",
               "account",
               "drivers_license",
               "ssn_last_four",
               "bar_number"
             ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The plaintext part: the issuing region, the jurisdiction, who an account is held with."
           },
           "validFrom": {
             "type": [
@@ -7911,52 +8590,29 @@
         "required": [
           "id",
           "type",
+          "label",
           "validFrom",
           "validTo",
           "recordedAt"
-        ]
-      },
-      "AddDirectoryIdentifierRequest": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": [
-              "ssn",
-              "ein",
-              "dob",
-              "account",
-              "drivers_license",
-              "ssn_last_four",
-              "bar_number"
-            ]
-          },
-          "value": {
-            "type": "string",
-            "minLength": 1
-          },
-          "validFrom": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "validTo": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "type",
-          "value"
         ]
       },
       "DirectoryIdentifierValueResponse": {
         "type": "object",
         "properties": {
           "value": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The decrypted value — for an account, its number; the username and secret ride beside it."
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secret": {
             "type": [
               "string",
               "null"
@@ -8205,7 +8861,6 @@
                   "enum": [
                     "ssn",
                     "ein",
-                    "dob",
                     "account",
                     "drivers_license",
                     "ssn_last_four",
@@ -8703,86 +9358,6 @@
           "data"
         ]
       },
-      "AddDirectoryEmailRequest": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 320
-          },
-          "contactUse": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "work",
-              "home",
-              "mobile",
-              "other",
-              "former",
-              "temporary",
-              null
-            ]
-          },
-          "isPrimary": {
-            "type": "boolean"
-          },
-          "preference": {
-            "$ref": "#/components/schemas/DirectoryContactPreference"
-          },
-          "verification": {
-            "$ref": "#/components/schemas/DirectoryContactVerification"
-          }
-        },
-        "required": [
-          "address"
-        ]
-      },
-      "DirectoryContactPreference": {
-        "type": "object",
-        "properties": {
-          "permitted": {
-            "type": "boolean",
-            "description": "May the firm use this contact point. Defaults to true. A contact point the person asked the firm not to use is recorded with the permission withdrawn and a note saying so, never deleted: deleting it loses the instruction along with the value."
-          },
-          "preferred": {
-            "type": "boolean",
-            "description": "Is this the one route the person asked to be reached by. At most one per entity across email, phone and address together, because that preference is a single answer about every channel; promoting one demotes whichever was preferred before, in any of the three."
-          },
-          "note": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 1000,
-            "description": "Why the contact point may not be used, or how it should be."
-          }
-        }
-      },
-      "DirectoryContactVerification": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "unverified",
-              "verified",
-              "failed"
-            ],
-            "description": "What the firm found when it last tried to confirm this contact point. A failed status records returned mail, a bounced message or a disconnected line. It never blocks a send: it is surfaced to whoever is about to send, and the send proceeds."
-          },
-          "detail": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 1000,
-            "description": "What the failure said, in the words it said it."
-          }
-        }
-      },
       "UpdateDirectoryEmailRequest": {
         "type": "object",
         "properties": {
@@ -8829,68 +9404,6 @@
         },
         "required": [
           "data"
-        ]
-      },
-      "AddDirectoryPhoneRequest": {
-        "type": "object",
-        "properties": {
-          "number": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "description": "The number as it was written. Stored verbatim and never rewritten; the structured columns beside it go null when it cannot be split, so an unparseable number is still recorded."
-          },
-          "contactSystem": {
-            "type": "string",
-            "enum": [
-              "voice",
-              "fax",
-              "sms",
-              "pager"
-            ]
-          },
-          "contactUse": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "work",
-              "home",
-              "mobile",
-              "other",
-              "former",
-              "temporary",
-              null
-            ]
-          },
-          "extension": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 16
-          },
-          "countryRegionCode": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 2,
-            "maxLength": 2
-          },
-          "isPrimary": {
-            "type": "boolean"
-          },
-          "preference": {
-            "$ref": "#/components/schemas/DirectoryContactPreference"
-          },
-          "verification": {
-            "$ref": "#/components/schemas/DirectoryContactVerification"
-          }
-        },
-        "required": [
-          "number"
         ]
       },
       "UpdateDirectoryPhoneRequest": {
@@ -8964,115 +9477,6 @@
         "required": [
           "data"
         ]
-      },
-      "AddDirectoryAddressRequest": {
-        "type": "object",
-        "properties": {
-          "recipient": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "organizationName": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "street": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "streetTwo": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "dependentLocality": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "city": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "region": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 200
-          },
-          "postal": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 32
-          },
-          "sortingCode": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 32
-          },
-          "country": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 2,
-            "maxLength": 2
-          },
-          "addressUse": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "enum": [
-              "residential",
-              "business",
-              "postal",
-              "registered",
-              "service",
-              "former",
-              "temporary",
-              null
-            ]
-          },
-          "addressType": {
-            "type": "string",
-            "enum": [
-              "physical",
-              "postal",
-              "both"
-            ]
-          },
-          "isPrimary": {
-            "type": "boolean"
-          },
-          "preference": {
-            "$ref": "#/components/schemas/DirectoryContactPreference"
-          },
-          "verification": {
-            "$ref": "#/components/schemas/DirectoryContactVerification"
-          }
-        }
       },
       "UpdateDirectoryAddressRequest": {
         "type": "object",
@@ -9319,6 +9723,163 @@
         "required": [
           "sources",
           "strictness"
+        ]
+      },
+      "ConflictsCheckPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsCheckSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "ConflictsCheckSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "preliminary",
+              "comprehensive",
+              "new_party",
+              "entity_merged",
+              "entity_renamed",
+              "relationship_recorded",
+              "identifier_recorded",
+              "personnel_changed",
+              "periodic_rescan"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "strictness": {
+            "type": "string",
+            "enum": [
+              "balanced",
+              "over_inclusive"
+            ]
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "floorRaised": {
+            "type": "boolean"
+          },
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triggerSource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hitCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "trigger",
+          "matterId",
+          "strictness",
+          "depth",
+          "floorRaised",
+          "actorUserId",
+          "triggerSource",
+          "hitCount",
+          "createdAt"
+        ]
+      },
+      "ConflictsPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "floorSources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "party",
+                "graph",
+                "imputation",
+                "content"
+              ]
+            }
+          },
+          "floorStrictness": {
+            "type": "string",
+            "enum": [
+              "balanced",
+              "over_inclusive"
+            ]
+          },
+          "defaultDepth": {
+            "type": "integer"
+          },
+          "edgeClassBudgets": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "closureCap": {
+            "type": "integer"
+          },
+          "candidateCap": {
+            "type": "integer"
+          },
+          "balancedNameRoles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "floorSources",
+          "floorStrictness",
+          "defaultDepth",
+          "edgeClassBudgets",
+          "closureCap",
+          "candidateCap",
+          "balancedNameRoles"
+        ]
+      },
+      "CreatedConflictsRecheckResponse": {
+        "type": "object",
+        "properties": {
+          "checkId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkId"
         ]
       },
       "ConflictsCheckWithHitsResponse": {
@@ -9591,6 +10152,9 @@
           "entityId": {
             "type": "string"
           },
+          "party": {
+            "$ref": "#/components/schemas/ConflictsHitParty"
+          },
           "sourceClass": {
             "type": "string",
             "enum": [
@@ -9630,6 +10194,7 @@
         "required": [
           "id",
           "entityId",
+          "party",
           "sourceClass",
           "evidenceTier",
           "matchedFields",
@@ -9637,6 +10202,31 @@
           "coParty",
           "createdAt",
           "disposition"
+        ]
+      },
+      "ConflictsHitParty": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "displayName"
         ]
       },
       "ConflictsGraphPathStep": {
@@ -9754,6 +10344,74 @@
           "confirmedInWriting",
           "documentFileId",
           "givenOn"
+        ]
+      },
+      "ConflictsDispositionTrailResponse": {
+        "type": "object",
+        "properties": {
+          "hitId": {
+            "type": "string"
+          },
+          "dispositions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsDispositionTrailEntry"
+            }
+          }
+        },
+        "required": [
+          "hitId",
+          "dispositions"
+        ]
+      },
+      "ConflictsDispositionTrailEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cleared",
+              "waiver_obtained",
+              "wall_erected",
+              "representation_declined"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "reviewerUserId": {
+            "type": "string"
+          },
+          "waiver": {
+            "$ref": "#/components/schemas/ConflictsWaiverDetail"
+          },
+          "shortfalls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "consenting-party-unrecorded",
+                "consent-not-confirmed-in-writing",
+                "confirmation-not-filed",
+                "date-given-unrecorded"
+              ]
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "rationale",
+          "reviewerUserId",
+          "waiver",
+          "shortfalls",
+          "createdAt"
         ]
       },
       "MatterConflictsPostureResponse": {
@@ -10196,6 +10854,25 @@
           },
           "link": {
             "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "typeText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "facts": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -10206,7 +10883,10 @@
           "matterId",
           "actorUserId",
           "label",
-          "link"
+          "link",
+          "title",
+          "typeText",
+          "facts"
         ]
       },
       "MatterEventPage": {
@@ -10620,6 +11300,41 @@
           "origin",
           "active"
         ]
+      },
+      "CalendarSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "weekStartsOn": {
+            "$ref": "#/components/schemas/CalendarWeekStartsOn"
+          }
+        },
+        "required": [
+          "weekStartsOn"
+        ]
+      },
+      "CalendarWeekStartsOn": {
+        "anyOf": [
+          {
+            "type": "number",
+            "enum": [
+              0
+            ]
+          },
+          {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          }
+        ]
+      },
+      "PatchCalendarSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "weekStartsOn": {
+            "$ref": "#/components/schemas/CalendarWeekStartsOn"
+          }
+        }
       },
       "CalendarCreatedResponse": {
         "type": "object",
@@ -11651,6 +12366,64 @@
           "overlappingBookingIds"
         ]
       },
+      "EventBookings": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventBooking"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "EventBooking": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "startsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsOn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "resourceId",
+          "startsOn",
+          "startsAtTime",
+          "endsOn",
+          "endsAtTime",
+          "timeZone"
+        ]
+      },
       "BookingCreatedResponse": {
         "type": "object",
         "properties": {
@@ -12003,6 +12776,79 @@
         },
         "required": [
           "startsOn"
+        ]
+      },
+      "CalendarEventLinks": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarEventLinkDetail"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CalendarEventLinkDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "continuance_of",
+              "related"
+            ]
+          },
+          "from": {
+            "$ref": "#/components/schemas/CalendarEventLinkEnd"
+          },
+          "to": {
+            "$ref": "#/components/schemas/CalendarEventLinkEnd"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "from",
+          "to",
+          "note",
+          "createdAt"
+        ]
+      },
+      "CalendarEventLinkEnd": {
+        "type": "object",
+        "properties": {
+          "matterEventId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firmEventId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "matterEventId",
+          "firmEventId"
         ]
       },
       "ContinuanceChain": {
@@ -13546,6 +14392,535 @@
         },
         "required": [
           "accepted"
+        ]
+      },
+      "IntakeProcedureList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntakeProcedure"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "IntakeProcedure": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTypeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntakeProcedureStep"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "matterTypeId",
+          "active",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "IntakeProcedureStep": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "identity-verification",
+              "conflicts-check",
+              "fee-agreement",
+              "engagement-letter",
+              "retainer",
+              "document",
+              "questionnaire",
+              "acknowledgement"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "referenceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "instructions",
+          "required",
+          "referenceId",
+          "position"
+        ]
+      },
+      "CreatedIntakeProcedure": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "IntakeProcedureRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "matterTypeId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterType_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "name",
+          "matterTypeId"
+        ]
+      },
+      "IntakeAcknowledged": {
+        "type": "object",
+        "properties": {
+          "acknowledged": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "acknowledged"
+        ]
+      },
+      "IntakeProcedureStepRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "identity-verification",
+              "conflicts-check",
+              "fee-agreement",
+              "engagement-letter",
+              "retainer",
+              "document",
+              "questionnaire",
+              "acknowledgement"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          },
+          "required": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "referenceId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "position": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "kind",
+          "title"
+        ]
+      },
+      "IntakeProcedureStepEditRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          },
+          "required": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "referenceId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "position": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "IntakeChecklist": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "matterStatus": {
+            "type": "string",
+            "enum": [
+              "prospective",
+              "open",
+              "closed"
+            ]
+          },
+          "procedures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ]
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntakeChecklistStep"
+            }
+          },
+          "outstandingRequired": {
+            "type": "integer"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntakeChecklistHistoryRecord"
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "matterStatus",
+          "procedures",
+          "steps",
+          "outstandingRequired",
+          "history"
+        ]
+      },
+      "IntakeChecklistStep": {
+        "type": "object",
+        "properties": {
+          "stepId": {
+            "type": "string"
+          },
+          "procedureId": {
+            "type": "string"
+          },
+          "procedureName": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "identity-verification",
+              "conflicts-check",
+              "fee-agreement",
+              "engagement-letter",
+              "retainer",
+              "document",
+              "questionnaire",
+              "acknowledgement"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "referenceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "type": "integer"
+          },
+          "recordable": {
+            "type": "boolean"
+          },
+          "standing": {
+            "$ref": "#/components/schemas/IntakeChecklistStanding"
+          },
+          "record": {
+            "$ref": "#/components/schemas/IntakeChecklistRecord"
+          }
+        },
+        "required": [
+          "stepId",
+          "procedureId",
+          "procedureName",
+          "kind",
+          "title",
+          "instructions",
+          "required",
+          "referenceId",
+          "position",
+          "recordable",
+          "standing",
+          "record"
+        ]
+      },
+      "IntakeChecklistStanding": {
+        "type": "object",
+        "properties": {
+          "satisfied": {
+            "type": "boolean"
+          },
+          "answeredBy": {
+            "type": "string",
+            "enum": [
+              "subsystem",
+              "record",
+              "nobody"
+            ]
+          },
+          "statement": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "satisfied",
+          "answeredBy",
+          "statement"
+        ]
+      },
+      "IntakeChecklistRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "waived"
+            ]
+          },
+          "rationale": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedBy": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "outcome",
+          "rationale",
+          "note",
+          "recordedBy",
+          "recordedAt"
+        ]
+      },
+      "IntakeChecklistHistoryRecord": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/IntakeChecklistRecord"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "stepId": {
+                "type": "string"
+              },
+              "supersededAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "supersededBy": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "stepId",
+              "supersededAt",
+              "supersededBy"
+            ]
+          }
+        ]
+      },
+      "IntakeStepRecorded": {
+        "type": "object",
+        "properties": {
+          "recordId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recordId"
+        ]
+      },
+      "IntakeRecordStepRequest": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        }
+      },
+      "IntakeWaiveStepRequest": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "rationale"
         ]
       },
       "CustodyLocation": {
@@ -30915,6 +32290,70 @@
         }
       }
     },
+    "/api/v1/meta/database-health": {
+      "get": {
+        "description": "Whether this session can reach and use its firm's data: a timed round trip to the firm's database, the control plane's own answer, the applied migration lineage against the one this build expects, this account's member row and roles with the permission count they resolve to, and any member-provisioning message for the firm still pending or dead-lettered. Each check reports its own state, so one failing read never hides the others, and a check that could not run says so rather than reporting health.",
+        "operationId": "meta.databaseHealth",
+        "tags": [
+          "meta"
+        ],
+        "x-mc-operationId": "meta.databaseHealth",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "meta"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm database's health, as seen by this session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseHealthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (absent, never an existence oracle)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/firm-usage": {
       "get": {
         "description": "The firm's own usage, computed when requested: storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters.",
@@ -39969,6 +41408,91 @@
         }
       }
     },
+    "/api/v1/matters/{id}/open-readiness": {
+      "get": {
+        "description": "Answers whether this consultation would open right now, without opening it. Runs the same opening rules the open runs and reports each one that stands in the way in the words of the subsystem that owns it: today, each required step of the firm's intake procedure that has no satisfying answer. A matter that is not prospective is reported as not openable, with that as its blocker. A reading of the present, never a guarantee: the open re-runs every rule.",
+        "operationId": "matters.openReadiness",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.openReadiness",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:open",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether the consultation can open, and what stands in the way",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterOpenReadiness"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matters/{id}/close-readiness": {
       "get": {
         "description": "Answers whether this matter would close right now, without closing it. Runs the same close preconditions the close runs and reports each one that stands in the way, with the balance and the movements that clear it, in the words of the subsystem that owns the rule. A matter that is already closed is reported as not closable, with that as its blocker. The answer is a reading of the present, never a guarantee: the close re-asserts every rule inside its own batch, so a balance that moves in between is caught there.",
@@ -40056,7 +41580,7 @@
     },
     "/api/v1/matters/{id}/open": {
       "post": {
-        "description": "Opens a Prospective matter: draws the firm's next matter number atomically and transitions it to open. Refuses a matter that is not Prospective.",
+        "description": "Opens a Prospective matter: draws the firm's next matter number atomically and transitions it to open. Runs the opening rules first: a consultation with a required intake step outstanding is refused with each step named and what answers it. Refuses a matter that is not Prospective.",
         "operationId": "matters.open",
         "tags": [
           "matters"
@@ -40146,7 +41670,7 @@
             }
           },
           "409": {
-            "description": "A request with this Idempotency-Key is still in progress, or the matter is in the wrong state",
+            "description": "An opening rule refused the consultation, or a request with this Idempotency-Key is still in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -48363,7 +49887,6 @@
               "enum": [
                 "ssn",
                 "ein",
-                "dob",
                 "account",
                 "drivers_license",
                 "ssn_last_four",
@@ -51037,6 +52560,285 @@
             }
           }
         }
+      },
+      "get": {
+        "description": "The checks this firm has run, newest first, keyset-paginated. Filter by `matterId` for one matter's own history. Each line carries what set the run going, who asked for it where anybody did, the strictness and depth it ran at, whether the firm's floor raised the scope above what was requested, and how many candidates surfaced — never a conclusion about any of them, which is a reviewer's act recorded as a disposition. A run nobody asked for carries no actor, and that is a fact about the run rather than a missing value.",
+        "operationId": "conflicts.listChecks",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.listChecks",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "matterId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the firm's conflicts checks, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictsCheckPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/conflicts-policy": {
+      "get": {
+        "description": "The firm's conflicts floor: the source classes every check must search whatever a caller asks for, the strictness band it must reach, and the traversal and candidate bounds a run is held to. A per-run scope may only ADD to the floor, never subtract from it — otherwise narrowing a request would manufacture a check that searched less than the firm requires while the log faithfully recorded that a check happened. It reads on conflicts:read because every member who can read a check is held to this, and a reviewer looking at a check that fell short of the floor has to be able to see what the floor is.",
+        "operationId": "conflicts.firmPolicy",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.firmPolicy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's conflicts policy floor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictsPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/conflicts-rechecks": {
+      "post": {
+        "description": "Runs a fresh comprehensive check against this matter's own live parties, now, because a member asked for one. It takes NO scope, and that is the point of it existing beside the general check route: 're-check this matter' has no scope for a caller to state, and asking for one invites a screen to invent a narrower search than the firm requires. The firm's own policy floor is what runs. The check is recorded as a manual run naming the member who asked, and carries no cause — a cause is a corpus change the platform noticed, and a person asking now is not one. It neither reads nor satisfies the automatic re-check ledger: an open cause stays open, because the interval between a cause and the check that answered it is evidence about the firm's procedure and a manual run did not answer it.",
+        "operationId": "conflicts.recheckMatter",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.recheckMatter",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:run",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The check that ran",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedConflictsRecheckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/conflicts/checks/{checkId}": {
@@ -51124,14 +52926,14 @@
         }
       }
     },
-    "/api/v1/matters/{matterId}/conflicts-posture": {
+    "/api/v1/conflicts/hits/{hitId}/dispositions": {
       "get": {
-        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
-        "operationId": "conflicts.matterPosture",
+        "description": "Every adjudication recorded against one hit, oldest first — the whole trail rather than the reviewer's latest word. The conflicts log is append-only, so a reviewer who cleared a hit and later reversed that call leaves both acts standing: the reversal is a second row, never an edit. This read is what makes that history producible. Each entry names the reviewer, carries the rationale they gave, and for a waiver carries the waiver's own record and what that record is short of, so an answer the firm cannot evidence never reads the same as one it can. A hit no reviewer has answered returns an empty trail, which is a fact about the hit and not about whether an interest is adverse.",
+        "operationId": "conflicts.hitDispositions",
         "tags": [
           "conflicts"
         ],
-        "x-mc-operationId": "conflicts.matterPosture",
+        "x-mc-operationId": "conflicts.hitDispositions",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "conflicts:read",
@@ -51148,20 +52950,20 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+              "pattern": "^conflictsHit_[A-Za-z0-9_-]{21}$"
             },
             "required": true,
-            "name": "matterId",
+            "name": "hitId",
             "in": "path"
           }
         ],
         "responses": {
           "200": {
-            "description": "The matter's conflicts posture, derived at read time",
+            "description": "Every disposition recorded against the hit, oldest first",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MatterConflictsPostureResponse"
+                  "$ref": "#/components/schemas/ConflictsDispositionTrailResponse"
                 }
               }
             }
@@ -51196,16 +52998,6 @@
               }
             }
           },
-          "422": {
-            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
           "429": {
             "description": "Rate limit exceeded",
             "content": {
@@ -51217,9 +53009,7 @@
             }
           }
         }
-      }
-    },
-    "/api/v1/conflicts/hits/{hitId}/dispositions": {
+      },
       "post": {
         "description": "Records a reviewer's adjudication of a surfaced hit — clearing it, noting a waiver, recording that an ethical wall was erected, or declining the representation. Every call appends a new row; a reviewer who reverses an earlier call records a second disposition rather than editing the first, so the full history of the adjudication stays visible. A waiver carries a record of its own: who consented, whether that consent was confirmed in writing, the filed document evidencing the confirmation, and the date the waiver was given. The consenting party and the date are required, because they are the act being recorded. The written confirmation and its document are not, because a waiver can be given orally and confirmed afterwards — a waiver recorded without them is accepted and reports what it is short of, so it never reads the same as one the firm can evidence.",
         "operationId": "conflicts.recordDisposition",
@@ -51353,9 +53143,104 @@
         }
       }
     },
+    "/api/v1/matters/{matterId}/conflicts-posture": {
+      "get": {
+        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
+        "operationId": "conflicts.matterPosture",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.matterPosture",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matter's conflicts posture, derived at read time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterConflictsPostureResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matters/{matterId}/timeline": {
       "get": {
-        "description": "The matter's timeline, newest first: the events and deadlines recorded here merged with what every other part of the platform already recorded about this case — documents filed, mail captured, documents assembled, originals moved, client money moved, time and costs booked, conflicts checks run, and the matter's own opening and closing. Nothing is copied into a timeline table: each entry is read in place from the record its own subsystem keeps, so the timeline cannot disagree with the register behind it. An entry carries identifiers, a kind, and a non-privileged summary where its source has one — follow the link for the detail. `kind` is repeatable and narrows which sources are read at all.",
+        "description": "The matter's timeline, newest first: the events and deadlines recorded here merged with what every other part of the platform already recorded about this case — documents filed, mail captured, documents assembled, originals moved, client money moved, time and costs booked, conflicts checks run, and the matter's own opening and closing. Nothing is copied into a timeline table: each entry is read in place from the record its own subsystem keeps, so the timeline cannot disagree with the register behind it. An entry carries identifiers, a kind, and a non-privileged summary where its source has one. On this matter-scoped read each source also NAMES its rows — a title, its own word for what the row is, and its own facts — for the sources whose read capability the member holds; the words are absent, never invented, where a source has none to give or the member may not read them. `kind` is repeatable and narrows which sources are read at all.",
         "operationId": "calendar.matterTimeline",
         "tags": [
           "calendar"
@@ -52389,6 +54274,203 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CalendarCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is settled",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar/settings": {
+      "get": {
+        "description": "The firm's calendar settings: which day its week begins on (0 for Sunday, 1 for Monday). A firm setting rather than a personal one, so every member reads the same week; Sunday until the firm says otherwise.",
+        "operationId": "calendar.getSettings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.getSettings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's calendar settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's calendar settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. Returns the settings after the write.",
+        "operationId": "calendar.updateSettings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.updateSettings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCalendarSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's calendar settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSettingsResponse"
                 }
               }
             }
@@ -54617,6 +56699,176 @@
         }
       }
     },
+    "/api/v1/events/{eventId}/bookings": {
+      "get": {
+        "description": "The live bookings a matter event holds: which resources it has booked and for what span. Read through the visible-matter predicate like the event itself; an event on an invisible matter is a 404.",
+        "operationId": "calendar.listEventBookings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.listEventBookings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterEvent_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "eventId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event's bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventBookings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm-events/{firmEventId}/bookings": {
+      "get": {
+        "description": "The live bookings a firm event holds: which resources it has booked and for what span.",
+        "operationId": "calendar.listFirmEventBookings",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.listFirmEventBookings",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firmEvent_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmEventId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm event's bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventBookings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/resource-bookings": {
       "post": {
         "description": "Books a resource for exactly one event — a matter event or a firm event, never neither: 'book the pool car Friday' is a Reservation-type firm event with the booking attached. The window defaults from the event and is editable (the room from half past eight for a nine o'clock deposition); the zone freezes from the resource's office. A double-booking succeeds and the response reports the conflicts it created: rooms are double-booked on purpose, the front desk referees them, and a taken room must never be the reason a hearing cannot be recorded.",
@@ -55389,6 +57641,176 @@
         }
       }
     },
+    "/api/v1/events/{eventId}/links": {
+      "get": {
+        "description": "Every link touching a matter event, from either side: the continuance it is part of and the settings it was related to by hand. Ends are identifiers; the other end's record is read on its own path, under its own visibility.",
+        "operationId": "calendar.listEventLinks",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.listEventLinks",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterEvent_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "eventId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event's links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventLinks"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm-events/{firmEventId}/links": {
+      "get": {
+        "description": "Every link touching a firm event, from either side.",
+        "operationId": "calendar.listFirmEventLinks",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.listFirmEventLinks",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firmEvent_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmEventId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm event's links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventLinks"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events/{eventId}/continuance-chain": {
       "get": {
         "description": "The full procedural history of one hearing: every setting in order — dates, statuses, and reasons — walked in both directions from any setting in the chain.",
@@ -55720,6 +58142,89 @@
       }
     },
     "/api/v1/notes/{noteId}": {
+      "get": {
+        "description": "One note by its id, with the documents it points at — what a deep link into the matter's notes opens, through the same matter visibility the list reads under. A note on a matter the member may not see is not found, never partially shown.",
+        "operationId": "notes.getNote",
+        "tags": [
+          "notes"
+        ],
+        "x-mc-operationId": "notes.getNote",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "notes:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "notes"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterNote_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "noteId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The note",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterNoteDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the note is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "description": "Changes a note's text, and when it says the thing happened. The previous text is replaced and is not kept: what the note said before is gone. Who made the change is recorded.",
         "operationId": "notes.editNote",
@@ -59691,6 +62196,1478 @@
           },
           "409": {
             "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-procedures": {
+      "get": {
+        "description": "The firm's intake procedures. Deactivated procedures are left out unless asked for; a procedure is never deleted, because a member's record on a matter names the step it answered and a firm asking what its old procedure required needs it to still be there.",
+        "operationId": "intake.listProcedures",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.listProcedures",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:manageProcedures",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "required": false,
+            "name": "includeInactive",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The firm's procedures",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeProcedureList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Creates a procedure. Bind it to a matter type to gate consultations of that kind, or leave the type null to gate every consultation. A new procedure asks for nothing until steps are added to it. Magna Carta ships no procedures of its own: what a firm requires before it acts is the firm's own statement.",
+        "operationId": "intake.createProcedure",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.createProcedure",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:manageProcedures",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeProcedureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The procedure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedIntakeProcedure"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-procedures/{procedureId}": {
+      "get": {
+        "description": "One procedure and its steps, in the order the firm listed them.",
+        "operationId": "intake.readProcedure",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.readProcedure",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:manageProcedures",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeProcedure_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "procedureId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The procedure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeProcedure"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Changes a procedure's name, description, or the matter type it binds. The change reaches every consultation of that kind at once: a checklist is derived from the procedure at the moment it is read, so what the firm requires today is what every consultation must clear today. Records already made on a matter are untouched.",
+        "operationId": "intake.editProcedure",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.editProcedure",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:manageProcedures",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeProcedure_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "procedureId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeProcedureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The procedure was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-procedures/{procedureId}/active": {
+      "put": {
+        "description": "Stops a procedure gating consultations, or starts it again. Deactivating changes no record on any matter; from that moment its steps are simply no longer asked.",
+        "operationId": "intake.setProcedureActive",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.setProcedureActive",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:manageProcedures",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeProcedure_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "procedureId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "active": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "active"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The procedure's standing was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-procedures/{procedureId}/steps": {
+      "post": {
+        "description": "Adds a step. Its kind decides who answers it: a conflicts-check step is answered by the matter's conflicts posture, a fee-agreement step by the billing arrangement in force, a document or engagement-letter step by an assembly of the named template landing on the matter, a retainer step by the matter's trust position, a questionnaire step by the named custom field's value; an identity-verification or acknowledgement step is answered by a member recording that they did it, and every kind also accepts a member's record where the platform could not see the fact. A required step refuses the opening while unanswered.",
+        "operationId": "intake.addStep",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.addStep",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:manageProcedures",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeProcedure_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "procedureId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeProcedureStepRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The step",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedIntakeProcedure"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-procedure-steps/{stepId}": {
+      "patch": {
+        "description": "Changes a step. Every field but the kind is replaced, so send the ones to keep as well; a step's kind decides who answers it and a different kind is a new step.",
+        "operationId": "intake.editStep",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.editStep",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:manageProcedures",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeProcedureStep_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stepId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeProcedureStepEditRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The step was changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Retires a step: it stops being asked from this moment. The step is kept rather than deleted, so every record that answered it on a matter still says what it answered.",
+        "operationId": "intake.retireStep",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.retireStep",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:manageProcedures",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "The step is kept so every record that answered it still says what it answered, but no route puts a retired step back into the asking. Adding it again mints a new step, which the matters that answered the old one do not point at."
+        },
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeProcedureStep_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stepId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The step was retired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/intake": {
+      "get": {
+        "description": "Where this matter stands against the intake procedures binding its kind: every step, who answered it, and what they found, in the words of the subsystem that owns the fact. Reading this writes nothing and caches nothing; a step whose fact has changed reads as it stands now. outstandingRequired is the number of required steps with no satisfying answer, which is what stands between a consultation and opening.",
+        "operationId": "intake.readChecklist",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.readChecklist",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The checklist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeChecklist"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/intake/steps/{stepId}/completion": {
+      "post": {
+        "description": "Records, under your name, that this step was completed on this consultation. Refused on a kind the platform answers itself (a conflicts check, a fee agreement): those are read from their own record and can only be waived. Recording over an earlier answer keeps the earlier one in the history.",
+        "operationId": "intake.recordStep",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.recordStep",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:record",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeProcedureStep_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stepId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeRecordStepRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeStepRecorded"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/intake/steps/{stepId}/waiver": {
+      "post": {
+        "description": "Waives this step on this consultation, under your name and with the reason, so the matter may open without it. A waiver is recorded as a waiver and never as a completion, so it is never mistaken for the fact it stands in for.",
+        "operationId": "intake.waiveStep",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.waiveStep",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:waive",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeProcedureStep_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stepId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeWaiveStepRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeStepRecorded"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{matterId}/intake/steps/{stepId}/record": {
+      "delete": {
+        "description": "Sets aside the live answer on this step, so it is answered again by its own subsystem or by nobody. The earlier answer stays in the history. Refused when nothing is recorded.",
+        "operationId": "intake.reopenStep",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.reopenStep",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:record",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "intake.recordStep"
+        },
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "matterId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeProcedureStep_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "stepId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The step was reopened",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -91868,6 +95845,9 @@
     },
     {
       "name": "incidents"
+    },
+    {
+      "name": "intake"
     },
     {
       "name": "invitations"

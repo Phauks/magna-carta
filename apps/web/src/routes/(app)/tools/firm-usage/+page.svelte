@@ -17,10 +17,11 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Skeleton from "@magna-carta/design-system/skeleton";
   import ExportMenu from "$lib/export/export-menu.svelte";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import ByLocationTable from "$lib/tools/firm-usage/by-location-table.svelte";
   import { readFirmUsage, type FirmUsageResponse } from "$lib/tools/firm-usage/firm-usage-api.ts";
   import { firmUsageExportDocument } from "$lib/tools/firm-usage/firm-usage-report.ts";
@@ -73,11 +74,12 @@
 
 <svelte:head><title>Firm Usage · Magna Carta</title></svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Firm Usage</Masthead.Title>
-  </Masthead.Heading>
-  <Masthead.Actions>
+<ScreenHeader
+  title="Firm Usage"
+  back="tools"
+  class="mb-24"
+>
+  {#snippet actions()}
     <ExportMenu
       disabled={usage === null}
       exportDocument={() => (usage === null ? null : firmUsageExportDocument(usage, new Date()))}
@@ -86,8 +88,8 @@
       <RefreshCw class="size-16" aria-hidden="true" />
       Refresh
     </Button>
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if failure !== null}
   <FailureNotice
@@ -374,13 +376,11 @@
     </section>
 
     <section>
-      <h2
-        class="mb-4 flex items-center gap-8 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="h2" class="mb-4 flex items-center gap-8 border-b border-border-strong pb-8"
       >
         <span>Compute and Activity</span>
         <MaturityBadge stage="soon" />
-      </h2>
+      </FieldLabel>
       <p class="mb-16 text-xs text-text-muted">
         Waits on the Cloudflare Analytics API credential.
       </p>
@@ -408,10 +408,8 @@
 {/if}
 
 {#snippet sectionHeading(title: string)}
-  <h2
-    class="mb-16 border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h2" class="mb-16 border-b border-border-strong pb-8"
   >
     {title}
-  </h2>
+  </FieldLabel>
 {/snippet}
