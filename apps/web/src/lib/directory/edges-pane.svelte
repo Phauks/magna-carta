@@ -67,6 +67,7 @@
     filter = "all",
     mayEdit,
     editDisabledReason,
+    onOpenEntity,
   }: {
     entityId: string;
     /** Which side of the directory this record is on. Decides what may be recorded from it. */
@@ -77,6 +78,12 @@
     filter?: EdgePaneFilter;
     mayEdit: boolean;
     editDisabledReason?: string;
+    /**
+     * Open the far record some way other than by its address — inside the window this pane already
+     * stands in, which swaps its subject rather than stacking a second window. Without it the far
+     * name is the link to its address.
+     */
+    onOpenEntity?: (entityId: string) => void;
   } = $props();
 
   /** What each filter calls itself and says when it has nothing to list. */
@@ -332,7 +339,10 @@
                   <EntityIdentity
                     kind={farKindOf(edge)}
                     name={sentence.far}
-                    href={entityRecordHref(edge.farEntityId)}
+                    href={onOpenEntity === undefined ? entityRecordHref(edge.farEntityId) : undefined}
+                    onOpen={onOpenEntity === undefined
+                      ? undefined
+                      : () => onOpenEntity(edge.farEntityId)}
                   />
                   {#if sentence.after !== ""}
                     <span>{sentence.after}</span>

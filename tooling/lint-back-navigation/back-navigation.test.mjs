@@ -12,6 +12,7 @@ import {
   handRolledHeaders,
   screensUnderAScreen,
   spelledOutBackTargets,
+  STANDING_EXEMPTIONS,
 } from "./back-navigation.mjs";
 
 /*
@@ -72,13 +73,15 @@ function filesystem(repository) {
   return { readDirectory, readFile, exists };
 }
 
-function audit(repository) {
+function audit(repository, exemptions = new Map()) {
   const { readDirectory, readFile, exists } = filesystem(repository);
   return auditBackNavigation({
     routesRoot: ROUTES,
     webSource: WEB_SOURCE,
     destinations: DESTINATIONS,
     spelledOut: SPELLED_OUT,
+    // The fixtures below reuse real paths, so the standing register is kept out of them.
+    exemptions,
     readDirectory,
     readFile,
     exists,
@@ -409,6 +412,22 @@ describe("declining", () => {
     expect(result.failures).toEqual([]);
     expect(result.excluded).toEqual(["/login/reset-password"]);
   });
+
+  it("lists a route that declines with a stated reason, and never silently", () => {
+    const reason = "its loader redirects; nothing renders here";
+    const repository = repositoryWith({
+      directory: { "+page.svelte": PLAIN_PAGE, "[id]": { "+page.svelte": PLAIN_PAGE } },
+    });
+    const declined = audit(repository, new Map([["/directory/[id]", reason]]));
+    expect(declined.failures).toEqual([]);
+    expect(declined.exempted).toEqual([`/directory/[id] — ${reason}`]);
+    // The same tree with no reason given is a failure, not a quiet pass.
+    expect(audit(repository).failures).toHaveLength(1);
+  });
+
+  it("carries the record's former address as the one standing exemption", () => {
+    expect([...STANDING_EXEMPTIONS.keys()]).toEqual(["/directory/[id]"]);
+  });
 });
 
 describe("one header for every screen", () => {
@@ -465,7 +484,6 @@ describe("the real sources", () => {
   it("covers the detail screens this rule was written for", () => {
     expect(result.covered).toEqual(
       expect.arrayContaining([
-        "/directory/[id]",
         "/conflicts/checks/[checkId]",
         "/conflicts/matters/[matterId]",
         "/matters/[id]/overview",

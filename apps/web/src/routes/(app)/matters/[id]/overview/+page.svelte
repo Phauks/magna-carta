@@ -16,7 +16,8 @@
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ActivityRegister from "$lib/activity/activity-register.svelte";
   import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
-  import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
+  import EntityWindow from "$lib/directory/entity-window.svelte";
+  import type { EntityStanding } from "$lib/directory/entity-window-model.ts";
   import { CalendarView } from "$lib/calendar/index.ts";
   import { todayCivil } from "$lib/calendar/calendar-window.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -98,6 +99,21 @@
   const ACCRUAL_TILES = [{ label: "Unbilled time" }, { label: "Trust balance" }];
 
   const isSample = $derived(matter.source === "sample");
+
+  // ---- the open record -------------------------------------------------------------------------
+
+  // A fact that names a directory record opens it in the entity window over this page, with what
+  // this matter knows of it — the role the fact is — as its standing.
+  let entityOpen = $state(false);
+  let openEntityId = $state("");
+  let openStanding = $state<EntityStanding | null>(null);
+
+  function openFactEntity(entityId: string, role: string): void {
+    openEntityId = entityId;
+    openStanding = { heading: `On ${matter.title}`, lines: [{ label: "Role", value: role }] };
+    entityOpen = true;
+  }
+
   /** The next thirty days on this matter, six rows deep; the Calendar section has the rest. */
   const COMING_UP_DAYS = 30;
   const COMING_UP_ROWS = 6;
@@ -122,10 +138,11 @@
           </FieldLabel>
           <dd class="text-sm">
             {#if fact.entity !== undefined}
+              {@const entity = fact.entity}
               <EntityIdentity
-                kind={fact.entity.kind}
+                kind={entity.kind}
                 name={fact.value}
-                href={entityRecordHref(fact.entity.id)}
+                onOpen={() => openFactEntity(entity.id, fact.label)}
               />
             {:else}
               {fact.value}
@@ -201,3 +218,6 @@
     />
   </section>
 </div>
+
+<!-- The client's record, over this page rather than in the directory's place. -->
+<EntityWindow bind:open={entityOpen} bind:entityId={openEntityId} standing={openStanding} />
