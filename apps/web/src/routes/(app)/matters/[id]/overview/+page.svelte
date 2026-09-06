@@ -5,7 +5,7 @@
    * calendar component with this matter's scope, headless and capped), and honest placeholder
    * tiles for the figures that accrue once time and trust flow ("Soon", never fake numbers).
    * Status is displayed as a fact and never gates content — every section renders the same
-   * for a prospective, open, or closed matter.
+   * for a consultation, open, or closed matter.
    */
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -82,6 +82,14 @@
     }
     if (matter.openedAt) {
       facts.push({ label: "Opened", value: formatDate(matter.openedAt) });
+    }
+    // The pause is stated where the status is: when it began and why, because a reader who sees
+    // On Hold on the seal asks both at once.
+    if (matter.status === "hold" && matter.heldAt) {
+      facts.push({ label: "On hold since", value: formatDate(matter.heldAt) });
+    }
+    if (matter.status === "hold" && matter.holdReason) {
+      facts.push({ label: "Hold reason", value: matter.holdReason });
     }
     if (matter.closedAt) {
       facts.push({ label: "Closed", value: formatDate(matter.closedAt) });

@@ -22,7 +22,7 @@ These are **scoped, not universal:** each binds only when you work in its area. 
 
 ## Matters & numbering
 
-- **A matter number is frozen at assignment, unique per firm.** It is drawn when a matter opens (a prospective consultation has none) and never changes except by a deliberate renumber; a partial UNIQUE index on `matter_number` is the concurrency backstop, so two simultaneous draws yield distinct numbers. (_Matters and File Manager_; ADR-0079)
+- **A matter number is frozen at assignment, unique per firm.** It is drawn when a matter opens (an intake and a consultation have none; a matter on hold keeps the one it drew) and never changes except by a deliberate renumber; a partial UNIQUE index on `matter_number` is the concurrency backstop, so two simultaneous draws yield distinct numbers. (_Matters and File Manager_; ADR-0079)
 - **Closed is archived-but-additive.** A closed matter still accepts documents; closing runs the named close-precondition registry first (the Financial Core registers the zero-balance rule later). (_Matters and File Manager_; ADR-0080)
 
 ## File Manager

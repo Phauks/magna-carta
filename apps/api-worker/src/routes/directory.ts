@@ -719,7 +719,7 @@ const EntityMatterPartyEntry = z
     matterNumber: z
       .string()
       .nullable()
-      .openapi({ description: "Null while the matter is still prospective and undrawn." }),
+      .openapi({ description: "Null while the matter is still consultation and undrawn." }),
     matterStatus: z.string().nullable(),
     linkedAt: z.string(),
   })

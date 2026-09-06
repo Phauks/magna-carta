@@ -93,7 +93,7 @@ async function get(path: string, cookie = ownerCookie) {
 async function createMatter(title: string): Promise<string> {
   const response = await post("/api/v1/matters", {
     title,
-    status: "prospective",
+    status: "consultation",
     responsibleMemberId: ownerUserId,
   });
   expect(response.status).toBe(201);

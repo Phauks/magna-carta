@@ -14,7 +14,9 @@ export const INTAKE_STEP_KINDS = [
   "conflicts-check",
   "fee-agreement",
   "engagement-letter",
+  "client-forms",
   "retainer",
+  "payment",
   "document",
   "questionnaire",
   "acknowledgement",
@@ -106,7 +108,7 @@ export interface IntakeHistoryRecord extends IntakeRecord {
 
 export interface IntakeChecklist {
   matterId: string;
-  matterStatus: "prospective" | "open" | "closed";
+  matterStatus: "intake" | "consultation" | "open" | "hold" | "closed";
   procedures: { id: string; name: string }[];
   steps: IntakeChecklistStep[];
   /** Required steps with no satisfying answer: what stands between the consultation and opening. */

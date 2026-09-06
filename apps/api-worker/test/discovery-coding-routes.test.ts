@@ -119,7 +119,7 @@ beforeAll(async () => {
 
   const matterResponse = await post("/api/v1/matters", {
     title: "Ellery v. Bramwell",
-    status: "prospective",
+    status: "consultation",
     responsibleMemberId: ownerUserId,
   });
   expect(matterResponse.status).toBe(201);

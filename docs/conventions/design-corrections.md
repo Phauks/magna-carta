@@ -238,6 +238,15 @@ is usually the fastest way to understand the rule.
   statement about a route and a wrong one about the work: the person has the document open in front
   of them. Hold the picks and apply them when the record is written. _(Time record window,
   2026-09-03)_
+- **A field that chooses a record can MAKE one, from where it stands, through a top-level New.**
+  Wherever a person or an organization is picked — a client, a payee, a conflicts subject, an
+  event's participant — a New control stands beside the field before anything is typed, and the
+  list ends with an add row for what was. It opens the record's own creation window (the same
+  window, the same duplicate gate) over the surface the field is on, seeded with what was typed,
+  and the new record lands in the field. Sending somebody to the Directory to add the caller and
+  then back to the matter they were opening is the same work twice and loses the sentence they were
+  halfway through. A reader who may not create sees the control refused with the reason, never
+  absent. _(the intake desk's client field, and every picker over the directory, 2026-09-05)_
 
 ### Controls and patterns
 
@@ -680,6 +689,74 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-06 — the matter lifecycle: a hold beside active, and no number before active
+
+The owner, the morning after the intake rung: "we should also add a HOLD status, for matters that
+are not closed, but there are various issues relating to why they are no longer considered active,
+like clients not paying bills. whats important is that no matter number is assigned until it
+becomes an active matter." And: "status pillbox modal will need to allow changing into this hold
+status as well." What binds:
+
+- **A matter's statuses are Intake, Consultation, Active, On Hold and Closed**, stored as `intake`,
+  `consultation`, `open`, `hold`, `closed`. On Hold is reached only from Active — "no longer
+  active" presumes it was — and returns only to Active.
+- **A hold keeps the number and draws nothing.** No number of any kind exists before a matter is
+  active, and none is surrendered or re-drawn on either side of a pause. A held matter stays on the
+  docket wearing its status; it is not an unnumbered rung and does not go to the Intake desk.
+- **A hold carries its reason, and the reason is required.** It is asked in a sentence, in place,
+  beneath the step that records it, and printed beside the status wherever the status is read. A
+  pause nobody can explain is not a pause anybody can resume.
+- **The status window offers every step a status allows, never a picker.** Active offers Close
+  Matter and Put On Hold; On Hold offers Release Hold and Close Matter. The first is the step the
+  lifecycle runs toward, the second the pause or the exit. One permission, `matters:hold`, both
+  ways: whoever may pause the firm's work may resume it.
+- **A matter cannot be started on hold**, and the New Matter window says so in its own words, with
+  no Soon mark, because nothing is coming: a hold pauses work, so there has to be work to pause.
+
+### 2026-09-05 — the matter lifecycle: an intake rung before the consultation, and the word
+
+The owner, walking the desk: "I don't think that intake should have a matter yet. Intake gets
+something to prospective after it has graduated all the other requirements for intake. Intake is
+like the walkthrough to get to prospective." Then: "perhaps prospective is the improper name, and
+it should be consultation?" Then: "we have no matters to migrate, so store it as consultation and
+open." What binds:
+
+- **A matter's statuses are Intake, Consultation, Active and Closed**, in that order, stored as
+  `intake`, `consultation`, `open`, `closed`. The word "prospective" is not a status word anywhere a
+  reader sees it; it survives only where it means the client's standing under the conduct rules.
+- **Intake is a rung, not a phase derived from a checklist.** The matter row exists from the first
+  call (the conflicts corpus, the files, the calendar and every procedure reader need it) but it
+  carries no number of any kind, it appears on the Intake desk and not the docket, and it
+  graduates into a consultation by a recorded act.
+- **The firm's intake procedure holds the door between intake and consultation**, never the door
+  into opening. Completing the intake draws the consultation number; opening draws the matter
+  number and is the firm's decision.
+- **A control that takes a lifecycle step reads the step's own verb**: Complete Intake, Open
+  Matter, Close Matter, Reopen Matter. Never "graduate", which is the code's word.
+
+### 2026-09-05 — the intake desk, and New beside every person field
+
+The owner described the receptionist's workflow: open Intake from the sidebar; choose the caller
+from the directory or create them; collect what the intake requires and clear its criteria — the
+conflicts check, the agreement out and back, the client's online forms, the payment, and whatever
+else the firm requires; run several intakes at once and resume any; and, once one is complete,
+schedule the consultation. And: "on this field and other places in the app where a user can select
+a person, we need a way to create an entity from that location. A top level '+ New'." The
+generalization is promoted under _Data entry_ above. What is local:
+
+- **The desk is one table**, on the list archetype every register uses: search and the create
+  control in the masthead, the columns' own filters, the consultation number anchoring the row.
+  The standing reads as counts of the firm's own steps ("3 of 5 answered, 1 required
+  outstanding"), never a word about the client.
+- **New Intake is the New Matter window** in an intake purpose — status fixed at Prospective and
+  not offered, Start Intake, no money block — not a second window for the same act.
+- **Schedule stands on every row and is refused with the reason** until every required step is
+  answered; it opens the calendar's own event window on the consultation with the client and the
+  responsible attorney already on it.
+- **The picker's New is a button for one kind and a menu for both**, in the field's row, at the
+  small secondary size; the add rows in the list say which kind they will make when both are
+  offered ("Add "Northwind Couriers" as an organization").
 
 ### 2026-09-05 — the directory record, from a screen to one window
 

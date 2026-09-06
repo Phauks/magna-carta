@@ -55,6 +55,13 @@ describe("the kind vocabulary", () => {
     expect(identity?.answeredBy).toContain("A member records");
     const conflicts = INTAKE_STEP_KIND_VOCABULARY.find((entry) => entry.kind === "conflicts-check");
     expect(conflicts?.answeredBy).toContain("cannot be recorded by hand");
+    // The two kinds named ahead of their subsystems say so, and say which subsystem.
+    const forms = INTAKE_STEP_KIND_VOCABULARY.find((entry) => entry.kind === "client-forms");
+    expect(forms?.answeredBy).toContain("A member records");
+    expect(forms?.answeredBy).toContain("portal");
+    const payment = INTAKE_STEP_KIND_VOCABULARY.find((entry) => entry.kind === "payment");
+    expect(payment?.answeredBy).toContain("A member records");
+    expect(payment?.sectionSlug).toBeNull();
   });
 
   it("names a reference only on the kinds that are about one thing", () => {
@@ -79,12 +86,12 @@ describe("the mark", () => {
 
 describe("the summary line", () => {
   it("says how many required steps stand in the way, as a sentence", () => {
-    const base = { matterStatus: "prospective" as const, steps: [step()] };
+    const base = { matterStatus: "intake" as const, steps: [step()] };
     expect(intakeChecklistSummary({ ...base, outstandingRequired: 1 })).toBe(
-      "One required step is outstanding before the matter can open.",
+      "One required step is outstanding before the intake is complete.",
     );
     expect(intakeChecklistSummary({ ...base, outstandingRequired: 3 })).toBe(
-      "3 required steps are outstanding before the matter can open.",
+      "3 required steps are outstanding before the intake is complete.",
     );
     expect(intakeChecklistSummary({ ...base, outstandingRequired: 0 })).toContain(
       "Every required step is answered",
@@ -93,8 +100,15 @@ describe("the summary line", () => {
 
   it("says when nothing binds the matter, and when the funnel has ended", () => {
     expect(
-      intakeChecklistSummary({ matterStatus: "prospective", steps: [], outstandingRequired: 0 }),
-    ).toContain("nothing stands between it and opening");
+      intakeChecklistSummary({ matterStatus: "intake", steps: [], outstandingRequired: 0 }),
+    ).toContain("nothing stands between it and the consultation");
+    expect(
+      intakeChecklistSummary({
+        matterStatus: "consultation",
+        steps: [step()],
+        outstandingRequired: 0,
+      }),
+    ).toContain("The intake is complete");
     expect(
       intakeChecklistSummary({ matterStatus: "open", steps: [step()], outstandingRequired: 0 }),
     ).toContain("The matter has opened");
@@ -106,20 +120,18 @@ describe("what a member may do", () => {
   const waive = ["intake:waive"];
 
   it("offers record only on a recordable, unanswered step to a member who may record", () => {
-    expect(intakeStepActions(step(), "prospective", record)).toEqual({
+    expect(intakeStepActions(step(), "intake", record)).toEqual({
       record: true,
       waive: false,
       reopen: false,
     });
-    expect(intakeStepActions(step({ recordable: false }), "prospective", record).record).toBe(
-      false,
-    );
-    expect(intakeStepActions(step(), "prospective", waive).record).toBe(false);
+    expect(intakeStepActions(step({ recordable: false }), "intake", record).record).toBe(false);
+    expect(intakeStepActions(step(), "intake", waive).record).toBe(false);
   });
 
   it("offers waive to a member who may waive, on any unanswered kind, including the unrecordable", () => {
-    expect(intakeStepActions(step({ recordable: false }), "prospective", waive).waive).toBe(true);
-    expect(intakeStepActions(step(), "prospective", record).waive).toBe(false);
+    expect(intakeStepActions(step({ recordable: false }), "intake", waive).waive).toBe(true);
+    expect(intakeStepActions(step(), "intake", record).waive).toBe(false);
   });
 
   it("offers reopen, and nothing else, on a step with a live record", () => {
@@ -133,7 +145,7 @@ describe("what a member may do", () => {
         recordedAt: "2026-09-03T12:00:00.000Z",
       },
     });
-    expect(intakeStepActions(answered, "prospective", [...record, ...waive])).toEqual({
+    expect(intakeStepActions(answered, "intake", [...record, ...waive])).toEqual({
       record: false,
       waive: false,
       reopen: true,

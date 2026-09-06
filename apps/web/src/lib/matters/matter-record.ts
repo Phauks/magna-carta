@@ -4,7 +4,7 @@
  *
  * A matter reaches this screen one of two ways. A LIVE matter is the firm's own record, read from
  * the API by its identifier; a SAMPLE matter is one of the in-repo fixtures, which exist so the
- * chrome's three lifecycle states (prospective, open, closed) stay reviewable at a stable URL with
+ * chrome's four lifecycle states (intake, consultation, open, closed) stay reviewable at a stable URL with
  * no firm data behind them. Both render the same chrome, and `source` says which is which — a
  * screen that shows firm data and a screen that shows invented data must never look identical, so
  * every surface that reads this record can mark the difference rather than guess.
@@ -31,7 +31,7 @@ export interface MatterRecord {
   id: string;
   title: string;
   description: string | null;
-  status: "prospective" | "open" | "closed";
+  status: "intake" | "consultation" | "open" | "hold" | "closed";
   /** Null until open draws it; frozen thereafter. A consultation has none until it is opened. */
   matterNumber: string | null;
   /** The consultation's own tentative number, kept after opening rather than replaced by it. */
@@ -47,6 +47,9 @@ export interface MatterRecord {
   /** Null on a live matter until the billing surface supplies it. */
   eBilling: boolean | null;
   openedAt: string | null;
+  /** Set while the matter is on hold: when the pause began, and the firm's reason for it. */
+  heldAt: string | null;
+  holdReason: string | null;
   closedAt: string | null;
   createdAt: string | null;
   /**
@@ -64,7 +67,7 @@ interface MatterReadPayload {
   id: string;
   title: string;
   description: string | null;
-  status: "prospective" | "open" | "closed";
+  status: "intake" | "consultation" | "open" | "hold" | "closed";
   matterNumber: string | null;
   consultationNumber?: string | null;
   clientDisplayName: string | null;
@@ -76,6 +79,8 @@ interface MatterReadPayload {
   // null is what keeps a version skew rendering an honest gap instead of the string "undefined".
   eBilling?: boolean;
   openedAt?: string | null;
+  heldAt?: string | null;
+  holdReason?: string | null;
   closedAt?: string | null;
   createdAt?: string | null;
   matterTypeName?: string | null;
@@ -103,6 +108,8 @@ export function matterRecordFromRead(payload: MatterReadPayload): MatterRecord {
     clientEntityId: payload.clientEntityId ?? null,
     eBilling: payload.eBilling ?? null,
     openedAt: payload.openedAt ?? null,
+    heldAt: payload.heldAt ?? null,
+    holdReason: payload.holdReason ?? null,
     closedAt: payload.closedAt ?? null,
     createdAt: payload.createdAt ?? null,
     // The three collections are NOT part of the matter read and never were. Each has its own list
@@ -127,8 +134,10 @@ export function isMatterReadPayload(body: unknown): body is MatterReadPayload {
   return (
     typeof candidate.id === "string" &&
     typeof candidate.title === "string" &&
-    (candidate.status === "prospective" ||
+    (candidate.status === "intake" ||
+      candidate.status === "consultation" ||
       candidate.status === "open" ||
+      candidate.status === "hold" ||
       candidate.status === "closed")
   );
 }

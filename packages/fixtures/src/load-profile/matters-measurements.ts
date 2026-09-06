@@ -46,8 +46,8 @@ const STALE_CONSULTATION_DAYS = 30;
 // unscanned read draws, so the measured cost matches one real sweep batch.
 const RESCAN_SWEEP_BATCH = 100;
 
-// A consultation the measured counter-draw promotes to open. Each draw burns a fresh prospective
-// (openMatter is one-shot: a second draw on the same matter is "matter-not-prospective"), so the
+// A consultation the measured counter-draw promotes to open. Each draw burns a fresh consultation
+// (openMatter is one-shot: a second draw on the same matter is "matter-not-consultation"), so the
 // untimed prepare mints one per iteration and only the draw is on the clock.
 async function freshConsultation(handle: MattersMeasurementHandle): Promise<MatterId> {
   const created = await createMatter(
@@ -55,7 +55,7 @@ async function freshConsultation(handle: MattersMeasurementHandle): Promise<Matt
     {
       title: "Load-profile measurement consultation",
       responsibleMemberId: handle.snapshot.manifest.practiceProbes.responsibleMemberId,
-      status: "prospective",
+      status: "consultation",
     },
     { clock: handle.context.clock, actorUserId: null, randomSource: handle.context.randomSource },
   );
@@ -169,7 +169,7 @@ export const mattersMeasurements: readonly Measurement<MattersMeasurementHandle,
   },
   {
     name: "matter-number.counter-draw",
-    // openMatter is one-shot — each iteration prepares a fresh prospective (untimed); only the draw,
+    // openMatter is one-shot — each iteration prepares a fresh consultation (untimed); only the draw,
     // which reads the active scheme + the counter and commits the guarded increment, is on the clock.
     prepare: (handle) => freshConsultation(handle),
     operation: async (handle, state) => {

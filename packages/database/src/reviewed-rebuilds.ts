@@ -34,4 +34,32 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // takes the original name, so every referencing row resolves to the row it resolved to before and
   // nothing is re-keyed. The reasoning is written out in the migration's own `-- contract:` header.
   "20260901T150000_tasks",
+  // The intake procedure's step kinds gain `client-forms` and `payment`, a CHECK constraint on
+  // `intake_procedure_step` that cannot be widened in place. Audited: the copy is column-for-column
+  // over the whole table — eleven columns, in the order the replacement declares them, with no WHERE
+  // and no expression between source and target — so every step carries across unchanged, and the
+  // CHECK cannot reject a copied row because the change only ADDS values to the set. The
+  // procedure's position index is recreated after the rename. `matter_intake_step_record.
+  // procedure_step_id` carries a foreign key into the rebuilt table, which is why the file brackets
+  // the swap in PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the
+  // replacement takes the original name, so every member's record resolves to the step it resolved
+  // to before. The reasoning is written out in the migration's own `-- contract:` header.
+  "20260905T195543_intake-step-kinds-client-forms-and-payment",
+  // The matter lifecycle gains `intake` and renames `prospective` to `consultation`, a CHECK
+  // constraint on `matter` that cannot be widened in place. Audited: the copy is column-for-column
+  // over the whole table — nineteen columns, in the order the replacement declares them, with no
+  // WHERE and no expression between source and target — so every matter carries across unchanged.
+  // The CHECK could reject a row still spelled `prospective`, and none exists: no firm holds a
+  // matter at this migration's date (owner, 2026-09-05), which is why the rename is a rename and
+  // not a rewrite. The six indexes, three of them partial uniques, are recreated after the rename.
+  // Many tables carry a foreign key into `matter`, which is why the file brackets the swap in
+  // PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the replacement
+  // takes the original name, so every referencing row resolves to the row it resolved to before. The
+  // reasoning is written out in the migration's own `-- contract:` header.
+  "20260906T013304_matter-status-intake-and-consultation",
+  // Widens matter_status_check with `hold` and adds the two hold columns (held_at, hold_reason) with
+  // their paired-nullability CHECK. The copy is exhaustive over every existing column and NULL for
+  // the two new ones; ids are preserved verbatim under PRAGMA foreign_keys=OFF/ON. The reasoning is
+  // in the migration's own `-- contract:` header.
+  "20260906T030014_matter-hold-status",
 ]);

@@ -71,12 +71,14 @@ export function matterVocabulary(
  * the record is rather than leaving a gap that reads as a number the platform failed to fill.
  */
 export const UNNUMBERED_DESIGNATION = "Consultation";
+/** The designation for an intake, which by construction carries no number of either kind yet. */
+export const INTAKE_DESIGNATION = "Intake";
 
 /**
  * The number as it prints.
  *
  * A consultation carries its own tentative number, so that is what the column shows while the matter
- * is prospective — the number people quote is the one on the screen. Once the matter opens it prints
+ * is a consultation — the number people quote is the one on the screen. Once the matter opens it prints
  * the matter number: the permanent number is what the file is called from then on, and the tentative
  * one stays on the record (and in search) rather than in the column.
  *
@@ -88,7 +90,8 @@ export const UNNUMBERED_DESIGNATION = "Consultation";
 export function matterNumberText(matter: MatterSummary): string {
   if (matter.matterNumber !== null) return matter.matterNumber;
   if (matter.consultationNumber !== null) return matter.consultationNumber;
-  return matter.status === "prospective" ? UNNUMBERED_DESIGNATION : "";
+  if (matter.status === "intake") return INTAKE_DESIGNATION;
+  return matter.status === "consultation" ? UNNUMBERED_DESIGNATION : "";
 }
 
 /** A resolved vocabulary name, or "" where nothing answers — never the raw identifier. */
