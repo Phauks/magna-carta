@@ -313,7 +313,7 @@
         : "Everything recorded on this matter, newest first"}
       empty={emptyRegister}
       loading={entries === null}
-      skeletonRowCount={recent ? Math.min(limit, 4) : 8}
+      placeholderCount={recent ? Math.min(limit, 4) : 8}
     />
     {#if !recent}
       <DataTable.GridFooter {grid} end={footerEnd} />

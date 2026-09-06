@@ -22,8 +22,8 @@
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import * as Select from "@magna-carta/design-system/select";
-  import Skeleton from "@magna-carta/design-system/skeleton";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
@@ -50,12 +50,19 @@
 
   let {
     record,
+    reading,
     verbRefusal,
     relatedCount = $bindable(0),
     onOpen,
   }: {
     /** The record on screen; null while it is being read. */
     record: EntryRecord | null;
+    /**
+     * Whether the record itself is still being read. The tab cannot tell that from a record that
+     * failed to read by looking at `record` alone, and the two look different: one draws the shape
+     * the links will take, the other draws nothing because the record pane says why.
+     */
+    reading: boolean;
     /** Why Relate and Remove refuse, or undefined when the setting is open to them. */
     verbRefusal: string | undefined;
     /** How many related links the tab lists, for the count on the tab. */
@@ -195,101 +202,145 @@
     );
     return "refused";
   }
+
+  // Sample rows for the shape the Related list takes while it is read. Never a matter's own.
+  const RELATED_FIXTURE = [
+    { title: "Pretrial conference", note: "Set from the same scheduling order" },
+    { title: "Hearing on the motion to compel", note: "Argued the same morning" },
+  ] as const;
 </script>
+
+<!-- The shape the Related list takes while it is read: the same rows over sample words, greyed by
+     the loading region. It stands in twice — while the record is read, and while the links are. -->
+{#snippet relatedFixture()}
+  <ul class="flex flex-col gap-8 text-sm">
+    {#each RELATED_FIXTURE as link (link.title)}
+      <li class="flex items-baseline justify-between gap-16">
+        <div class="flex min-w-0 flex-col">
+          <span class="underline underline-offset-2">{link.title}</span>
+          <span class="text-text-muted">{link.note}</span>
+        </div>
+        <Button variant="ghost" size="sm">Remove</Button>
+      </li>
+    {/each}
+  </ul>
+{/snippet}
 
 <!-- What acts like a link looks like a link: these re-open the window on the other record, so
      they are buttons under the hood and wear the link register on top. -->
-{#if record === null}
+{#if record === null && !reading}
+  <!-- No record and no read in flight: the record pane states why, so this pane stays quiet. -->
   <p class="text-sm text-text-muted">&nbsp;</p>
-{:else if record.kind === "event" && (record.event.continuedFromEventId !== null || record.event.continuedToEventId !== null)}
-  {@const event = record.event}
-  <dl class="flex flex-col gap-8 text-sm">
-    {#if event.continuedFromEventId !== null}
-      {@const fromId = event.continuedFromEventId}
-      <div class="flex items-baseline justify-between gap-16">
-        <dt class="text-text-muted">Continued from</dt>
-        <dd>
-          <button type="button" class="underline underline-offset-2" onclick={() => openEvent(fromId)}>
-            The earlier setting
-          </button>
-        </dd>
+{:else}
+  <LoadingRegion
+    loading={record === null}
+    label="Reading the record's links"
+    class="flex flex-col gap-16"
+  >
+    {#snippet fixture()}
+      <div class="flex flex-col gap-8">
+        <FieldLabel as="p">Related</FieldLabel>
+        {@render relatedFixture()}
       </div>
-    {/if}
-    {#if event.continuedToEventId !== null}
-      {@const toId = event.continuedToEventId}
-      <div class="flex items-baseline justify-between gap-16">
-        <dt class="text-text-muted">Continued to</dt>
-        <dd>
-          <button type="button" class="underline underline-offset-2" onclick={() => openEvent(toId)}>
-            The later setting
-          </button>
-        </dd>
-      </div>
-    {/if}
-  </dl>
-{:else if record.kind === "deadline" && record.deadline.triggerEventId !== null}
-  {@const triggerId = record.deadline.triggerEventId}
-  <dl class="flex flex-col gap-8 text-sm">
-    <div class="flex items-baseline justify-between gap-16">
-      <dt class="text-text-muted">Started by</dt>
-      <dd>
-        <button type="button" class="underline underline-offset-2" onclick={() => openEvent(triggerId)}>
-          The setting that started the clock
-        </button>
-      </dd>
-    </div>
-  </dl>
-{/if}
-
-{#if record !== null && record.kind !== "deadline"}
-  <div class="flex flex-col gap-8">
-    <FieldLabel as="p">Related</FieldLabel>
-    {#if removeFailure !== null}
-      <FailureNotice failure={removeFailure.failure} fallback={removeFailure.fallback} />
-    {/if}
-    {#if linksFailure !== null}
-      <FailureNotice
-        failure={linksFailure.failure}
-        title="The Links Could Not Be Read"
-        fallback={linksFailure.fallback}
-        onRetry={() => void readLinks(record)}
-      />
-    {:else if relatedLinks === null}
-      <Skeleton class="h-16 w-full" />
-    {:else if relatedLinks.length === 0}
-      <p class="text-sm text-text-muted">Related to nothing.</p>
-    {:else}
-      <ul class="flex flex-col gap-8 text-sm">
-        {#each relatedLinks as link (link.id)}
-          <li class="flex items-baseline justify-between gap-16">
-            <div class="flex min-w-0 flex-col">
-              <button
-                type="button"
-                class="text-start underline underline-offset-2"
-                onclick={() => openOther(link.other)}
-              >
-                {link.title ?? unseenEndLabel(link.other)}
+    {/snippet}
+    {#if record?.kind === "event" && (record.event.continuedFromEventId !== null || record.event.continuedToEventId !== null)}
+      {@const event = record.event}
+      <dl class="flex flex-col gap-8 text-sm">
+        {#if event.continuedFromEventId !== null}
+          {@const fromId = event.continuedFromEventId}
+          <div class="flex items-baseline justify-between gap-16">
+            <dt class="text-text-muted">Continued from</dt>
+            <dd>
+              <button type="button" class="underline underline-offset-2" onclick={() => openEvent(fromId)}>
+                The earlier setting
               </button>
-              {#if link.note !== null}
-                <span class="text-text-muted">{link.note}</span>
-              {/if}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={verbRefusal !== undefined}
-              title={verbRefusal ?? "Remove the relation; both settings stay as they are"}
-              onclick={() => void unrelate(link.id)}
-            >
-              Remove
-            </Button>
-          </li>
-        {/each}
-      </ul>
+            </dd>
+          </div>
+        {/if}
+        {#if event.continuedToEventId !== null}
+          {@const toId = event.continuedToEventId}
+          <div class="flex items-baseline justify-between gap-16">
+            <dt class="text-text-muted">Continued to</dt>
+            <dd>
+              <button type="button" class="underline underline-offset-2" onclick={() => openEvent(toId)}>
+                The later setting
+              </button>
+            </dd>
+          </div>
+        {/if}
+      </dl>
+    {:else if record?.kind === "deadline" && record.deadline.triggerEventId !== null}
+      {@const triggerId = record.deadline.triggerEventId}
+      <dl class="flex flex-col gap-8 text-sm">
+        <div class="flex items-baseline justify-between gap-16">
+          <dt class="text-text-muted">Started by</dt>
+          <dd>
+            <button type="button" class="underline underline-offset-2" onclick={() => openEvent(triggerId)}>
+              The setting that started the clock
+            </button>
+          </dd>
+        </div>
+      </dl>
     {/if}
-  </div>
-{:else if record !== null && record.kind === "deadline" && record.deadline.triggerEventId === null}
-  <p class="text-sm text-text-muted">No links.</p>
+
+    {#if record !== null && record.kind !== "deadline"}
+      <div class="flex flex-col gap-8">
+        <FieldLabel as="p">Related</FieldLabel>
+        {#if removeFailure !== null}
+          <FailureNotice failure={removeFailure.failure} fallback={removeFailure.fallback} />
+        {/if}
+        {#if linksFailure !== null}
+          <FailureNotice
+            failure={linksFailure.failure}
+            title="The Links Could Not Be Read"
+            fallback={linksFailure.fallback}
+            onRetry={() => void readLinks(record)}
+          />
+        {:else}
+          <LoadingRegion
+            loading={relatedLinks === null}
+            label="Reading the settings related to this one"
+            fixture={relatedFixture}
+          >
+            {@const shown = relatedLinks ?? []}
+            {#if shown.length === 0}
+              <p class="text-sm text-text-muted">Related to nothing.</p>
+            {:else}
+              <ul class="flex flex-col gap-8 text-sm">
+                {#each shown as link (link.id)}
+                  <li class="flex items-baseline justify-between gap-16">
+                    <div class="flex min-w-0 flex-col">
+                      <button
+                        type="button"
+                        class="text-start underline underline-offset-2"
+                        onclick={() => openOther(link.other)}
+                      >
+                        {link.title ?? unseenEndLabel(link.other)}
+                      </button>
+                      {#if link.note !== null}
+                        <span class="text-text-muted">{link.note}</span>
+                      {/if}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={verbRefusal !== undefined}
+                      title={verbRefusal ?? "Remove the relation; both settings stay as they are"}
+                      onclick={() => void unrelate(link.id)}
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </LoadingRegion>
+        {/if}
+      </div>
+    {:else if record?.kind === "deadline" && record.deadline.triggerEventId === null}
+      <p class="text-sm text-text-muted">No links.</p>
+    {/if}
+  </LoadingRegion>
 {/if}
 
 <ActionDialog

@@ -18,7 +18,7 @@
    * nothing when it may hold a great deal they are not permitted to see.
    */
   import Badge from "@magna-carta/design-system/badge";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -51,6 +51,22 @@
   const foundSomething = $derived(
     answer !== null && answer.groups.some((group) => group.hits.length > 0),
   );
+
+  // The shape drawn while the search is in flight: two groups from the real registry, each with a
+  // hit or two of sample words, in the same rows the answer renders in.
+  const SEARCH_FIXTURE = [
+    {
+      source: "files",
+      hits: [
+        { title: "Engagement letter.pdf", snippet: "Signed and returned by the client on the fourteenth." },
+        { title: "Discovery plan.docx", snippet: "The schedule for written discovery and depositions." },
+      ],
+    },
+    {
+      source: "calendar",
+      hits: [{ title: "Status conference", snippet: "Department 12, argument on the motion to compel." }],
+    },
+  ] as const;
 </script>
 
 {#if failure !== null}
@@ -63,90 +79,114 @@
     fallback={failure.fallback}
     whenSilent={failure.whenSilent}
   />
-{:else if answer === null && busy}
-  <div class="flex flex-col gap-8 p-8">
-    <Skeleton class="h-16 w-full" />
-    <Skeleton class="h-16 w-3/4" />
-  </div>
-{:else if answer !== null}
-  {#if !foundSomething}
-    <p class="px-8 py-12 text-sm text-text-muted">
-      Nothing on this matter matches “{answer.query}”.
-    </p>
-  {/if}
-  <ul class="flex flex-col gap-4" class:gap-16={!compact}>
-    {#each answer.groups as group (group.source)}
-      {@const presentation = presentationFor(group.source)}
-      {@const Icon = presentation.icon}
-      <!-- A group with nothing in it is only worth a row when it has something to SAY: a reason it
-           could not answer. An ordinary empty group on a page full of groups is noise, so on the
-           panel it is dropped and on the results page it stays, where the reader is looking at the
-           whole answer and the absence is part of it. -->
-      {#if group.hits.length > 0 || group.skipped !== null || !compact}
-        <li>
-          <div class="flex items-center gap-8 px-8 py-4">
-            <Icon class="size-16 text-text-muted" aria-hidden="true" />
-            <h3 class="text-xs font-semibold text-text-default">{presentation.heading}</h3>
-            {#if group.hits.length > 0}
-              <span class="text-xs text-text-subtle">
-                {group.hits.length}{group.hasMore ? "+" : ""}
-              </span>
-            {/if}
-            {#if group.skipped !== null}
-              <Badge variant="neutral" class="ms-auto">
-                {group.skipped === "permission" ? "No access" : "Soon"}
-              </Badge>
-            {/if}
-          </div>
-
-          {#if group.hits.length === 0}
-            <p class="px-8 pb-8 text-xs text-text-muted">{emptyGroupLine(group.skipped)}</p>
-          {:else}
+{:else}
+  <LoadingRegion loading={answer === null && busy} label="Searching this matter">
+    {#snippet fixture()}
+      <ul class="flex flex-col gap-4" class:gap-16={!compact}>
+        {#each SEARCH_FIXTURE as group (group.source)}
+          {@const presentation = presentationFor(group.source)}
+          {@const Icon = presentation.icon}
+          <li>
+            <div class="flex items-center gap-8 px-8 py-4">
+              <Icon class="size-16 text-text-muted" aria-hidden="true" />
+              <h3 class="text-xs font-semibold text-text-default">{presentation.heading}</h3>
+              <span class="text-xs text-text-subtle">{group.hits.length}</span>
+            </div>
             <ul>
-              {#each group.hits as hit (hit.id)}
+              {#each group.hits as hit (hit.title)}
                 <li>
-                  <a
-                    href={hit.link}
-                    onclick={() => onnavigate?.()}
-                    class="flex flex-col gap-2 rounded-sm px-8 py-8 transition-colors
-                           duration-fast ease-standard hover:bg-surface-subtle"
-                  >
-                    <span class="text-sm font-medium text-text-default">
-                      {#if presentation.titleKind === "instant"}
-                        <!-- A note has no name: what a reader recognizes it by is when it was
-                             written, and the excerpt below carries the words. -->
-                        <time datetime={instantAttribute(hit.title)}>
-                          {formatInstant(hit.title)}
-                        </time>
-                      {:else}
-                        {hit.title}
-                      {/if}
-                    </span>
-                    {#if hit.snippet !== null}
-                      <span class="line-clamp-2 text-xs text-text-muted">{hit.snippet}</span>
-                    {/if}
-                    {#if hit.secondary !== null}
-                      <span class="text-xs text-text-subtle">{hit.secondary}</span>
-                    {/if}
-                  </a>
+                  <span class="flex flex-col gap-2 rounded-sm px-8 py-8">
+                    <span class="text-sm font-medium text-text-default">{hit.title}</span>
+                    <span class="line-clamp-2 text-xs text-text-muted">{hit.snippet}</span>
+                  </span>
                 </li>
               {/each}
             </ul>
-            {#if group.hasMore}
-              <!-- "There is more", measured by reading one row past the limit. Never a total: this
-                   surface has not counted the whole answer and will not imply that it has. -->
-              <p class="px-8 pb-4 text-xs text-text-subtle">
-                More matches than shown — narrow the search or open the full results.
-              </p>
-            {/if}
-            {#if group.matchedFields.length > 0 && !compact}
-              <p class="px-8 pb-8 text-xs text-text-subtle">
-                Matched on {group.matchedFields.join(", ")}.
-              </p>
-            {/if}
-          {/if}
-        </li>
+          </li>
+        {/each}
+      </ul>
+    {/snippet}
+    {#if answer !== null}
+      {#if !foundSomething}
+        <p class="px-8 py-12 text-sm text-text-muted">
+          Nothing on this matter matches “{answer.query}”.
+        </p>
       {/if}
-    {/each}
-  </ul>
+      <ul class="flex flex-col gap-4" class:gap-16={!compact}>
+        {#each answer.groups as group (group.source)}
+          {@const presentation = presentationFor(group.source)}
+          {@const Icon = presentation.icon}
+          <!-- A group with nothing in it is only worth a row when it has something to SAY: a reason it
+               could not answer. An ordinary empty group on a page full of groups is noise, so on the
+               panel it is dropped and on the results page it stays, where the reader is looking at the
+               whole answer and the absence is part of it. -->
+          {#if group.hits.length > 0 || group.skipped !== null || !compact}
+            <li>
+              <div class="flex items-center gap-8 px-8 py-4">
+                <Icon class="size-16 text-text-muted" aria-hidden="true" />
+                <h3 class="text-xs font-semibold text-text-default">{presentation.heading}</h3>
+                {#if group.hits.length > 0}
+                  <span class="text-xs text-text-subtle">
+                    {group.hits.length}{group.hasMore ? "+" : ""}
+                  </span>
+                {/if}
+                {#if group.skipped !== null}
+                  <Badge variant="neutral" class="ms-auto">
+                    {group.skipped === "permission" ? "No access" : "Soon"}
+                  </Badge>
+                {/if}
+              </div>
+
+              {#if group.hits.length === 0}
+                <p class="px-8 pb-8 text-xs text-text-muted">{emptyGroupLine(group.skipped)}</p>
+              {:else}
+                <ul>
+                  {#each group.hits as hit (hit.id)}
+                    <li>
+                      <a
+                        href={hit.link}
+                        onclick={() => onnavigate?.()}
+                        class="flex flex-col gap-2 rounded-sm px-8 py-8 transition-colors
+                               duration-fast ease-standard hover:bg-surface-subtle"
+                      >
+                        <span class="text-sm font-medium text-text-default">
+                          {#if presentation.titleKind === "instant"}
+                            <!-- A note has no name: what a reader recognizes it by is when it was
+                                 written, and the excerpt below carries the words. -->
+                            <time datetime={instantAttribute(hit.title)}>
+                              {formatInstant(hit.title)}
+                            </time>
+                          {:else}
+                            {hit.title}
+                          {/if}
+                        </span>
+                        {#if hit.snippet !== null}
+                          <span class="line-clamp-2 text-xs text-text-muted">{hit.snippet}</span>
+                        {/if}
+                        {#if hit.secondary !== null}
+                          <span class="text-xs text-text-subtle">{hit.secondary}</span>
+                        {/if}
+                      </a>
+                    </li>
+                  {/each}
+                </ul>
+                {#if group.hasMore}
+                  <!-- "There is more", measured by reading one row past the limit. Never a total: this
+                       surface has not counted the whole answer and will not imply that it has. -->
+                  <p class="px-8 pb-4 text-xs text-text-subtle">
+                    More matches than shown — narrow the search or open the full results.
+                  </p>
+                {/if}
+                {#if group.matchedFields.length > 0 && !compact}
+                  <p class="px-8 pb-8 text-xs text-text-subtle">
+                    Matched on {group.matchedFields.join(", ")}.
+                  </p>
+                {/if}
+              {/if}
+            </li>
+          {/if}
+        {/each}
+      </ul>
+    {/if}
+  </LoadingRegion>
 {/if}

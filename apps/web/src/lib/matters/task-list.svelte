@@ -23,7 +23,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Textarea from "@magna-carta/design-system/textarea";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -394,6 +394,14 @@
   const assignableMembers = $derived(
     (roster.members ?? []).filter((member) => member.status === "active"),
   );
+
+  // The shape drawn while the first page is read: three rows in the list's own anatomy — title,
+  // priority, who it is with and when it is due, the row's controls. Sample words only.
+  const TASK_FIXTURE = [
+    { title: "Draft the responses to the first set of interrogatories", priority: "High", assignee: "Rosalind Chase", due: "Sep 28, 2026" },
+    { title: "Confirm the deposition venue", priority: "Normal", assignee: "Marcus Ellery", due: "Oct 2, 2026" },
+    { title: "Send the client the hearing summary", priority: "Normal", assignee: "Unassigned", due: "Oct 9, 2026" },
+  ] as const;
 </script>
 
 <section class="flex min-h-0 flex-1 flex-col gap-16">
@@ -586,349 +594,380 @@
       fallback="The tasks could not be read."
       onRetry={reload}
     />
-  {:else if tasks === null}
-    <div class="flex flex-col gap-8">
-      {#each [0, 1, 2] as row (row)}
-        <Skeleton class="h-64 w-full" />
-      {/each}
-    </div>
-  {:else if tasks.length === 0}
-    <EmptyState title={narrowed ? "Nothing matches" : emptyTitle}>
-      {narrowed
-        ? "No task matches what you are narrowing by. Clear it to see the rest."
-        : emptyDescription}
-    </EmptyState>
   {:else}
-    <ul class="flex flex-col gap-8">
-      {#each tasks as task (task.id)}
-        {@const overdue = isOverdue(task)}
-        {@const due = dueText(task)}
-        {@const timeLogged = describeTimeLogged(task.timeLogged)}
-        <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
-          {#if editingTaskId === task.id}
-            <div class="flex flex-col gap-4">
-              <Label for={`edit-title-${task.id}`}>What to do</Label>
-              <Input id={`edit-title-${task.id}`} bind:value={editTitle} disabled={saving} />
-            </div>
-            <div class="flex flex-col gap-4">
-              <Label for={`edit-body-${task.id}`}>Detail</Label>
-              <Textarea id={`edit-body-${task.id}`} bind:value={editBody} rows={3} disabled={saving} />
-            </div>
-            <div class="flex flex-wrap items-end gap-16">
-              <div class="flex flex-col gap-4">
-                <Label for={`edit-due-${task.id}`}>Due</Label>
-                <Input id={`edit-due-${task.id}`} type="date" bind:value={editDueOn} disabled={saving} />
-              </div>
-              <div class="flex flex-col gap-4">
-                <Label for={`edit-time-${task.id}`}>Time</Label>
-                <Input
-                  id={`edit-time-${task.id}`}
-                  type="time"
-                  bind:value={editDueAtTime}
-                  disabled={saving || editDueOn === ""}
-                />
-              </div>
-              <div class="flex flex-col gap-4">
-                <Label for={`edit-priority-${task.id}`}>Priority</Label>
-                <Select.Root type="single" bind:value={editPriority} disabled={saving}>
-                  <Select.Trigger id={`edit-priority-${task.id}`} class="w-128">
-                    {PRIORITY_LABELS[editPriority]}
-                  </Select.Trigger>
-                  <Select.Content>
-                    {#each TASK_PRIORITIES as priority (priority)}
-                      <Select.Item value={priority} label={PRIORITY_LABELS[priority]} />
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
-              </div>
-            </div>
-            <div class="flex justify-end gap-8">
-              <Button variant="secondary" disabled={saving} onclick={() => (editingTaskId = null)}>
-                Cancel
-              </Button>
-              <Button disabled={saving || editTitle.trim().length === 0} onclick={() => saveEdit(task)}>
-                Save
-              </Button>
-            </div>
-          {:else}
-            <div class="flex items-start justify-between gap-16">
-              <div class="flex min-w-0 flex-col gap-4">
-                <div class="flex flex-wrap items-center gap-8">
-                  <span class={task.state === "open" ? "" : "text-text-muted line-through"}>
-                    {task.title}
-                  </span>
-                  {#if task.priority !== "normal"}
-                    <Badge variant={task.priority === "urgent" ? "danger" : "neutral"}>
-                      {PRIORITY_LABELS[task.priority]}
-                    </Badge>
-                  {/if}
-                  {#if task.state !== "open"}
-                    <Badge variant="neutral">{STATE_LABELS[task.state]}</Badge>
-                  {/if}
-                  <!-- Overdue is a comparison against now, made here. It is not a state and there is
-                       no column behind it. -->
-                  {#if overdue}
-                    <Badge variant="danger">Overdue</Badge>
-                  {/if}
-                  {#if task.blockedByTaskId !== null}
-                    <!-- Waiting is guidance and gates nothing: this task can still be completed. -->
-                    <Badge variant="neutral">Waiting on another task</Badge>
-                  {/if}
-                </div>
-                {#if task.body !== null}
-                  <p class="text-xs text-text-muted whitespace-pre-wrap">{task.body}</p>
-                {/if}
-                <dl class="flex flex-wrap gap-x-16 gap-y-2 text-xs text-text-muted">
-                  <div class="flex gap-4">
-                    <dt>Assigned to</dt>
-                    <dd class="text-text">{nameOf(task.assigneeUserId)}</dd>
+    <LoadingRegion loading={tasks === null} label="Reading the tasks" class="flex flex-col gap-16">
+      {#snippet fixture()}
+        <ul class="flex flex-col gap-8">
+          {#each TASK_FIXTURE as task (task.title)}
+            <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
+              <div class="flex items-start justify-between gap-16">
+                <div class="flex min-w-0 flex-col gap-4">
+                  <div class="flex flex-wrap items-center gap-8">
+                    <span>{task.title}</span>
+                    <Badge variant="neutral">{task.priority}</Badge>
                   </div>
-                  {#if due !== null}
+                  <dl class="flex flex-wrap gap-x-16 gap-y-2 text-xs text-text-muted">
+                    <div class="flex gap-4">
+                      <dt>Assigned to</dt>
+                      <dd class="text-text">{task.assignee}</dd>
+                    </div>
                     <div class="flex gap-4">
                       <dt>Due</dt>
-                      <dd class="text-text">{due}</dd>
+                      <dd class="text-text">{task.due}</dd>
                     </div>
-                  {/if}
-                  {#if showMatter && task.matterId === null}
-                    <div class="flex gap-4">
-                      <dt>Matter</dt>
-                      <dd class="text-text">The firm's own work</dd>
-                    </div>
-                  {/if}
-                  <!-- Only where there IS time. Most tasks carry none, and "0m" on every row would
-                       be noise standing in for a fact nobody recorded. "by you" appears where the
-                       reader may not see other timekeepers' time, so the number is never mistaken
-                       for the whole task's. -->
-                  {#if timeLogged !== null}
-                    <div class="flex gap-4">
-                      <dt>Time logged</dt>
-                      <dd class="text-text">{timeLogged}</dd>
-                    </div>
-                  {/if}
-                  <!-- Where else this task is written down. Absent on nearly every task, because
-                       the product integrates with nothing on its own — a row here means an addon
-                       put it there, and saying so is what stops somebody editing in two places
-                       without knowing the other exists. -->
-                  {#each task.externalLinks as link (link.id)}
-                    <div class="flex gap-4">
-                      <dt>{externalSystemLabel(link.system)}</dt>
-                      <dd class="text-text">
-                        {#if link.externalUrl === null}
-                          <!-- No addressable page over there. The platform will not invent a URL
-                               from an id pattern — that would be guessing at somebody else's
-                               routing — so the handle is the honest thing to show. -->
-                          {link.externalId}
-                        {:else}
-                          <!-- The destination is another system entirely, so it opens beside the
-                               reader rather than in place — through the product's one gate for
-                               that, never a hand-written target. -->
-                          <a class="underline" href={link.externalUrl} {...opensBeside("external")}>
-                            {link.externalId}
-                          </a>
-                        {/if}
-                      </dd>
-                    </div>
-                  {/each}
-                  {#if task.state === "cancelled" && task.cancellationReason !== null}
-                    <div class="flex gap-4">
-                      <dt>Not doing it because</dt>
-                      <dd class="text-text">{task.cancellationReason}</dd>
-                    </div>
-                  {/if}
-                </dl>
-                {#if task.documents.length > 0}
-                  <ul class="flex flex-wrap gap-8 text-xs">
-                    {#each task.documents as document (document.id)}
-                      <li class="flex items-center gap-4">
-                        <Paperclip aria-hidden="true" class="size-12 text-text-muted" />
-                        <span>{document.fileName}</span>
-                        {#if canWrite}
-                          <Button
-                            variant="ghost"
-                            disabled={saving}
-                            title="Detach this document — it stays in the matter's files"
-                            onclick={() =>
-                              runWrite(
-                                () => detachTaskDocument(fetch, document.id, newWriteKey()),
-                                "The document was not detached.",
-                              )}
-                          >
-                            <X aria-hidden="true" />
-                          </Button>
-                        {/if}
-                      </li>
-                    {/each}
-                  </ul>
-                {/if}
-              </div>
-
-              {#if canWrite}
-                <!-- Row actions render at rest rather than on hover: a control somebody has to
-                     discover by pointing at it is a control most people never find. -->
+                  </dl>
+                </div>
                 <div class="flex shrink-0 flex-wrap items-center justify-end gap-4">
-                  {#if task.state === "open"}
-                    <Button
-                      variant="secondary"
-                      disabled={saving}
-                      onclick={() =>
-                        runWrite(
-                          () => completeTask(fetch, task.id, newWriteKey()),
-                          "The task was not completed.",
-                        )}
-                    >
-                      Done
-                    </Button>
-                  {:else}
-                    <Button
-                      variant="secondary"
-                      disabled={saving}
-                      title="Put this task back on the list"
-                      onclick={() =>
-                        runWrite(
-                          () => reopenTask(fetch, task.id, newWriteKey()),
-                          "The task was not reopened.",
-                        )}
-                    >
-                      <RotateCcw aria-hidden="true" />
-                      Reopen
-                    </Button>
-                  {/if}
-                  <Button variant="ghost" disabled={saving} title="Edit" onclick={() => beginEdit(task)}>
+                  <Button variant="secondary">Done</Button>
+                  <Button variant="ghost" title="Edit">
                     <PencilLine aria-hidden="true" />
                   </Button>
-                  {#if task.matterId !== null && attachableFor(task).length > 0}
-                    <Button
-                      variant="ghost"
-                      disabled={saving}
-                      title="Point at one of the matter's documents"
-                      onclick={() =>
-                        (attachingTaskId = attachingTaskId === task.id ? null : task.id)}
-                    >
-                      <Paperclip aria-hidden="true" />
-                    </Button>
-                  {/if}
-                  {#if task.state === "open"}
-                    <Button
-                      variant="ghost"
-                      disabled={saving}
-                      title="The firm decided not to do this"
-                      onclick={() => {
-                        cancelling = task;
-                        cancelReason = "";
-                      }}
-                    >
-                      <Ban aria-hidden="true" />
-                    </Button>
-                  {/if}
-                  <Button
-                    variant="ghost"
-                    disabled={saving}
-                    title="Delete — for a task that should not exist"
-                    onclick={() =>
-                      runWrite(
-                        () => deleteTask(fetch, task.id, newWriteKey()),
-                        "The task was not deleted.",
-                      )}
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </Button>
                 </div>
-              {/if}
-            </div>
-
-            {#if canAssign && task.state === "open"}
-              <div class="flex items-center gap-8 text-xs">
-                <Label for={`assignee-${task.id}`} class="text-text-muted">Assigned to</Label>
-                <Select.Root
-                  type="single"
-                  value={task.assigneeUserId ?? ""}
-                  disabled={saving}
-                  onValueChange={(value) =>
-                    runWrite(
-                      () => reassignTask(fetch, task.id, value === "" ? null : value, newWriteKey()),
-                      "The task was not reassigned.",
-                    )}
-                >
-                  <Select.Trigger id={`assignee-${task.id}`} class="w-192">
-                    {nameOf(task.assigneeUserId)}
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="" label="Nobody" />
-                    {#each assignableMembers as member (member.userId)}
-                      <Select.Item value={member.userId} label={member.displayName} />
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
               </div>
-            {/if}
-
-            {#if attachingTaskId === task.id}
-              <div class="flex flex-wrap items-center gap-8 border-t border-border-subtle pt-8">
-                <span class="text-xs text-text-muted">
-                  Points at a document the matter already holds. Nothing is uploaded or copied.
-                </span>
-                {#each attachableFor(task) as file (file.id)}
-                  <Button
-                    variant="ghost"
-                    disabled={saving}
-                    onclick={() =>
-                      runWrite(
-                        () => attachTaskDocument(fetch, task.id, file.id, newWriteKey()),
-                        "The document was not attached.",
-                        () => {
-                          attachingTaskId = null;
-                        },
-                      )}
-                  >
-                    {file.name}
-                  </Button>
-                {/each}
-              </div>
-            {/if}
-
-            {#if cancelling?.id === task.id}
-              <div class="flex flex-col gap-8 border-t border-border-subtle pt-8">
-                <Label for={`cancel-reason-${task.id}`}>
-                  Why is the firm not doing this? The decision is the record, so it is required.
-                </Label>
-                <Textarea
-                  id={`cancel-reason-${task.id}`}
-                  bind:value={cancelReason}
-                  rows={2}
-                  disabled={saving}
-                />
+            </li>
+          {/each}
+        </ul>
+      {/snippet}
+      {@const shown = tasks ?? []}
+      {#if shown.length === 0}
+        <EmptyState title={narrowed ? "Nothing matches" : emptyTitle}>
+          {narrowed
+            ? "No task matches what you are narrowing by. Clear it to see the rest."
+            : emptyDescription}
+        </EmptyState>
+      {:else}
+        <ul class="flex flex-col gap-8">
+          {#each shown as task (task.id)}
+            {@const overdue = isOverdue(task)}
+            {@const due = dueText(task)}
+            {@const timeLogged = describeTimeLogged(task.timeLogged)}
+            <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
+              {#if editingTaskId === task.id}
+                <div class="flex flex-col gap-4">
+                  <Label for={`edit-title-${task.id}`}>What to do</Label>
+                  <Input id={`edit-title-${task.id}`} bind:value={editTitle} disabled={saving} />
+                </div>
+                <div class="flex flex-col gap-4">
+                  <Label for={`edit-body-${task.id}`}>Detail</Label>
+                  <Textarea id={`edit-body-${task.id}`} bind:value={editBody} rows={3} disabled={saving} />
+                </div>
+                <div class="flex flex-wrap items-end gap-16">
+                  <div class="flex flex-col gap-4">
+                    <Label for={`edit-due-${task.id}`}>Due</Label>
+                    <Input id={`edit-due-${task.id}`} type="date" bind:value={editDueOn} disabled={saving} />
+                  </div>
+                  <div class="flex flex-col gap-4">
+                    <Label for={`edit-time-${task.id}`}>Time</Label>
+                    <Input
+                      id={`edit-time-${task.id}`}
+                      type="time"
+                      bind:value={editDueAtTime}
+                      disabled={saving || editDueOn === ""}
+                    />
+                  </div>
+                  <div class="flex flex-col gap-4">
+                    <Label for={`edit-priority-${task.id}`}>Priority</Label>
+                    <Select.Root type="single" bind:value={editPriority} disabled={saving}>
+                      <Select.Trigger id={`edit-priority-${task.id}`} class="w-128">
+                        {PRIORITY_LABELS[editPriority]}
+                      </Select.Trigger>
+                      <Select.Content>
+                        {#each TASK_PRIORITIES as priority (priority)}
+                          <Select.Item value={priority} label={PRIORITY_LABELS[priority]} />
+                        {/each}
+                      </Select.Content>
+                    </Select.Root>
+                  </div>
+                </div>
                 <div class="flex justify-end gap-8">
-                  <Button variant="secondary" disabled={saving} onclick={() => (cancelling = null)}>
-                    Keep It
+                  <Button variant="secondary" disabled={saving} onclick={() => (editingTaskId = null)}>
+                    Cancel
                   </Button>
-                  <Button
-                    variant="destructive"
-                    disabled={saving || cancelReason.trim().length === 0}
-                    onclick={confirmCancel}
-                  >
-                    Cancel Task
+                  <Button disabled={saving || editTitle.trim().length === 0} onclick={() => saveEdit(task)}>
+                    Save
                   </Button>
                 </div>
-              </div>
-            {/if}
-          {/if}
-        </li>
-      {/each}
-    </ul>
+              {:else}
+                <div class="flex items-start justify-between gap-16">
+                  <div class="flex min-w-0 flex-col gap-4">
+                    <div class="flex flex-wrap items-center gap-8">
+                      <span class={task.state === "open" ? "" : "text-text-muted line-through"}>
+                        {task.title}
+                      </span>
+                      {#if task.priority !== "normal"}
+                        <Badge variant={task.priority === "urgent" ? "danger" : "neutral"}>
+                          {PRIORITY_LABELS[task.priority]}
+                        </Badge>
+                      {/if}
+                      {#if task.state !== "open"}
+                        <Badge variant="neutral">{STATE_LABELS[task.state]}</Badge>
+                      {/if}
+                      <!-- Overdue is a comparison against now, made here. It is not a state and there is
+                           no column behind it. -->
+                      {#if overdue}
+                        <Badge variant="danger">Overdue</Badge>
+                      {/if}
+                      {#if task.blockedByTaskId !== null}
+                        <!-- Waiting is guidance and gates nothing: this task can still be completed. -->
+                        <Badge variant="neutral">Waiting on another task</Badge>
+                      {/if}
+                    </div>
+                    {#if task.body !== null}
+                      <p class="text-xs text-text-muted whitespace-pre-wrap">{task.body}</p>
+                    {/if}
+                    <dl class="flex flex-wrap gap-x-16 gap-y-2 text-xs text-text-muted">
+                      <div class="flex gap-4">
+                        <dt>Assigned to</dt>
+                        <dd class="text-text">{nameOf(task.assigneeUserId)}</dd>
+                      </div>
+                      {#if due !== null}
+                        <div class="flex gap-4">
+                          <dt>Due</dt>
+                          <dd class="text-text">{due}</dd>
+                        </div>
+                      {/if}
+                      {#if showMatter && task.matterId === null}
+                        <div class="flex gap-4">
+                          <dt>Matter</dt>
+                          <dd class="text-text">The firm's own work</dd>
+                        </div>
+                      {/if}
+                      <!-- Only where there IS time. Most tasks carry none, and "0m" on every row would
+                           be noise standing in for a fact nobody recorded. "by you" appears where the
+                           reader may not see other timekeepers' time, so the number is never mistaken
+                           for the whole task's. -->
+                      {#if timeLogged !== null}
+                        <div class="flex gap-4">
+                          <dt>Time logged</dt>
+                          <dd class="text-text">{timeLogged}</dd>
+                        </div>
+                      {/if}
+                      <!-- Where else this task is written down. Absent on nearly every task, because
+                           the product integrates with nothing on its own — a row here means an addon
+                           put it there, and saying so is what stops somebody editing in two places
+                           without knowing the other exists. -->
+                      {#each task.externalLinks as link (link.id)}
+                        <div class="flex gap-4">
+                          <dt>{externalSystemLabel(link.system)}</dt>
+                          <dd class="text-text">
+                            {#if link.externalUrl === null}
+                              <!-- No addressable page over there. The platform will not invent a URL
+                                   from an id pattern — that would be guessing at somebody else's
+                                   routing — so the handle is the honest thing to show. -->
+                              {link.externalId}
+                            {:else}
+                              <!-- The destination is another system entirely, so it opens beside the
+                                   reader rather than in place — through the product's one gate for
+                                   that, never a hand-written target. -->
+                              <a class="underline" href={link.externalUrl} {...opensBeside("external")}>
+                                {link.externalId}
+                              </a>
+                            {/if}
+                          </dd>
+                        </div>
+                      {/each}
+                      {#if task.state === "cancelled" && task.cancellationReason !== null}
+                        <div class="flex gap-4">
+                          <dt>Not doing it because</dt>
+                          <dd class="text-text">{task.cancellationReason}</dd>
+                        </div>
+                      {/if}
+                    </dl>
+                    {#if task.documents.length > 0}
+                      <ul class="flex flex-wrap gap-8 text-xs">
+                        {#each task.documents as document (document.id)}
+                          <li class="flex items-center gap-4">
+                            <Paperclip aria-hidden="true" class="size-12 text-text-muted" />
+                            <span>{document.fileName}</span>
+                            {#if canWrite}
+                              <Button
+                                variant="ghost"
+                                disabled={saving}
+                                title="Detach this document — it stays in the matter's files"
+                                onclick={() =>
+                                  runWrite(
+                                    () => detachTaskDocument(fetch, document.id, newWriteKey()),
+                                    "The document was not detached.",
+                                  )}
+                              >
+                                <X aria-hidden="true" />
+                              </Button>
+                            {/if}
+                          </li>
+                        {/each}
+                      </ul>
+                    {/if}
+                  </div>
 
-    {#if taskList.nextCursor !== null}
-      <div class="flex justify-center">
-        <Button
-          variant="secondary"
-          disabled={taskList.loadingMore}
-          onclick={() => {
-            const current = filters;
-            void taskList.loadMore((cursor) => read(cursor, current));
-          }}
-        >
-          Show More
-        </Button>
-      </div>
-    {/if}
+                  {#if canWrite}
+                    <!-- Row actions render at rest rather than on hover: a control somebody has to
+                         discover by pointing at it is a control most people never find. -->
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-4">
+                      {#if task.state === "open"}
+                        <Button
+                          variant="secondary"
+                          disabled={saving}
+                          onclick={() =>
+                            runWrite(
+                              () => completeTask(fetch, task.id, newWriteKey()),
+                              "The task was not completed.",
+                            )}
+                        >
+                          Done
+                        </Button>
+                      {:else}
+                        <Button
+                          variant="secondary"
+                          disabled={saving}
+                          title="Put this task back on the list"
+                          onclick={() =>
+                            runWrite(
+                              () => reopenTask(fetch, task.id, newWriteKey()),
+                              "The task was not reopened.",
+                            )}
+                        >
+                          <RotateCcw aria-hidden="true" />
+                          Reopen
+                        </Button>
+                      {/if}
+                      <Button variant="ghost" disabled={saving} title="Edit" onclick={() => beginEdit(task)}>
+                        <PencilLine aria-hidden="true" />
+                      </Button>
+                      {#if task.matterId !== null && attachableFor(task).length > 0}
+                        <Button
+                          variant="ghost"
+                          disabled={saving}
+                          title="Point at one of the matter's documents"
+                          onclick={() =>
+                            (attachingTaskId = attachingTaskId === task.id ? null : task.id)}
+                        >
+                          <Paperclip aria-hidden="true" />
+                        </Button>
+                      {/if}
+                      {#if task.state === "open"}
+                        <Button
+                          variant="ghost"
+                          disabled={saving}
+                          title="The firm decided not to do this"
+                          onclick={() => {
+                            cancelling = task;
+                            cancelReason = "";
+                          }}
+                        >
+                          <Ban aria-hidden="true" />
+                        </Button>
+                      {/if}
+                      <Button
+                        variant="ghost"
+                        disabled={saving}
+                        title="Delete — for a task that should not exist"
+                        onclick={() =>
+                          runWrite(
+                            () => deleteTask(fetch, task.id, newWriteKey()),
+                            "The task was not deleted.",
+                          )}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    </div>
+                  {/if}
+                </div>
+
+                {#if canAssign && task.state === "open"}
+                  <div class="flex items-center gap-8 text-xs">
+                    <Label for={`assignee-${task.id}`} class="text-text-muted">Assigned to</Label>
+                    <Select.Root
+                      type="single"
+                      value={task.assigneeUserId ?? ""}
+                      disabled={saving}
+                      onValueChange={(value) =>
+                        runWrite(
+                          () => reassignTask(fetch, task.id, value === "" ? null : value, newWriteKey()),
+                          "The task was not reassigned.",
+                        )}
+                    >
+                      <Select.Trigger id={`assignee-${task.id}`} class="w-192">
+                        {nameOf(task.assigneeUserId)}
+                      </Select.Trigger>
+                      <Select.Content>
+                        <Select.Item value="" label="Nobody" />
+                        {#each assignableMembers as member (member.userId)}
+                          <Select.Item value={member.userId} label={member.displayName} />
+                        {/each}
+                      </Select.Content>
+                    </Select.Root>
+                  </div>
+                {/if}
+
+                {#if attachingTaskId === task.id}
+                  <div class="flex flex-wrap items-center gap-8 border-t border-border-subtle pt-8">
+                    <span class="text-xs text-text-muted">
+                      Points at a document the matter already holds. Nothing is uploaded or copied.
+                    </span>
+                    {#each attachableFor(task) as file (file.id)}
+                      <Button
+                        variant="ghost"
+                        disabled={saving}
+                        onclick={() =>
+                          runWrite(
+                            () => attachTaskDocument(fetch, task.id, file.id, newWriteKey()),
+                            "The document was not attached.",
+                            () => {
+                              attachingTaskId = null;
+                            },
+                          )}
+                      >
+                        {file.name}
+                      </Button>
+                    {/each}
+                  </div>
+                {/if}
+
+                {#if cancelling?.id === task.id}
+                  <div class="flex flex-col gap-8 border-t border-border-subtle pt-8">
+                    <Label for={`cancel-reason-${task.id}`}>
+                      Why is the firm not doing this? The decision is the record, so it is required.
+                    </Label>
+                    <Textarea
+                      id={`cancel-reason-${task.id}`}
+                      bind:value={cancelReason}
+                      rows={2}
+                      disabled={saving}
+                    />
+                    <div class="flex justify-end gap-8">
+                      <Button variant="secondary" disabled={saving} onclick={() => (cancelling = null)}>
+                        Keep It
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        disabled={saving || cancelReason.trim().length === 0}
+                        onclick={confirmCancel}
+                      >
+                        Cancel Task
+                      </Button>
+                    </div>
+                  </div>
+                {/if}
+              {/if}
+            </li>
+          {/each}
+        </ul>
+
+        {#if taskList.nextCursor !== null}
+          <div class="flex justify-center">
+            <Button
+              variant="secondary"
+              disabled={taskList.loadingMore}
+              onclick={() => {
+                const current = filters;
+                void taskList.loadMore((cursor) => read(cursor, current));
+              }}
+            >
+              Show More
+            </Button>
+          </div>
+        {/if}
+      {/if}
+    </LoadingRegion>
   {/if}
 </section>

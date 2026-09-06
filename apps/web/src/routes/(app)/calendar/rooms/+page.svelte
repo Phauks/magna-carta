@@ -23,7 +23,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Select from "@magna-carta/design-system/select";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { Failure } from "$lib/api/request.ts";
@@ -140,31 +140,40 @@
       fallback="The firm's rooms and resources were not read, so no schedule can be shown."
       onRetry={() => void load()}
     />
-  {:else if resources === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the firm's resources">
-      <Skeleton class="h-16 w-160" />
-      <Skeleton class="h-12 w-full" />
-    </div>
-  {:else if resource === null}
-    <EmptyState title="No rooms or resources yet">
-      A resource is something bookable the firm owns: a conference room, a pool car, the video rig.
-      Add the first one under Settings and its schedule appears here.
-      {#snippet actions()}
-        <Button variant="primary" href="/settings/resources">Rooms and Resources</Button>
-      {/snippet}
-    </EmptyState>
   {:else}
-    {#if capped}
-      <p class="text-xs text-text-muted">The picker lists the first page of the firm's resources.</p>
-    {/if}
-    {#key resource.id}
-      <CalendarView
-        scope={{ kind: "resource", resourceId: resource.id }}
-        bind:view
-        bind:anchor
-        address
-        class="min-h-0 flex-1"
-      />
-    {/key}
+    <LoadingRegion
+      loading={resources === null}
+      label="Reading the firm's resources"
+      class="flex min-h-0 flex-1 flex-col gap-16"
+    >
+      <!-- Until the catalog names a room there is no schedule to draw, so the shape is the one
+           block the week grid will fill: a second calendar drawn over sample bookings would be a
+           second calendar. -->
+      {#snippet fixture()}
+        <div data-loading-block class="min-h-0 flex-1"></div>
+      {/snippet}
+      {#if resource === null}
+        <EmptyState title="No rooms or resources yet">
+          A resource is something bookable the firm owns: a conference room, a pool car, the video rig.
+          Add the first one under Settings and its schedule appears here.
+          {#snippet actions()}
+            <Button variant="primary" href="/settings/resources">Rooms and Resources</Button>
+          {/snippet}
+        </EmptyState>
+      {:else}
+        {#if capped}
+          <p class="text-xs text-text-muted">The picker lists the first page of the firm's resources.</p>
+        {/if}
+        {#key resource.id}
+          <CalendarView
+            scope={{ kind: "resource", resourceId: resource.id }}
+            bind:view
+            bind:anchor
+            address
+            class="min-h-0 flex-1"
+          />
+        {/key}
+      {/if}
+    </LoadingRegion>
   {/if}
 </div>

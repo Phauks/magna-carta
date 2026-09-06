@@ -11,6 +11,7 @@ import {
   directoryOrganizationName,
   directoryPersonName,
   entityKindLabel,
+  entityRecordFromAddress,
   entityRecordHref,
   organizationLegalNameAside,
   pronounShortForm,
@@ -141,8 +142,13 @@ describe("the entity handle", () => {
     expect(entityKindFromIdentifier("")).toBeNull();
   });
 
-  it("addresses a record one way", () => {
-    expect(entityRecordHref("directoryPerson_abc")).toBe("/directory/directoryPerson_abc");
+  it("addresses a record one way: the directory, carrying which record's window to open", () => {
+    expect(entityRecordHref("directoryPerson_abc")).toBe("/directory?record=directoryPerson_abc");
+    expect(
+      entityRecordFromAddress(new URL("https://firm.example/directory?record=directoryPerson_abc")),
+    ).toBe("directoryPerson_abc");
+    expect(entityRecordFromAddress(new URL("https://firm.example/directory"))).toBeNull();
+    expect(entityRecordFromAddress(new URL("https://firm.example/directory?record="))).toBeNull();
   });
 
   it("labels both kinds, and passes an unrecognized one through as it came", () => {

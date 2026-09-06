@@ -26,16 +26,22 @@
   import * as Select from "@magna-carta/design-system/select";
   import MergeFieldPicker from "@magna-carta/design-system/merge-field-picker";
   import MergeFieldReviewList from "@magna-carta/design-system/merge-field-review-list";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Label from "@magna-carta/design-system/label";
   import type {
     MergeFieldCatalog,
+    MergeFieldValueType,
     TemplateFieldManifest,
     TemplateVersionSummary,
   } from "@magna-carta/merge-field-catalog-contract/types";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import AssemblyInputArea from "$lib/document-assembly/assembly-input-area.svelte";
-  import { buildAssemblyInputPlan } from "$lib/document-assembly/assembly-input-model.ts";
+  import {
+    buildAssemblyInputPlan,
+    type AssemblyFieldDisposition,
+    type AssemblyInputField,
+    type AssemblyInputPlan,
+  } from "$lib/document-assembly/assembly-input-model.ts";
   import { catalogPickerOptions, reviewItems } from "$lib/document-assembly/catalog-adapters.ts";
   import { mergeFieldCatalogProvider } from "$lib/document-assembly/merge-field-catalog-source.ts";
 
@@ -107,6 +113,70 @@
   function recordSubmission(values: Record<string, string>): void {
     submittedFieldCount = Object.keys(values).length;
   }
+
+  /*
+   * The shapes the two reads take while they are in flight: the same picker over invented
+   * templates, and the same input area over an invented plan. Inert and hidden from assistive
+   * technology while they stand, so nothing in them can be picked or filled in.
+   */
+  const FIXTURE_TEMPLATE_VALUE = "fixture-engagement";
+  const TEMPLATE_FIXTURE_ITEMS = [
+    { value: FIXTURE_TEMPLATE_VALUE, label: "Engagement letter" },
+    { value: "fixture-retainer", label: "Retainer agreement" },
+  ];
+
+  function fixtureField(
+    key: string,
+    label: string,
+    valueType: MergeFieldValueType,
+    valueTypeLabel: string,
+    disposition: AssemblyFieldDisposition,
+    exampleRendering: string,
+  ): AssemblyInputField {
+    const requiresEntry = disposition === "manual" || disposition === "conditional";
+    return {
+      key,
+      label,
+      valueType,
+      valueTypeLabel,
+      description: `The ${label.toLowerCase()} as it appears in the document.`,
+      availabilityNote: requiresEntry ? "Nothing on file supplies this." : "Filled from the matter.",
+      exampleRendering,
+      occurrences: 1,
+      disposition,
+      sensitivity: "ordinary",
+      requiresEntry,
+      required: requiresEntry,
+    };
+  }
+
+  const PLAN_FIXTURE: AssemblyInputPlan = {
+    templateVersionId: FIXTURE_TEMPLATE_VALUE,
+    templateName: "Engagement letter",
+    groups: [
+      {
+        group: "client",
+        label: "Client",
+        fields: [
+          fixtureField("client.name", "Client name", "name", "Name", "automatic", "Harold Pemberton"),
+          fixtureField("client.address", "Client address", "text", "Text", "manual", "14 Cascade Ridge"),
+        ],
+      },
+      {
+        group: "matter",
+        label: "Matter",
+        fields: [
+          fixtureField("matter.title", "Matter title", "text", "Text", "automatic", "Pemberton v. Hale"),
+          fixtureField("matter.opened", "Date opened", "date", "Date", "automatic", "9 February 2026"),
+          fixtureField("matter.retainer", "Retainer amount", "money", "Money", "manual", "$5,000.00"),
+        ],
+      },
+    ],
+    entryFieldCount: 2,
+    automaticFieldCount: 3,
+    unrecognizedKeys: [],
+    protectedKeys: [],
+  };
 </script>
 
 <svelte:head><title>Assemble a document · Magna Carta</title></svelte:head>
@@ -136,9 +206,19 @@
       <Card.Description>Choose the template this document comes from.</Card.Description>
     </Card.Header>
     <Card.Content>
-      {#if templateItems.length === 0}
-        <Skeleton class="h-32 w-full" />
-      {:else}
+      <LoadingRegion loading={catalog === null} label="Reading the firm's templates">
+        {#snippet fixture()}
+          <Select.Root
+            type="single"
+            items={TEMPLATE_FIXTURE_ITEMS}
+            value={FIXTURE_TEMPLATE_VALUE}
+            allowDeselect={false}
+          >
+            <Select.Trigger class="max-w-sm" aria-label="Template">
+              <Select.Value />
+            </Select.Trigger>
+          </Select.Root>
+        {/snippet}
         <Select.Root
           type="single"
           items={templateItems}
@@ -154,7 +234,7 @@
             {/each}
           </Select.Content>
         </Select.Root>
-      {/if}
+      </LoadingRegion>
     </Card.Content>
   </Card.Root>
 
@@ -170,15 +250,14 @@
     </Card.Root>
   {/if}
 
-  {#if plan}
-    <AssemblyInputArea {plan} onSubmit={recordSubmission} />
-  {:else}
-    <div class="flex flex-col gap-8">
-      <Skeleton class="h-24 w-full" />
-      <Skeleton class="h-24 w-full" />
-      <Skeleton class="h-24 w-full" />
-    </div>
-  {/if}
+  <LoadingRegion loading={plan === null} label="Reading what this template needs">
+    {#snippet fixture()}
+      <AssemblyInputArea plan={PLAN_FIXTURE} />
+    {/snippet}
+    {#if plan !== null}
+      <AssemblyInputArea {plan} onSubmit={recordSubmission} />
+    {/if}
+  </LoadingRegion>
 
   {#if submittedFieldCount !== null}
     <Alert.Root variant="success">

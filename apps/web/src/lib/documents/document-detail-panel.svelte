@@ -16,7 +16,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Dropzone from "@magna-carta/design-system/dropzone";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import {
     listDocumentVersions,
@@ -55,6 +55,38 @@
   const editorStep = loopStep("edit-in-browser");
   const readable = $derived(hasReadableContent(subject));
   const saving = $derived(saveStage !== null && saveStage !== "settled");
+
+  /*
+   * The shape the history takes while it is read: the same table, over invented versions. Inert
+   * and hidden from assistive technology while it stands, so no row in it reads as a version this
+   * document has.
+   */
+  const VERSIONS_FIXTURE: readonly DocumentVersion[] = [
+    {
+      id: "fixture-3",
+      versionNumber: 3,
+      sizeBytes: 184_320,
+      sniffedContentType: null,
+      contentSha256: "9f3c1e7ab52d0468c1d2e3f4a5b6c7d8",
+      committedAt: "2026-02-12T16:12:00Z",
+    },
+    {
+      id: "fixture-2",
+      versionNumber: 2,
+      sizeBytes: 176_128,
+      sniffedContentType: null,
+      contentSha256: "4b8e2d61f7a90c35d4e5f6a7b8c9d0e1",
+      committedAt: "2026-02-10T09:41:00Z",
+    },
+    {
+      id: "fixture-1",
+      versionNumber: 1,
+      sizeBytes: 171_008,
+      sniffedContentType: null,
+      contentSha256: "d17a5c0e3b9f6248e5f6a7b8c9d0e1f2",
+      committedAt: "2026-02-09T14:05:00Z",
+    },
+  ];
 
   $effect(() => {
     // Both are read so the history re-reads on either change: the panel is reused as the person
@@ -106,6 +138,40 @@
   }
 </script>
 
+{#snippet versionTable(rows: readonly DocumentVersion[])}
+  <div class="overflow-x-auto">
+    <DataTable.Root>
+      <DataTable.Caption class="sr-only">
+        Committed versions of {subject.name}
+      </DataTable.Caption>
+      <DataTable.Header>
+        <DataTable.Row>
+          <DataTable.Head data-align="end">Version</DataTable.Head>
+          <DataTable.Head data-align="end">Size</DataTable.Head>
+          <DataTable.Head>Committed</DataTable.Head>
+          <DataTable.Head>Content hash</DataTable.Head>
+        </DataTable.Row>
+      </DataTable.Header>
+      <DataTable.Body>
+        {#each rows as version (version.id)}
+          <DataTable.Row>
+            <DataTable.Cell data-align="end">{version.versionNumber}</DataTable.Cell>
+            <DataTable.Cell data-align="end">
+              {formatDocumentSize(version.sizeBytes)}
+            </DataTable.Cell>
+            <DataTable.Cell>{formatDocumentTimestamp(version.committedAt)}</DataTable.Cell>
+            <DataTable.Cell>
+              <span class="font-mono text-xs text-text-muted">
+                {version.contentSha256 === null ? "—" : version.contentSha256.slice(0, 12)}
+              </span>
+            </DataTable.Cell>
+          </DataTable.Row>
+        {/each}
+      </DataTable.Body>
+    </DataTable.Root>
+  </div>
+{/snippet}
+
 <div class="flex flex-col gap-24">
   <section class="flex flex-col gap-12">
     <h3 class="text-base font-semibold">Versions</h3>
@@ -114,44 +180,20 @@
         <Alert.Title>The version history could not be read.</Alert.Title>
         <Alert.Description>The document itself is unaffected.</Alert.Description>
       </Alert.Root>
-    {:else if versions === null}
-      <Skeleton class="h-32 w-full" />
-    {:else if versions.length === 0}
-      <p class="text-sm text-text-muted">
-        No committed version yet — nothing has cleared the check.
-      </p>
     {:else}
-      <div class="overflow-x-auto">
-        <DataTable.Root>
-          <DataTable.Caption class="sr-only">
-            Committed versions of {subject.name}
-          </DataTable.Caption>
-          <DataTable.Header>
-            <DataTable.Row>
-              <DataTable.Head data-align="end">Version</DataTable.Head>
-              <DataTable.Head data-align="end">Size</DataTable.Head>
-              <DataTable.Head>Committed</DataTable.Head>
-              <DataTable.Head>Content hash</DataTable.Head>
-            </DataTable.Row>
-          </DataTable.Header>
-          <DataTable.Body>
-            {#each versions as version (version.id)}
-              <DataTable.Row>
-                <DataTable.Cell data-align="end">{version.versionNumber}</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatDocumentSize(version.sizeBytes)}
-                </DataTable.Cell>
-                <DataTable.Cell>{formatDocumentTimestamp(version.committedAt)}</DataTable.Cell>
-                <DataTable.Cell>
-                  <span class="font-mono text-xs text-text-muted">
-                    {version.contentSha256 === null ? "—" : version.contentSha256.slice(0, 12)}
-                  </span>
-                </DataTable.Cell>
-              </DataTable.Row>
-            {/each}
-          </DataTable.Body>
-        </DataTable.Root>
-      </div>
+      <LoadingRegion loading={versions === null} label="Reading this document's versions">
+        {#snippet fixture()}
+          {@render versionTable(VERSIONS_FIXTURE)}
+        {/snippet}
+        {@const shown = versions ?? []}
+        {#if shown.length === 0}
+          <p class="text-sm text-text-muted">
+            No committed version yet — nothing has cleared the check.
+          </p>
+        {:else}
+          {@render versionTable(shown)}
+        {/if}
+      </LoadingRegion>
     {/if}
   </section>
 

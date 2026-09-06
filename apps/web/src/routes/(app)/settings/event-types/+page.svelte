@@ -18,7 +18,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import * as Select from "@magna-carta/design-system/select";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { Failure } from "$lib/api/request.ts";
@@ -180,6 +180,13 @@
     retireFailure = stated(outcome.failure, "The event type was not retired.");
     return "refused";
   }
+
+  // The shape drawn while the catalog is read: three rows in the table's own columns, sample words.
+  const TYPE_FIXTURE = [
+    { name: "Hearing", code: "HRG", category: "Litigation", origin: "Platform" },
+    { name: "Deposition", code: "DEPO", category: "Litigation", origin: "Platform" },
+    { name: "Closing", code: "CLS", category: "Transaction", origin: "This firm" },
+  ] as const;
 </script>
 
 <svelte:head>
@@ -211,63 +218,87 @@
           <Button variant="primary" size="sm" onclick={openAdd}>Add an Event Type</Button>
         </div>
       {/if}
-      {#if types === null && readFailure === null}
-        <div class="flex flex-col gap-8 py-12" aria-busy="true" aria-label="Reading the event types">
-          <Skeleton class="h-16 w-full" />
-          <Skeleton class="h-16 w-3/4" />
-        </div>
-      {:else if types !== null && types.length === 0}
-        <EmptyState title="No event types">
-          The platform's vocabulary arrives by migration; a firm adds its own words here.
-        </EmptyState>
-      {:else if types !== null}
-        <DataTable.Root>
-          <DataTable.Caption class="sr-only">The event-type catalog</DataTable.Caption>
-          <DataTable.Header>
-            <DataTable.Row>
-              <DataTable.Head>Name</DataTable.Head>
-              <DataTable.Head>Code</DataTable.Head>
-              <DataTable.Head>Category</DataTable.Head>
-              <DataTable.Head>Origin</DataTable.Head>
-              <DataTable.Head>Standing</DataTable.Head>
-              {#if canEdit}
-                <DataTable.Head class="sr-only">Actions</DataTable.Head>
-              {/if}
-            </DataTable.Row>
-          </DataTable.Header>
-          <DataTable.Body>
-            {#each types as type (type.id)}
-              <DataTable.Row>
-                <DataTable.Cell>{type.name}</DataTable.Cell>
-                <DataTable.Cell class="font-mono text-xs">{type.code ?? ""}</DataTable.Cell>
-                <DataTable.Cell>{eventTypeCategoryLabel(type.category)}</DataTable.Cell>
-                <DataTable.Cell>{type.origin === "platform" ? "Platform" : "This firm"}</DataTable.Cell>
-                <DataTable.Cell>
-                  {#if type.active}
-                    <Badge variant="success">Offered</Badge>
-                  {:else}
-                    <Badge variant="neutral">Retired</Badge>
+      {#if types !== null || readFailure === null}
+        <LoadingRegion loading={types === null} label="Reading the event types" class="flex flex-col">
+          {#snippet fixture()}
+            <DataTable.Root>
+              <DataTable.Header>
+                <DataTable.Row>
+                  <DataTable.Head>Name</DataTable.Head>
+                  <DataTable.Head>Code</DataTable.Head>
+                  <DataTable.Head>Category</DataTable.Head>
+                  <DataTable.Head>Origin</DataTable.Head>
+                  <DataTable.Head>Standing</DataTable.Head>
+                </DataTable.Row>
+              </DataTable.Header>
+              <DataTable.Body>
+                {#each TYPE_FIXTURE as row (row.name)}
+                  <DataTable.Row>
+                    <DataTable.Cell>{row.name}</DataTable.Cell>
+                    <DataTable.Cell class="font-mono text-xs">{row.code}</DataTable.Cell>
+                    <DataTable.Cell>{row.category}</DataTable.Cell>
+                    <DataTable.Cell>{row.origin}</DataTable.Cell>
+                    <DataTable.Cell><Badge variant="success">Offered</Badge></DataTable.Cell>
+                  </DataTable.Row>
+                {/each}
+              </DataTable.Body>
+            </DataTable.Root>
+          {/snippet}
+          {@const shown = types ?? []}
+          {#if shown.length === 0}
+            <EmptyState title="No event types">
+              The platform's vocabulary arrives by migration; a firm adds its own words here.
+            </EmptyState>
+          {:else}
+            <DataTable.Root>
+              <DataTable.Caption class="sr-only">The event-type catalog</DataTable.Caption>
+              <DataTable.Header>
+                <DataTable.Row>
+                  <DataTable.Head>Name</DataTable.Head>
+                  <DataTable.Head>Code</DataTable.Head>
+                  <DataTable.Head>Category</DataTable.Head>
+                  <DataTable.Head>Origin</DataTable.Head>
+                  <DataTable.Head>Standing</DataTable.Head>
+                  {#if canEdit}
+                    <DataTable.Head class="sr-only">Actions</DataTable.Head>
                   {/if}
-                </DataTable.Cell>
-                {#if canEdit}
-                  <DataTable.Cell class="text-end">
-                    <Button variant="ghost" size="sm" onclick={() => openEdit(type)}>
-                      {type.origin === "platform" ? "Recategorize" : "Change"}
-                    </Button>
-                    {#if type.active}
-                      <Button variant="ghost" size="sm" onclick={() => openRetire(type)}>Retire</Button>
+                </DataTable.Row>
+              </DataTable.Header>
+              <DataTable.Body>
+                {#each shown as type (type.id)}
+                  <DataTable.Row>
+                    <DataTable.Cell>{type.name}</DataTable.Cell>
+                    <DataTable.Cell class="font-mono text-xs">{type.code ?? ""}</DataTable.Cell>
+                    <DataTable.Cell>{eventTypeCategoryLabel(type.category)}</DataTable.Cell>
+                    <DataTable.Cell>{type.origin === "platform" ? "Platform" : "This firm"}</DataTable.Cell>
+                    <DataTable.Cell>
+                      {#if type.active}
+                        <Badge variant="success">Offered</Badge>
+                      {:else}
+                        <Badge variant="neutral">Retired</Badge>
+                      {/if}
+                    </DataTable.Cell>
+                    {#if canEdit}
+                      <DataTable.Cell class="text-end">
+                        <Button variant="ghost" size="sm" onclick={() => openEdit(type)}>
+                          {type.origin === "platform" ? "Recategorize" : "Change"}
+                        </Button>
+                        {#if type.active}
+                          <Button variant="ghost" size="sm" onclick={() => openRetire(type)}>Retire</Button>
+                        {/if}
+                      </DataTable.Cell>
                     {/if}
-                  </DataTable.Cell>
-                {/if}
-              </DataTable.Row>
-            {/each}
-          </DataTable.Body>
-        </DataTable.Root>
-        <p class="py-8 text-xs text-text-muted">
-          A retired type keeps its meaning on every event already classified under it and is not
-          offered for new ones. Retiring is one way: a word wanted back is added again as the firm's
-          own.
-        </p>
+                  </DataTable.Row>
+                {/each}
+              </DataTable.Body>
+            </DataTable.Root>
+            <p class="py-8 text-xs text-text-muted">
+              A retired type keeps its meaning on every event already classified under it and is not
+              offered for new ones. Retiring is one way: a word wanted back is added again as the firm's
+              own.
+            </p>
+          {/if}
+        </LoadingRegion>
       {/if}
     </SettingsPlate>
   </div>

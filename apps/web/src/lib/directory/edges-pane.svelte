@@ -36,7 +36,7 @@
   import FieldRow from "@magna-carta/design-system/field-row";
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Link from "@lucide/svelte/icons/link";
   import {
     createDirectoryEdge,
@@ -67,6 +67,7 @@
     filter = "all",
     mayEdit,
     editDisabledReason,
+    onOpenEntity,
   }: {
     entityId: string;
     /** Which side of the directory this record is on. Decides what may be recorded from it. */
@@ -77,6 +78,12 @@
     filter?: EdgePaneFilter;
     mayEdit: boolean;
     editDisabledReason?: string;
+    /**
+     * Open the far record some way other than by its address — inside the window this pane already
+     * stands in, which swaps its subject rather than stacking a second window. Without it the far
+     * name is the link to its address.
+     */
+    onOpenEntity?: (entityId: string) => void;
   } = $props();
 
   /** What each filter calls itself and says when it has nothing to list. */
@@ -115,6 +122,37 @@
   const NOTE_FIELD_NAME = "Note";
   /** Inert filler for a line that has nothing to say, so its height never depends on wording. */
   const NOTHING = " ";
+
+  /**
+   * The shape the list takes while the record's edges are being read: the same rows the real list
+   * renders, one from each end, over sample names. Not anybody the firm holds.
+   */
+  const EDGE_FIXTURE: readonly DirectoryEdgeEntry[] = [
+    {
+      id: "fixture-1",
+      edgeType: "officer_of",
+      direction: "outbound",
+      farEntityId: "fixture-far-1",
+      farEntityKind: "organization",
+      farDisplayName: "Meridian Holdings",
+      role: "Company secretary",
+      note: null,
+      validFrom: "2019-03-01",
+      validTo: null,
+    },
+    {
+      id: "fixture-2",
+      edgeType: "representation",
+      direction: "inbound",
+      farEntityId: "fixture-far-2",
+      farEntityKind: "person",
+      farDisplayName: "Marcus Adeyemi",
+      role: null,
+      note: "Appointed by the board",
+      validFrom: null,
+      validTo: null,
+    },
+  ];
 
   // ---- the list --------------------------------------------------------------------------------
 
@@ -302,64 +340,21 @@
       whenSilent={failure.whenSilent}
       onRetry={() => (reloadToken += 1)}
     />
-  {:else if edges === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading this record's {words.heading.toLowerCase()}">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else if shown.length === 0}
-    <EmptyState title={words.emptyTitle}>{words.emptyBody}</EmptyState>
   {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">{words.caption}</DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          <DataTable.Head>Relationship</DataTable.Head>
-          <DataTable.Head>Note</DataTable.Head>
-          <DataTable.Head>In force</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each shown as edge (edge.id)}
-          {@const sentence = sentenceOf(edge)}
-          <DataTable.Row>
-            <DataTable.Cell>
-              <span class="flex flex-col gap-4">
-                <span class="flex flex-wrap items-center gap-4">
-                  {#if sentence.before !== ""}
-                    <span>{sentence.before}</span>
-                  {/if}
-                  <EntityIdentity
-                    kind={farKindOf(edge)}
-                    name={sentence.far}
-                    href={entityRecordHref(edge.farEntityId)}
-                  />
-                  {#if sentence.after !== ""}
-                    <span>{sentence.after}</span>
-                  {/if}
-                </span>
-                {#if entryOf(edge.edgeType) === null || (edge.role !== null && edge.role !== "")}
-                  <span class="flex flex-wrap items-center gap-4">
-                    {#if entryOf(edge.edgeType) === null}
-                      <Badge variant="neutral">{edgeTypeLabel(edge.edgeType)}</Badge>
-                    {/if}
-                    {#if edge.role !== null && edge.role !== ""}
-                      <Badge variant="neutral">{edge.role}</Badge>
-                    {/if}
-                  </span>
-                {/if}
-              </span>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <span class="text-text-muted">{edge.note ?? "—"}</span>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <span class="text-text-muted">{period(edge)}</span>
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
+    <LoadingRegion
+      loading={edges === null}
+      label="Reading this record's {words.heading.toLowerCase()}"
+      class="flex flex-col gap-8"
+    >
+      {#snippet fixture()}
+        {@render edgeTable(EDGE_FIXTURE)}
+      {/snippet}
+      {#if shown.length === 0}
+        <EmptyState title={words.emptyTitle}>{words.emptyBody}</EmptyState>
+      {:else}
+        {@render edgeTable(shown)}
+      {/if}
+    </LoadingRegion>
   {/if}
 
   {#if listIsReadable && nextCursor !== null}
@@ -487,3 +482,60 @@
     {/if}
   {/if}
 </section>
+
+<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet edgeTable(rows: readonly DirectoryEdgeEntry[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">{words.caption}</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Relationship</DataTable.Head>
+        <DataTable.Head>Note</DataTable.Head>
+        <DataTable.Head>In force</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as edge (edge.id)}
+        {@const sentence = sentenceOf(edge)}
+        <DataTable.Row>
+          <DataTable.Cell>
+            <span class="flex flex-col gap-4">
+              <span class="flex flex-wrap items-center gap-4">
+                {#if sentence.before !== ""}
+                  <span>{sentence.before}</span>
+                {/if}
+                <EntityIdentity
+                  kind={farKindOf(edge)}
+                  name={sentence.far}
+                  href={onOpenEntity === undefined ? entityRecordHref(edge.farEntityId) : undefined}
+                  onOpen={onOpenEntity === undefined
+                    ? undefined
+                    : () => onOpenEntity(edge.farEntityId)}
+                />
+                {#if sentence.after !== ""}
+                  <span>{sentence.after}</span>
+                {/if}
+              </span>
+              {#if entryOf(edge.edgeType) === null || (edge.role !== null && edge.role !== "")}
+                <span class="flex flex-wrap items-center gap-4">
+                  {#if entryOf(edge.edgeType) === null}
+                    <Badge variant="neutral">{edgeTypeLabel(edge.edgeType)}</Badge>
+                  {/if}
+                  {#if edge.role !== null && edge.role !== ""}
+                    <Badge variant="neutral">{edge.role}</Badge>
+                  {/if}
+                </span>
+              {/if}
+            </span>
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <span class="text-text-muted">{edge.note ?? "—"}</span>
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <span class="text-text-muted">{period(edge)}</span>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}

@@ -51,9 +51,9 @@
     rowDetail?: Snippet<[TRow]>;
     /** The unfiltered empty state — the surface owns its own empty-state composition. */
     empty?: Snippet;
-    /** Skeleton rows stand in for data until it arrives. */
+    /** Placeholder rows stand in for data until it arrives. */
     loading?: boolean;
-    skeletonRowCount?: number;
+    placeholderCount?: number;
     /** Row density; compact trims the row height a step further. */
     density?: "comfortable" | "compact";
     /** Right-click on a row: the selection re-targets first, then this fires for the surface's
@@ -73,7 +73,7 @@
     rowDetail,
     empty,
     loading = false,
-    skeletonRowCount = 8,
+    placeholderCount = 8,
     density = "comfortable",
     onRowContextMenu,
     settings,
@@ -530,7 +530,7 @@
       </thead>
       <tbody class="mc-table-body">
         {#if loading}
-          {#each Array.from({ length: skeletonRowCount }, (_, index) => index) as skeletonRow (skeletonRow)}
+          {#each Array.from({ length: placeholderCount }, (_, index) => index) as placeholderRow (placeholderRow)}
             <tr class="mc-table-row" data-placeholder="true">
               {#each grid.visibleColumns as column (column.id)}
                 {@const pinned = pinnedAttributes(column.id)}

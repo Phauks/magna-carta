@@ -32,6 +32,7 @@
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Gavel from "@lucide/svelte/icons/gavel";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -51,7 +52,7 @@
     sourceVocabulary,
     waiverShortfallText,
   } from "./conflicts-vocabulary.ts";
-  import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
+  import EntityWindow from "$lib/directory/entity-window.svelte";
   import { entityKindText, partyCellTitle, partyText, surfacedAgainstText } from "./hit-columns.ts";
 
   let {
@@ -85,6 +86,17 @@
   // takes no name of its own to be told. It used to, and a caller could hand it one that disagreed
   // with the hit it was showing.
   const partyName = $derived(hit?.party?.displayName ?? null);
+
+  // The party's directory record, opened over this window rather than in the directory's place:
+  // a reviewer reads what the firm holds about the entity and comes back to the hit they were on.
+  let entityOpen = $state(false);
+  let openEntityId = $state("");
+
+  function openParty(): void {
+    if (hit === null) return;
+    openEntityId = hit.entityId;
+    entityOpen = true;
+  }
   const heading = $derived(partyName ?? (hit === null ? "" : partyText(hit)));
 
   /*
@@ -118,6 +130,35 @@
       trailFailure = stated(outcome.failure, "This hit's answers could not be read.");
     })();
   });
+
+  /*
+   * The shape the trail takes while it is being read: the same rail, over invented answers. It is
+   * inert and hidden from assistive technology while it stands, so nothing in it can be mistaken
+   * for a real hit's record.
+   */
+  const TRAIL_FIXTURE: readonly EventRailEvent[] = [
+    {
+      id: "fixture-surfaced",
+      action: "Surfaced by the check",
+      at: "2026-02-09T14:05:00Z",
+      source: "The conflicts engine",
+      detail: "Surname and given name matched; date of birth matched",
+    },
+    {
+      id: "fixture-cleared",
+      action: "Cleared: no adverse interest",
+      at: "2026-02-10T09:41:00Z",
+      source: "Rosalind Chase",
+      detail: "The earlier representation ended in 2019 and concerned an unrelated lease.",
+    },
+    {
+      id: "fixture-waiver",
+      action: "Waiver obtained, confirmed in writing",
+      at: "2026-02-12T16:12:00Z",
+      source: "Rosalind Chase",
+      detail: "Consent given after independent advice; the letter is filed on the matter.",
+    },
+  ];
 
   const events = $derived.by((): EventRailEvent[] => {
     if (hit === null) return [];
@@ -196,9 +237,9 @@
             {:else}
               <!-- The entity's own record, so a reviewer can read what the firm holds about it
                    rather than taking the hit's word for who it is. -->
-              <a class="underline underline-offset-2" href={entityRecordHref(hit.entityId)}>
+              <button type="button" class="underline underline-offset-2" onclick={openParty}>
                 {partyName}
-              </a>
+              </button>
             {/if}
           </dd>
         </div>
@@ -361,46 +402,65 @@
   {/if}
 {/snippet}
 
+{#snippet trailRail()}
+  <EventRail
+    {events}
+    label="This hit's adjudication"
+    emptyMessage="Nothing has been recorded against this hit yet."
+  />
+  {#if hit?.disposition != null && hit.disposition.shortfalls.length > 0}
+    <!-- Beneath the trail, because it is not an event: it is what the latest answer's record is
+         still short of, and it stays true until a second disposition supplies it. -->
+    <div class="flex flex-col gap-4 text-xs text-text-muted">
+      {#each hit.disposition.shortfalls as shortfall (shortfall)}
+        <p class="flex items-start gap-8">
+          <CircleAlert class="size-12 shrink-0" aria-hidden="true" />
+          <span>{waiverShortfallText(shortfall)}</span>
+        </p>
+      {/each}
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet adjudicationTab()}
   <div class="flex h-full min-h-0 flex-col gap-8">
-    <EventRail
-      {events}
-      label="This hit's adjudication"
-      emptyMessage="Nothing has been recorded against this hit yet."
-    />
-    {#if hit?.disposition != null && hit.disposition.shortfalls.length > 0}
-      <!-- Beneath the trail, because it is not an event: it is what the latest answer's record is
-           still short of, and it stays true until a second disposition supplies it. -->
-      <div class="flex flex-col gap-4 text-xs text-text-muted">
-        {#each hit.disposition.shortfalls as shortfall (shortfall)}
-          <p class="flex items-start gap-8">
-            <CircleAlert class="size-12 shrink-0" aria-hidden="true" />
-            <span>{waiverShortfallText(shortfall)}</span>
-          </p>
-        {/each}
-      </div>
-    {/if}
     {#if trailFailure !== null}
-      <!-- A trail that could not be read says so. An append-only record that silently showed fewer
-           acts than it holds would be the one failure this whole surface exists to prevent. -->
+      <!-- A trail that could not be read says so, under the rail's one certain event. An
+           append-only record that silently showed fewer acts than it holds would be the one
+           failure this whole surface exists to prevent. -->
+      {@render trailRail()}
       <FailureNotice
         failure={trailFailure.failure}
         subject="This hit's answers"
         fallback={trailFailure.fallback}
       />
-    {:else if trailLoading}
-      <p class="text-xs text-text-muted" aria-busy="true">Reading every answer on this hit.</p>
-    {:else if trail.length === 0}
-      <p class="text-xs text-text-muted">
-        No reviewer has answered this hit. That is a fact about the hit, not about whether an
-        interest is adverse.
-      </p>
-    {:else if trail.length > 1}
-      <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
-      <p class="text-xs text-text-muted">
-        {trail.length} answers, oldest first. An answer is never edited — a reviewer who changes
-        their mind records another, and both stay on the log.
-      </p>
+    {:else}
+      <LoadingRegion
+        loading={trailLoading}
+        label="Reading every answer on this hit"
+        class="flex min-h-0 flex-1 flex-col gap-8"
+      >
+        {#snippet fixture()}
+          <EventRail events={TRAIL_FIXTURE} label="This hit's adjudication" />
+          <p class="text-xs text-text-muted">
+            2 answers, oldest first. An answer is never edited — a reviewer who changes their mind
+            records another, and both stay on the log.
+          </p>
+        {/snippet}
+        {@render trailRail()}
+        {#if trail.length === 0}
+          <p class="text-xs text-text-muted">
+            No reviewer has answered this hit. That is a fact about the hit, not about whether an
+            interest is adverse.
+          </p>
+        {:else if trail.length > 1}
+          <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
+          <p class="text-xs text-text-muted">
+            {trail.length} answers, oldest first. An answer is never edited — a reviewer who changes
+            their mind records another, and both stay on the log.
+          </p>
+        {/if}
+      </LoadingRegion>
     {/if}
   </div>
 {/snippet}
@@ -437,3 +497,5 @@
 {#if sheet !== null}
   <PrintSheet bind:open={printOpen} {sheet} />
 {/if}
+
+<EntityWindow bind:open={entityOpen} bind:entityId={openEntityId} />

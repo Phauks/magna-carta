@@ -25,7 +25,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import {
     findDuplicateCandidates,
@@ -42,11 +42,18 @@
     mayEdit,
     editDisabledReason,
     onMerged,
+    onOpenEntity,
   }: {
     entity: DirectoryEntityDetail;
     mayEdit: boolean;
     editDisabledReason?: string;
     onMerged: () => void;
+    /**
+     * Open a candidate's record some way other than by its address — inside the window this pane
+     * already stands in, which swaps its subject rather than stacking a second window. Without it a
+     * candidate's name is the link to its address.
+     */
+    onOpenEntity?: (entityId: string) => void;
   } = $props();
 
   let candidates = $state<readonly DuplicateCandidate[] | null>(null);
@@ -55,6 +62,15 @@
   let opening = $state<string | null>(null);
   let mergeOpen = $state(false);
   let reloadToken = $state(0);
+
+  /**
+   * The shape the list takes while the firm's record is searched: the same rows the real list
+   * renders, over sample names. Not anybody the firm holds.
+   */
+  const CANDIDATE_FIXTURE: readonly DuplicateCandidate[] = [
+    { entityId: "fixture-1", signalCount: 2, entityKind: "person", displayName: "Eleanor Whitcombe" },
+    { entityId: "fixture-2", signalCount: 1, entityKind: "person", displayName: "Eleanor Whitcomb" },
+  ];
 
   // Reading the record a person chose to fold. The merge window shows both sides field by field, so
   // it needs the whole record and not just the name — but only for the one they picked.
@@ -133,66 +149,81 @@
       fallback={failure.fallback}
       whenSilent={failure.whenSilent}
     />
-  {:else if candidates === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Looking for near matches">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else if candidates.length === 0}
-    <EmptyState title="Nothing Near This Record">
-      No other record in the firm's book sounds like this one, is spelled like it, or shares a sealed
-      identifier with it.
-    </EmptyState>
   {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">
-        Records the firm may already hold for the same entity
-      </DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          <DataTable.Head>Record</DataTable.Head>
-          <DataTable.Head>Why it surfaced</DataTable.Head>
-          <DataTable.Head data-align="end">Act</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each candidates as candidate (candidate.entityId)}
-          <DataTable.Row>
-            <DataTable.Cell>
-              {#if candidate.entityKind === "unknown" || candidate.displayName === null}
-                <span class="text-text-muted">—</span>
-              {:else}
-                <EntityIdentity
-                  kind={candidate.entityKind}
-                  name={candidate.displayName}
-                  href={entityRecordHref(candidate.entityId)}
-                />
-              {/if}
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <Badge
-                variant="warning"
-                title="The three channels are how the name sounds, how it is spelled, and an exact match on a sealed identifier."
-              >
-                {candidate.signalCount} of 3 channels agreed
-              </Badge>
-            </DataTable.Cell>
-            <DataTable.Cell data-align="end">
-              <Button
-                variant="secondary"
-                disabled={!mayEdit || opening !== null}
-                title={editDisabledReason}
-                onclick={() => void review(candidate.entityId)}
-              >
-                {opening === candidate.entityId ? "Opening" : "Review and fold"}
-              </Button>
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
+    <LoadingRegion
+      loading={candidates === null}
+      label="Looking for near matches"
+      class="flex flex-col gap-8"
+    >
+      {#snippet fixture()}
+        {@render candidateTable(CANDIDATE_FIXTURE)}
+      {/snippet}
+      {@const shown = candidates ?? []}
+      {#if shown.length === 0}
+        <EmptyState title="Nothing Near This Record">
+          No other record in the firm's book sounds like this one, is spelled like it, or shares a
+          sealed identifier with it.
+        </EmptyState>
+      {:else}
+        {@render candidateTable(shown)}
+      {/if}
+    </LoadingRegion>
   {/if}
 </section>
+
+<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet candidateTable(rows: readonly DuplicateCandidate[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">
+      Records the firm may already hold for the same entity
+    </DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Record</DataTable.Head>
+        <DataTable.Head>Why it surfaced</DataTable.Head>
+        <DataTable.Head data-align="end">Act</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as candidate (candidate.entityId)}
+        <DataTable.Row>
+          <DataTable.Cell>
+            {#if candidate.entityKind === "unknown" || candidate.displayName === null}
+              <span class="text-text-muted">—</span>
+            {:else}
+              <EntityIdentity
+                kind={candidate.entityKind}
+                name={candidate.displayName}
+                href={onOpenEntity === undefined ? entityRecordHref(candidate.entityId) : undefined}
+                onOpen={onOpenEntity === undefined
+                  ? undefined
+                  : () => onOpenEntity(candidate.entityId)}
+              />
+            {/if}
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <Badge
+              variant="warning"
+              title="The three channels are how the name sounds, how it is spelled, and an exact match on a sealed identifier."
+            >
+              {candidate.signalCount} of 3 channels agreed
+            </Badge>
+          </DataTable.Cell>
+          <DataTable.Cell data-align="end">
+            <Button
+              variant="secondary"
+              disabled={!mayEdit || opening !== null}
+              title={editDisabledReason}
+              onclick={() => void review(candidate.entityId)}
+            >
+              {opening === candidate.entityId ? "Opening" : "Review and fold"}
+            </Button>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}
 
 {#if reviewing !== null}
   {#key entityId + entityDetailIdentifier(reviewing)}

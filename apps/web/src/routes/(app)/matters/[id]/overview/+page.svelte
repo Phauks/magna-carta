@@ -11,12 +11,12 @@
   import Button from "@magna-carta/design-system/button";
   import * as Card from "@magna-carta/design-system/card";
   import { formatDate } from "@magna-carta/design-system/data-table";
-  import Skeleton from "@magna-carta/design-system/skeleton";
   import EntityIdentity, { type EntityKind } from "@magna-carta/design-system/entity-identity";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ActivityRegister from "$lib/activity/activity-register.svelte";
   import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
-  import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
+  import EntityWindow from "$lib/directory/entity-window.svelte";
+  import type { EntityStanding } from "$lib/directory/entity-window-model.ts";
   import { CalendarView } from "$lib/calendar/index.ts";
   import { todayCivil } from "$lib/calendar/calendar-window.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -94,10 +94,33 @@
     return facts;
   });
 
-  /* The figures that accrue against a matter once their surfaces ship — placeholders only. */
-  const ACCRUAL_TILES = [{ label: "Unbilled time" }, { label: "Trust balance" }];
+  /*
+   * The figures that accrue against a matter once their surfaces ship. Each tile draws its final
+   * anatomy — the label, the Soon mark, and one honest line on what the figure waits on — and never
+   * a number or a greyed stand-in for one: a shape where a figure goes reads as a figure being read,
+   * and nothing is being read.
+   */
+  const ACCRUAL_TILES = [
+    { label: "Unbilled time", waitsOn: "Accrues once time is recorded against this matter." },
+    { label: "Trust balance", waitsOn: "Accrues once the trust ledger posts to this matter." },
+  ];
 
   const isSample = $derived(matter.source === "sample");
+
+  // ---- the open record -------------------------------------------------------------------------
+
+  // A fact that names a directory record opens it in the entity window over this page, with what
+  // this matter knows of it — the role the fact is — as its standing.
+  let entityOpen = $state(false);
+  let openEntityId = $state("");
+  let openStanding = $state<EntityStanding | null>(null);
+
+  function openFactEntity(entityId: string, role: string): void {
+    openEntityId = entityId;
+    openStanding = { heading: `On ${matter.title}`, lines: [{ label: "Role", value: role }] };
+    entityOpen = true;
+  }
+
   /** The next thirty days on this matter, six rows deep; the Calendar section has the rest. */
   const COMING_UP_DAYS = 30;
   const COMING_UP_ROWS = 6;
@@ -122,10 +145,11 @@
           </FieldLabel>
           <dd class="text-sm">
             {#if fact.entity !== undefined}
+              {@const entity = fact.entity}
               <EntityIdentity
-                kind={fact.entity.kind}
+                kind={entity.kind}
                 name={fact.value}
-                href={entityRecordHref(fact.entity.id)}
+                onOpen={() => openFactEntity(entity.id, fact.label)}
               />
             {:else}
               {fact.value}
@@ -175,8 +199,7 @@
             </FieldLabel>
             <Badge variant="neutral">Soon</Badge>
           </div>
-          <Skeleton class="h-20 w-96" />
-          <Skeleton class="h-12 w-64" />
+          <p class="text-sm text-text-muted">{tile.waitsOn}</p>
         </Card.Content>
       </Card.Root>
     {/each}
@@ -201,3 +224,6 @@
     />
   </section>
 </div>
+
+<!-- The client's record, over this page rather than in the directory's place. -->
+<EntityWindow bind:open={entityOpen} bind:entityId={openEntityId} standing={openStanding} />
