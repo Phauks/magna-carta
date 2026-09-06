@@ -18,12 +18,15 @@ import {
   createLabel,
 } from "@magna-carta/design-system/create-label";
 import { honouredClaim, MatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
-import { matterSections } from "$lib/matters/sections.ts";
+import { CREATE_SEVERAL_KINDS, matterSections } from "$lib/matters/sections.ts";
 import Harness from "./create-claim-harness.svelte";
 
 describe("every matter section answers for the create control", () => {
-  it("declares a noun that fits the control, or declines with a line", () => {
+  it("declares a noun that fits the control, several kinds, or declines with a line", () => {
     for (const section of matterSections) {
+      // A section that makes several kinds reads the bare "New" and names them on its menu items,
+      // so it declares no noun to check and owes no reason — it creates plenty.
+      if (section.createNoun === CREATE_SEVERAL_KINDS) continue;
       if (section.createNoun === null) {
         expect(section.createWaitingOn, `${section.slug} declines without a reason`).toBeTruthy();
         continue;
@@ -31,6 +34,15 @@ describe("every matter section answers for the create control", () => {
       expect(() => assertCreateNoun(section.createNoun ?? "")).not.toThrow();
       expect(createLabel(section.createNoun)).toBe(`New ${section.createNoun}`);
     }
+  });
+
+  it("gives the calendar the bare New, because it makes two kinds", () => {
+    // The label would otherwise name one of them and be wrong about the other: the control read
+    // "New Event" over a menu that also records a deadline.
+    const calendar = matterSections.find((section) => section.slug === "calendar");
+    expect(calendar?.createNoun).toBe(CREATE_SEVERAL_KINDS);
+    // The sentinel is not a noun, so it can never be mistaken for one.
+    expect(() => assertCreateNoun(CREATE_SEVERAL_KINDS)).toThrow(/one capitalised word/u);
   });
 
   it("reads the same noun for the sections the owner named", () => {
