@@ -28,6 +28,8 @@
   import Dropzone from "@magna-carta/design-system/dropzone";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
     listTemplates,
     type AssemblyOutputFormat,
@@ -56,7 +58,7 @@
   let path = $state<Path>("file");
   let chosenFile = $state<File | null>(null);
   let templates = $state<readonly TemplateSummary[] | null>(null);
-  let templatesFailed = $state(false);
+  let templatesFailure = $state<StatedFailure | null>(null);
   let selectedTemplateVersionId = $state("");
   // A word-processing document is the default because it is the one a person can still edit. PDF is
   // the deliberate choice, and it is the only one the platform seal accepts.
@@ -67,14 +69,12 @@
   let frozenMergeFieldNames = $state<readonly string[]>([]);
   let producedFormat = $state<AssemblyOutputFormat | null>(null);
 
-  // The catalogue is read when the dialog first opens, not on mount: a matter screen that is never
-  // used to create a document should not spend a request on the template list.
-  $effect(() => {
-    if (!open || templates !== null || templatesFailed) return;
-    let cancelled = false;
+  /** Read the firm's catalogue. Retry asks again after a failed read. */
+  function readTemplates(): void {
+    templates = null;
+    templatesFailure = null;
     void (async () => {
       const result = await listTemplates(fetch);
-      if (cancelled) return;
       if (result.kind === "ok") {
         // Only a template with a scanned, current version can be assembled from; one whose bytes
         // have not cleared the gate would fail the submit, so it is not offered.
@@ -82,12 +82,16 @@
           (template) => template.status === "active" && template.currentVersionId !== null,
         );
       } else {
-        templatesFailed = true;
+        templatesFailure = stated(result.failure, "The template catalogue could not be read.");
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+  }
+
+  // The catalogue is read when the dialog first opens, not on mount: a matter screen that is never
+  // used to create a document should not spend a request on the template list.
+  $effect(() => {
+    if (!open || templates !== null || templatesFailure !== null) return;
+    readTemplates();
   });
 
   const templateItems = $derived(
@@ -140,7 +144,7 @@
 
   const refusal = $derived.by((): string | undefined => {
     if (path === "file") return chosenFile === null ? "Choose a document first." : undefined;
-    if (templatesFailed) return "The template catalogue could not be read.";
+    if (templatesFailure !== null) return "The template catalogue could not be read.";
     if (templates === null) return "The template catalogue is still being read.";
     if (templates.length === 0) return "This firm has no templates to build from.";
     return selectedTemplateVersionId === "" ? "Choose a template first." : undefined;
@@ -270,107 +274,111 @@
 
         <Tabs.Content value="template">
           <div class="flex flex-col gap-12">
-            {#if templatesFailed}
-              <Alert.Root variant="warning">
-                <Alert.Title>The template catalogue could not be read.</Alert.Title>
-                <Alert.Description>
-                  Adding a document from a file still works. Reopen this dialog to try again.
-                </Alert.Description>
-              </Alert.Root>
-            {:else}
-              <LoadingRegion
-                loading={templates === null}
-                label="Reading the firm's templates"
-                class="flex flex-col gap-12"
-              >
-                {#snippet fixture()}
-                  <div class="flex flex-col gap-8">
-                    <Label>Template</Label>
-                    <Select.Root
-                      type="single"
-                      items={TEMPLATE_FIXTURE_ITEMS}
-                      value={FIXTURE_TEMPLATE_VALUE}
-                      allowDeselect={false}
-                    >
-                      <Select.Trigger class="max-w-sm" aria-label="Template">
-                        <Select.Value />
-                      </Select.Trigger>
-                    </Select.Root>
-                  </div>
-                  <div class="flex flex-col gap-8">
-                    <Label>Build it as</Label>
-                    <Select.Root
-                      type="single"
-                      items={[...OUTPUT_FORMAT_ITEMS]}
-                      value="docx"
-                      allowDeselect={false}
-                    >
-                      <Select.Trigger class="max-w-sm" aria-label="Build it as">
-                        <Select.Value />
-                      </Select.Trigger>
-                    </Select.Root>
-                    <p class="text-sm text-text-muted">
-                      A PDF is converted from the merged document before it is filed, so it takes a
-                      little longer. Choose it when the document is going out to be signed.
-                    </p>
-                  </div>
-                {/snippet}
-                {@const shown = templates ?? []}
-                {#if shown.length === 0}
+            <LoadingRegion
+              loading={templates === null}
+              failed={templatesFailure !== null}
+              empty={templates !== null && templates.length === 0}
+              label="Reading the firm's templates"
+              onRetry={readTemplates}
+              class="flex flex-col gap-12"
+            >
+              {#snippet failure()}
+                {#if templatesFailure !== null}
+                  <FailureNotice
+                    failure={templatesFailure.failure}
+                    subject="The template catalogue"
+                    fallback={templatesFailure.fallback}
+                    onRetry={readTemplates}
+                  >
+                    Adding a document from a file still works.
+                  </FailureNotice>
+                {/if}
+              {/snippet}
+              {#snippet emptyState()}
                 <Alert.Root variant="info">
                   <Alert.Title>This firm has no templates yet.</Alert.Title>
                   <Alert.Description>
-                    A template is registered once and then assembled against any matter. Until one is
-                    registered there is nothing to build from, so this list is genuinely empty rather
-                    than showing examples.
+                    A template is registered once and then assembled against any matter. Until one
+                    is registered there is nothing to build from, so this list is genuinely empty
+                    rather than showing examples.
                   </Alert.Description>
                 </Alert.Root>
-                {:else}
+              {/snippet}
+              {#snippet fixture()}
                 <div class="flex flex-col gap-8">
-                  <Label id="new-document-template-label">Template</Label>
+                  <Label>Template</Label>
                   <Select.Root
                     type="single"
-                    items={templateItems}
-                    bind:value={selectedTemplateVersionId}
+                    items={TEMPLATE_FIXTURE_ITEMS}
+                    value={FIXTURE_TEMPLATE_VALUE}
                     allowDeselect={false}
-                    disabled={busy}
                   >
-                    <Select.Trigger class="max-w-sm" aria-labelledby="new-document-template-label">
-                      <Select.Value placeholder="Choose a template" />
+                    <Select.Trigger class="max-w-sm" aria-label="Template">
+                      <Select.Value />
                     </Select.Trigger>
-                    <Select.Content>
-                      {#each templateItems as item (item.value)}
-                        <Select.Item value={item.value} label={item.label} />
-                      {/each}
-                    </Select.Content>
                   </Select.Root>
                 </div>
                 <div class="flex flex-col gap-8">
-                  <Label id="new-document-format-label">Build it as</Label>
+                  <Label>Build it as</Label>
                   <Select.Root
                     type="single"
                     items={[...OUTPUT_FORMAT_ITEMS]}
-                    bind:value={outputFormat}
+                    value="docx"
                     allowDeselect={false}
-                    disabled={busy}
                   >
-                    <Select.Trigger class="max-w-sm" aria-labelledby="new-document-format-label">
-                      <Select.Value placeholder="Choose a format" />
+                    <Select.Trigger class="max-w-sm" aria-label="Build it as">
+                      <Select.Value />
                     </Select.Trigger>
-                    <Select.Content>
-                      {#each OUTPUT_FORMAT_ITEMS as item (item.value)}
-                        <Select.Item value={item.value} label={item.label} />
-                      {/each}
-                    </Select.Content>
                   </Select.Root>
                   <p class="text-sm text-text-muted">
                     A PDF is converted from the merged document before it is filed, so it takes a
                     little longer. Choose it when the document is going out to be signed.
                   </p>
                 </div>
-                {/if}
-              </LoadingRegion>
-            {/if}
+              {/snippet}
+              <div class="flex flex-col gap-8">
+                <Label id="new-document-template-label">Template</Label>
+                <Select.Root
+                  type="single"
+                  items={templateItems}
+                  bind:value={selectedTemplateVersionId}
+                  allowDeselect={false}
+                  disabled={busy}
+                >
+                  <Select.Trigger class="max-w-sm" aria-labelledby="new-document-template-label">
+                    <Select.Value placeholder="Choose a template" />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each templateItems as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+              <div class="flex flex-col gap-8">
+                <Label id="new-document-format-label">Build it as</Label>
+                <Select.Root
+                  type="single"
+                  items={[...OUTPUT_FORMAT_ITEMS]}
+                  bind:value={outputFormat}
+                  allowDeselect={false}
+                  disabled={busy}
+                >
+                  <Select.Trigger class="max-w-sm" aria-labelledby="new-document-format-label">
+                    <Select.Value placeholder="Choose a format" />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each OUTPUT_FORMAT_ITEMS as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <p class="text-sm text-text-muted">
+                  A PDF is converted from the merged document before it is filed, so it takes a
+                  little longer. Choose it when the document is going out to be signed.
+                </p>
+              </div>
+            </LoadingRegion>
           </div>
         </Tabs.Content>
       </Tabs.Root>

@@ -53,6 +53,7 @@
     "./keyboard": "./src/lib/components/keyboard/index.ts",
     "./labelled-field": "./src/lib/components/labelled-field/index.ts",
     "./loading-region": "./src/lib/components/loading-region/index.ts",
+    "./loading-fixtures": "./src/lib/loading-fixtures/index.ts",
     "./label": "./src/lib/components/label/index.ts",
     "./maturity": "./src/lib/components/maturity/index.ts",
     "./masthead": "./src/lib/components/masthead/index.ts",

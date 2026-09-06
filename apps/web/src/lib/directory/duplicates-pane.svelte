@@ -18,7 +18,6 @@
    * full record is read for exactly one candidate — the one somebody chooses to review — because a
    * merge window has to show both sides field by field and a name is not enough for that.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -26,6 +25,7 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import {
     findDuplicateCandidates,
@@ -57,19 +57,36 @@
   } = $props();
 
   let candidates = $state<readonly DuplicateCandidate[] | null>(null);
-  let failure = $state<StatedFailure | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
+  /** The candidate somebody chose to review could not be opened. Said above the list, which stays. */
+  let openFailure = $state<StatedFailure | null>(null);
   let reviewing = $state<DirectoryEntityDetail | null>(null);
   let opening = $state<string | null>(null);
   let mergeOpen = $state(false);
   let reloadToken = $state(0);
+  /** True while Look again re-searches with the previous answer still in view. */
+  let refreshing = $state(false);
+  // The record whose near matches last landed. Only a change of RECORD discards what is on screen:
+  // looking again keeps the previous answer where the reader is looking and marks the region busy.
+  let shownFor: string | null = null;
 
   /**
    * The shape the list takes while the firm's record is searched: the same rows the real list
-   * renders, over sample names. Not anybody the firm holds.
+   * renders, over the sample vocabulary. Not anybody the firm holds.
    */
   const CANDIDATE_FIXTURE: readonly DuplicateCandidate[] = [
-    { entityId: "fixture-1", signalCount: 2, entityKind: "person", displayName: "Eleanor Whitcombe" },
-    { entityId: "fixture-2", signalCount: 1, entityKind: "person", displayName: "Eleanor Whitcomb" },
+    {
+      entityId: "fixture-1",
+      signalCount: 2,
+      entityKind: "person",
+      displayName: samplePerson(0).name,
+    },
+    {
+      entityId: "fixture-2",
+      signalCount: 1,
+      entityKind: "person",
+      displayName: samplePerson(1).name,
+    },
   ];
 
   // Reading the record a person chose to fold. The merge window shows both sides field by field, so
@@ -80,9 +97,10 @@
     const detail = await readDirectoryEntity(fetch, entityId);
     opening = null;
     if (detail.kind !== "ok") {
-      failure = stated(detail.failure, "That record could not be opened.");
+      openFailure = stated(detail.failure, "That record could not be opened.");
       return;
     }
+    openFailure = null;
     reviewing = detail.value;
     mergeOpen = true;
   }
@@ -106,16 +124,23 @@
 
   $effect(() => {
     const request = askFrom;
+    const id = request.excludeEntityId;
     void reloadToken;
     let cancelled = false;
-    candidates = null;
-    failure = null;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
+      candidates = null;
+    }
+    readFailure = null;
     void (async () => {
       const outcome = await findDuplicateCandidates(fetch, request);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind !== "ok") {
+        shownFor = null;
         candidates = [];
-        failure = stated(
+        readFailure = stated(
           outcome.failure,
           "The firm's record could not be searched for near matches.",
           "The firm's record was not searched for near matches.",
@@ -125,50 +150,69 @@
       // The candidate answer NAMES each candidate — the server resolves the whole list in one
       // naming read — so nothing here reads a record per row. The full record is read only for the
       // one candidate somebody chooses to review, because a merge window has to show both sides.
+      shownFor = id;
       candidates = outcome.value.data;
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
+
+  function lookAgain(): void {
+    reloadToken += 1;
+  }
 </script>
 
 <section class="flex flex-col gap-16">
   <div class="flex items-center justify-between gap-16">
     <h3 class="text-sm font-semibold">Possible duplicates</h3>
-    <Button variant="secondary" onclick={() => (reloadToken += 1)}>
+    <Button variant="secondary" disabled={refreshing} onclick={lookAgain}>
       <RotateCcw class="size-16" aria-hidden="true" />
       Look again
     </Button>
   </div>
 
-  {#if failure !== null}
+  {#if openFailure !== null}
     <FailureNotice
-      failure={failure.failure}
-      title="The Near Matches Could Not Be Read"
-      fallback={failure.fallback}
-      whenSilent={failure.whenSilent}
+      failure={openFailure.failure}
+      title="That Record Could Not Be Opened"
+      fallback={openFailure.fallback}
+      whenSilent={openFailure.whenSilent}
     />
-  {:else}
-    <LoadingRegion
-      loading={candidates === null}
-      label="Looking for near matches"
-      class="flex flex-col gap-8"
-    >
-      {#snippet fixture()}
-        {@render candidateTable(CANDIDATE_FIXTURE)}
-      {/snippet}
-      {@const shown = candidates ?? []}
-      {#if shown.length === 0}
-        <EmptyState title="Nothing Near This Record">
-          No other record in the firm's book sounds like this one, is spelled like it, or shares a
-          sealed identifier with it.
-        </EmptyState>
-      {:else}
-        {@render candidateTable(shown)}
-      {/if}
-    </LoadingRegion>
   {/if}
+
+  <LoadingRegion
+    loading={candidates === null}
+    {refreshing}
+    failed={readFailure !== null}
+    empty={candidates !== null && candidates.length === 0}
+    label="Looking for near matches"
+    onRetry={lookAgain}
+    class="flex flex-col gap-8"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The Near Matches Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={lookAgain}
+        />
+      {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render candidateTable(CANDIDATE_FIXTURE)}
+    {/snippet}
+    {#snippet emptyState()}
+      <EmptyState title="Nothing Near This Record">
+        No other record in the firm's book sounds like this one, is spelled like it, or shares a
+        sealed identifier with it.
+      </EmptyState>
+    {/snippet}
+    {@render candidateTable(candidates ?? [])}
+  </LoadingRegion>
 </section>
 
 <!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->

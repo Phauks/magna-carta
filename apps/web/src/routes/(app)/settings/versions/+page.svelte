@@ -197,6 +197,7 @@
     <LoadingRegion
       loading={scanEngine.status === "loading"}
       label="Reading the scan engine's versions"
+      onRetry={() => void readScanEngineVersion()}
       class="flex flex-col"
     >
       {#snippet fixture()}

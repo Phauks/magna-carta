@@ -19,7 +19,7 @@
  */
 
 /** What kind of thing happened. A closed set: a new category is a deliberate addition, not a string. */
-export type BreadcrumbCategory = "navigation" | "request" | "action" | "failure";
+export type BreadcrumbCategory = "navigation" | "request" | "action" | "failure" | "loading";
 
 export interface Breadcrumb {
   readonly at: string;

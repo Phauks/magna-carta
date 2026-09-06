@@ -17,6 +17,7 @@
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleDate } from "@magna-carta/design-system/loading-fixtures";
   import * as Select from "@magna-carta/design-system/select";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -175,11 +176,11 @@
   }
 
   // The shape the table takes while the bookings are read: the same table over sample words, greyed
-  // by the loading region. Never a firm's own rooms.
+  // by the loading region. Never a firm's own rooms; the dates are the sample vocabulary's.
   const BOOKING_FIXTURE = [
-    { resource: "Conference Room A · Room", when: "2026-09-21 10:00 to 11:30" },
-    { resource: "Pool Car 2 · Vehicle", when: "2026-09-21 09:00 to 12:00" },
-  ] as const;
+    { resource: "Conference Room A · Room", when: `${sampleDate(0)} 10:00 to 11:30` },
+    { resource: "Pool Car 2 · Vehicle", when: `${sampleDate(0)} 09:00 to 12:00` },
+  ];
 </script>
 
 {#if record === null && !reading}
@@ -187,19 +188,28 @@
   <p class="text-sm text-text-muted">&nbsp;</p>
 {:else if record?.kind === "deadline"}
   <p class="text-sm text-text-muted">A deadline books nothing.</p>
-{:else if bookingsFailure !== null}
-  <FailureNotice
-    failure={bookingsFailure.failure}
-    title="The Bookings Could Not Be Read"
-    fallback={bookingsFailure.fallback}
-    onRetry={() => void readBookings(record)}
-  />
 {:else}
   <LoadingRegion
     loading={bookings === null}
+    failed={bookingsFailure !== null}
+    empty={bookings !== null && bookings.length === 0}
     label="Reading the event's bookings"
+    onRetry={() => void readBookings(record)}
     class="flex flex-col gap-8"
   >
+    {#snippet failure()}
+      {#if bookingsFailure !== null}
+        <FailureNotice
+          failure={bookingsFailure.failure}
+          title="The Bookings Could Not Be Read"
+          fallback={bookingsFailure.fallback}
+          onRetry={() => void readBookings(record)}
+        />
+      {/if}
+    {/snippet}
+    {#snippet emptyState()}
+      <p class="text-sm text-text-muted">Nothing booked for this event.</p>
+    {/snippet}
     {#snippet fixture()}
       <DataTable.Root>
         <DataTable.Header>
@@ -222,50 +232,45 @@
         </DataTable.Body>
       </DataTable.Root>
     {/snippet}
-    {@const shown = bookings ?? []}
-    {#if shown.length === 0}
-      <p class="text-sm text-text-muted">Nothing booked for this event.</p>
-    {:else}
-      {#if releaseFailure !== null}
-        <FailureNotice failure={releaseFailure.failure} fallback={releaseFailure.fallback} />
-      {/if}
-      {#if bookConflicts > 0}
-        <!-- Reported once, after the booking that made it: the room grid shows the pair. -->
-        <p class="text-sm">
-          Double-booked with {bookConflicts} other {bookConflicts === 1 ? "booking" : "bookings"}.
-          The booking stands; the room grid shows the pair.
-        </p>
-      {/if}
-      <DataTable.Root>
-        <DataTable.Caption class="sr-only">What this event has booked</DataTable.Caption>
-        <DataTable.Header>
-          <DataTable.Row>
-            <DataTable.Head>Resource</DataTable.Head>
-            <DataTable.Head>When</DataTable.Head>
-            <DataTable.Head class="sr-only">Release</DataTable.Head>
-          </DataTable.Row>
-        </DataTable.Header>
-        <DataTable.Body>
-          {#each shown as booking (booking.id)}
-            <DataTable.Row>
-              <DataTable.Cell>{resourceName(booking.resourceId)}</DataTable.Cell>
-              <DataTable.Cell>{when(booking)}</DataTable.Cell>
-              <DataTable.Cell class="text-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={verbRefusal !== undefined}
-                  title={verbRefusal ?? "Free the resource; the event stays as it is"}
-                  onclick={() => void releaseBooking(booking.id)}
-                >
-                  Release
-                </Button>
-              </DataTable.Cell>
-            </DataTable.Row>
-          {/each}
-        </DataTable.Body>
-      </DataTable.Root>
+    {#if releaseFailure !== null}
+      <FailureNotice failure={releaseFailure.failure} fallback={releaseFailure.fallback} />
     {/if}
+    {#if bookConflicts > 0}
+      <!-- Reported once, after the booking that made it: the room grid shows the pair. -->
+      <p class="text-sm">
+        Double-booked with {bookConflicts} other {bookConflicts === 1 ? "booking" : "bookings"}.
+        The booking stands; the room grid shows the pair.
+      </p>
+    {/if}
+    <DataTable.Root>
+      <DataTable.Caption class="sr-only">What this event has booked</DataTable.Caption>
+      <DataTable.Header>
+        <DataTable.Row>
+          <DataTable.Head>Resource</DataTable.Head>
+          <DataTable.Head>When</DataTable.Head>
+          <DataTable.Head class="sr-only">Release</DataTable.Head>
+        </DataTable.Row>
+      </DataTable.Header>
+      <DataTable.Body>
+        {#each bookings ?? [] as booking (booking.id)}
+          <DataTable.Row>
+            <DataTable.Cell>{resourceName(booking.resourceId)}</DataTable.Cell>
+            <DataTable.Cell>{when(booking)}</DataTable.Cell>
+            <DataTable.Cell class="text-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={verbRefusal !== undefined}
+                title={verbRefusal ?? "Free the resource; the event stays as it is"}
+                onclick={() => void releaseBooking(booking.id)}
+              >
+                Release
+              </Button>
+            </DataTable.Cell>
+          </DataTable.Row>
+        {/each}
+      </DataTable.Body>
+    </DataTable.Root>
   </LoadingRegion>
 {/if}
 

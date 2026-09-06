@@ -483,7 +483,6 @@
               size="icon"
               class="shrink-0"
               aria-label="Refresh the panel"
-              aria-busy={loading || healthLoading}
               disabled={loading || healthLoading}
               onclick={() => {
                 void refresh({ fresh: true });
@@ -588,9 +587,13 @@
         {#if deploymentSectionPreference.collapsed}
           <!-- Nothing: the heading above carries what the fold hides. -->
         {:else}
+          <!-- A re-ask keeps the rows in view and marks the region busy; the header's own line
+               above says which read is out. -->
           <LoadingRegion
             loading={value === null}
+            refreshing={loading || healthLoading}
             label="Reading what the deployment is running"
+            onRetry={() => void refresh({ fresh: true })}
             class="flex flex-col gap-8"
           >
             {#snippet fixture()}
@@ -720,7 +723,9 @@
         {#if healthValue !== null || healthLoading}
           <LoadingRegion
             loading={healthValue === null}
+            refreshing={loading || healthLoading}
             label="Reading whether this firm's database can be reached"
+            onRetry={() => void refreshHealth()}
             class="flex flex-col gap-8"
           >
             {#snippet fixture()}

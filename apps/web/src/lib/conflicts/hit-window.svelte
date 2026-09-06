@@ -33,6 +33,7 @@
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { SAMPLE_SENTENCE, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Gavel from "@lucide/svelte/icons/gavel";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -112,9 +113,10 @@
   let trailFailure = $state<StatedFailure | null>(null);
   let trailLoading = $state(false);
 
-  $effect(() => {
+  /** Read the trail for the hit the window is holding. Retry asks again for the same hit. */
+  function readTrail(): void {
     const hitId = hit?.id ?? null;
-    if (!open || hitId === null) return;
+    if (hitId === null) return;
     trail = [];
     trailFailure = null;
     trailLoading = true;
@@ -129,12 +131,18 @@
       }
       trailFailure = stated(outcome.failure, "This hit's answers could not be read.");
     })();
+  }
+
+  $effect(() => {
+    const hitId = hit?.id ?? null;
+    if (!open || hitId === null) return;
+    readTrail();
   });
 
   /*
-   * The shape the trail takes while it is being read: the same rail, over invented answers. It is
-   * inert and hidden from assistive technology while it stands, so nothing in it can be mistaken
-   * for a real hit's record.
+   * The shape the trail takes while it is being read: the same rail, over invented answers from
+   * the sample vocabulary. It is inert and hidden from assistive technology while it stands, so
+   * nothing in it can be mistaken for a real hit's record.
    */
   const TRAIL_FIXTURE: readonly EventRailEvent[] = [
     {
@@ -148,15 +156,15 @@
       id: "fixture-cleared",
       action: "Cleared: no adverse interest",
       at: "2026-02-10T09:41:00Z",
-      source: "Rosalind Chase",
-      detail: "The earlier representation ended in 2019 and concerned an unrelated lease.",
+      source: samplePerson(0).name,
+      detail: SAMPLE_SENTENCE,
     },
     {
       id: "fixture-waiver",
       action: "Waiver obtained, confirmed in writing",
       at: "2026-02-12T16:12:00Z",
-      source: "Rosalind Chase",
-      detail: "Consent given after independent advice; the letter is filed on the matter.",
+      source: samplePerson(0).name,
+      detail: SAMPLE_SENTENCE,
     },
   ];
 
@@ -424,44 +432,53 @@
 
 {#snippet adjudicationTab()}
   <div class="flex h-full min-h-0 flex-col gap-8">
-    {#if trailFailure !== null}
-      <!-- A trail that could not be read says so, under the rail's one certain event. An
-           append-only record that silently showed fewer acts than it holds would be the one
-           failure this whole surface exists to prevent. -->
-      {@render trailRail()}
-      <FailureNotice
-        failure={trailFailure.failure}
-        subject="This hit's answers"
-        fallback={trailFailure.fallback}
-      />
-    {:else}
-      <LoadingRegion
-        loading={trailLoading}
-        label="Reading every answer on this hit"
-        class="flex min-h-0 flex-1 flex-col gap-8"
-      >
-        {#snippet fixture()}
-          <EventRail events={TRAIL_FIXTURE} label="This hit's adjudication" />
-          <p class="text-xs text-text-muted">
-            2 answers, oldest first. An answer is never edited — a reviewer who changes their mind
-            records another, and both stay on the log.
-          </p>
-        {/snippet}
+    <LoadingRegion
+      loading={trailLoading}
+      failed={trailFailure !== null}
+      empty={trail.length === 0}
+      label="Reading every answer on this hit"
+      onRetry={readTrail}
+      class="flex min-h-0 flex-1 flex-col gap-8"
+    >
+      {#snippet failure()}
+        <!-- A trail that could not be read says so, under the rail's one certain event. An
+             append-only record that silently showed fewer acts than it holds would be the one
+             failure this whole surface exists to prevent. -->
         {@render trailRail()}
-        {#if trail.length === 0}
-          <p class="text-xs text-text-muted">
-            No reviewer has answered this hit. That is a fact about the hit, not about whether an
-            interest is adverse.
-          </p>
-        {:else if trail.length > 1}
-          <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
-          <p class="text-xs text-text-muted">
-            {trail.length} answers, oldest first. An answer is never edited — a reviewer who changes
-            their mind records another, and both stay on the log.
-          </p>
+        {#if trailFailure !== null}
+          <FailureNotice
+            failure={trailFailure.failure}
+            subject="This hit's answers"
+            fallback={trailFailure.fallback}
+            onRetry={readTrail}
+          />
         {/if}
-      </LoadingRegion>
-    {/if}
+      {/snippet}
+      {#snippet fixture()}
+        <EventRail events={TRAIL_FIXTURE} label="This hit's adjudication" />
+        <p class="text-xs text-text-muted">
+          2 answers, oldest first. An answer is never edited — a reviewer who changes their mind
+          records another, and both stay on the log.
+        </p>
+      {/snippet}
+      {#snippet emptyState()}
+        <!-- An empty trail still has the rail's one certain event on it: the check that surfaced
+             the hit. What is empty is the reviewers' side of the record, and the line says so. -->
+        {@render trailRail()}
+        <p class="text-xs text-text-muted">
+          No reviewer has answered this hit. That is a fact about the hit, not about whether an
+          interest is adverse.
+        </p>
+      {/snippet}
+      {@render trailRail()}
+      {#if trail.length > 1}
+        <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
+        <p class="text-xs text-text-muted">
+          {trail.length} answers, oldest first. An answer is never edited — a reviewer who changes
+          their mind records another, and both stay on the log.
+        </p>
+      {/if}
+    </LoadingRegion>
   </div>
 {/snippet}
 

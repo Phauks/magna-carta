@@ -352,21 +352,27 @@
     },
     {
       "rule": "hand-placed-loading",
-      "file": "apps/web/src/lib/directory/duplicate-gate.svelte",
-      "text": "aria-busy",
-      "reason": "a live check, not a placeholder: the gate re-asks the directory as a name is typed, keeps the previous candidates in view while it does, and narrates the act on its own \"Checking the directory\" status line. There is no absent data for a fixture to stand in for, and a region would grey out real candidates somebody is reading."
-    },
-    {
-      "rule": "hand-placed-loading",
       "file": "apps/web/src/routes/(app)/tools/safe-website-viewer/+page.svelte",
       "text": "aria-busy",
       "reason": "a capture narrating its own real stages in the shell's viewport (owner ruling 2026-08-31: the loading viewport says what is happening, never a generic spinner), not a region whose data has not arrived. The tabs beside it are regions; the mark on the frame is the act's own semantics."
     },
     {
-      "rule": "hand-placed-loading",
-      "file": "apps/web/src/lib/versions/version-chip.svelte",
-      "text": "aria-busy",
-      "reason": "the Refresh control marking itself busy while it re-asks, with the two sections it refreshes already regions of their own. A control's busy state is its own semantics, and there is no shape to render on a button."
+      "rule": "silent-loading",
+      "file": "apps/web/src/lib/custodian/packet-window.svelte",
+      "text": "{#if packet === null}",
+      "reason": "the record window's subtitle, a line of furniture naming the act while the pane beneath it renders the shape as a region. A subtitle has no shape to render; the sentence is the honest thing to show in a slot that holds one line."
+    },
+    {
+      "rule": "fixture-shape",
+      "file": "apps/web/src/lib/directory/entity-window.svelte",
+      "text": "DataTable.Root DataTable.Caption DataTable.Header DataTable.Row DataTable.Head DataTable.Body DataTable.Cell Badge",
+      "reason": "the content is the record's section panes, each a component that reads its own data; the fixture is the first pane's shape drawn by hand over sample rows because the pane cannot render over a fixture without asking the server. It should become the pane over a supplied read, which is the pane's own design round."
+    },
+    {
+      "rule": "fixture-shape",
+      "file": "apps/web/src/routes/(app)/home/+page.svelte",
+      "text": "CalendarGrid.Agenda",
+      "reason": "the content is CalendarView, which reads through the calendar context and cannot render over sample entries; the fixture is the agenda presentation the view renders inside, over three sample entries. The same components, one level down."
     }
   ]
 }

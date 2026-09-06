@@ -48,6 +48,7 @@
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { SAMPLE_SENTENCE, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import * as Select from "@magna-carta/design-system/select";
   import Textarea from "@magna-carta/design-system/textarea";
   import type { ApiOutcome, Failure } from "$lib/api/request.ts";
@@ -684,7 +685,9 @@
   // The record pane's shape is the kind's own field groups over sample words, greyed by the loading
   // region; the kind is on the reference before the read lands, so a deadline never opens on an
   // event's shape. The timing fields bind a draft, so the sample timing is state the fields could
-  // write into and never do (the region is inert). Sample words only, never a record's own.
+  // write into and never do (the region is inert). Sample words only, never a record's own: the
+  // names and the description are the sample vocabulary's; the civil dates stay literal because
+  // the pickers take the wire shape, which the vocabulary does not carry.
   const FIXTURE_DATE = civilDateValue("2026-09-21");
   let fixtureTiming = $state<EventTimingDraft>({
     startsOn: "2026-09-21",
@@ -699,7 +702,7 @@
       participantKind: "member",
       memberUserId: null,
       entityId: null,
-      participantName: "Rosalind Chase",
+      participantName: samplePerson(0).name,
       role: "Lead counsel",
     },
     {
@@ -707,7 +710,7 @@
       participantKind: "external",
       memberUserId: null,
       entityId: null,
-      participantName: "Marcus Ellery",
+      participantName: samplePerson(1).name,
       role: "Court reporter",
     },
   ];
@@ -844,7 +847,7 @@
         id="{idPrefix}-fixture-description"
         class="resize-none"
         rows={3}
-        value="Argument on the motion, then scheduling."
+        value={SAMPLE_SENTENCE}
         disabled
       />
     </div>
@@ -863,19 +866,28 @@
       />
     {/if}
 
-    {#if readFailure !== null}
-      <FailureNotice
-        failure={readFailure.failure}
-        title="The Record Could Not Be Read"
-        fallback={readFailure.fallback}
-        onRetry={reread}
-      />
-    {:else if unreachableDeadline}
+    {#if unreachableDeadline}
       <p class="text-sm text-text-muted">
         This deadline is not in the window on screen. Move to its month to open it.
       </p>
     {:else}
-      <LoadingRegion loading={record === null} label="Reading the record" class="flex flex-col gap-16">
+      <LoadingRegion
+        loading={record === null}
+        failed={readFailure !== null}
+        label="Reading the record"
+        onRetry={reread}
+        class="flex flex-col gap-16"
+      >
+        {#snippet failure()}
+          {#if readFailure !== null}
+            <FailureNotice
+              failure={readFailure.failure}
+              title="The Record Could Not Be Read"
+              fallback={readFailure.fallback}
+              onRetry={reread}
+            />
+          {/if}
+        {/snippet}
         {#snippet fixture()}
           {@render fixtureFields(current?.kind ?? "event")}
         {/snippet}

@@ -105,7 +105,8 @@
   /*
    * The shapes the Version History and Hashes tabs take while their values are read: the same rows,
    * over invented versions and digests of each algorithm's real length. Inert and hidden from
-   * assistive technology while they stand, so nothing in them reads as this file's record.
+   * assistive technology while they stand, so nothing in them reads as this file's record. The
+   * sample vocabulary carries no instants or digests, so those two shapes are stated here.
    */
   const VERSION_FIXTURE: readonly MatterFileVersion[] = [
     {
@@ -369,6 +370,7 @@
         <Tabs.Content value="versions">
           <LoadingRegion
             loading={versionsLoading}
+            empty={versions === null || versions.length === 0}
             label="Reading this file's versions"
             class="flex flex-col gap-8 p-12"
           >
@@ -377,15 +379,14 @@
                 {@render versionRow(version, index)}
               {/each}
             {/snippet}
-            {#if versions === null || versions.length === 0}
+            {#snippet emptyState()}
               <p class="text-sm text-text-muted">
                 No committed version yet: the first check is still running. The bytes are saved.
               </p>
-            {:else}
-              {#each versions as version, index (version.id)}
-                {@render versionRow(version, index)}
-              {/each}
-            {/if}
+            {/snippet}
+            {#each versions ?? [] as version, index (version.id)}
+              {@render versionRow(version, index)}
+            {/each}
           </LoadingRegion>
         </Tabs.Content>
 
@@ -414,9 +415,11 @@
             {:else}
               <!-- Every algorithm row is here before a value is: the reader is told what is coming
                    rather than surprised by it arriving. While the digests are being computed the
-                   rows stand in their own shape, each at its algorithm's length. -->
+                   rows stand in their own shape, each at its algorithm's length; a recompute keeps
+                   the digests already on screen in view until the fresh ones land. -->
               <LoadingRegion
                 loading={integrity === null && integrityRunning}
+                refreshing={integrity !== null && integrityRunning}
                 label="Computing the digests"
               >
                 {#snippet fixture()}

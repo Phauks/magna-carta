@@ -6,7 +6,9 @@
    * everything below the masthead is a table, because every figure here is a quantity.
    *
    * While the read is out the page is a LoadingRegion over a fixture of the same tables with
-   * sample figures in them, so the placeholder is the page itself and cannot drift from it. The
+   * sample figures in them, so the placeholder is the page itself and cannot drift from it; a
+   * failed read settles the same region to the failure notice with Retry, and a Refresh keeps the
+   * tables in view while they are read again. The
    * one section that reads nothing, Compute and Activity, stands outside the region: it is an
    * honest gap rather than an omission, rendered disabled with the one line naming what it waits
    * on — the standing rule that an unserved capability still renders, disabled, honestly.
@@ -37,18 +39,18 @@
   } from "$lib/tools/firm-usage/firm-usage-format.ts";
 
   let usage = $state<FirmUsageResponse | null>(null);
-  let failure = $state<StatedFailure | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
   let loading = $state(true);
 
   async function loadUsage(): Promise<void> {
     loading = true;
-    failure = null;
+    readFailure = null;
     const outcome = await readFirmUsage(fetch);
     if (outcome.kind === "ok") {
       usage = outcome.value;
     } else {
       usage = null;
-      failure = stated(outcome.failure, "The firm's usage could not be read.");
+      readFailure = stated(outcome.failure, "The firm's usage could not be read.");
     }
     loading = false;
   }
@@ -189,342 +191,348 @@
   {/snippet}
 </ScreenHeader>
 
-{#if failure !== null}
-  <FailureNotice
-    failure={failure.failure}
-    title="The Firm's Usage Could Not Be Read"
-    fallback={failure.fallback}
+<div class="flex flex-col gap-24">
+  <!-- The region holds the read's whole state set: a failed read settles to the notice with
+       Retry, a Refresh keeps the tables in view while they are read again. -->
+  <LoadingRegion
+    loading={usage === null}
+    refreshing={loading}
+    failed={readFailure !== null}
+    label="Reading the firm's usage"
     onRetry={() => void loadUsage()}
-  />
-{:else}
-  <div class="flex flex-col gap-24">
-    <LoadingRegion
-      loading={usage === null}
-      label="Reading the firm's usage"
-      class="flex flex-col gap-24"
-    >
-      {#snippet fixture()}
-        <section>
-          {@render sectionHeading("Storage")}
-          {@render fixtureTable(FIXTURE_STORAGE)}
-        </section>
-        <section>
-          {@render sectionHeading("Matters by Type")}
-          {@render fixtureTable(FIXTURE_MATTERS_BY_TYPE)}
-        </section>
-        <section>
-          {@render sectionHeading("Files and Versioning")}
-          {@render fixtureTable(FIXTURE_FILES)}
-        </section>
-        <section>
-          {@render sectionHeading("By Location")}
-          <ByLocationTable byLocation={FIXTURE_BY_LOCATION} />
-        </section>
-        <section>
-          {@render sectionHeading("People and Organizations")}
-          {@render fixtureTable(FIXTURE_DIRECTORY)}
-        </section>
-        <section>
-          {@render sectionHeading("AI Usage")}
-          {@render fixtureTable(FIXTURE_AI_USAGE)}
-        </section>
-      {/snippet}
+    class="flex flex-col gap-24"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The Firm's Usage Could Not Be Read"
+          fallback={readFailure.fallback}
+          onRetry={() => void loadUsage()}
+        />
+      {/if}
+    {/snippet}
+    {#snippet fixture()}
+      <section>
+        {@render sectionHeading("Storage")}
+        {@render fixtureTable(FIXTURE_STORAGE)}
+      </section>
+      <section>
+        {@render sectionHeading("Matters by Type")}
+        {@render fixtureTable(FIXTURE_MATTERS_BY_TYPE)}
+      </section>
+      <section>
+        {@render sectionHeading("Files and Versioning")}
+        {@render fixtureTable(FIXTURE_FILES)}
+      </section>
+      <section>
+        {@render sectionHeading("By Location")}
+        <ByLocationTable byLocation={FIXTURE_BY_LOCATION} />
+      </section>
+      <section>
+        {@render sectionHeading("People and Organizations")}
+        {@render fixtureTable(FIXTURE_DIRECTORY)}
+      </section>
+      <section>
+        {@render sectionHeading("AI Usage")}
+        {@render fixtureTable(FIXTURE_AI_USAGE)}
+      </section>
+    {/snippet}
 
-      {#if usage !== null}
-        <section>
-          {@render sectionHeading("Storage")}
-          <DataTable.Root>
-            <DataTable.Caption class="sr-only">Storage by class</DataTable.Caption>
-            <DataTable.Header>
+    {#if usage !== null}
+      <section>
+        {@render sectionHeading("Storage")}
+        <DataTable.Root>
+          <DataTable.Caption class="sr-only">Storage by class</DataTable.Caption>
+          <DataTable.Header>
+            <DataTable.Row>
+              <DataTable.Head>Storage Class</DataTable.Head>
+              <DataTable.Head data-align="end">Objects</DataTable.Head>
+              <DataTable.Head data-align="end">Size</DataTable.Head>
+              <DataTable.Head data-align="end">Share</DataTable.Head>
+            </DataTable.Row>
+          </DataTable.Header>
+          <DataTable.Body>
+            <DataTable.Row>
+              <DataTable.Cell>Standard</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.storage.byStorageClass.standard.objects)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatByteSize(usage.storage.byStorageClass.standard.bytes)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatShare(usage.storage.byStorageClass.standard.bytes, usage.storage.totalBytes)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>Infrequent Access</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.storage.byStorageClass.infrequent_access.objects)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatByteSize(usage.storage.byStorageClass.infrequent_access.bytes)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatShare(
+                  usage.storage.byStorageClass.infrequent_access.bytes,
+                  usage.storage.totalBytes,
+                )}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell class={TOTALS_CELL}>Total</DataTable.Cell>
+              <DataTable.Cell data-align="end" class={TOTALS_CELL}>
+                {formatCount(usage.storage.totalObjects)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end" class={TOTALS_CELL}>
+                {formatByteSize(usage.storage.totalBytes)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end" class={TOTALS_CELL}>
+                {formatShare(usage.storage.totalBytes, usage.storage.totalBytes)}
+              </DataTable.Cell>
+            </DataTable.Row>
+          </DataTable.Body>
+        </DataTable.Root>
+      </section>
+
+      <section>
+        {@render sectionHeading("Matters by Type")}
+        <DataTable.Root>
+          <DataTable.Caption class="sr-only">Matters by type and status</DataTable.Caption>
+          <DataTable.Header>
+            <DataTable.Row>
+              <DataTable.Head>Matter Type</DataTable.Head>
+              <DataTable.Head data-align="end">Prospective</DataTable.Head>
+              <DataTable.Head data-align="end">Open</DataTable.Head>
+              <DataTable.Head data-align="end">Closed</DataTable.Head>
+              <DataTable.Head data-align="end">Total</DataTable.Head>
+            </DataTable.Row>
+          </DataTable.Header>
+          <DataTable.Body>
+            {#each usage.mattersByType as row (row.matterTypeName ?? "")}
               <DataTable.Row>
-                <DataTable.Head>Storage Class</DataTable.Head>
-                <DataTable.Head data-align="end">Objects</DataTable.Head>
-                <DataTable.Head data-align="end">Size</DataTable.Head>
-                <DataTable.Head data-align="end">Share</DataTable.Head>
+                <DataTable.Cell>
+                  {#if row.matterTypeName === null}
+                    <span class="text-text-muted">No Type Assigned</span>
+                  {:else}
+                    {row.matterTypeName}
+                  {/if}
+                </DataTable.Cell>
+                <DataTable.Cell data-align="end">{formatCount(row.prospective)}</DataTable.Cell>
+                <DataTable.Cell data-align="end">{formatCount(row.open)}</DataTable.Cell>
+                <DataTable.Cell data-align="end">{formatCount(row.closed)}</DataTable.Cell>
+                <DataTable.Cell data-align="end">{formatCount(row.total)}</DataTable.Cell>
               </DataTable.Row>
-            </DataTable.Header>
-            <DataTable.Body>
-              <DataTable.Row>
-                <DataTable.Cell>Standard</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.storage.byStorageClass.standard.objects)}
-                </DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatByteSize(usage.storage.byStorageClass.standard.bytes)}
-                </DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatShare(usage.storage.byStorageClass.standard.bytes, usage.storage.totalBytes)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>Infrequent Access</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.storage.byStorageClass.infrequent_access.objects)}
-                </DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatByteSize(usage.storage.byStorageClass.infrequent_access.bytes)}
-                </DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatShare(
-                    usage.storage.byStorageClass.infrequent_access.bytes,
-                    usage.storage.totalBytes,
-                  )}
-                </DataTable.Cell>
-              </DataTable.Row>
+            {/each}
+            {#if mattersTotals !== null}
               <DataTable.Row>
                 <DataTable.Cell class={TOTALS_CELL}>Total</DataTable.Cell>
                 <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                  {formatCount(usage.storage.totalObjects)}
+                  {formatCount(mattersTotals.prospective)}
                 </DataTable.Cell>
                 <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                  {formatByteSize(usage.storage.totalBytes)}
+                  {formatCount(mattersTotals.open)}
                 </DataTable.Cell>
                 <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                  {formatShare(usage.storage.totalBytes, usage.storage.totalBytes)}
-                </DataTable.Cell>
-              </DataTable.Row>
-            </DataTable.Body>
-          </DataTable.Root>
-        </section>
-
-        <section>
-          {@render sectionHeading("Matters by Type")}
-          <DataTable.Root>
-            <DataTable.Caption class="sr-only">Matters by type and status</DataTable.Caption>
-            <DataTable.Header>
-              <DataTable.Row>
-                <DataTable.Head>Matter Type</DataTable.Head>
-                <DataTable.Head data-align="end">Prospective</DataTable.Head>
-                <DataTable.Head data-align="end">Open</DataTable.Head>
-                <DataTable.Head data-align="end">Closed</DataTable.Head>
-                <DataTable.Head data-align="end">Total</DataTable.Head>
-              </DataTable.Row>
-            </DataTable.Header>
-            <DataTable.Body>
-              {#each usage.mattersByType as row (row.matterTypeName ?? "")}
-                <DataTable.Row>
-                  <DataTable.Cell>
-                    {#if row.matterTypeName === null}
-                      <span class="text-text-muted">No Type Assigned</span>
-                    {:else}
-                      {row.matterTypeName}
-                    {/if}
-                  </DataTable.Cell>
-                  <DataTable.Cell data-align="end">{formatCount(row.prospective)}</DataTable.Cell>
-                  <DataTable.Cell data-align="end">{formatCount(row.open)}</DataTable.Cell>
-                  <DataTable.Cell data-align="end">{formatCount(row.closed)}</DataTable.Cell>
-                  <DataTable.Cell data-align="end">{formatCount(row.total)}</DataTable.Cell>
-                </DataTable.Row>
-              {/each}
-              {#if mattersTotals !== null}
-                <DataTable.Row>
-                  <DataTable.Cell class={TOTALS_CELL}>Total</DataTable.Cell>
-                  <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                    {formatCount(mattersTotals.prospective)}
-                  </DataTable.Cell>
-                  <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                    {formatCount(mattersTotals.open)}
-                  </DataTable.Cell>
-                  <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                    {formatCount(mattersTotals.closed)}
-                  </DataTable.Cell>
-                  <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                    {formatCount(mattersTotals.total)}
-                  </DataTable.Cell>
-                </DataTable.Row>
-              {/if}
-            </DataTable.Body>
-          </DataTable.Root>
-        </section>
-
-        <section>
-          {@render sectionHeading("Files and Versioning")}
-          <DataTable.Root>
-            <DataTable.Caption class="sr-only">Files and their versions</DataTable.Caption>
-            <DataTable.Header>
-              <DataTable.Row>
-                <DataTable.Head>Category</DataTable.Head>
-                <DataTable.Head data-align="end">Count</DataTable.Head>
-                <DataTable.Head data-align="end">Size</DataTable.Head>
-              </DataTable.Row>
-            </DataTable.Header>
-            <DataTable.Body>
-              <DataTable.Row>
-                <DataTable.Cell>Current Files</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.files.currentFiles.count)}
-                </DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatByteSize(usage.files.currentFiles.bytes)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>Prior Versions</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.files.priorVersions.count)}
-                </DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatByteSize(usage.files.priorVersions.bytes)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <!-- The subtotal row: current + prior = all, so All Versions wears the sum's rule. -->
-              <DataTable.Row>
-                <DataTable.Cell class={TOTALS_CELL}>All Versions</DataTable.Cell>
-                <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                  {formatCount(usage.files.allVersions.count)}
+                  {formatCount(mattersTotals.closed)}
                 </DataTable.Cell>
                 <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                  {formatByteSize(usage.files.allVersions.bytes)}
+                  {formatCount(mattersTotals.total)}
                 </DataTable.Cell>
               </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>Deleted Files</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.files.deletedFiles.count)}
-                </DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatByteSize(usage.files.deletedFiles.bytes)}
-                </DataTable.Cell>
-              </DataTable.Row>
-            </DataTable.Body>
-          </DataTable.Root>
-        </section>
+            {/if}
+          </DataTable.Body>
+        </DataTable.Root>
+      </section>
 
-        <section>
-          {@render sectionHeading("By Location")}
-          <ByLocationTable byLocation={usage.byLocation} />
-        </section>
-
-        <section>
-          {@render sectionHeading("People and Organizations")}
-          <DataTable.Root>
-            <DataTable.Caption class="sr-only">Directory and member counts</DataTable.Caption>
-            <DataTable.Header>
-              <DataTable.Row>
-                <DataTable.Head>Record</DataTable.Head>
-                <DataTable.Head data-align="end">Count</DataTable.Head>
-              </DataTable.Row>
-            </DataTable.Header>
-            <DataTable.Body>
-              <DataTable.Row>
-                <DataTable.Cell>People</DataTable.Cell>
-                <DataTable.Cell data-align="end">{formatCount(usage.directory.people)}</DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>Organizations</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.directory.organizations)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>Firm Members</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.directory.activeMembers)}
-                </DataTable.Cell>
-              </DataTable.Row>
-            </DataTable.Body>
-          </DataTable.Root>
-        </section>
-
-        <section>
-          {@render sectionHeading("AI Usage")}
-          <DataTable.Root>
-            <DataTable.Caption class="sr-only">The AI meters, all time</DataTable.Caption>
-            <DataTable.Header>
-              <DataTable.Row>
-                <DataTable.Head>Meter</DataTable.Head>
-                <DataTable.Head data-align="end">All Time</DataTable.Head>
-              </DataTable.Row>
-            </DataTable.Header>
-            <DataTable.Body>
-              <DataTable.Row>
-                <DataTable.Cell>Magnus Input Tokens</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.aiUsage.magnusTokens.inputTokens)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>Magnus Output Tokens</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.aiUsage.magnusTokens.outputTokens)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>Magnus Requests</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.aiUsage.magnusTokens.requests)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>Semantic Search Queries</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.aiUsage.searchQueries.semantic)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>Full Text Search Queries</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.aiUsage.searchQueries.fullText)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>AI Detection Documents</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.aiUsage.detection.requests)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              <DataTable.Row>
-                <DataTable.Cell>AI Detection Words</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatCount(usage.aiUsage.detection.words)}
-                </DataTable.Cell>
-              </DataTable.Row>
-              {#each usage.aiUsage.notMetered as meter (meter)}
-                <DataTable.Row>
-                  <DataTable.Cell>{notMeteredLabel(meter)}</DataTable.Cell>
-                  <DataTable.Cell data-align="end">
-                    <span class="text-text-muted">Not yet measured</span>
-                  </DataTable.Cell>
-                </DataTable.Row>
-              {/each}
-            </DataTable.Body>
-          </DataTable.Root>
-        </section>
-      {/if}
-    </LoadingRegion>
-
-    <!-- Outside the region: this section reads nothing, so it is never loading. -->
-    <section>
-      <FieldLabel as="h2" class="mb-4 flex items-center gap-8 border-b border-border-strong pb-8"
-      >
-        <span>Compute and Activity</span>
-        <MaturityBadge stage="soon" />
-      </FieldLabel>
-      <p class="mb-16 text-xs text-text-muted">
-        Waits on the Cloudflare Analytics API credential.
-      </p>
-      <DataTable.Root aria-disabled="true">
-        <DataTable.Caption class="sr-only">Compute and activity, last 30 days</DataTable.Caption>
-        <DataTable.Header>
-          <DataTable.Row>
-            <DataTable.Head>Measure</DataTable.Head>
-            <DataTable.Head data-align="end">Last 30 Days</DataTable.Head>
-          </DataTable.Row>
-        </DataTable.Header>
-        <DataTable.Body>
-          {#each ["API Requests", "Workers CPU Time", "Data Egress"] as measure (measure)}
+      <section>
+        {@render sectionHeading("Files and Versioning")}
+        <DataTable.Root>
+          <DataTable.Caption class="sr-only">Files and their versions</DataTable.Caption>
+          <DataTable.Header>
             <DataTable.Row>
-              <DataTable.Cell>{measure}</DataTable.Cell>
+              <DataTable.Head>Category</DataTable.Head>
+              <DataTable.Head data-align="end">Count</DataTable.Head>
+              <DataTable.Head data-align="end">Size</DataTable.Head>
+            </DataTable.Row>
+          </DataTable.Header>
+          <DataTable.Body>
+            <DataTable.Row>
+              <DataTable.Cell>Current Files</DataTable.Cell>
               <DataTable.Cell data-align="end">
-                <span class="text-text-muted">Not yet measured</span>
+                {formatCount(usage.files.currentFiles.count)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatByteSize(usage.files.currentFiles.bytes)}
               </DataTable.Cell>
             </DataTable.Row>
-          {/each}
-        </DataTable.Body>
-      </DataTable.Root>
-    </section>
-  </div>
-{/if}
+            <DataTable.Row>
+              <DataTable.Cell>Prior Versions</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.files.priorVersions.count)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatByteSize(usage.files.priorVersions.bytes)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <!-- The subtotal row: current + prior = all, so All Versions wears the sum's rule. -->
+            <DataTable.Row>
+              <DataTable.Cell class={TOTALS_CELL}>All Versions</DataTable.Cell>
+              <DataTable.Cell data-align="end" class={TOTALS_CELL}>
+                {formatCount(usage.files.allVersions.count)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end" class={TOTALS_CELL}>
+                {formatByteSize(usage.files.allVersions.bytes)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>Deleted Files</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.files.deletedFiles.count)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatByteSize(usage.files.deletedFiles.bytes)}
+              </DataTable.Cell>
+            </DataTable.Row>
+          </DataTable.Body>
+        </DataTable.Root>
+      </section>
+
+      <section>
+        {@render sectionHeading("By Location")}
+        <ByLocationTable byLocation={usage.byLocation} />
+      </section>
+
+      <section>
+        {@render sectionHeading("People and Organizations")}
+        <DataTable.Root>
+          <DataTable.Caption class="sr-only">Directory and member counts</DataTable.Caption>
+          <DataTable.Header>
+            <DataTable.Row>
+              <DataTable.Head>Record</DataTable.Head>
+              <DataTable.Head data-align="end">Count</DataTable.Head>
+            </DataTable.Row>
+          </DataTable.Header>
+          <DataTable.Body>
+            <DataTable.Row>
+              <DataTable.Cell>People</DataTable.Cell>
+              <DataTable.Cell data-align="end">{formatCount(usage.directory.people)}</DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>Organizations</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.directory.organizations)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>Firm Members</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.directory.activeMembers)}
+              </DataTable.Cell>
+            </DataTable.Row>
+          </DataTable.Body>
+        </DataTable.Root>
+      </section>
+
+      <section>
+        {@render sectionHeading("AI Usage")}
+        <DataTable.Root>
+          <DataTable.Caption class="sr-only">The AI meters, all time</DataTable.Caption>
+          <DataTable.Header>
+            <DataTable.Row>
+              <DataTable.Head>Meter</DataTable.Head>
+              <DataTable.Head data-align="end">All Time</DataTable.Head>
+            </DataTable.Row>
+          </DataTable.Header>
+          <DataTable.Body>
+            <DataTable.Row>
+              <DataTable.Cell>Magnus Input Tokens</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.aiUsage.magnusTokens.inputTokens)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>Magnus Output Tokens</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.aiUsage.magnusTokens.outputTokens)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>Magnus Requests</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.aiUsage.magnusTokens.requests)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>Semantic Search Queries</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.aiUsage.searchQueries.semantic)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>Full Text Search Queries</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.aiUsage.searchQueries.fullText)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>AI Detection Documents</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.aiUsage.detection.requests)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            <DataTable.Row>
+              <DataTable.Cell>AI Detection Words</DataTable.Cell>
+              <DataTable.Cell data-align="end">
+                {formatCount(usage.aiUsage.detection.words)}
+              </DataTable.Cell>
+            </DataTable.Row>
+            {#each usage.aiUsage.notMetered as meter (meter)}
+              <DataTable.Row>
+                <DataTable.Cell>{notMeteredLabel(meter)}</DataTable.Cell>
+                <DataTable.Cell data-align="end">
+                  <span class="text-text-muted">Not yet measured</span>
+                </DataTable.Cell>
+              </DataTable.Row>
+            {/each}
+          </DataTable.Body>
+        </DataTable.Root>
+      </section>
+    {/if}
+  </LoadingRegion>
+
+  <!-- Outside the region: this section reads nothing, so it is never loading. -->
+  <section>
+    <FieldLabel as="h2" class="mb-4 flex items-center gap-8 border-b border-border-strong pb-8"
+    >
+      <span>Compute and Activity</span>
+      <MaturityBadge stage="soon" />
+    </FieldLabel>
+    <p class="mb-16 text-xs text-text-muted">
+      Waits on the Cloudflare Analytics API credential.
+    </p>
+    <DataTable.Root aria-disabled="true">
+      <DataTable.Caption class="sr-only">Compute and activity, last 30 days</DataTable.Caption>
+      <DataTable.Header>
+        <DataTable.Row>
+          <DataTable.Head>Measure</DataTable.Head>
+          <DataTable.Head data-align="end">Last 30 Days</DataTable.Head>
+        </DataTable.Row>
+      </DataTable.Header>
+      <DataTable.Body>
+        {#each ["API Requests", "Workers CPU Time", "Data Egress"] as measure (measure)}
+          <DataTable.Row>
+            <DataTable.Cell>{measure}</DataTable.Cell>
+            <DataTable.Cell data-align="end">
+              <span class="text-text-muted">Not yet measured</span>
+            </DataTable.Cell>
+          </DataTable.Row>
+        {/each}
+      </DataTable.Body>
+    </DataTable.Root>
+  </section>
+</div>
 
 {#snippet sectionHeading(title: string)}
   <FieldLabel as="h2" class="mb-16 border-b border-border-strong pb-8"

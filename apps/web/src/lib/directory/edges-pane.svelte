@@ -37,6 +37,7 @@
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleOrganization, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import Link from "@lucide/svelte/icons/link";
   import {
     createDirectoryEdge,
@@ -125,7 +126,8 @@
 
   /**
    * The shape the list takes while the record's edges are being read: the same rows the real list
-   * renders, one from each end, over sample names. Not anybody the firm holds.
+   * renders, one from each end, over the sample vocabulary. The date is in the record's own stored
+   * shape, which the vocabulary does not carry.
    */
   const EDGE_FIXTURE: readonly DirectoryEdgeEntry[] = [
     {
@@ -134,7 +136,7 @@
       direction: "outbound",
       farEntityId: "fixture-far-1",
       farEntityKind: "organization",
-      farDisplayName: "Meridian Holdings",
+      farDisplayName: sampleOrganization(1).name,
       role: "Company secretary",
       note: null,
       validFrom: "2019-03-01",
@@ -146,7 +148,7 @@
       direction: "inbound",
       farEntityId: "fixture-far-2",
       farEntityKind: "person",
-      farDisplayName: "Marcus Adeyemi",
+      farDisplayName: samplePerson(1).name,
       role: null,
       note: "Appointed by the board",
       validFrom: null,
@@ -158,38 +160,50 @@
 
   let edges = $state<readonly DirectoryEdgeEntry[] | null>(null);
   let nextCursor = $state<string | null>(null);
-  let failure = $state<StatedFailure | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
   let loadingMore = $state(false);
   let reloadToken = $state(0);
-  // Only a change of RECORD discards what is on screen. A re-read after a write is the same list
-  // being read again, and blanking it would flash a skeleton over rows the reader is looking at.
+  /** True while a list already on screen is being read again, after a write landed. */
+  let refreshing = $state(false);
+  // The record whose edges last landed. Only a change of RECORD discards what is on screen: a
+  // re-read after a write is the same list being read again, and blanking it would flash a
+  // placeholder over rows the reader is looking at, so the rows stay and the region is marked busy.
   let shownFor: string | null = null;
 
   $effect(() => {
     const id = entityId;
     void reloadToken;
-    if (shownFor !== id) {
-      shownFor = id;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
       edges = null;
       nextCursor = null;
     }
-    failure = null;
+    readFailure = null;
     let cancelled = false;
     void (async () => {
       const outcome = await readDirectoryEdges(fetch, id);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind === "ok") {
+        shownFor = id;
         edges = outcome.value.data;
         nextCursor = outcome.value.nextCursor;
         return;
       }
+      shownFor = null;
       edges = [];
-      failure = stated(outcome.failure, words.readFailure);
+      readFailure = stated(outcome.failure, words.readFailure);
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
+
+  function retry(): void {
+    reloadToken += 1;
+  }
 
   async function loadMore(): Promise<void> {
     const cursor = nextCursor;
@@ -204,7 +218,7 @@
 
   /** The rows this pane lists: everything, or the membership family with a far end of its kind. */
   const shown = $derived((edges ?? []).filter((edge) => paneShowsEdge(filter, edge)));
-  const listIsReadable = $derived(edges !== null && failure === null);
+  const listIsReadable = $derived(edges !== null && readFailure === null);
 
   function entryOf(edgeType: string): EdgeTypeEntry | null {
     return EDGE_TYPES.find((entry) => entry.edgeType === edgeType) ?? null;
@@ -332,30 +346,34 @@
 <section class="flex flex-col gap-16">
   <h3 class="text-sm font-semibold">{words.heading}</h3>
 
-  {#if failure !== null}
-    <FailureNotice
-      failure={failure.failure}
-      title="The {words.heading} Could Not Be Read"
-      fallback={failure.fallback}
-      whenSilent={failure.whenSilent}
-      onRetry={() => (reloadToken += 1)}
-    />
-  {:else}
-    <LoadingRegion
-      loading={edges === null}
-      label="Reading this record's {words.heading.toLowerCase()}"
-      class="flex flex-col gap-8"
-    >
-      {#snippet fixture()}
-        {@render edgeTable(EDGE_FIXTURE)}
-      {/snippet}
-      {#if shown.length === 0}
-        <EmptyState title={words.emptyTitle}>{words.emptyBody}</EmptyState>
-      {:else}
-        {@render edgeTable(shown)}
+  <LoadingRegion
+    loading={edges === null}
+    {refreshing}
+    failed={readFailure !== null}
+    empty={edges !== null && shown.length === 0}
+    label="Reading this record's {words.heading.toLowerCase()}"
+    onRetry={retry}
+    class="flex flex-col gap-8"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The {words.heading} Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={retry}
+        />
       {/if}
-    </LoadingRegion>
-  {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render edgeTable(EDGE_FIXTURE)}
+    {/snippet}
+    {#snippet emptyState()}
+      <EmptyState title={words.emptyTitle}>{words.emptyBody}</EmptyState>
+    {/snippet}
+    {@render edgeTable(shown)}
+  </LoadingRegion>
 
   {#if listIsReadable && nextCursor !== null}
     <div>

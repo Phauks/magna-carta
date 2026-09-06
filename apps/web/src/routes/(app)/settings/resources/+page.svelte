@@ -54,10 +54,14 @@
   let readFailure = $state<Failure | null>(null);
   let locations = $state<readonly LocationSummary[]>([]);
   let actionFailure = $state<StatedFailure | null>(null);
+  /** True while the catalog is being read; a re-read keeps the rows on screen and says so. */
+  let reading = $state(false);
 
   async function load(): Promise<void> {
     readFailure = null;
+    reading = true;
     const outcome = await listResources(fetch, true);
+    reading = false;
     if (outcome.kind !== "ok") {
       readFailure = outcome.failure;
       return;
@@ -190,6 +194,8 @@
   }
 
   // The shape drawn while the catalog is read: three rows in the table's own columns, sample words.
+  // A resource's name, kind and office are the catalog's own kind of words, which the sample
+  // vocabulary does not carry.
   const RESOURCE_FIXTURE = [
     { name: "Conference Room A", kind: "Room", office: "Downtown", seats: "12" },
     { name: "Pool Car 2", kind: "Vehicle", office: "Downtown", seats: "" },
@@ -211,14 +217,6 @@
 
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
-    {#if readFailure !== null}
-      <FailureNotice
-        failure={readFailure}
-        title="The Resources Could Not Be Read"
-        fallback="The firm's rooms and resources were not read."
-        onRetry={() => void load()}
-      />
-    {/if}
     {#if actionFailure !== null}
       <FailureNotice failure={actionFailure.failure} fallback={actionFailure.fallback} />
     {/if}
@@ -229,95 +227,122 @@
           <Button variant="primary" size="sm" onclick={openAdd}>Add a Resource</Button>
         </div>
       {/if}
-      {#if resources !== null || readFailure === null}
-        <LoadingRegion loading={resources === null} label="Reading the resources" class="flex flex-col">
-          {#snippet fixture()}
-            <DataTable.Root>
-              <DataTable.Header>
+      <!-- A failed first read settles to the notice with Retry; a failed re-read after a commit
+           keeps the rows on screen and says so above them. -->
+      <LoadingRegion
+        loading={resources === null}
+        failed={readFailure !== null && resources === null}
+        refreshing={reading}
+        empty={resources !== null && resources.length === 0}
+        label="Reading the resources"
+        onRetry={() => void load()}
+        class="flex flex-col"
+      >
+        {#snippet failure()}
+          {#if readFailure !== null}
+            <FailureNotice
+              failure={readFailure}
+              title="The Resources Could Not Be Read"
+              fallback="The firm's rooms and resources were not read."
+              onRetry={() => void load()}
+            />
+          {/if}
+        {/snippet}
+        {#snippet emptyState()}
+          <EmptyState title="No rooms or resources yet">
+            A resource is something bookable the firm owns. Add the first one and it can be booked
+            from any event's window and read on the room grid.
+          </EmptyState>
+        {/snippet}
+        {#snippet fixture()}
+          <DataTable.Root>
+            <DataTable.Header>
+              <DataTable.Row>
+                <DataTable.Head>Name</DataTable.Head>
+                <DataTable.Head>Kind</DataTable.Head>
+                <DataTable.Head>Office</DataTable.Head>
+                <DataTable.Head class="text-end">Seats</DataTable.Head>
+                <DataTable.Head>Standing</DataTable.Head>
+              </DataTable.Row>
+            </DataTable.Header>
+            <DataTable.Body>
+              {#each RESOURCE_FIXTURE as row (row.name)}
                 <DataTable.Row>
-                  <DataTable.Head>Name</DataTable.Head>
-                  <DataTable.Head>Kind</DataTable.Head>
-                  <DataTable.Head>Office</DataTable.Head>
-                  <DataTable.Head class="text-end">Seats</DataTable.Head>
-                  <DataTable.Head>Standing</DataTable.Head>
+                  <DataTable.Cell>{row.name}</DataTable.Cell>
+                  <DataTable.Cell>{row.kind}</DataTable.Cell>
+                  <DataTable.Cell>{row.office}</DataTable.Cell>
+                  <DataTable.Cell class="text-end tabular-nums">{row.seats}</DataTable.Cell>
+                  <DataTable.Cell><Badge variant="success">Bookable</Badge></DataTable.Cell>
                 </DataTable.Row>
-              </DataTable.Header>
-              <DataTable.Body>
-                {#each RESOURCE_FIXTURE as row (row.name)}
-                  <DataTable.Row>
-                    <DataTable.Cell>{row.name}</DataTable.Cell>
-                    <DataTable.Cell>{row.kind}</DataTable.Cell>
-                    <DataTable.Cell>{row.office}</DataTable.Cell>
-                    <DataTable.Cell class="text-end tabular-nums">{row.seats}</DataTable.Cell>
-                    <DataTable.Cell><Badge variant="success">Bookable</Badge></DataTable.Cell>
-                  </DataTable.Row>
-                {/each}
-              </DataTable.Body>
-            </DataTable.Root>
-          {/snippet}
-          {@const shown = resources ?? []}
-          {#if shown.length === 0}
-            <EmptyState title="No rooms or resources yet">
-              A resource is something bookable the firm owns. Add the first one and it can be booked
-              from any event's window and read on the room grid.
-            </EmptyState>
-          {:else}
-            <DataTable.Root>
-              <DataTable.Caption class="sr-only">The firm's rooms and resources</DataTable.Caption>
-              <DataTable.Header>
+              {/each}
+            </DataTable.Body>
+          </DataTable.Root>
+        {/snippet}
+        {@const shown = resources ?? []}
+        {#if readFailure !== null}
+          <FailureNotice
+            failure={readFailure}
+            title="The Resources Were Not Re-read"
+            fallback="The catalog was not read again. What is shown was read and stands."
+            onRetry={() => void load()}
+          />
+        {/if}
+        {#if shown.length > 0}
+          <DataTable.Root>
+            <DataTable.Caption class="sr-only">The firm's rooms and resources</DataTable.Caption>
+            <DataTable.Header>
+              <DataTable.Row>
+                <DataTable.Head>Name</DataTable.Head>
+                <DataTable.Head>Kind</DataTable.Head>
+                <DataTable.Head>Office</DataTable.Head>
+                <DataTable.Head class="text-end">Seats</DataTable.Head>
+                <DataTable.Head>Standing</DataTable.Head>
+                {#if canEdit}
+                  <DataTable.Head class="sr-only">Actions</DataTable.Head>
+                {/if}
+              </DataTable.Row>
+            </DataTable.Header>
+            <DataTable.Body>
+              {#each shown as resource (resource.id)}
                 <DataTable.Row>
-                  <DataTable.Head>Name</DataTable.Head>
-                  <DataTable.Head>Kind</DataTable.Head>
-                  <DataTable.Head>Office</DataTable.Head>
-                  <DataTable.Head class="text-end">Seats</DataTable.Head>
-                  <DataTable.Head>Standing</DataTable.Head>
+                  <DataTable.Cell>
+                    <a class="underline underline-offset-2" href="/calendar/rooms?resource={resource.id}">
+                      {resource.name}
+                    </a>
+                  </DataTable.Cell>
+                  <DataTable.Cell>{resourceKindLabel(resource.kind)}</DataTable.Cell>
+                  <DataTable.Cell>{locationName(resource.locationId)}</DataTable.Cell>
+                  <DataTable.Cell class="text-end tabular-nums">
+                    {resource.capacity === null ? "" : resource.capacity}
+                  </DataTable.Cell>
+                  <DataTable.Cell>
+                    {#if resource.active}
+                      <Badge variant="success">Bookable</Badge>
+                    {:else}
+                      <Badge variant="neutral">Retired</Badge>
+                    {/if}
+                  </DataTable.Cell>
                   {#if canEdit}
-                    <DataTable.Head class="sr-only">Actions</DataTable.Head>
+                    <DataTable.Cell class="text-end">
+                      <Button variant="ghost" size="sm" onclick={() => openEdit(resource)}>Change</Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onclick={() => void setActive(resource, !resource.active)}
+                      >
+                        {resource.active ? "Retire" : "Restore"}
+                      </Button>
+                    </DataTable.Cell>
                   {/if}
                 </DataTable.Row>
-              </DataTable.Header>
-              <DataTable.Body>
-                {#each shown as resource (resource.id)}
-                  <DataTable.Row>
-                    <DataTable.Cell>
-                      <a class="underline underline-offset-2" href="/calendar/rooms?resource={resource.id}">
-                        {resource.name}
-                      </a>
-                    </DataTable.Cell>
-                    <DataTable.Cell>{resourceKindLabel(resource.kind)}</DataTable.Cell>
-                    <DataTable.Cell>{locationName(resource.locationId)}</DataTable.Cell>
-                    <DataTable.Cell class="text-end tabular-nums">
-                      {resource.capacity === null ? "" : resource.capacity}
-                    </DataTable.Cell>
-                    <DataTable.Cell>
-                      {#if resource.active}
-                        <Badge variant="success">Bookable</Badge>
-                      {:else}
-                        <Badge variant="neutral">Retired</Badge>
-                      {/if}
-                    </DataTable.Cell>
-                    {#if canEdit}
-                      <DataTable.Cell class="text-end">
-                        <Button variant="ghost" size="sm" onclick={() => openEdit(resource)}>Change</Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onclick={() => void setActive(resource, !resource.active)}
-                        >
-                          {resource.active ? "Retire" : "Restore"}
-                        </Button>
-                      </DataTable.Cell>
-                    {/if}
-                  </DataTable.Row>
-                {/each}
-              </DataTable.Body>
-            </DataTable.Root>
-            {#if capped}
-              <p class="py-8 text-xs text-text-muted">Showing the first page of the firm's resources.</p>
-            {/if}
+              {/each}
+            </DataTable.Body>
+          </DataTable.Root>
+          {#if capped}
+            <p class="py-8 text-xs text-text-muted">Showing the first page of the firm's resources.</p>
           {/if}
-        </LoadingRegion>
-      {/if}
+        {/if}
+      </LoadingRegion>
     </SettingsPlate>
   </div>
 </div>

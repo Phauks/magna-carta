@@ -27,6 +27,11 @@
   import MergeFieldPicker from "@magna-carta/design-system/merge-field-picker";
   import MergeFieldReviewList from "@magna-carta/design-system/merge-field-review-list";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import {
+    sampleAmount,
+    sampleDate,
+    sampleMatter,
+  } from "@magna-carta/design-system/loading-fixtures";
   import Label from "@magna-carta/design-system/label";
   import type {
     MergeFieldCatalog,
@@ -50,6 +55,9 @@
   let catalog = $state<MergeFieldCatalog | null>(null);
   let templateVersions = $state<readonly TemplateVersionSummary[]>([]);
   let manifest = $state<TemplateFieldManifest | null>(null);
+  // True while a template's manifest is being read. Choosing another template re-reads with the
+  // previous plan still on screen, so the form does not fall back to its shape mid-visit.
+  let manifestReading = $state(false);
   let selectedTemplateVersionId = $state("");
   let confirmedConversionIds = $state<ReadonlySet<string>>(new Set());
   let browsedFieldKey = $state<string | null>(null);
@@ -77,9 +85,11 @@
     const templateVersionId = selectedTemplateVersionId;
     if (templateVersionId === "") return;
     let cancelled = false;
+    manifestReading = true;
     void (async () => {
       const loaded = await provider.getTemplateFieldManifest(templateVersionId);
       if (cancelled) return;
+      manifestReading = false;
       manifest = loaded;
       confirmedConversionIds = new Set();
       submittedFieldCount = null;
@@ -116,8 +126,9 @@
 
   /*
    * The shapes the two reads take while they are in flight: the same picker over invented
-   * templates, and the same input area over an invented plan. Inert and hidden from assistive
-   * technology while they stand, so nothing in them can be picked or filled in.
+   * templates, and the same input area over an invented plan whose values come from the sample
+   * vocabulary. Inert and hidden from assistive technology while they stand, so nothing in them
+   * can be picked or filled in.
    */
   const FIXTURE_TEMPLATE_VALUE = "fixture-engagement";
   const TEMPLATE_FIXTURE_ITEMS = [
@@ -158,7 +169,7 @@
         group: "client",
         label: "Client",
         fields: [
-          fixtureField("client.name", "Client name", "name", "Name", "automatic", "Harold Pemberton"),
+          fixtureField("client.name", "Client name", "name", "Name", "automatic", sampleMatter(1).client),
           fixtureField("client.address", "Client address", "text", "Text", "manual", "14 Cascade Ridge"),
         ],
       },
@@ -166,9 +177,9 @@
         group: "matter",
         label: "Matter",
         fields: [
-          fixtureField("matter.title", "Matter title", "text", "Text", "automatic", "Pemberton v. Hale"),
-          fixtureField("matter.opened", "Date opened", "date", "Date", "automatic", "9 February 2026"),
-          fixtureField("matter.retainer", "Retainer amount", "money", "Money", "manual", "$5,000.00"),
+          fixtureField("matter.title", "Matter title", "text", "Text", "automatic", sampleMatter(1).title),
+          fixtureField("matter.opened", "Date opened", "date", "Date", "automatic", sampleDate(0)),
+          fixtureField("matter.retainer", "Retainer amount", "money", "Money", "manual", sampleAmount(0)),
         ],
       },
     ],
@@ -250,7 +261,11 @@
     </Card.Root>
   {/if}
 
-  <LoadingRegion loading={plan === null} label="Reading what this template needs">
+  <LoadingRegion
+    loading={plan === null}
+    refreshing={manifestReading}
+    label="Reading what this template needs"
+  >
     {#snippet fixture()}
       <AssemblyInputArea plan={PLAN_FIXTURE} />
     {/snippet}

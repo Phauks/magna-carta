@@ -43,3 +43,13 @@ approach paid too. A surface whose furniture is already its shape needs no fixtu
 failure exit sits outside the region so a failed read can never leave the shape standing. Open: the
 four-state region that would also own the failure and empty branches, and the bone contrast
 against WCAG 1.4.11.
+
+**Second round (2026-09-06):** the region holds the whole state set — `failed` renders the
+surface's failure snippet first, `empty` its empty state, `refreshing` keeps the content and marks
+the region busy — so the failure-exit ruling is structural and the four-branch chain is gone from
+every surface. A read past fifteen seconds states itself on the screen with Retry; the status line
+announces the finish; every settle is measured through the User Timing API and a bubbling event the
+app shell records as a breadcrumb. A sample vocabulary supplies every fixture's words. Two more
+`lint:one-ui` rules, `silent-loading` and `fixture-shape`, close the gaps the first rule left. The
+bone's contrast is measured at 1.16:1 to 1.59:1 across themes and pinned at a floor; whether it must
+meet 3:1 remains the owner's.
