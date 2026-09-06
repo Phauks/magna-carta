@@ -24,13 +24,14 @@
   import type { Failure } from "$lib/api/request.ts";
   import {
     createResource,
+    FIRM_RESOURCE_KINDS,
     listResources,
-    MANAGE_CALENDAR_PERMISSION,
     resourceKindLabel,
     updateResource,
     type FirmResource,
     type FirmResourceKind,
   } from "$lib/calendar/calendar-api.ts";
+  import { mayManageCalendar } from "$lib/calendar/calendar-permission.ts";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import {
@@ -40,15 +41,13 @@
     type SessionBootstrap,
   } from "$lib/matters/matters-api.ts";
 
-  const KINDS: readonly { value: FirmResourceKind; label: string }[] = [
-    { value: "room", label: "Room" },
-    { value: "vehicle", label: "Vehicle" },
-    { value: "equipment", label: "Equipment" },
-    { value: "other", label: "Other" },
-  ];
+  /** The kinds as the select offers them, worded by the one label helper every surface uses. */
+  const KINDS: readonly { value: FirmResourceKind; label: string }[] = FIRM_RESOURCE_KINDS.map(
+    (kind) => ({ value: kind, label: resourceKindLabel(kind) }),
+  );
 
   let session = $state<SessionBootstrap | null>(null);
-  const canEdit = $derived(session?.permissions.includes(MANAGE_CALENDAR_PERMISSION) ?? false);
+  const canEdit = $derived(mayManageCalendar(session));
 
   let resources = $state<readonly FirmResource[] | null>(null);
   let capped = $state(false);

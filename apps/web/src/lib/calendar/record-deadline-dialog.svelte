@@ -27,7 +27,7 @@
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import { parseDate, type DateValue } from "@internationalized/date";
+  import type { DateValue } from "@internationalized/date";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import MatterPicker from "$lib/time/matter-picker.svelte";
@@ -49,6 +49,7 @@
     emptyDeadlineDraft,
     type DeadlineDraft,
   } from "./deadline-draft.ts";
+  import { civilDateValue } from "./draft-text.ts";
   import TimeZonePicker from "./time-zone-picker.svelte";
 
   const SOURCES: readonly DeadlineSource[] = ["member", "court_order"];
@@ -115,15 +116,7 @@
     deadlineDraftStarted(draft, since) || reason.trim() !== "" || chosenMatterId !== null,
   );
 
-  /** The due date as the picker holds it, or undefined while it is empty or half-entered. */
-  const dueOnValue = $derived.by(() => {
-    if (draft.dueOn === null) return undefined;
-    try {
-      return parseDate(draft.dueOn);
-    } catch {
-      return undefined;
-    }
-  });
+  const dueOnValue = $derived(civilDateValue(draft.dueOn));
 
   function recordDueOn(next: DateValue | undefined): void {
     draft.dueOn = next ? next.toString() : null;

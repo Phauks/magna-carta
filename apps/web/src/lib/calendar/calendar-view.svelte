@@ -25,11 +25,17 @@
   import { calendarContext } from "./calendar-context.svelte.ts";
   import { CalendarController } from "./calendar-controller.svelte.ts";
   import { entryId } from "./calendar-entries.ts";
-  import { describeReadFailure, type CalendarReadName } from "./calendar-reads.ts";
-  import type { CalendarScope } from "./calendar-scope.ts";
+  import { describeReadFailure, readFailureTitle } from "./calendar-reads.ts";
+  import {
+    calendarLabel,
+    emptyCalendarMessage,
+    whoseCalendar,
+    type CalendarScope,
+  } from "./calendar-scope.ts";
   import CalendarToolbar from "./calendar-toolbar.svelte";
   import {
     AGENDA_SPAN_DAYS,
+    restOfCalendarAddress,
     todayCivil,
     type CalendarView as CalendarViewKind,
   } from "./calendar-window.ts";
@@ -206,26 +212,13 @@
   // ---- how the grid is named and what it says when empty --------------------------------------
 
   /** Whose calendar the grid is, in the possessive: "your", "Ada Lovelace's", "the firm's". */
-  const whose = $derived.by((): string => {
-    if (scope.kind === "matter") return "this matter's";
-    if (scope.kind === "resource") return "this resource's";
-    if (scope.kind === "mine" || controller.scopeChoice === "mine") return "your";
-    if (controller.scopeChoice === "member" && controller.memberChoice !== null) {
-      return `${context.memberName(controller.memberChoice)}'s`;
-    }
-    return "the firm's";
-  });
-
-  const gridLabel = $derived(
-    `${whose.charAt(0).toUpperCase()}${whose.slice(1)} calendar`,
+  const whose = $derived(
+    whoseCalendar(scope, controller.scopeChoice, controller.memberChoice, (userId) =>
+      context.memberName(userId),
+    ),
   );
-
-  const emptyMessage = $derived.by((): string => {
-    if (scope.kind === "resource") return `Nothing booked in ${controller.title}.`;
-    return whose === "the firm's" || whose === "this matter's"
-      ? `Nothing recorded in ${controller.title}.`
-      : `Nothing on ${whose} calendar in ${controller.title}.`;
-  });
+  const gridLabel = $derived(calendarLabel(whose));
+  const emptyMessage = $derived(emptyCalendarMessage(scope, whose, controller.title));
 
   /*
    * A capped host paints the first N and points at the rest. The link opens the same calendar on
@@ -238,25 +231,9 @@
   const beyondLimit = $derived(
     limit === null ? 0 : Math.max(0, (controller.visibleEntries?.length ?? 0) - limit),
   );
-  const moreHref = $derived.by((): string => {
-    const query = new URLSearchParams({ view: "agenda", date: controller.anchor });
-    if (scope.kind === "matter") {
-      return `/matters/${encodeURIComponent(scope.matterId)}/calendar?${query.toString()}`;
-    }
-    if (scope.kind === "resource") {
-      query.set("resource", scope.resourceId);
-      return `/calendar/rooms?${query.toString()}`;
-    }
-    query.set("scope", scope.kind === "mine" ? "mine" : controller.scopeChoice);
-    return `/calendar?${query.toString()}`;
-  });
-
-  const FAILURE_TITLES: Record<CalendarReadName, string> = {
-    events: "The Events Could Not Be Read",
-    deadlines: "The Deadlines Could Not Be Read",
-    firmEvents: "The Firm's Own Events Could Not Be Read",
-    bookings: "The Bookings Could Not Be Read",
-  };
+  const moreHref = $derived(
+    restOfCalendarAddress(scope, controller.anchor, controller.scopeChoice, controller.memberChoice),
+  );
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-12 {className ?? ''}">
@@ -267,7 +244,7 @@
   {#each controller.failures as failed (failed.read)}
     <FailureNotice
       failure={failed.failure}
-      title={FAILURE_TITLES[failed.read]}
+      title={readFailureTitle(failed.read)}
       fallback={describeReadFailure(failed.read)}
       onRetry={() => void controller.reload(fetch)}
     />

@@ -15,7 +15,7 @@
    * A leaf is any element with no element children and some text — a heading, a paragraph, a span,
    * a cell, a card's title (which is a div). Furniture is excluded from the leaf rules rather than
    * overridden after them, so a column head keeps its own background and a label its words:
-   * `th`, `label`, `legend`, `caption`, `dt`, `.mc-label`, `.mc-field-label`, and anything under
+   * `th`, `label`, `legend`, `caption`, `dt`, `.mc-label`, the field-label recipes, and anything under
    * `data-loading-keep`. Controls and media are bones of their own kind, below.
    *
    * This file is imported LAST in styles/components.css: at equal specificity the later rule wins,
@@ -42,6 +42,9 @@
       dt,
       .mc-label,
       .mc-field-label,
+      .mc-date-field-label,
+      .mc-print-sheet-field-label,
+      .mc-table-filter-field-label,
       [data-loading-keep],
       th *,
       label *,
@@ -50,6 +53,9 @@
       dt *,
       .mc-label *,
       .mc-field-label *,
+      .mc-date-field-label *,
+      .mc-print-sheet-field-label *,
+      .mc-table-filter-field-label *,
       [data-loading-keep] *
     ) {
     background-color: var(--mc-action-disabled);
@@ -143,8 +149,11 @@
   }
 
   /* Furniture keeps its words: the leaf rules above already leave it alone; this restores its ink. */
-  [data-mc-loading] :is(th, label, legend, caption, dt, .mc-label, .mc-field-label, [data-loading-keep]),
-  [data-mc-loading] :is(th, label, legend, caption, dt, .mc-label, .mc-field-label, [data-loading-keep]) * {
+  [data-mc-loading]
+    :is(th, label, legend, caption, dt, .mc-label, .mc-field-label, .mc-date-field-label, .mc-print-sheet-field-label, .mc-table-filter-field-label, [data-loading-keep]),
+  [data-mc-loading]
+    :is(th, label, legend, caption, dt, .mc-label, .mc-field-label, .mc-date-field-label, .mc-print-sheet-field-label, .mc-table-filter-field-label, [data-loading-keep])
+    * {
     -webkit-text-fill-color: currentcolor;
   }
 

@@ -29,7 +29,12 @@ import { replaceState } from "$app/navigation";
 import { page } from "$app/state";
 import type { CalendarEntry, EntryContext } from "./calendar-entries.ts";
 import { readCalendarWindow, type CalendarReadFailure } from "./calendar-reads.ts";
-import { isFirmSideScope, scopeKey, type CalendarScope } from "./calendar-scope.ts";
+import {
+  isFirmSideScope,
+  scopeKey,
+  type CalendarScope,
+  type ScopeChoice,
+} from "./calendar-scope.ts";
 import { calendarLayer } from "./calendar-vocabulary.ts";
 import {
   anchorFromAddress,
@@ -41,10 +46,10 @@ import {
   type CalendarView as CalendarViewKind,
   type CalendarWindow,
   type WeekStart,
+  MEMBER_SCOPE_PREFIX,
 } from "./calendar-window.ts";
 
-/** Whose calendar, on the firm side: everyone's, the reader's own, or one chosen colleague's. */
-export type ScopeChoice = "everyone" | "mine" | "member";
+export type { ScopeChoice };
 
 /** The address keys the controller mirrors. */
 const VIEW_KEY = "view";
@@ -52,9 +57,94 @@ const DATE_KEY = "date";
 const SCOPE_KEY = "scope";
 const LAYERS_KEY = "layers";
 const HIDE_KEY = "hide";
-/** The `scope` value naming one colleague: `member:<userId>`. */
-const MEMBER_SCOPE_PREFIX = "member:";
 const HIDE_SETTLED = "settled";
+
+/** What an address says about the firm-side refinements, read once on start. */
+export interface AddressRefinements {
+  /** Mine, Everyone or one colleague, or undefined where the address says nothing about it. */
+  readonly scopeChoice: ScopeChoice | undefined;
+  /** The colleague named, where the choice is a colleague. */
+  readonly memberChoice: string | null;
+  /** The layers the address turns on, of those the vocabulary carries. */
+  readonly layers: ReadonlySet<string>;
+  readonly hideSettled: boolean;
+}
+
+/**
+ * The refinements an address carries. A `scope` the controller does not know (a colleague with no
+ * identifier after the prefix, a word that is neither Mine nor Everyone) says nothing, and a layer
+ * the vocabulary does not carry is dropped rather than sent: the read refuses an unknown source
+ * key, and a mistyped address is a wrong turn, not a fault.
+ */
+export function refinementsFromAddress(parameters: URLSearchParams): AddressRefinements {
+  const scope = parameters.get(SCOPE_KEY);
+  let scopeChoice: ScopeChoice | undefined;
+  let memberChoice: string | null = null;
+  if (scope === "mine" || scope === "everyone") scopeChoice = scope;
+  if (scope !== null && scope.startsWith(MEMBER_SCOPE_PREFIX)) {
+    const memberId = scope.slice(MEMBER_SCOPE_PREFIX.length);
+    if (memberId !== "") {
+      scopeChoice = "member";
+      memberChoice = memberId;
+    }
+  }
+  const layers = (parameters.get(LAYERS_KEY) ?? "")
+    .split(",")
+    .filter((key) => calendarLayer(key) !== undefined);
+  return {
+    scopeChoice,
+    memberChoice,
+    layers: new Set(layers),
+    hideSettled: parameters.get(HIDE_KEY) === HIDE_SETTLED,
+  };
+}
+
+/** The view state an address is written from. */
+export interface MirroredState {
+  readonly view: CalendarViewKind;
+  readonly anchor: string;
+  /** Whether the scope and the layers are written at all: they are refinements of the firm side only. */
+  readonly firmSide: boolean;
+  readonly scopeChoice: ScopeChoice;
+  readonly memberChoice: string | null;
+  readonly layers: ReadonlySet<string>;
+  readonly hideSettled: boolean;
+}
+
+/**
+ * The address with view, date and (on the firm side) scope, layers and the hide written in, and
+ * every other key left as it was. A colleague choice with no colleague reads as Everyone, which is
+ * the calendar that is actually being read. The given address is never written to.
+ */
+export function mirroredAddress(current: URL, state: MirroredState): URL {
+  const url = new URL(current);
+  url.searchParams.set(VIEW_KEY, state.view);
+  url.searchParams.set(DATE_KEY, state.anchor);
+  if (state.firmSide) {
+    url.searchParams.set(
+      SCOPE_KEY,
+      state.scopeChoice === "member" && state.memberChoice !== null
+        ? `${MEMBER_SCOPE_PREFIX}${state.memberChoice}`
+        : state.scopeChoice === "member"
+          ? "everyone"
+          : state.scopeChoice,
+    );
+    if (state.layers.size > 0) {
+      url.searchParams.set(LAYERS_KEY, [...state.layers].toSorted().join(","));
+    } else {
+      url.searchParams.delete(LAYERS_KEY);
+    }
+  } else {
+    url.searchParams.delete(SCOPE_KEY);
+    url.searchParams.delete(LAYERS_KEY);
+  }
+  if (state.hideSettled) {
+    url.searchParams.set(HIDE_KEY, HIDE_SETTLED);
+  } else {
+    url.searchParams.delete(HIDE_KEY);
+  }
+  return url;
+}
 
 /** What the controller reads from, and writes back to, the component that owns it. */
 export interface CalendarHost {
@@ -107,23 +197,11 @@ export class CalendarController {
       const parameters = page.url.searchParams;
       host.setView(viewFromAddress(parameters.get(VIEW_KEY), host.view()));
       host.setAnchor(anchorFromAddress(parameters.get(DATE_KEY), host.anchor()));
-      const scope = parameters.get(SCOPE_KEY);
-      if (scope === "mine") this.scopeChoice = "mine";
-      if (scope === "everyone") this.scopeChoice = "everyone";
-      if (scope !== null && scope.startsWith(MEMBER_SCOPE_PREFIX)) {
-        const memberId = scope.slice(MEMBER_SCOPE_PREFIX.length);
-        if (memberId !== "") {
-          this.scopeChoice = "member";
-          this.memberChoice = memberId;
-        }
-      }
-      // A layer the vocabulary does not carry is dropped rather than sent: the read refuses an
-      // unknown source key, and a mistyped address is a wrong turn, not a fault.
-      const layers = (parameters.get(LAYERS_KEY) ?? "")
-        .split(",")
-        .filter((key) => calendarLayer(key) !== undefined);
-      this.layers = new Set(layers);
-      this.hideSettled = parameters.get(HIDE_KEY) === HIDE_SETTLED;
+      const refinements = refinementsFromAddress(parameters);
+      if (refinements.scopeChoice !== undefined) this.scopeChoice = refinements.scopeChoice;
+      this.memberChoice = refinements.memberChoice;
+      this.layers = refinements.layers;
+      this.hideSettled = refinements.hideSettled;
     }
   }
 
@@ -300,32 +378,15 @@ export class CalendarController {
    * as it was. A no-op when the address already says this, so an effect that calls it converges.
    */
   mirrorAddress(): void {
-    const url = new URL(page.url);
-    url.searchParams.set(VIEW_KEY, this.view);
-    url.searchParams.set(DATE_KEY, this.anchor);
-    if (this.firmSide) {
-      url.searchParams.set(
-        SCOPE_KEY,
-        this.scopeChoice === "member" && this.memberChoice !== null
-          ? `${MEMBER_SCOPE_PREFIX}${this.memberChoice}`
-          : this.scopeChoice === "member"
-            ? "everyone"
-            : this.scopeChoice,
-      );
-      if (this.layers.size > 0) {
-        url.searchParams.set(LAYERS_KEY, [...this.layers].toSorted().join(","));
-      } else {
-        url.searchParams.delete(LAYERS_KEY);
-      }
-    } else {
-      url.searchParams.delete(SCOPE_KEY);
-      url.searchParams.delete(LAYERS_KEY);
-    }
-    if (this.hideSettled) {
-      url.searchParams.set(HIDE_KEY, HIDE_SETTLED);
-    } else {
-      url.searchParams.delete(HIDE_KEY);
-    }
+    const url = mirroredAddress(page.url, {
+      view: this.view,
+      anchor: this.anchor,
+      firmSide: this.firmSide,
+      scopeChoice: this.scopeChoice,
+      memberChoice: this.memberChoice,
+      layers: this.layers,
+      hideSettled: this.hideSettled,
+    });
     if (url.href === page.url.href) return;
     replaceState(url, page.state);
   }

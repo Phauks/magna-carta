@@ -22,7 +22,16 @@ Everything you entered is recorded together when you press Record Person, or not
 
 ## A record
 
-An open record shows an arrow at the top left of its header. It takes you back to the Directory, so a record opened from a search result or from a link in a matter always has a way back to the book it came from.
+A record opens in a window over whatever you were doing, and it looks the way it did when it was
+recorded: the record's sections down the left side, the section you are on beside it, and on the
+right what stands about the record as a whole. Close the window and you are back exactly where you
+were, with nothing to retrace. It is the same window from the Directory's list, from a party on a
+matter, from the client on a matter's overview and from a conflicts check, so a record has one shape
+everywhere. Opened from a matter, the right side also lists the roles this record holds on that
+matter.
+
+A record has an address you can paste into a message. Following it opens the Directory with that
+record's window already open.
 
 A record answers the questions the firm keeps an answer to:
 
@@ -43,7 +52,8 @@ A record answers the questions the firm keeps an answer to:
   is of, and shows bullets for the value; revealing one needs a separate permission and is written
   to the firm's audit log.
 - **Duplicates**: records the Directory suspects are the same, with a way to fold one into the other.
-  Folding keeps everything from both records and never deletes either.
+  Folding keeps everything from both records and never deletes either. Opening a suspected
+  duplicate, or a related record, shows it in the same window in place of the one you were reading.
 - **Relationships**: how this record connects to others. On an organization, **People** lists its
   officers, directors, partners, employees, members, shareholders and points of contact; on a person,
   **Organizations** lists the organizations they belong to. Recording one is choosing the other

@@ -32,3 +32,13 @@ Settings › Practice › Event Types (`(app)/settings/event-types`), the entry 
 reading and relating settings through `GET /api/v1/events/{id}/links` and its firm-event twin
 (two new reads in `apps/api-worker/src/routes/calendar.ts`, contract and client regenerated). The plan's Timeline view on the
 Calendar section was dropped once main's Activity section (#464) became that read's screen.
+
+**Fifth round, 2026-09-05 (after #511 landed the fourth):** a modularity refactor, behaviour
+preserved. The entry window's decisions move into tested pure modules (`entry-verbs.ts`,
+`entry-updates.ts`, `continue-draft.ts`, `entry-links.ts`, `calendar-permission.ts`,
+`draft-text.ts`), its Links and Rooms tabs become `entry-links-tab.svelte` and
+`entry-rooms-tab.svelte`, and its panes render `record-timing-fields.svelte` and
+`event-type-select.svelte`. The matter section's List view moves into the module as
+`matter-calendar-list.svelte` and the page reads through the shared context (owner ruling). The
+view's per-scope sentences and addresses move into `calendar-scope.ts`, `calendar-window.ts` and
+`calendar-reads.ts`, and the pure modules that had no tests gain them.

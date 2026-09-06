@@ -106,7 +106,15 @@ is usually the fastest way to understand the rule.
   the row hover means "this is a thing you can select and open" and there is nothing there to
   select. So an empty table does not light up under the pointer — stretching the hover across the
   whole frame would be worse, because it invites a click that does nothing. Absence is the signal.
-  _(matters docket, 2026-08-30)_
+  **Reissued 2026-09-05, because the ruling was recorded and only half carried out.** The
+  placeholders were still `<tr class="mc-table-row">` in the same body as the records, so the row
+  hover found them: an empty table answered the pointer with a grey band as tall as its message and
+  no taller, leaving the rest of the frame white — which the owner read, correctly, as a hover that
+  gives out partway down the table. It is not enough for the placeholder's CELL to be marked; the
+  treatment the ruling withholds is the ROW's, so the row is what says it holds no record —
+  `data-placeholder="true"`, which the shared recipe passes over for both the fill and the pointer
+  cursor, and which the loading rows need too (they carry a skeleton per column and no placeholder
+  cell at all). _(matters docket, 2026-08-30; the empty table, 2026-09-05)_
 - **A placeholder's content centres in the FRAME, not in the table.** A placeholder row spans every
   column, so its cell is as wide as the table — wider than what the reader can see the moment the
   columns overflow, and far wider once anybody has widened one. Content centred in that cell lands
@@ -251,6 +259,21 @@ is usually the fastest way to understand the rule.
   a file, it is a separate working session, or it is opened from a surface holding unsaved work —
   and a source scan refuses any other `_blank`. Adding a reason is a reviewed change to that file.
   _(new matter, 2026-09-02)_
+- **A directory record is one window, wherever it opens.** A person or an organization has no
+  screen of its own: it opens in the entity window, in the New Person screen's shape — the record's
+  sections as a rail on the left, the chosen section beside it, what stands about the record on the
+  right — over whatever the reader was doing, and closes back to it. So a party opened from a
+  matter never leaves the matter, and the header's way back on every screen keeps meaning the
+  screen above. A related record opened from inside the window swaps its subject rather than
+  stacking a second window; one opened from another window stacks once. The address of a record is
+  the directory's, carrying which record to open, so a pasted link still lands on it. Chosen over an
+  origin-aware way back ("hard to keep track of over time") and over a breadcrumb trail. _(the
+  directory record, 2026-09-05)_
+- **A pane toggle is a quiet chrome affordance, and it ends the row.** Showing or hiding a details
+  panel is not an act on the record, so it never wears a button's border or fill: it is the ghost
+  icon control the file manager uses, reading its state through its glyph, and it sits last among a
+  surface's controls. Four ledgers each drew it differently, which is how a reader learns that two
+  screens are two products. _(the financial ledgers, 2026-09-02)_
 - **A pane toggle is a quiet chrome affordance, and it ends the counts strip.** Showing or hiding a
   side pane is not an act on the record, so it never wears a button's border or fill and it does not
   belong where a surface's verbs are: it is the ghost glyph, reading its state through `aria-pressed`
@@ -612,6 +635,18 @@ surface, which is most of the product.
   of something; at full size there is nothing underneath, and the curve reads as four notches of
   desktop showing through the corners of the application. Fixed on the shared modal frame, so any
   shell that grows an expand gesture inherits it. _(Time record window, 2026-09-03)_
+- **A windowed modal never touches the edge of the screen.** On a laptop a long record ran from the
+  top edge of the screen to the bottom edge with its rounded corners cut off against them, and at a
+  laptop's width the record-width panels touched both sides too; the owner read it as the modal
+  taking the screen. A panel is a thing lying over the application, and it keeps a gutter of screen
+  around it on every side (`size.modal-gutter`, 32px) that its width cap and its content are measured
+  inside: a panel that fits opens at its own height with air around it, and one that does not caps
+  at the screen less the gutter and scrolls inside. The gutter is a fixed length rather than a share
+  of the screen, because a share swells on a large monitor, where the width caps already leave room,
+  and shrinks on a small one, where the air is needed most. Expanding is the one exception, by
+  design: filling the screen is that gesture. Every dialog, alert dialog, action dialog and record
+  window inherits it from the shared modal stage; edge sheets are drawers and stay on their edge.
+  _(the modal shells on a laptop, 2026-09-03)_
 - **A totals strip sits on the bottom edge of its frame, not under the last row.** A ledger fills
   the height it is given, so the ordinary case is a table with room beneath it; totals that come to
   rest halfway up the screen with a band of empty surface below them read as a table that failed to
@@ -638,6 +673,21 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-05 — the directory record, from a screen to one window
+
+Raised by the owner after walking from a matter's parties into a person: the person opened as a
+screen in the directory, and the way back at the top of it led to the directory's list, not to the
+matter just left. Three shapes were put up — an origin-aware way back, a window over the matter, a
+breadcrumb trail — and the owner ruled for the window, then for the window as the record's only
+surface. The generalization is promoted above; what is local to this surface:
+
+- The window takes the New Person screen's arrangement, not the tabbed screen's: the owner
+  preferred the side rail with the section beside it to a row of tabs across the top.
+- The right pane shows what the host alone knows — on a matter, the roles this record holds there
+  with the capacity beside each — above the record's own facts. The directory host adds nothing.
+- The record's Names and Duplicates acts keep their own panels, which open over the window.
+- The old record address redirects to the directory with the record's window open.
 
 ### 2026-09-05 — the money sections, one surface
 

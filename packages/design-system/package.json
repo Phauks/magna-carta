@@ -70,6 +70,7 @@
     "./record-window": "./src/lib/components/record-window/index.ts",
     "./resizable": "./src/lib/components/resizable/index.ts",
     "./screen-search": "./src/lib/components/screen-search/index.ts",
+    "./scroll-edge-hint": "./src/lib/components/scroll-edge-hint/index.ts",
     "./select": "./src/lib/components/select/index.ts",
     "./separator": "./src/lib/components/separator/index.ts",
     "./sidebar": "./src/lib/components/sidebar/index.ts",
@@ -102,6 +103,7 @@
     "storybook-build": "storybook build",
     "visual-regression": "playwright test --config visual-regression/playwright.config.ts",
     "visual-regression-update": "playwright test --config visual-regression/playwright.config.ts --update-snapshots",
+    "modal-geometry": "playwright test --config modal-geometry/playwright.config.ts",
     "csp-spike": "vite build --config test/csp-spike/vite.config.mjs && node test/csp-spike/run-csp-spike.mjs"
   },
   "dependencies": {

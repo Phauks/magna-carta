@@ -8,7 +8,8 @@
  * because a firm-wide entry is an edge on a calendar of matters rather than one of the matters.
  */
 import type { CalendarGridTone } from "@magna-carta/design-system/calendar-grid";
-import type { EventType } from "./calendar-api.ts";
+import type { EventType, ParticipantKind } from "./calendar-api.ts";
+import type { EntryReferenceKind } from "./entry-reference.ts";
 
 /**
  * The SOURCE KEYS a firm-scope federated read is narrowed to. The read's `kind` filter names a
@@ -131,3 +132,17 @@ export function humanizeKind(kind: string): string {
     .toLowerCase();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
+
+/** The word each kind of record is called where nothing more specific is known. */
+export const ENTRY_KIND_WORDS: Readonly<Record<EntryReferenceKind, string>> = {
+  event: "Event",
+  deadline: "Deadline",
+  firmEvent: "Firm Event",
+};
+
+/** The word each kind of participant is called in the Participants tab. */
+export const PARTICIPANT_KIND_WORDS: Readonly<Record<ParticipantKind, string>> = {
+  member: "Firm member",
+  entity: "Directory record",
+  external: "External",
+};

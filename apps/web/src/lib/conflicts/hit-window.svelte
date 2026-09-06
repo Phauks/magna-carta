@@ -52,7 +52,7 @@
     sourceVocabulary,
     waiverShortfallText,
   } from "./conflicts-vocabulary.ts";
-  import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
+  import EntityWindow from "$lib/directory/entity-window.svelte";
   import { entityKindText, partyCellTitle, partyText, surfacedAgainstText } from "./hit-columns.ts";
 
   let {
@@ -86,6 +86,17 @@
   // takes no name of its own to be told. It used to, and a caller could hand it one that disagreed
   // with the hit it was showing.
   const partyName = $derived(hit?.party?.displayName ?? null);
+
+  // The party's directory record, opened over this window rather than in the directory's place:
+  // a reviewer reads what the firm holds about the entity and comes back to the hit they were on.
+  let entityOpen = $state(false);
+  let openEntityId = $state("");
+
+  function openParty(): void {
+    if (hit === null) return;
+    openEntityId = hit.entityId;
+    entityOpen = true;
+  }
   const heading = $derived(partyName ?? (hit === null ? "" : partyText(hit)));
 
   /*
@@ -226,9 +237,9 @@
             {:else}
               <!-- The entity's own record, so a reviewer can read what the firm holds about it
                    rather than taking the hit's word for who it is. -->
-              <a class="underline underline-offset-2" href={entityRecordHref(hit.entityId)}>
+              <button type="button" class="underline underline-offset-2" onclick={openParty}>
                 {partyName}
-              </a>
+              </button>
             {/if}
           </dd>
         </div>
@@ -486,3 +497,5 @@
 {#if sheet !== null}
   <PrintSheet bind:open={printOpen} {sheet} />
 {/if}
+
+<EntityWindow bind:open={entityOpen} bind:entityId={openEntityId} />

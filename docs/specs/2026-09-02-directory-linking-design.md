@@ -381,6 +381,49 @@ form with the region beside it, and what is shown is national at home and intern
 The list is one line per way to reach them — the kind as a glyph, the use beside the value, the
 record's marks after — in place of three tables, one per channel.
 
+### 7.2 The ruling of 2026-09-05 — a record is one window, wherever it opens
+
+Put to the owner after the first walk from a matter into a person: the parties tab opened the
+person as a screen in the directory, and the way back at the top of that screen led to the
+directory's list rather than to the matter the reader had just left. Three shapes were weighed — an
+origin-aware way back (a stack of where the reader had been), a record window over the matter, and
+a breadcrumb trail — and the owner ruled for the second, and then for more than the second.
+
+**R-7 — A directory record has ONE surface, and it is the New Person screen's shape.** "If we
+stick only to the modal, we reduce to one surface, and it is easy to have in multiple locations."
+The record opens in the entity window (`apps/web/src/lib/directory/entity-window.svelte`) on the
+action dialog's reading kind at record width: the record's sections as a rail on the left, the
+chosen section's pane beside it, and on the right what stands about the record as a whole. The
+panes are the same components the record screen composed, so nothing about how a fact is recorded
+moved; what moved is where they stand. The tabbed record screen is deleted. Reading a person back in
+the geometry they were created in is what the shared sections were for, and now it is literally so.
+
+**R-8 — It opens over the reader's work and closes back to it, so no way back is needed.** From a
+matter's parties, from the client fact on the overview, from a conflicts hit, and from the
+directory's own list, the window opens in place. The path that made the header's way back lie is
+gone, and the way back on every remaining screen leads to the screen above it, as the registry
+model assumes. An origin stack was rejected as "hard to keep track of over time"; a breadcrumb
+trail asserts a nesting that does not exist, since a person is not under a matter.
+
+**R-9 — The address is the directory's, carrying the record.** `entityRecordHref` now builds
+`/directory?record=<id>`: the directory list opens the window from its address, a subject swapped
+inside the window is mirrored back into the address in place, and closing takes it out. The old
+`/directory/<id>` route survives as a redirect so a link written before this ruling still lands.
+Opened from a matter, the window leaves the matter's address alone; only the directory host writes
+the record into the address, so a matter's URL never claims to be a person.
+
+**R-10 — A related record opened from inside the window swaps its subject; one opened from another
+window stacks once.** A duplicate candidate, a related organization, the record this one was folded
+into: each replaces the window's subject rather than raising a second window. A record opened from
+the conflicts hit window — itself a window — opens over it, one level and no more. The two acts
+that ask a question of their own (changing the name on the record, folding a duplicate in) keep
+their panels over the window.
+
+**R-11 — The host contributes only what it alone knows.** A matter hands the window the roles the
+record holds on it, one line per association with the capacity beside the role
+(`apps/web/src/lib/matters/party-standing.ts`), shown above the record's own facts. The directory
+hands nothing. No host describes the record itself; the window does, one way.
+
 ---
 
 ## 8. Test plan

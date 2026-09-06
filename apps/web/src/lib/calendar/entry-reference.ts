@@ -98,3 +98,25 @@ export function entryRecordMatterId(record: EntryRecord): string | null {
       return null;
   }
 }
+
+/**
+ * The kind as the window's subtitle names it: the type's name where the record has one, else the
+ * kind's own word. `firmEventTypeName` resolves a firm event's type through the catalog, because a
+ * firm event carries the type's identifier and not its name.
+ */
+export function entryRecordKindLine(
+  record: EntryRecord | null,
+  fallbackKind: EntryReferenceKind,
+  words: Readonly<Record<EntryReferenceKind, string>>,
+  firmEventTypeName: (eventTypeId: string | null) => string | undefined,
+): string {
+  if (record === null) return words[fallbackKind];
+  switch (record.kind) {
+    case "event":
+      return record.event.eventTypeName ?? words.event;
+    case "deadline":
+      return words.deadline;
+    case "firmEvent":
+      return firmEventTypeName(record.event.eventTypeId) ?? words.firmEvent;
+  }
+}

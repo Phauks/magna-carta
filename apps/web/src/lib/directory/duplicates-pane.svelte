@@ -42,11 +42,18 @@
     mayEdit,
     editDisabledReason,
     onMerged,
+    onOpenEntity,
   }: {
     entity: DirectoryEntityDetail;
     mayEdit: boolean;
     editDisabledReason?: string;
     onMerged: () => void;
+    /**
+     * Open a candidate's record some way other than by its address — inside the window this pane
+     * already stands in, which swaps its subject rather than stacking a second window. Without it a
+     * candidate's name is the link to its address.
+     */
+    onOpenEntity?: (entityId: string) => void;
   } = $props();
 
   let candidates = $state<readonly DuplicateCandidate[] | null>(null);
@@ -187,7 +194,10 @@
               <EntityIdentity
                 kind={candidate.entityKind}
                 name={candidate.displayName}
-                href={entityRecordHref(candidate.entityId)}
+                href={onOpenEntity === undefined ? entityRecordHref(candidate.entityId) : undefined}
+                onOpen={onOpenEntity === undefined
+                  ? undefined
+                  : () => onOpenEntity(candidate.entityId)}
               />
             {/if}
           </DataTable.Cell>
