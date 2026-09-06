@@ -396,27 +396,30 @@ const setLetterheadLogoRoute = defineOpenAPIRoute(setLetterheadLogoMeta, {
   },
 });
 
-const clearLetterheadLogoRoute = defineOpenAPIRoute(clearLetterheadLogoMeta, {
-  method: "delete",
-  path: "/api/v1/locations/{id}/letterhead-logo",
-  description:
-    "Removes the office's letterhead logo. Templates that draw one then assemble with a visible " +
-    "marker where the mark would be, rather than silently losing the letterhead.",
-  request: { headers: idempotencyKeyHeader, params: locationParam },
-  responses: {
-    200: {
-      description: "The letterhead logo was removed",
-      content: { "application/json": { schema: IdAck } },
+const clearLetterheadLogoRoute = defineOpenAPIRoute(
+  { ...clearLetterheadLogoMeta, reversal: { kind: "inverse", by: "locations.setLetterheadLogo" } },
+  {
+    method: "delete",
+    path: "/api/v1/locations/{id}/letterhead-logo",
+    description:
+      "Removes the office's letterhead logo. Templates that draw one then assemble with a visible " +
+      "marker where the mark would be, rather than silently losing the letterhead.",
+    request: { headers: idempotencyKeyHeader, params: locationParam },
+    responses: {
+      200: {
+        description: "The letterhead logo was removed",
+        content: { "application/json": { schema: IdAck } },
+      },
+      400: writeErrorResponses[400],
+      401: writeErrorResponses[401],
+      403: writeErrorResponses[403],
+      404: writeErrorResponses[404],
+      409: writeErrorResponses[409],
+      422: writeErrorResponses[422],
+      429: writeErrorResponses[429],
     },
-    400: writeErrorResponses[400],
-    401: writeErrorResponses[401],
-    403: writeErrorResponses[403],
-    404: writeErrorResponses[404],
-    409: writeErrorResponses[409],
-    422: writeErrorResponses[422],
-    429: writeErrorResponses[429],
   },
-});
+);
 
 const assignMemberRoute = defineOpenAPIRoute(assignMemberMeta, {
   method: "put",

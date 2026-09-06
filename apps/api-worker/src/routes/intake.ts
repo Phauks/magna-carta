@@ -503,27 +503,39 @@ const editStepRoute = defineOpenAPIRoute(manageMeta("editStep", true), {
   },
 });
 
-const retireStepRoute = defineOpenAPIRoute(manageMeta("retireStep", true), {
-  method: "delete",
-  path: "/api/v1/intake-procedure-steps/{stepId}",
-  description:
-    "Retires a step: it stops being asked from this moment. The step is kept rather than deleted, " +
-    "so every record that answered it on a matter still says what it answered.",
-  request: { headers: idempotencyKeyHeader, params: stepIdParam },
-  responses: {
-    200: {
-      description: "The step was retired",
-      content: { "application/json": { schema: AcknowledgedResponse } },
+const retireStepRoute = defineOpenAPIRoute(
+  {
+    ...manageMeta("retireStep", true),
+    reversal: {
+      kind: "none",
+      reason:
+        "The step is kept so every record that answered it still says what it answered, but no " +
+        "route puts a retired step back into the asking. Adding it again mints a new step, which " +
+        "the matters that answered the old one do not point at.",
     },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/intake-procedure-steps/{stepId}",
+    description:
+      "Retires a step: it stops being asked from this moment. The step is kept rather than deleted, " +
+      "so every record that answered it on a matter still says what it answered.",
+    request: { headers: idempotencyKeyHeader, params: stepIdParam },
+    responses: {
+      200: {
+        description: "The step was retired",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 // ---- the matter's checklist ----
 
@@ -604,27 +616,33 @@ const waiveStepRoute = defineOpenAPIRoute(matterMeta("waiveStep", WAIVE, true), 
   },
 });
 
-const reopenStepRoute = defineOpenAPIRoute(matterMeta("reopenStep", RECORD, true), {
-  method: "delete",
-  path: "/api/v1/matters/{matterId}/intake/steps/{stepId}/record",
-  description:
-    "Sets aside the live answer on this step, so it is answered again by its own subsystem or by " +
-    "nobody. The earlier answer stays in the history. Refused when nothing is recorded.",
-  request: { headers: idempotencyKeyHeader, params: matterStepParams },
-  responses: {
-    200: {
-      description: "The step was reopened",
-      content: { "application/json": { schema: AcknowledgedResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const reopenStepRoute = defineOpenAPIRoute(
+  {
+    ...matterMeta("reopenStep", RECORD, true),
+    reversal: { kind: "inverse", by: "intake.recordStep" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/matters/{matterId}/intake/steps/{stepId}/record",
+    description:
+      "Sets aside the live answer on this step, so it is answered again by its own subsystem or by " +
+      "nobody. The earlier answer stays in the history. Refused when nothing is recorded.",
+    request: { headers: idempotencyKeyHeader, params: matterStepParams },
+    responses: {
+      200: {
+        description: "The step was reopened",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 // ---- handler plumbing ----
 

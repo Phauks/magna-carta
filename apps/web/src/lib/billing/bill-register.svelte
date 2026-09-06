@@ -377,6 +377,19 @@
     editingLine = line;
     lineOpen = true;
   }
+
+  /*
+   * The domain figures as the shared strip reads them: the money is turned into text HERE, in the
+   * matter's own currency, because the strip owns the arrangement and never the formatting.
+   */
+  const footerReading = $derived(
+    figures.map((figure) => ({
+      identifier: figure.identifier,
+      label: figure.label,
+      value: money(figure.amountMinor),
+      caption: figure.caption,
+    })),
+  );
 </script>
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<InvoiceRow>)}
@@ -446,16 +459,7 @@
 
 <!-- The counts strip's trailing figures. The surface seats the pane toggle after them. -->
 {#snippet figuresStrip()}
-  {#if grid.isFiltered}
-    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
-  {/if}
-  {#each figures as figure, index (figure.identifier)}
-    {#if index > 0}<span aria-hidden="true">·</span>{/if}
-    <span class="inline-flex items-baseline gap-4" title={figure.caption}>
-      <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
-      <span class="text-text-subtle">{figure.label}</span>
-    </span>
-  {/each}
+  <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
 <!-- The notices band: the missing client first, because it governs every act below it, then the

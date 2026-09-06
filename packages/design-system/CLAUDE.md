@@ -186,6 +186,76 @@ directory search before these existed; the one-implementation registry now refus
 - **`PARTIES_TAB_KEY`** is the agreement every record window imports, the twin of
   `ATTACHMENTS_TAB_KEY`.
 
+## The table's own controls: three components, not a snippet per surface
+
+**`DataTable.ClearFilters`, `DataTable.GridFigures` and `DataTable.LoadMore`** are the controls a
+table's control row and counts strip are made of. Each was hand-built on several surfaces first —
+the clear control seven times in three shapes, the figures strip five times with one already in the
+opposite reading order, load-more three times in two places — and the drift is why they moved here.
+
+- **What a surface varies is WHERE it puts them, never what they look like.** The owner's 2026-09-03
+  placement: the clear control goes in the control row above the table, where the filters were set;
+  the undo and redo pair goes in the footer. `docs/conventions/design-corrections.md` carries it.
+- **`ClearFilters` is two acts and says which.** Column filters alone read "Clear Filters"; a
+  surface whose own search or scope is also holding rows back passes `narrowing` and the control
+  reads "Show Everything", because clearing a search under a button labelled Clear Filters is a lie
+  about what the press will do. Neither is configured — both are derived. Its `grid` is optional:
+  a surface can be narrowed before its grid exists.
+- **It renders NOTHING when nothing is in play**, and so does `LoadMore` at the end of a list. That
+  is the standing rule for a control that undoes a state — absence is the answer, never a disabled
+  control.
+- **`GridFigures` takes TEXT.** Money, durations and counts each format through their own home; a
+  strip that took minor units and a currency would have to learn all three and still be wrong for
+  the fourth. What it owns is the arrangement: label first, figure second, tabular, `·` between,
+  and the "In view:" prefix under a filter — a total that silently changed meaning when a column was
+  filtered is the most quietly wrong thing a footer can do.
+- **The footer's inline "Show all" stays.** It is part of the tally sentence ("x of y · filtered on
+  Status, Matter"), not a control in a control row, and the two are different things.
+
+## The history family: one stack, one pair of controls, one set of keys
+
+**`src/lib/components/history/` is the one home of undo and redo.** `HistoryStack` holds the steps,
+`UndoRedoControls` is the split-control pair, and `historyShortcuts` is the keyboard handler. All
+three are in `lint:one-ui`'s one-implementation registry: a second undo stack anywhere is the defect
+the entry exists to prevent, and there were two before this landed
+(`apps/web/src/lib/time/time-sheet-history.svelte.ts` and
+`apps/web/src/lib/file-manager/move-history.ts`); both are gone, and both surfaces now render this
+control over this stack. Design: [`docs/specs/2026-09-03-undo-redo-and-reversal-design.md`](../../docs/specs/2026-09-03-undo-redo-and-reversal-design.md).
+
+- **A step is a command with an inverse, never a snapshot.** A snapshot restores a screen; an
+  inverse restores the record. The snapshot model is why the Time Sheet writes back every row on
+  every undo — it cannot know which fields moved — and why a snapshot taken before a re-read is
+  unsafe. `HistoryStep` is `{ label, undo, redo }` and the surface decides what those do.
+- **A step is pushed only where its inverse is real.** What is refused is refused out loud:
+  `irreversibleAnnouncement` is the sentence, and it names where the repair lives, because "undo
+  does not reach this" is only half an answer when the other half exists.
+- **The outcome follows the inverse, never the pop.** `undo`/`redo` answer once the writes have
+  answered; a failure leaves the step on the stack, still offered, with the failing label named. The
+  control hands the outcome back through `onOutcome` and says nothing itself — the live region
+  belongs to the surface, and a control that spoke would be a second voice on the same strip.
+- **A walk in flight refuses the next one** rather than interleaving two sequences of inverses, so
+  both halves disable while one runs. Only `push` grows the stack (bounded at `STEPS_KEPT`); a walk
+  moves a step between the two sides, which is why neither side trims and walking back and forth
+  cannot drop the far end.
+- **`historyShortcuts` is a handler, not a window listener** — the surface attaches it to its own
+  element, so two surfaces with stacks cannot receive each other's keys. It REACHES INSIDE TEXT
+  FIELDS by default, which is what both existing surfaces do and is right on a rapid-entry grid: a
+  reader who has typed into six cells and presses Ctrl+Z means the sheet, not the caret.
+  `insideTextFields: "yield"` is the seam for a surface that is one long text field.
+- **The one thing a surface varies is the register** — `variant: "ghost" | "secondary"` — because
+  that is a fact about the chrome the pair sits in (a quiet counts footer, a toolbar of secondary
+  buttons), not about undo. Closed set, no `class` prop to reach past it, and the bordered register
+  also drops the caret's leading edge so the seam is not a double rule.
+- **A module with no Svelte in it imports from the leaf paths**, `@magna-carta/design-system/history-stack`
+  and `/history-shortcuts`, never the `./history` barrel: the barrel carries the CONTROL, and a
+  plain module that pulls its component tree in stops loading anywhere a Svelte transform is not in
+  play (it fails as `Unknown file extension ".svelte"` deep inside bits-ui, which reads like
+  anything but the import that caused it). `.svelte` consumers take the barrel.
+- **`DropdownMenu.GroupHeading` must sit inside a `DropdownMenu.Group`.** Without it bits throws
+  `Context "Menu.Group | Menu.RadioGroup" not found` when the menu OPENS — not on render — so it is
+  invisible until somebody presses the caret. Both hand-built copies of this control shipped without
+  the group; this one has it, and the story that opens the menu is what pins it.
+
 ## The maturity family, and the field primitives
 
 - **`src/lib/components/maturity/` is the one home of the maturity vocabulary** — the stage model

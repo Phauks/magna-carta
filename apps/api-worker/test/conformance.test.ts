@@ -15,6 +15,11 @@ import {
   nonJsonRequestBodyMediaTypes,
   type RouteMeta,
 } from "../src/contracts/route-meta.ts";
+import {
+  reversalDeclarationProblem,
+  reversalOperationId,
+  type RouteReversal,
+} from "../src/contracts/reversal.ts";
 
 // The route sources, inlined at build time, for the raw-body source scan below. Declared here on the
 // same pattern the billing fitness scans use (see billing-freeze-fitness.test.ts).
@@ -185,6 +190,49 @@ function auditedMutatingViolations(document: ReturnType<typeof buildOpenAPIDocum
     ) {
       violations.push(
         `${label}: authenticated mutating route must name a non-null x-mc-permission`,
+      );
+    }
+  }
+  return violations;
+}
+
+/*
+ * Every DELETE says what putting it back means, and every declaration that names another operation
+ * names one that exists and mutates.
+ *
+ * The gate starts at DELETE rather than at every mutating method because that is where the question
+ * is asked most and was answered least — thirty-three DELETE operations against five reversals of any
+ * kind when this landed. `defineOpenAPIRoute` refuses an undeclared DELETE at registration; this is
+ * the document-level backstop, and it is also the only place the cross-reference can be checked at
+ * all, since a route cannot see the rest of the contract at registration time.
+ *
+ * A dangling `by` is the failure this exists for: a declaration reading "files.restore puts it back"
+ * is worth exactly as much as `files.restore` existing, and a surface that renders the sentence has
+ * no way to find out that it does not.
+ */
+function reversalViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
+  const violations: string[] = [];
+  const mutatingOperationIds = new Set<string>();
+  for (const { method, operation } of operations(document)) {
+    if (isMutatingMethod(method)) mutatingOperationIds.add(operationIdOf(operation));
+  }
+  for (const { path, method, operation } of operations(document)) {
+    const label = `${method.toUpperCase()} ${path}`;
+    const declared = operation["x-mc-reversal"] as RouteReversal | undefined;
+    if (declared === undefined) {
+      if (method.toLowerCase() === "delete") {
+        violations.push(
+          `${label}: a DELETE must declare what putting it back means (x-mc-reversal)`,
+        );
+      }
+      continue;
+    }
+    const problem = reversalDeclarationProblem(declared);
+    if (problem !== undefined) violations.push(`${label}: ${problem}`);
+    const named = reversalOperationId(declared);
+    if (named !== undefined && named.trim() !== "" && !mutatingOperationIds.has(named)) {
+      violations.push(
+        `${label}: reversal names ${JSON.stringify(named)}, which is not a mutating operation in this contract`,
       );
     }
   }
@@ -1364,6 +1412,75 @@ describe("conformance — the committed contract holds, and each rule catches a 
         },
       ]);
       expect(auditedMutatingViolations(bad).length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("every DELETE declares what putting it back means", () => {
+    it("the committed contract satisfies it", () => {
+      expect(reversalViolations(document)).toEqual([]);
+    });
+    it("flags a DELETE with no declaration (raw — defineOpenAPIRoute guards this at registration)", () => {
+      const bad = documentWithOperations([
+        {
+          method: "delete",
+          path: "/api/v1/widgets/{id}",
+          operation: rawOperation({
+            operationId: "widgets.remove",
+            "x-mc-operationId": "widgets.remove",
+          }),
+        },
+      ]);
+      expect(reversalViolations(bad).length).toBeGreaterThan(0);
+    });
+    it("flags a declaration naming an operation the contract does not have", () => {
+      const bad = documentWithOperations([
+        {
+          method: "delete",
+          path: "/api/v1/widgets/{id}",
+          operation: rawOperation({
+            operationId: "widgets.remove",
+            "x-mc-operationId": "widgets.remove",
+            "x-mc-reversal": { kind: "inverse", by: "widgets.restore" },
+          }),
+        },
+      ]);
+      expect(reversalViolations(bad)).toContainEqual(expect.stringContaining("widgets.restore"));
+    });
+    it("flags a declaration naming an operation that exists but does not mutate", () => {
+      const bad = documentWithOperations([
+        {
+          method: "get",
+          path: "/api/v1/widgets",
+          operation: rawOperation({
+            operationId: "widgets.list",
+            "x-mc-operationId": "widgets.list",
+          }),
+        },
+        {
+          method: "delete",
+          path: "/api/v1/widgets/{id}",
+          operation: rawOperation({
+            operationId: "widgets.remove",
+            "x-mc-operationId": "widgets.remove",
+            "x-mc-reversal": { kind: "inverse", by: "widgets.list" },
+          }),
+        },
+      ]);
+      expect(reversalViolations(bad).length).toBeGreaterThan(0);
+    });
+    it("flags a none that carries no reason — the one arm that must say why", () => {
+      const bad = documentWithOperations([
+        {
+          method: "delete",
+          path: "/api/v1/widgets/{id}",
+          operation: rawOperation({
+            operationId: "widgets.remove",
+            "x-mc-operationId": "widgets.remove",
+            "x-mc-reversal": { kind: "none", reason: "   " },
+          }),
+        },
+      ]);
+      expect(reversalViolations(bad).length).toBeGreaterThan(0);
     });
   });
 

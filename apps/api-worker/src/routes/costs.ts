@@ -436,28 +436,31 @@ const attachReceiptRoute = defineOpenAPIRoute(attachReceiptMeta, {
   },
 });
 
-const detachReceiptRoute = defineOpenAPIRoute(detachReceiptMeta, {
-  method: "delete",
-  path: "/api/v1/costs/{id}/receipt",
-  description: "Removes the receipt file from a cost entry.",
-  request: {
-    headers: idempotencyKeyHeader,
-    params: costParam,
-  },
-  responses: {
-    200: {
-      description: "The receipt was removed",
-      content: { "application/json": { schema: CostAck } },
+const detachReceiptRoute = defineOpenAPIRoute(
+  { ...detachReceiptMeta, reversal: { kind: "inverse", by: "costs.attachReceipt" } },
+  {
+    method: "delete",
+    path: "/api/v1/costs/{id}/receipt",
+    description: "Removes the receipt file from a cost entry.",
+    request: {
+      headers: idempotencyKeyHeader,
+      params: costParam,
     },
-    400: writeErrorResponses[400],
-    401: writeErrorResponses[401],
-    403: writeErrorResponses[403],
-    404: writeErrorResponses[404],
-    409: writeErrorResponses[409],
-    422: writeErrorResponses[422],
-    429: writeErrorResponses[429],
+    responses: {
+      200: {
+        description: "The receipt was removed",
+        content: { "application/json": { schema: CostAck } },
+      },
+      400: writeErrorResponses[400],
+      401: writeErrorResponses[401],
+      403: writeErrorResponses[403],
+      404: writeErrorResponses[404],
+      409: writeErrorResponses[409],
+      422: writeErrorResponses[422],
+      429: writeErrorResponses[429],
+    },
   },
-});
+);
 
 function costErrorResponse(
   c: Context,

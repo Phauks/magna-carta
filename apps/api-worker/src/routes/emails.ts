@@ -386,32 +386,42 @@ const acceptRoute = defineOpenAPIRoute(acceptMeta, {
   },
 });
 
-const unlinkRoute = defineOpenAPIRoute(unlinkMeta, {
-  method: "delete",
-  path: "/api/v1/matters/{matterId}/emails/{emailMessageId}",
-  description:
-    "Unlink an email from this matter (the link → unlinked). Never deletes the message: it stays on any " +
-    "other matters it is filed to.",
-  request: { params: messageParam },
-  responses: {
-    200: {
-      description: "The link was unlinked (or was already unlinked)",
-      content: { "application/json": { schema: LinkActionAck } },
-    },
-    401: {
-      description: "No session",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    403: {
-      description: "Missing emails:manageLinks",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    429: {
-      description: "Rate limit exceeded",
-      content: { "application/problem+json": { schema: Problem } },
+const unlinkRoute = defineOpenAPIRoute(
+  {
+    ...unlinkMeta,
+    reversal: {
+      kind: "none",
+      reason:
+        "The link row is retained as unlinked, but nothing re-files an already-captured message onto a matter it was unlinked from. Filing it again means filing the bytes again.",
     },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/matters/{matterId}/emails/{emailMessageId}",
+    description:
+      "Unlink an email from this matter (the link → unlinked). Never deletes the message: it stays on any " +
+      "other matters it is filed to.",
+    request: { params: messageParam },
+    responses: {
+      200: {
+        description: "The link was unlinked (or was already unlinked)",
+        content: { "application/json": { schema: LinkActionAck } },
+      },
+      401: {
+        description: "No session",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      403: {
+        description: "Missing emails:manageLinks",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      429: {
+        description: "Rate limit exceeded",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+    },
+  },
+);
 
 type EmailsContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
 

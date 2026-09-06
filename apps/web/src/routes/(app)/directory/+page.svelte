@@ -583,14 +583,18 @@
         {#if moreThanLoaded}
           <span>{total} in the firm's directory</span>
         {/if}
+        <!-- The way to the rest of the list belongs beside the count that says there is more, not
+             under the table where it read as an act on the page. -->
+        <DataTable.LoadMore
+          noun="records"
+          more={list.nextCursor !== null}
+          loading={list.loadingMore}
+          onLoad={loadMore}
+        />
       {/snippet}
     </DataTable.GridFooter>
 
-    {#if list.nextCursor !== null}
-      <Button variant="secondary" class="self-start" onclick={loadMore} disabled={list.loadingMore}>
-        {list.loadingMore ? "Loading" : "Load more records"}
-      </Button>
-    {/if}
+
   {/if}
 </div>
 

@@ -127,6 +127,13 @@ is usually the fastest way to understand the rule.
 - **A control that undoes a state exists only while that state is in play.** The clear-filters
   control appears when something is narrowing the view and is absent otherwise, so its absence is
   itself the answer to "is anything hidden". _(matters docket, 2026-08-30)_
+- **A control that recurs on every table is a table component, not a snippet each surface writes.**
+  The clear-filters control was built seven times in three shapes, the labelled figures strip five
+  times (one already in the opposite reading order), and the load-more control three times in two
+  places. Each is now one component — `DataTable.ClearFilters`, `DataTable.GridFigures`,
+  `DataTable.LoadMore` — and what a surface still varies is where it puts it, never what it looks
+  like. The clear control lives in the control row above the table, where the filters were set; the
+  undo and redo pair lives in the footer. _(every list surface, 2026-09-03)_
 - **Every scroll region we own wears the app's scrollbar, corner included.** A themed track and
   thumb still leave the corner where a horizontal and a vertical bar meet painted by the user
   agent, and a table wide enough to scroll sideways is where it shows first. _(matters docket,

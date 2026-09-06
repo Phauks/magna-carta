@@ -84,6 +84,14 @@
       "home": "packages/design-system/src/lib/components/record-parties"
     },
     {
+      "name": "HistoryStack",
+      "home": "packages/design-system/src/lib/components/history"
+    },
+    {
+      "name": "UndoRedoControls",
+      "home": "packages/design-system/src/lib/components/history"
+    },
+    {
       "name": "DataTable",
       "home": "packages/design-system/src/lib/components/data-table"
     },

@@ -406,6 +406,19 @@
   const hasNotices = $derived(
     actionFailure !== null || actionRefusal !== null || actionNotice !== null,
   );
+
+  /*
+   * The domain figures as the shared strip reads them: the money is turned into text HERE, in the
+   * matter's own currency, because the strip owns the arrangement and never the formatting.
+   */
+  const footerReading = $derived(
+    figures.map((figure) => ({
+      identifier: figure.identifier,
+      label: figure.label,
+      value: money(figure.amountMinor / 100),
+      caption: figure.caption,
+    })),
+  );
 </script>
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<TimeEntrySummary>)}
@@ -455,16 +468,7 @@
 {/snippet}
 
 {#snippet ledgerFigures()}
-  {#if grid.isFiltered}
-    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
-  {/if}
-  {#each figures as figure, index (figure.identifier)}
-    {#if index > 0}<span aria-hidden="true">·</span>{/if}
-    <span class="inline-flex items-baseline gap-4" title={figure.caption}>
-      <span class="text-text-subtle">{figure.label}</span>
-      <span class="font-semibold tabular-nums">{money(figure.amountMinor / 100)}</span>
-    </span>
-  {/each}
+  <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
 {#snippet notices()}

@@ -20,7 +20,6 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import type { Snippet } from "svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -194,11 +193,12 @@
          One line at a fixed height, so it never reflows. -->
     <DataTable.GridFooter grid={ownGrid}>
       {#snippet end()}
-        {#if list.nextCursor !== null}
-          <Button variant="secondary" size="sm" onclick={loadMore} disabled={list.loadingMore}>
-            {list.loadingMore ? "Loading" : "Load more packets"}
-          </Button>
-        {/if}
+        <DataTable.LoadMore
+          noun="packets"
+          more={list.nextCursor !== null}
+          loading={list.loadingMore}
+          onLoad={loadMore}
+        />
       {/snippet}
     </DataTable.GridFooter>
   {/if}

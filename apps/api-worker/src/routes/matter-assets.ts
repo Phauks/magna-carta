@@ -1141,28 +1141,38 @@ const updateAssetRoute = defineOpenAPIRoute(mutationMeta("updateAsset", "matter"
   },
 });
 
-const deleteAssetRoute = defineOpenAPIRoute(mutationMeta("deleteAsset", "matter", "optional"), {
-  method: "delete",
-  path: "/api/v1/matter-assets/{assetId}",
-  description:
-    "Takes an asset off the register. The row is kept rather than erased, because its value history " +
-    "and its document links hang off it and a firm that removed a house by mistake this morning wants " +
-    "it back this afternoon.",
-  request: { headers: idempotencyKeyHeader, params: assetIdParam },
-  responses: {
-    200: {
-      description: "The asset was removed from the register",
-      content: { "application/json": { schema: AcknowledgedResponse } },
+const deleteAssetRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("deleteAsset", "matter", "optional"),
+    reversal: {
+      kind: "none",
+      reason:
+        "The row is kept, since its valuations and document links hang off it, but no route clears the flag: an asset taken off the register cannot be put back from the product.",
     },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/matter-assets/{assetId}",
+    description:
+      "Takes an asset off the register. The row is kept rather than erased, because its value history " +
+      "and its document links hang off it and a firm that removed a house by mistake this morning wants " +
+      "it back this afternoon.",
+    request: { headers: idempotencyKeyHeader, params: assetIdParam },
+    responses: {
+      200: {
+        description: "The asset was removed from the register",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const appendValuationRoute = defineOpenAPIRoute(mutationMeta("appendValuation", "matter"), {
   method: "post",
@@ -1341,7 +1351,10 @@ const linkDocumentRoute = defineOpenAPIRoute(mutationMeta("linkDocument", "matte
 });
 
 const unlinkDocumentRoute = defineOpenAPIRoute(
-  mutationMeta("unlinkDocument", "matter", "optional"),
+  {
+    ...mutationMeta("unlinkDocument", "matter", "optional"),
+    reversal: { kind: "inverse", by: "matterAssets.linkDocument" },
+  },
   {
     method: "delete",
     path: "/api/v1/matter-assets/{assetId}/documents/{documentLinkId}",

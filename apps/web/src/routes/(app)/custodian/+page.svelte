@@ -27,8 +27,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Alert from "@magna-carta/design-system/alert";
-  import Button from "@magna-carta/design-system/button";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -194,20 +192,10 @@
         onpress={() => (dialogOpen = true)}
       />
 
-      {#if narrowed}
-        <!-- The control exists only while something is narrowing the view: its absence says
-             nothing is, which is a thing a reader can see without reading anything. -->
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Show the whole register: {narrowingSummary}"
-          title={narrowingSummary}
-          class="text-accent-default"
-          onclick={clearNarrowing}
-        >
-          <FunnelX class="size-16" aria-hidden="true" />
-        </Button>
-      {/if}
+      <DataTable.ClearFilters
+        grid={grid ?? undefined}
+        narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }}
+      />
     {/snippet}
   </ScreenHeader>
 

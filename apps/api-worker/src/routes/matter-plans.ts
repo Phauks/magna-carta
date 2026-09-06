@@ -474,27 +474,33 @@ const editStepRoute = defineOpenAPIRoute(manageMeta("editPlanStep", true), {
   },
 });
 
-const removeStepRoute = defineOpenAPIRoute(manageMeta("removePlanStep", true), {
-  method: "delete",
-  path: "/api/v1/matter-plan-steps/{stepId}",
-  description:
-    "Removes a step from a plan. Any step that waited on it stops waiting. Tasks already accepted " +
-    "from it onto a matter are untouched.",
-  request: { headers: idempotencyKeyHeader, params: stepIdParam },
-  responses: {
-    200: {
-      description: "The step was removed",
-      content: { "application/json": { schema: AcknowledgedResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const removeStepRoute = defineOpenAPIRoute(
+  {
+    ...manageMeta("removePlanStep", true),
+    reversal: { kind: "inverse", by: "matterPlans.addPlanStep" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/matter-plan-steps/{stepId}",
+    description:
+      "Removes a step from a plan. Any step that waited on it stops waiting. Tasks already accepted " +
+      "from it onto a matter are untouched.",
+    request: { headers: idempotencyKeyHeader, params: stepIdParam },
+    responses: {
+      200: {
+        description: "The step was removed",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 // ---- proposing and accepting, on the matter ----
 

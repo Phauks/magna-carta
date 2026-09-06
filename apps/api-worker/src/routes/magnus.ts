@@ -355,22 +355,32 @@ const renameConversationRoute = defineOpenAPIRoute(mutationMeta("renameConversat
   },
 });
 
-const deleteConversationRoute = defineOpenAPIRoute(mutationMeta("deleteConversation", true), {
-  method: "delete",
-  path: "/api/v1/magnus/conversations/{conversationId}",
-  description:
-    "Deletes a conversation and every turn in it. The audited record is that a conversation existed " +
-    "and was deleted — never what was in it. This is the erasure instrument for everything typed " +
-    "into the assistant: the text goes wholesale rather than column by column.",
-  request: { params: conversationIdParam, headers: idempotencyKeyHeader },
-  responses: {
-    200: {
-      description: "The conversation and its turns were deleted",
-      content: { "application/json": { schema: z.object({ id: z.string() }) } },
+const deleteConversationRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("deleteConversation", true),
+    reversal: {
+      kind: "none",
+      reason:
+        "This is the erasure instrument for everything typed into the assistant: the turns go wholesale, and the audited record is that a conversation existed and was deleted, never what was in it.",
     },
-    ...commonErrors,
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/magnus/conversations/{conversationId}",
+    description:
+      "Deletes a conversation and every turn in it. The audited record is that a conversation existed " +
+      "and was deleted — never what was in it. This is the erasure instrument for everything typed " +
+      "into the assistant: the text goes wholesale rather than column by column.",
+    request: { params: conversationIdParam, headers: idempotencyKeyHeader },
+    responses: {
+      200: {
+        description: "The conversation and its turns were deleted",
+        content: { "application/json": { schema: z.object({ id: z.string() }) } },
+      },
+      ...commonErrors,
+    },
+  },
+);
 
 const submitTurnRoute = defineOpenAPIRoute(mutationMeta("submitTurn", true), {
   method: "post",
