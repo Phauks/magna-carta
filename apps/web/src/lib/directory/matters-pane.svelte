@@ -12,7 +12,6 @@
    * derives one from the role, because a document that names a capacity has to name the one the firm
    * asserted.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -20,6 +19,7 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleMatter } from "@magna-carta/design-system/loading-fixtures";
   import {
     readDirectoryEntityMatterParties,
     type DirectoryEntityMatterParty,
@@ -29,12 +29,19 @@
 
   let parties = $state<readonly DirectoryEntityMatterParty[] | null>(null);
   let nextCursor = $state<string | null>(null);
-  let failure = $state<StatedFailure | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
   let loadingMore = $state(false);
+  let reloadToken = $state(0);
+  /** True while a list already on screen is being read again. */
+  let refreshing = $state(false);
+  // The record whose matters last landed. Only a change of RECORD discards what is on screen: a
+  // re-read of the same record keeps its rows where the reader is looking and marks the region
+  // busy instead, and a read that failed left nothing worth keeping.
+  let shownFor: string | null = null;
 
   /**
    * The shape the list takes while the record's matters are being read: the same rows the real
-   * list renders, over sample titles. Not any file the firm holds.
+   * list renders, over the sample vocabulary. Not any file the firm holds.
    */
   const PARTY_FIXTURE: readonly DirectoryEntityMatterParty[] = [
     {
@@ -42,8 +49,8 @@
       matterId: "fixture-matter-1",
       role: "Client",
       capacity: "Trustee",
-      matterTitle: "Whitcombe Family Trust",
-      matterNumber: "2026-0142",
+      matterTitle: sampleMatter(1).title,
+      matterNumber: sampleMatter(1).number,
       matterStatus: null,
       linkedAt: "",
     },
@@ -52,8 +59,8 @@
       matterId: "fixture-matter-2",
       role: "Opposing party",
       capacity: null,
-      matterTitle: "Halvorsen v. Meridian Holdings",
-      matterNumber: "2025-0891",
+      matterTitle: sampleMatter(3).title,
+      matterNumber: sampleMatter(3).number,
       matterStatus: null,
       linkedAt: "",
     },
@@ -61,25 +68,38 @@
 
   $effect(() => {
     const id = entityId;
+    void reloadToken;
     let cancelled = false;
-    parties = null;
-    nextCursor = null;
-    failure = null;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
+      parties = null;
+      nextCursor = null;
+    }
+    readFailure = null;
     void (async () => {
       const outcome = await readDirectoryEntityMatterParties(fetch, id);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind === "ok") {
+        shownFor = id;
         parties = outcome.value.data;
         nextCursor = outcome.value.nextCursor;
         return;
       }
+      shownFor = null;
       parties = [];
-      failure = stated(outcome.failure, "The matters this record is on could not be read.");
+      readFailure = stated(outcome.failure, "The matters this record is on could not be read.");
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
+
+  function retry(): void {
+    reloadToken += 1;
+  }
 
   async function loadMore(): Promise<void> {
     const cursor = nextCursor;
@@ -96,42 +116,47 @@
 <section class="flex flex-col gap-16">
   <h3 class="text-sm font-semibold">Matters</h3>
 
-  {#if failure !== null}
-    <FailureNotice
-      failure={failure.failure}
-      title="The Matters Could Not Be Read"
-      fallback={failure.fallback}
-      whenSilent={failure.whenSilent}
-    />
-  {:else}
-    <LoadingRegion
-      loading={parties === null}
-      label="Reading the matters this record is on"
-      class="flex flex-col gap-16"
-    >
-      {#snippet fixture()}
-        {@render partyTable(PARTY_FIXTURE)}
-      {/snippet}
-      {@const shown = parties ?? []}
-      {#if shown.length === 0}
-        <EmptyState title="Not A Party To Anything Yet">
-          This record is in the firm's book but is not linked to a matter. A record can exist purely
-          to be matched against — a conflicts check searches every record, not only the ones on a
-          file.
-        </EmptyState>
-      {:else}
-        {@render partyTable(shown)}
-
-        {#if nextCursor !== null}
-          <div>
-            <Button variant="secondary" disabled={loadingMore} onclick={loadMore}>
-              {loadingMore ? "Reading" : "Show more"}
-            </Button>
-          </div>
-        {/if}
+  <LoadingRegion
+    loading={parties === null}
+    {refreshing}
+    failed={readFailure !== null}
+    empty={parties !== null && parties.length === 0}
+    label="Reading the matters this record is on"
+    onRetry={retry}
+    class="flex flex-col gap-16"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The Matters Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={retry}
+        />
       {/if}
-    </LoadingRegion>
-  {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render partyTable(PARTY_FIXTURE)}
+    {/snippet}
+    {#snippet emptyState()}
+      <EmptyState title="Not A Party To Anything Yet">
+        This record is in the firm's book but is not linked to a matter. A record can exist purely
+        to be matched against — a conflicts check searches every record, not only the ones on a
+        file.
+      </EmptyState>
+    {/snippet}
+
+    {@render partyTable(parties ?? [])}
+
+    {#if nextCursor !== null}
+      <div>
+        <Button variant="secondary" disabled={loadingMore} onclick={loadMore}>
+          {loadingMore ? "Reading" : "Show more"}
+        </Button>
+      </div>
+    {/if}
+  </LoadingRegion>
 </section>
 
 <!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->

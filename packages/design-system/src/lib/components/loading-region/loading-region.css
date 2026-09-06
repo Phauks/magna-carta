@@ -116,7 +116,17 @@
 
   /* A control becomes one bone: its words, icon and edge go together. */
   [data-mc-loading]
-    :is(button, input, select, textarea, [role="button"], [role="checkbox"], [role="switch"], .mc-badge, .mc-button) {
+    :is(
+      button,
+      input,
+      select,
+      textarea,
+      [role="button"],
+      [role="checkbox"],
+      [role="switch"],
+      .mc-badge,
+      .mc-button
+    ) {
     background-color: var(--mc-action-disabled);
     border-color: transparent;
     box-shadow: none;
@@ -127,7 +137,17 @@
     animation-direction: alternate;
   }
   [data-mc-loading]
-    :is(button, input, select, textarea, [role="button"], [role="checkbox"], [role="switch"], .mc-badge, .mc-button)
+    :is(
+      button,
+      input,
+      select,
+      textarea,
+      [role="button"],
+      [role="checkbox"],
+      [role="switch"],
+      .mc-badge,
+      .mc-button
+    )
     * {
     background-color: transparent;
     animation: none;
@@ -150,11 +170,62 @@
 
   /* Furniture keeps its words: the leaf rules above already leave it alone; this restores its ink. */
   [data-mc-loading]
-    :is(th, label, legend, caption, dt, .mc-label, .mc-field-label, .mc-date-field-label, .mc-print-sheet-field-label, .mc-table-filter-field-label, [data-loading-keep]),
+    :is(
+      th,
+      label,
+      legend,
+      caption,
+      dt,
+      .mc-label,
+      .mc-field-label,
+      .mc-date-field-label,
+      .mc-print-sheet-field-label,
+      .mc-table-filter-field-label,
+      [data-loading-keep]
+    ),
   [data-mc-loading]
-    :is(th, label, legend, caption, dt, .mc-label, .mc-field-label, .mc-date-field-label, .mc-print-sheet-field-label, .mc-table-filter-field-label, [data-loading-keep])
+    :is(
+      th,
+      label,
+      legend,
+      caption,
+      dt,
+      .mc-label,
+      .mc-field-label,
+      .mc-date-field-label,
+      .mc-print-sheet-field-label,
+      .mc-table-filter-field-label,
+      [data-loading-keep]
+    )
     * {
     -webkit-text-fill-color: currentcolor;
+  }
+
+  /* A re-read keeps the content where the reader is looking; only the cursor says something is up. */
+  [data-mc-refreshing] {
+    cursor: progress;
+  }
+
+  /*
+   * A stalled read states itself on the screen, above the shape, with the way to ask again beside
+   * it. A quiet band rather than a status colour: nothing has failed yet, it is only late.
+   */
+  .mc-loading-stalled {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mc-space-8);
+    margin-block-end: var(--mc-space-12);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    border: var(--mc-border-width-default) solid var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-raised);
+  }
+  .mc-loading-stalled-sentence {
+    font-size: var(--mc-font-size-sm);
+    color: var(--mc-text-muted);
   }
 
   @media (prefers-reduced-motion: reduce) {

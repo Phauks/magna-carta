@@ -54,28 +54,45 @@
   let held = $state<readonly DirectoryIdentifierRecord[] | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
+  /** True while a list already on screen is being read again, after another was sealed. */
+  let refreshing = $state(false);
+  // The record whose list last landed. Only a change of RECORD discards what is on screen: a
+  // re-read after a seal keeps the lines where the reader is looking and marks the region busy.
+  let shownFor: string | null = null;
 
   $effect(() => {
     const id = entityId;
     void reloadToken;
     let cancelled = false;
-    held = null;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
+      held = null;
+      reveals = {};
+    }
     readFailure = null;
-    reveals = {};
     void (async () => {
       const outcome = await readDirectoryIdentifierRecords(fetch, id);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind === "ok") {
+        shownFor = id;
         held = outcome.value.data;
         return;
       }
+      shownFor = null;
       held = [];
       readFailure = stated(outcome.failure, "What this record holds could not be read.");
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
+
+  function retry(): void {
+    reloadToken += 1;
+  }
 
   const rows = $derived(identifierRowsFrom(held ?? []));
 
@@ -209,25 +226,30 @@
     />
   {/if}
 
-  {#if readFailure !== null}
-    <FailureNotice
-      failure={readFailure.failure}
-      title="What This Record Holds Could Not Be Read"
-      fallback={readFailure.fallback}
-      whenSilent={readFailure.whenSilent}
-    />
-  {:else}
-    <LoadingRegion
-      loading={held === null}
-      label="Reading what this record holds"
-      class="flex flex-col gap-8"
-    >
-      {#snippet fixture()}
-        {@render identifiersSection(IDENTIFIER_FIXTURE)}
-      {/snippet}
-      {@render identifiersSection(rows)}
-    </LoadingRegion>
-  {/if}
+  <LoadingRegion
+    loading={held === null}
+    {refreshing}
+    failed={readFailure !== null}
+    label="Reading what this record holds"
+    onRetry={retry}
+    class="flex flex-col gap-8"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="What This Record Holds Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={retry}
+        />
+      {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render identifiersSection(IDENTIFIER_FIXTURE)}
+    {/snippet}
+    {@render identifiersSection(rows)}
+  </LoadingRegion>
 </section>
 
 <!-- One section for the rows and for the shape they take while they are read, so the two cannot drift. -->

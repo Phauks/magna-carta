@@ -289,53 +289,55 @@
         {#if removeFailure !== null}
           <FailureNotice failure={removeFailure.failure} fallback={removeFailure.fallback} />
         {/if}
-        {#if linksFailure !== null}
-          <FailureNotice
-            failure={linksFailure.failure}
-            title="The Links Could Not Be Read"
-            fallback={linksFailure.fallback}
-            onRetry={() => void readLinks(record)}
-          />
-        {:else}
-          <LoadingRegion
-            loading={relatedLinks === null}
-            label="Reading the settings related to this one"
-            fixture={relatedFixture}
-          >
-            {@const shown = relatedLinks ?? []}
-            {#if shown.length === 0}
-              <p class="text-sm text-text-muted">Related to nothing.</p>
-            {:else}
-              <ul class="flex flex-col gap-8 text-sm">
-                {#each shown as link (link.id)}
-                  <li class="flex items-baseline justify-between gap-16">
-                    <div class="flex min-w-0 flex-col">
-                      <button
-                        type="button"
-                        class="text-start underline underline-offset-2"
-                        onclick={() => openOther(link.other)}
-                      >
-                        {link.title ?? unseenEndLabel(link.other)}
-                      </button>
-                      {#if link.note !== null}
-                        <span class="text-text-muted">{link.note}</span>
-                      {/if}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={verbRefusal !== undefined}
-                      title={verbRefusal ?? "Remove the relation; both settings stay as they are"}
-                      onclick={() => void unrelate(link.id)}
-                    >
-                      Remove
-                    </Button>
-                  </li>
-                {/each}
-              </ul>
+        <LoadingRegion
+          loading={relatedLinks === null}
+          failed={linksFailure !== null}
+          empty={relatedLinks !== null && relatedLinks.length === 0}
+          label="Reading the settings related to this one"
+          fixture={relatedFixture}
+          onRetry={() => void readLinks(record)}
+        >
+          {#snippet failure()}
+            {#if linksFailure !== null}
+              <FailureNotice
+                failure={linksFailure.failure}
+                title="The Links Could Not Be Read"
+                fallback={linksFailure.fallback}
+                onRetry={() => void readLinks(record)}
+              />
             {/if}
-          </LoadingRegion>
-        {/if}
+          {/snippet}
+          {#snippet emptyState()}
+            <p class="text-sm text-text-muted">Related to nothing.</p>
+          {/snippet}
+          <ul class="flex flex-col gap-8 text-sm">
+            {#each relatedLinks ?? [] as link (link.id)}
+              <li class="flex items-baseline justify-between gap-16">
+                <div class="flex min-w-0 flex-col">
+                  <button
+                    type="button"
+                    class="text-start underline underline-offset-2"
+                    onclick={() => openOther(link.other)}
+                  >
+                    {link.title ?? unseenEndLabel(link.other)}
+                  </button>
+                  {#if link.note !== null}
+                    <span class="text-text-muted">{link.note}</span>
+                  {/if}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={verbRefusal !== undefined}
+                  title={verbRefusal ?? "Remove the relation; both settings stay as they are"}
+                  onclick={() => void unrelate(link.id)}
+                >
+                  Remove
+                </Button>
+              </li>
+            {/each}
+          </ul>
+        </LoadingRegion>
       </div>
     {:else if record?.kind === "deadline" && record.deadline.triggerEventId === null}
       <p class="text-sm text-text-muted">No links.</p>

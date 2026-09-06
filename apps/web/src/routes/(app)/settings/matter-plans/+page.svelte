@@ -27,6 +27,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { SAMPLE_SENTENCE } from "@magna-carta/design-system/loading-fixtures";
   import Textarea from "@magna-carta/design-system/textarea";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Plus from "@lucide/svelte/icons/plus";
@@ -54,6 +55,8 @@
   let readFailure = $state<StatedFailure | null>(null);
   let writeFailure = $state<StatedFailure | null>(null);
   let saving = $state(false);
+  /** True while a list already on screen is being read again after a write. */
+  let rereading = $state(false);
 
   // Authoring a plan is its own permission: what the work IS, rather than doing it. A member without
   // it reads the firm's plans and changes none of them, so the controls are absent rather than
@@ -80,10 +83,13 @@
   });
 
   async function refresh(): Promise<void> {
+    rereading = plans !== null;
     const outcome = await listPlans(fetch, true);
+    rereading = false;
     if (outcome.kind !== "ok") {
+      // The rows already on screen were read and stand; a failed first read leaves nothing, and
+      // the region renders the notice in place of the shape.
       readFailure = stated(outcome.failure, "The firm's matter plans could not be read.");
-      plans = [];
       return;
     }
     readFailure = null;
@@ -123,11 +129,13 @@
 
   const offsetNumber = $derived(stepOffset.trim() === "" ? null : Number(stepOffset));
 
-  // The shape drawn while the list is read: two plans in the list's own row, sample words only.
+  // The shape drawn while the list is read: two plans in the list's own row, sample words only. The
+  // description is the sample vocabulary's sentence; a plan's name is the firm's own kind of word,
+  // which it does not carry.
   const PLAN_FIXTURE = [
-    { name: "Personal injury, plaintiff", description: "The first ninety days after the matter opens." },
-    { name: "Residential closing", description: "From the executed purchase agreement to recording." },
-  ] as const;
+    { name: "Personal injury, plaintiff", description: SAMPLE_SENTENCE },
+    { name: "Residential closing", description: SAMPLE_SENTENCE },
+  ];
 </script>
 
 <svelte:head>
@@ -153,13 +161,6 @@
       </Alert.Description>
     </Alert.Root>
 
-    {#if readFailure !== null}
-      <FailureNotice
-        failure={readFailure.failure}
-        title="Plans Unavailable"
-        fallback={readFailure.fallback}
-      />
-    {/if}
     {#if writeFailure !== null}
       <FailureNotice
         failure={writeFailure.failure}
@@ -223,7 +224,33 @@
       </div>
     {/if}
 
-    <LoadingRegion loading={plans === null} label="Reading the firm's plans" class="flex flex-col">
+    <!-- A failed first read settles to the notice with Retry; a failed re-read after a write keeps
+         the rows on screen and says so above them. -->
+    <LoadingRegion
+      loading={plans === null}
+      failed={readFailure !== null && plans === null}
+      refreshing={rereading}
+      empty={plans !== null && plans.length === 0}
+      label="Reading the firm's plans"
+      onRetry={() => void refresh()}
+      class="flex flex-col"
+    >
+      {#snippet failure()}
+        {#if readFailure !== null}
+          <FailureNotice
+            failure={readFailure.failure}
+            title="Plans Unavailable"
+            fallback={readFailure.fallback}
+            onRetry={() => void refresh()}
+          />
+        {/if}
+      {/snippet}
+      {#snippet emptyState()}
+        <EmptyState title="No plans yet">
+          A plan is your own list of what a kind of matter takes — the calls, the letters, the filings.
+          Write one here and it is offered every time a matter of that kind is opened.
+        </EmptyState>
+      {/snippet}
       {#snippet fixture()}
         <ul class="flex flex-col gap-8">
           {#each PLAN_FIXTURE as plan (plan.name)}
@@ -244,12 +271,15 @@
         </ul>
       {/snippet}
       {@const shown = plans ?? []}
-      {#if shown.length === 0}
-        <EmptyState title="No plans yet">
-          A plan is your own list of what a kind of matter takes — the calls, the letters, the filings.
-          Write one here and it is offered every time a matter of that kind is opened.
-        </EmptyState>
-      {:else}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The Plans Were Not Re-read"
+          fallback={readFailure.fallback}
+          onRetry={() => void refresh()}
+        />
+      {/if}
+      {#if shown.length > 0}
         <ul class="flex flex-col gap-8">
           {#each shown as plan (plan.id)}
             <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">

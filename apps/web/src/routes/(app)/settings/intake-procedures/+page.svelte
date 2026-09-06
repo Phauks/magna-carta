@@ -26,6 +26,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { SAMPLE_SENTENCE } from "@magna-carta/design-system/loading-fixtures";
   import Textarea from "@magna-carta/design-system/textarea";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -65,6 +66,8 @@
   let readFailure = $state<StatedFailure | null>(null);
   let writeFailure = $state<StatedFailure | null>(null);
   let saving = $state(false);
+  /** True while a list already on screen is being read again after a write. */
+  let rereading = $state(false);
 
   // Authoring is its own permission: what the firm requires, rather than answering it. A member
   // without it reads the firm's procedures and changes none, so the controls are absent rather than
@@ -103,10 +106,13 @@
   });
 
   async function refresh(): Promise<void> {
+    rereading = procedures !== null;
     const outcome = await listIntakeProcedures(fetch, true);
+    rereading = false;
     if (outcome.kind !== "ok") {
+      // The rows already on screen were read and stand; a failed first read leaves nothing, and
+      // the region renders the notice in place of the shape.
       readFailure = stated(outcome.failure, "The firm's intake procedures could not be read.");
-      procedures = [];
       return;
     }
     readFailure = null;
@@ -170,18 +176,12 @@
   }
 
   // The shape drawn while the list is read: two procedures in the list's own row, sample words only.
+  // The description is the sample vocabulary's sentence; a procedure's name and the kind it binds
+  // are the firm's own kind of words, which it does not carry.
   const PROCEDURE_FIXTURE = [
-    {
-      name: "New client, litigation",
-      binds: "Every kind of matter",
-      description: "The conflicts check, the fee agreement and the retainer.",
-    },
-    {
-      name: "Estate planning engagement",
-      binds: "Estate planning",
-      description: "Identity verification and the engagement letter.",
-    },
-  ] as const;
+    { name: "New client, litigation", binds: "Every kind of matter", description: SAMPLE_SENTENCE },
+    { name: "Estate planning engagement", binds: "Estate planning", description: SAMPLE_SENTENCE },
+  ];
 </script>
 
 <svelte:head>
@@ -209,13 +209,6 @@
       </Alert.Description>
     </Alert.Root>
 
-    {#if readFailure !== null}
-      <FailureNotice
-        failure={readFailure.failure}
-        title="Procedures Unavailable"
-        fallback={readFailure.fallback}
-      />
-    {/if}
     {#if writeFailure !== null}
       <FailureNotice
         failure={writeFailure.failure}
@@ -304,11 +297,34 @@
       </div>
     {/if}
 
+    <!-- A failed first read settles to the notice with Retry; a failed re-read after a write keeps
+         the rows on screen and says so above them. -->
     <LoadingRegion
       loading={procedures === null}
+      failed={readFailure !== null && procedures === null}
+      refreshing={rereading}
+      empty={procedures !== null && procedures.length === 0}
       label="Reading the firm's intake procedures"
+      onRetry={() => void refresh()}
       class="flex flex-col"
     >
+      {#snippet failure()}
+        {#if readFailure !== null}
+          <FailureNotice
+            failure={readFailure.failure}
+            title="Procedures Unavailable"
+            fallback={readFailure.fallback}
+            onRetry={() => void refresh()}
+          />
+        {/if}
+      {/snippet}
+      {#snippet emptyState()}
+        <EmptyState title="No procedures yet">
+          A procedure is your own list of what a kind of matter must clear before you take it on: the
+          conflicts check, the fee agreement, the engagement letter, the retainer, the questions the
+          client has to answer. Write one here and every consultation of that kind is held to it.
+        </EmptyState>
+      {/snippet}
       {#snippet fixture()}
         <ul class="flex flex-col gap-8">
           {#each PROCEDURE_FIXTURE as procedure (procedure.name)}
@@ -330,13 +346,15 @@
         </ul>
       {/snippet}
       {@const shown = procedures ?? []}
-      {#if shown.length === 0}
-        <EmptyState title="No procedures yet">
-          A procedure is your own list of what a kind of matter must clear before you take it on: the
-          conflicts check, the fee agreement, the engagement letter, the retainer, the questions the
-          client has to answer. Write one here and every consultation of that kind is held to it.
-        </EmptyState>
-      {:else}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The Procedures Were Not Re-read"
+          fallback={readFailure.fallback}
+          onRetry={() => void refresh()}
+        />
+      {/if}
+      {#if shown.length > 0}
         <ul class="flex flex-col gap-8">
           {#each shown as procedure (procedure.id)}
             <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">

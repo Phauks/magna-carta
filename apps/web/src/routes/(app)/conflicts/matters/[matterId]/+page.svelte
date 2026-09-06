@@ -158,6 +158,7 @@
       {posture}
       {loading}
       {memberNames}
+      onRetry={() => void read()}
       checkHref={(checkId) => `/conflicts/checks/${checkId}`}
     >
       {#snippet actions()}

@@ -201,67 +201,75 @@
   {/snippet}
 </ScreenHeader>
 
-{#if failure !== null}
-  <FailureNotice
-    failure={failure.failure}
-    title="The Check Could Not Be Read"
-    fallback={failure.fallback}
-    whenSilent={failure.whenSilent}
-    onRetry={() => void read()}
-  />
-{:else}
-  <LoadingRegion
-    loading={loading && result === null}
-    label="Reading the check"
-    class="flex flex-col gap-24"
-  >
-    {#snippet fixture()}
-      <section class="flex flex-col gap-8">
-        <h2 class="text-base font-semibold" data-loading-keep>What The Search Did</h2>
-        <ol class="flex flex-col gap-8 text-sm">
-          {#each STATEMENT_FIXTURE as line (line)}
-            <li>{line}</li>
-          {/each}
-        </ol>
-      </section>
+<!-- The page's own state is named `failure`, so the notice the region shows on a failed
+     read takes a name of its own and is handed to the region's `failure` prop. -->
+{#snippet failureNotice()}
+  {#if failure !== null}
+    <FailureNotice
+      failure={failure.failure}
+      title="The Check Could Not Be Read"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+      onRetry={() => void read()}
+    />
+  {/if}
+{/snippet}
 
-      <Separator />
+<LoadingRegion
+  loading={result === null}
+  refreshing={loading}
+  failed={failure !== null}
+  failure={failureNotice}
+  label="Reading the check"
+  onRetry={() => void read()}
+  class="flex flex-col gap-24"
+>
+  {#snippet fixture()}
+    <section class="flex flex-col gap-8">
+      <h2 class="text-base font-semibold" data-loading-keep>What The Search Did</h2>
+      <ol class="flex flex-col gap-8 text-sm">
+        {#each STATEMENT_FIXTURE as line (line)}
+          <li>{line}</li>
+        {/each}
+      </ol>
+    </section>
 
-      <section class="flex flex-col gap-16">
-        <h2 class="text-base font-semibold" data-loading-keep>Scope In Force</h2>
-        <ScopeInForce scope={SCOPE_FIXTURE} />
-      </section>
+    <Separator />
 
-      <Separator />
+    <section class="flex flex-col gap-16">
+      <h2 class="text-base font-semibold" data-loading-keep>Scope In Force</h2>
+      <ScopeInForce scope={SCOPE_FIXTURE} />
+    </section>
 
-      <HitList hits={null} loading onOpen={() => undefined} />
-    {/snippet}
-    {#if result !== null && check !== null}
-      <section class="flex flex-col gap-8">
-        <h2 class="text-base font-semibold">What The Search Did</h2>
-        <!-- The engine's own sentences, in the order it wrote them. Nothing here rewrites or
-             summarizes them: the sentence's whole value is that the machine that ran the search
-             produced it, and a firm defending its procedure quotes this. -->
-        <ol class="flex flex-col gap-8 text-sm">
-          {#each result.statement as line, index (`${String(index)}-${line}`)}
-            <li>{line}</li>
-          {/each}
-        </ol>
-      </section>
+    <Separator />
 
-      <Separator />
+    <HitList hits={null} loading onOpen={() => undefined} />
+  {/snippet}
+  {#if result !== null && check !== null}
+    <section class="flex flex-col gap-8">
+      <h2 class="text-base font-semibold">What The Search Did</h2>
+      <!-- The engine's own sentences, in the order it wrote them. Nothing here rewrites or
+           summarizes them: the sentence's whole value is that the machine that ran the search
+           produced it, and a firm defending its procedure quotes this. -->
+      <ol class="flex flex-col gap-8 text-sm">
+        {#each result.statement as line, index (`${String(index)}-${line}`)}
+          <li>{line}</li>
+        {/each}
+      </ol>
+    </section>
 
-      <section class="flex flex-col gap-16">
-        <h2 class="text-base font-semibold">Scope In Force</h2>
-        <ScopeInForce scope={scopeOfCheck(check)} />
-      </section>
+    <Separator />
 
-      <Separator />
+    <section class="flex flex-col gap-16">
+      <h2 class="text-base font-semibold">Scope In Force</h2>
+      <ScopeInForce scope={scopeOfCheck(check)} />
+    </section>
 
-      <HitList hits={result.hits} loading={loading} onOpen={openOne} />
-    {/if}
-  </LoadingRegion>
-{/if}
+    <Separator />
+
+    <HitList hits={result.hits} loading={loading} onOpen={openOne} />
+  {/if}
+</LoadingRegion>
 
 {#if failure === null && result !== null && check !== null}
   <HitWindow
