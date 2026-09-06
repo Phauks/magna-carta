@@ -13,10 +13,10 @@
    *
    * THE LIST ALWAYS SETTLES. The loading shape means one thing only — the first read is in flight —
    * so every path out of that read ends in rows, an empty state, or a failure with a way to try
-   * again. A section left on its loading shape is indistinguishable from a firm whose record cannot be read,
-   * which is why the notes read is an effect of its OWN: nothing else the screen wants (who is
-   * signed in, the roster, the matter's files) can abort the effect before the read is even asked
-   * for, and none of those failing takes the list down with it.
+   * again. A section left on its loading shape is indistinguishable from a firm whose record cannot
+   * be read, which is why the notes read is an effect of its OWN: nothing else the screen wants
+   * (who is signed in, the roster, the matter's files) can abort the effect before the read is even
+   * asked for, and none of those failing takes the list down with it.
    *
    * A SAMPLE matter (the in-repo fixtures the chrome's lifecycle states are reviewed against) has no
    * firm behind it and therefore nothing to read; it says so rather than showing an empty list.

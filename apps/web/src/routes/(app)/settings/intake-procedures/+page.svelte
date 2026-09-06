@@ -25,7 +25,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Textarea from "@magna-carta/design-system/textarea";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -168,6 +168,20 @@
   function chooseReference(next: string | string[] | undefined): void {
     stepReference = Array.isArray(next) ? (next[0] ?? "") : (next ?? "");
   }
+
+  // The shape drawn while the list is read: two procedures in the list's own row, sample words only.
+  const PROCEDURE_FIXTURE = [
+    {
+      name: "New client, litigation",
+      binds: "Every kind of matter",
+      description: "The conflicts check, the fee agreement and the retainer.",
+    },
+    {
+      name: "Estate planning engagement",
+      binds: "Estate planning",
+      description: "Identity verification and the engagement letter.",
+    },
+  ] as const;
 </script>
 
 <svelte:head>
@@ -290,247 +304,268 @@
       </div>
     {/if}
 
-    {#if procedures === null}
-      <div class="flex flex-col gap-8">
-        {#each [0, 1] as row (row)}
-          <Skeleton class="h-48 w-full" />
-        {/each}
-      </div>
-    {:else if procedures.length === 0}
-      <EmptyState title="No procedures yet">
-        A procedure is your own list of what a kind of matter must clear before you take it on: the
-        conflicts check, the fee agreement, the engagement letter, the retainer, the questions the
-        client has to answer. Write one here and every consultation of that kind is held to it.
-      </EmptyState>
-    {:else}
-      <ul class="flex flex-col gap-8">
-        {#each procedures as procedure (procedure.id)}
-          <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
-            <div class="flex flex-wrap items-start justify-between gap-8">
-              <div class="flex flex-col gap-2">
-                <div class="flex items-center gap-8">
-                  <span class={procedure.active ? "" : "text-text-muted"}>{procedure.name}</span>
-                  <Badge variant="neutral">{matterTypeName(procedure.matterTypeId)}</Badge>
-                  {#if !procedure.active}
-                    <Badge variant="neutral">Not in force</Badge>
+    <LoadingRegion
+      loading={procedures === null}
+      label="Reading the firm's intake procedures"
+      class="flex flex-col"
+    >
+      {#snippet fixture()}
+        <ul class="flex flex-col gap-8">
+          {#each PROCEDURE_FIXTURE as procedure (procedure.name)}
+            <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
+              <div class="flex flex-wrap items-start justify-between gap-8">
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center gap-8">
+                    <span>{procedure.name}</span>
+                    <Badge variant="neutral">{procedure.binds}</Badge>
+                  </div>
+                  <p class="text-xs text-text-muted">{procedure.description}</p>
+                </div>
+                <div class="flex gap-4">
+                  <Button variant="secondary">Steps</Button>
+                </div>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {/snippet}
+      {@const shown = procedures ?? []}
+      {#if shown.length === 0}
+        <EmptyState title="No procedures yet">
+          A procedure is your own list of what a kind of matter must clear before you take it on: the
+          conflicts check, the fee agreement, the engagement letter, the retainer, the questions the
+          client has to answer. Write one here and every consultation of that kind is held to it.
+        </EmptyState>
+      {:else}
+        <ul class="flex flex-col gap-8">
+          {#each shown as procedure (procedure.id)}
+            <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
+              <div class="flex flex-wrap items-start justify-between gap-8">
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center gap-8">
+                    <span class={procedure.active ? "" : "text-text-muted"}>{procedure.name}</span>
+                    <Badge variant="neutral">{matterTypeName(procedure.matterTypeId)}</Badge>
+                    {#if !procedure.active}
+                      <Badge variant="neutral">Not in force</Badge>
+                    {/if}
+                  </div>
+                  {#if procedure.description !== null}
+                    <p class="text-xs text-text-muted">{procedure.description}</p>
                   {/if}
                 </div>
-                {#if procedure.description !== null}
-                  <p class="text-xs text-text-muted">{procedure.description}</p>
-                {/if}
-              </div>
-              <div class="flex gap-4">
-                <Button
-                  variant="secondary"
-                  disabled={saving}
-                  onclick={() =>
-                    openProcedure?.id === procedure.id
-                      ? (openProcedure = null)
-                      : openDetail(procedure.id)}
-                >
-                  {openProcedure?.id === procedure.id ? "Close" : "Steps"}
-                </Button>
-                {#if canManage}
+                <div class="flex gap-4">
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     disabled={saving}
-                    title={procedure.active
-                      ? "Stop holding consultations to this procedure"
-                      : "Hold consultations to this procedure again"}
                     onclick={() =>
-                      runWrite(
-                        () =>
-                          setIntakeProcedureActive(
-                            fetch,
-                            procedure.id,
-                            !procedure.active,
-                            newWriteKey(),
-                          ),
-                        "The procedure's standing was not changed.",
-                      )}
+                      openProcedure?.id === procedure.id
+                        ? (openProcedure = null)
+                        : openDetail(procedure.id)}
                   >
-                    {procedure.active ? "Stop Requiring" : "Require Again"}
+                    {openProcedure?.id === procedure.id ? "Close" : "Steps"}
                   </Button>
-                {/if}
+                  {#if canManage}
+                    <Button
+                      variant="ghost"
+                      disabled={saving}
+                      title={procedure.active
+                        ? "Stop holding consultations to this procedure"
+                        : "Hold consultations to this procedure again"}
+                      onclick={() =>
+                        runWrite(
+                          () =>
+                            setIntakeProcedureActive(
+                              fetch,
+                              procedure.id,
+                              !procedure.active,
+                              newWriteKey(),
+                            ),
+                          "The procedure's standing was not changed.",
+                        )}
+                    >
+                      {procedure.active ? "Stop Requiring" : "Require Again"}
+                    </Button>
+                  {/if}
+                </div>
               </div>
-            </div>
 
-            {#if openProcedure?.id === procedure.id}
-              <div class="flex flex-col gap-8 border-t border-border-subtle pt-8">
-                {#if (openProcedure.steps ?? []).length === 0}
-                  <p class="text-xs text-text-muted">
-                    This procedure has no steps yet, so it asks for nothing.
-                  </p>
-                {:else}
-                  <ul class="flex flex-col gap-4">
-                    {#each openProcedure.steps ?? [] as step (step.id)}
-                      <li class="flex flex-wrap items-center justify-between gap-8 text-xs">
-                        <div class="flex flex-wrap items-center gap-8">
-                          <span class="text-text">{step.title}</span>
-                          <Badge variant="neutral">{intakeStepKindLabel(step.kind)}</Badge>
-                          {#if !step.required}
-                            <span class="text-text-muted">Optional</span>
+              {#if openProcedure?.id === procedure.id}
+                <div class="flex flex-col gap-8 border-t border-border-subtle pt-8">
+                  {#if (openProcedure.steps ?? []).length === 0}
+                    <p class="text-xs text-text-muted">
+                      This procedure has no steps yet, so it asks for nothing.
+                    </p>
+                  {:else}
+                    <ul class="flex flex-col gap-4">
+                      {#each openProcedure.steps ?? [] as step (step.id)}
+                        <li class="flex flex-wrap items-center justify-between gap-8 text-xs">
+                          <div class="flex flex-wrap items-center gap-8">
+                            <span class="text-text">{step.title}</span>
+                            <Badge variant="neutral">{intakeStepKindLabel(step.kind)}</Badge>
+                            {#if !step.required}
+                              <span class="text-text-muted">Optional</span>
+                            {/if}
+                            {#if step.referenceId !== null}
+                              <span class="text-text-muted">
+                                {intakeStepKindVocabulary(step.kind).reference?.label === "Template"
+                                  ? templateName(step.referenceId)
+                                  : step.referenceId}
+                              </span>
+                            {/if}
+                          </div>
+                          {#if canManage}
+                            <Button
+                              variant="ghost"
+                              disabled={saving}
+                              title="Retire this step. It stops being asked; records that answered it are kept."
+                              onclick={() =>
+                                runWrite(
+                                  () => retireIntakeProcedureStep(fetch, step.id, newWriteKey()),
+                                  "The step was not retired.",
+                                )}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </Button>
                           {/if}
-                          {#if step.referenceId !== null}
-                            <span class="text-text-muted">
-                              {intakeStepKindVocabulary(step.kind).reference?.label === "Template"
-                                ? templateName(step.referenceId)
-                                : step.referenceId}
-                            </span>
-                          {/if}
-                        </div>
-                        {#if canManage}
-                          <Button
-                            variant="ghost"
-                            disabled={saving}
-                            title="Retire this step. It stops being asked; records that answered it are kept."
-                            onclick={() =>
-                              runWrite(
-                                () => retireIntakeProcedureStep(fetch, step.id, newWriteKey()),
-                                "The step was not retired.",
-                              )}
-                          >
-                            <Trash2 aria-hidden="true" />
-                          </Button>
-                        {/if}
-                      </li>
-                    {/each}
-                  </ul>
-                {/if}
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
 
-                {#if canManage}
-                  {#if composingStep}
-                    <div class="flex flex-col gap-8 rounded-md border border-border-subtle p-12">
-                      <div class="flex flex-wrap items-end gap-16">
-                        <div class="flex flex-col gap-4">
-                          <Label for="step-kind">Kind</Label>
-                          <Select.Root
-                            type="single"
-                            value={stepKind}
-                            onValueChange={chooseKind}
-                            disabled={saving}
-                          >
-                            <Select.Trigger id="step-kind" class="w-xs">
-                              {stepVocabulary.label}
-                            </Select.Trigger>
-                            <Select.Content>
-                              {#each INTAKE_STEP_KIND_VOCABULARY as entry (entry.kind)}
-                                <Select.Item value={entry.kind} label={entry.label} />
-                              {/each}
-                            </Select.Content>
-                          </Select.Root>
-                        </div>
-                        <div class="flex items-center gap-8 pb-8">
-                          <Checkbox id="step-required" bind:checked={stepRequired} disabled={saving} />
-                          <Label for="step-required">Required before the matter opens</Label>
-                        </div>
-                      </div>
-                      <p class="text-xs text-text-muted">
-                        {stepVocabulary.description} {stepVocabulary.answeredBy}
-                      </p>
-                      <div class="flex flex-col gap-4">
-                        <Label for="step-title">What to do</Label>
-                        <Input id="step-title" bind:value={stepTitle} disabled={saving} />
-                      </div>
-                      <div class="flex flex-col gap-4">
-                        <Label for="step-instructions">Instructions</Label>
-                        <Textarea
-                          id="step-instructions"
-                          bind:value={stepInstructions}
-                          rows={2}
-                          disabled={saving}
-                        />
-                      </div>
-                      {#if stepVocabulary.reference !== null}
-                        <div class="flex flex-col gap-4">
-                          <Label for="step-reference">{stepVocabulary.reference.label}</Label>
-                          {#if stepVocabulary.reference.label === "Template"}
+                  {#if canManage}
+                    {#if composingStep}
+                      <div class="flex flex-col gap-8 rounded-md border border-border-subtle p-12">
+                        <div class="flex flex-wrap items-end gap-16">
+                          <div class="flex flex-col gap-4">
+                            <Label for="step-kind">Kind</Label>
                             <Select.Root
                               type="single"
-                              value={stepReference}
-                              onValueChange={chooseReference}
+                              value={stepKind}
+                              onValueChange={chooseKind}
                               disabled={saving}
                             >
-                              <Select.Trigger id="step-reference" class="w-xs">
-                                {stepReference === "" ? "No template" : templateName(stepReference)}
+                              <Select.Trigger id="step-kind" class="w-xs">
+                                {stepVocabulary.label}
                               </Select.Trigger>
                               <Select.Content>
-                                <Select.Item value="" label="No template" />
-                                {#each templates as template (template.templateId)}
-                                  <Select.Item value={template.templateId} label={template.name} />
+                                {#each INTAKE_STEP_KIND_VOCABULARY as entry (entry.kind)}
+                                  <Select.Item value={entry.kind} label={entry.label} />
                                 {/each}
                               </Select.Content>
                             </Select.Root>
-                          {:else}
-                            <Input
-                              id="step-reference"
-                              bind:value={stepReference}
-                              disabled={saving}
-                              class="w-xs"
-                            />
-                          {/if}
-                          <p class="text-xs text-text-muted">{stepVocabulary.reference.hint}</p>
+                          </div>
+                          <div class="flex items-center gap-8 pb-8">
+                            <Checkbox id="step-required" bind:checked={stepRequired} disabled={saving} />
+                            <Label for="step-required">Required before the matter opens</Label>
+                          </div>
                         </div>
-                      {/if}
-                      <div class="flex justify-end gap-8">
-                        <Button
-                          variant="secondary"
-                          disabled={saving}
-                          onclick={() => (composingStep = false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          disabled={saving || stepTitle.trim().length === 0}
-                          onclick={() =>
-                            runWrite(
-                              () =>
-                                addIntakeProcedureStep(
-                                  fetch,
-                                  procedure.id,
-                                  {
-                                    kind: stepKind,
-                                    title: stepTitle.trim(),
-                                    instructions:
-                                      stepInstructions.trim() === ""
-                                        ? null
-                                        : stepInstructions.trim(),
-                                    required: stepRequired,
-                                    referenceId:
-                                      stepReference.trim() === "" ? null : stepReference.trim(),
-                                    position: (openProcedure?.steps ?? []).length,
-                                  },
-                                  newWriteKey(),
-                                ),
-                              "The step was not added.",
-                              () => {
-                                composingStep = false;
-                                stepTitle = "";
-                                stepInstructions = "";
-                                stepReference = "";
-                                stepRequired = true;
-                                stepKind = "acknowledgement";
-                              },
-                            )}
-                        >
+                        <p class="text-xs text-text-muted">
+                          {stepVocabulary.description} {stepVocabulary.answeredBy}
+                        </p>
+                        <div class="flex flex-col gap-4">
+                          <Label for="step-title">What to do</Label>
+                          <Input id="step-title" bind:value={stepTitle} disabled={saving} />
+                        </div>
+                        <div class="flex flex-col gap-4">
+                          <Label for="step-instructions">Instructions</Label>
+                          <Textarea
+                            id="step-instructions"
+                            bind:value={stepInstructions}
+                            rows={2}
+                            disabled={saving}
+                          />
+                        </div>
+                        {#if stepVocabulary.reference !== null}
+                          <div class="flex flex-col gap-4">
+                            <Label for="step-reference">{stepVocabulary.reference.label}</Label>
+                            {#if stepVocabulary.reference.label === "Template"}
+                              <Select.Root
+                                type="single"
+                                value={stepReference}
+                                onValueChange={chooseReference}
+                                disabled={saving}
+                              >
+                                <Select.Trigger id="step-reference" class="w-xs">
+                                  {stepReference === "" ? "No template" : templateName(stepReference)}
+                                </Select.Trigger>
+                                <Select.Content>
+                                  <Select.Item value="" label="No template" />
+                                  {#each templates as template (template.templateId)}
+                                    <Select.Item value={template.templateId} label={template.name} />
+                                  {/each}
+                                </Select.Content>
+                              </Select.Root>
+                            {:else}
+                              <Input
+                                id="step-reference"
+                                bind:value={stepReference}
+                                disabled={saving}
+                                class="w-xs"
+                              />
+                            {/if}
+                            <p class="text-xs text-text-muted">{stepVocabulary.reference.hint}</p>
+                          </div>
+                        {/if}
+                        <div class="flex justify-end gap-8">
+                          <Button
+                            variant="secondary"
+                            disabled={saving}
+                            onclick={() => (composingStep = false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            disabled={saving || stepTitle.trim().length === 0}
+                            onclick={() =>
+                              runWrite(
+                                () =>
+                                  addIntakeProcedureStep(
+                                    fetch,
+                                    procedure.id,
+                                    {
+                                      kind: stepKind,
+                                      title: stepTitle.trim(),
+                                      instructions:
+                                        stepInstructions.trim() === ""
+                                          ? null
+                                          : stepInstructions.trim(),
+                                      required: stepRequired,
+                                      referenceId:
+                                        stepReference.trim() === "" ? null : stepReference.trim(),
+                                      position: (openProcedure?.steps ?? []).length,
+                                    },
+                                    newWriteKey(),
+                                  ),
+                                "The step was not added.",
+                                () => {
+                                  composingStep = false;
+                                  stepTitle = "";
+                                  stepInstructions = "";
+                                  stepReference = "";
+                                  stepRequired = true;
+                                  stepKind = "acknowledgement";
+                                },
+                              )}
+                          >
+                            Add Step
+                          </Button>
+                        </div>
+                      </div>
+                    {:else}
+                      <div class="flex justify-end">
+                        <Button variant="ghost" disabled={saving} onclick={() => (composingStep = true)}>
+                          <Plus aria-hidden="true" />
                           Add Step
                         </Button>
                       </div>
-                    </div>
-                  {:else}
-                    <div class="flex justify-end">
-                      <Button variant="ghost" disabled={saving} onclick={() => (composingStep = true)}>
-                        <Plus aria-hidden="true" />
-                        Add Step
-                      </Button>
-                    </div>
+                    {/if}
                   {/if}
-                {/if}
-              </div>
-            {/if}
-          </li>
-        {/each}
-      </ul>
-    {/if}
+                </div>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </LoadingRegion>
   </div>
 </div>

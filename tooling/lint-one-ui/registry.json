@@ -347,6 +347,18 @@
       "file": "apps/web/src/lib/directory/duplicate-gate.svelte",
       "text": "aria-busy",
       "reason": "a live check, not a placeholder: the gate re-asks the directory as a name is typed, keeps the previous candidates in view while it does, and narrates the act on its own \"Checking the directory\" status line. There is no absent data for a fixture to stand in for, and a region would grey out real candidates somebody is reading."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "apps/web/src/routes/(app)/tools/safe-website-viewer/+page.svelte",
+      "text": "aria-busy",
+      "reason": "a capture narrating its own real stages in the shell's viewport (owner ruling 2026-08-31: the loading viewport says what is happening, never a generic spinner), not a region whose data has not arrived. The tabs beside it are regions; the mark on the frame is the act's own semantics."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "apps/web/src/lib/versions/version-chip.svelte",
+      "text": "aria-busy",
+      "reason": "the Refresh control marking itself busy while it re-asks, with the two sections it refreshes already regions of their own. A control's busy state is its own semantics, and there is no shape to render on a button."
     }
   ]
 }

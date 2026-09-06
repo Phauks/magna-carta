@@ -248,62 +248,62 @@
         label="Reading the checks this firm has run"
         class="flex flex-col gap-8"
       >
-      {#snippet fixture()}
+        {#snippet fixture()}
+          <ul class="flex flex-col divide-y divide-border-default">
+            {#each HISTORY_FIXTURE as row (row.id)}
+              <li class="flex flex-wrap items-baseline gap-x-12 gap-y-4 py-8">
+                <span class="text-sm underline underline-offset-2">{row.when}</span>
+                <span class="text-sm text-text-muted">{row.trigger}</span>
+                <span class="text-xs text-text-subtle">{row.actor}</span>
+                <span class="ms-auto text-sm tabular-nums text-text-muted">{row.count}</span>
+              </li>
+            {/each}
+          </ul>
+        {/snippet}
+        {@const shown = history ?? []}
+        {#if shown.length === 0}
+        <p class="text-sm text-text-muted">
+          This firm has run no conflicts checks yet. That is a fact about the record, and says nothing
+          about any matter.
+        </p>
+        {:else}
         <ul class="flex flex-col divide-y divide-border-default">
-          {#each HISTORY_FIXTURE as row (row.id)}
+          {#each shown as check (check.id)}
             <li class="flex flex-wrap items-baseline gap-x-12 gap-y-4 py-8">
-              <span class="text-sm underline underline-offset-2">{row.when}</span>
-              <span class="text-sm text-text-muted">{row.trigger}</span>
-              <span class="text-xs text-text-subtle">{row.actor}</span>
-              <span class="ms-auto text-sm tabular-nums text-text-muted">{row.count}</span>
+              <a class="text-sm underline underline-offset-2" href="/conflicts/checks/{check.id}">
+                {formatInstant(check.createdAt)}
+              </a>
+              <span class="text-sm text-text-muted">{triggerVocabulary(check.trigger).label}</span>
+              <!-- What set it going, and who asked where anybody did. An automated run is nobody's
+                   act, and saying so is different from leaving the actor blank. -->
+              <span class="text-xs text-text-subtle">
+                {check.triggerSource === "manual"
+                  ? personName(memberNames.get(check.actorUserId ?? "") ?? null, {
+                      whenUnrecorded: check.actorUserId ?? "a member",
+                    })
+                  : check.triggerSource === null
+                    ? "The row does not say what started it"
+                    : "Run automatically"}
+              </span>
+              {#if check.floorRaised}
+                <!-- It searched WIDER than asked. Worth the row, because it explains a result set
+                     larger than the requester expected. -->
+                <Badge variant="neutral">Raised to the firm floor</Badge>
+              {/if}
+              <span class="ms-auto text-sm tabular-nums text-text-muted">
+                {check.hitCount}
+                {check.hitCount === 1 ? "candidate" : "candidates"}
+              </span>
             </li>
           {/each}
         </ul>
-      {/snippet}
-      {@const shown = history ?? []}
-      {#if shown.length === 0}
-      <p class="text-sm text-text-muted">
-        This firm has run no conflicts checks yet. That is a fact about the record, and says nothing
-        about any matter.
-      </p>
-      {:else}
-      <ul class="flex flex-col divide-y divide-border-default">
-        {#each shown as check (check.id)}
-          <li class="flex flex-wrap items-baseline gap-x-12 gap-y-4 py-8">
-            <a class="text-sm underline underline-offset-2" href="/conflicts/checks/{check.id}">
-              {formatInstant(check.createdAt)}
-            </a>
-            <span class="text-sm text-text-muted">{triggerVocabulary(check.trigger).label}</span>
-            <!-- What set it going, and who asked where anybody did. An automated run is nobody's
-                 act, and saying so is different from leaving the actor blank. -->
-            <span class="text-xs text-text-subtle">
-              {check.triggerSource === "manual"
-                ? personName(memberNames.get(check.actorUserId ?? "") ?? null, {
-                    whenUnrecorded: check.actorUserId ?? "a member",
-                  })
-                : check.triggerSource === null
-                  ? "The row does not say what started it"
-                  : "Run automatically"}
-            </span>
-            {#if check.floorRaised}
-              <!-- It searched WIDER than asked. Worth the row, because it explains a result set
-                   larger than the requester expected. -->
-              <Badge variant="neutral">Raised to the firm floor</Badge>
-            {/if}
-            <span class="ms-auto text-sm tabular-nums text-text-muted">
-              {check.hitCount}
-              {check.hitCount === 1 ? "candidate" : "candidates"}
-            </span>
-          </li>
-        {/each}
-      </ul>
-      {#if historyHasMore}
-        <p class="text-xs text-text-subtle">
-          The most recent {shown.length} checks. Older ones are on the record and are not shown
-          here.
-        </p>
-      {/if}
-      {/if}
+        {#if historyHasMore}
+          <p class="text-xs text-text-subtle">
+            The most recent {shown.length} checks. Older ones are on the record and are not shown
+            here.
+          </p>
+        {/if}
+        {/if}
       </LoadingRegion>
     {/if}
   </section>

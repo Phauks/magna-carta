@@ -898,6 +898,7 @@ describe("the registry's own allowances", () => {
       "money-presentation",
       "permission-refusal",
       "details-panel",
+      "hand-placed-loading",
       "sweep",
     ]);
     for (const allowance of registry.allowances ?? []) {
