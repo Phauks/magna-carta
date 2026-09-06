@@ -70,8 +70,8 @@
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import CircleCheckBig from "@lucide/svelte/icons/circle-check-big";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
+  import CircleDotDashed from "@lucide/svelte/icons/circle-dot-dashed";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import NotebookPen from "@lucide/svelte/icons/notebook-pen";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
@@ -477,7 +477,9 @@
 {#snippet saveMark(row: SheetRow)}
   <span class="inline-flex items-center" title={saveStateTitle(row)}>
     {#if row.saveState === "saving"}
-      <LoaderCircle class="size-16 text-text-muted" aria-hidden="true" />
+      <!-- On its way to the record: the dashed ring of an unwritten row, with the dot that says
+           the write is in hand. The title and the hidden text carry the word. -->
+      <CircleDotDashed class="size-16 text-text-muted" aria-hidden="true" />
     {:else if row.saveState === "failed"}
       <TriangleAlert class="size-16 text-status-danger" aria-hidden="true" />
     {:else if row.saveState === "unsaved"}

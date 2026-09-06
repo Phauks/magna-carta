@@ -134,6 +134,15 @@
   evidence: Sidebar (Layout A) + app-shell components in packages/design-system
   notes: Archetype application across feature screens rides each UI slice.
 
+- id: design-system.loading-region
+  name: One loading state
+  scope: LoadingRegion renders a surface's real markup over a fixture and one recipe greys its leaves; Skeleton retired from the public surface; a lint:one-ui rule keeps a second way from growing back.
+  status: shipped
+  surface: internal
+  spec: docs/specs/2026-09-05-loading-region-design.md
+  evidence: packages/design-system/src/lib/components/loading-region, tooling/lint-one-ui (hand-placed-loading), apps/web/src/routes/developer-console/loading-states
+  notes: Every loading state in apps/web migrated in the same stream; busy live acts that are not placeholders stand as recorded allowances.
+
 - id: design-system.ui-pipeline
   name: UI build pipeline
   scope: Per-slice staged roles: interaction design, implementation, design critique against an anti-generic rubric, accessibility, visual regression.

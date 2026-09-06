@@ -31,7 +31,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import PenLine from "@lucide/svelte/icons/pen-line";
   import Plus from "@lucide/svelte/icons/plus";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -71,6 +71,44 @@
   let names = $state<readonly DirectoryNameEntry[] | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
+
+  /**
+   * The shape the rail takes while the record's names are being read: the current name and one
+   * former name, in the same rows the real rail renders, over sample words. Not anybody the firm
+   * holds.
+   */
+  const NAME_FIXTURE: readonly DirectoryNameEntry[] = [
+    {
+      id: "fixture-1",
+      nameRole: "current",
+      isCurrent: true,
+      prefix: null,
+      given: "Eleanor",
+      middle: null,
+      family: "Whitcombe",
+      suffix: null,
+      displayName: "Eleanor Whitcombe",
+      normalizedDisplay: "eleanor whitcombe",
+      validFrom: "2018-06-14",
+      validTo: null,
+      recordedAt: "",
+    },
+    {
+      id: "fixture-2",
+      nameRole: "former",
+      isCurrent: false,
+      prefix: null,
+      given: "Eleanor",
+      middle: null,
+      family: "Marsh",
+      suffix: null,
+      displayName: "Eleanor Marsh",
+      normalizedDisplay: "eleanor marsh",
+      validFrom: null,
+      validTo: "2018-06-14",
+      recordedAt: "",
+    },
+  ];
 
   $effect(() => {
     const id = entityId;
@@ -316,44 +354,56 @@
       fallback={readFailure.fallback}
       whenSilent={readFailure.whenSilent}
     />
-  {:else if names === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the names on this record">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else if names.length === 0}
-    <EmptyState title="No Names On This Record">
-      Every record carries at least the name it was created under, so an empty list here means the
-      record's name rows could not be found.
-    </EmptyState>
   {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">The names this record carries</DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          <DataTable.Head>Name</DataTable.Head>
-          <DataTable.Head>Role</DataTable.Head>
-          <DataTable.Head>In use</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each names as entry (entry.id)}
-          <DataTable.Row>
-            <DataTable.Cell>{nameText(entry)}</DataTable.Cell>
-            <DataTable.Cell>
-              <Badge variant={entry.isCurrent ? "accent" : "neutral"}>
-                {nameRoleLabel(entry.nameRole)}
-              </Badge>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <span class="text-text-muted">{period(entry)}</span>
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
+    <LoadingRegion
+      loading={names === null}
+      label="Reading the names on this record"
+      class="flex flex-col gap-8"
+    >
+      {#snippet fixture()}
+        {@render nameTable(NAME_FIXTURE)}
+      {/snippet}
+      {@const shown = names ?? []}
+      {#if shown.length === 0}
+        <EmptyState title="No Names On This Record">
+          Every record carries at least the name it was created under, so an empty list here means
+          the record's name rows could not be found.
+        </EmptyState>
+      {:else}
+        {@render nameTable(shown)}
+      {/if}
+    </LoadingRegion>
   {/if}
 </section>
+
+<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet nameTable(rows: readonly DirectoryNameEntry[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">The names this record carries</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Name</DataTable.Head>
+        <DataTable.Head>Role</DataTable.Head>
+        <DataTable.Head>In use</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as entry (entry.id)}
+        <DataTable.Row>
+          <DataTable.Cell>{nameText(entry)}</DataTable.Cell>
+          <DataTable.Cell>
+            <Badge variant={entry.isCurrent ? "accent" : "neutral"}>
+              {nameRoleLabel(entry.nameRole)}
+            </Badge>
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <span class="text-text-muted">{period(entry)}</span>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}
 
 <ActionDialog
   bind:open={changeOpen}

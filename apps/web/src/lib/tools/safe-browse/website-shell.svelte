@@ -49,8 +49,8 @@
    * the shell's chrome stays clean.
    *
    * The frame renders from page load and holds its shape through every state: while the isolated
-   * remote browser works the viewport names the address being captured, holds an indeterminate
-   * placeholder bar with a live elapsed readout, and narrates the honest facts as they arrive —
+   * remote browser works the viewport names the address being captured, keeps a live elapsed
+   * readout, and narrates the honest facts as they arrive —
    * first that the link is being followed, then (once the redirect probe settles) where it landed
    * and after how many redirects, while the renderer finishes the full-page shot. Only the probe's
    * two facts show early; the finished screenshot and the inspector's tabs populate when the
@@ -65,7 +65,6 @@
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import Skeleton from "@magna-carta/design-system/skeleton";
   import { soonControlProperties } from "@magna-carta/design-system/maturity";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
@@ -313,7 +312,9 @@
       {#if capturing}
         <!-- The probe settles before the renderer, so once it reports the viewport shows its two
              honest facts early: the landed address takes the mono line and the status line says
-             how many redirects it took. The tabs still wait for completion. -->
+             how many redirects it took. The tabs still wait for completion. This is a live act
+             narrating its real stages, not a shape waiting for data, so it draws no placeholder:
+             the address, the stage line and the ticking seconds are the whole of it. -->
         <div class="flex h-full flex-col items-center justify-center gap-8 p-16">
           {#if probe !== null}
             <p
@@ -330,7 +331,6 @@
               {capturingUrl}
             </p>
           {/if}
-          <Skeleton class="h-8 w-1/2" />
           <p class="text-sm text-text-muted">
             {probe !== null
               ? probeNarrative(probe)

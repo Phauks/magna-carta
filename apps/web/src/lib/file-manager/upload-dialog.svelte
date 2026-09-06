@@ -32,8 +32,8 @@
   import Label from "@magna-carta/design-system/label";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
+  import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import FolderUp from "@lucide/svelte/icons/folder-up";
-  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import X from "@lucide/svelte/icons/x";
   import { formatBytes, type MatterFileIndex } from "./file-rows.ts";
   import FolderPicker from "./folder-picker.svelte";
@@ -262,7 +262,9 @@
                 aria-hidden="true"
               />
             {:else}
-              <LoaderCircle class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
+              <!-- Not yet landed. The stage beside the name says what the file is doing; the mark
+                   only says it is not finished, the way an unwritten row reads on the time sheet. -->
+              <CircleDashed class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
             {/if}
             <span class="min-w-0 truncate" title={item.name}>{item.name}</span>
             <span class="ms-auto text-xs whitespace-nowrap text-text-subtle">

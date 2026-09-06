@@ -22,8 +22,8 @@
   import { buttonClasses } from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Separator from "@magna-carta/design-system/separator";
-  import Skeleton from "@magna-carta/design-system/skeleton";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusEntry } from "@magna-carta/design-system/status-register";
   import SafetyMark from "./safety-mark.svelte";
@@ -44,6 +44,7 @@
   import {
     HASH_ALGORITHMS,
     type DocumentTypeSummary,
+    type HashAlgorithm,
     type IntegrityVerification,
     type MatterFile,
     type MatterFileVersion,
@@ -101,6 +102,38 @@
 
   const safetyKey = $derived(file === null ? "clean" : safetyKeyOf(file));
 
+  /*
+   * The shapes the Version History and Hashes tabs take while their values are read: the same rows,
+   * over invented versions and digests of each algorithm's real length. Inert and hidden from
+   * assistive technology while they stand, so nothing in them reads as this file's record.
+   */
+  const VERSION_FIXTURE: readonly MatterFileVersion[] = [
+    {
+      id: "fixture-3",
+      versionNumber: 3,
+      sizeBytes: 184_320,
+      sniffedContentType: null,
+      contentSha256: null,
+      committedAt: "2026-02-12T16:12:00Z",
+    },
+    {
+      id: "fixture-2",
+      versionNumber: 2,
+      sizeBytes: 176_128,
+      sniffedContentType: null,
+      contentSha256: null,
+      committedAt: "2026-02-10T09:41:00Z",
+    },
+  ];
+  const HEX_RUN = "3b7f9d1e";
+  const DIGEST_FIXTURE: Readonly<Record<HashAlgorithm, string>> = {
+    sha256: HEX_RUN.repeat(8),
+    sha512: HEX_RUN.repeat(16),
+    sha384: HEX_RUN.repeat(12),
+    sha1: HEX_RUN.repeat(5),
+    md5: HEX_RUN.repeat(4),
+  };
+
   /** What the preview can honestly show. It never pretends to render bytes it has not been given. */
   const previewNote = $derived.by((): string => {
     if (file === null) return "";
@@ -113,6 +146,65 @@
     return "The document renders here once the preview surface is wired to this panel.";
   });
 </script>
+
+<!-- One version of the file, as a row. The row does NOT reflow on hover: every control is present
+     at rest, so the one being aimed at never moves out from under the pointer. -->
+{#snippet versionRow(version: MatterFileVersion, index: number)}
+  <div class="flex items-center gap-8 rounded-md px-4 py-8">
+    <span class="w-40 text-sm tabular-nums" class:font-semibold={index === 0}>
+      {version.versionNumber}
+    </span>
+    <span class="min-w-0 flex-1 text-xs text-text-muted">
+      <span class="block">
+        {version.committedAt === null ? "" : formatInstant(version.committedAt)}
+      </span>
+      <span class="block font-mono">{formatBytes(version.sizeBytes)}</span>
+    </span>
+    <Button
+      variant="ghost"
+      size="icon"
+      title="Open version {version.versionNumber}"
+      aria-label="Open version {version.versionNumber}"
+      onclick={() => onOpenVersion(version)}
+    >
+      <Eye class="size-16" aria-hidden="true" />
+    </Button>
+    <Button
+      variant="ghost"
+      size="icon"
+      title="Verify version {version.versionNumber}"
+      aria-label="Verify version {version.versionNumber}"
+      disabled={index !== 0}
+      onclick={() => {
+        tab = "hashes";
+        onVerifyIntegrity();
+      }}
+    >
+      <Hash class="size-16" aria-hidden="true" />
+    </Button>
+    {#if index !== 0}
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled
+        title={waitingReason("compare-versions")}
+        aria-label="Compare version {version.versionNumber} with the current one"
+      >
+        <GitCompare class="size-16" aria-hidden="true" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled
+        title={waitingReason("restore-version")}
+        aria-label="Restore version {version.versionNumber} as a new version"
+        onclick={() => onRestoreVersion(version)}
+      >
+        <RotateCcw class="size-16" aria-hidden="true" />
+      </Button>
+    {/if}
+  </div>
+{/snippet}
 
 <!-- The raised surface sets the panel apart from the list beside it — a sidebar the same white as
      the work area reads as more work area, not as a panel. -->
@@ -275,75 +367,26 @@
         </Tabs.Content>
 
         <Tabs.Content value="versions">
-          <div class="flex flex-col gap-8 p-12">
-            {#if versionsLoading}
-              <Skeleton class="h-48 w-full" />
-              <Skeleton class="h-48 w-full" />
-            {:else if versions === null || versions.length === 0}
+          <LoadingRegion
+            loading={versionsLoading}
+            label="Reading this file's versions"
+            class="flex flex-col gap-8 p-12"
+          >
+            {#snippet fixture()}
+              {#each VERSION_FIXTURE as version, index (version.id)}
+                {@render versionRow(version, index)}
+              {/each}
+            {/snippet}
+            {#if versions === null || versions.length === 0}
               <p class="text-sm text-text-muted">
                 No committed version yet: the first check is still running. The bytes are saved.
               </p>
             {:else}
               {#each versions as version, index (version.id)}
-                <!-- The row does NOT reflow on hover: every control is present at rest, so the one
-                     being aimed at never moves out from under the pointer. -->
-                <div class="flex items-center gap-8 rounded-md px-4 py-8">
-                  <span class="w-40 text-sm tabular-nums" class:font-semibold={index === 0}>
-                    {version.versionNumber}
-                  </span>
-                  <span class="min-w-0 flex-1 text-xs text-text-muted">
-                    <span class="block">
-                      {version.committedAt === null ? "" : formatInstant(version.committedAt)}
-                    </span>
-                    <span class="block font-mono">{formatBytes(version.sizeBytes)}</span>
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Open version {version.versionNumber}"
-                    aria-label="Open version {version.versionNumber}"
-                    onclick={() => onOpenVersion(version)}
-                  >
-                    <Eye class="size-16" aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Verify version {version.versionNumber}"
-                    aria-label="Verify version {version.versionNumber}"
-                    disabled={index !== 0}
-                    onclick={() => {
-                      tab = "hashes";
-                      onVerifyIntegrity();
-                    }}
-                  >
-                    <Hash class="size-16" aria-hidden="true" />
-                  </Button>
-                  {#if index !== 0}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled
-                      title={waitingReason("compare-versions")}
-                      aria-label="Compare version {version.versionNumber} with the current one"
-                    >
-                      <GitCompare class="size-16" aria-hidden="true" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled
-                      title={waitingReason("restore-version")}
-                      aria-label="Restore version {version.versionNumber} as a new version"
-                      onclick={() => onRestoreVersion(version)}
-                    >
-                      <RotateCcw class="size-16" aria-hidden="true" />
-                    </Button>
-                  {/if}
-                </div>
+                {@render versionRow(version, index)}
               {/each}
             {/if}
-          </div>
+          </LoadingRegion>
         </Tabs.Content>
 
         <Tabs.Content value="hashes">
@@ -370,23 +413,37 @@
               </p>
             {:else}
               <!-- Every algorithm row is here before a value is: the reader is told what is coming
-                   rather than surprised by it arriving. -->
-              <dl class="flex flex-col gap-8 text-xs">
-                {#each HASH_ALGORITHMS as algorithm (algorithm)}
-                  <div class="flex items-baseline gap-16">
-                    <dt class="w-48 shrink-0 font-semibold uppercase">{algorithm}</dt>
-                    <dd class="font-mono break-all">
-                      {#if integrity !== null}
-                        {integrity.algorithms[algorithm]}
-                      {:else if integrityRunning}
-                        <Skeleton class="h-16 w-full" />
-                      {:else}
-                        <span class="text-text-subtle">Not computed yet</span>
-                      {/if}
-                    </dd>
-                  </div>
-                {/each}
-              </dl>
+                   rather than surprised by it arriving. While the digests are being computed the
+                   rows stand in their own shape, each at its algorithm's length. -->
+              <LoadingRegion
+                loading={integrity === null && integrityRunning}
+                label="Computing the digests"
+              >
+                {#snippet fixture()}
+                  <dl class="flex flex-col gap-8 text-xs">
+                    {#each HASH_ALGORITHMS as algorithm (algorithm)}
+                      <div class="flex items-baseline gap-16">
+                        <dt class="w-48 shrink-0 font-semibold uppercase">{algorithm}</dt>
+                        <dd class="font-mono break-all">{DIGEST_FIXTURE[algorithm]}</dd>
+                      </div>
+                    {/each}
+                  </dl>
+                {/snippet}
+                <dl class="flex flex-col gap-8 text-xs">
+                  {#each HASH_ALGORITHMS as algorithm (algorithm)}
+                    <div class="flex items-baseline gap-16">
+                      <dt class="w-48 shrink-0 font-semibold uppercase">{algorithm}</dt>
+                      <dd class="font-mono break-all">
+                        {#if integrity !== null}
+                          {integrity.algorithms[algorithm]}
+                        {:else}
+                          <span class="text-text-subtle">Not computed yet</span>
+                        {/if}
+                      </dd>
+                    </div>
+                  {/each}
+                </dl>
+              </LoadingRegion>
 
               {#if integrity !== null && integrity.comparison === "mismatch"}
                 <!-- A difference between what intake recorded and what the bytes digest to now is

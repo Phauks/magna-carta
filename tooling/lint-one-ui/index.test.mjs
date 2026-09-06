@@ -20,6 +20,7 @@ import {
   findFooterSetProblems,
   findHandComposedModals,
   findHandComposedDetailsPanels,
+  findHandPlacedLoading,
   findHandDrawnGlyphs,
   findHandRolledSelects,
   findHandWrittenCapsRegister,
@@ -897,6 +898,7 @@ describe("the registry's own allowances", () => {
       "money-presentation",
       "permission-refusal",
       "details-panel",
+      "hand-placed-loading",
       "sweep",
     ]);
     for (const allowance of registry.allowances ?? []) {
@@ -1056,5 +1058,77 @@ describe("one details panel", () => {
         '<aside class="flex h-full w-full flex-col border-l border-border-default bg-surface-default">',
       ),
     ).toEqual([]);
+  });
+});
+
+describe("one loading state", () => {
+  const HOMES = [
+    "packages/design-system/src/lib/components/loading-region",
+    "packages/design-system/src/lib/components/data-table",
+  ];
+  const findIn = (path, source) => findHandPlacedLoading(path, source, HOMES);
+
+  it("bites on the Skeleton box placed by hand in an app screen, naming the signal", () => {
+    const source = `<script>
+  import Skeleton from "@magna-carta/design-system/skeleton";
+</script>
+{#if names === null}
+  <div class="flex flex-col gap-8" aria-busy="true"><Skeleton class="h-32 w-full" /></div>
+{/if}`;
+    const problems = findIn("apps/web/src/lib/directory/names-pane.svelte", source);
+    expect(problems.map((problem) => problem.text)).toEqual([
+      "@magna-carta/design-system/skeleton",
+      "aria-busy",
+      "<Skeleton",
+    ]);
+    expect(problems.every((problem) => problem.rule === "hand-placed-loading")).toBe(true);
+    expect(details(problems)).toContain("LoadingRegion");
+  });
+
+  it("bites on the recipe class, a pulsing utility and a spinner glyph", () => {
+    const source = `<script>
+  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+</script>
+<div class="mc-skeleton"></div>
+<div class="animate-pulse"></div>`;
+    const problems = findIn("apps/web/src/routes/(app)/home/+page.svelte", source);
+    expect(problems.map((problem) => problem.text)).toEqual([
+      "@lucide/svelte/icons/loader-circle",
+      "mc-skeleton",
+      "animate-pulse",
+    ]);
+  });
+
+  it("does NOT cry wolf on the region used as intended", () => {
+    const source = `<script>
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+</script>
+<LoadingRegion loading={names === null} label="Reading the names on this record">
+  {#snippet fixture()}<NameRows names={FIXTURE_NAMES} />{/snippet}
+  <NameRows {names} />
+</LoadingRegion>`;
+    expect(findIn("apps/web/src/lib/directory/names-pane.svelte", source)).toEqual([]);
+  });
+
+  it("does NOT read a comment that names the signal it is warning about", () => {
+    const source = `<!-- the region writes aria-busy; a screen never does -->
+<script>
+  // no <Skeleton here, and no mc-skeleton either
+</script>`;
+    expect(findIn("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+
+  it("leaves the declared loading homes alone, where the machinery has to be written", () => {
+    const source = `<div aria-busy="true"><Skeleton class="mc-table-skeleton" /></div>`;
+    expect(
+      findIn("packages/design-system/src/lib/components/data-table/data-table-grid.svelte", source),
+    ).toEqual([]);
+  });
+
+  it("bites inside the design system outside those homes", () => {
+    const source = `<div aria-busy="true"></div>`;
+    const problems = findIn("packages/design-system/src/lib/components/card/card.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].text).toBe("aria-busy");
   });
 });

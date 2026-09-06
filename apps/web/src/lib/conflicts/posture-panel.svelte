@@ -21,7 +21,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import EventRail from "@magna-carta/design-system/event-rail";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -69,6 +69,28 @@
     return personName(memberNames.get(userId) ?? null, { whenUnrecorded: userId });
   }
 
+  /*
+   * The shape the panel takes while a matter's standing is read: its own sections, over invented
+   * facts. Inert and hidden from assistive technology while it stands, so no count in it can be
+   * read as a matter's real posture.
+   */
+  const RECHECK_FIXTURE: readonly EventRailEvent[] = [
+    {
+      id: "fixture-relationship",
+      action: "A relationship was recorded",
+      at: "2026-02-11T10:30:00Z",
+      source: "The firm's own records",
+      detail: "Noticed 11 Feb 2026, 10:32. Reference edge_0k4x7.",
+    },
+    {
+      id: "fixture-renamed",
+      action: "A Directory record gained another name",
+      at: "2026-02-14T15:02:00Z",
+      source: "The firm's own records",
+      detail: "Noticed 14 Feb 2026, 15:04. Reference ent_0p9m2.",
+    },
+  ];
+
   /** The re-checks the platform knows are owed, oldest cause first — the rail's own order. */
   const pendingEvents = $derived.by((): EventRailEvent[] =>
     (posture?.pendingRecheck ?? []).map((pending, index) => ({
@@ -88,19 +110,47 @@
   </div>
 {/snippet}
 
-{#if loading || posture === null}
-  <div class="flex flex-col gap-8">
-    <Skeleton class="h-16 w-full" />
-    <Skeleton class="h-16 w-3/4" />
-    <Skeleton class="h-16 w-1/2" />
-  </div>
-{:else if posture.neverChecked && posture.pendingRecheck.length === 0}
-  <EmptyState title="This Matter Has Never Been Checked" {actions}>
-    No check has ever named this matter. That is a different state from a check that ran and
-    surfaced nothing, and neither of them is a statement about the matter itself.
-  </EmptyState>
-{:else}
-  <div class="flex flex-col gap-24">
+<LoadingRegion
+  loading={loading || posture === null}
+  label="Reading where this matter stands on conflicts"
+  class="flex flex-col gap-24"
+>
+  {#snippet fixture()}
+    <section class="flex flex-col gap-8">
+      <FieldLabel as="h3">Open Questions</FieldLabel>
+      <dl class="flex flex-col gap-4 text-sm">
+        {@render fact(evidenceTier(1).label, "2")}
+        {@render fact(evidenceTier(2).label, "1")}
+        {@render fact(evidenceTier(3).label, "0")}
+        {@render fact(evidenceTier(4).label, "0")}
+      </dl>
+    </section>
+    <section class="flex flex-col gap-8 border-t border-border-default pt-12">
+      <FieldLabel as="h3">The Latest Check</FieldLabel>
+      <dl class="flex flex-col gap-4 text-sm">
+        {@render fact("Run", "9 Feb 2026, 14:05")}
+        {@render fact("Trigger", triggerVocabulary("comprehensive").label)}
+        {@render fact("Run By", "Rosalind Chase")}
+        {@render fact("Subject Parties", "4")}
+        {@render fact("Entities Reached", "31")}
+        {@render fact("Candidates", "3")}
+      </dl>
+    </section>
+    <section class="flex flex-col gap-8 border-t border-border-default pt-12">
+      <FieldLabel as="h3">Re-checks Owed</FieldLabel>
+      <EventRail events={RECHECK_FIXTURE} label="Re-checks this matter is owed" />
+      <dl class="flex flex-col gap-4 text-sm">
+        {@render fact("Scheduled Re-screening", "Every 30 days")}
+        {@render fact("Last Scheduled Pass", "1 Feb 2026, 02:00")}
+      </dl>
+    </section>
+  {/snippet}
+  {#if posture !== null && posture.neverChecked && posture.pendingRecheck.length === 0}
+    <EmptyState title="This Matter Has Never Been Checked" {actions}>
+      No check has ever named this matter. That is a different state from a check that ran and
+      surfaced nothing, and neither of them is a statement about the matter itself.
+    </EmptyState>
+  {:else if posture !== null}
     <section class="flex flex-col gap-8">
       <div class="flex flex-wrap items-center justify-between gap-16">
         <FieldLabel as="h3">Open Questions</FieldLabel>
@@ -260,5 +310,5 @@
     {#if actions}
       <div class="flex flex-wrap items-center gap-8">{@render actions()}</div>
     {/if}
-  </div>
-{/if}
+  {/if}
+</LoadingRegion>

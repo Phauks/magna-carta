@@ -30,7 +30,7 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import {
     deadlineStateBadgeLabel,
@@ -107,7 +107,186 @@
     const clock = formatWallClock(time, timeZone);
     return clock === null ? DataTable.formatDate(dateOn) : `${DataTable.formatDate(dateOn)}, ${clock}`;
   }
+
+  // ---- the shapes drawn while a read is in flight -----------------------------------------------
+  //
+  // Representative rows in the record's own shape, so each table is ONE snippet serving both the
+  // rows and the shape they take while they are read; the loading region greys them. Sample words
+  // only, never a matter's own.
+
+  const DEADLINE_FIXTURE: readonly CalendarDeadline[] = [
+    {
+      id: "fixture-deadline-responses",
+      matterId: "fixture-matter",
+      title: "Responses to the first set of interrogatories",
+      dueOn: "2026-09-28",
+      dueAtTime: "17:00",
+      timeZone: "America/Chicago",
+      source: "member",
+      authorityText: "Fed. R. Civ. P. 33(b)(2)",
+      triggerEventId: null,
+      state: "open",
+      satisfiedAt: null,
+      satisfiedBy: null,
+      satisfyingEventId: null,
+      stateReason: null,
+      priority: 2,
+      overdue: false,
+    },
+    {
+      id: "fixture-deadline-summary-judgment",
+      matterId: "fixture-matter",
+      title: "Motion for summary judgment",
+      dueOn: "2026-10-16",
+      dueAtTime: null,
+      timeZone: "America/Chicago",
+      source: "court_order",
+      authorityText: "Scheduling order of 14 March",
+      triggerEventId: null,
+      state: "open",
+      satisfiedAt: null,
+      satisfiedBy: null,
+      satisfyingEventId: null,
+      stateReason: null,
+      priority: null,
+      overdue: false,
+    },
+  ];
+
+  const EVENT_FIXTURE: readonly CalendarEvent[] = [
+    {
+      id: "fixture-event-hearing",
+      matterId: "fixture-matter",
+      eventTypeId: null,
+      eventTypeName: "Hearing",
+      title: "Hearing on the motion to compel",
+      description: null,
+      status: "scheduled",
+      statusReason: null,
+      startsOn: "2026-10-02",
+      startsAtTime: "09:30",
+      endsOn: null,
+      endsAtTime: null,
+      timeZone: "America/Chicago",
+      locationText: "Department 12",
+      courtReference: null,
+      recordedAt: "2026-09-01T15:00:00Z",
+      recordedBy: null,
+      continuedFromEventId: null,
+      continuedToEventId: null,
+    },
+    {
+      id: "fixture-event-deposition",
+      matterId: "fixture-matter",
+      eventTypeId: null,
+      eventTypeName: "Deposition",
+      title: "Deposition of the custodian of records",
+      description: null,
+      status: "scheduled",
+      statusReason: null,
+      startsOn: "2026-10-14",
+      startsAtTime: "13:00",
+      endsOn: null,
+      endsAtTime: null,
+      timeZone: "America/Chicago",
+      locationText: "Conference Room A",
+      courtReference: null,
+      recordedAt: "2026-09-01T15:00:00Z",
+      recordedBy: null,
+      continuedFromEventId: null,
+      continuedToEventId: null,
+    },
+  ];
 </script>
+
+{#snippet deadlineTable(rows: readonly CalendarDeadline[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">Deadlines recorded for this matter</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Due</DataTable.Head>
+        <DataTable.Head>Deadline</DataTable.Head>
+        <DataTable.Head>Authority</DataTable.Head>
+        <DataTable.Head>State</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as deadline (deadline.id)}
+        <DataTable.Row>
+          <DataTable.Cell>
+            {whenOf(deadline.dueOn, deadline.dueAtTime, deadline.timeZone)}
+          </DataTable.Cell>
+          <DataTable.Cell>{deadline.title}</DataTable.Cell>
+          <DataTable.Cell>
+            {#if deadline.authorityText === null}
+              <span class="text-text-muted">Not recorded</span>
+            {:else}
+              {deadline.authorityText}
+            {/if}
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <Badge variant={deadlineTone(deadline)}>
+              {deadlineStateBadgeLabel(deadline)}
+            </Badge>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}
+
+{#snippet eventTable(rows: readonly CalendarEvent[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">Events recorded for this matter</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>When</DataTable.Head>
+        <DataTable.Head>Event</DataTable.Head>
+        <DataTable.Head>Type</DataTable.Head>
+        <DataTable.Head>Where</DataTable.Head>
+        <DataTable.Head>Status</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as event (event.id)}
+        <DataTable.Row>
+          <DataTable.Cell>
+            {whenOf(event.startsOn, event.startsAtTime, event.timeZone)}
+          </DataTable.Cell>
+          <DataTable.Cell>
+            {event.title}
+            {#if event.continuedFromEventId !== null}
+              <span class="text-text-muted"> (continued from an earlier setting)</span>
+            {:else if event.continuedToEventId !== null}
+              <span class="text-text-muted"> (continued to a later setting)</span>
+            {/if}
+          </DataTable.Cell>
+          <DataTable.Cell>
+            {#if event.eventTypeName === null}
+              <span class="text-text-muted">Unclassified</span>
+            {:else}
+              {event.eventTypeName}
+            {/if}
+          </DataTable.Cell>
+          <DataTable.Cell>
+            {#if event.locationText !== null}
+              {event.locationText}
+            {:else if event.courtReference !== null}
+              {event.courtReference}
+            {:else}
+              <span class="text-text-muted">Not recorded</span>
+            {/if}
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <Badge variant={eventStatusTone(event.status)}>
+              {eventStatusLabel(event.status)}
+            </Badge>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}
 
 <div class="flex flex-col gap-16">
   {#if overdue > 0}
@@ -132,71 +311,46 @@
         <Alert.Title>Deadlines Could Not Be Read</Alert.Title>
         <Alert.Description>{deadlineFailure}</Alert.Description>
       </Alert.Root>
-    {:else if deadlines === null}
-      <div class="flex flex-col gap-8" aria-busy="true" aria-label="Loading the matter's deadlines">
-        <Skeleton class="h-32 w-full" />
-        <Skeleton class="h-32 w-full" />
-      </div>
-    {:else if isSample}
-      <EmptyState title="No Deadlines On A Sample Matter">
-        This is one of the sample matters the interface is reviewed against. It has no firm behind
-        it, so there is nothing on its calendar.
-      </EmptyState>
-    {:else if deadlines.length === 0}
-      <EmptyState title="No Deadlines Yet">
-        Responses, filings, statutes of limitation. Every date this matter is held to is recorded
-        here with the authority it comes from, and reports whether it has passed.
-      </EmptyState>
     {:else}
-      <DataTable.Root>
-        <DataTable.Caption class="sr-only">Deadlines recorded for this matter</DataTable.Caption>
-        <DataTable.Header>
-          <DataTable.Row>
-            <DataTable.Head>Due</DataTable.Head>
-            <DataTable.Head>Deadline</DataTable.Head>
-            <DataTable.Head>Authority</DataTable.Head>
-            <DataTable.Head>State</DataTable.Head>
-          </DataTable.Row>
-        </DataTable.Header>
-        <DataTable.Body>
-          {#each deadlines as deadline (deadline.id)}
-            <DataTable.Row>
-              <DataTable.Cell>
-                {whenOf(deadline.dueOn, deadline.dueAtTime, deadline.timeZone)}
-              </DataTable.Cell>
-              <DataTable.Cell>{deadline.title}</DataTable.Cell>
-              <DataTable.Cell>
-                {#if deadline.authorityText === null}
-                  <span class="text-text-muted">Not recorded</span>
-                {:else}
-                  {deadline.authorityText}
-                {/if}
-              </DataTable.Cell>
-              <DataTable.Cell>
-                <Badge variant={deadlineTone(deadline)}>
-                  {deadlineStateBadgeLabel(deadline)}
-                </Badge>
-              </DataTable.Cell>
-            </DataTable.Row>
-          {/each}
-        </DataTable.Body>
-      </DataTable.Root>
+      <LoadingRegion
+        loading={deadlines === null}
+        label="Reading the matter's deadlines"
+        class="flex flex-col gap-8"
+      >
+        {#snippet fixture()}
+          {@render deadlineTable(DEADLINE_FIXTURE)}
+        {/snippet}
+        {@const shown = deadlines ?? []}
+        {#if isSample}
+          <EmptyState title="No Deadlines On A Sample Matter">
+            This is one of the sample matters the interface is reviewed against. It has no firm
+            behind it, so there is nothing on its calendar.
+          </EmptyState>
+        {:else if shown.length === 0}
+          <EmptyState title="No Deadlines Yet">
+            Responses, filings, statutes of limitation. Every date this matter is held to is
+            recorded here with the authority it comes from, and reports whether it has passed.
+          </EmptyState>
+        {:else}
+          {@render deadlineTable(shown)}
 
-      {#if deadlineList.nextCursor !== null}
-        <div class="flex flex-col items-start gap-8">
-          <Button
-            variant="secondary"
-            onclick={loadMoreDeadlines}
-            disabled={deadlineList.loadingMore}
-          >
-            {deadlineList.loadingMore ? "Loading" : "Load more deadlines"}
-          </Button>
-          <p class="text-xs text-text-muted">
-            Showing the {deadlines.length} soonest. The past-due count above covers only what is
-            on screen.
-          </p>
-        </div>
-      {/if}
+          {#if deadlineList.nextCursor !== null}
+            <div class="flex flex-col items-start gap-8">
+              <Button
+                variant="secondary"
+                onclick={loadMoreDeadlines}
+                disabled={deadlineList.loadingMore}
+              >
+                {deadlineList.loadingMore ? "Loading" : "Load more deadlines"}
+              </Button>
+              <p class="text-xs text-text-muted">
+                Showing the {shown.length} soonest. The past-due count above covers only what is
+                on screen.
+              </p>
+            </div>
+          {/if}
+        {/if}
+      </LoadingRegion>
     {/if}
   </div>
 
@@ -210,83 +364,41 @@
         <Alert.Title>Events Could Not Be Read</Alert.Title>
         <Alert.Description>{eventFailure}</Alert.Description>
       </Alert.Root>
-    {:else if events === null}
-      <div class="flex flex-col gap-8" aria-busy="true" aria-label="Loading the matter's events">
-        <Skeleton class="h-32 w-full" />
-        <Skeleton class="h-32 w-full" />
-      </div>
-    {:else if isSample}
-      <EmptyState title="No Events On A Sample Matter">
-        This is one of the sample matters the interface is reviewed against. It has no firm behind
-        it, so there is nothing on its calendar.
-      </EmptyState>
-    {:else if events.length === 0}
-      <EmptyState title="No Events Yet">
-        Hearings, depositions, closings, client meetings. Every setting recorded for this matter
-        appears here with where it is and the time zone that time is read in.
-      </EmptyState>
     {:else}
-      <DataTable.Root>
-        <DataTable.Caption class="sr-only">Events recorded for this matter</DataTable.Caption>
-        <DataTable.Header>
-          <DataTable.Row>
-            <DataTable.Head>When</DataTable.Head>
-            <DataTable.Head>Event</DataTable.Head>
-            <DataTable.Head>Type</DataTable.Head>
-            <DataTable.Head>Where</DataTable.Head>
-            <DataTable.Head>Status</DataTable.Head>
-          </DataTable.Row>
-        </DataTable.Header>
-        <DataTable.Body>
-          {#each events as event (event.id)}
-            <DataTable.Row>
-              <DataTable.Cell>
-                {whenOf(event.startsOn, event.startsAtTime, event.timeZone)}
-              </DataTable.Cell>
-              <DataTable.Cell>
-                {event.title}
-                {#if event.continuedFromEventId !== null}
-                  <span class="text-text-muted"> (continued from an earlier setting)</span>
-                {:else if event.continuedToEventId !== null}
-                  <span class="text-text-muted"> (continued to a later setting)</span>
-                {/if}
-              </DataTable.Cell>
-              <DataTable.Cell>
-                {#if event.eventTypeName === null}
-                  <span class="text-text-muted">Unclassified</span>
-                {:else}
-                  {event.eventTypeName}
-                {/if}
-              </DataTable.Cell>
-              <DataTable.Cell>
-                {#if event.locationText !== null}
-                  {event.locationText}
-                {:else if event.courtReference !== null}
-                  {event.courtReference}
-                {:else}
-                  <span class="text-text-muted">Not recorded</span>
-                {/if}
-              </DataTable.Cell>
-              <DataTable.Cell>
-                <Badge variant={eventStatusTone(event.status)}>
-                  {eventStatusLabel(event.status)}
-                </Badge>
-              </DataTable.Cell>
-            </DataTable.Row>
-          {/each}
-        </DataTable.Body>
-      </DataTable.Root>
+      <LoadingRegion
+        loading={events === null}
+        label="Reading the matter's events"
+        class="flex flex-col gap-8"
+      >
+        {#snippet fixture()}
+          {@render eventTable(EVENT_FIXTURE)}
+        {/snippet}
+        {@const shown = events ?? []}
+        {#if isSample}
+          <EmptyState title="No Events On A Sample Matter">
+            This is one of the sample matters the interface is reviewed against. It has no firm
+            behind it, so there is nothing on its calendar.
+          </EmptyState>
+        {:else if shown.length === 0}
+          <EmptyState title="No Events Yet">
+            Hearings, depositions, closings, client meetings. Every setting recorded for this
+            matter appears here with where it is and the time zone that time is read in.
+          </EmptyState>
+        {:else}
+          {@render eventTable(shown)}
 
-      {#if eventList.nextCursor !== null}
-        <div class="flex flex-col items-start gap-8">
-          <Button variant="secondary" onclick={loadMoreEvents} disabled={eventList.loadingMore}>
-            {eventList.loadingMore ? "Loading" : "Load more events"}
-          </Button>
-          <p class="text-xs text-text-muted">
-            Showing the {events.length} furthest ahead.
-          </p>
-        </div>
-      {/if}
+          {#if eventList.nextCursor !== null}
+            <div class="flex flex-col items-start gap-8">
+              <Button variant="secondary" onclick={loadMoreEvents} disabled={eventList.loadingMore}>
+                {eventList.loadingMore ? "Loading" : "Load more events"}
+              </Button>
+              <p class="text-xs text-text-muted">
+                Showing the {shown.length} furthest ahead.
+              </p>
+            </div>
+          {/if}
+        {/if}
+      </LoadingRegion>
     {/if}
   </div>
 </div>

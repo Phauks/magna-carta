@@ -55,6 +55,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         href: "/developer-console/table-states",
         note: "The one table, in every state",
       },
+      {
+        label: "Loading states",
+        href: "/developer-console/loading-states",
+        note: "The one loading region, over every shape",
+      },
     ],
   },
   {

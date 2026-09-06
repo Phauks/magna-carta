@@ -118,6 +118,10 @@
     {
       "name": "StatusMark",
       "home": "packages/design-system/src/lib/components/status-mark"
+    },
+    {
+      "name": "LoadingRegion",
+      "home": "packages/design-system/src/lib/components/loading-region"
     }
   ],
   "modalShellsComment": [
@@ -149,6 +153,50 @@
     {
       "home": "packages/design-system/src/lib/internal",
       "reason": "the shared unsaved-work question both shells ask, which is an AlertDialog by construction."
+    }
+  ],
+  "loadingHomesComment": [
+    "The homes allowed to hold a loading state's machinery: the Skeleton box, its recipe class,",
+    "aria-busy. Everywhere else a region whose data has not arrived is LoadingRegion around its",
+    "real markup, and the `hand-placed-loading` rule says so — in the app without exception, and",
+    "inside the design system outside these homes.",
+    "",
+    "Adding a home here is the reviewed act of declaring a component that renders placeholder",
+    "rows of its OWN shape, which it can only do from inside. Do not add one to make a screen",
+    "pass; a screen has a shape, and the region renders it."
+  ],
+  "loadingHomes": [
+    {
+      "home": "packages/design-system/src/lib/components/loading-region",
+      "reason": "the region itself: the one place aria-busy is written for a loading state."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/skeleton",
+      "reason": "the box the region's recipe and the homes below are built from; never exported to the app."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/data-table",
+      "reason": "the Grid renders placeholder rows of its own columns while `loading`, because its rows are its own shape."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/event-rail",
+      "reason": "renders placeholder entries of its own division while `loading`."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/record-parties",
+      "reason": "renders placeholder party rows of its own shape while `loading`."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/record-attachments",
+      "reason": "renders placeholder attachment rows of its own shape while `loading`."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/calendar-grid",
+      "reason": "renders placeholder entries in its own day cells while `loading`."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/folder-tree",
+      "reason": "renders placeholder folder rows of its own shape while `loading`."
     }
   ],
   "allowancesComment": [
@@ -287,6 +335,30 @@
       "file": "packages/design-system/src/lib/components/merge-field-picker/merge-field-picker.svelte",
       "text": "Choose a merge field",
       "reason": "predates the placeholder ruling; the field's name is Merge field."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "packages/design-system/src/lib/components/screen-search/screen-search.svelte",
+      "text": "aria-busy",
+      "reason": "a search field marking its own query in flight, not a region whose data has not arrived: there is no shape to render because the answer is the list the field will open, and the field's value must stay live and editable while the question is asked. The busy mark is the field's own semantics, and the region's inert fixture would be wrong here."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "apps/web/src/lib/directory/duplicate-gate.svelte",
+      "text": "aria-busy",
+      "reason": "a live check, not a placeholder: the gate re-asks the directory as a name is typed, keeps the previous candidates in view while it does, and narrates the act on its own \"Checking the directory\" status line. There is no absent data for a fixture to stand in for, and a region would grey out real candidates somebody is reading."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "apps/web/src/routes/(app)/tools/safe-website-viewer/+page.svelte",
+      "text": "aria-busy",
+      "reason": "a capture narrating its own real stages in the shell's viewport (owner ruling 2026-08-31: the loading viewport says what is happening, never a generic spinner), not a region whose data has not arrived. The tabs beside it are regions; the mark on the frame is the act's own semantics."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "apps/web/src/lib/versions/version-chip.svelte",
+      "text": "aria-busy",
+      "reason": "the Refresh control marking itself busy while it re-asks, with the two sections it refreshes already regions of their own. A control's busy state is its own semantics, and there is no shape to render on a button."
     }
   ]
 }
