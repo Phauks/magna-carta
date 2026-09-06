@@ -243,12 +243,13 @@ export function createDevR2Presigner(env: DevUploadEnv): R2Presigner {
   const dimensionsKey = (uploadId: string): string =>
     `${DEV_MULTIPART_STAGING_PREFIX}/${uploadId}/dimensions`;
   return {
-    presignPut(_bucket, key, _contentType, _expiresSeconds, dimensions) {
-      // The same headers the production presigner signs, returned the same way — so the development
-      // path exercises a client that sends the stamp rather than one that never had to.
+    presignPut(_bucket, key, contentType, _expiresSeconds, dimensions) {
+      // The same headers the production presigner signs, spelled the same way — so the development
+      // path exercises a client that sends the stamp rather than one that never had to, and the
+      // route can pass the set through without adding to it (see the initiate handler).
       return Promise.resolve({
         url: `/api/__dev/r2/object?key=${encodeURIComponent(key)}`,
-        headers: objectDimensionHeaders(dimensions),
+        headers: { "content-type": contentType, ...objectDimensionHeaders(dimensions) },
       });
     },
     // Download/preview is out of scope for the development upload path (its player needs a bound

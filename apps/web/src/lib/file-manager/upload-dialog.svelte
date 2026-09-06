@@ -1,137 +1,312 @@
 <script lang="ts">
   /*
-   * The Upload dialog — where files are chosen, where they are told to go, and the one press that
-   * sends them.
+   * The Upload dialog — intake on the left, source on the right, and the one press that sends.
    *
-   * NOTHING IS SENT UNTIL UPLOAD IS PRESSED. An earlier round opened the picker first and let the
-   * bytes go the moment it closed, asking the destination afterwards; a reader who then closed the
-   * dialog was told what had "already landed", and read that as something saved behind their back —
-   * which it was. So the order is now the one a reader expects: choose (one file, several, or a
-   * whole folder — dropped onto the surface or picked with a button), say where they go, press
-   * Upload. Cancelling before that sends nothing, so there is nothing to un-save.
+   * TWO SIDES, TWO JOBS. The LEFT is the INTAKE: what the arriving files become — which matter and
+   * folder they land in, how they are dated, what document type they carry. It is read top to
+   * bottom once and then left alone. The RIGHT is the SOURCE: the files and folders themselves, as
+   * the product's one table, nested the way they sit on the reader's disk, filterable from its
+   * header, each row saying where it stands once the transfer runs. They belong apart because they
+   * move at different speeds — the intake is decided once, the source changes every second while
+   * bytes move — and the owner's ruling (2026-09-06) put the intake on the left and the source on
+   * the right.
    *
-   * ONCE PRESSED, THE PANEL STAYS UNTIL THE BATCH IS THROUGH. The commit holds the busy state for
-   * the whole transfer and the shell refuses to close a busy panel, so a batch is never abandoned
-   * half-sent with nobody watching. When every file lands the panel closes and the host shows the
-   * folder they landed in; when any fails it stays to say which and why, and leaves through Close.
+   * NOTHING IS SENT UNTIL UPLOAD IS PRESSED. Choose (dropped anywhere on the source pane, or
+   * through the one Add control, which offers files or a folder), decide where they go, press
+   * Upload. Cancelling before that sends nothing, so there is nothing to un-save — and because
+   * choosing is work, leaving with files chosen asks first, whether the reader leaves by the
+   * panel's own exits or by navigating away from the screen beneath it.
    *
-   * TWO SIDES, TWO JOBS. The left is the DECISION — what goes, and where — and the right is the
-   * REPORT: what was chosen, then what each file is doing about it. They belong apart because they
-   * move at different speeds: the reader makes the choice once, while the list beside it changes
-   * every second once the transfer runs.
+   * NOTHING MOVES WHEN UPLOAD IS PRESSED. The earlier panel swapped its left side from the chooser
+   * to nothing and its right side from one list to another the moment the transfer began, and the
+   * whole frame re-flowed under the reader's pointer. Here every control stays where it is and is
+   * disabled; the source table stays the same table, and only its Status column changes. The
+   * header row above the table carries the chosen count before the press and the running tally
+   * after it, in the same place at the same height.
+   *
+   * THE TRANSFER OUTLIVES THE PANEL. Upload hands the batch to the upload queue and the panel stays
+   * open to show it running — but it is a report, not a leash: Close leaves the bytes moving, the
+   * top-bar upload tray keeps showing them, and the file list re-reads when they land.
    */
-  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import { beforeNavigate, goto } from "$app/navigation";
+  import ActionDialog, { DISCARD_SENTENCE } from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
-  import * as Alert from "@magna-carta/design-system/alert";
-  import Button from "@magna-carta/design-system/button";
-  import Dropzone, {
+  import * as Select from "@magna-carta/design-system/select";
+  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import FieldLabel from "@magna-carta/design-system/field-label";
+  import Label from "@magna-carta/design-system/label";
+  import Progress from "@magna-carta/design-system/progress";
+  import {
+    entriesFromDataTransfer,
     entriesFromFileList,
     type DroppedEntry,
   } from "@magna-carta/design-system/dropzone";
-  import Label from "@magna-carta/design-system/label";
-  import CircleCheck from "@lucide/svelte/icons/circle-check";
-  import CircleAlert from "@lucide/svelte/icons/circle-alert";
-  import CircleDashed from "@lucide/svelte/icons/circle-dashed";
+  import Ban from "@lucide/svelte/icons/ban";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
   import FolderUp from "@lucide/svelte/icons/folder-up";
+  import Plus from "@lucide/svelte/icons/plus";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import X from "@lucide/svelte/icons/x";
-  import { formatBytes, type MatterFileIndex } from "./file-rows.ts";
+  import { formatBytes, MatterFileIndex } from "./file-rows.ts";
   import FolderPicker from "./folder-picker.svelte";
-  import { UPLOAD_STAGE_NARRATION, type UploadProgressItem } from "./file-upload.ts";
-  import { countPhrase } from "./file-manager-vocabulary.ts";
+  import { listMatterFolders } from "./folder-api.ts";
+  import { listMatterFiles, type DocumentTypeSummary } from "./matter-file-api.ts";
+  import {
+    addIntakeEntries,
+    intakeBytes,
+    intakeFolderPaths,
+    intakePhrase,
+    removeIntakeRows,
+    type IntakeProgress,
+  } from "./upload-intake.ts";
+  import UploadSourceTable from "./upload-source-table.svelte";
+  import {
+    batchCountsText,
+    batchPaceText,
+    cancelUploadBatch,
+    retryFailedUploads,
+    unsentCount,
+    type UploadBatch,
+    type UploadBatchPlan,
+  } from "./upload-queue.svelte.ts";
+  import UploadMatterPicker from "./upload-matter-picker.svelte";
 
   let {
     open = $bindable(false),
+    matterId,
+    matterTitle,
+    /** The matter on screen: its folders and files, for the default destination and its names. */
     index,
     /** The folder the reader is standing in — the default upload location. */
     baseFolderId,
-    matterTitle,
+    /** The firm's document types, for the type a batch may carry. */
+    documentTypes,
     /** Files the dialog opens already holding — what was dropped onto the list. */
     preselected,
-    /** Each file's live line once the transfer runs; empty before Upload is pressed. */
-    items,
-    onUpload,
+    /** Hand the decided batch to the upload queue; returns the batch the panel then reports on. */
+    onStart,
     onDismiss,
   }: {
     open?: boolean;
+    matterId: string;
+    matterTitle: string;
     index: MatterFileIndex;
     baseFolderId: string | null;
-    matterTitle: string;
+    documentTypes: readonly DocumentTypeSummary[];
     preselected: readonly DroppedEntry[];
-    items: readonly UploadProgressItem[];
-    /** Send the batch to the chosen folder. Resolves once every file has settled, one way or the other. */
-    onUpload: (
-      chosen: readonly DroppedEntry[],
-      destinationFolderId: string | null,
-    ) => Promise<{ failed: number }>;
+    onStart: (plan: UploadBatchPlan) => UploadBatch;
     onDismiss: () => void;
   } = $props();
 
-  type Destination = "here" | "root" | "other";
-  let choice = $state<Destination>("here");
+  const fieldPrefix = $props.id();
+
+  // ---- the intake ---------------------------------------------------------------------------------
+
+  type FolderChoice = "here" | "root" | "other";
+  type Destination = { id: string; title: string; label: string };
+
+  let destination = $state<Destination>({ id: "", title: "", label: "" });
+  let folderChoice = $state<FolderChoice>("here");
   let pickedFolderId = $state<string | null>(null);
-  let chosen = $state<DroppedEntry[]>([]);
-  /** Upload has been pressed: the choice is locked and the report shows the transfer. */
-  let started = $state(false);
+  let createdAtBasis = $state<"source" | "upload">("source");
+  let documentTypeId = $state<string | null>(null);
+
+  /** The other matter's folders and files, read when the destination leaves the matter on screen. */
+  let otherIndex = $state<MatterFileIndex | null>(null);
+  let otherLoading = $state(false);
+  let otherFailure = $state<string | null>(null);
+
+  const sameMatter = $derived(destination.id === matterId);
+  const destinationIndex = $derived(sameMatter ? index : otherIndex);
+
+  $effect(() => {
+    const target = destination.id;
+    if (target === "" || target === matterId) {
+      otherIndex = null;
+      otherFailure = null;
+      otherLoading = false;
+      return;
+    }
+    let cancelled = false;
+    otherLoading = true;
+    otherFailure = null;
+    void (async () => {
+      const [folderResult, fileResult] = await Promise.all([
+        listMatterFolders(fetch, target),
+        listMatterFiles(fetch, target),
+      ]);
+      if (cancelled) return;
+      otherLoading = false;
+      if (folderResult.kind !== "ok" || fileResult.kind !== "ok") {
+        otherFailure = "That matter's folders could not be read. Files can still go to its Home.";
+        otherIndex = new MatterFileIndex([], []);
+        return;
+      }
+      otherIndex = new MatterFileIndex(folderResult.value.data, fileResult.value.data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  const hereName = $derived(
+    sameMatter && baseFolderId !== null ? index.pathText(baseFolderId) : null,
+  );
+  const destinationFolderId = $derived(
+    folderChoice === "here" && sameMatter
+      ? baseFolderId
+      : folderChoice === "other"
+        ? pickedFolderId
+        : null,
+  );
+  const destinationLabel = $derived(
+    destinationIndex === null ? "Home" : destinationIndex.pathText(destinationFolderId),
+  );
+
+  // Leaving the matter on screen takes the "current folder" answer with it.
+  $effect(() => {
+    if (!sameMatter && folderChoice === "here") folderChoice = "root";
+  });
+
+  // ---- the source ---------------------------------------------------------------------------------
+
+  let entries = $state<DroppedEntry[]>([]);
+  /** The folder paths showing their contents. Every folder opens on arrival; the reader folds. */
+  let expanded = $state<Set<string>>(new Set());
+  /** The batch, once Upload has been pressed. Null while the reader is still choosing. */
+  let batch = $state<UploadBatch | null>(null);
+
+  const started = $derived(batch !== null);
+  const progress = $derived.by(
+    (): ReadonlyMap<string, IntakeProgress> => batch?.progress ?? new Map(),
+  );
+
+  function add(incoming: readonly DroppedEntry[]): void {
+    if (started || incoming.length === 0) return;
+    entries = addIntakeEntries(entries, incoming);
+    expanded = new Set([...expanded, ...intakeFolderPaths(incoming)]);
+  }
+
+  /** The rows the reader has selected in the source table, for Remove Selected. */
+  let selectedKeys = $state<readonly string[]>([]);
+  let sourceTable = $state<UploadSourceTable | null>(null);
+
+  function removeSelected(): void {
+    if (started) return;
+    entries = removeIntakeRows(entries, selectedKeys);
+    sourceTable?.clearSelection();
+    selectedKeys = [];
+  }
+
+  // The two native pickers behind the one Add control. A browser cannot ask for files AND a folder
+  // in one picker, so the control is a menu of the two asks rather than two buttons.
+  let filePicker = $state<HTMLInputElement | null>(null);
   let folderPicker = $state<HTMLInputElement | null>(null);
 
+  function picked(event: Event & { currentTarget: HTMLInputElement }): void {
+    const files = event.currentTarget.files;
+    if (files !== null) add(entriesFromFileList(files));
+    event.currentTarget.value = "";
+  }
+
+  // The whole source pane is the drop target. A counter rather than a flag: dragenter and
+  // dragleave fire for every descendant the pointer crosses.
+  let dragDepth = $state(0);
+  const dragOver = $derived(dragDepth > 0 && !started);
+
+  function dragEnter(event: DragEvent): void {
+    if (started) return;
+    event.preventDefault();
+    dragDepth += 1;
+  }
+  function dragOverPane(event: DragEvent): void {
+    if (started) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  }
+  function dragLeave(): void {
+    dragDepth = Math.max(0, dragDepth - 1);
+  }
+  function drop(event: DragEvent): void {
+    event.preventDefault();
+    dragDepth = 0;
+    if (started || event.dataTransfer === null) return;
+    void entriesFromDataTransfer(event.dataTransfer).then(add);
+  }
+
+  // ---- the header line: what is chosen, then how it is going, in one place -----------------------
+
+  const chosenLine = $derived(
+    entries.length === 0
+      ? "Nothing chosen yet"
+      : `${intakePhrase(entries)} · ${formatBytes(intakeBytes(entries))}`,
+  );
+  const runningLine = $derived(batch === null ? "" : batchCountsText(batch));
+  const paceLine = $derived(batch === null ? "" : batchPaceText(batch));
+
+  // ---- opening, committing, leaving -------------------------------------------------------------
+
   function reset(): void {
-    choice = "here";
+    destination = { id: matterId, title: matterTitle, label: matterTitle };
+    folderChoice = "here";
     pickedFolderId = null;
-    chosen = [...preselected];
-    started = false;
+    createdAtBasis = "source";
+    documentTypeId = null;
+    entries = [...preselected];
+    expanded = new Set(intakeFolderPaths(preselected));
+    batch = null;
+    sourceTable?.clearSelection();
+    selectedKeys = [];
   }
 
-  /** One file offered twice is one file: a second drop of the same folder must not double it. */
-  function keyOf(entry: DroppedEntry): string {
-    return `${entry.relativePath} ${entry.file.name} ${String(entry.file.size)}`;
-  }
-
-  function add(entries: readonly DroppedEntry[]): void {
-    const seen = new Set(chosen.map(keyOf));
-    chosen = [...chosen, ...entries.filter((entry) => !seen.has(keyOf(entry)))];
-  }
-
-  function removeAt(at: number): void {
-    chosen = chosen.filter((_, position) => position !== at);
-  }
-
-  /** What an entry is called in the list: its path when it came from a folder. */
-  function itemName(entry: DroppedEntry): string {
-    return entry.relativePath === "" ? entry.file.name : entry.relativePath;
-  }
-
-  const hereName = $derived(baseFolderId === null ? null : index.pathText(baseFolderId));
-  const destinationFolderId = $derived(
-    choice === "here" ? baseFolderId : choice === "root" ? null : pickedFolderId,
-  );
-
-  const folderCount = $derived(
-    new Set(
-      chosen
-        .map((entry) => entry.relativePath.split("/")[0] ?? "")
-        .filter((head) => head !== ""),
-    ).size,
-  );
-  const chosenPhrase = $derived(
-    folderCount === 0
-      ? countPhrase(chosen.length, "file")
-      : `${countPhrase(folderCount, "folder")}, ${countPhrase(chosen.length, "file")} inside`,
-  );
-
-  const failures = $derived(items.filter((item) => item.stage === "failed"));
-  const settledCount = $derived(
-    items.filter((item) => item.stage === "settled" || item.stage === "failed").length,
-  );
-
-  const refusal = $derived(
-    !started && chosen.length === 0 ? "Choose a file or a folder first." : undefined,
-  );
+  const refusal = $derived.by((): string | undefined => {
+    if (started) return undefined;
+    if (entries.length === 0) return "Choose files or a folder first.";
+    if (otherLoading) return "That matter's folders are still being read.";
+    return undefined;
+  });
 
   async function upload(): Promise<ActionOutcome> {
-    started = true;
-    const result = await onUpload(chosen, destinationFolderId);
-    return result.failed === 0 ? "committed" : "done";
+    const target = destinationIndex ?? new MatterFileIndex([], []);
+    batch = onStart({
+      matterId: destination.id,
+      matterTitle: destination.title,
+      destinationFolderId,
+      destinationLabel,
+      entries,
+      createdAtBasis,
+      documentTypeId,
+      folders: target.folders,
+      files: target.documents,
+    });
+    // "done", not "committed": the act has happened and the panel stays to show it running. The
+    // bar ends at Close, and closing leaves the transfer to the queue.
+    return Promise.resolve("done");
+  }
+
+  /*
+   * Leaving the SCREEN with files chosen and not yet sent is the same loss as closing the panel,
+   * and it is asked the same way. Navigation is cancelled, the question is put, and the reader's
+   * "discard" carries the navigation out. A batch already running needs no question here: it is
+   * the queue's now, and the tray shows it wherever the reader goes.
+   */
+  let leavingTo = $state<URL | null>(null);
+  beforeNavigate((navigation) => {
+    if (!open || started || entries.length === 0 || navigation.to === null) return;
+    if (navigation.willUnload) return;
+    navigation.cancel();
+    leavingTo = navigation.to.url;
+  });
+
+  function discardAndLeave(): void {
+    const target = leavingTo;
+    leavingTo = null;
+    open = false;
+    onDismiss();
+    if (target !== null) void goto(target);
   }
 </script>
 
@@ -142,30 +317,215 @@
   commitLabel="Upload"
   commitBusyLabel="Uploading"
   commitRefusal={refusal}
-  unsavedChanges={false}
+  unsavedChanges={!started && entries.length > 0}
   onOpen={reset}
   onCommit={upload}
   {onDismiss}
 >
-  <!-- LEFT: what goes, and where. -->
-  {#snippet fields({ busy })}
-    {#if !started}
-      <Dropzone
-        multiple
-        label="Choose files"
-        prompt="Drag files or a folder here, or choose them"
-        onEntries={add}
-      />
-      <div class="flex items-center gap-8">
-        <Button variant="secondary" size="sm" onclick={() => folderPicker?.click()}>
-          <FolderUp class="size-16" aria-hidden="true" />
-          Choose a Folder
-        </Button>
-        <span class="text-xs text-text-subtle">
-          A folder is recreated, with everything inside it, at the location below.
+  <!-- LEFT: the intake — what the files become. Every control stays put once Upload is pressed. -->
+  {#snippet fields({ busy, done })}
+    {@const locked = busy || done}
+    <div class="flex flex-col gap-8">
+      <FieldLabel as="p">Destination</FieldLabel>
+      <div class="flex flex-col gap-8">
+        <Label for="{fieldPrefix}-matter">Matter</Label>
+        <UploadMatterPicker
+          bind:value={destination}
+          inputId="{fieldPrefix}-matter"
+          disabled={locked}
+        />
+      </div>
+      <div class="flex flex-col gap-8">
+        <Label id="{fieldPrefix}-folder-label">Folder</Label>
+        <RadioGroup.Root
+          bind:value={() => folderChoice, (next) => (folderChoice = next as FolderChoice)}
+          disabled={locked || otherLoading}
+          aria-labelledby="{fieldPrefix}-folder-label"
+        >
+          {#if hereName !== null}
+            <div class="flex items-center gap-8">
+              <RadioGroup.Item value="here" id="{fieldPrefix}-folder-here" />
+              <Label for="{fieldPrefix}-folder-here">Current Folder: {hereName}</Label>
+            </div>
+          {/if}
+          <div class="flex items-center gap-8">
+            <RadioGroup.Item value="root" id="{fieldPrefix}-folder-root" />
+            <Label for="{fieldPrefix}-folder-root">Home: {destination.title}</Label>
+          </div>
+          <div class="flex items-center gap-8">
+            <RadioGroup.Item value="other" id="{fieldPrefix}-folder-other" />
+            <Label for="{fieldPrefix}-folder-other">Choose a Folder</Label>
+          </div>
+        </RadioGroup.Root>
+        {#if otherFailure !== null}
+          <p class="text-xs text-status-danger-subtle-foreground">{otherFailure}</p>
+        {/if}
+        {#if folderChoice === "other" && destinationIndex !== null}
+          <FolderPicker
+            index={destinationIndex}
+            bind:chosenFolderId={pickedFolderId}
+            label="Upload Location"
+            disabled={locked}
+          />
+        {/if}
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-8">
+      <FieldLabel as="p">On Arrival</FieldLabel>
+      <div class="flex flex-col gap-8">
+        <Label id="{fieldPrefix}-dating-label">Date Created</Label>
+        <RadioGroup.Root
+          bind:value={() => createdAtBasis, (next) => (createdAtBasis = next as "source" | "upload")}
+          disabled={locked}
+          aria-labelledby="{fieldPrefix}-dating-label"
+        >
+          <div class="flex items-center gap-8">
+            <RadioGroup.Item value="source" id="{fieldPrefix}-dating-source" />
+            <Label for="{fieldPrefix}-dating-source">The File's Own Date</Label>
+          </div>
+          <div class="flex items-center gap-8">
+            <RadioGroup.Item value="upload" id="{fieldPrefix}-dating-upload" />
+            <Label for="{fieldPrefix}-dating-upload">The Upload Date</Label>
+          </div>
+        </RadioGroup.Root>
+      </div>
+      <div class="flex flex-col gap-8">
+        <Label id="{fieldPrefix}-type-label">Document Type</Label>
+        <Select.Root
+          type="single"
+          items={[
+            { value: "", label: "None" },
+            ...documentTypes
+              .filter((type) => type.deactivatedAt === null)
+              .map((type) => ({ value: type.id, label: type.name })),
+          ]}
+          allowDeselect={false}
+          disabled={locked}
+          bind:value={() => documentTypeId ?? "", (next) => (documentTypeId = next === "" ? null : next)}
+        >
+          <Select.Trigger aria-labelledby="{fieldPrefix}-type-label">
+            <Select.Value placeholder="None" />
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="" label="None" />
+            {#each documentTypes.filter((type) => type.deactivatedAt === null) as type (type.id)}
+              <Select.Item value={type.id} label={type.name} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+    </div>
+  {/snippet}
+
+  <!-- RIGHT: the source — the files as they sit on the reader's disk, then how each is doing. -->
+  {#snippet context({ busy, done })}
+    {@const locked = busy || done}
+    <!-- The pane is a drop target for the pointer only; the controls inside it are what a keyboard
+         reaches, and the two hidden pickers are reached through the Add menu. -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="flex min-h-0 grow flex-col gap-8 rounded-md border border-dashed border-transparent"
+      class:border-accent-default={dragOver}
+      class:bg-accent-subtle={dragOver}
+      ondragenter={dragEnter}
+      ondragover={dragOverPane}
+      ondragleave={dragLeave}
+      ondrop={drop}
+    >
+      <!-- One row, one height, before and after the press: the chosen count becomes the tally. -->
+      <div class="flex min-h-32 items-center gap-8">
+        <FieldLabel as="p">Source</FieldLabel>
+        <span class="min-w-0 truncate text-xs text-text-subtle" role="status">
+          {started ? runningLine : chosenLine}
+        </span>
+        <span class="ms-auto flex items-center gap-8">
+          {#if !started && selectedKeys.length > 0}
+            <Button variant="ghost" size="sm" onclick={removeSelected}>
+              <X class="size-16" aria-hidden="true" />
+              Remove Selected
+            </Button>
+          {/if}
+          {#if batch !== null && batch.running}
+            {@const running = batch}
+            <!-- Stopping is offered where the transfer is watched. What has landed stays; what is
+                 being sent is given back; what had not started reads "Not sent". -->
+            <Button variant="secondary" size="sm" onclick={() => cancelUploadBatch(running)}>
+              <Ban class="size-16" aria-hidden="true" />
+              Cancel Upload
+            </Button>
+          {/if}
+          {#if batch !== null && !batch.running && (batch.failed > 0 || unsentCount(batch) > 0)}
+            {@const finished = batch}
+            <!-- The way to try again sits beside the failure it answers, not only in the tray. -->
+            <Button variant="secondary" size="sm" onclick={() => retryFailedUploads(finished)}>
+              <RotateCcw class="size-16" aria-hidden="true" />
+              {finished.failed > 0 ? "Retry Failed" : "Send the Rest"}
+            </Button>
+          {/if}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
+              class={buttonClasses({ variant: "secondary", size: "sm" })}
+              disabled={locked}
+              title={locked ? "The upload has started." : "Add files or a folder"}
+            >
+              <Plus class="size-16" aria-hidden="true" />
+              Add
+              <ChevronDown class="size-16" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+              <DropdownMenu.Item onSelect={() => filePicker?.click()}>
+                <FilePlus2 class="size-16" aria-hidden="true" />
+                Files
+              </DropdownMenu.Item>
+              <DropdownMenu.Item onSelect={() => folderPicker?.click()}>
+                <FolderUp class="size-16" aria-hidden="true" />
+                A Folder, With Everything Inside It
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         </span>
       </div>
-      <!-- The folder picker: a native input asking for a whole directory, opened by the button. -->
+
+      <!-- Mounted from the start at zero, at the height of the pace line that joins it once bytes
+           move, so neither the press nor the first byte adds a row above the table. Bytes, not
+           files: one large file among many small ones would otherwise sit at "almost done" for
+           most of the transfer. -->
+      <div class="flex min-h-16 items-center gap-8">
+        <Progress
+          value={batch === null ? 0 : batch.sentBytes}
+          max={batch === null ? 1 : Math.max(batch.totalBytes, 1)}
+          aria-label="Upload progress"
+          class="min-w-0 grow"
+        />
+        {#if paceLine !== ""}
+          <span class="shrink-0 text-xs text-text-subtle tabular-nums" role="status">
+            {paceLine}
+          </span>
+        {/if}
+      </div>
+
+      <UploadSourceTable
+        bind:this={sourceTable}
+        {entries}
+        {progress}
+        bind:expanded
+        caption="Files chosen for upload"
+        emptyLine="Drop files or folders here, or use Add above. Nothing is sent until Upload is pressed."
+        selectable={!started}
+        onSelectionChange={(keys) => (selectedKeys = keys)}
+      />
+
+      <!-- The two native pickers, reached only through the Add menu. -->
+      <input
+        bind:this={filePicker}
+        type="file"
+        multiple
+        class="sr-only"
+        aria-hidden="true"
+        tabindex="-1"
+        onchange={picked}
+      />
       <input
         bind:this={folderPicker}
         type="file"
@@ -174,122 +534,32 @@
         class="sr-only"
         aria-hidden="true"
         tabindex="-1"
-        onchange={(event) => {
-          const files = event.currentTarget.files;
-          if (files !== null) add(entriesFromFileList(files));
-          event.currentTarget.value = "";
-        }}
+        onchange={picked}
       />
-    {/if}
-
-    <p class="text-xs font-semibold text-text-muted">Upload Location</p>
-    <RadioGroup.Root
-      bind:value={() => choice, (next) => (choice = next as Destination)}
-      disabled={started || busy}
-    >
-      <div class="flex items-center gap-8">
-        <RadioGroup.Item value="here" id="upload-location-here" />
-        <Label for="upload-location-here">
-          {hereName === null ? `Home: ${matterTitle}` : `Current Folder: ${hereName}`}
-        </Label>
-      </div>
-      {#if hereName !== null}
-        <div class="flex items-center gap-8">
-          <RadioGroup.Item value="root" id="upload-location-root" />
-          <Label for="upload-location-root">Home: {matterTitle}</Label>
-        </div>
-      {/if}
-      <div class="flex items-center gap-8">
-        <RadioGroup.Item value="other" id="upload-location-other" />
-        <Label for="upload-location-other">Select Folder</Label>
-      </div>
-    </RadioGroup.Root>
-
-    {#if choice === "other"}
-      <FolderPicker {index} bind:chosenFolderId={pickedFolderId} label="Upload location" />
-    {/if}
+    </div>
   {/snippet}
+</ActionDialog>
 
-  <!-- RIGHT: what was chosen, then what each file is doing about it. -->
-  {#snippet context()}
-    {#if !started}
-      <p class="flex items-baseline gap-8 text-xs font-semibold text-text-muted">
-        Chosen
-        <span class="font-regular text-text-subtle">{chosenPhrase}</span>
-      </p>
-      {#if chosen.length === 0}
-        <p class="mt-8 text-sm text-text-muted">
-          Nothing chosen yet. Nothing is sent until Upload is pressed.
-        </p>
-      {:else}
-        <ul class="mt-8 flex flex-col gap-4" aria-label="Files chosen">
-          {#each chosen as entry, at (keyOf(entry))}
-            <li class="flex items-center gap-8 text-sm">
-              <span class="min-w-0 truncate" title={itemName(entry)}>{itemName(entry)}</span>
-              <span class="ms-auto text-xs whitespace-nowrap text-text-subtle">
-                {formatBytes(entry.file.size)}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onclick={() => removeAt(at)}
-                aria-label={`Remove ${entry.file.name}`}
-              >
-                <X class="size-16" aria-hidden="true" />
-              </Button>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    {:else}
-      <p class="flex items-baseline gap-8 text-xs font-semibold text-text-muted">
-        Progress
-        <span class="font-regular text-text-subtle">
-          {settledCount} of {items.length} finished
-        </span>
-      </p>
-      <ul class="mt-8 flex flex-col gap-4" aria-label="Upload progress">
-        {#each items as item, position (position)}
-          <li class="flex items-center gap-8 text-sm">
-            {#if item.stage === "settled"}
-              <CircleCheck
-                class="size-16 shrink-0 text-status-success-subtle-foreground"
-                aria-hidden="true"
-              />
-            {:else if item.stage === "failed"}
-              <CircleAlert
-                class="size-16 shrink-0 text-status-danger-subtle-foreground"
-                aria-hidden="true"
-              />
-            {:else}
-              <!-- Not yet landed. The stage beside the name says what the file is doing; the mark
-                   only says it is not finished, the way an unwritten row reads on the time sheet. -->
-              <CircleDashed class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
-            {/if}
-            <span class="min-w-0 truncate" title={item.name}>{item.name}</span>
-            <span class="ms-auto text-xs whitespace-nowrap text-text-subtle">
-              {item.stage === "failed"
-                ? "Upload failed"
-                : item.stage === "settled"
-                  ? "Uploaded"
-                  : UPLOAD_STAGE_NARRATION[item.stage]}
-            </span>
-          </li>
-        {/each}
-      </ul>
-
-      {#if failures.length > 0}
-        <div class="mt-12">
-          <Alert.Root variant="warning">
-            <Alert.Title>Upload Failed</Alert.Title>
-            <Alert.Description>
-              {#each failures as failure, position (position)}
-                <span class="block">{failure.name}: {failure.reason}</span>
-              {/each}
-            </Alert.Description>
-          </Alert.Root>
-        </div>
-      {/if}
-    {/if}
+<!-- The question a navigation away asks while files are chosen and not yet sent: the product's one
+     panel for an act asked of a reader, in its question kind, so the verbs, the dismissal and the
+     primitive are the shell's and not this surface's. -->
+<ActionDialog
+  bind:open={
+    () => leavingTo !== null,
+    (showing) => {
+      if (!showing) leavingTo = null;
+    }
+  }
+  kind="confirm"
+  heading="Discard Your Changes?"
+  commitLabel="Discard Changes"
+  unsavedChanges={false}
+  onCommit={() => {
+    discardAndLeave();
+    return Promise.resolve("committed");
+  }}
+>
+  {#snippet fields()}
+    <p class="text-sm">{DISCARD_SENTENCE}</p>
   {/snippet}
 </ActionDialog>
