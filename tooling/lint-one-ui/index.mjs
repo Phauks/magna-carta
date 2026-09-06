@@ -71,6 +71,7 @@ import {
   findHandPlacedLoading,
   findSilentLoading,
   findFixtureShapeProblems,
+  findLoadingLabelProblems,
   findHandDrawnGlyphs,
   findHandRolledSelects,
   findHandWrittenCapsRegister,
@@ -457,6 +458,9 @@ mustHaveRead(sweep([APP_SOURCE], findSilentLoading), "silent loading", [APP_SOUR
 // Rule: a fixture is the shape it stands in for. Both sides of the line, wherever a region is
 // written with a fixture.
 mustHaveRead(sweep(BOTH_SIDES, findFixtureShapeProblems), "fixture shape", BOTH_SIDES);
+
+// Rule: a loading label is a sentence in the house voice. Both sides of the line.
+mustHaveRead(sweep(BOTH_SIDES, findLoadingLabelProblems), "loading label", BOTH_SIDES);
 
 // Rule: one details panel. The app only — the shell lives there, and the design system has no
 // business composing one.

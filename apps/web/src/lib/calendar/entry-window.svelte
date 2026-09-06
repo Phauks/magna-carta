@@ -48,7 +48,7 @@
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { SAMPLE_SENTENCE, samplePerson } from "@magna-carta/design-system/loading-fixtures";
+  import { SAMPLE_SENTENCE, sampleCivilDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import * as Select from "@magna-carta/design-system/select";
   import Textarea from "@magna-carta/design-system/textarea";
   import type { ApiOutcome, Failure } from "$lib/api/request.ts";
@@ -688,9 +688,9 @@
   // write into and never do (the region is inert). Sample words only, never a record's own: the
   // names and the description are the sample vocabulary's; the civil dates stay literal because
   // the pickers take the wire shape, which the vocabulary does not carry.
-  const FIXTURE_DATE = civilDateValue("2026-09-21");
+  const FIXTURE_DATE = civilDateValue(sampleCivilDate(3));
   let fixtureTiming = $state<EventTimingDraft>({
-    startsOn: "2026-09-21",
+    startsOn: sampleCivilDate(3),
     startsAtTime: "10:30",
     endsOn: null,
     endsAtTime: "11:30",

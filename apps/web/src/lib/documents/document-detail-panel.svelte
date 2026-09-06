@@ -11,6 +11,7 @@
    * not the same thing as hiding the button: the button works, and what it reaches may not be there.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import { sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
@@ -77,7 +78,7 @@
       sizeBytes: 184_320,
       sniffedContentType: null,
       contentSha256: "9f3c1e7ab52d0468c1d2e3f4a5b6c7d8",
-      committedAt: "2026-02-12T16:12:00Z",
+      committedAt: sampleInstant(4),
     },
     {
       id: "fixture-2",
@@ -85,7 +86,7 @@
       sizeBytes: 176_128,
       sniffedContentType: null,
       contentSha256: "4b8e2d61f7a90c35d4e5f6a7b8c9d0e1",
-      committedAt: "2026-02-10T09:41:00Z",
+      committedAt: sampleInstant(0),
     },
     {
       id: "fixture-1",
@@ -93,7 +94,7 @@
       sizeBytes: 171_008,
       sniffedContentType: null,
       contentSha256: "d17a5c0e3b9f6248e5f6a7b8c9d0e1f2",
-      committedAt: "2026-02-09T14:05:00Z",
+      committedAt: sampleInstant(1),
     },
   ];
 

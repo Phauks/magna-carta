@@ -29,6 +29,7 @@
    * element; settings-plate.svelte is the reference for the recipe.
    */
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleCivilDate } from "@magna-carta/design-system/loading-fixtures";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
@@ -58,7 +59,7 @@
   /** Sample words for the loading fixture: plausible shapes for the three scan engine rows. */
   const SCAN_ENGINE_FIXTURE: ScanEngineParts = {
     engineCode: "3.7.1",
-    yaraRuleset: "2026-09-01",
+    yaraRuleset: sampleCivilDate(0),
     malwareDefinitions: "27544",
   };
 

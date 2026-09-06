@@ -23,6 +23,7 @@ import {
   findHandPlacedLoading,
   findSilentLoading,
   findFixtureShapeProblems,
+  findLoadingLabelProblems,
   findHandDrawnGlyphs,
   findHandRolledSelects,
   findHandWrittenCapsRegister,
@@ -903,6 +904,7 @@ describe("the registry's own allowances", () => {
       "hand-placed-loading",
       "silent-loading",
       "fixture-shape",
+      "loading-label",
       "sweep",
     ]);
     for (const allowance of registry.allowances ?? []) {
@@ -1226,5 +1228,36 @@ describe("a fixture is the shape it stands in for", () => {
   <Fields />
 </LoadingRegion>`;
     expect(findFixtureShapeProblems("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+});
+
+describe("a loading label in the house voice", () => {
+  it("passes a capitalised gerund with no terminal punctuation, across lines", () => {
+    const source = `<LoadingRegion
+  loading={rows === null}
+  label="Reading the names on this record"
+>x</LoadingRegion>
+<LoadingRegion loading label="Looking for near matches">y</LoadingRegion>`;
+    expect(findLoadingLabelProblems("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+
+  it("bites on Loading, on a full stop and on an ellipsis", () => {
+    const source = `<LoadingRegion loading label="Loading">a</LoadingRegion>
+<LoadingRegion loading label="Reading the rows.">b</LoadingRegion>
+<LoadingRegion loading label="Reading the rows…">c</LoadingRegion>
+<LoadingRegion loading label="the rows">d</LoadingRegion>`;
+    const problems = findLoadingLabelProblems("apps/web/src/lib/x.svelte", source);
+    expect(problems.map((problem) => problem.text)).toEqual([
+      "Loading",
+      "Reading the rows.",
+      "Reading the rows…",
+      "the rows",
+    ]);
+    expect(problems.every((problem) => problem.rule === "loading-label")).toBe(true);
+  });
+
+  it("leaves an expression label to the caller", () => {
+    const source = `<LoadingRegion loading label={sentence}>a</LoadingRegion>`;
+    expect(findLoadingLabelProblems("apps/web/src/lib/x.svelte", source)).toEqual([]);
   });
 });

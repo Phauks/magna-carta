@@ -1437,3 +1437,43 @@ export function findFixtureShapeProblems(filePath, source) {
   }
   return problems;
 }
+
+// --- rule: a loading label is a sentence in the house voice ------------------------------------
+
+/**
+ * A region's label is the sentence assistive technology hears, and the region derives two more
+ * sentences from it — "Finished reading the names on this record." and "Still reading the names
+ * on this record. This is taking longer than it should." — by lowering its first letter. That
+ * works because the house voice names the act as a capitalised gerund: Reading, Looking, Checking,
+ * Computing, Searching. A label that says "Loading…" says nothing a reader can use, and a label
+ * with a full stop or an ellipsis at its end breaks the derived sentences. So a literal label is
+ * held to the shape; an expression label (`label={sentence}`) is the caller's own judgement and is
+ * left alone.
+ */
+const REGION_LABEL_PATTERN = /<LoadingRegion\b[^>]*?\blabel="([^"]*)"/gs;
+const HOUSE_VOICE_LABEL = /^[A-Z][a-z]+ing\b[^.…]*[^\s.…]$/;
+
+export function findLoadingLabelProblems(filePath, source) {
+  const text = stripComments(source);
+  const problems = [];
+  for (const match of text.matchAll(REGION_LABEL_PATTERN)) {
+    const label = match[1];
+    // A label with an expression in it ("Reading this record's {words.heading}") is judged only on
+    // its opening words: the rest is the caller's, and its ending cannot be read from the source.
+    const literal = label.includes("{") ? label.slice(0, label.indexOf("{")).trimEnd() : label;
+    const startsWithLoading = /^Loading\b/.test(literal);
+    if (!startsWithLoading && HOUSE_VOICE_LABEL.test(literal)) continue;
+    problems.push({
+      rule: "loading-label",
+      file: filePath,
+      line: lineOf(text, match.index),
+      text: label,
+      detail:
+        `has a label that is not in the house voice (\`${label}\`). A region's label names the ` +
+        'act as a capitalised gerund — "Reading the names on this record", "Looking for near ' +
+        'matches" — never "Loading", and ends without a full stop or an ellipsis, because the ' +
+        "region derives its finished and stalled sentences from it",
+    });
+  }
+  return problems;
+}

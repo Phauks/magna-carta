@@ -33,7 +33,7 @@
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { SAMPLE_SENTENCE, samplePerson } from "@magna-carta/design-system/loading-fixtures";
+  import { SAMPLE_SENTENCE, sampleInstant, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Gavel from "@lucide/svelte/icons/gavel";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -148,21 +148,21 @@
     {
       id: "fixture-surfaced",
       action: "Surfaced by the check",
-      at: "2026-02-09T14:05:00Z",
+      at: sampleInstant(1),
       source: "The conflicts engine",
       detail: "Surname and given name matched; date of birth matched",
     },
     {
       id: "fixture-cleared",
       action: "Cleared: no adverse interest",
-      at: "2026-02-10T09:41:00Z",
+      at: sampleInstant(0),
       source: samplePerson(0).name,
       detail: SAMPLE_SENTENCE,
     },
     {
       id: "fixture-waiver",
       action: "Waiver obtained, confirmed in writing",
-      at: "2026-02-12T16:12:00Z",
+      at: sampleInstant(4),
       source: samplePerson(0).name,
       detail: SAMPLE_SENTENCE,
     },

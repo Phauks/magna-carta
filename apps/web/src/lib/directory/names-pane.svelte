@@ -31,7 +31,7 @@
   import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { samplePerson } from "@magna-carta/design-system/loading-fixtures";
+  import { sampleCivilDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import PenLine from "@lucide/svelte/icons/pen-line";
   import Plus from "@lucide/svelte/icons/plus";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -106,7 +106,7 @@
       middle: null,
       suffix: null,
       ...sampleNameRow(0),
-      validFrom: "2018-06-14",
+      validFrom: sampleCivilDate(2),
       validTo: null,
       recordedAt: "",
     },
@@ -119,7 +119,7 @@
       suffix: null,
       ...sampleNameRow(2),
       validFrom: null,
-      validTo: "2018-06-14",
+      validTo: sampleCivilDate(2),
       recordedAt: "",
     },
   ];

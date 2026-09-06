@@ -22,7 +22,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import EventRail from "@magna-carta/design-system/event-rail";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { sampleDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
+  import { sampleDate, sampleInstant, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -83,14 +83,14 @@
     {
       id: "fixture-relationship",
       action: "A relationship was recorded",
-      at: "2026-02-11T10:30:00Z",
+      at: sampleInstant(1),
       source: "The firm's own records",
       detail: "Noticed 11 Feb 2026, 10:32. Reference edge_0k4x7.",
     },
     {
       id: "fixture-renamed",
       action: "A Directory record gained another name",
-      at: "2026-02-14T15:02:00Z",
+      at: sampleInstant(0),
       source: "The firm's own records",
       detail: "Noticed 14 Feb 2026, 15:04. Reference ent_0p9m2.",
     },

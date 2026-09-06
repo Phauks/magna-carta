@@ -25,6 +25,7 @@
    * real matter" are different facts.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import { sampleCivilDate, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -139,7 +140,7 @@
       id: "fixture-deadline-responses",
       matterId: "fixture-matter",
       title: "Responses to the first set of interrogatories",
-      dueOn: "2026-09-28",
+      dueOn: sampleCivilDate(3),
       dueAtTime: "17:00",
       timeZone: "America/Chicago",
       source: "member",
@@ -157,7 +158,7 @@
       id: "fixture-deadline-summary-judgment",
       matterId: "fixture-matter",
       title: "Motion for summary judgment",
-      dueOn: "2026-10-16",
+      dueOn: sampleCivilDate(4),
       dueAtTime: null,
       timeZone: "America/Chicago",
       source: "court_order",
@@ -183,14 +184,14 @@
       description: null,
       status: "scheduled",
       statusReason: null,
-      startsOn: "2026-10-02",
+      startsOn: sampleCivilDate(3),
       startsAtTime: "09:30",
       endsOn: null,
       endsAtTime: null,
       timeZone: "America/Chicago",
       locationText: "Department 12",
       courtReference: null,
-      recordedAt: "2026-09-01T15:00:00Z",
+      recordedAt: sampleInstant(0),
       recordedBy: null,
       continuedFromEventId: null,
       continuedToEventId: null,
@@ -204,14 +205,14 @@
       description: null,
       status: "scheduled",
       statusReason: null,
-      startsOn: "2026-10-14",
+      startsOn: sampleCivilDate(4),
       startsAtTime: "13:00",
       endsOn: null,
       endsAtTime: null,
       timeZone: "America/Chicago",
       locationText: "Conference Room A",
       courtReference: null,
-      recordedAt: "2026-09-01T15:00:00Z",
+      recordedAt: sampleInstant(1),
       recordedBy: null,
       continuedFromEventId: null,
       continuedToEventId: null,

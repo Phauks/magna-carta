@@ -37,7 +37,7 @@
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import { sampleOrganization, samplePerson } from "@magna-carta/design-system/loading-fixtures";
+  import { sampleCivilDate, sampleOrganization, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import Link from "@lucide/svelte/icons/link";
   import {
     createDirectoryEdge,
@@ -139,7 +139,7 @@
       farDisplayName: sampleOrganization(1).name,
       role: "Company secretary",
       note: null,
-      validFrom: "2019-03-01",
+      validFrom: sampleCivilDate(2),
       validTo: null,
     },
     {

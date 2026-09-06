@@ -17,12 +17,15 @@
    * because on a matter record that difference is a chain-of-custody event.
    */
   import * as Tabs from "@magna-carta/design-system/tabs";
+  import { sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import type { Failure } from "$lib/api/problem.ts";
   import Separator from "@magna-carta/design-system/separator";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusEntry } from "@magna-carta/design-system/status-register";
@@ -58,6 +61,8 @@
     documentTypes,
     versions,
     versionsLoading,
+    versionsFailure,
+    onRetryVersions,
     integrity,
     integrityRunning,
     folderAggregateOf,
@@ -76,6 +81,10 @@
     documentTypes: readonly DocumentTypeSummary[];
     versions: readonly MatterFileVersion[] | null;
     versionsLoading: boolean;
+    /** The failure that ended the versions read, so the panel can say so rather than "none yet". */
+    versionsFailure: Failure | null;
+    /** Ask for the versions again — the notice's Retry and the region's stalled line both use it. */
+    onRetryVersions: () => void;
     integrity: IntegrityVerification | null;
     integrityRunning: boolean;
     folderAggregateOf: (folderId: string) => FolderAggregate;
@@ -115,7 +124,7 @@
       sizeBytes: 184_320,
       sniffedContentType: null,
       contentSha256: null,
-      committedAt: "2026-02-12T16:12:00Z",
+      committedAt: sampleInstant(4),
     },
     {
       id: "fixture-2",
@@ -123,7 +132,7 @@
       sizeBytes: 176_128,
       sniffedContentType: null,
       contentSha256: null,
-      committedAt: "2026-02-10T09:41:00Z",
+      committedAt: sampleInstant(0),
     },
   ];
   const HEX_RUN = "3b7f9d1e";
@@ -370,10 +379,21 @@
         <Tabs.Content value="versions">
           <LoadingRegion
             loading={versionsLoading}
+            failed={versionsFailure !== null}
             empty={versions === null || versions.length === 0}
             label="Reading this file's versions"
+            onRetry={onRetryVersions}
             class="flex flex-col gap-8 p-12"
           >
+            {#snippet failure()}
+              {#if versionsFailure !== null}
+                <FailureNotice
+                  failure={versionsFailure}
+                  subject="This file's versions"
+                  onRetry={onRetryVersions}
+                />
+              {/if}
+            {/snippet}
             {#snippet fixture()}
               {#each VERSION_FIXTURE as version, index (version.id)}
                 {@render versionRow(version, index)}

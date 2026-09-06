@@ -32,6 +32,7 @@
   let {
     answer,
     failure,
+    onRetry,
     busy,
     density = "comfortable",
     onnavigate,
@@ -39,6 +40,8 @@
     answer: MatterSearchAnswer | null;
     /** The whole failure record with this search's own words, never a sentence squeezed out of it. */
     failure: StatedFailure | null;
+    /** Ask the same question again; the caller owns the search, so it supplies the re-ask. */
+    onRetry?: () => void;
     busy: boolean;
     /** "compact" is the panel under the field; "comfortable" is the results page. */
     density?: "compact" | "comfortable";
@@ -91,6 +94,7 @@
 <LoadingRegion
   loading={answer === null && busy}
   failed={failure !== null}
+  {onRetry}
   refreshing={answer !== null && busy}
   label="Searching this matter"
   failure={failureNotice}

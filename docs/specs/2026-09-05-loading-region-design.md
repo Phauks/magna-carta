@@ -183,6 +183,16 @@ x.length === 0} … {:else}` chain is gone from every surface; the region decide
 - **The sample vocabulary.** `@magna-carta/design-system/loading-fixtures`: invented people,
   organizations, matters, dates, amounts and one sentence, by index, so every fixture's words are
   plausible, stable and provably not a client's.
+- **The third round (2026-09-06).** `loading-label`, the fourth rule: a literal label starts with a
+  capitalised gerund, never "Loading", and ends without punctuation, because the region derives
+  its finished and stalled sentences from it. The callers the second round left short now hand
+  their regions what they can use: the conflicts matter page passes Retry to the posture panel,
+  the file manager carries a failed versions read into the inspector instead of collapsing it to
+  "no versions yet" and guards the integrity check against a second concurrent run, the matter
+  search's callers supply its re-ask, and the version chip's two regions each announce only their
+  own re-read. Every fixture date is on the vocabulary in the shape its column needs. The
+  developer console's performance module lists the reads the tab waited on, read from the User
+  Timing measures the regions write.
 - **Not done, and why: the cheaper pulse.** Animating one registered custom property on the region
   needs `@property` with a `syntax` string, which the recipe purity gate refuses, and animating
   `color` for the leaves to read as `currentColor` breaks the moment a utility sets a leaf's colour.

@@ -72,6 +72,7 @@
    * - Every version is copyable: one click puts the part's identifier line on the clipboard.
    */
   import Badge from "@magna-carta/design-system/badge";
+  import { sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import Button from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
   import Separator from "@magna-carta/design-system/separator";
@@ -162,8 +163,8 @@
   // Sample words for the loading fixtures: an invented commit and its two timestamps, so a
   // fixture row's detail line is the width a real one is.
   const FIXTURE_COMMIT = "0f3a9c1";
-  const FIXTURE_COMMIT_TIME = "2026-09-04T15:02:00Z";
-  const FIXTURE_BUILD_TIME = "2026-09-04T15:09:00Z";
+  const FIXTURE_COMMIT_TIME = sampleInstant(1);
+  const FIXTURE_BUILD_TIME = sampleInstant(0);
   const webCommitLabel = isRealCommit(BUILD_IDENTITY.commit) ? BUILD_IDENTITY.commit : "dev";
 
   // True once the version poll has seen a bundle newer than the one this tab is running.
@@ -591,7 +592,7 @@
                above says which read is out. -->
           <LoadingRegion
             loading={value === null}
-            refreshing={loading || healthLoading}
+            refreshing={loading}
             label="Reading what the deployment is running"
             onRetry={() => void refresh({ fresh: true })}
             class="flex flex-col gap-8"
@@ -723,7 +724,7 @@
         {#if healthValue !== null || healthLoading}
           <LoadingRegion
             loading={healthValue === null}
-            refreshing={loading || healthLoading}
+            refreshing={healthLoading}
             label="Reading whether this firm's database can be reached"
             onRetry={() => void refreshHealth()}
             class="flex flex-col gap-8"
