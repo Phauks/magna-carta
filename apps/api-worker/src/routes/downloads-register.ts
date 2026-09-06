@@ -242,32 +242,42 @@ export const downloadFetchRoute = defineOpenAPIRoute(downloadFetchMeta, {
   },
 });
 
-export const downloadRemoveRoute = defineOpenAPIRoute(downloadRemoveMeta, {
-  method: "delete",
-  path: "/api/v1/downloads/{downloadItemId}",
-  description:
-    "Clear one item off the session member's own shelf, and delete the stored document behind a snapshot. An artifact's bytes belong to its own producer and its own lifecycle rule, so they are left alone.",
-  request: { params: z.object({ downloadItemId: z.string() }) },
-  responses: {
-    204: { description: "Removed" },
-    401: {
-      description: "No valid session",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    403: {
-      description: "Authenticated, but the member lacks downloads:shelf",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    404: {
-      description: "No such item on this member's shelf",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    429: {
-      description: "Rate limit exceeded",
-      content: { "application/problem+json": { schema: Problem } },
+export const downloadRemoveRoute = defineOpenAPIRoute(
+  {
+    ...downloadRemoveMeta,
+    reversal: {
+      kind: "none",
+      reason:
+        "A shelf item points at an artifact somebody asked for. Asking again produces a new one with its own snapshot; nothing puts this row back.",
     },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/downloads/{downloadItemId}",
+    description:
+      "Clear one item off the session member's own shelf, and delete the stored document behind a snapshot. An artifact's bytes belong to its own producer and its own lifecycle rule, so they are left alone.",
+    request: { params: z.object({ downloadItemId: z.string() }) },
+    responses: {
+      204: { description: "Removed" },
+      401: {
+        description: "No valid session",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      403: {
+        description: "Authenticated, but the member lacks downloads:shelf",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      404: {
+        description: "No such item on this member's shelf",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      429: {
+        description: "Rate limit exceeded",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+    },
+  },
+);
 
 export function registerDownloadRegisterRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,

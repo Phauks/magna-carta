@@ -30,6 +30,8 @@ properties; off-token values are machine-rejected.
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
   the timing, the focus rules, and the one-hover-menu-at-a-time arbitration, shared from Root to
   Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only)
+- `src/lib/components/loading-region/` — `LoadingRegion`, the ONE loading state: real markup over a
+  fixture, greyed by the `mc-loading` recipe (imported last in `components.css`, on purpose)
 - `src/lib/styles/components.css` — the semantic component-class layer (`mc-*` recipes)
 - `src/stories/**.stories.svelte` — the catalog; stories triple as browser-mode behavior tests and
   per-story axe checks
@@ -183,6 +185,76 @@ directory search before these existed; the one-implementation registry now refus
   carries an allowance for its hand-composed one; this family does not.
 - **`PARTIES_TAB_KEY`** is the agreement every record window imports, the twin of
   `ATTACHMENTS_TAB_KEY`.
+
+## The table's own controls: three components, not a snippet per surface
+
+**`DataTable.ClearFilters`, `DataTable.GridFigures` and `DataTable.LoadMore`** are the controls a
+table's control row and counts strip are made of. Each was hand-built on several surfaces first —
+the clear control seven times in three shapes, the figures strip five times with one already in the
+opposite reading order, load-more three times in two places — and the drift is why they moved here.
+
+- **What a surface varies is WHERE it puts them, never what they look like.** The owner's 2026-09-03
+  placement: the clear control goes in the control row above the table, where the filters were set;
+  the undo and redo pair goes in the footer. `docs/conventions/design-corrections.md` carries it.
+- **`ClearFilters` is two acts and says which.** Column filters alone read "Clear Filters"; a
+  surface whose own search or scope is also holding rows back passes `narrowing` and the control
+  reads "Show Everything", because clearing a search under a button labelled Clear Filters is a lie
+  about what the press will do. Neither is configured — both are derived. Its `grid` is optional:
+  a surface can be narrowed before its grid exists.
+- **It renders NOTHING when nothing is in play**, and so does `LoadMore` at the end of a list. That
+  is the standing rule for a control that undoes a state — absence is the answer, never a disabled
+  control.
+- **`GridFigures` takes TEXT.** Money, durations and counts each format through their own home; a
+  strip that took minor units and a currency would have to learn all three and still be wrong for
+  the fourth. What it owns is the arrangement: label first, figure second, tabular, `·` between,
+  and the "In view:" prefix under a filter — a total that silently changed meaning when a column was
+  filtered is the most quietly wrong thing a footer can do.
+- **The footer's inline "Show all" stays.** It is part of the tally sentence ("x of y · filtered on
+  Status, Matter"), not a control in a control row, and the two are different things.
+
+## The history family: one stack, one pair of controls, one set of keys
+
+**`src/lib/components/history/` is the one home of undo and redo.** `HistoryStack` holds the steps,
+`UndoRedoControls` is the split-control pair, and `historyShortcuts` is the keyboard handler. All
+three are in `lint:one-ui`'s one-implementation registry: a second undo stack anywhere is the defect
+the entry exists to prevent, and there were two before this landed
+(`apps/web/src/lib/time/time-sheet-history.svelte.ts` and
+`apps/web/src/lib/file-manager/move-history.ts`); both are gone, and both surfaces now render this
+control over this stack. Design: [`docs/specs/2026-09-03-undo-redo-and-reversal-design.md`](../../docs/specs/2026-09-03-undo-redo-and-reversal-design.md).
+
+- **A step is a command with an inverse, never a snapshot.** A snapshot restores a screen; an
+  inverse restores the record. The snapshot model is why the Time Sheet writes back every row on
+  every undo — it cannot know which fields moved — and why a snapshot taken before a re-read is
+  unsafe. `HistoryStep` is `{ label, undo, redo }` and the surface decides what those do.
+- **A step is pushed only where its inverse is real.** What is refused is refused out loud:
+  `irreversibleAnnouncement` is the sentence, and it names where the repair lives, because "undo
+  does not reach this" is only half an answer when the other half exists.
+- **The outcome follows the inverse, never the pop.** `undo`/`redo` answer once the writes have
+  answered; a failure leaves the step on the stack, still offered, with the failing label named. The
+  control hands the outcome back through `onOutcome` and says nothing itself — the live region
+  belongs to the surface, and a control that spoke would be a second voice on the same strip.
+- **A walk in flight refuses the next one** rather than interleaving two sequences of inverses, so
+  both halves disable while one runs. Only `push` grows the stack (bounded at `STEPS_KEPT`); a walk
+  moves a step between the two sides, which is why neither side trims and walking back and forth
+  cannot drop the far end.
+- **`historyShortcuts` is a handler, not a window listener** — the surface attaches it to its own
+  element, so two surfaces with stacks cannot receive each other's keys. It REACHES INSIDE TEXT
+  FIELDS by default, which is what both existing surfaces do and is right on a rapid-entry grid: a
+  reader who has typed into six cells and presses Ctrl+Z means the sheet, not the caret.
+  `insideTextFields: "yield"` is the seam for a surface that is one long text field.
+- **The one thing a surface varies is the register** — `variant: "ghost" | "secondary"` — because
+  that is a fact about the chrome the pair sits in (a quiet counts footer, a toolbar of secondary
+  buttons), not about undo. Closed set, no `class` prop to reach past it, and the bordered register
+  also drops the caret's leading edge so the seam is not a double rule.
+- **A module with no Svelte in it imports from the leaf paths**, `@magna-carta/design-system/history-stack`
+  and `/history-shortcuts`, never the `./history` barrel: the barrel carries the CONTROL, and a
+  plain module that pulls its component tree in stops loading anywhere a Svelte transform is not in
+  play (it fails as `Unknown file extension ".svelte"` deep inside bits-ui, which reads like
+  anything but the import that caused it). `.svelte` consumers take the barrel.
+- **`DropdownMenu.GroupHeading` must sit inside a `DropdownMenu.Group`.** Without it bits throws
+  `Context "Menu.Group | Menu.RadioGroup" not found` when the menu OPENS — not on render — so it is
+  invisible until somebody presses the caret. Both hand-built copies of this control shipped without
+  the group; this one has it, and the story that opens the menu is what pins it.
 
 ## The maturity family, and the field primitives
 
@@ -352,9 +424,9 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
     - **AI components** (new domain family, later — more complex): streaming-response surfaces + status indicators (token streaming, tool-call status, stop/regenerate). A richer composite; design separately when AI features land, likely its own catalog category.
   - **Status surfaces use the gated solid pairing:** an Alert is a solid `status.<v>` panel with `status.<v>-foreground` (the AA-gated pair); a status colour as **text on a light surface is ungated and can fail AA** — do not use it until `status.*-subtle` tokens exist.
   - **Animations pulse between token colours, not opacity** (no opacity token; opacity literals are banned) and carry a `prefers-reduced-motion` guard (Skeleton).
-    - **Future evaluation — auto-generated skeletons** (owner-flagged 2026-06-13): the in-house Skeleton is hand-placed, so its shape can drift from the real component. [phantom-ui](https://github.com/Aejkatappaja/phantom-ui) auto-generates shimmer placeholders by measuring the real DOM at runtime (a framework-agnostic Lit web component). Appealing for drift, but a poor foundation fit as-is — it injects non-token styling (vs golden rule 2), is a brand-new single-author dep bundling Lit (bus-factor), and adds runtime measuring + a CSP surface to vet. If skeleton drift becomes real pain across many components, spike it properly (adopt, or borrow the measuring-wrapper idea in-house with token-driven shimmer). Not for 0·7a.
+    - **The component is its own skeleton (owner ruling 2026-09-05, closing the 2026-06-13 evaluation).** `LoadingRegion` (`src/lib/components/loading-region/`) is the ONE loading state: a region renders its real markup over a `fixture` snippet under the `mc-loading` recipe, which greys every text leaf (any element with no element children and some text), media and controls, and keeps furniture (`th`, `label`, `legend`, `caption`, `dt`, `.mc-label`, `.mc-field-label`, `[data-loading-keep]`; `[data-loading-block]` makes a container one bone). Text is hidden with `-webkit-text-fill-color`, not `color`, because a utility in the utilities layer beats any `color` set here; the recipe is imported LAST in `styles/components.css` so it wins at equal specificity — keep it there. The region holds the whole state set — `failed`/`failure` first, `loading`/`fixture`, `empty`/`emptyState`, the children, and `refreshing` for a re-read that keeps the content — and is `inert` and `aria-busy` while loading, with one `role="status"` line that carries the sentence and then `finishedSentence(label)`; past `STALLED_AFTER_MILLISECONDS` it states the stall with Retry (`onRetry`), and every settle writes a User Timing measure and dispatches `mc-loading-settled`, which the app shell records as a breadcrumb. It has no colour or pulse props; `stalledAfter` is the one test seam. Fixture words come from `src/lib/loading-fixtures/` (the sample vocabulary), never typed inline; `fixture-shape` fails a fixture rendering a component its children do not, `silent-loading` a null branch that renders nothing, and `loading-label` a label outside the house voice (a capitalised gerund, never "Loading", no terminal punctuation — the finished and stalled sentences are derived from it). `Skeleton` is no longer exported: it is the internal box of the six components that render placeholder rows of their own shape (`DataTable.Grid` — count prop `placeholderCount` — `EventRail`, `RecordParties`, `RecordAttachments`, `CalendarGrid`, `FolderTree`), which are the `loadingHomes` declared in `tooling/lint-one-ui/registry.json`; `hand-placed-loading` fails the Skeleton, `mc-skeleton`, `aria-busy`, `animate-pulse` and loader-glyph signals everywhere else, on both sides of the line. phantom-ui and boneyard-js were evaluated and declined (`docs/research/2026-09-05-skeleton-loading-framework.md`): every measuring approach needs a fixture anyway, and once it exists the measuring is the part worth dropping.
 - **Catalog model (owner-settled): one story per variant/instance; autodocs is the review surface.**
-  - **Catalog taxonomy (owner-settled 2026-06-13): semantic categories as the story-title prefix, NOT a flat `Components/*`.** A story's `title` is `<Category>/<Component>`. Categories: **Inputs** (Input, Textarea, FileInput, Label, Checkbox, Switch, RadioGroup, + future Select/Slider), **Compound Inputs** (composed/specialized data entry — the dedicated-components list above), **Actions** (Button), **Data Display** (Badge, Card, Keyboard, Avatar), **Feedback** (Alert, Skeleton, Progress, Tooltip), **Layout** (Separator, Tabs, Accordion), **Overlays** (future — Dialog, Popover, DropdownMenu, ContextMenu), **Foundations** (the Design Tokens board). Established while the catalog was small and no VRT baselines were committed (re-titling changes story IDs, so it's cheapest before baselines exist). New components pick the matching category.
+  - **Catalog taxonomy (owner-settled 2026-06-13): semantic categories as the story-title prefix, NOT a flat `Components/*`.** A story's `title` is `<Category>/<Component>`. Categories: **Inputs** (Input, Textarea, FileInput, Label, Checkbox, Switch, RadioGroup, + future Select/Slider), **Compound Inputs** (composed/specialized data entry — the dedicated-components list above), **Actions** (Button), **Data Display** (Badge, Card, Keyboard, Avatar), **Feedback** (Alert, LoadingRegion, Skeleton, Progress, Tooltip), **Layout** (Separator, Tabs, Accordion), **Overlays** (future — Dialog, Popover, DropdownMenu, ContextMenu), **Foundations** (the Design Tokens board). Established while the catalog was small and no VRT baselines were committed (re-titling changes story IDs, so it's cheapest before baselines exist). New components pick the matching category.
     - **Inputs vs Actions — the delineation** (owner question 2026-06-13): an **Input holds a VALUE** the user sets and a form reads (checked/selected/typed) — Checkbox/Switch/RadioGroup/Input/Select/Slider, even though they're "interactive", are Inputs because their job is state. An **Action triggers a one-shot operation** and holds no value — Button (and menu items). Test: "does it carry a value, or fire a command?" Menus (DropdownMenu/ContextMenu) are overlays OF actions → **Overlays**.
   - **One story per the component's main "variant" axis** (Button per variant; Alert/Badge per variant; Separator per orientation); a component with no variant axis is ONE story (Textarea, FileInput, Card, Label, Skeleton, Keyboard). **Every OTHER prop is a Control, not a story** — `size`, `disabled`, `href`, `placeholder` are toggled in the Controls panel, never enumerated as stories.
   - **Input is the deliberate exception — one story per `type`** (owner-settled 2026-06-13): the text-like types are not interchangeable, each carrying its own validation rules, mobile input-mode/keyboard, and autofill semantics (so `text`/`email`/`tel`/`url` differ even though their resting box looks alike). Each type's story sets the attributes that make it meaningful (e.g. `number` min/max/step, `tel` inputmode, email/url showing constraint validation), and `type` stays a `control: "select"` so any type is still toggleable. This is the one place `type` is enumerated rather than left a Control.

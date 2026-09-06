@@ -32,11 +32,13 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
-  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import DirectoryEntityPicker from "./directory-entity-picker.svelte";
   import FieldRow from "@magna-carta/design-system/field-row";
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleCivilDate, sampleOrganization, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import Link from "@lucide/svelte/icons/link";
   import {
     createDirectoryEdge,
@@ -123,42 +125,86 @@
   /** Inert filler for a line that has nothing to say, so its height never depends on wording. */
   const NOTHING = " ";
 
+  /**
+   * The shape the list takes while the record's edges are being read: the same rows the real list
+   * renders, one from each end, over the sample vocabulary. The date is in the record's own stored
+   * shape, which the vocabulary does not carry.
+   */
+  const EDGE_FIXTURE: readonly DirectoryEdgeEntry[] = [
+    {
+      id: "fixture-1",
+      edgeType: "officer_of",
+      direction: "outbound",
+      farEntityId: "fixture-far-1",
+      farEntityKind: "organization",
+      farDisplayName: sampleOrganization(1).name,
+      role: "Company secretary",
+      note: null,
+      validFrom: sampleCivilDate(2),
+      validTo: null,
+    },
+    {
+      id: "fixture-2",
+      edgeType: "representation",
+      direction: "inbound",
+      farEntityId: "fixture-far-2",
+      farEntityKind: "person",
+      farDisplayName: samplePerson(1).name,
+      role: null,
+      note: "Appointed by the board",
+      validFrom: null,
+      validTo: null,
+    },
+  ];
+
   // ---- the list --------------------------------------------------------------------------------
 
   let edges = $state<readonly DirectoryEdgeEntry[] | null>(null);
   let nextCursor = $state<string | null>(null);
-  let failure = $state<StatedFailure | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
   let loadingMore = $state(false);
   let reloadToken = $state(0);
-  // Only a change of RECORD discards what is on screen. A re-read after a write is the same list
-  // being read again, and blanking it would flash a skeleton over rows the reader is looking at.
+  /** True while a list already on screen is being read again, after a write landed. */
+  let refreshing = $state(false);
+  // The record whose edges last landed. Only a change of RECORD discards what is on screen: a
+  // re-read after a write is the same list being read again, and blanking it would flash a
+  // placeholder over rows the reader is looking at, so the rows stay and the region is marked busy.
   let shownFor: string | null = null;
 
   $effect(() => {
     const id = entityId;
     void reloadToken;
-    if (shownFor !== id) {
-      shownFor = id;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
       edges = null;
       nextCursor = null;
     }
-    failure = null;
+    readFailure = null;
     let cancelled = false;
     void (async () => {
       const outcome = await readDirectoryEdges(fetch, id);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind === "ok") {
+        shownFor = id;
         edges = outcome.value.data;
         nextCursor = outcome.value.nextCursor;
         return;
       }
+      shownFor = null;
       edges = [];
-      failure = stated(outcome.failure, words.readFailure);
+      readFailure = stated(outcome.failure, words.readFailure);
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
+
+  function retry(): void {
+    reloadToken += 1;
+  }
 
   async function loadMore(): Promise<void> {
     const cursor = nextCursor;
@@ -173,7 +219,7 @@
 
   /** The rows this pane lists: everything, or the membership family with a far end of its kind. */
   const shown = $derived((edges ?? []).filter((edge) => paneShowsEdge(filter, edge)));
-  const listIsReadable = $derived(edges !== null && failure === null);
+  const listIsReadable = $derived(edges !== null && readFailure === null);
 
   function entryOf(edgeType: string): EdgeTypeEntry | null {
     return EDGE_TYPES.find((entry) => entry.edgeType === edgeType) ?? null;
@@ -301,76 +347,34 @@
 <section class="flex flex-col gap-16">
   <h3 class="text-sm font-semibold">{words.heading}</h3>
 
-  {#if failure !== null}
-    <FailureNotice
-      failure={failure.failure}
-      title="The {words.heading} Could Not Be Read"
-      fallback={failure.fallback}
-      whenSilent={failure.whenSilent}
-      onRetry={() => (reloadToken += 1)}
-    />
-  {:else if edges === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading this record's {words.heading.toLowerCase()}">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else if shown.length === 0}
-    <EmptyState title={words.emptyTitle}>{words.emptyBody}</EmptyState>
-  {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">{words.caption}</DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          <DataTable.Head>Relationship</DataTable.Head>
-          <DataTable.Head>Note</DataTable.Head>
-          <DataTable.Head>In force</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each shown as edge (edge.id)}
-          {@const sentence = sentenceOf(edge)}
-          <DataTable.Row>
-            <DataTable.Cell>
-              <span class="flex flex-col gap-4">
-                <span class="flex flex-wrap items-center gap-4">
-                  {#if sentence.before !== ""}
-                    <span>{sentence.before}</span>
-                  {/if}
-                  <EntityIdentity
-                    kind={farKindOf(edge)}
-                    name={sentence.far}
-                    href={onOpenEntity === undefined ? entityRecordHref(edge.farEntityId) : undefined}
-                    onOpen={onOpenEntity === undefined
-                      ? undefined
-                      : () => onOpenEntity(edge.farEntityId)}
-                  />
-                  {#if sentence.after !== ""}
-                    <span>{sentence.after}</span>
-                  {/if}
-                </span>
-                {#if entryOf(edge.edgeType) === null || (edge.role !== null && edge.role !== "")}
-                  <span class="flex flex-wrap items-center gap-4">
-                    {#if entryOf(edge.edgeType) === null}
-                      <Badge variant="neutral">{edgeTypeLabel(edge.edgeType)}</Badge>
-                    {/if}
-                    {#if edge.role !== null && edge.role !== ""}
-                      <Badge variant="neutral">{edge.role}</Badge>
-                    {/if}
-                  </span>
-                {/if}
-              </span>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <span class="text-text-muted">{edge.note ?? "—"}</span>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <span class="text-text-muted">{period(edge)}</span>
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
-  {/if}
+  <LoadingRegion
+    loading={edges === null}
+    {refreshing}
+    failed={readFailure !== null}
+    empty={edges !== null && shown.length === 0}
+    label="Reading this record's {words.heading.toLowerCase()}"
+    onRetry={retry}
+    class="flex flex-col gap-8"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The {words.heading} Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={retry}
+        />
+      {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render edgeTable(EDGE_FIXTURE)}
+    {/snippet}
+    {#snippet emptyState()}
+      <EmptyState title={words.emptyTitle}>{words.emptyBody}</EmptyState>
+    {/snippet}
+    {@render edgeTable(shown)}
+  </LoadingRegion>
 
   {#if listIsReadable && nextCursor !== null}
     <div>
@@ -401,7 +405,7 @@
         <FieldRow columns={2}>
           <LabelledField label={farEndName}>
             {#snippet children({ props })}
-              <EntityPicker
+              <DirectoryEntityPicker
                 {search}
                 kinds={pickerKinds}
                 excluded={[entityId]}
@@ -497,3 +501,60 @@
     {/if}
   {/if}
 </section>
+
+<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet edgeTable(rows: readonly DirectoryEdgeEntry[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">{words.caption}</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Relationship</DataTable.Head>
+        <DataTable.Head>Note</DataTable.Head>
+        <DataTable.Head>In force</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as edge (edge.id)}
+        {@const sentence = sentenceOf(edge)}
+        <DataTable.Row>
+          <DataTable.Cell>
+            <span class="flex flex-col gap-4">
+              <span class="flex flex-wrap items-center gap-4">
+                {#if sentence.before !== ""}
+                  <span>{sentence.before}</span>
+                {/if}
+                <EntityIdentity
+                  kind={farKindOf(edge)}
+                  name={sentence.far}
+                  href={onOpenEntity === undefined ? entityRecordHref(edge.farEntityId) : undefined}
+                  onOpen={onOpenEntity === undefined
+                    ? undefined
+                    : () => onOpenEntity(edge.farEntityId)}
+                />
+                {#if sentence.after !== ""}
+                  <span>{sentence.after}</span>
+                {/if}
+              </span>
+              {#if entryOf(edge.edgeType) === null || (edge.role !== null && edge.role !== "")}
+                <span class="flex flex-wrap items-center gap-4">
+                  {#if entryOf(edge.edgeType) === null}
+                    <Badge variant="neutral">{edgeTypeLabel(edge.edgeType)}</Badge>
+                  {/if}
+                  {#if edge.role !== null && edge.role !== ""}
+                    <Badge variant="neutral">{edge.role}</Badge>
+                  {/if}
+                </span>
+              {/if}
+            </span>
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <span class="text-text-muted">{edge.note ?? "—"}</span>
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <span class="text-text-muted">{period(edge)}</span>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}

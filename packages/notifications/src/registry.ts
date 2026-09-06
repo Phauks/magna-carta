@@ -16,7 +16,12 @@ import {
   FILE_RESCAN_INFECTED_TOPIC,
 } from "@magna-carta/file-manager/topics";
 import { LEDGER_ENTRY_POSTED_TOPIC } from "@magna-carta/ledger/post-entry";
-import { MATTER_CLOSED_TOPIC, MATTER_REOPENED_TOPIC } from "@magna-carta/matters/topics";
+import {
+  MATTER_CLOSED_TOPIC,
+  MATTER_HELD_TOPIC,
+  MATTER_RELEASED_TOPIC,
+  MATTER_REOPENED_TOPIC,
+} from "@magna-carta/matters/topics";
 import {
   FIRM_TASK_ASSIGNED_TOPIC,
   FIRM_TASK_REASSIGNED_TOPIC,
@@ -390,6 +395,46 @@ const OUTBOX_SUBSCRIBED_DECLARATIONS: readonly NotificationTypeDeclaration[] = [
     audience: "responsible-member",
     includeActor: false,
     subscribesTo: MATTER_REOPENED_TOPIC,
+    subjectKind: "matter",
+    subjectPayloadKey: "matterId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    facts: {},
+    buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (_subjectId, matterId) => `/matters/${matterId ?? ""}/overview`,
+  },
+  // The hold and its release are the same kind of fact as the close and the reopen: an
+  // administrative act about the file, for the person accountable for it.
+  {
+    key: "system.matter.held",
+    category: "system",
+    severity: "informational",
+    mandatory: false,
+    audience: "responsible-member",
+    includeActor: false,
+    subscribesTo: MATTER_HELD_TOPIC,
+    subjectKind: "matter",
+    subjectPayloadKey: "matterId",
+    matterAnchored: true,
+    matterResolution: { kind: "payload", payloadKey: "matterId" },
+    facts: {},
+    buildFacts: () => ({}),
+    escalation: "digest",
+    channels: ["in_app", "email"],
+    emailContent: "category-count",
+    deepLink: (_subjectId, matterId) => `/matters/${matterId ?? ""}/overview`,
+  },
+  {
+    key: "system.matter.released",
+    category: "system",
+    severity: "informational",
+    mandatory: false,
+    audience: "responsible-member",
+    includeActor: false,
+    subscribesTo: MATTER_RELEASED_TOPIC,
     subjectKind: "matter",
     subjectPayloadKey: "matterId",
     matterAnchored: true,

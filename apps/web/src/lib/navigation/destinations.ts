@@ -235,8 +235,10 @@ const DESTINATION_LIST = [
     icon: Inbox,
     description: "New client and matter intake, from first inquiry to open file.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The desk lists every intake in flight, starts one, and schedules the consultation; the public
+    // form, the pipeline board and call intake are still to come.
+    stage: "alpha",
     defaultStarred: true,
   },
   {

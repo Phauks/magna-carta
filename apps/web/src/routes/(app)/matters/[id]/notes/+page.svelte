@@ -11,12 +11,12 @@
    * it describes happened, which is frequently an earlier day, and it is what the list and the
    * matter's activity history order by. A note about Tuesday's call belongs beside Tuesday.
    *
-   * THE LIST ALWAYS SETTLES. The skeleton means one thing only — the first read is in flight — so
-   * every path out of that read ends in rows, an empty state, or a failure with a way to try again.
-   * A section that sits on a skeleton is indistinguishable from a firm whose record cannot be read,
-   * which is why the notes read is an effect of its OWN: nothing else the screen wants (who is
-   * signed in, the roster, the matter's files) can abort the effect before the read is even asked
-   * for, and none of those failing takes the list down with it.
+   * THE LIST ALWAYS SETTLES. The loading shape means one thing only — the first read is in flight —
+   * so every path out of that read ends in rows, an empty state, or a failure with a way to try
+   * again. A section left on its loading shape is indistinguishable from a firm whose record cannot
+   * be read, which is why the notes read is an effect of its OWN: nothing else the screen wants
+   * (who is signed in, the roster, the matter's files) can abort the effect before the read is even
+   * asked for, and none of those failing takes the list down with it.
    *
    * A SAMPLE matter (the in-repo fixtures the chrome's lifecycle states are reviewed against) has no
    * firm behind it and therefore nothing to read; it says so rather than showing an empty list.
@@ -26,7 +26,12 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import {
+    SAMPLE_SENTENCE,
+    sampleDate,
+    samplePerson,
+  } from "@magna-carta/design-system/loading-fixtures";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -58,7 +63,11 @@
   const roster = new FirmRoster();
 
   const notes = $derived(noteList.items);
-  const failure = $derived(noteList.failure);
+  const readFailure = $derived(noteList.failure);
+  // A failed FIRST read settles the list to the notice with Retry and never leaves the shape
+  // standing (owner ruling, docs/conventions/design-corrections.md, 2026-09-01). A failed further
+  // page keeps the rows already read and says so above them.
+  const firstReadFailed = $derived(readFailure !== null && (notes?.length ?? 0) === 0);
 
   // Bumped after a write, so the list re-reads what the server now holds rather than guessing.
   let reloadToken = $state(0);
@@ -239,6 +248,15 @@
     searchTerm = "";
     applySearch("");
   }
+
+  // The shape drawn while the first page is read: three rows in the list's own anatomy — who wrote
+  // it, when, and the words. Sample words only, never a matter's: the sample vocabulary's people,
+  // dates and sentence.
+  const NOTE_FIXTURE = [
+    { id: "fixture-note-0", author: samplePerson(0).name, happened: sampleDate(0), body: SAMPLE_SENTENCE },
+    { id: "fixture-note-1", author: samplePerson(1).name, happened: sampleDate(1), body: SAMPLE_SENTENCE },
+    { id: "fixture-note-2", author: samplePerson(0).name, happened: sampleDate(2), body: SAMPLE_SENTENCE },
+  ];
 </script>
 
 <svelte:head>
@@ -283,28 +301,60 @@
     </Alert.Root>
   {/if}
 
-  {#if failure !== null}
-    <FailureNotice
-      {failure}
-      title="Notes Unavailable"
-      fallback="The notes on this matter could not be read."
-      onRetry={refresh}
-    />
-  {/if}
-
-  <div class="flex min-h-0 flex-1 flex-col gap-8">
-    {#if isSample}
-      <EmptyState title="This is a sample matter, so it has no notes." />
-    {:else if notes === null}
-      <Skeleton class="h-24 w-full" />
-      <Skeleton class="h-24 w-full" />
-      <Skeleton class="h-24 w-full" />
-    {:else if notes.length === 0 && appliedSearch !== ""}
-      <EmptyState title="No notes on this matter match that search." />
-    {:else if notes.length === 0}
-      <EmptyState title="No notes on this matter yet." />
-    {:else}
-      {#each notes as note (note.id)}
+  <!-- The region holds the whole state set: a failed first read renders the notice with Retry
+       first, and no shape is left waiting (owner ruling, docs/conventions/design-corrections.md,
+       2026-09-01). -->
+  <LoadingRegion
+    loading={notes === null}
+    failed={firstReadFailed}
+    empty={notes !== null && notes.length === 0}
+    label="Reading this matter's notes"
+    onRetry={refresh}
+    class="flex min-h-0 flex-1 flex-col gap-8"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure}
+          title="Notes Unavailable"
+          fallback="The notes on this matter could not be read."
+          onRetry={refresh}
+        />
+      {/if}
+    {/snippet}
+    {#snippet emptyState()}
+      {#if isSample}
+        <EmptyState title="This is a sample matter, so it has no notes." />
+      {:else if appliedSearch !== ""}
+        <EmptyState title="No notes on this matter match that search." />
+      {:else}
+        <EmptyState title="No notes on this matter yet." />
+      {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {#each NOTE_FIXTURE as note (note.id)}
+        <div class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
+          <div class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
+            <span class="text-text-default">{note.author}</span>
+            <span class="text-text-default">{note.happened}</span>
+            <span>written {note.happened}</span>
+          </div>
+          <p class="text-sm">{note.body}</p>
+        </div>
+      {/each}
+    {/snippet}
+    {@const shown = notes ?? []}
+    {#if readFailure !== null}
+      <!-- A further page that did not land. The rows below were read and stand. -->
+      <FailureNotice
+        failure={readFailure}
+        title="The Rest Of The Notes Could Not Be Read"
+        fallback="The next page of notes could not be read. What is shown was read and stands."
+        onRetry={refresh}
+      />
+    {/if}
+    {#if shown.length > 0}
+      {#each shown as note (note.id)}
         {@const happened = occurrenceLine(note, formatDate)}
         <!-- The whole row opens the note, because opening a record is what a row in a record list
              does. The window is where it is then read, changed or deleted. -->
@@ -357,7 +407,7 @@
         </div>
       {/if}
     {/if}
-  </div>
+  </LoadingRegion>
 </section>
 
 <NoteRecordWindow

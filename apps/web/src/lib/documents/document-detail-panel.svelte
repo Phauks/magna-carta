@@ -11,13 +11,16 @@
    * not the same thing as hiding the button: the button works, and what it reaches may not be there.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import { sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Dropzone from "@magna-carta/design-system/dropzone";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import ExternalLink from "@lucide/svelte/icons/external-link";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
     listDocumentVersions,
     openEditSession,
@@ -44,7 +47,13 @@
   } = $props();
 
   let versions = $state<readonly DocumentVersion[] | null>(null);
-  let versionsFailed = $state(false);
+  let versionsFailure = $state<StatedFailure | null>(null);
+  // True while the history on screen is being read again — after a save, the same document one
+  // version further on. The rows stay where the reader is looking until the fresh ones land.
+  let versionsRefreshing = $state(false);
+  // The document whose history is on screen, so a re-read of the same one keeps its rows in view
+  // and a different one starts from the shape.
+  let shownFileId: string | null = null;
   let replacementFile = $state<File | null>(null);
   let saveStage = $state<CreationStage | null>(null);
   let saveOutcome = $state<CreationOutcome | null>(null);
@@ -56,24 +65,68 @@
   const readable = $derived(hasReadableContent(subject));
   const saving = $derived(saveStage !== null && saveStage !== "settled");
 
+  /*
+   * The shape the history takes while it is read: the same table, over invented versions. Inert
+   * and hidden from assistive technology while it stands, so no row in it reads as a version this
+   * document has. The sample vocabulary carries no instants or digests, so those two shapes are
+   * stated here at their real length.
+   */
+  const VERSIONS_FIXTURE: readonly DocumentVersion[] = [
+    {
+      id: "fixture-3",
+      versionNumber: 3,
+      sizeBytes: 184_320,
+      sniffedContentType: null,
+      contentSha256: "9f3c1e7ab52d0468c1d2e3f4a5b6c7d8",
+      committedAt: sampleInstant(4),
+    },
+    {
+      id: "fixture-2",
+      versionNumber: 2,
+      sizeBytes: 176_128,
+      sniffedContentType: null,
+      contentSha256: "4b8e2d61f7a90c35d4e5f6a7b8c9d0e1",
+      committedAt: sampleInstant(0),
+    },
+    {
+      id: "fixture-1",
+      versionNumber: 1,
+      sizeBytes: 171_008,
+      sniffedContentType: null,
+      contentSha256: "d17a5c0e3b9f6248e5f6a7b8c9d0e1f2",
+      committedAt: sampleInstant(1),
+    },
+  ];
+
+  /** Read the history of the document on screen. Retry asks again for the same document. */
+  function readVersions(): void {
+    const fileId = subject.id;
+    if (fileId !== shownFileId) {
+      shownFileId = fileId;
+      versions = null;
+    }
+    versionsFailure = null;
+    versionsRefreshing = versions !== null;
+    void (async () => {
+      const result = await listDocumentVersions(fetch, fileId);
+      // A document the person has already moved past says nothing about the one on screen.
+      if (subject.id !== fileId) return;
+      versionsRefreshing = false;
+      if (result.kind === "ok") {
+        versions = result.value.data;
+        return;
+      }
+      versionsFailure = stated(result.failure, "The version history could not be read.");
+    })();
+  }
+
   $effect(() => {
     // Both are read so the history re-reads on either change: the panel is reused as the person
     // moves down the list (a new identity), and it must also follow a save (the same document, one
     // version further on). Depending on the identity alone would leave stale history on screen.
-    const fileId = subject.id;
+    void subject.id;
     void subject.versionNumber;
-    let cancelled = false;
-    versions = null;
-    versionsFailed = false;
-    void (async () => {
-      const result = await listDocumentVersions(fetch, fileId);
-      if (cancelled) return;
-      if (result.kind === "ok") versions = result.value.data;
-      else versionsFailed = true;
-    })();
-    return () => {
-      cancelled = true;
-    };
+    readVersions();
   });
 
   async function saveNewVersion(): Promise<void> {
@@ -106,53 +159,73 @@
   }
 </script>
 
+{#snippet versionTable(rows: readonly DocumentVersion[])}
+  <div class="overflow-x-auto">
+    <DataTable.Root>
+      <DataTable.Caption class="sr-only">
+        Committed versions of {subject.name}
+      </DataTable.Caption>
+      <DataTable.Header>
+        <DataTable.Row>
+          <DataTable.Head data-align="end">Version</DataTable.Head>
+          <DataTable.Head data-align="end">Size</DataTable.Head>
+          <DataTable.Head>Committed</DataTable.Head>
+          <DataTable.Head>Content hash</DataTable.Head>
+        </DataTable.Row>
+      </DataTable.Header>
+      <DataTable.Body>
+        {#each rows as version (version.id)}
+          <DataTable.Row>
+            <DataTable.Cell data-align="end">{version.versionNumber}</DataTable.Cell>
+            <DataTable.Cell data-align="end">
+              {formatDocumentSize(version.sizeBytes)}
+            </DataTable.Cell>
+            <DataTable.Cell>{formatDocumentTimestamp(version.committedAt)}</DataTable.Cell>
+            <DataTable.Cell>
+              <span class="font-mono text-xs text-text-muted">
+                {version.contentSha256 === null ? "—" : version.contentSha256.slice(0, 12)}
+              </span>
+            </DataTable.Cell>
+          </DataTable.Row>
+        {/each}
+      </DataTable.Body>
+    </DataTable.Root>
+  </div>
+{/snippet}
+
 <div class="flex flex-col gap-24">
   <section class="flex flex-col gap-12">
     <h3 class="text-base font-semibold">Versions</h3>
-    {#if versionsFailed}
-      <Alert.Root variant="warning">
-        <Alert.Title>The version history could not be read.</Alert.Title>
-        <Alert.Description>The document itself is unaffected.</Alert.Description>
-      </Alert.Root>
-    {:else if versions === null}
-      <Skeleton class="h-32 w-full" />
-    {:else if versions.length === 0}
-      <p class="text-sm text-text-muted">
-        No committed version yet — nothing has cleared the check.
-      </p>
-    {:else}
-      <div class="overflow-x-auto">
-        <DataTable.Root>
-          <DataTable.Caption class="sr-only">
-            Committed versions of {subject.name}
-          </DataTable.Caption>
-          <DataTable.Header>
-            <DataTable.Row>
-              <DataTable.Head data-align="end">Version</DataTable.Head>
-              <DataTable.Head data-align="end">Size</DataTable.Head>
-              <DataTable.Head>Committed</DataTable.Head>
-              <DataTable.Head>Content hash</DataTable.Head>
-            </DataTable.Row>
-          </DataTable.Header>
-          <DataTable.Body>
-            {#each versions as version (version.id)}
-              <DataTable.Row>
-                <DataTable.Cell data-align="end">{version.versionNumber}</DataTable.Cell>
-                <DataTable.Cell data-align="end">
-                  {formatDocumentSize(version.sizeBytes)}
-                </DataTable.Cell>
-                <DataTable.Cell>{formatDocumentTimestamp(version.committedAt)}</DataTable.Cell>
-                <DataTable.Cell>
-                  <span class="font-mono text-xs text-text-muted">
-                    {version.contentSha256 === null ? "—" : version.contentSha256.slice(0, 12)}
-                  </span>
-                </DataTable.Cell>
-              </DataTable.Row>
-            {/each}
-          </DataTable.Body>
-        </DataTable.Root>
-      </div>
-    {/if}
+    <LoadingRegion
+      loading={versions === null}
+      refreshing={versionsRefreshing}
+      failed={versionsFailure !== null}
+      empty={versions !== null && versions.length === 0}
+      label="Reading this document's versions"
+      onRetry={readVersions}
+    >
+      {#snippet failure()}
+        {#if versionsFailure !== null}
+          <FailureNotice
+            failure={versionsFailure.failure}
+            subject="The version history"
+            fallback={versionsFailure.fallback}
+            onRetry={readVersions}
+          >
+            The document itself is unaffected.
+          </FailureNotice>
+        {/if}
+      {/snippet}
+      {#snippet fixture()}
+        {@render versionTable(VERSIONS_FIXTURE)}
+      {/snippet}
+      {#snippet emptyState()}
+        <p class="text-sm text-text-muted">
+          No committed version yet — nothing has cleared the check.
+        </p>
+      {/snippet}
+      {@render versionTable(versions ?? [])}
+    </LoadingRegion>
   </section>
 
   <section class="flex flex-col gap-12">

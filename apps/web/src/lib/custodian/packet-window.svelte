@@ -40,7 +40,8 @@
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
   import Separator from "@magna-carta/design-system/separator";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import FileText from "@lucide/svelte/icons/file-text";
   import Plus from "@lucide/svelte/icons/plus";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
@@ -106,6 +107,8 @@
   let packet = $state<CustodyPacketDetail | null>(null);
   let movements = $state<readonly CustodyMovement[] | null>(null);
   let loadFailure = $state<StatedFailure | null>(null);
+  /** True while a packet already on screen is being read again; the pane stays where it is. */
+  let rereading = $state(false);
   let printOpen = $state(false);
   let itemDialogOpen = $state(false);
   let scanDialogOpen = $state(false);
@@ -142,6 +145,7 @@
     // The roster settles its own failure internally and is shared across the app; asking again
     // when it is already read costs nothing.
     void firmRoster.load(fetch);
+    loadFailure = null;
     const [detail, ledger] = await Promise.all([
       readCustodyPacket(fetch, asked),
       listCustodyMovements(fetch, asked),
@@ -186,7 +190,10 @@
   function reread(): void {
     const asked = shownPacketId;
     if (asked === null) return;
-    void read(asked);
+    rereading = packet !== null;
+    void read(asked).finally(() => {
+      rereading = false;
+    });
   }
 
   const standingHolds = $derived(packet === null ? [] : holdsInForce(packet.holds));
@@ -232,128 +239,158 @@
 {/snippet}
 
 {#snippet record()}
-  {#if loadFailure !== null}
-    <FailureNotice
-      failure={loadFailure.failure}
-      title="This Packet Could Not Be Read"
-      fallback={loadFailure.fallback}
-      whenSilent={loadFailure.whenSilent}
-    />
-  {:else if packet === null}
-    <div class="flex flex-col gap-12" aria-busy="true" aria-label="Reading this packet">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else}
-    <div class="flex flex-col gap-16">
-      <!-- What stands against this packet, first. A reader has to meet a hold before they meet a
-           control that a hold refuses. -->
-      {#if standingHolds.length > 0}
-        <Alert.Root variant="warning">
-          <Alert.Title>This Packet Is Under Hold</Alert.Title>
-          <Alert.Description>
-            <div class="flex flex-col gap-8">
-              {#each standingHolds as hold (hold.id)}
-                <span title={holdMeaning(hold.kind)}>
-                  {holdLabel(hold.kind)}: {hold.reason ?? "no reason recorded"}
+  <LoadingRegion
+    loading={packet === null}
+    failed={loadFailure !== null}
+    refreshing={rereading}
+    label="Reading this packet"
+    onRetry={reread}
+  >
+    {#snippet failure()}
+      {#if loadFailure !== null}
+        <FailureNotice
+          failure={loadFailure.failure}
+          title="This Packet Could Not Be Read"
+          fallback={loadFailure.fallback}
+          whenSilent={loadFailure.whenSilent}
+          onRetry={reread}
+        />
+      {/if}
+    {/snippet}
+    <!-- The pane's own anatomy over sample words: the status, the four facts, whom it is held
+         for. The labels stay readable; the values grey. The name and the dates are the sample
+         vocabulary's; the place and the role are this register's own words. -->
+    {#snippet fixture()}
+      <div class="flex flex-col gap-16">
+        <div class="flex flex-wrap items-center gap-8">
+          <Badge variant="neutral">In custody</Badge>
+        </div>
+        <div class="grid gap-12 sm:grid-cols-2">
+          {@render fact("Location", "Vault › Cabinet 3 › Drawer B")}
+          {@render fact("Deposited", sampleDate(2))}
+          {@render fact("Depositor", samplePerson(0).name)}
+          {@render fact("Next review", sampleDate(3))}
+        </div>
+        <Separator />
+        <div class="flex flex-col gap-8">
+          <Label>Held for</Label>
+          <div class="flex flex-wrap items-baseline gap-8">
+            <span>{samplePerson(0).name}</span>
+            <span class="text-xs text-text-muted">Testator</span>
+          </div>
+        </div>
+      </div>
+    {/snippet}
+    {#if packet !== null}
+      <div class="flex flex-col gap-16">
+        <!-- What stands against this packet, first. A reader has to meet a hold before they meet a
+             control that a hold refuses. -->
+        {#if standingHolds.length > 0}
+          <Alert.Root variant="warning">
+            <Alert.Title>This Packet Is Under Hold</Alert.Title>
+            <Alert.Description>
+              <div class="flex flex-col gap-8">
+                {#each standingHolds as hold (hold.id)}
+                  <span title={holdMeaning(hold.kind)}>
+                    {holdLabel(hold.kind)}: {hold.reason ?? "no reason recorded"}
+                  </span>
+                {/each}
+                <span>
+                  It cannot be released or destroyed while a hold stands. It can still be moved.
                 </span>
-              {/each}
-              <span>
-                It cannot be released or destroyed while a hold stands. It can still be moved.
+              </div>
+            </Alert.Description>
+          </Alert.Root>
+        {/if}
+
+        <div class="flex flex-wrap items-center gap-8">
+          <Badge
+            variant={packetStatusEntry(packet.status).tone}
+            title={packetStatusEntry(packet.status).meaning}
+          >
+            {packetStatusEntry(packet.status).label}
+          </Badge>
+          {#if packet.numberSource === "manual"}
+            <Badge variant="neutral" title="Carried in from an earlier register. It drew no number.">
+              Carried in
+            </Badge>
+          {/if}
+        </div>
+
+        <div class="grid gap-12 sm:grid-cols-2">
+          {@render fact("Location", locationBreadcrumb(packet))}
+          {@render fact("Deposited", packet.depositedAt ?? "Not recorded")}
+          {@render fact(
+            "Depositor",
+            packet.depositorEntityId === null
+              ? "Not recorded"
+              : (directory.nameOf(packet.depositorEntityId) ?? "Not named here"),
+          )}
+          {@render fact("Next review", packet.reviewOn ?? "None scheduled")}
+        </div>
+
+        <Separator />
+
+        <div class="flex flex-col gap-8">
+          <Label>Held for</Label>
+          {#each packet.owners as owner (owner.id)}
+            <div class="flex flex-wrap items-baseline gap-8">
+              <span>{directory.nameOf(owner.entityId) ?? "Not named here"}</span>
+              <span class="text-xs text-text-muted">
+                {owner.ownershipRole ?? "Owner"}{owner.effectiveTo === null
+                  ? ""
+                  : ` · ended ${owner.effectiveTo}`}
               </span>
             </div>
-          </Alert.Description>
-        </Alert.Root>
-      {/if}
+          {/each}
+        </div>
 
-      <div class="flex flex-wrap items-center gap-8">
-        <Badge
-          variant={packetStatusEntry(packet.status).tone}
-          title={packetStatusEntry(packet.status).meaning}
-        >
-          {packetStatusEntry(packet.status).label}
-        </Badge>
-        {#if packet.numberSource === "manual"}
-          <Badge variant="neutral" title="Carried in from an earlier register. It drew no number.">
-            Carried in
-          </Badge>
+        {#if packet.matterId !== null}
+          <div class="flex flex-col gap-4">
+            <Label>Matter</Label>
+            <a class="underline underline-offset-2" href="/matters/{packet.matterId}">
+              Open the matter this packet is linked to
+            </a>
+          </div>
+        {/if}
+
+        {#if packet.notes !== null && packet.notes.trim() !== ""}
+          <div class="flex flex-col gap-4">
+            <Label>Notes</Label>
+            <span>{packet.notes}</span>
+          </div>
+        {/if}
+
+        {#if release !== null && !release.permitted}
+          <div class="flex flex-col gap-8">
+            <Label>Why this cannot be released</Label>
+            {#each release.refusals as refusal (refusal.key)}
+              <span class="text-xs text-text-muted">{refusal.reason}</span>
+            {/each}
+          </div>
+        {/if}
+
+        {#if destruction !== null && !destruction.permitted}
+          <div class="flex flex-col gap-8">
+            <Label>Why this cannot be destroyed</Label>
+            {#each destruction.refusals as refusal (refusal.key)}
+              <span class="text-xs text-text-muted">{refusal.reason}</span>
+            {/each}
+          </div>
+        {/if}
+
+        {#if firmRoster.failure !== null}
+          <!-- Said once, plainly, and only when it happened: the history reads without the names of
+               whoever recorded each movement because the roster could not be read, not because the
+               ledger recorded nobody. -->
+          <p class="text-xs text-text-muted">
+            {firmRoster.failure} The history reads without the names of whoever recorded each movement
+            until it can.
+          </p>
         {/if}
       </div>
-
-      <div class="grid gap-12 sm:grid-cols-2">
-        {@render fact("Location", locationBreadcrumb(packet))}
-        {@render fact("Deposited", packet.depositedAt ?? "Not recorded")}
-        {@render fact(
-          "Depositor",
-          packet.depositorEntityId === null
-            ? "Not recorded"
-            : (directory.nameOf(packet.depositorEntityId) ?? "Not named here"),
-        )}
-        {@render fact("Next review", packet.reviewOn ?? "None scheduled")}
-      </div>
-
-      <Separator />
-
-      <div class="flex flex-col gap-8">
-        <Label>Held for</Label>
-        {#each packet.owners as owner (owner.id)}
-          <div class="flex flex-wrap items-baseline gap-8">
-            <span>{directory.nameOf(owner.entityId) ?? "Not named here"}</span>
-            <span class="text-xs text-text-muted">
-              {owner.ownershipRole ?? "Owner"}{owner.effectiveTo === null
-                ? ""
-                : ` · ended ${owner.effectiveTo}`}
-            </span>
-          </div>
-        {/each}
-      </div>
-
-      {#if packet.matterId !== null}
-        <div class="flex flex-col gap-4">
-          <Label>Matter</Label>
-          <a class="underline underline-offset-2" href="/matters/{packet.matterId}">
-            Open the matter this packet is linked to
-          </a>
-        </div>
-      {/if}
-
-      {#if packet.notes !== null && packet.notes.trim() !== ""}
-        <div class="flex flex-col gap-4">
-          <Label>Notes</Label>
-          <span>{packet.notes}</span>
-        </div>
-      {/if}
-
-      {#if release !== null && !release.permitted}
-        <div class="flex flex-col gap-8">
-          <Label>Why this cannot be released</Label>
-          {#each release.refusals as refusal (refusal.key)}
-            <span class="text-xs text-text-muted">{refusal.reason}</span>
-          {/each}
-        </div>
-      {/if}
-
-      {#if destruction !== null && !destruction.permitted}
-        <div class="flex flex-col gap-8">
-          <Label>Why this cannot be destroyed</Label>
-          {#each destruction.refusals as refusal (refusal.key)}
-            <span class="text-xs text-text-muted">{refusal.reason}</span>
-          {/each}
-        </div>
-      {/if}
-
-      {#if firmRoster.failure !== null}
-        <!-- Said once, plainly, and only when it happened: the history reads without the names of
-             whoever recorded each movement because the roster could not be read, not because the
-             ledger recorded nobody. -->
-        <p class="text-xs text-text-muted">
-          {firmRoster.failure} The history reads without the names of whoever recorded each movement
-          until it can.
-        </p>
-      {/if}
-    </div>
-  {/if}
+    {/if}
+  </LoadingRegion>
 {/snippet}
 
 {#snippet describeItemButton()}

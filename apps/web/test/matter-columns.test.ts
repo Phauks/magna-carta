@@ -14,6 +14,7 @@ import {
   resolvedName,
   EMPTY_MATTER_VOCABULARY,
   MATTER_INITIAL_SORT,
+  INTAKE_DESIGNATION,
   UNNUMBERED_DESIGNATION,
 } from "../src/lib/matters/matter-columns.ts";
 import { listMatters, type MatterSummary } from "../src/lib/matters/matters-api.ts";
@@ -74,19 +75,19 @@ describe("the matter-status register", () => {
     // The wire calls a working matter `open`; the firm calls it Active, and the register is where
     // the two meet. A screen printing `open` at a person would be printing a column value.
     expect(matterStatusLabel("open")).toBe("Active");
-    expect(matterStatusLabel("prospective")).toBe("Prospective");
+    expect(matterStatusLabel("consultation")).toBe("Consultation");
     expect(matterStatusLabel("closed")).toBe("Closed");
   });
 
   it("carries every status the firm can hold, in lifecycle order", () => {
-    expect(MATTER_STATUS_LABELS).toEqual(["Prospective", "Active", "Closed"]);
-    expect(MATTER_STATUSES).toEqual(["prospective", "open", "closed"]);
+    expect(MATTER_STATUS_LABELS).toEqual(["Intake", "Consultation", "Active", "On Hold", "Closed"]);
+    expect(MATTER_STATUSES).toEqual(["intake", "consultation", "open", "hold", "closed"]);
   });
 
   it("says which statuses a matter can be CREATED in, and Closed is not one of them", () => {
-    // Not a design choice: the create operation accepts prospective and open only. The intake
+    // Not a design choice: the create operation accepts intake, consultation and open. The window
     // still renders Closed, disabled, so the state's existence is never hidden.
-    expect([...CREATABLE_MATTER_STATUSES]).toEqual(["prospective", "open"]);
+    expect([...CREATABLE_MATTER_STATUSES]).toEqual(["intake", "consultation", "open"]);
     expect(isCreatableMatterStatus("closed")).toBe(false);
     expect(isCreatableMatterStatus("open")).toBe(true);
   });
@@ -106,7 +107,7 @@ describe("the number column", () => {
   it("shows a consultation's own tentative number, which is the number people quote", () => {
     expect(
       matterNumberText(
-        matter({ matterNumber: null, consultationNumber: "C2026-0058", status: "prospective" }),
+        matter({ matterNumber: null, consultationNumber: "C2026-0058", status: "consultation" }),
       ),
     ).toBe("C2026-0058");
   });
@@ -117,8 +118,14 @@ describe("the number column", () => {
 
   it("names an unnumbered CONSULTATION for what it is rather than leaving a gap", () => {
     // A consultation taken before the consultation sequence existed: no number of either kind.
-    expect(matterNumberText(matter({ matterNumber: null, status: "prospective" }))).toBe(
+    expect(matterNumberText(matter({ matterNumber: null, status: "consultation" }))).toBe(
       UNNUMBERED_DESIGNATION,
+    );
+  });
+
+  it("names an INTAKE for what it is: no number of either kind, by construction", () => {
+    expect(matterNumberText(matter({ matterNumber: null, status: "intake" }))).toBe(
+      INTAKE_DESIGNATION,
     );
   });
 
@@ -226,7 +233,13 @@ describe("the status column", () => {
     // what the firm CAN hold; only the counts beside each choice come from what is loaded. (The
     // grid's half of this — declared values first, each with its true count, zero included — is
     // pinned in packages/design-system/test/grid-filters.test.ts.)
-    expect(columnById("status").filterValues).toEqual(["Prospective", "Active", "Closed"]);
+    expect(columnById("status").filterValues).toEqual([
+      "Intake",
+      "Consultation",
+      "Active",
+      "On Hold",
+      "Closed",
+    ]);
   });
 });
 
@@ -328,7 +341,7 @@ describe("the listing query", () => {
   });
 
   it("asks for consultations explicitly, since the default read leaves them out", async () => {
-    expect(await requestedUrl({ scope: "prospective" })).toContain("status=prospective");
+    expect(await requestedUrl({ scope: "consultation" })).toContain("status=consultation");
   });
 
   it("sends the search to the server rather than narrowing rows on screen", async () => {

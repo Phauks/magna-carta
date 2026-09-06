@@ -169,12 +169,20 @@ describe("createResponseValidator — development", () => {
   });
 
   it("skips a declared status without JSON content (204)", async () => {
-    const noContentRoute = defineOpenAPIRoute(sampleMeta({ operationId: "widgets.remove" }), {
-      method: "delete",
-      path: "/api/v1/widgets/current",
-      description: "Removes the widget.",
-      responses: { 204: { description: "Removed" } },
-    });
+    // The reversal is the DELETE registration guard's, not this test's subject — every DELETE
+    // declares one, fixtures included.
+    const noContentRoute = defineOpenAPIRoute(
+      sampleMeta({
+        operationId: "widgets.remove",
+        reversal: { kind: "inverse", by: "widgets.create" },
+      }),
+      {
+        method: "delete",
+        path: "/api/v1/widgets/current",
+        description: "Removes the widget.",
+        responses: { 204: { description: "Removed" } },
+      },
+    );
     const middleware = createResponseValidator(noContentRoute);
     await expect(
       middleware(contextWithResponse("development", new Response(null, { status: 204 })), noopNext),

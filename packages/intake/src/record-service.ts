@@ -65,10 +65,10 @@ async function requireBoundStep(
   if (matter === undefined) {
     throw new IntakeValidationError("matter-unknown", `no such matter: ${matterId}`);
   }
-  if (matter.status !== "prospective") {
+  if (matter.status !== "intake") {
     throw new IntakeValidationError(
-      "matter-not-prospective",
-      `matter ${matterId} is ${matter.status}; the intake procedure is answered on a consultation, before it opens`,
+      "matter-not-intake",
+      `matter ${matterId} is ${matter.status}; the intake procedure is answered while the matter is in intake, before it becomes a consultation`,
     );
   }
   const step = await readProcedureStep(database, stepId);

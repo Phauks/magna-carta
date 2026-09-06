@@ -24,10 +24,14 @@
 
   let {
     open = $bindable(false),
+    prefill = null,
     onCreated,
   }: {
     open?: boolean;
-    onCreated: (entityId: string) => void;
+    /** A legal name already typed into a picker that could not find it, so it is not typed twice. */
+    prefill?: { legalName: string } | null;
+    /** The record's handle, and the name as this window recorded it (for a field that must show one). */
+    onCreated: (entityId: string, recordedName: string) => void;
   } = $props();
 
   let legalName = $state("");
@@ -39,7 +43,7 @@
   const started = $derived(legalName.trim() !== "" || displayName.trim() !== "");
 
   function reset(): void {
-    legalName = "";
+    legalName = prefill?.legalName ?? "";
     displayName = "";
     failure = null;
   }
@@ -57,7 +61,10 @@
       crypto.randomUUID(),
     );
     if (outcome.kind === "ok") {
-      onCreated(outcome.value.id);
+      onCreated(
+        outcome.value.id,
+        displayName.trim() === "" ? legalName.trim() : displayName.trim(),
+      );
       return "committed";
     }
     failure = stated(

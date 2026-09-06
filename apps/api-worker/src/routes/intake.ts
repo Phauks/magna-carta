@@ -2,6 +2,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type {
   IntakeProcedureId,
@@ -11,6 +12,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { readIntakeChecklist, type IntakeStepReaders } from "@magna-carta/intake/checklist";
+import { MAX_DESK_PAGE_SIZE, readIntakeDesk } from "@magna-carta/intake/desk";
 import {
   addProcedureStep,
   createProcedure,
@@ -41,6 +43,7 @@ import {
   MAX_STEP_TITLE_LENGTH,
 } from "@magna-carta/intake/types";
 import { IntakeValidationError } from "@magna-carta/intake/validation";
+import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -180,7 +183,7 @@ const HistoryRecord = ChecklistRecord.extend({
 const Checklist = z
   .object({
     matterId: z.string(),
-    matterStatus: z.enum(["prospective", "open", "closed"]),
+    matterStatus: z.enum(["intake", "consultation", "open", "hold", "closed"]),
     procedures: z.array(z.object({ id: z.string(), name: z.string() })),
     steps: z.array(ChecklistStep),
     outstandingRequired: z.number().int(),
@@ -189,6 +192,52 @@ const Checklist = z
     history: z.array(HistoryRecord),
   })
   .openapi("IntakeChecklist");
+
+// One intake in flight on the desk: the consultation, who it is for and who carries it, where it
+// stands against the procedure binding its kind (counts only — the checklist read holds the words),
+// and whether the consultation itself is on the calendar yet.
+const DeskChecklist = z
+  .object({
+    bound: z.boolean(),
+    steps: z.number().int(),
+    answered: z.number().int(),
+    outstandingRequired: z.number().int(),
+  })
+  .openapi("IntakeDeskChecklist");
+
+const DeskConsultationSetting = z
+  .object({
+    eventId: z.string(),
+    title: z.string(),
+    startsOn: z.string(),
+    startsAtTime: z.string().nullable(),
+    timeZone: z.string(),
+  })
+  .openapi("IntakeDeskConsultationSetting");
+
+const DeskRow = z
+  .object({
+    matterId: z.string(),
+    title: z.string(),
+    // Which rung: an intake still clearing its procedure, or a consultation awaiting its meeting.
+    status: z.enum(["intake", "consultation"]),
+    consultationNumber: z.string().nullable(),
+    matterTypeId: z.string().nullable(),
+    matterTypeName: z.string().nullable(),
+    responsibleMemberId: z.string(),
+    responsibleMemberName: z.string().nullable(),
+    clientEntityId: z.string().nullable(),
+    clientDisplayName: z.string().nullable(),
+    createdAt: z.string(),
+    isStale: z.boolean(),
+    checklist: DeskChecklist,
+    nextConsultation: DeskConsultationSetting.nullable(),
+  })
+  .openapi("IntakeDeskRow");
+
+const DeskList = z
+  .object({ data: z.array(DeskRow), nextCursor: z.string().nullable() })
+  .openapi("IntakeDeskList");
 
 const RecordStepRequest = z
   .object({ note: z.string().max(MAX_RECORD_NOTE_LENGTH).nullable().optional() })
@@ -266,7 +315,7 @@ function intakeErrorResponse(
     case "procedure-inactive":
     case "procedure-name-taken":
     case "step-inactive":
-    case "matter-not-prospective":
+    case "matter-not-intake":
     case "step-not-bound":
     case "step-not-recordable":
     case "record-none-live":
@@ -325,6 +374,50 @@ function matterMeta(
     rateLimit: "default",
   };
 }
+
+// The desk is a firm-wide read behind the checklist's own permission: it lists consultations and
+// where each stands, which is exactly what intake:read lets a member see one matter at a time.
+function firmReadMeta(action: string, permission: RouteMeta["permission"]): RouteMeta {
+  return {
+    operationId: `intake.${action}`,
+    surface: "app",
+    authenticated: true,
+    permission,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+}
+
+const listDeskRoute = defineOpenAPIRoute(firmReadMeta("listConsultations", READ), {
+  method: "get",
+  path: "/api/v1/intake/consultations",
+  description:
+    "The intake desk: every consultation the firm has in flight, newest first, with the client, " +
+    "the responsible member, the matter type, where it stands against the intake procedure binding " +
+    "its kind (how many steps, how many answered, how many required ones outstanding), whether it " +
+    "has sat past the firm's stale-consultation age, and the next scheduled event on it. A " +
+    "consultation leaves the desk when it opens or closes. Cursor-paginated; the page is capped " +
+    "at fifty because each row's standing is derived from the subsystems that own its facts.",
+  request: {
+    query: z.object({
+      search: z.string().optional(),
+      cursor: z.string().optional(),
+      pageSize: z.coerce.number().int().positive().max(MAX_DESK_PAGE_SIZE).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "A page of the desk",
+      content: { "application/json": { schema: DeskList } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
 
 const listProceduresRoute = defineOpenAPIRoute(manageMeta("listProcedures", false), {
   method: "get",
@@ -503,27 +596,39 @@ const editStepRoute = defineOpenAPIRoute(manageMeta("editStep", true), {
   },
 });
 
-const retireStepRoute = defineOpenAPIRoute(manageMeta("retireStep", true), {
-  method: "delete",
-  path: "/api/v1/intake-procedure-steps/{stepId}",
-  description:
-    "Retires a step: it stops being asked from this moment. The step is kept rather than deleted, " +
-    "so every record that answered it on a matter still says what it answered.",
-  request: { headers: idempotencyKeyHeader, params: stepIdParam },
-  responses: {
-    200: {
-      description: "The step was retired",
-      content: { "application/json": { schema: AcknowledgedResponse } },
+const retireStepRoute = defineOpenAPIRoute(
+  {
+    ...manageMeta("retireStep", true),
+    reversal: {
+      kind: "none",
+      reason:
+        "The step is kept so every record that answered it still says what it answered, but no " +
+        "route puts a retired step back into the asking. Adding it again mints a new step, which " +
+        "the matters that answered the old one do not point at.",
     },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/intake-procedure-steps/{stepId}",
+    description:
+      "Retires a step: it stops being asked from this moment. The step is kept rather than deleted, " +
+      "so every record that answered it on a matter still says what it answered.",
+    request: { headers: idempotencyKeyHeader, params: stepIdParam },
+    responses: {
+      200: {
+        description: "The step was retired",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 // ---- the matter's checklist ----
 
@@ -604,27 +709,33 @@ const waiveStepRoute = defineOpenAPIRoute(matterMeta("waiveStep", WAIVE, true), 
   },
 });
 
-const reopenStepRoute = defineOpenAPIRoute(matterMeta("reopenStep", RECORD, true), {
-  method: "delete",
-  path: "/api/v1/matters/{matterId}/intake/steps/{stepId}/record",
-  description:
-    "Sets aside the live answer on this step, so it is answered again by its own subsystem or by " +
-    "nobody. The earlier answer stays in the history. Refused when nothing is recorded.",
-  request: { headers: idempotencyKeyHeader, params: matterStepParams },
-  responses: {
-    200: {
-      description: "The step was reopened",
-      content: { "application/json": { schema: AcknowledgedResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const reopenStepRoute = defineOpenAPIRoute(
+  {
+    ...matterMeta("reopenStep", RECORD, true),
+    reversal: { kind: "inverse", by: "intake.recordStep" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/matters/{matterId}/intake/steps/{stepId}/record",
+    description:
+      "Sets aside the live answer on this step, so it is answered again by its own subsystem or by " +
+      "nobody. The earlier answer stays in the history. Refused when nothing is recorded.",
+    request: { headers: idempotencyKeyHeader, params: matterStepParams },
+    responses: {
+      200: {
+        description: "The step was reopened",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 // ---- handler plumbing ----
 
@@ -883,6 +994,27 @@ export function registerIntakeRoutes(
       if (!outcome.committed) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
       return c.json({ acknowledged: true } as const, 200);
+    },
+  );
+
+  // GET /api/v1/intake/consultations — the desk
+  app.openapi(
+    { ...listDeskRoute, middleware: chokepointMiddleware(chokepoint, listDeskRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const staleAgeDays = await readFirmSetting(
+        firm.firmDatabase,
+        staleConsultationAgeDaysDefinition,
+      );
+      const page = await readIntakeDesk(firm.firmDatabase, INTAKE_STEP_READERS, {
+        search: query.search,
+        cursor: query.cursor,
+        pageSize: query.pageSize,
+        now: new Date().toISOString(),
+        staleAgeDays,
+      });
+      return c.json(page as z.infer<typeof DeskList>, 200);
     },
   );
 

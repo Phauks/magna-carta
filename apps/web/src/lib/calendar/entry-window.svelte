@@ -47,8 +47,9 @@
   import Label from "@magna-carta/design-system/label";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { SAMPLE_SENTENCE, sampleCivilDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import * as Select from "@magna-carta/design-system/select";
-  import Skeleton from "@magna-carta/design-system/skeleton";
   import Textarea from "@magna-carta/design-system/textarea";
   import type { ApiOutcome, Failure } from "$lib/api/request.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -109,6 +110,7 @@
     entryReferenceKey,
     type EntryRecord,
     type EntryReference,
+    type EntryReferenceKind,
   } from "./entry-reference.ts";
   import EntryRoomsTab from "./entry-rooms-tab.svelte";
   import { deadlineUpdateOf, eventUpdateOf, firmEventUpdateOf } from "./entry-updates.ts";
@@ -126,6 +128,7 @@
     eventDraftShortfalls,
     eventDraftStarted,
     type EventDraft,
+    type EventTimingDraft,
   } from "./event-draft.ts";
   import {
     firmEventDraftFrom,
@@ -676,6 +679,41 @@
 
   const linkCount = $derived(linkCountOf(record, relatedCount));
   const participantCount = $derived(participantCountOf(record));
+
+  // ---- the shapes drawn while a read is in flight -----------------------------------------------
+  //
+  // The record pane's shape is the kind's own field groups over sample words, greyed by the loading
+  // region; the kind is on the reference before the read lands, so a deadline never opens on an
+  // event's shape. The timing fields bind a draft, so the sample timing is state the fields could
+  // write into and never do (the region is inert). Sample words only, never a record's own: the
+  // names and the description are the sample vocabulary's; the civil dates stay literal because
+  // the pickers take the wire shape, which the vocabulary does not carry.
+  const FIXTURE_DATE = civilDateValue(sampleCivilDate(3));
+  let fixtureTiming = $state<EventTimingDraft>({
+    startsOn: sampleCivilDate(3),
+    startsAtTime: "10:30",
+    endsOn: null,
+    endsAtTime: "11:30",
+    timeZone: "America/Chicago",
+  });
+  const PARTICIPANT_FIXTURE: readonly EventParticipant[] = [
+    {
+      id: "fixture-participant-counsel",
+      participantKind: "member",
+      memberUserId: null,
+      entityId: null,
+      participantName: samplePerson(0).name,
+      role: "Lead counsel",
+    },
+    {
+      id: "fixture-participant-reporter",
+      participantKind: "external",
+      memberUserId: null,
+      entityId: null,
+      participantName: samplePerson(1).name,
+      role: "Court reporter",
+    },
+  ];
 </script>
 
 {#snippet subtitle()}
@@ -705,6 +743,117 @@
   they press Edit. The rows break against THIS PANE's width through a container query, because the
   pane is one column of a window with its own measure.
 -->
+{#snippet fixtureFields(kind: EntryReferenceKind)}
+  <div class="flex flex-col gap-4">
+    <Label for="{idPrefix}-fixture-title">Title</Label>
+    <Input
+      id="{idPrefix}-fixture-title"
+      value={kind === "deadline" ? "Responses to the first set of interrogatories" : "Status conference"}
+      disabled
+    />
+  </div>
+  {#if kind === "deadline"}
+    <div class="grid gap-12 @md:grid-cols-2">
+      <div class="flex flex-col gap-4">
+        <DatePicker label="Due" value={FIXTURE_DATE} disabled />
+      </div>
+      <div class="flex flex-col gap-4">
+        <Label for="{idPrefix}-fixture-time">Time</Label>
+        <Input id="{idPrefix}-fixture-time" value="17:00" disabled />
+      </div>
+    </div>
+    <div class="grid gap-12 @md:grid-cols-2">
+      <div class="flex flex-col gap-4">
+        <Label for="{idPrefix}-fixture-time-zone">Time zone</Label>
+        <TimeZonePicker
+          inputId="{idPrefix}-fixture-time-zone"
+          label="Time zone"
+          preferred={preferredZones}
+          value="America/Chicago"
+          disabled
+        />
+      </div>
+      <div class="flex flex-col gap-4">
+        <Label for="{idPrefix}-fixture-priority">Priority</Label>
+        <Input id="{idPrefix}-fixture-priority" value="2" disabled />
+      </div>
+    </div>
+    <div class="flex flex-col gap-4">
+      <Label for="{idPrefix}-fixture-authority">Authority</Label>
+      <Input id="{idPrefix}-fixture-authority" value="Fed. R. Civ. P. 33(b)(2)" disabled />
+    </div>
+    <div class="grid gap-12 @md:grid-cols-2">
+      <div class="flex flex-col gap-4">
+        <Label for="{idPrefix}-fixture-source">Source</Label>
+        <Input id="{idPrefix}-fixture-source" value={deadlineSourceLabel("member")} disabled />
+      </div>
+      <div class="flex flex-col gap-4">
+        <Label for="{idPrefix}-fixture-state">State</Label>
+        <Input id="{idPrefix}-fixture-state" value={deadlineStateLabel("open")} disabled />
+      </div>
+    </div>
+  {:else}
+    <EventTypeSelect
+      id="{idPrefix}-fixture-type"
+      items={typeItems}
+      value={null}
+      disabled
+      onchange={() => undefined}
+    />
+    <RecordTimingFields
+      bind:draft={fixtureTiming}
+      idPrefix="{idPrefix}-fixture-timing"
+      preferred={preferredZones}
+      disabled
+    />
+    {#if kind === "event"}
+      <div class="grid gap-12 @md:grid-cols-2">
+        <div class="flex flex-col gap-4">
+          <Label for="{idPrefix}-fixture-where">Where</Label>
+          <Input id="{idPrefix}-fixture-where" value="Department 12" disabled />
+        </div>
+        <div class="flex flex-col gap-4">
+          <Label for="{idPrefix}-fixture-court-reference">Court reference</Label>
+          <Input id="{idPrefix}-fixture-court-reference" value="A-26-901234-C" disabled />
+        </div>
+      </div>
+    {:else}
+      <div class="grid gap-12 @md:grid-cols-2">
+        <div class="flex flex-col gap-4">
+          <Label for="{idPrefix}-fixture-audience">Audience</Label>
+          <Input
+            id="{idPrefix}-fixture-audience"
+            value={firmEventAudienceLabel("all_members")}
+            disabled
+          />
+        </div>
+        <div class="flex flex-col gap-4">
+          <Label id="{idPrefix}-fixture-office-label">Office</Label>
+          <Select.Root type="single" items={officeItems} value="" disabled>
+            <Select.Trigger aria-labelledby="{idPrefix}-fixture-office-label">
+              <Select.Value placeholder={placeholderOf("Office")} />
+            </Select.Trigger>
+          </Select.Root>
+        </div>
+      </div>
+      <div class="flex flex-col gap-4">
+        <Label for="{idPrefix}-fixture-venue">Venue</Label>
+        <Input id="{idPrefix}-fixture-venue" value="Main office, the boardroom" disabled />
+      </div>
+    {/if}
+    <div class="flex flex-col gap-4">
+      <Label for="{idPrefix}-fixture-description">Description</Label>
+      <Textarea
+        id="{idPrefix}-fixture-description"
+        class="resize-none"
+        rows={3}
+        value={SAMPLE_SENTENCE}
+        disabled
+      />
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet recordPane({ editing: fieldsOpen }: { editing: boolean })}
   {@const readOnly = !fieldsOpen}
   <div class="@container flex flex-col gap-16">
@@ -717,255 +866,277 @@
       />
     {/if}
 
-    {#if readFailure !== null}
-      <FailureNotice
-        failure={readFailure.failure}
-        title="The Record Could Not Be Read"
-        fallback={readFailure.fallback}
-        onRetry={reread}
-      />
-    {:else if unreachableDeadline}
+    {#if unreachableDeadline}
       <p class="text-sm text-text-muted">
         This deadline is not in the window on screen. Move to its month to open it.
       </p>
-    {:else if record === null}
-      <div class="flex flex-col gap-12" aria-busy="true" aria-label="Reading the record">
-        <Skeleton class="h-32 w-full" />
-        <Skeleton class="h-32 w-2/3" />
-        <Skeleton class="h-32 w-full" />
-      </div>
-    {:else if record.kind === "event" && eventDraft !== null}
-      {@const draft = eventDraft}
-      <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-title">Title</Label>
-        <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
-      </div>
-      <EventTypeSelect
-        id="{idPrefix}-type"
-        items={typeItems}
-        value={draft.eventTypeId}
-        disabled={readOnly}
-        onchange={(value) => (draft.eventTypeId = value)}
-      />
-      <RecordTimingFields
-        bind:draft={eventDraft}
-        idPrefix="{idPrefix}-timing"
-        preferred={preferredZones}
-        disabled={readOnly}
-      />
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-where">Where</Label>
-          <Input id="{idPrefix}-where" disabled={readOnly} bind:value={draft.locationText} />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-court-reference">Court reference</Label>
-          <Input
-            id="{idPrefix}-court-reference"
+    {:else}
+      <LoadingRegion
+        loading={record === null}
+        failed={readFailure !== null}
+        label="Reading the record"
+        onRetry={reread}
+        class="flex flex-col gap-16"
+      >
+        {#snippet failure()}
+          {#if readFailure !== null}
+            <FailureNotice
+              failure={readFailure.failure}
+              title="The Record Could Not Be Read"
+              fallback={readFailure.fallback}
+              onRetry={reread}
+            />
+          {/if}
+        {/snippet}
+        {#snippet fixture()}
+          {@render fixtureFields(current?.kind ?? "event")}
+        {/snippet}
+        {#if record?.kind === "event" && eventDraft !== null}
+          {@const draft = eventDraft}
+          <div class="flex flex-col gap-4">
+            <Label for="{idPrefix}-title">Title</Label>
+            <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
+          </div>
+          <EventTypeSelect
+            id="{idPrefix}-type"
+            items={typeItems}
+            value={draft.eventTypeId}
             disabled={readOnly}
-            bind:value={draft.courtReference}
+            onchange={(value) => (draft.eventTypeId = value)}
           />
-        </div>
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-description">Description</Label>
-        <Textarea
-          id="{idPrefix}-description"
-          class="resize-none"
-          rows={3}
-          disabled={readOnly}
-          bind:value={draft.description}
-        />
-      </div>
-    {:else if record.kind === "deadline" && deadlineDraft !== null}
-      {@const draft = deadlineDraft}
-      <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-title">Title</Label>
-        <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="Due"
-            value={civilDateValue(draft.dueOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.dueOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-time">Time</Label>
-          <Input
-            id="{idPrefix}-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("Time")}
-            title="HH:MM in the time zone below, or empty for the end of the day"
-            disabled={readOnly}
-            bind:value={draft.dueAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-time-zone">Time zone</Label>
-          <TimeZonePicker
-            inputId="{idPrefix}-time-zone"
-            label="Time zone"
+          <RecordTimingFields
+            bind:draft={eventDraft}
+            idPrefix="{idPrefix}-timing"
             preferred={preferredZones}
             disabled={readOnly}
-            bind:value={draft.timeZone}
           />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-priority">Priority</Label>
-          <Input
-            id="{idPrefix}-priority"
-            inputmode="numeric"
-            placeholder={placeholderOf("Priority")}
-            title="1 is the most urgent, {DEADLINE_PRIORITY_MAX} the least; empty for none"
+          <div class="grid gap-12 @md:grid-cols-2">
+            <div class="flex flex-col gap-4">
+              <Label for="{idPrefix}-where">Where</Label>
+              <Input id="{idPrefix}-where" disabled={readOnly} bind:value={draft.locationText} />
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="{idPrefix}-court-reference">Court reference</Label>
+              <Input
+                id="{idPrefix}-court-reference"
+                disabled={readOnly}
+                bind:value={draft.courtReference}
+              />
+            </div>
+          </div>
+          <div class="flex flex-col gap-4">
+            <Label for="{idPrefix}-description">Description</Label>
+            <Textarea
+              id="{idPrefix}-description"
+              class="resize-none"
+              rows={3}
+              disabled={readOnly}
+              bind:value={draft.description}
+            />
+          </div>
+        {:else if record?.kind === "deadline" && deadlineDraft !== null}
+          {@const draft = deadlineDraft}
+          <div class="flex flex-col gap-4">
+            <Label for="{idPrefix}-title">Title</Label>
+            <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
+          </div>
+          <div class="grid gap-12 @md:grid-cols-2">
+            <div class="flex flex-col gap-4">
+              <DatePicker
+                label="Due"
+                value={civilDateValue(draft.dueOn)}
+                disabled={readOnly}
+                onValueChange={(picked) => (draft.dueOn = picked === undefined ? null : picked.toString())}
+              />
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="{idPrefix}-time">Time</Label>
+              <Input
+                id="{idPrefix}-time"
+                inputmode="numeric"
+                placeholder={placeholderOf("Time")}
+                title="HH:MM in the time zone below, or empty for the end of the day"
+                disabled={readOnly}
+                bind:value={draft.dueAtTime}
+              />
+            </div>
+          </div>
+          <div class="grid gap-12 @md:grid-cols-2">
+            <div class="flex flex-col gap-4">
+              <Label for="{idPrefix}-time-zone">Time zone</Label>
+              <TimeZonePicker
+                inputId="{idPrefix}-time-zone"
+                label="Time zone"
+                preferred={preferredZones}
+                disabled={readOnly}
+                bind:value={draft.timeZone}
+              />
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="{idPrefix}-priority">Priority</Label>
+              <Input
+                id="{idPrefix}-priority"
+                inputmode="numeric"
+                placeholder={placeholderOf("Priority")}
+                title="1 is the most urgent, {DEADLINE_PRIORITY_MAX} the least; empty for none"
+                disabled={readOnly}
+                bind:value={draft.priority}
+              />
+            </div>
+          </div>
+          <div class="flex flex-col gap-4">
+            <Label for="{idPrefix}-authority">Authority</Label>
+            <Input
+              id="{idPrefix}-authority"
+              title="The rule, statute or order this comes from, in the firm's own words"
+              disabled={readOnly}
+              bind:value={draft.authorityText}
+            />
+          </div>
+          <div class="grid gap-12 @md:grid-cols-2">
+            <div class="flex flex-col gap-4">
+              <Label for="{idPrefix}-source">Source</Label>
+              <!-- Frozen on the record: where a deadline came from is a fact about its recording. -->
+              <Input id="{idPrefix}-source" value={deadlineSourceLabel(draft.source)} disabled />
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="{idPrefix}-state">State</Label>
+              <Input id="{idPrefix}-state" value={deadlineStateWord(record.deadline)} disabled />
+            </div>
+          </div>
+          {#if record.deadline.state !== "open" && record.deadline.stateReason !== null}
+            <div class="flex flex-col gap-4">
+              <Label for="{idPrefix}-state-reason">Reason</Label>
+              <Textarea
+                id="{idPrefix}-state-reason"
+                class="resize-none"
+                rows={2}
+                value={record.deadline.stateReason}
+                disabled
+              />
+            </div>
+          {/if}
+        {:else if record?.kind === "firmEvent" && firmEventDraft !== null}
+          {@const draft = firmEventDraft}
+          <div class="flex flex-col gap-4">
+            <Label for="{idPrefix}-title">Title</Label>
+            <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
+          </div>
+          <EventTypeSelect
+            id="{idPrefix}-type"
+            items={typeItems}
+            value={draft.eventTypeId}
             disabled={readOnly}
-            bind:value={draft.priority}
+            onchange={(value) => (draft.eventTypeId = value)}
           />
-        </div>
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-authority">Authority</Label>
-        <Input
-          id="{idPrefix}-authority"
-          title="The rule, statute or order this comes from, in the firm's own words"
-          disabled={readOnly}
-          bind:value={draft.authorityText}
-        />
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-source">Source</Label>
-          <!-- Frozen on the record: where a deadline came from is a fact about its recording. -->
-          <Input id="{idPrefix}-source" value={deadlineSourceLabel(draft.source)} disabled />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-state">State</Label>
-          <Input id="{idPrefix}-state" value={deadlineStateWord(record.deadline)} disabled />
-        </div>
-      </div>
-      {#if record.deadline.state !== "open" && record.deadline.stateReason !== null}
-        <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-state-reason">Reason</Label>
-          <Textarea
-            id="{idPrefix}-state-reason"
-            class="resize-none"
-            rows={2}
-            value={record.deadline.stateReason}
-            disabled
+          <RecordTimingFields
+            bind:draft={firmEventDraft}
+            idPrefix="{idPrefix}-timing"
+            preferred={preferredZones}
+            disabled={readOnly}
           />
-        </div>
-      {/if}
-    {:else if record.kind === "firmEvent" && firmEventDraft !== null}
-      {@const draft = firmEventDraft}
-      <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-title">Title</Label>
-        <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
-      </div>
-      <EventTypeSelect
-        id="{idPrefix}-type"
-        items={typeItems}
-        value={draft.eventTypeId}
-        disabled={readOnly}
-        onchange={(value) => (draft.eventTypeId = value)}
-      />
-      <RecordTimingFields
-        bind:draft={firmEventDraft}
-        idPrefix="{idPrefix}-timing"
-        preferred={preferredZones}
-        disabled={readOnly}
-      />
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="{idPrefix}-audience">Audience</Label>
-          <!-- Who an event is for is decided when it is recorded; a list that grew or shrank
-               afterwards would change whose calendar it is on without anybody choosing that. -->
-          <Input id="{idPrefix}-audience" value={firmEventAudienceLabel(draft.audience)} disabled />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label id="{idPrefix}-office-label">Office</Label>
-          <Select.Root
-            type="single"
-            items={officeItems}
-            value={draft.locationId ?? ""}
-            onValueChange={(value) => (draft.locationId = value === "" ? null : value)}
-            disabled={readOnly || officeItems.length === 0}
-          >
-            <Select.Trigger aria-labelledby="{idPrefix}-office-label">
-              <Select.Value placeholder={placeholderOf("Office")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each officeItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-venue">Venue</Label>
-        <Input id="{idPrefix}-venue" disabled={readOnly} bind:value={draft.locationText} />
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label for="{idPrefix}-description">Description</Label>
-        <Textarea
-          id="{idPrefix}-description"
-          class="resize-none"
-          rows={3}
-          disabled={readOnly}
-          bind:value={draft.description}
-        />
-      </div>
+          <div class="grid gap-12 @md:grid-cols-2">
+            <div class="flex flex-col gap-4">
+              <Label for="{idPrefix}-audience">Audience</Label>
+              <!-- Who an event is for is decided when it is recorded; a list that grew or shrank
+                   afterwards would change whose calendar it is on without anybody choosing that. -->
+              <Input id="{idPrefix}-audience" value={firmEventAudienceLabel(draft.audience)} disabled />
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label id="{idPrefix}-office-label">Office</Label>
+              <Select.Root
+                type="single"
+                items={officeItems}
+                value={draft.locationId ?? ""}
+                onValueChange={(value) => (draft.locationId = value === "" ? null : value)}
+                disabled={readOnly || officeItems.length === 0}
+              >
+                <Select.Trigger aria-labelledby="{idPrefix}-office-label">
+                  <Select.Value placeholder={placeholderOf("Office")} />
+                </Select.Trigger>
+                <Select.Content>
+                  {#each officeItems as item (item.value)}
+                    <Select.Item value={item.value} label={item.label} />
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+          </div>
+          <div class="flex flex-col gap-4">
+            <Label for="{idPrefix}-venue">Venue</Label>
+            <Input id="{idPrefix}-venue" disabled={readOnly} bind:value={draft.locationText} />
+          </div>
+          <div class="flex flex-col gap-4">
+            <Label for="{idPrefix}-description">Description</Label>
+            <Textarea
+              id="{idPrefix}-description"
+              class="resize-none"
+              rows={3}
+              disabled={readOnly}
+              bind:value={draft.description}
+            />
+          </div>
+        {/if}
+      </LoadingRegion>
     {/if}
   </div>
 {/snippet}
 
-{#snippet participantsTab()}
-  {#if record === null}
-    <p class="text-sm text-text-muted">&nbsp;</p>
-  {:else if record.kind === "deadline"}
-    <p class="text-sm text-text-muted">Nobody is listed.</p>
-  {:else if record.kind === "firmEvent" && record.event.audience === "all_members"}
-    <p class="text-sm">Everyone at the firm.</p>
-  {:else if record.participants.length === 0}
-    <p class="text-sm text-text-muted">Nobody is listed.</p>
-  {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">Who is at this event</DataTable.Caption>
-      <DataTable.Header>
+{#snippet participantTable(rows: readonly EventParticipant[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">Who is at this event</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Name</DataTable.Head>
+        <DataTable.Head>Role</DataTable.Head>
+        <DataTable.Head>Kind</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as participant (participant.id)}
         <DataTable.Row>
-          <DataTable.Head>Name</DataTable.Head>
-          <DataTable.Head>Role</DataTable.Head>
-          <DataTable.Head>Kind</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each record.participants as participant (participant.id)}
-          <DataTable.Row>
-            <DataTable.Cell>
-              {#if participant.participantKind === "entity" && participant.entityId !== null && participant.participantName === null}
-                <a class="underline underline-offset-2" href="/contacts/{participant.entityId}">
-                  {participantName(participant)}
-                </a>
-              {:else}
+          <DataTable.Cell>
+            {#if participant.participantKind === "entity" && participant.entityId !== null && participant.participantName === null}
+              <a class="underline underline-offset-2" href="/contacts/{participant.entityId}">
                 {participantName(participant)}
-              {/if}
-            </DataTable.Cell>
-            <DataTable.Cell>
-              {#if participant.role === null}
-                <span class="text-text-muted">Not recorded</span>
-              {:else}
-                {participant.role}
-              {/if}
-            </DataTable.Cell>
-            <DataTable.Cell>{PARTICIPANT_KIND_WORDS[participant.participantKind]}</DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
+              </a>
+            {:else}
+              {participantName(participant)}
+            {/if}
+          </DataTable.Cell>
+          <DataTable.Cell>
+            {#if participant.role === null}
+              <span class="text-text-muted">Not recorded</span>
+            {:else}
+              {participant.role}
+            {/if}
+          </DataTable.Cell>
+          <DataTable.Cell>{PARTICIPANT_KIND_WORDS[participant.participantKind]}</DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}
+
+{#snippet participantsTab()}
+  {#if record === null && !reading}
+    <!-- No record and no read in flight: the record pane states why, so this pane stays quiet. -->
+    <p class="text-sm text-text-muted">&nbsp;</p>
+  {:else}
+    <LoadingRegion loading={record === null} label="Reading who is at this event">
+      {#snippet fixture()}
+        {@render participantTable(PARTICIPANT_FIXTURE)}
+      {/snippet}
+      {#if record?.kind === "deadline"}
+        <p class="text-sm text-text-muted">Nobody is listed.</p>
+      {:else if record?.kind === "firmEvent" && record.event.audience === "all_members"}
+        <p class="text-sm">Everyone at the firm.</p>
+      {:else if record !== null && record.participants.length === 0}
+        <p class="text-sm text-text-muted">Nobody is listed.</p>
+      {:else if record !== null}
+        {@render participantTable(record.participants)}
+      {/if}
+    </LoadingRegion>
   {/if}
 {/snippet}
 
@@ -973,6 +1144,7 @@
   <EntryRoomsTab
     bind:this={roomsTab}
     {record}
+    {reading}
     readerTimeZone={context.readerTimeZone}
     verbRefusal={eventVerbRefusal}
     bind:bookingCount
@@ -984,6 +1156,7 @@
   <EntryLinksTab
     bind:this={linksTab}
     {record}
+    {reading}
     verbRefusal={eventVerbRefusal}
     bind:relatedCount
     onOpen={openReference}

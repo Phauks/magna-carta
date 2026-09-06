@@ -17,7 +17,6 @@
    * name rows keep only the case-folded form the corpus indexes, so the alternative to showing it is
    * inventing a capitalization nobody recorded.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
@@ -31,7 +30,8 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleCivilDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import PenLine from "@lucide/svelte/icons/pen-line";
   import Plus from "@lucide/svelte/icons/plus";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -71,27 +71,91 @@
   let names = $state<readonly DirectoryNameEntry[] | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
+  /** True while names already on screen are being read again, after one was recorded. */
+  let refreshing = $state(false);
+  // The record whose names last landed. Only a change of RECORD discards what is on screen: a
+  // re-read after a name lands keeps the rows where the reader is looking and marks the region
+  // busy instead.
+  let shownFor: string | null = null;
+
+  /** One sample name as a name row: the display form and the case-folded form the corpus keeps. */
+  function sampleNameRow(
+    index: number,
+  ): Pick<DirectoryNameEntry, "given" | "family" | "displayName" | "normalizedDisplay"> {
+    const name = samplePerson(index).name;
+    const [given = null, ...rest] = name.split(" ");
+    return {
+      given,
+      family: rest.length === 0 ? null : rest.join(" "),
+      displayName: name,
+      normalizedDisplay: name.toLowerCase(),
+    };
+  }
+
+  /**
+   * The shape the rail takes while the record's names are being read: the current name and one
+   * former name, in the same rows the real rail renders, over the sample vocabulary. The dates are
+   * in the record's own stored shape, which the vocabulary does not carry.
+   */
+  const NAME_FIXTURE: readonly DirectoryNameEntry[] = [
+    {
+      id: "fixture-1",
+      nameRole: "current",
+      isCurrent: true,
+      prefix: null,
+      middle: null,
+      suffix: null,
+      ...sampleNameRow(0),
+      validFrom: sampleCivilDate(2),
+      validTo: null,
+      recordedAt: "",
+    },
+    {
+      id: "fixture-2",
+      nameRole: "former",
+      isCurrent: false,
+      prefix: null,
+      middle: null,
+      suffix: null,
+      ...sampleNameRow(2),
+      validFrom: null,
+      validTo: sampleCivilDate(2),
+      recordedAt: "",
+    },
+  ];
 
   $effect(() => {
     const id = entityId;
     void reloadToken;
     let cancelled = false;
-    names = null;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
+      names = null;
+    }
     readFailure = null;
     void (async () => {
       const outcome = await readDirectoryNames(fetch, id);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind === "ok") {
+        shownFor = id;
         names = outcome.value.data;
         return;
       }
+      shownFor = null;
       names = [];
       readFailure = stated(outcome.failure, "The names on this record could not be read.");
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
+
+  function retry(): void {
+    reloadToken += 1;
+  }
 
   /** What to print for one row: the recorded name, or the case-folded form where that is all there is. */
   function nameText(entry: DirectoryNameEntry): string {
@@ -122,7 +186,7 @@
   let family = $state("");
   let suffix = $state("");
   let legalName = $state("");
-  let failure = $state<StatedFailure | null>(null);
+  let writeFailure = $state<StatedFailure | null>(null);
 
   const ready = $derived(
     kind === "person" ? given.trim() !== "" && family.trim() !== "" : legalName.trim() !== "",
@@ -149,13 +213,13 @@
     family = "";
     suffix = "";
     legalName = "";
-    failure = null;
+    writeFailure = null;
   }
 
   // The change dialog opens on the name the record carries NOW, because a name change is usually an
   // edit of one part — a surname — and retyping the rest is how the other parts get lost.
   function seedFromCurrent(): void {
-    failure = null;
+    writeFailure = null;
     if (entity.kind === "person") {
       prefix = entity.person.prefix ?? "";
       given = entity.person.given ?? "";
@@ -180,7 +244,7 @@
 
   async function submitAdd(): Promise<ActionOutcome> {
     if (!ready) return "refused";
-    failure = null;
+    writeFailure = null;
     const outcome = await addDirectoryName(
       fetch,
       entityId,
@@ -193,7 +257,7 @@
       recorded();
       return "committed";
     }
-    failure = stated(
+    writeFailure = stated(
       outcome.failure,
       "The name could not be recorded.",
       "The name was not recorded.",
@@ -207,7 +271,7 @@
 
   async function submitChange(): Promise<ActionOutcome> {
     if (!ready) return "refused";
-    failure = null;
+    writeFailure = null;
     const outcome = await changeDirectoryName(
       fetch,
       entityId,
@@ -218,7 +282,7 @@
       recorded();
       return "committed";
     }
-    failure = stated(
+    writeFailure = stated(
       outcome.failure,
       "The name could not be changed.",
       "The name on the record is unchanged.",
@@ -309,51 +373,67 @@
     </div>
   </div>
 
-  {#if readFailure !== null}
-    <FailureNotice
-      failure={readFailure.failure}
-      title="The Names Could Not Be Read"
-      fallback={readFailure.fallback}
-      whenSilent={readFailure.whenSilent}
-    />
-  {:else if names === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the names on this record">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else if names.length === 0}
-    <EmptyState title="No Names On This Record">
-      Every record carries at least the name it was created under, so an empty list here means the
-      record's name rows could not be found.
-    </EmptyState>
-  {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">The names this record carries</DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          <DataTable.Head>Name</DataTable.Head>
-          <DataTable.Head>Role</DataTable.Head>
-          <DataTable.Head>In use</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each names as entry (entry.id)}
-          <DataTable.Row>
-            <DataTable.Cell>{nameText(entry)}</DataTable.Cell>
-            <DataTable.Cell>
-              <Badge variant={entry.isCurrent ? "accent" : "neutral"}>
-                {nameRoleLabel(entry.nameRole)}
-              </Badge>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <span class="text-text-muted">{period(entry)}</span>
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
-  {/if}
+  <LoadingRegion
+    loading={names === null}
+    {refreshing}
+    failed={readFailure !== null}
+    empty={names !== null && names.length === 0}
+    label="Reading the names on this record"
+    onRetry={retry}
+    class="flex flex-col gap-8"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The Names Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={retry}
+        />
+      {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render nameTable(NAME_FIXTURE)}
+    {/snippet}
+    {#snippet emptyState()}
+      <EmptyState title="No Names On This Record">
+        Every record carries at least the name it was created under, so an empty list here means
+        the record's name rows could not be found.
+      </EmptyState>
+    {/snippet}
+    {@render nameTable(names ?? [])}
+  </LoadingRegion>
 </section>
+
+<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet nameTable(rows: readonly DirectoryNameEntry[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">The names this record carries</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Name</DataTable.Head>
+        <DataTable.Head>Role</DataTable.Head>
+        <DataTable.Head>In use</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as entry (entry.id)}
+        <DataTable.Row>
+          <DataTable.Cell>{nameText(entry)}</DataTable.Cell>
+          <DataTable.Cell>
+            <Badge variant={entry.isCurrent ? "accent" : "neutral"}>
+              {nameRoleLabel(entry.nameRole)}
+            </Badge>
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <span class="text-text-muted">{period(entry)}</span>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}
 
 <ActionDialog
   bind:open={changeOpen}
@@ -371,12 +451,12 @@
   {/snippet}
 
   {#snippet notice()}
-    {#if failure !== null}
+    {#if writeFailure !== null}
       <FailureNotice
-        failure={failure.failure}
+        failure={writeFailure.failure}
         title="The Name Was Not Recorded"
-        fallback={failure.fallback}
-        whenSilent={failure.whenSilent}
+        fallback={writeFailure.fallback}
+        whenSilent={writeFailure.whenSilent}
       />
     {/if}
   {/snippet}
@@ -418,12 +498,12 @@
   {/snippet}
 
   {#snippet notice()}
-    {#if failure !== null}
+    {#if writeFailure !== null}
       <FailureNotice
-        failure={failure.failure}
+        failure={writeFailure.failure}
         title="The Name Was Not Recorded"
-        fallback={failure.fallback}
-        whenSilent={failure.whenSilent}
+        fallback={writeFailure.fallback}
+        whenSilent={writeFailure.whenSilent}
       />
     {/if}
   {/snippet}

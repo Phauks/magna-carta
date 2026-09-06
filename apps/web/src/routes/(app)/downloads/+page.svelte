@@ -24,7 +24,8 @@
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleDate, sampleMatter } from "@magna-carta/design-system/loading-fixtures";
   import { toast } from "@magna-carta/design-system/toast";
   import {
     exportFromStored,
@@ -45,6 +46,9 @@
 
   let items = $state<ShelfItem[] | null>(null);
   let failure = $state<StatedFailure | null>(null);
+  // True while the shelf is being read. With rows already on screen — Refresh, or the re-read
+  // after a download — they stay where the reader is looking until the fresh ones land.
+  let reading = $state(false);
   // Selection is the reason exporting generates rather than downloads: several items gathered over a
   // morning are taken in one act. Held as ids so a refresh that drops a row drops it from the
   // selection too, rather than leaving a phantom selected item nothing can act on.
@@ -85,7 +89,9 @@
 
   async function load(): Promise<void> {
     failure = null;
+    reading = true;
     const outcome = await readShelf(fetch);
+    reading = false;
     if (outcome.kind === "ok") {
       items = [...outcome.value.items];
       const present = new Set(items.map((item) => item.id));
@@ -195,7 +201,58 @@
     if (formats.length === 0) return "Not yet";
     return formats.map((entry) => entry.toUpperCase()).join(", ");
   }
+
+  /*
+   * The shape the shelf takes while it is read: the same table, over invented items from the
+   * sample vocabulary. Inert and hidden from assistive technology while it stands, so no row in it
+   * reads as something the platform made for this member.
+   */
+  const SHELF_FIXTURE = [
+    {
+      id: "fixture-1",
+      title: `Matters docket, ${sampleDate(0)}`,
+      source: PRODUCER_LABELS.export ?? "Export",
+      format: "XLSX",
+      taken: "XLSX, PDF",
+      created: sampleDate(0),
+      until: sampleDate(3),
+    },
+    {
+      id: "fixture-2",
+      title: `Trust ledger, ${sampleMatter(0).title}`,
+      source: PRODUCER_LABELS.export ?? "Export",
+      format: "PDF",
+      taken: "Not yet",
+      created: sampleDate(1),
+      until: sampleDate(4),
+    },
+    {
+      id: "fixture-3",
+      title: `${sampleMatter(1).title}, discovery bundle`,
+      source: PRODUCER_LABELS.bundle ?? "File Bundle",
+      format: "ZIP",
+      taken: "ZIP",
+      created: sampleDate(2),
+      until: sampleDate(1),
+    },
+  ] as const;
 </script>
+
+{#snippet shelfHead()}
+  <DataTable.Caption class="sr-only">Your downloads</DataTable.Caption>
+  <DataTable.Header>
+    <DataTable.Row>
+      <DataTable.Head><span class="sr-only">Select</span></DataTable.Head>
+      <DataTable.Head>Name</DataTable.Head>
+      <DataTable.Head>Source</DataTable.Head>
+      <DataTable.Head>Format</DataTable.Head>
+      <DataTable.Head>Downloaded</DataTable.Head>
+      <DataTable.Head>Created</DataTable.Head>
+      <DataTable.Head>Available Until</DataTable.Head>
+      <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
+    </DataTable.Row>
+  </DataTable.Header>
+{/snippet}
 
 <svelte:head>
   <title>Downloads · Magna Carta</title>
@@ -214,26 +271,68 @@
   {/snippet}
 </ScreenHeader>
 
-{#if failure !== null}
-  <FailureNotice
-    failure={failure.failure}
-    title="Your Downloads Could Not Be Read"
-    fallback={failure.fallback}
-    onRetry={() => void load()}
-  />
-{:else if items === null}
-  <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading your downloads">
-    <Skeleton class="h-32 w-full" />
-    <Skeleton class="h-32 w-full" />
-    <Skeleton class="h-32 w-full" />
-  </div>
-{:else if items.length === 0}
-  <EmptyState title="Nothing here yet">
-    Reports and files the platform makes for you gather here for a week. Export something from any
-    screen and it appears here, ready to download whenever you want it — on its own, or together
-    with everything else you have gathered.
-  </EmptyState>
-{:else}
+<!-- The page's own state is named `failure`, so the notice the region shows on a failed
+     read takes a name of its own and is handed to the region's `failure` prop. -->
+{#snippet failureNotice()}
+  {#if failure !== null}
+    <FailureNotice
+      failure={failure.failure}
+      title="Your Downloads Could Not Be Read"
+      fallback={failure.fallback}
+      onRetry={() => void load()}
+    />
+  {/if}
+{/snippet}
+
+<LoadingRegion
+  loading={items === null}
+  refreshing={reading}
+  failed={failure !== null}
+  failure={failureNotice}
+  empty={items !== null && items.length === 0}
+  label="Reading your downloads"
+  onRetry={() => void load()}
+>
+  {#snippet emptyState()}
+    <EmptyState title="Nothing here yet">
+      Reports and files the platform makes for you gather here for a week. Export something from any
+      screen and it appears here, ready to download whenever you want it — on its own, or together
+      with everything else you have gathered.
+    </EmptyState>
+  {/snippet}
+  {#snippet fixture()}
+    <DataTable.Root>
+      {@render shelfHead()}
+      <DataTable.Body>
+        {#each SHELF_FIXTURE as item (item.id)}
+          <DataTable.Row>
+            <DataTable.Cell>
+              <Checkbox checked={false} aria-label={`Select ${item.title}`} />
+            </DataTable.Cell>
+            <DataTable.Cell>{item.title}</DataTable.Cell>
+            <DataTable.Cell>{item.source}</DataTable.Cell>
+            <DataTable.Cell>{item.format}</DataTable.Cell>
+            <DataTable.Cell>{item.taken}</DataTable.Cell>
+            <DataTable.Cell>{item.created}</DataTable.Cell>
+            <DataTable.Cell>{item.until}</DataTable.Cell>
+            <DataTable.Cell data-align="end">
+              <div class="flex items-center justify-end gap-8">
+                <Button variant="ghost" size="sm">
+                  <Download class="size-16" aria-hidden="true" />
+                  Download
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Trash2 class="size-16" aria-hidden="true" />
+                  Remove
+                </Button>
+              </div>
+            </DataTable.Cell>
+          </DataTable.Row>
+        {/each}
+      </DataTable.Body>
+    </DataTable.Root>
+  {/snippet}
+  {@const shown = items ?? []}
   {#if selectedItems.length > 0}
     <!-- Present only while a selection is in play: its absence is itself the answer to whether
          anything is selected. -->
@@ -248,21 +347,9 @@
     </div>
   {/if}
   <DataTable.Root>
-    <DataTable.Caption class="sr-only">Your downloads</DataTable.Caption>
-    <DataTable.Header>
-      <DataTable.Row>
-        <DataTable.Head><span class="sr-only">Select</span></DataTable.Head>
-        <DataTable.Head>Name</DataTable.Head>
-        <DataTable.Head>Source</DataTable.Head>
-        <DataTable.Head>Format</DataTable.Head>
-        <DataTable.Head>Downloaded</DataTable.Head>
-        <DataTable.Head>Created</DataTable.Head>
-        <DataTable.Head>Available Until</DataTable.Head>
-        <DataTable.Head><span class="sr-only">Actions</span></DataTable.Head>
-      </DataTable.Row>
-    </DataTable.Header>
+    {@render shelfHead()}
     <DataTable.Body>
-      {#each items as item (item.id)}
+      {#each shown as item (item.id)}
         <DataTable.Row>
           <DataTable.Cell>
             <Checkbox
@@ -346,4 +433,4 @@
       {/each}
     </DataTable.Body>
   </DataTable.Root>
-{/if}
+</LoadingRegion>

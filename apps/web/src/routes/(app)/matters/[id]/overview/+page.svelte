@@ -5,13 +5,12 @@
    * calendar component with this matter's scope, headless and capped), and honest placeholder
    * tiles for the figures that accrue once time and trust flow ("Soon", never fake numbers).
    * Status is displayed as a fact and never gates content — every section renders the same
-   * for a prospective, open, or closed matter.
+   * for a consultation, open, or closed matter.
    */
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import * as Card from "@magna-carta/design-system/card";
   import { formatDate } from "@magna-carta/design-system/data-table";
-  import Skeleton from "@magna-carta/design-system/skeleton";
   import EntityIdentity, { type EntityKind } from "@magna-carta/design-system/entity-identity";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ActivityRegister from "$lib/activity/activity-register.svelte";
@@ -84,6 +83,14 @@
     if (matter.openedAt) {
       facts.push({ label: "Opened", value: formatDate(matter.openedAt) });
     }
+    // The pause is stated where the status is: when it began and why, because a reader who sees
+    // On Hold on the seal asks both at once.
+    if (matter.status === "hold" && matter.heldAt) {
+      facts.push({ label: "On hold since", value: formatDate(matter.heldAt) });
+    }
+    if (matter.status === "hold" && matter.holdReason) {
+      facts.push({ label: "Hold reason", value: matter.holdReason });
+    }
     if (matter.closedAt) {
       facts.push({ label: "Closed", value: formatDate(matter.closedAt) });
     }
@@ -95,8 +102,16 @@
     return facts;
   });
 
-  /* The figures that accrue against a matter once their surfaces ship — placeholders only. */
-  const ACCRUAL_TILES = [{ label: "Unbilled time" }, { label: "Trust balance" }];
+  /*
+   * The figures that accrue against a matter once their surfaces ship. Each tile draws its final
+   * anatomy — the label, the Soon mark, and one honest line on what the figure waits on — and never
+   * a number or a greyed stand-in for one: a shape where a figure goes reads as a figure being read,
+   * and nothing is being read.
+   */
+  const ACCRUAL_TILES = [
+    { label: "Unbilled time", waitsOn: "Accrues once time is recorded against this matter." },
+    { label: "Trust balance", waitsOn: "Accrues once the trust ledger posts to this matter." },
+  ];
 
   const isSample = $derived(matter.source === "sample");
 
@@ -192,8 +207,7 @@
             </FieldLabel>
             <Badge variant="neutral">Soon</Badge>
           </div>
-          <Skeleton class="h-20 w-96" />
-          <Skeleton class="h-12 w-64" />
+          <p class="text-sm text-text-muted">{tile.waitsOn}</p>
         </Card.Content>
       </Card.Root>
     {/each}

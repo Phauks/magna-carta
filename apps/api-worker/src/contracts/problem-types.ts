@@ -419,6 +419,10 @@ export const PROBLEM_TYPES = {
   // required step of the firm's intake procedure with no satisfying answer. `errors[]` names each
   // step that stands in the way and what answers it.
   "matter-open-refused": "matter-open-refused",
+  // One rung earlier (HTTP 409): an intake whose graduation rules refused it — a required step of
+  // the firm's intake procedure with no satisfying answer. `errors[]` names each step and what
+  // answers it, so the desk and the status window re-answer the checklist already on screen.
+  "matter-graduate-refused": "matter-graduate-refused",
   // A billing change aimed at an invoice that is no longer a working document (HTTP 409): the
   // invoice has been finalized or voided, and its header, lines, and work-in-progress claims are
   // frozen at the database. DISTINCT from `conflict` because nothing about waiting or retrying

@@ -94,7 +94,7 @@ describe("GET /api/v1/me", () => {
         "calendar:manage",
         "calendar:read",
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
-        // prospective matter); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
+        // consultation); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
         "conflicts:dispose",
         "conflicts:read",
         "conflicts:run",
@@ -191,6 +191,7 @@ describe("GET /api/v1/me", () => {
         "matters:close",
         "matters:create",
         "matters:edit",
+        "matters:hold",
         "matters:manageNumbering",
         "matters:manageTypes",
         "matters:open",

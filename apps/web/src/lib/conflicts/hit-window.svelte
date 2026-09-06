@@ -32,6 +32,8 @@
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { SAMPLE_SENTENCE, sampleInstant, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Gavel from "@lucide/svelte/icons/gavel";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -111,9 +113,10 @@
   let trailFailure = $state<StatedFailure | null>(null);
   let trailLoading = $state(false);
 
-  $effect(() => {
+  /** Read the trail for the hit the window is holding. Retry asks again for the same hit. */
+  function readTrail(): void {
     const hitId = hit?.id ?? null;
-    if (!open || hitId === null) return;
+    if (hitId === null) return;
     trail = [];
     trailFailure = null;
     trailLoading = true;
@@ -128,7 +131,42 @@
       }
       trailFailure = stated(outcome.failure, "This hit's answers could not be read.");
     })();
+  }
+
+  $effect(() => {
+    const hitId = hit?.id ?? null;
+    if (!open || hitId === null) return;
+    readTrail();
   });
+
+  /*
+   * The shape the trail takes while it is being read: the same rail, over invented answers from
+   * the sample vocabulary. It is inert and hidden from assistive technology while it stands, so
+   * nothing in it can be mistaken for a real hit's record.
+   */
+  const TRAIL_FIXTURE: readonly EventRailEvent[] = [
+    {
+      id: "fixture-surfaced",
+      action: "Surfaced by the check",
+      at: sampleInstant(1),
+      source: "The conflicts engine",
+      detail: "Surname and given name matched; date of birth matched",
+    },
+    {
+      id: "fixture-cleared",
+      action: "Cleared: no adverse interest",
+      at: sampleInstant(0),
+      source: samplePerson(0).name,
+      detail: SAMPLE_SENTENCE,
+    },
+    {
+      id: "fixture-waiver",
+      action: "Waiver obtained, confirmed in writing",
+      at: sampleInstant(4),
+      source: samplePerson(0).name,
+      detail: SAMPLE_SENTENCE,
+    },
+  ];
 
   const events = $derived.by((): EventRailEvent[] => {
     if (hit === null) return [];
@@ -372,47 +410,75 @@
   {/if}
 {/snippet}
 
+{#snippet trailRail()}
+  <EventRail
+    {events}
+    label="This hit's adjudication"
+    emptyMessage="Nothing has been recorded against this hit yet."
+  />
+  {#if hit?.disposition != null && hit.disposition.shortfalls.length > 0}
+    <!-- Beneath the trail, because it is not an event: it is what the latest answer's record is
+         still short of, and it stays true until a second disposition supplies it. -->
+    <div class="flex flex-col gap-4 text-xs text-text-muted">
+      {#each hit.disposition.shortfalls as shortfall (shortfall)}
+        <p class="flex items-start gap-8">
+          <CircleAlert class="size-12 shrink-0" aria-hidden="true" />
+          <span>{waiverShortfallText(shortfall)}</span>
+        </p>
+      {/each}
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet adjudicationTab()}
   <div class="flex h-full min-h-0 flex-col gap-8">
-    <EventRail
-      {events}
-      label="This hit's adjudication"
-      emptyMessage="Nothing has been recorded against this hit yet."
-    />
-    {#if hit?.disposition != null && hit.disposition.shortfalls.length > 0}
-      <!-- Beneath the trail, because it is not an event: it is what the latest answer's record is
-           still short of, and it stays true until a second disposition supplies it. -->
-      <div class="flex flex-col gap-4 text-xs text-text-muted">
-        {#each hit.disposition.shortfalls as shortfall (shortfall)}
-          <p class="flex items-start gap-8">
-            <CircleAlert class="size-12 shrink-0" aria-hidden="true" />
-            <span>{waiverShortfallText(shortfall)}</span>
-          </p>
-        {/each}
-      </div>
-    {/if}
-    {#if trailFailure !== null}
-      <!-- A trail that could not be read says so. An append-only record that silently showed fewer
-           acts than it holds would be the one failure this whole surface exists to prevent. -->
-      <FailureNotice
-        failure={trailFailure.failure}
-        subject="This hit's answers"
-        fallback={trailFailure.fallback}
-      />
-    {:else if trailLoading}
-      <p class="text-xs text-text-muted" aria-busy="true">Reading every answer on this hit.</p>
-    {:else if trail.length === 0}
-      <p class="text-xs text-text-muted">
-        No reviewer has answered this hit. That is a fact about the hit, not about whether an
-        interest is adverse.
-      </p>
-    {:else if trail.length > 1}
-      <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
-      <p class="text-xs text-text-muted">
-        {trail.length} answers, oldest first. An answer is never edited — a reviewer who changes
-        their mind records another, and both stay on the log.
-      </p>
-    {/if}
+    <LoadingRegion
+      loading={trailLoading}
+      failed={trailFailure !== null}
+      empty={trail.length === 0}
+      label="Reading every answer on this hit"
+      onRetry={readTrail}
+      class="flex min-h-0 flex-1 flex-col gap-8"
+    >
+      {#snippet failure()}
+        <!-- A trail that could not be read says so, under the rail's one certain event. An
+             append-only record that silently showed fewer acts than it holds would be the one
+             failure this whole surface exists to prevent. -->
+        {@render trailRail()}
+        {#if trailFailure !== null}
+          <FailureNotice
+            failure={trailFailure.failure}
+            subject="This hit's answers"
+            fallback={trailFailure.fallback}
+            onRetry={readTrail}
+          />
+        {/if}
+      {/snippet}
+      {#snippet fixture()}
+        <EventRail events={TRAIL_FIXTURE} label="This hit's adjudication" />
+        <p class="text-xs text-text-muted">
+          2 answers, oldest first. An answer is never edited — a reviewer who changes their mind
+          records another, and both stay on the log.
+        </p>
+      {/snippet}
+      {#snippet emptyState()}
+        <!-- An empty trail still has the rail's one certain event on it: the check that surfaced
+             the hit. What is empty is the reviewers' side of the record, and the line says so. -->
+        {@render trailRail()}
+        <p class="text-xs text-text-muted">
+          No reviewer has answered this hit. That is a fact about the hit, not about whether an
+          interest is adverse.
+        </p>
+      {/snippet}
+      {@render trailRail()}
+      {#if trail.length > 1}
+        <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
+        <p class="text-xs text-text-muted">
+          {trail.length} answers, oldest first. An answer is never edited — a reviewer who changes
+          their mind records another, and both stay on the log.
+        </p>
+      {/if}
+    </LoadingRegion>
   </div>
 {/snippet}
 

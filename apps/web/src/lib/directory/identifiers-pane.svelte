@@ -9,7 +9,8 @@
    * decrypting anything, and revealing one is a separate, audited read.
    */
   import Button from "@magna-carta/design-system/button";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { maskedIdentifier } from "@magna-carta/directory/identifier-shape";
   import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
@@ -53,30 +54,70 @@
   let held = $state<readonly DirectoryIdentifierRecord[] | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
+  /** True while a list already on screen is being read again, after another was sealed. */
+  let refreshing = $state(false);
+  // The record whose list last landed. Only a change of RECORD discards what is on screen: a
+  // re-read after a seal keeps the lines where the reader is looking and marks the region busy.
+  let shownFor: string | null = null;
 
   $effect(() => {
     const id = entityId;
     void reloadToken;
     let cancelled = false;
-    held = null;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
+      held = null;
+      reveals = {};
+    }
     readFailure = null;
-    reveals = {};
     void (async () => {
       const outcome = await readDirectoryIdentifierRecords(fetch, id);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind === "ok") {
+        shownFor = id;
         held = outcome.value.data;
         return;
       }
+      shownFor = null;
       held = [];
       readFailure = stated(outcome.failure, "What this record holds could not be read.");
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
 
+  function retry(): void {
+    reloadToken += 1;
+  }
+
   const rows = $derived(identifierRowsFrom(held ?? []));
+
+  /**
+   * The shape the section takes while what the record holds is being read: two sealed lines in
+   * the same section, masked the way a real one is. Nothing here was ever a value.
+   */
+  const IDENTIFIER_FIXTURE: readonly IdentifierRow[] = [
+    {
+      id: "fixture-1",
+      type: "ssn",
+      typeLabel: "Social security number",
+      label: null,
+      masked: maskedIdentifier("ssn", null),
+      recordedAt: null,
+    },
+    {
+      id: "fixture-2",
+      type: "drivers_license",
+      typeLabel: "Driver's license",
+      label: "Nevada",
+      masked: maskedIdentifier("drivers_license", null),
+      recordedAt: null,
+    },
+  ];
 
   // ---- the reveal, per type -------------------------------------------------------------------
   //
@@ -185,46 +226,61 @@
     />
   {/if}
 
-  {#if readFailure !== null}
-    <FailureNotice
-      failure={readFailure.failure}
-      title="What This Record Holds Could Not Be Read"
-      fallback={readFailure.fallback}
-      whenSilent={readFailure.whenSilent}
-    />
-  {:else if held === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading what this record holds">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else}
-    <IdentifiersSection
-      {rows}
-      {kind}
-      canEdit={mayEdit}
-      {editDisabledReason}
-      onAdd={(draft) => void seal(draft)}
-      {shownValue}
-    >
-      {#snippet rowEnd(row)}
-        {@const revealed = stateOf(row.type)}
-        <Button
-          variant="ghost"
-          size="icon"
-          disabled={!mayReveal}
-          title={revealDisabledReason}
-          aria-label={revealed.phase === "shown"
-            ? `Hide the ${row.typeLabel.toLowerCase()}`
-            : `Reveal the ${row.typeLabel.toLowerCase()}`}
-          onclick={() => void reveal(row.type)}
-        >
-          {#if revealed.phase === "shown"}
-            <EyeOff class="size-16" aria-hidden="true" />
-          {:else}
-            <Eye class="size-16" aria-hidden="true" />
-          {/if}
-        </Button>
-      {/snippet}
-    </IdentifiersSection>
-  {/if}
+  <LoadingRegion
+    loading={held === null}
+    {refreshing}
+    failed={readFailure !== null}
+    label="Reading what this record holds"
+    onRetry={retry}
+    class="flex flex-col gap-8"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="What This Record Holds Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={retry}
+        />
+      {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render identifiersSection(IDENTIFIER_FIXTURE)}
+    {/snippet}
+    {@render identifiersSection(rows)}
+  </LoadingRegion>
 </section>
+
+<!-- One section for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet identifiersSection(listed: readonly IdentifierRow[])}
+  <IdentifiersSection
+    rows={listed}
+    {kind}
+    canEdit={mayEdit}
+    {editDisabledReason}
+    onAdd={(draft) => void seal(draft)}
+    {shownValue}
+    rowEnd={revealControl}
+  />
+{/snippet}
+
+{#snippet revealControl(row: IdentifierRow)}
+  {@const revealed = stateOf(row.type)}
+  <Button
+    variant="ghost"
+    size="icon"
+    disabled={!mayReveal}
+    title={revealDisabledReason}
+    aria-label={revealed.phase === "shown"
+      ? `Hide the ${row.typeLabel.toLowerCase()}`
+      : `Reveal the ${row.typeLabel.toLowerCase()}`}
+    onclick={() => void reveal(row.type)}
+  >
+    {#if revealed.phase === "shown"}
+      <EyeOff class="size-16" aria-hidden="true" />
+    {:else}
+      <Eye class="size-16" aria-hidden="true" />
+    {/if}
+  </Button>
+{/snippet}

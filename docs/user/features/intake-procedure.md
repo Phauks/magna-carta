@@ -1,8 +1,9 @@
 # The Intake Procedure
 
-An intake procedure is your firm's own list of what a kind of matter must clear before you take
-it on. Write one under **Settings** · **Intake Procedures**, and every consultation of that kind
-shows the list on its **Intake** section. The matter opens once every required step is answered.
+An intake procedure is your firm's own list of what a kind of matter must clear before you consult.
+Write one under **Settings** · **Intake Procedures**, and every intake of that kind shows the list
+on its **Intake** section. The intake completes into a consultation once every required step is
+answered, and the consultation opens on the firm's decision.
 
 ## What a Procedure Is
 
@@ -25,11 +26,15 @@ decides who answers the step:
   recording a retainer the trust ledger cannot see.
 - **Questionnaire**: answered when the custom field the step names holds a value on the matter, or
   by a member recording that the questionnaire was completed.
+- **Client Forms**: the forms the client fills in online have gone out and come back. Answered by
+  a member recording it; the client portal will answer it when it exists.
+- **Payment**: a payment sent or received before the firm acts, such as a consultation fee.
+  Answered by a member recording it; payments will answer it when they are built.
 - **Identity Verification** and **Acknowledgement**: answered by a member recording that they did
   it.
 
 A step is **required** unless you say otherwise. A required step that is not answered stops the
-matter opening; an optional step only shows.
+intake completing; an optional step only shows.
 
 ## Writing a Procedure
 
@@ -48,9 +53,9 @@ same for one step. Neither is deleted, because records on consultations still na
 Only members whose role allows managing procedures can write them; everyone who can read a
 consultation's intake can read the firm's procedures.
 
-## Answering the Steps on a Consultation
+## Answering the Steps on an Intake
 
-Open the consultation and go to **Intake**. The line under the heading says how many required
+Open the intake and go to **Intake**. The line under the heading says how many required
 steps are outstanding. Each step shows who answered it and what they found, in their own words.
 
 - A step answered by the platform shows what it found. Where the fact is made somewhere else, the
@@ -66,14 +71,16 @@ steps are outstanding. Each step shows who answered it and what they found, in t
 Every answer ever recorded is kept. **Show the history** under the list reads them in order,
 including the ones later set aside.
 
-## Opening the Matter
+## Completing the Intake, and Opening the Matter
 
-Press the status seal on a consultation. **Requirements To Open** lists each required step that is
-outstanding, in the words of whoever should answer it, and **Open Matter** is available once the
-list is empty. Pressing it while something is outstanding answers with the same list rather than
-opening the matter.
+Press the status seal on an intake. **Requirements To Complete Intake** lists each required step
+that is outstanding, in the words of whoever should answer it, and **Complete Intake** is available
+once the list is empty; the same control stands on the Intake desk. Pressing it while something is
+outstanding answers with the same list. Completing the intake draws the consultation number.
 
-A consultation of a kind no procedure binds has nothing standing between it and opening.
+A consultation opens from the same seal with **Open Matter**, on the firm's decision to act; the
+procedure does not gate it again. An intake of a kind no procedure binds has nothing standing
+between it and the consultation.
 
 ## Tips and Edge Cases
 
@@ -81,13 +88,15 @@ A consultation of a kind no procedure binds has nothing standing between it and 
   requires before it acts is the firm's own statement.
 - **A waiver is never a completion.** It reads as a waiver on the record, with its reason, so it is
   never mistaken for the fact it stands in for.
-- **Once the matter has opened**, its Intake section shows the record as it stood and offers no
-  further changes.
+- **Once the intake is complete**, its Intake section shows the record as it stood and offers no
+  further changes, through the consultation and after the matter opens.
 - **Two procedures on one kind** both apply; the section names which procedure each step belongs
   to.
 
 ## Related
 
+- [`intake.md`](intake.md): the intake desk, where an intake starts, is resumed, and leads to the
+  consultation.
 - [`opening-and-finding-matters.md`](opening-and-finding-matters.md): recording a consultation and
   opening a matter.
 - [`conflicts-reports.md`](conflicts-reports.md): reading a conflicts check.

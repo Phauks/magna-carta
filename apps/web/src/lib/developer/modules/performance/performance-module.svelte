@@ -10,6 +10,7 @@
   import Switch from "@magna-carta/design-system/switch";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import { applyStaticSkeletons, readStaticSkeletons } from "../../static-skeletons.ts";
+  import RecentReads from "./recent-reads.svelte";
 
   let fps = $state(0);
   let fpsLow = $state(0);
@@ -69,6 +70,8 @@
       loop; drops show where a transition or scroll costs frames.
     </p>
   </div>
+
+  <RecentReads />
 
   <div class="flex items-start justify-between gap-12">
     <div class="flex flex-col gap-2">

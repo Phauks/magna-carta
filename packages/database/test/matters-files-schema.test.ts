@@ -17,10 +17,10 @@ describe("matters / locations / file-manager schema", () => {
     expect(config.name).toBe("matter");
     const status = config.columns.find((column) => column.name === "status");
     expect(status?.notNull).toBe(true);
-    expect(status?.enumValues).toEqual(["prospective", "open", "closed"]);
+    expect(status?.enumValues).toEqual(["intake", "consultation", "open", "hold", "closed"]);
     expect(config.checks.map((check) => check.name)).toContain("matter_status_check");
     // The matter_number UNIQUE is PARTIAL (WHERE matter_number IS NOT NULL) so many unnumbered
-    // prospectives coexist while two numbered matters can never share a number.
+    // consultations coexist while two numbered matters can never share a number.
     const numberIndex = config.indexes.find((index) =>
       index.config.columns.some((column) => "name" in column && column.name === "matter_number"),
     );
@@ -108,7 +108,7 @@ describe("matters / locations / file-manager schema", () => {
     raw.close();
   });
 
-  it("the matter status CHECK fires at the DDL level — an untyped writer cannot land 'Prospective'", () => {
+  it("the matter status CHECK fires at the DDL level — an untyped writer cannot land 'Consultation'", () => {
     const raw = new DatabaseSync(":memory:");
     applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
     raw.exec("PRAGMA foreign_keys = OFF;"); // isolate the CHECK from the responsible_member_id FK
@@ -118,8 +118,8 @@ describe("matters / locations / file-manager schema", () => {
           "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?, 'A matter', ?, 'user_x', 't', 't')",
         )
         .run(id, status);
-    expect(() => seedMatterRow("matter_badstatus00000000", "Prospective")).toThrow(/CHECK/);
-    expect(() => seedMatterRow("matter_goodstatus0000000", "prospective")).not.toThrow();
+    expect(() => seedMatterRow("matter_badstatus00000000", "Consultation")).toThrow(/CHECK/);
+    expect(() => seedMatterRow("matter_goodstatus0000000", "consultation")).not.toThrow();
   });
 
   it("file_version: inline_playable is a nullable enum column with no default + a matching CHECK", () => {

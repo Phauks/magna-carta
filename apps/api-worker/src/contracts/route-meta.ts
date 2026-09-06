@@ -10,6 +10,7 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import type { RouteConfig } from "@hono/zod-openapi";
 import type { KnownPermission, Permission } from "@magna-carta/access-control/registry";
+import { reversalDeclarationProblem, type RouteReversal } from "./reversal.ts";
 
 export type RateLimitBucket = "default" | "auth" | "expensive" | "incident-report";
 
@@ -52,6 +53,15 @@ export interface RouteMeta {
   firmlessSession?: "reject" | "allow" | "only";
   tags?: string[]; // default: [operationId namespace] — applied when absent OR empty
   deprecated?: boolean;
+  /**
+   * What putting this operation back MEANS (contracts/reversal.ts).
+   *
+   * REQUIRED ON EVERY DELETE, refused at registration otherwise. Deletion is where the question is
+   * asked most and was answered least — thirty-three DELETE operations against five reversals of any
+   * kind when this landed — so the gate starts there rather than everywhere, and widens as the other
+   * mutating methods are worked through. Optional elsewhere and validated wherever it appears.
+   */
+  reversal?: RouteReversal;
 }
 
 // The meta as attached to a defined route: optional fields resolved to their defaults, so the
@@ -238,6 +248,25 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     );
   }
 
+  // #4 A DELETE must say what putting it back means (contracts/reversal.ts). Deletion is where the
+  // question is asked most and was answered least — thirty-three DELETE operations against five
+  // reversals of any kind when this gate landed — and the answer was living in hand-written dialog
+  // copy that nothing checked. It is a startup failure rather than a review convention because the
+  // cost of getting it wrong lands on a member who deleted something believing the sentence.
+  if (routeConfig.method === "delete" && meta.reversal === undefined) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} is a DELETE and declares no reversal — say what ` +
+        `putting it back means: an inverse naming the operation that does it (a route that reverses ` +
+        `itself names itself), a compensating record that offsets it without putting it back, or ` +
+        `none with the reason nothing does.`,
+    );
+  }
+  const reversalProblem =
+    meta.reversal === undefined ? undefined : reversalDeclarationProblem(meta.reversal);
+  if (reversalProblem !== undefined) {
+    throw new TypeError(`Route ${JSON.stringify(meta.operationId)}: ${reversalProblem}`);
+  }
+
   const namespace = meta.operationId.slice(0, meta.operationId.indexOf("."));
   const resolvedMeta: ResolvedRouteMeta = {
     ...meta,
@@ -269,6 +298,10 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     ...(resolvedMeta.firmlessSession === undefined
       ? {}
       : { "x-mc-firmlessSession": resolvedMeta.firmlessSession }),
+    // Emitted because the UI reads it rather than restating it: a dialog's recoverability line and
+    // an undo stack's decision to offer a step are both this fact, and a copy of it in a Svelte file
+    // is a copy that drifts the first time the route gains a restore.
+    ...(resolvedMeta.reversal === undefined ? {} : { "x-mc-reversal": resolvedMeta.reversal }),
     "x-mc-tags": resolvedMeta.tags,
     "x-mc-deprecated": resolvedMeta.deprecated,
   });

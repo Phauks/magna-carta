@@ -12,14 +12,14 @@
    * derives one from the role, because a document that names a capacity has to name the one the firm
    * asserted.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleMatter } from "@magna-carta/design-system/loading-fixtures";
   import {
     readDirectoryEntityMatterParties,
     type DirectoryEntityMatterParty,
@@ -29,30 +29,77 @@
 
   let parties = $state<readonly DirectoryEntityMatterParty[] | null>(null);
   let nextCursor = $state<string | null>(null);
-  let failure = $state<StatedFailure | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
   let loadingMore = $state(false);
+  let reloadToken = $state(0);
+  /** True while a list already on screen is being read again. */
+  let refreshing = $state(false);
+  // The record whose matters last landed. Only a change of RECORD discards what is on screen: a
+  // re-read of the same record keeps its rows where the reader is looking and marks the region
+  // busy instead, and a read that failed left nothing worth keeping.
+  let shownFor: string | null = null;
+
+  /**
+   * The shape the list takes while the record's matters are being read: the same rows the real
+   * list renders, over the sample vocabulary. Not any file the firm holds.
+   */
+  const PARTY_FIXTURE: readonly DirectoryEntityMatterParty[] = [
+    {
+      id: "fixture-1",
+      matterId: "fixture-matter-1",
+      role: "Client",
+      capacity: "Trustee",
+      matterTitle: sampleMatter(1).title,
+      matterNumber: sampleMatter(1).number,
+      matterStatus: null,
+      linkedAt: "",
+    },
+    {
+      id: "fixture-2",
+      matterId: "fixture-matter-2",
+      role: "Opposing party",
+      capacity: null,
+      matterTitle: sampleMatter(3).title,
+      matterNumber: sampleMatter(3).number,
+      matterStatus: null,
+      linkedAt: "",
+    },
+  ];
 
   $effect(() => {
     const id = entityId;
+    void reloadToken;
     let cancelled = false;
-    parties = null;
-    nextCursor = null;
-    failure = null;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
+      parties = null;
+      nextCursor = null;
+    }
+    readFailure = null;
     void (async () => {
       const outcome = await readDirectoryEntityMatterParties(fetch, id);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind === "ok") {
+        shownFor = id;
         parties = outcome.value.data;
         nextCursor = outcome.value.nextCursor;
         return;
       }
+      shownFor = null;
       parties = [];
-      failure = stated(outcome.failure, "The matters this record is on could not be read.");
+      readFailure = stated(outcome.failure, "The matters this record is on could not be read.");
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
+
+  function retry(): void {
+    reloadToken += 1;
+  }
 
   async function loadMore(): Promise<void> {
     const cursor = nextCursor;
@@ -69,66 +116,38 @@
 <section class="flex flex-col gap-16">
   <h3 class="text-sm font-semibold">Matters</h3>
 
-  {#if failure !== null}
-    <FailureNotice
-      failure={failure.failure}
-      title="The Matters Could Not Be Read"
-      fallback={failure.fallback}
-      whenSilent={failure.whenSilent}
-    />
-  {:else if parties === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the matters this record is on">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else if parties.length === 0}
-    <EmptyState title="Not A Party To Anything Yet">
-      This record is in the firm's book but is not linked to a matter. A record can exist purely to
-      be matched against — a conflicts check searches every record, not only the ones on a file.
-    </EmptyState>
-  {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">
-        The matters this record is a party to, and the hat it wears on each
-      </DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          <DataTable.Head>Matter</DataTable.Head>
-          <DataTable.Head>Role</DataTable.Head>
-          <DataTable.Head>Capacity</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each parties as party (party.id)}
-          <DataTable.Row>
-            <DataTable.Cell>
-              <span class="flex flex-col gap-4">
-                {#if party.matterTitle === null}
-                  <span class="text-text-muted">—</span>
-                {:else}
-                  <a class="underline underline-offset-2" href="/matters/{party.matterId}">
-                    {party.matterTitle}
-                  </a>
-                {/if}
-                {#if party.matterNumber !== null}
-                  <span class="text-xs text-text-muted tabular-nums">{party.matterNumber}</span>
-                {/if}
-              </span>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <Badge variant="neutral">{party.role}</Badge>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              {#if party.capacity === null || party.capacity === ""}
-                <span class="text-text-muted">—</span>
-              {:else}
-                {party.capacity}
-              {/if}
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
+  <LoadingRegion
+    loading={parties === null}
+    {refreshing}
+    failed={readFailure !== null}
+    empty={parties !== null && parties.length === 0}
+    label="Reading the matters this record is on"
+    onRetry={retry}
+    class="flex flex-col gap-16"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The Matters Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={retry}
+        />
+      {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render partyTable(PARTY_FIXTURE)}
+    {/snippet}
+    {#snippet emptyState()}
+      <EmptyState title="Not A Party To Anything Yet">
+        This record is in the firm's book but is not linked to a matter. A record can exist purely
+        to be matched against — a conflicts check searches every record, not only the ones on a
+        file.
+      </EmptyState>
+    {/snippet}
+
+    {@render partyTable(parties ?? [])}
 
     {#if nextCursor !== null}
       <div>
@@ -137,5 +156,51 @@
         </Button>
       </div>
     {/if}
-  {/if}
+  </LoadingRegion>
 </section>
+
+<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet partyTable(rows: readonly DirectoryEntityMatterParty[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">
+      The matters this record is a party to, and the hat it wears on each
+    </DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Matter</DataTable.Head>
+        <DataTable.Head>Role</DataTable.Head>
+        <DataTable.Head>Capacity</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as party (party.id)}
+        <DataTable.Row>
+          <DataTable.Cell>
+            <span class="flex flex-col gap-4">
+              {#if party.matterTitle === null}
+                <span class="text-text-muted">—</span>
+              {:else}
+                <a class="underline underline-offset-2" href="/matters/{party.matterId}">
+                  {party.matterTitle}
+                </a>
+              {/if}
+              {#if party.matterNumber !== null}
+                <span class="text-xs text-text-muted tabular-nums">{party.matterNumber}</span>
+              {/if}
+            </span>
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <Badge variant="neutral">{party.role}</Badge>
+          </DataTable.Cell>
+          <DataTable.Cell>
+            {#if party.capacity === null || party.capacity === ""}
+              <span class="text-text-muted">—</span>
+            {:else}
+              {party.capacity}
+            {/if}
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}

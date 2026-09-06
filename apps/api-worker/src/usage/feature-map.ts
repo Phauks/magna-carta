@@ -15,6 +15,8 @@ export const ROUTE_FEATURE: Readonly<Record<string, FeatureKey>> = {
 // no completed event.
 export const TOPIC_FEATURE: Readonly<Record<string, FeatureKey>> = {
   "matter.closed": "matters.detail",
+  "matter.held": "matters.detail",
+  "matter.released": "matters.detail",
   "file.version_committed": "files.upload",
   "ledger.entry.posted": "ledger.posting",
   "location.created": "locations.manage",

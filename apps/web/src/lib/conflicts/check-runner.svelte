@@ -30,7 +30,8 @@
   import Separator from "@magna-carta/design-system/separator";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
-  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { gapReason } from "./conflicts-gaps.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
@@ -230,7 +231,7 @@
     <div class="flex flex-col gap-8">
       <Label for="{fieldPrefix}-parties">Subject Parties</Label>
       <!-- A check takes directory entities, never typed names: the one picker, in multiple mode. -->
-      <EntityPicker
+      <DirectoryEntityPicker
         search={partySearch}
         multiple
         bind:values={parties}

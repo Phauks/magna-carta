@@ -228,24 +228,27 @@ const mintCatchAllRoute = defineOpenAPIRoute(mintCatchAllMeta, {
   },
 });
 
-const revokeCatchAllRoute = defineOpenAPIRoute(revokeCatchAllMeta, {
-  method: "delete",
-  path: "/api/v1/firm/capture-address",
-  description:
-    "Revoke the firm's catch-all capture address. Routing stops first, so mail to the old address " +
-    "bounces from the moment this returns. Revoking one that is already revoked succeeds.",
-  responses: {
-    200: {
-      description: "The catch-all no longer routes (or already did not)",
-      content: { "application/json": { schema: RevokedCaptureAddress } },
-    },
-    ...sharedResponses,
-    404: {
-      description: "The firm holds no live catch-all address",
-      content: { "application/problem+json": { schema: Problem } },
+const revokeCatchAllRoute = defineOpenAPIRoute(
+  { ...revokeCatchAllMeta, reversal: { kind: "inverse", by: "emails.mintFirmCaptureAddress" } },
+  {
+    method: "delete",
+    path: "/api/v1/firm/capture-address",
+    description:
+      "Revoke the firm's catch-all capture address. Routing stops first, so mail to the old address " +
+      "bounces from the moment this returns. Revoking one that is already revoked succeeds.",
+    responses: {
+      200: {
+        description: "The catch-all no longer routes (or already did not)",
+        content: { "application/json": { schema: RevokedCaptureAddress } },
+      },
+      ...sharedResponses,
+      404: {
+        description: "The firm holds no live catch-all address",
+        content: { "application/problem+json": { schema: Problem } },
+      },
     },
   },
-});
+);
 
 const mintRoute = defineOpenAPIRoute(mintMeta, {
   method: "post",
@@ -329,25 +332,28 @@ const rotateRoute = defineOpenAPIRoute(rotateMeta, {
   },
 });
 
-const revokeRoute = defineOpenAPIRoute(revokeMeta, {
-  method: "delete",
-  path: "/api/v1/matters/{matterId}/capture-addresses/{emailCaptureAddressId}",
-  description:
-    "Revoke a capture address. Routing stops first, so mail to it bounces from the moment this " +
-    "returns; already-captured messages are untouched. Revoking one that is already revoked succeeds.",
-  request: { params: addressParam },
-  responses: {
-    200: {
-      description: "The address no longer routes (or already did not)",
-      content: { "application/json": { schema: RevokedCaptureAddress } },
-    },
-    ...sharedResponses,
-    404: {
-      description: "No capture address with this handle on this matter",
-      content: { "application/problem+json": { schema: Problem } },
+const revokeRoute = defineOpenAPIRoute(
+  { ...revokeMeta, reversal: { kind: "inverse", by: "emails.mintCaptureAddress" } },
+  {
+    method: "delete",
+    path: "/api/v1/matters/{matterId}/capture-addresses/{emailCaptureAddressId}",
+    description:
+      "Revoke a capture address. Routing stops first, so mail to it bounces from the moment this " +
+      "returns; already-captured messages are untouched. Revoking one that is already revoked succeeds.",
+    request: { params: addressParam },
+    responses: {
+      200: {
+        description: "The address no longer routes (or already did not)",
+        content: { "application/json": { schema: RevokedCaptureAddress } },
+      },
+      ...sharedResponses,
+      404: {
+        description: "No capture address with this handle on this matter",
+        content: { "application/problem+json": { schema: Problem } },
+      },
     },
   },
-});
+);
 
 // ── Shared commit paths. Both helpers exist so the six handlers cannot drift on the one thing that
 // must never drift: the order the two databases are written in.

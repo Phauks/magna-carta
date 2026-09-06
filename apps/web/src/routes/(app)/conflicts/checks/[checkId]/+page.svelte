@@ -23,9 +23,9 @@
   import * as Masthead from "@magna-carta/design-system/masthead";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Button from "@magna-carta/design-system/button";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import Separator from "@magna-carta/design-system/separator";
-  import Skeleton from "@magna-carta/design-system/skeleton";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import Printer from "@lucide/svelte/icons/printer";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -41,6 +41,7 @@
     scopeOfCheck,
     type CheckWithHits,
     type HitDetail,
+    type ScopeInForceRecord,
   } from "$lib/conflicts/conflicts-api.ts";
   import { readDirectoryEntity } from "$lib/directory/directory-api.ts";
   import { directoryEntityName } from "$lib/directory/entity-presentation.ts";
@@ -60,6 +61,26 @@
   let printOpen = $state(false);
   let entityNames = $state<ReadonlyMap<string, string>>(new Map());
   let unnameable = $state<ReadonlySet<string>>(new Set());
+
+  /*
+   * The shape the page takes while the check is read: its own sections, over an invented search.
+   * Inert and hidden from assistive technology while it stands, so none of it can be quoted as
+   * what a search did.
+   */
+  const STATEMENT_FIXTURE: readonly string[] = [
+    "Searched the Directory for 4 subject parties under balanced matching, comparing surnames, given names and dates of birth.",
+    "Walked relationships to a depth of 2 and reached 31 entities; the walk completed.",
+    "Prior firm history could not be searched: no corpus is registered for it.",
+  ];
+  const SCOPE_FIXTURE: ScopeInForceRecord = {
+    sources: { party: "searched", graph: "searched", imputation: "unavailable", content: "searched" },
+    strictness: "balanced",
+    depth: 2,
+    floorRaised: false,
+    matching: null,
+    traversal: null,
+    candidates: null,
+  };
 
   async function read(): Promise<void> {
     loading = true;
@@ -180,23 +201,51 @@
   {/snippet}
 </ScreenHeader>
 
-{#if failure !== null}
-  <FailureNotice
-    failure={failure.failure}
-    title="The Check Could Not Be Read"
-    fallback={failure.fallback}
-    whenSilent={failure.whenSilent}
-    onRetry={() => void read()}
-  />
-{:else if loading && result === null}
-  <div class="flex flex-col gap-8">
-    <Skeleton class="h-16 w-full" />
-    <Skeleton class="h-16 w-5/6" />
-    <Skeleton class="h-16 w-2/3" />
-    <Skeleton class="h-16 w-1/2" />
-  </div>
-{:else if result !== null && check !== null}
-  <div class="flex flex-col gap-24">
+<!-- The page's own state is named `failure`, so the notice the region shows on a failed
+     read takes a name of its own and is handed to the region's `failure` prop. -->
+{#snippet failureNotice()}
+  {#if failure !== null}
+    <FailureNotice
+      failure={failure.failure}
+      title="The Check Could Not Be Read"
+      fallback={failure.fallback}
+      whenSilent={failure.whenSilent}
+      onRetry={() => void read()}
+    />
+  {/if}
+{/snippet}
+
+<LoadingRegion
+  loading={result === null}
+  refreshing={loading}
+  failed={failure !== null}
+  failure={failureNotice}
+  label="Reading the check"
+  onRetry={() => void read()}
+  class="flex flex-col gap-24"
+>
+  {#snippet fixture()}
+    <section class="flex flex-col gap-8">
+      <h2 class="text-base font-semibold" data-loading-keep>What The Search Did</h2>
+      <ol class="flex flex-col gap-8 text-sm">
+        {#each STATEMENT_FIXTURE as line (line)}
+          <li>{line}</li>
+        {/each}
+      </ol>
+    </section>
+
+    <Separator />
+
+    <section class="flex flex-col gap-16">
+      <h2 class="text-base font-semibold" data-loading-keep>Scope In Force</h2>
+      <ScopeInForce scope={SCOPE_FIXTURE} />
+    </section>
+
+    <Separator />
+
+    <HitList hits={null} loading onOpen={() => undefined} />
+  {/snippet}
+  {#if result !== null && check !== null}
     <section class="flex flex-col gap-8">
       <h2 class="text-base font-semibold">What The Search Did</h2>
       <!-- The engine's own sentences, in the order it wrote them. Nothing here rewrites or
@@ -219,8 +268,10 @@
     <Separator />
 
     <HitList hits={result.hits} loading={loading} onOpen={openOne} />
-  </div>
+  {/if}
+</LoadingRegion>
 
+{#if failure === null && result !== null && check !== null}
   <HitWindow
     bind:open={windowOpen}
     hit={openHit}

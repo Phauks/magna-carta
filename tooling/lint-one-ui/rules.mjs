@@ -363,7 +363,7 @@ export function findDomainLeaks(filePath, source) {
         "the caller supplies",
     });
   }
-  return problems.toSorted((first, second) => first.line - second.line);
+  return problems.toSorted((first, second) => first.at - second.at);
 }
 
 // --- rule: the one-implementation registry ---------------------------------------------------
@@ -1214,6 +1214,266 @@ export function findHandComposedDetailsPanels(filePath, source) {
           "(DetailsPanel.Root / Header / Body / Section / Facts / Fact) instead",
       });
     }
+  }
+  return problems;
+}
+
+// --- rule: one loading state ------------------------------------------------------------------
+
+/**
+ * The signals of a loading state drawn by hand rather than rendered through LoadingRegion.
+ *
+ * The rule has two sides, like the modal rule. In the app, NONE of these may appear: a loading
+ * region is `<LoadingRegion loading label>` around real markup, so an app file has no reason to
+ * import the Skeleton box, paint its class, write `aria-busy` itself, pulse a utility, or reach
+ * for a spinner glyph (the archetype state set names skeleton rows, never a spinner-only screen).
+ * Inside the design system, the same signals are allowed only in the homes the registry declares
+ * as owning a loading state — the region itself, the box it is built from, and the few components
+ * that render placeholder rows of their own shape — so a second loading mechanism inside the
+ * package is caught as readily as one outside it.
+ *
+ * Each signal is named in the problem so the fix is obvious from the line alone.
+ */
+const LOADING_SIGNALS = [
+  {
+    pattern: /@magna-carta\/design-system\/skeleton\b|<Skeleton\b/g,
+    what: "places the Skeleton box by hand",
+  },
+  { pattern: /\bmc-skeleton\b/g, what: "paints the Skeleton recipe class by hand" },
+  { pattern: /\baria-busy\b/g, what: "writes aria-busy itself" },
+  { pattern: /\banimate-pulse\b/g, what: "pulses a utility class as a placeholder" },
+  {
+    pattern: /@lucide\/svelte\/icons\/(?:loader-circle|loader-pinwheel|loader)\b/g,
+    what: "reaches for a spinner glyph",
+  },
+];
+
+export function findHandPlacedLoading(filePath, source, loadingHomes) {
+  if (loadingHomes.some((home) => filePath.startsWith(`${home}/`))) return [];
+  const text = stripComments(source);
+  const problems = [];
+  for (const { pattern, what } of LOADING_SIGNALS) {
+    for (const match of text.matchAll(pattern)) {
+      problems.push({
+        rule: "hand-placed-loading",
+        file: filePath,
+        line: lineOf(text, match.index),
+        at: match.index,
+        text: match[0],
+        detail:
+          `${what} (\`${match[0]}\`). A region whose data has not arrived is ` +
+          "`<LoadingRegion loading label>` around its real markup, with a `fixture` snippet where " +
+          "the markup cannot render on null data; the recipe turns the leaves into bones and the " +
+          "region announces the state once. Nothing else draws a placeholder, and nothing shows " +
+          "a spinner where a shape belongs",
+      });
+    }
+  }
+  return problems.toSorted((first, second) => first.at - second.at);
+}
+
+// --- rule: no silent loading ------------------------------------------------------------------
+
+/**
+ * A null-sentinel branch that renders nothing, or only a sentence saying it is reading.
+ *
+ * `hand-placed-loading` catches a placeholder drawn by hand; it cannot catch a surface that draws
+ * nothing. The app's loading signal is a `null` sentinel — `{#if rows === null}` — and a branch on
+ * it whose body is empty is a screen that goes blank while its data is read; a branch whose body
+ * is a bare "Reading…" is a sentence where the archetype state set asks for a shape. Both look
+ * fine in a review because there is nothing on the screen to review.
+ *
+ * The rule deliberately leaves alone a `=== null` branch that renders words of its own — "—", "The
+ * row does not say", a sentence about what null means here — because most null sentinels in the
+ * app mean "not set", not "not read yet", and a rule that cried wolf over those would be switched
+ * off. It reads each opener and the body up to the next `{:else` or `{/if}` at the same depth.
+ */
+const NULL_BRANCH_PATTERN = /\{(?:#if|:else if)\s+[^}]*===\s*null[^}]*\}/g;
+const LOADING_SENTENCE_PATTERN = /^\s*(?:reading|loading|fetching|searching|looking up)\b/i;
+
+function branchBody(text, start) {
+  let depth = 0;
+  let index = start;
+  while (index < text.length) {
+    const open = text.indexOf("{", index);
+    if (open === -1) return text.slice(start);
+    const close = text.indexOf("}", open);
+    if (close === -1) return text.slice(start);
+    const block = text.slice(open + 1, close);
+    if (/^#(?:if|each|await|key|snippet)\b/.test(block)) depth += 1;
+    else if (/^\/(?:if|each|await|key|snippet)\b/.test(block)) {
+      if (depth === 0) return text.slice(start, open);
+      depth -= 1;
+    } else if (/^:(?:else|then|catch)\b/.test(block) && depth === 0) {
+      return text.slice(start, open);
+    }
+    index = close + 1;
+  }
+  return text.slice(start);
+}
+
+export function findSilentLoading(filePath, source) {
+  const text = stripComments(source);
+  const problems = [];
+  for (const match of text.matchAll(NULL_BRANCH_PATTERN)) {
+    const body = branchBody(text, match.index + match[0].length);
+    if (/<[A-Za-z]/.test(body)) continue;
+    const silent = body.trim() === "";
+    const words = body.replace(/\{[^}]*\}/g, "").trim();
+    const sentence = !/\{/.test(body) && LOADING_SENTENCE_PATTERN.test(words);
+    if (!silent && !sentence) continue;
+    problems.push({
+      rule: "silent-loading",
+      file: filePath,
+      line: lineOf(text, match.index),
+      text: match[0],
+      detail:
+        (silent
+          ? `renders nothing while its data is null (\`${match[0]}\`)`
+          : `renders a sentence where a shape belongs (\`${words.slice(0, 40)}\`)`) +
+        ". A surface whose data has not arrived shows its shape: wrap the read in " +
+        "`<LoadingRegion loading label>` with a fixture, or, if this branch is not a loading " +
+        "state, render what it means",
+    });
+  }
+  return problems;
+}
+
+// --- rule: a fixture is the shape it stands in for ---------------------------------------------
+
+/**
+ * A fixture that uses a component its children never use.
+ *
+ * The claim behind LoadingRegion is that the placeholder cannot drift from the screen, because it
+ * is the screen's own markup over sample words. That holds by construction when the fixture and
+ * the content share one snippet, and by discipline otherwise — and discipline is what a rule is
+ * for. So, for every region with an inline `{#snippet fixture()}` or a `fixture={name}` reference,
+ * the set of component tags and snippet renders inside the fixture must be a subset of those in
+ * the region's children: a fixture rendering `Card` beside children rendering `DataTable` is a
+ * fixture that stopped matching its surface. Children may carry more (an EmptyState, a
+ * FailureNotice); the fixture may not carry something else.
+ */
+const REGION_OPEN = /<LoadingRegion\b/g;
+
+function regionSpan(text, start) {
+  let depth = 0;
+  const tagPattern = /<(\/?)LoadingRegion\b[^>]*?(\/?)>/g;
+  tagPattern.lastIndex = start;
+  for (const match of text.matchAll(tagPattern)) {
+    if (match.index < start) continue;
+    if (match[1] === "/") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, match.index + match[0].length);
+    } else if (match[2] !== "/") {
+      depth += 1;
+    }
+  }
+  return text.slice(start);
+}
+
+function namedSnippetBody(text, name) {
+  const opener = new RegExp(`\\{#snippet\\s+${name}\\s*\\(`);
+  const match = opener.exec(text);
+  if (match === null) return null;
+  return branchBody(text, match.index + match[0].length);
+}
+
+/**
+ * The component tags a piece of markup renders, with every `{@render name(…)}` expanded to the
+ * tags of the snippet it names (looked up in the whole file, depth-limited). A snippet the file
+ * does not define — one passed in as a prop — stays as its own token, so a fixture rendering a
+ * caller's snippet compares by name.
+ */
+function shapeTokens(text, whole, seen = new Set()) {
+  const tokens = new Set();
+  for (const match of text.matchAll(/<([A-Z][A-Za-z.]*)\b/g)) tokens.add(match[1]);
+  for (const match of text.matchAll(/\{@render\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) {
+    const name = match[1];
+    const body = seen.has(name) || seen.size > 8 ? null : namedSnippetBody(whole, name);
+    if (body === null) {
+      tokens.add(`@${name}`);
+      continue;
+    }
+    for (const token of shapeTokens(body, whole, new Set([...seen, name]))) tokens.add(token);
+  }
+  return tokens;
+}
+
+export function findFixtureShapeProblems(filePath, source) {
+  const text = stripComments(source);
+  const problems = [];
+  for (const open of text.matchAll(REGION_OPEN)) {
+    const region = regionSpan(text, open.index);
+    const inline = /\{#snippet\s+fixture\s*\(/.exec(region);
+    let fixtureBody = null;
+    let childrenText = region;
+    if (inline !== null) {
+      fixtureBody = branchBody(region, inline.index + inline[0].length);
+      childrenText =
+        region.slice(0, inline.index) +
+        region.slice(inline.index + inline[0].length + fixtureBody.length);
+    } else {
+      const reference = /\bfixture=\{([A-Za-z_][A-Za-z0-9_]*)\}/.exec(
+        region.slice(0, region.indexOf(">") + 1),
+      );
+      if (reference !== null) fixtureBody = namedSnippetBody(text, reference[1]);
+    }
+    if (fixtureBody === null) continue;
+    const children = shapeTokens(childrenText, text);
+    children.delete("LoadingRegion");
+    const strays = [...shapeTokens(fixtureBody, text)].filter((token) => !children.has(token));
+    if (strays.length === 0) continue;
+    problems.push({
+      rule: "fixture-shape",
+      file: filePath,
+      line: lineOf(text, open.index),
+      text: strays.join(" "),
+      detail:
+        `this region's fixture renders ${strays.map((token) => `\`${token.replace(/^@/, "{@render ")}\``).join(", ")} ` +
+        "and its children never do. A fixture is the surface's own markup over sample words; " +
+        "one that renders something else has stopped being its shape. Share one snippet between " +
+        "the fixture and the content, or bring the fixture back to the components the content uses",
+    });
+  }
+  return problems;
+}
+
+// --- rule: a loading label is a sentence in the house voice ------------------------------------
+
+/**
+ * A region's label is the sentence assistive technology hears, and the region derives two more
+ * sentences from it — "Finished reading the names on this record." and "Still reading the names
+ * on this record. This is taking longer than it should." — by lowering its first letter. That
+ * works because the house voice names the act as a capitalised gerund: Reading, Looking, Checking,
+ * Computing, Searching. A label that says "Loading…" says nothing a reader can use, and a label
+ * with a full stop or an ellipsis at its end breaks the derived sentences. So a literal label is
+ * held to the shape; an expression label (`label={sentence}`) is the caller's own judgement and is
+ * left alone.
+ */
+const REGION_LABEL_PATTERN = /<LoadingRegion\b[^>]*?\blabel="([^"]*)"/gs;
+const HOUSE_VOICE_LABEL = /^[A-Z][a-z]+ing\b[^.…]*[^\s.…]$/;
+
+export function findLoadingLabelProblems(filePath, source) {
+  const text = stripComments(source);
+  const problems = [];
+  for (const match of text.matchAll(REGION_LABEL_PATTERN)) {
+    const label = match[1];
+    // A label with an expression in it ("Reading this record's {words.heading}") is judged only on
+    // its opening words: the rest is the caller's, and its ending cannot be read from the source.
+    const literal = label.includes("{") ? label.slice(0, label.indexOf("{")).trimEnd() : label;
+    const startsWithLoading = /^Loading\b/.test(literal);
+    if (!startsWithLoading && HOUSE_VOICE_LABEL.test(literal)) continue;
+    problems.push({
+      rule: "loading-label",
+      file: filePath,
+      line: lineOf(text, match.index),
+      text: label,
+      detail:
+        `has a label that is not in the house voice (\`${label}\`). A region's label names the ` +
+        'act as a capitalised gerund — "Reading the names on this record", "Looking for near ' +
+        'matches" — never "Loading", and ends without a full stop or an ellipsis, because the ' +
+        "region derives its finished and stalled sentences from it",
+    });
   }
   return problems;
 }

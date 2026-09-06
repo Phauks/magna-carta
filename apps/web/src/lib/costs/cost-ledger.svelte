@@ -389,6 +389,19 @@
   const hasNotices = $derived(
     actionFailure !== null || actionNotice !== null || expenseCodes.refused,
   );
+
+  /*
+   * The domain figures as the shared strip reads them: the money is turned into text HERE, in the
+   * matter's own currency, because the strip owns the arrangement and never the formatting.
+   */
+  const footerReading = $derived(
+    figures.map((figure) => ({
+      identifier: figure.identifier,
+      label: figure.label,
+      value: money(figure.amountMinor),
+      caption: figure.caption,
+    })),
+  );
 </script>
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<CostLedgerEntry>)}
@@ -446,16 +459,7 @@
 {/snippet}
 
 {#snippet ledgerFigures()}
-  {#if grid.isFiltered}
-    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
-  {/if}
-  {#each figures as figure, index (figure.identifier)}
-    {#if index > 0}<span aria-hidden="true">·</span>{/if}
-    <span class="inline-flex items-baseline gap-4" title={figure.caption}>
-      <span class="text-text-subtle">{figure.label}</span>
-      <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
-    </span>
-  {/each}
+  <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
 <!-- Review is the one act this ledger adds to the surface's row, where the firm runs review. -->

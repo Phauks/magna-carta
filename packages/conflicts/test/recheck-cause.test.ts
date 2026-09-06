@@ -199,7 +199,7 @@ test("a rename reaches the matters the entity is a party on", async () => {
 test("a firm-personnel change reaches every live matter, because imputation joins the roster", async () => {
   const fixture = await recheckFixture("personnel");
   fixture.addMatter("matter_one");
-  fixture.addMatter("matter_two", "prospective");
+  fixture.addMatter("matter_two", "consultation");
   fixture.addMatter("matter_shut", "closed");
 
   const cause = await resolveAffectedMatters(fixture.database, CONFLICTS_PERSONNEL_TOPIC, {

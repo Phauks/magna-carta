@@ -177,6 +177,7 @@
             answer={search.answer}
             failure={search.failure}
             busy={search.busy}
+            onRetry={() => void run(query)}
             density="compact"
             onnavigate={() => (expanded = false)}
           />

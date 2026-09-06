@@ -15,6 +15,9 @@
 import Root from "./table.svelte";
 import Grid from "./data-table-grid.svelte";
 import GridFooter from "./data-table-grid-footer.svelte";
+import GridFigures from "./data-table-grid-figures.svelte";
+import ClearFilters from "./data-table-clear-filters.svelte";
+import LoadMore from "./data-table-load-more.svelte";
 import Header from "./table-header.svelte";
 import Body from "./table-body.svelte";
 import Row from "./table-row.svelte";
@@ -27,6 +30,7 @@ import ViewMenu from "./data-table-view-menu.svelte";
 import ColumnFilter from "./data-table-column-filter.svelte";
 
 export { createSvelteTable } from "./data-table.svelte.ts";
+export type { GridFigure } from "./grid-figures.ts";
 // The one-table composition (DataTable.Grid) — the declarative column model and its state engine.
 export {
   createDataTableGrid,
@@ -118,6 +122,9 @@ export {
   Root,
   Grid,
   GridFooter,
+  GridFigures,
+  ClearFilters,
+  LoadMore,
   Header,
   Body,
   Row,
@@ -132,6 +139,9 @@ export {
   Root as Table,
   Grid as DataTableGrid,
   GridFooter as DataTableGridFooter,
+  GridFigures as DataTableGridFigures,
+  ClearFilters as DataTableClearFilters,
+  LoadMore as DataTableLoadMore,
   Header as TableHeader,
   Body as TableBody,
   Row as TableRow,

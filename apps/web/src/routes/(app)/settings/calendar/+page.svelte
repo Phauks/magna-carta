@@ -16,6 +16,7 @@
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { mayManageCalendar } from "$lib/calendar/calendar-permission.ts";
   import {
@@ -58,15 +59,6 @@
      identical width. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
-    {#if draft.readFailure !== null && !draft.loaded}
-      <FailureNotice
-        failure={draft.readFailure}
-        title="The Calendar Settings Could Not Be Read"
-        fallback="The firm's calendar settings were not read."
-        onRetry={() => void draft.load()}
-      />
-    {/if}
-
     {#if draft.saveFailure !== null}
       <FailureNotice
         failure={draft.saveFailure}
@@ -78,7 +70,30 @@
     {/if}
 
     <SettingsPlate heading="The Week">
-      {#if draft.loaded}
+      <LoadingRegion
+        loading={!draft.loaded}
+        failed={draft.readFailure !== null && !draft.loaded}
+        label="Reading the firm's calendar settings"
+        onRetry={() => void draft.load()}
+      >
+        {#snippet failure()}
+          {#if draft.readFailure !== null}
+            <FailureNotice
+              failure={draft.readFailure}
+              title="The Calendar Settings Could Not Be Read"
+              fallback="The firm's calendar settings were not read."
+              onRetry={() => void draft.load()}
+            />
+          {/if}
+        {/snippet}
+        <!-- The row is its own shape: the setting's name stays readable, the description and
+             the engraved value grey, and the plate keeps its geometry while the read is out. -->
+        {#snippet fixture()}
+          <SettingsRow
+            definition={WEEK_STARTS_ON_DEFINITION}
+            value={WEEK_STARTS_ON_DEFINITION.defaultValue}
+          />
+        {/snippet}
         {#if canEdit}
           <SettingsRow definition={WEEK_STARTS_ON_DEFINITION} {draft} />
         {:else}
@@ -87,9 +102,7 @@
             value={draft.value(WEEK_STARTS_ON_DEFINITION)}
           />
         {/if}
-      {:else if draft.readFailure === null}
-        <p class="py-12 text-sm text-text-muted" aria-busy="true">Reading the firm's settings.</p>
-      {/if}
+      </LoadingRegion>
     </SettingsPlate>
   </div>
 </div>

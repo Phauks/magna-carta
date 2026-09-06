@@ -1,0 +1,239 @@
+@layer components {
+  /*
+   * LoadingRegion (Tier 1) — the mc-loading recipe. A region carrying `data-mc-loading` renders
+   * real markup over representative content, and this recipe turns the LEAVES of that markup into
+   * bones while the furniture stays real: a frame keeps its border, a table its column heads, a
+   * labelled field its label. Nothing is measured; the shape is the markup.
+   *
+   * Text is hidden with -webkit-text-fill-color rather than color, on purpose. A utility class on a
+   * leaf (`text-text-muted`) sits in Tailwind's utilities layer and beats any `color` set in this
+   * layer at any specificity; nothing in the product sets text-fill-color, so it wins by default.
+   * The pulse is the Skeleton's own (a colour animation between two tokens; opacity literals are
+   * banned), silenced under prefers-reduced-motion and under the developer console's
+   * data-mc-static-skeletons freeze, exactly as the hand-placed boxes were.
+   *
+   * A leaf is any element with no element children and some text — a heading, a paragraph, a span,
+   * a cell, a card's title (which is a div). Furniture is excluded from the leaf rules rather than
+   * overridden after them, so a column head keeps its own background and a label its words:
+   * `th`, `label`, `legend`, `caption`, `dt`, `.mc-label`, the field-label recipes, and anything under
+   * `data-loading-keep`. Controls and media are bones of their own kind, below.
+   *
+   * This file is imported LAST in styles/components.css: at equal specificity the later rule wins,
+   * and every selector here carries the region attribute, so a variant class on a badge or a
+   * button (one class, lower specificity) yields to the bone.
+   */
+  [data-mc-loading] {
+    -webkit-text-fill-color: transparent;
+    user-select: none;
+  }
+
+  /* A text leaf becomes a bar as wide as its words, one bar per line, on the frame's own rhythm. */
+  [data-mc-loading]
+    *:not(:has(*)):not(:empty):not(
+      svg *,
+      input,
+      select,
+      textarea,
+      button,
+      th,
+      label,
+      legend,
+      caption,
+      dt,
+      .mc-label,
+      .mc-field-label,
+      .mc-date-field-label,
+      .mc-print-sheet-field-label,
+      .mc-table-filter-field-label,
+      [data-loading-keep],
+      th *,
+      label *,
+      legend *,
+      caption *,
+      dt *,
+      .mc-label *,
+      .mc-field-label *,
+      .mc-date-field-label *,
+      .mc-print-sheet-field-label *,
+      .mc-table-filter-field-label *,
+      [data-loading-keep] *
+    ) {
+    background-color: var(--mc-action-disabled);
+    border-radius: var(--mc-radius-sm);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    animation-name: mc-skeleton-pulse;
+    animation-duration: var(--mc-duration-slow);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+  /*
+   * A block of text flows as inline so each wrapped line is its own bar, and a block box after it
+   * restores the line break the block gave; where a flex or grid parent blockifies it anyway, it
+   * keeps to the width of its words rather than stretching. A cell stays a cell: its bar is the
+   * cell's content box, so neighbouring cells never merge into one slab.
+   */
+  [data-mc-loading]
+    :is(h1, h2, h3, h4, h5, h6, p, div, dd, li, figcaption, summary):not(:has(*)):not(:empty):not(
+      [data-loading-keep],
+      [data-loading-keep] *
+    ) {
+    display: inline;
+    inline-size: fit-content;
+  }
+  [data-mc-loading]
+    :is(h1, h2, h3, h4, h5, h6, p, div, dd, li, figcaption, summary):not(:has(*)):not(:empty):not(
+      [data-loading-keep],
+      [data-loading-keep] *
+    )::after {
+    content: "";
+    display: block;
+  }
+  [data-mc-loading] td:not(:has(*)):not(:empty) {
+    background-clip: content-box;
+  }
+
+  /* Media becomes its own box; an icon's strokes go, its bone stays. */
+  [data-mc-loading] :is(svg, .mc-avatar) {
+    background-color: var(--mc-action-disabled);
+    border-radius: var(--mc-radius-sm);
+    animation-name: mc-skeleton-pulse;
+    animation-duration: var(--mc-duration-slow);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+  [data-mc-loading] .mc-avatar {
+    border-radius: var(--mc-radius-full);
+  }
+  [data-mc-loading] svg > * {
+    visibility: hidden;
+  }
+  [data-mc-loading] :is(img, video, canvas) {
+    visibility: hidden;
+  }
+
+  /* A control becomes one bone: its words, icon and edge go together. */
+  [data-mc-loading]
+    :is(
+      button,
+      input,
+      select,
+      textarea,
+      [role="button"],
+      [role="checkbox"],
+      [role="switch"],
+      .mc-badge,
+      .mc-button
+    ) {
+    background-color: var(--mc-action-disabled);
+    border-color: transparent;
+    box-shadow: none;
+    animation-name: mc-skeleton-pulse;
+    animation-duration: var(--mc-duration-slow);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+  [data-mc-loading]
+    :is(
+      button,
+      input,
+      select,
+      textarea,
+      [role="button"],
+      [role="checkbox"],
+      [role="switch"],
+      .mc-badge,
+      .mc-button
+    )
+    * {
+    background-color: transparent;
+    animation: none;
+    visibility: hidden;
+  }
+
+  /* A container marked as one block is one bone, whatever it holds (a chart, a map, a preview). */
+  [data-mc-loading] [data-loading-block] {
+    background-color: var(--mc-action-disabled);
+    border-radius: var(--mc-radius-md);
+    animation-name: mc-skeleton-pulse;
+    animation-duration: var(--mc-duration-slow);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+  [data-mc-loading] [data-loading-block] * {
+    visibility: hidden;
+  }
+
+  /* Furniture keeps its words: the leaf rules above already leave it alone; this restores its ink. */
+  [data-mc-loading]
+    :is(
+      th,
+      label,
+      legend,
+      caption,
+      dt,
+      .mc-label,
+      .mc-field-label,
+      .mc-date-field-label,
+      .mc-print-sheet-field-label,
+      .mc-table-filter-field-label,
+      [data-loading-keep]
+    ),
+  [data-mc-loading]
+    :is(
+      th,
+      label,
+      legend,
+      caption,
+      dt,
+      .mc-label,
+      .mc-field-label,
+      .mc-date-field-label,
+      .mc-print-sheet-field-label,
+      .mc-table-filter-field-label,
+      [data-loading-keep]
+    )
+    * {
+    -webkit-text-fill-color: currentcolor;
+  }
+
+  /* A re-read keeps the content where the reader is looking; only the cursor says something is up. */
+  [data-mc-refreshing] {
+    cursor: progress;
+  }
+
+  /*
+   * A stalled read states itself on the screen, above the shape, with the way to ask again beside
+   * it. A quiet band rather than a status colour: nothing has failed yet, it is only late.
+   */
+  .mc-loading-stalled {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mc-space-8);
+    margin-block-end: var(--mc-space-12);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    border: var(--mc-border-width-default) solid var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-raised);
+  }
+  .mc-loading-stalled-sentence {
+    font-size: var(--mc-font-size-sm);
+    color: var(--mc-text-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-mc-loading] * {
+      animation: none;
+    }
+  }
+  :root[data-mc-static-skeletons] [data-mc-loading] * {
+    animation: none;
+  }
+}

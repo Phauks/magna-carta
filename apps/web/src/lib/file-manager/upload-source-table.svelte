@@ -23,8 +23,8 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
+  import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import CopyCheck from "@lucide/svelte/icons/copy-check";
-  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import {
     intakeColumns,
     intakePhrase,
@@ -169,7 +169,9 @@
           aria-hidden="true"
         />
       {:else if row.stage !== "chosen" && row.stage !== "cancelled"}
-        <LoaderCircle class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
+        <!-- Not yet landed. The stage word beside it says what the file is doing; the mark only
+             says it is not finished, the way an unwritten row reads on the time sheet. -->
+        <CircleDashed class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
       {/if}
       <span
         class={row.stage === "chosen" || row.stage === "cancelled" || row.stage === "already"

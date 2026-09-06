@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "cd79b31f-d0c7-49de-9ae0-5fdb77bb49ab",
+  "id": "62341436-6d62-404e-b4e0-9ef6015bce5f",
   "prevId": "949a96ff-076d-49cb-a559-c2752dc95273",
   "tables": {
     "account_balance": {
@@ -8487,13 +8487,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "source_modified_at": {
-          "name": "source_modified_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -10048,7 +10041,7 @@
         },
         "intake_procedure_step_kind_check": {
           "name": "intake_procedure_step_kind_check",
-          "value": "\"intake_procedure_step\".\"kind\" IN ('conflicts-check', 'fee-agreement', 'engagement-letter', 'document', 'questionnaire', 'retainer', 'identity-verification', 'acknowledgement')"
+          "value": "\"intake_procedure_step\".\"kind\" IN ('conflicts-check', 'fee-agreement', 'engagement-letter', 'document', 'questionnaire', 'retainer', 'identity-verification', 'acknowledgement', 'client-forms', 'payment')"
         },
         "intake_procedure_step_required_check": {
           "name": "intake_procedure_step_required_check",

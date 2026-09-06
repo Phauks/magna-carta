@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a7d60f1e-5635-4b73-8d6b-61a4741a1f76",
-  "prevId": "cd79b31f-d0c7-49de-9ae0-5fdb77bb49ab",
+  "id": "592da8a3-2d33-4a58-94de-6e74a506236b",
+  "prevId": "62341436-6d62-404e-b4e0-9ef6015bce5f",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -8487,13 +8487,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "source_modified_at": {
-          "name": "source_modified_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -8516,13 +8509,6 @@
           "name": "file_version_status_index",
           "columns": [
             "status"
-          ],
-          "isUnique": false
-        },
-        "file_version_content_sha256_index": {
-          "name": "file_version_content_sha256_index",
-          "columns": [
-            "content_sha256"
           ],
           "isUnique": false
         },
@@ -10055,7 +10041,7 @@
         },
         "intake_procedure_step_kind_check": {
           "name": "intake_procedure_step_kind_check",
-          "value": "\"intake_procedure_step\".\"kind\" IN ('conflicts-check', 'fee-agreement', 'engagement-letter', 'document', 'questionnaire', 'retainer', 'identity-verification', 'acknowledgement')"
+          "value": "\"intake_procedure_step\".\"kind\" IN ('conflicts-check', 'fee-agreement', 'engagement-letter', 'document', 'questionnaire', 'retainer', 'identity-verification', 'acknowledgement', 'client-forms', 'payment')"
         },
         "intake_procedure_step_required_check": {
           "name": "intake_procedure_step_required_check",
@@ -12483,7 +12469,7 @@
       "checkConstraints": {
         "matter_status_check": {
           "name": "matter_status_check",
-          "value": "\"matter\".\"status\" IN ('prospective', 'open', 'closed')"
+          "value": "\"matter\".\"status\" IN ('intake', 'consultation', 'open', 'closed')"
         },
         "matter_title_nonempty_check": {
           "name": "matter_title_nonempty_check",

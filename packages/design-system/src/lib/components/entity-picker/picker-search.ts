@@ -7,6 +7,7 @@
  * than presentation, and they are the part a rendered field cannot show — so they live here, tested on
  * their own, and the field calls them.
  */
+import type { EntityKind } from "../entity-identity/types.ts";
 import type { EntityPickerAnswer, EntitySearch, PickableEntity } from "./types.ts";
 
 /**
@@ -100,3 +101,53 @@ export function offerableEntities(
 /** The one sentence for a capped answer, so every picker says it the same way. */
 export const CAPPED_SENTENCE =
   "The firm holds more matches than are shown. These are the closest; narrowing the search reaches the rest.";
+
+/*
+ * Making the record the directory does not hold, from the field that failed to find it.
+ *
+ * A picker that can only choose sends a person who typed a name the firm has never recorded to
+ * another screen, and the sentence they were halfway through is lost on the way. So a picker whose
+ * caller can create offers it in two places: a top-level New control beside the field, reachable
+ * before anything is typed, and a row at the end of the list that adds what was typed. The list's
+ * rows are options, and an option carries a value, so the add row carries a RESERVED value per kind
+ * (the caller has to be told whether a person or an organization is wanted) that no handle in this
+ * product produces.
+ */
+const ADD_ROW_VALUE_PREFIX = "mc-entity-picker:add:";
+
+/** The reserved option value for the row that adds a record of `kind`. */
+export function addRowValue(kind: EntityKind): string {
+  return `${ADD_ROW_VALUE_PREFIX}${kind}`;
+}
+
+/** Which kind an add row's value asks for, or null when the value is an ordinary pick. */
+export function addRowKind(value: string): EntityKind | null {
+  if (!value.startsWith(ADD_ROW_VALUE_PREFIX)) return null;
+  const kind = value.slice(ADD_ROW_VALUE_PREFIX.length);
+  return kind === "person" || kind === "organization" ? kind : null;
+}
+
+/** What each side of the directory is called inside the add row's sentence. */
+const KIND_WORD: Readonly<Record<EntityKind, string>> = {
+  person: "a person",
+  organization: "an organization",
+};
+
+/**
+ * What the add row says when the field offers BOTH kinds and so has to say which one it will make:
+ * `Add "Northwind Couriers" as an organization`. A field that offers one kind uses the combobox's
+ * own add row and its shorter sentence, because there is nothing to disambiguate.
+ */
+export function addRowSentence(kind: EntityKind, typed: string): string {
+  const trimmed = typed.trim();
+  return trimmed === "" ? `Add ${KIND_WORD[kind]}` : `Add "${trimmed}" as ${KIND_WORD[kind]}`;
+}
+
+/** The New control's label: the product's one word for making something, bare, as the create control reads it. */
+export const NEW_CONTROL_LABEL = "New";
+
+/** The New control's accessible name, which says what it makes: "New person", "New person or organization". */
+export function newControlName(kinds: readonly EntityKind[]): string {
+  const words = kinds.map((kind) => (kind === "person" ? "person" : "organization"));
+  return `New ${words.join(" or ")}`;
+}

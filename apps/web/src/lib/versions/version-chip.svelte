@@ -72,10 +72,11 @@
    * - Every version is copyable: one click puts the part's identifier line on the clipboard.
    */
   import Badge from "@magna-carta/design-system/badge";
+  import { sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import Button from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
   import Separator from "@magna-carta/design-system/separator";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
@@ -159,6 +160,11 @@
   let copiedHealth = $state(false);
 
   const chipLabel = versionChipLabel(BUILD_IDENTITY.commit);
+  // Sample words for the loading fixtures: an invented commit and its two timestamps, so a
+  // fixture row's detail line is the width a real one is.
+  const FIXTURE_COMMIT = "0f3a9c1";
+  const FIXTURE_COMMIT_TIME = sampleInstant(1);
+  const FIXTURE_BUILD_TIME = sampleInstant(0);
   const webCommitLabel = isRealCommit(BUILD_IDENTITY.commit) ? BUILD_IDENTITY.commit : "dev";
 
   // True once the version poll has seen a bundle newer than the one this tab is running.
@@ -478,7 +484,6 @@
               size="icon"
               class="shrink-0"
               aria-label="Refresh the panel"
-              aria-busy={loading || healthLoading}
               disabled={loading || healthLoading}
               onclick={() => {
                 void refresh({ fresh: true });
@@ -582,58 +587,50 @@
         })}
         {#if deploymentSectionPreference.collapsed}
           <!-- Nothing: the heading above carries what the fold hides. -->
-        {:else if value !== null}
-          {@render partRow({
-            rowKey: "api",
-            name: API_WORKER_UNIT_NAME,
-            isWorkerName: true,
-            state: "reported",
-            commit: isRealCommit(value.api.commit) ? value.api.commit : "dev",
-            commitTime: value.api.commitTime,
-            buildTime: value.api.buildTime,
-          })}
-          {#if value.services.length === 0}
-            <p class="text-xs text-text-muted">{NO_SERVICES_NOTICE}</p>
-          {:else}
-            {@const deploymentRows = partitionDeploymentRows(value.services)}
-            <!-- The two Workers that serve the app's address lead the list, with the topology
-                 line that explains them; the rest of the fleet sits beneath the fold. -->
-            <div class="flex flex-col">
-              {#each deploymentRows.front as service (service.id)}
-                {@render partRow({
-                  rowKey: service.id,
-                  name: service.service,
-                  isWorkerName: true,
-                  state: service.state,
-                  commit: service.commit,
-                  commitTime: service.commitTime,
-                  buildTime: service.buildTime,
-                })}
-              {/each}
-            </div>
-            {#if syncState !== null}
-              <!-- The pair's sync read, colour-coded: success once magna-carta-web matches the
-                   API it serves, warning only when the web build is the one behind (the
-                   actionable case), neutral for any other difference — the two Workers deploy
-                   separately, so differing is a normal state, not a fault. -->
-              <div class="flex items-center gap-8">
-                <Badge variant={syncStateBadgeVariant(syncState)}>{syncStateLabel(syncState)}</Badge>
+        {:else}
+          <!-- A re-ask keeps the rows in view and marks the region busy; the header's own line
+               above says which read is out. -->
+          <LoadingRegion
+            loading={value === null}
+            refreshing={loading}
+            label="Reading what the deployment is running"
+            onRetry={() => void refresh({ fresh: true })}
+            class="flex flex-col gap-8"
+          >
+            {#snippet fixture()}
+              <!-- Three Worker rows over sample identifiers: the list's own shape, greyed. -->
+              <div class="flex flex-col">
+                {#each [API_WORKER_UNIT_NAME, "magna-carta-web", "magna-carta-scan"] as workerName (workerName)}
+                  {@render partRow({
+                    rowKey: `fixture-${workerName}`,
+                    name: workerName,
+                    isWorkerName: true,
+                    state: "reported",
+                    commit: FIXTURE_COMMIT,
+                    commitTime: FIXTURE_COMMIT_TIME,
+                    buildTime: FIXTURE_BUILD_TIME,
+                  })}
+                {/each}
               </div>
-            {/if}
-            {#if deploymentRows.rest.length > 0}
-              <Separator />
-              <!-- The fleet's own fold, inside Deployment's. Shut, it counts only the Workers IT
-                   hides — the pair above it is still on screen and speaks for itself. -->
-              {@render sectionToggle({
-                label: FLEET_SECTION_LABEL,
-                collapsed: fleetSectionPreference.collapsed,
-                toggle: () => fleetSectionPreference.toggle(),
-                badge: summarizeSilentWorkers(deploymentRows.rest),
-                badgeVariant: "warning",
+            {/snippet}
+            {#if value !== null}
+              {@render partRow({
+                rowKey: "api",
+                name: API_WORKER_UNIT_NAME,
+                isWorkerName: true,
+                state: "reported",
+                commit: isRealCommit(value.api.commit) ? value.api.commit : "dev",
+                commitTime: value.api.commitTime,
+                buildTime: value.api.buildTime,
               })}
-              {#if !fleetSectionPreference.collapsed}
+              {#if value.services.length === 0}
+                <p class="text-xs text-text-muted">{NO_SERVICES_NOTICE}</p>
+              {:else}
+                {@const deploymentRows = partitionDeploymentRows(value.services)}
+                <!-- The two Workers that serve the app's address lead the list, with the topology
+                     line that explains them; the rest of the fleet sits beneath the fold. -->
                 <div class="flex flex-col">
-                  {#each deploymentRows.rest as service (service.id)}
+                  {#each deploymentRows.front as service (service.id)}
                     {@render partRow({
                       rowKey: service.id,
                       name: service.service,
@@ -645,15 +642,45 @@
                     })}
                   {/each}
                 </div>
+                {#if syncState !== null}
+                  <!-- The pair's sync read, colour-coded: success once magna-carta-web matches the
+                       API it serves, warning only when the web build is the one behind (the
+                       actionable case), neutral for any other difference — the two Workers deploy
+                       separately, so differing is a normal state, not a fault. -->
+                  <div class="flex items-center gap-8">
+                    <Badge variant={syncStateBadgeVariant(syncState)}>{syncStateLabel(syncState)}</Badge>
+                  </div>
+                {/if}
+                {#if deploymentRows.rest.length > 0}
+                  <Separator />
+                  <!-- The fleet's own fold, inside Deployment's. Shut, it counts only the Workers IT
+                       hides — the pair above it is still on screen and speaks for itself. -->
+                  {@render sectionToggle({
+                    label: FLEET_SECTION_LABEL,
+                    collapsed: fleetSectionPreference.collapsed,
+                    toggle: () => fleetSectionPreference.toggle(),
+                    badge: summarizeSilentWorkers(deploymentRows.rest),
+                    badgeVariant: "warning",
+                  })}
+                  {#if !fleetSectionPreference.collapsed}
+                    <div class="flex flex-col">
+                      {#each deploymentRows.rest as service (service.id)}
+                        {@render partRow({
+                          rowKey: service.id,
+                          name: service.service,
+                          isWorkerName: true,
+                          state: service.state,
+                          commit: service.commit,
+                          commitTime: service.commitTime,
+                          buildTime: service.buildTime,
+                        })}
+                      {/each}
+                    </div>
+                  {/if}
+                {/if}
               {/if}
             {/if}
-          {/if}
-        {:else}
-          <div class="flex flex-col gap-8" aria-busy="true">
-            <Skeleton class="h-16 w-full" />
-            <Skeleton class="h-16 w-full" />
-            <Skeleton class="h-16 w-full" />
-          </div>
+          </LoadingRegion>
         {/if}
       {/if}
       <Separator />
@@ -694,40 +721,62 @@
             </div>
           </div>
         {/if}
-        {#if healthValue !== null}
-          <div class="flex flex-col">
-            {#each healthRows as row (row.id)}
-              {@render healthRow(row)}
-            {/each}
-          </div>
-          {#if provisioningBacklog !== null}
-            <!-- The membership row's explanation, said only when there is one. A firm whose mirrors
-                 have all landed carries nothing here: "0 pending" is an info line with nothing
-                 behind it, and this line exists to turn an unexplained refusal into a wait. -->
-            <div class="flex items-center gap-8">
-              <Badge variant={healthBadgeVariant(provisioningBacklog.reading)}>Provisioning</Badge>
-              <p class="text-xs text-text-muted">{provisioningBacklog.sentence}</p>
-            </div>
-          {/if}
-          <div>
-            <!-- The whole section on the clipboard in one line: what a member pastes into a bug
-                 report instead of describing four rows from memory. Confirmation is the control
-                 filling for a moment, never a glyph that changes its width. -->
-            <Button
-              variant="ghost"
-              size="sm"
-              class={copiedHealth ? "bg-action-secondary-hover" : ""}
-              aria-label="Copy the database health read"
-              onclick={() => copyHealth()}
-            >
-              Copy diagnosis
-            </Button>
-          </div>
-        {:else if healthLoading}
-          <div class="flex flex-col gap-8" aria-busy="true">
-            <Skeleton class="h-16 w-full" />
-            <Skeleton class="h-16 w-full" />
-          </div>
+        {#if healthValue !== null || healthLoading}
+          <LoadingRegion
+            loading={healthValue === null}
+            refreshing={healthLoading}
+            label="Reading whether this firm's database can be reached"
+            onRetry={() => void refreshHealth()}
+            class="flex flex-col gap-8"
+          >
+            {#snippet fixture()}
+              <!-- Two health rows over sample readings: the section's own shape, greyed. -->
+              <div class="flex flex-col">
+                {@render healthRow({
+                  name: "Firm database",
+                  reading: "healthy",
+                  status: "Reachable",
+                  detail: "The firm's own database answered.",
+                })}
+                {@render healthRow({
+                  name: "Your membership",
+                  reading: "healthy",
+                  status: "Recorded",
+                  detail: "This account is a member of the firm.",
+                })}
+              </div>
+            {/snippet}
+            {#if healthValue !== null}
+              <div class="flex flex-col">
+                {#each healthRows as row (row.id)}
+                  {@render healthRow(row)}
+                {/each}
+              </div>
+              {#if provisioningBacklog !== null}
+                <!-- The membership row's explanation, said only when there is one. A firm whose mirrors
+                     have all landed carries nothing here: "0 pending" is an info line with nothing
+                     behind it, and this line exists to turn an unexplained refusal into a wait. -->
+                <div class="flex items-center gap-8">
+                  <Badge variant={healthBadgeVariant(provisioningBacklog.reading)}>Provisioning</Badge>
+                  <p class="text-xs text-text-muted">{provisioningBacklog.sentence}</p>
+                </div>
+              {/if}
+              <div>
+                <!-- The whole section on the clipboard in one line: what a member pastes into a bug
+                     report instead of describing four rows from memory. Confirmation is the control
+                     filling for a moment, never a glyph that changes its width. -->
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class={copiedHealth ? "bg-action-secondary-hover" : ""}
+                  aria-label="Copy the database health read"
+                  onclick={() => copyHealth()}
+                >
+                  Copy diagnosis
+                </Button>
+              </div>
+            {/if}
+          </LoadingRegion>
         {/if}
       {/if}
     {:else}

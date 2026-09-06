@@ -35,8 +35,10 @@ describe("readMatterCounts", () => {
   it("is all zeros on an empty firm", async () => {
     expect(await readMatterCounts(freshDatabase())).toEqual({
       total: 0,
-      prospective: 0,
+      intake: 0,
+      consultation: 0,
       open: 0,
+      hold: 0,
       closed: 0,
     });
   });
@@ -44,14 +46,16 @@ describe("readMatterCounts", () => {
   it("counts by status and totals them", async () => {
     const database = freshDatabase();
     await seedMember(database);
-    await insertMatter(database, "m1", "prospective");
+    await insertMatter(database, "m1", "consultation");
     await insertMatter(database, "m2", "open");
     await insertMatter(database, "m3", "open");
     await insertMatter(database, "m4", "closed");
     expect(await readMatterCounts(database)).toEqual({
       total: 4,
-      prospective: 1,
+      intake: 0,
+      consultation: 1,
       open: 2,
+      hold: 0,
       closed: 1,
     });
   });

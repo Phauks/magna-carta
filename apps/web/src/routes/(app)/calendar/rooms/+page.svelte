@@ -23,7 +23,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Select from "@magna-carta/design-system/select";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { Failure } from "$lib/api/request.ts";
@@ -41,7 +41,7 @@
 
   let resources = $state<readonly FirmResource[] | null>(null);
   let capped = $state(false);
-  let failure = $state<Failure | null>(null);
+  let readFailure = $state<Failure | null>(null);
 
   // Read once, on arrival: the address names the room; from there the picker owns the choice.
   let resourceId = $state<string | null>(untrack(() => page.url.searchParams.get(RESOURCE_KEY)));
@@ -49,10 +49,10 @@
   let anchor = $state(todayCivil());
 
   async function load(): Promise<void> {
-    failure = null;
+    readFailure = null;
     const outcome = await listResources(fetch);
     if (outcome.kind !== "ok") {
-      failure = outcome.failure;
+      readFailure = outcome.failure;
       return;
     }
     resources = outcome.value.data.filter((resource) => resource.active);
@@ -133,38 +133,52 @@
     {/snippet}
   </ScreenHeader>
 
-  {#if failure !== null}
-    <FailureNotice
-      {failure}
-      title="The Resources Could Not Be Read"
-      fallback="The firm's rooms and resources were not read, so no schedule can be shown."
-      onRetry={() => void load()}
-    />
-  {:else if resources === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the firm's resources">
-      <Skeleton class="h-16 w-160" />
-      <Skeleton class="h-12 w-full" />
-    </div>
-  {:else if resource === null}
-    <EmptyState title="No rooms or resources yet">
-      A resource is something bookable the firm owns: a conference room, a pool car, the video rig.
-      Add the first one under Settings and its schedule appears here.
-      {#snippet actions()}
-        <Button variant="primary" href="/settings/resources">Rooms and Resources</Button>
-      {/snippet}
-    </EmptyState>
-  {:else}
-    {#if capped}
-      <p class="text-xs text-text-muted">The picker lists the first page of the firm's resources.</p>
+  <LoadingRegion
+    loading={resources === null}
+    failed={readFailure !== null}
+    empty={resources !== null && resources.length === 0}
+    label="Reading the firm's resources"
+    onRetry={() => void load()}
+    class="flex min-h-0 flex-1 flex-col gap-16"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure}
+          title="The Resources Could Not Be Read"
+          fallback="The firm's rooms and resources were not read, so no schedule can be shown."
+          onRetry={() => void load()}
+        />
+      {/if}
+    {/snippet}
+    {#snippet emptyState()}
+      <EmptyState title="No rooms or resources yet">
+        A resource is something bookable the firm owns: a conference room, a pool car, the video rig.
+        Add the first one under Settings and its schedule appears here.
+        {#snippet actions()}
+          <Button variant="primary" href="/settings/resources">Rooms and Resources</Button>
+        {/snippet}
+      </EmptyState>
+    {/snippet}
+    <!-- Until the catalog names a room there is no schedule to draw, so the shape is the one
+         block the week grid will fill: a second calendar drawn over sample bookings would be a
+         second calendar. -->
+    {#snippet fixture()}
+      <div data-loading-block class="min-h-0 flex-1"></div>
+    {/snippet}
+    {#if resource !== null}
+      {#if capped}
+        <p class="text-xs text-text-muted">The picker lists the first page of the firm's resources.</p>
+      {/if}
+      {#key resource.id}
+        <CalendarView
+          scope={{ kind: "resource", resourceId: resource.id }}
+          bind:view
+          bind:anchor
+          address
+          class="min-h-0 flex-1"
+        />
+      {/key}
     {/if}
-    {#key resource.id}
-      <CalendarView
-        scope={{ kind: "resource", resourceId: resource.id }}
-        bind:view
-        bind:anchor
-        address
-        class="min-h-0 flex-1"
-      />
-    {/key}
-  {/if}
+  </LoadingRegion>
 </div>

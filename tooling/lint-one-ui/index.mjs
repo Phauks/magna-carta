@@ -68,6 +68,10 @@ import {
   findFooterSetProblems,
   findHandComposedModals,
   findHandComposedDetailsPanels,
+  findHandPlacedLoading,
+  findSilentLoading,
+  findFixtureShapeProblems,
+  findLoadingLabelProblems,
   findHandDrawnGlyphs,
   findHandRolledSelects,
   findHandWrittenCapsRegister,
@@ -427,6 +431,36 @@ mustHaveRead(
   "permission refusal",
   [APP_SOURCE],
 );
+
+// Rule: one loading state. Both sides of the line: the app never draws a placeholder by hand, and
+// inside the design system only the homes the registry declares as owning a loading state may.
+const loadingHomes = (registry.loadingHomes ?? []).map((home) => home.home);
+if (loadingHomes.length === 0) {
+  problems.push({
+    rule: "hand-placed-loading",
+    file: "tooling/lint-one-ui/registry.json",
+    detail:
+      "declares no loading homes. The rule below exempts the homes named there, so an empty list " +
+      "means the region itself reads as a hand-placed loading state — a broken check rather than " +
+      "a clean repository",
+  });
+}
+mustHaveRead(
+  sweep(BOTH_SIDES, (path, source) => findHandPlacedLoading(path, source, loadingHomes)),
+  "hand-placed loading",
+  BOTH_SIDES,
+);
+
+// Rule: no silent loading. The app only: a surface that draws nothing while its data is null is a
+// screen's defect, and the design system's components render their own shapes.
+mustHaveRead(sweep([APP_SOURCE], findSilentLoading), "silent loading", [APP_SOURCE]);
+
+// Rule: a fixture is the shape it stands in for. Both sides of the line, wherever a region is
+// written with a fixture.
+mustHaveRead(sweep(BOTH_SIDES, findFixtureShapeProblems), "fixture shape", BOTH_SIDES);
+
+// Rule: a loading label is a sentence in the house voice. Both sides of the line.
+mustHaveRead(sweep(BOTH_SIDES, findLoadingLabelProblems), "loading label", BOTH_SIDES);
 
 // Rule: one details panel. The app only — the shell lives there, and the design system has no
 // business composing one.

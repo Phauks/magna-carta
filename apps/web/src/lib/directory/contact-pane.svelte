@@ -15,7 +15,8 @@
    * permission is recorded, never deleted: a number that came back "do not call" is a fact about
    * the record, and the next person must not ring it again.
    */
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
@@ -48,28 +49,99 @@
   let points = $state<DirectoryContactPoints | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
+  /** True while details already on screen are being read again, after a write landed. */
+  let refreshing = $state(false);
+  // The record whose details last landed. Only a change of RECORD discards what is on screen: a
+  // re-read after a write keeps the list where the reader is looking and marks the region busy.
+  let shownFor: string | null = null;
 
   $effect(() => {
     const id = entityId;
     void reloadToken;
     let cancelled = false;
+    if (shownFor === id) {
+      refreshing = true;
+    } else {
+      points = null;
+    }
     readFailure = null;
     void (async () => {
       const outcome = await readDirectoryContactPoints(fetch, id);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind === "ok") {
+        shownFor = id;
         points = outcome.value;
         return;
       }
+      shownFor = null;
       points = { emails: [], phones: [], addresses: [] };
       readFailure = stated(outcome.failure, "This record's contact details could not be read.");
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
 
+  function retry(): void {
+    reloadToken += 1;
+  }
+
   const rows = $derived(points === null ? [] : contactRowsFrom(points));
+
+  /**
+   * The shape the section takes while the record's contact details are being read: three lines of
+   * the kinds it lists, in the same section, over the sample vocabulary. The address is invented
+   * to the vocabulary's length; the vocabulary carries none of its own.
+   */
+  const CONTACT_FIXTURE: readonly ContactRow[] = [
+    {
+      id: "fixture-1",
+      kind: "email",
+      value: samplePerson(0).email,
+      use: "Work",
+      state: {
+        permitted: true,
+        preferred: true,
+        note: null,
+        verificationStatus: "unverified",
+        verifiedAt: null,
+        verificationDetail: null,
+      },
+      isPrimary: true,
+    },
+    {
+      id: "fixture-2",
+      kind: "telephone",
+      value: samplePerson(0).phone,
+      use: "Mobile",
+      state: {
+        permitted: true,
+        preferred: false,
+        note: null,
+        verificationStatus: "unverified",
+        verifiedAt: null,
+        verificationDetail: null,
+      },
+      isPrimary: false,
+    },
+    {
+      id: "fixture-3",
+      kind: "address",
+      value: "1400 Meridian Way, Suite 300, Reno, NV 89501",
+      use: "Office",
+      state: {
+        permitted: true,
+        preferred: false,
+        note: null,
+        verificationStatus: "unverified",
+        verifiedAt: null,
+        verificationDetail: null,
+      },
+      isPrimary: false,
+    },
+  ];
 
   type Channel = "emails" | "phones" | "addresses";
 
@@ -158,28 +230,42 @@
     />
   {/if}
 
-  {#if readFailure !== null}
-    <FailureNotice
-      failure={readFailure.failure}
-      title="This Record's Contact Details Could Not Be Read"
-      fallback={readFailure.fallback}
-      whenSilent={readFailure.whenSilent}
-    />
-  {:else if points === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading this record's contact details">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else}
-    <ContactSection
-      {rows}
-      canEdit={mayEdit}
-      {editDisabledReason}
-      {busyId}
-      onAdd={(draft) => void add(draft)}
-      onPreferred={(row) => void change(row, { preferred: true }, "The preference is as it was.")}
-      onPermitted={(row, permitted) => void change(row, { permitted }, "The permission is as it was.")}
-      onRemove={(row) => void remove(row)}
-    />
-  {/if}
+  <LoadingRegion
+    loading={points === null}
+    {refreshing}
+    failed={readFailure !== null}
+    label="Reading this record's contact details"
+    onRetry={retry}
+    class="flex flex-col gap-8"
+  >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="This Record's Contact Details Could Not Be Read"
+          fallback={readFailure.fallback}
+          whenSilent={readFailure.whenSilent}
+          onRetry={retry}
+        />
+      {/if}
+    {/snippet}
+    {#snippet fixture()}
+      {@render contactSection(CONTACT_FIXTURE)}
+    {/snippet}
+    {@render contactSection(rows)}
+  </LoadingRegion>
 </section>
+
+<!-- One section for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet contactSection(listed: readonly ContactRow[])}
+  <ContactSection
+    rows={listed}
+    canEdit={mayEdit}
+    {editDisabledReason}
+    {busyId}
+    onAdd={(draft) => void add(draft)}
+    onPreferred={(row) => void change(row, { preferred: true }, "The preference is as it was.")}
+    onPermitted={(row, permitted) => void change(row, { permitted }, "The permission is as it was.")}
+    onRemove={(row) => void remove(row)}
+  />
+{/snippet}

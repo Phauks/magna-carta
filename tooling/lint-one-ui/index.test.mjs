@@ -20,6 +20,10 @@ import {
   findFooterSetProblems,
   findHandComposedModals,
   findHandComposedDetailsPanels,
+  findHandPlacedLoading,
+  findSilentLoading,
+  findFixtureShapeProblems,
+  findLoadingLabelProblems,
   findHandDrawnGlyphs,
   findHandRolledSelects,
   findHandWrittenCapsRegister,
@@ -897,6 +901,10 @@ describe("the registry's own allowances", () => {
       "money-presentation",
       "permission-refusal",
       "details-panel",
+      "hand-placed-loading",
+      "silent-loading",
+      "fixture-shape",
+      "loading-label",
       "sweep",
     ]);
     for (const allowance of registry.allowances ?? []) {
@@ -1056,5 +1064,200 @@ describe("one details panel", () => {
         '<aside class="flex h-full w-full flex-col border-l border-border-default bg-surface-default">',
       ),
     ).toEqual([]);
+  });
+});
+
+describe("one loading state", () => {
+  const HOMES = [
+    "packages/design-system/src/lib/components/loading-region",
+    "packages/design-system/src/lib/components/data-table",
+  ];
+  const findIn = (path, source) => findHandPlacedLoading(path, source, HOMES);
+
+  it("bites on the Skeleton box placed by hand in an app screen, naming the signal", () => {
+    const source = `<script>
+  import Skeleton from "@magna-carta/design-system/skeleton";
+</script>
+{#if names === null}
+  <div class="flex flex-col gap-8" aria-busy="true"><Skeleton class="h-32 w-full" /></div>
+{/if}`;
+    const problems = findIn("apps/web/src/lib/directory/names-pane.svelte", source);
+    expect(problems.map((problem) => problem.text)).toEqual([
+      "@magna-carta/design-system/skeleton",
+      "aria-busy",
+      "<Skeleton",
+    ]);
+    expect(problems.every((problem) => problem.rule === "hand-placed-loading")).toBe(true);
+    expect(details(problems)).toContain("LoadingRegion");
+  });
+
+  it("bites on the recipe class, a pulsing utility and a spinner glyph", () => {
+    const source = `<script>
+  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+</script>
+<div class="mc-skeleton"></div>
+<div class="animate-pulse"></div>`;
+    const problems = findIn("apps/web/src/routes/(app)/home/+page.svelte", source);
+    expect(problems.map((problem) => problem.text)).toEqual([
+      "@lucide/svelte/icons/loader-circle",
+      "mc-skeleton",
+      "animate-pulse",
+    ]);
+  });
+
+  it("does NOT cry wolf on the region used as intended", () => {
+    const source = `<script>
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+</script>
+<LoadingRegion loading={names === null} label="Reading the names on this record">
+  {#snippet fixture()}<NameRows names={FIXTURE_NAMES} />{/snippet}
+  <NameRows {names} />
+</LoadingRegion>`;
+    expect(findIn("apps/web/src/lib/directory/names-pane.svelte", source)).toEqual([]);
+  });
+
+  it("does NOT read a comment that names the signal it is warning about", () => {
+    const source = `<!-- the region writes aria-busy; a screen never does -->
+<script>
+  // no <Skeleton here, and no mc-skeleton either
+</script>`;
+    expect(findIn("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+
+  it("leaves the declared loading homes alone, where the machinery has to be written", () => {
+    const source = `<div aria-busy="true"><Skeleton class="mc-table-skeleton" /></div>`;
+    expect(
+      findIn("packages/design-system/src/lib/components/data-table/data-table-grid.svelte", source),
+    ).toEqual([]);
+  });
+
+  it("bites inside the design system outside those homes", () => {
+    const source = `<div aria-busy="true"></div>`;
+    const problems = findIn("packages/design-system/src/lib/components/card/card.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].text).toBe("aria-busy");
+  });
+});
+
+describe("no silent loading", () => {
+  it("bites on a null branch that renders nothing", () => {
+    const source = `{#if rows === null}
+{:else}
+  <Rows {rows} />
+{/if}`;
+    const problems = findSilentLoading("apps/web/src/lib/x.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toBe("silent-loading");
+    expect(problems[0].detail).toContain("renders nothing");
+  });
+
+  it("bites on a bare reading sentence where a shape belongs", () => {
+    const source = `{#if packet === null}
+  Reading the register
+{:else}
+  <span>{packet.number}</span>
+{/if}`;
+    const problems = findSilentLoading("apps/web/src/lib/x.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].detail).toContain("a sentence where a shape belongs");
+  });
+
+  it("does NOT cry wolf on a null that means not set, rendered as words of its own", () => {
+    const source = `{#if billedMinutes === null}
+  —
+{:else if invoice === null}
+  Billed. Which invoice took it up is not served yet.
+{:else}
+  <span>{invoice}</span>
+{/if}`;
+    expect(findSilentLoading("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+
+  it("does NOT cry wolf on a branch that renders a region, an element or a snippet", () => {
+    const source = `{#if rows === null}
+  <LoadingRegion loading label="Reading the rows">{@render table([])}</LoadingRegion>
+{:else if scope.matching === null}
+  {@render fact("Channels Compared", "The row does not say")}
+{/if}`;
+    expect(findSilentLoading("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+});
+
+describe("a fixture is the shape it stands in for", () => {
+  it("passes when the fixture and the content share one snippet", () => {
+    const source = `{#snippet table(rows)}
+  <DataTable.Root>{#each rows as row}<DataTable.Row><Badge>{row.status}</Badge></DataTable.Row>{/each}</DataTable.Root>
+{/snippet}
+<LoadingRegion loading={rows === null} label="Reading the rows">
+  {#snippet fixture()}{@render table(FIXTURE)}{/snippet}
+  {@render table(rows ?? [])}
+</LoadingRegion>`;
+    expect(findFixtureShapeProblems("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+
+  it("passes when a named fixture snippet renders the components the content renders", () => {
+    const source = `{#snippet relatedFixture()}
+  <DataTable.Root><DataTable.Row><DataTable.Cell>Sample</DataTable.Cell></DataTable.Row></DataTable.Root>
+{/snippet}
+<LoadingRegion loading label="Reading the links" fixture={relatedFixture}>
+  <DataTable.Root>{#each links as link}<DataTable.Row><DataTable.Cell>{link.name}</DataTable.Cell></DataTable.Row>{/each}</DataTable.Root>
+  <EmptyState title="Nothing related" />
+</LoadingRegion>`;
+    expect(findFixtureShapeProblems("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+
+  it("bites when the fixture renders a component the content never does", () => {
+    const source = `<LoadingRegion loading label="Reading the matters">
+  {#snippet fixture()}
+    <Card.Root><Card.Title>Sample</Card.Title></Card.Root>
+  {/snippet}
+  <DataTable.Root><DataTable.Row><DataTable.Cell>Real</DataTable.Cell></DataTable.Row></DataTable.Root>
+</LoadingRegion>`;
+    const problems = findFixtureShapeProblems("apps/web/src/lib/x.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toBe("fixture-shape");
+    expect(problems[0].text).toBe("Card.Root Card.Title");
+  });
+
+  it("leaves a region with no fixture alone, and nested regions to themselves", () => {
+    const source = `<LoadingRegion loading label="Reading the record">
+  <LoadingRegion loading label="Reading the links">
+    {#snippet fixture()}<Row>Sample</Row>{/snippet}
+    <Row>Real</Row>
+  </LoadingRegion>
+  <Fields />
+</LoadingRegion>`;
+    expect(findFixtureShapeProblems("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+});
+
+describe("a loading label in the house voice", () => {
+  it("passes a capitalised gerund with no terminal punctuation, across lines", () => {
+    const source = `<LoadingRegion
+  loading={rows === null}
+  label="Reading the names on this record"
+>x</LoadingRegion>
+<LoadingRegion loading label="Looking for near matches">y</LoadingRegion>`;
+    expect(findLoadingLabelProblems("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+
+  it("bites on Loading, on a full stop and on an ellipsis", () => {
+    const source = `<LoadingRegion loading label="Loading">a</LoadingRegion>
+<LoadingRegion loading label="Reading the rows.">b</LoadingRegion>
+<LoadingRegion loading label="Reading the rows…">c</LoadingRegion>
+<LoadingRegion loading label="the rows">d</LoadingRegion>`;
+    const problems = findLoadingLabelProblems("apps/web/src/lib/x.svelte", source);
+    expect(problems.map((problem) => problem.text)).toEqual([
+      "Loading",
+      "Reading the rows.",
+      "Reading the rows…",
+      "the rows",
+    ]);
+    expect(problems.every((problem) => problem.rule === "loading-label")).toBe(true);
+  });
+
+  it("leaves an expression label to the caller", () => {
+    const source = `<LoadingRegion loading label={sentence}>a</LoadingRegion>`;
+    expect(findLoadingLabelProblems("apps/web/src/lib/x.svelte", source)).toEqual([]);
   });
 });

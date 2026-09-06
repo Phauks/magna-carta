@@ -26,7 +26,8 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { SAMPLE_SENTENCE } from "@magna-carta/design-system/loading-fixtures";
   import Textarea from "@magna-carta/design-system/textarea";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Plus from "@lucide/svelte/icons/plus";
@@ -54,6 +55,8 @@
   let readFailure = $state<StatedFailure | null>(null);
   let writeFailure = $state<StatedFailure | null>(null);
   let saving = $state(false);
+  /** True while a list already on screen is being read again after a write. */
+  let rereading = $state(false);
 
   // Authoring a plan is its own permission: what the work IS, rather than doing it. A member without
   // it reads the firm's plans and changes none of them, so the controls are absent rather than
@@ -80,10 +83,13 @@
   });
 
   async function refresh(): Promise<void> {
+    rereading = plans !== null;
     const outcome = await listPlans(fetch, true);
+    rereading = false;
     if (outcome.kind !== "ok") {
+      // The rows already on screen were read and stand; a failed first read leaves nothing, and
+      // the region renders the notice in place of the shape.
       readFailure = stated(outcome.failure, "The firm's matter plans could not be read.");
-      plans = [];
       return;
     }
     readFailure = null;
@@ -122,6 +128,14 @@
   }
 
   const offsetNumber = $derived(stepOffset.trim() === "" ? null : Number(stepOffset));
+
+  // The shape drawn while the list is read: two plans in the list's own row, sample words only. The
+  // description is the sample vocabulary's sentence; a plan's name is the firm's own kind of word,
+  // which it does not carry.
+  const PLAN_FIXTURE = [
+    { name: "Personal injury, plaintiff", description: SAMPLE_SENTENCE },
+    { name: "Residential closing", description: SAMPLE_SENTENCE },
+  ];
 </script>
 
 <svelte:head>
@@ -147,13 +161,6 @@
       </Alert.Description>
     </Alert.Root>
 
-    {#if readFailure !== null}
-      <FailureNotice
-        failure={readFailure.failure}
-        title="Plans Unavailable"
-        fallback={readFailure.fallback}
-      />
-    {/if}
     {#if writeFailure !== null}
       <FailureNotice
         failure={writeFailure.failure}
@@ -217,224 +224,269 @@
       </div>
     {/if}
 
-    {#if plans === null}
-      <div class="flex flex-col gap-8">
-        {#each [0, 1] as row (row)}
-          <Skeleton class="h-48 w-full" />
-        {/each}
-      </div>
-    {:else if plans.length === 0}
-      <EmptyState title="No plans yet">
-        A plan is your own list of what a kind of matter takes — the calls, the letters, the filings.
-        Write one here and it is offered every time a matter of that kind is opened.
-      </EmptyState>
-    {:else}
-      <ul class="flex flex-col gap-8">
-        {#each plans as plan (plan.id)}
-          <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
-            <div class="flex flex-wrap items-start justify-between gap-8">
-              <div class="flex flex-col gap-2">
-                <div class="flex items-center gap-8">
-                  <span class={plan.active ? "" : "text-text-muted"}>{plan.name}</span>
-                  {#if !plan.active}
-                    <Badge variant="neutral">Not offered</Badge>
+    <!-- A failed first read settles to the notice with Retry; a failed re-read after a write keeps
+         the rows on screen and says so above them. -->
+    <LoadingRegion
+      loading={plans === null}
+      failed={readFailure !== null && plans === null}
+      refreshing={rereading}
+      empty={plans !== null && plans.length === 0}
+      label="Reading the firm's plans"
+      onRetry={() => void refresh()}
+      class="flex flex-col"
+    >
+      {#snippet failure()}
+        {#if readFailure !== null}
+          <FailureNotice
+            failure={readFailure.failure}
+            title="Plans Unavailable"
+            fallback={readFailure.fallback}
+            onRetry={() => void refresh()}
+          />
+        {/if}
+      {/snippet}
+      {#snippet emptyState()}
+        <EmptyState title="No plans yet">
+          A plan is your own list of what a kind of matter takes — the calls, the letters, the filings.
+          Write one here and it is offered every time a matter of that kind is opened.
+        </EmptyState>
+      {/snippet}
+      {#snippet fixture()}
+        <ul class="flex flex-col gap-8">
+          {#each PLAN_FIXTURE as plan (plan.name)}
+            <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
+              <div class="flex flex-wrap items-start justify-between gap-8">
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center gap-8">
+                    <span>{plan.name}</span>
+                  </div>
+                  <p class="text-xs text-text-muted">{plan.description}</p>
+                </div>
+                <div class="flex gap-4">
+                  <Button variant="secondary">Steps</Button>
+                </div>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {/snippet}
+      {@const shown = plans ?? []}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure.failure}
+          title="The Plans Were Not Re-read"
+          fallback={readFailure.fallback}
+          onRetry={() => void refresh()}
+        />
+      {/if}
+      {#if shown.length > 0}
+        <ul class="flex flex-col gap-8">
+          {#each shown as plan (plan.id)}
+            <li class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
+              <div class="flex flex-wrap items-start justify-between gap-8">
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center gap-8">
+                    <span class={plan.active ? "" : "text-text-muted"}>{plan.name}</span>
+                    {#if !plan.active}
+                      <Badge variant="neutral">Not offered</Badge>
+                    {/if}
+                  </div>
+                  {#if plan.description !== null}
+                    <p class="text-xs text-text-muted">{plan.description}</p>
                   {/if}
                 </div>
-                {#if plan.description !== null}
-                  <p class="text-xs text-text-muted">{plan.description}</p>
-                {/if}
-              </div>
-              <div class="flex gap-4">
-                <Button
-                  variant="secondary"
-                  disabled={saving}
-                  onclick={() => (openPlan?.id === plan.id ? (openPlan = null) : openDetail(plan.id))}
-                >
-                  {openPlan?.id === plan.id ? "Close" : "Steps"}
-                </Button>
-                {#if canManage}
+                <div class="flex gap-4">
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     disabled={saving}
-                    title={plan.active ? "Stop offering this plan" : "Offer this plan again"}
-                    onclick={() =>
-                      runWrite(
-                        () => setPlanActive(fetch, plan.id, !plan.active, newWriteKey()),
-                        "The plan's availability was not changed.",
-                      )}
+                    onclick={() => (openPlan?.id === plan.id ? (openPlan = null) : openDetail(plan.id))}
                   >
-                    {plan.active ? "Stop Offering" : "Offer Again"}
+                    {openPlan?.id === plan.id ? "Close" : "Steps"}
                   </Button>
-                {/if}
+                  {#if canManage}
+                    <Button
+                      variant="ghost"
+                      disabled={saving}
+                      title={plan.active ? "Stop offering this plan" : "Offer this plan again"}
+                      onclick={() =>
+                        runWrite(
+                          () => setPlanActive(fetch, plan.id, !plan.active, newWriteKey()),
+                          "The plan's availability was not changed.",
+                        )}
+                    >
+                      {plan.active ? "Stop Offering" : "Offer Again"}
+                    </Button>
+                  {/if}
+                </div>
               </div>
-            </div>
 
-            {#if openPlan?.id === plan.id}
-              <div class="flex flex-col gap-8 border-t border-border-subtle pt-8">
-                {#if (openPlan.tasks ?? []).length === 0}
-                  <p class="text-xs text-text-muted">
-                    This plan has no steps yet, so it proposes nothing.
-                  </p>
-                {:else}
-                  <ul class="flex flex-col gap-4">
-                    {#each openPlan.tasks ?? [] as step (step.id)}
-                      <li class="flex flex-wrap items-center justify-between gap-8 text-xs">
-                        <div class="flex flex-wrap items-center gap-8">
-                          <span class="text-text">{step.title}</span>
-                          <span class="text-text-muted">{describeAnchor(step)}</span>
-                          {#if step.defaultAssigneeRole !== null}
-                            <Badge variant="neutral">{step.defaultAssigneeRole}</Badge>
-                          {/if}
-                          {#if step.priority !== "normal"}
-                            <Badge variant={step.priority === "urgent" ? "danger" : "neutral"}>
-                              {PRIORITY_LABELS[step.priority]}
-                            </Badge>
-                          {/if}
-                        </div>
-                        {#if canManage}
-                          <Button
-                            variant="ghost"
-                            disabled={saving}
-                            title="Remove this step. Tasks already added from it are untouched."
-                            onclick={() =>
-                              runWrite(
-                                () => removePlanStep(fetch, step.id, newWriteKey()),
-                                "The step was not removed.",
-                              )}
-                          >
-                            <Trash2 aria-hidden="true" />
-                          </Button>
-                        {/if}
-                      </li>
-                    {/each}
-                  </ul>
-                {/if}
-
-                {#if canManage}
-                  {#if composingStep}
-                    <div class="flex flex-col gap-8 rounded-md border border-border-subtle p-12">
-                      <div class="flex flex-col gap-4">
-                        <Label for="step-title">What to do</Label>
-                        <Input id="step-title" bind:value={stepTitle} disabled={saving} />
-                      </div>
-                      <div class="flex flex-col gap-4">
-                        <Label for="step-body">Detail</Label>
-                        <Textarea id="step-body" bind:value={stepBody} rows={2} disabled={saving} />
-                      </div>
-                      <div class="flex flex-wrap items-end gap-16">
-                        <div class="flex flex-col gap-4">
-                          <Label for="step-anchor">Due</Label>
-                          <Select.Root type="single" bind:value={stepAnchor} disabled={saving}>
-                            <Select.Trigger id="step-anchor" class="w-224">
-                              {stepAnchor === "none" ? "No date" : "Days after the matter opens"}
-                            </Select.Trigger>
-                            <Select.Content>
-                              <Select.Item value="none" label="No date" />
-                              <Select.Item
-                                value="matter_opened"
-                                label="Days after the matter opens"
-                              />
-                            </Select.Content>
-                          </Select.Root>
-                        </div>
-                        {#if stepAnchor !== "none"}
-                          <div class="flex flex-col gap-4">
-                            <Label for="step-offset">Days</Label>
-                            <Input
-                              id="step-offset"
-                              type="number"
-                              bind:value={stepOffset}
+              {#if openPlan?.id === plan.id}
+                <div class="flex flex-col gap-8 border-t border-border-subtle pt-8">
+                  {#if (openPlan.tasks ?? []).length === 0}
+                    <p class="text-xs text-text-muted">
+                      This plan has no steps yet, so it proposes nothing.
+                    </p>
+                  {:else}
+                    <ul class="flex flex-col gap-4">
+                      {#each openPlan.tasks ?? [] as step (step.id)}
+                        <li class="flex flex-wrap items-center justify-between gap-8 text-xs">
+                          <div class="flex flex-wrap items-center gap-8">
+                            <span class="text-text">{step.title}</span>
+                            <span class="text-text-muted">{describeAnchor(step)}</span>
+                            {#if step.defaultAssigneeRole !== null}
+                              <Badge variant="neutral">{step.defaultAssigneeRole}</Badge>
+                            {/if}
+                            {#if step.priority !== "normal"}
+                              <Badge variant={step.priority === "urgent" ? "danger" : "neutral"}>
+                                {PRIORITY_LABELS[step.priority]}
+                              </Badge>
+                            {/if}
+                          </div>
+                          {#if canManage}
+                            <Button
+                              variant="ghost"
                               disabled={saving}
-                              class="w-96"
+                              title="Remove this step. Tasks already added from it are untouched."
+                              onclick={() =>
+                                runWrite(
+                                  () => removePlanStep(fetch, step.id, newWriteKey()),
+                                  "The step was not removed.",
+                                )}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </Button>
+                          {/if}
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+
+                  {#if canManage}
+                    {#if composingStep}
+                      <div class="flex flex-col gap-8 rounded-md border border-border-subtle p-12">
+                        <div class="flex flex-col gap-4">
+                          <Label for="step-title">What to do</Label>
+                          <Input id="step-title" bind:value={stepTitle} disabled={saving} />
+                        </div>
+                        <div class="flex flex-col gap-4">
+                          <Label for="step-body">Detail</Label>
+                          <Textarea id="step-body" bind:value={stepBody} rows={2} disabled={saving} />
+                        </div>
+                        <div class="flex flex-wrap items-end gap-16">
+                          <div class="flex flex-col gap-4">
+                            <Label for="step-anchor">Due</Label>
+                            <Select.Root type="single" bind:value={stepAnchor} disabled={saving}>
+                              <Select.Trigger id="step-anchor" class="w-224">
+                                {stepAnchor === "none" ? "No date" : "Days after the matter opens"}
+                              </Select.Trigger>
+                              <Select.Content>
+                                <Select.Item value="none" label="No date" />
+                                <Select.Item
+                                  value="matter_opened"
+                                  label="Days after the matter opens"
+                                />
+                              </Select.Content>
+                            </Select.Root>
+                          </div>
+                          {#if stepAnchor !== "none"}
+                            <div class="flex flex-col gap-4">
+                              <Label for="step-offset">Days</Label>
+                              <Input
+                                id="step-offset"
+                                type="number"
+                                bind:value={stepOffset}
+                                disabled={saving}
+                                class="w-96"
+                              />
+                            </div>
+                          {/if}
+                          <div class="flex flex-col gap-4">
+                            <Label for="step-priority">Priority</Label>
+                            <Select.Root type="single" bind:value={stepPriority} disabled={saving}>
+                              <Select.Trigger id="step-priority" class="w-128">
+                                {PRIORITY_LABELS[stepPriority]}
+                              </Select.Trigger>
+                              <Select.Content>
+                                {#each TASK_PRIORITIES as priority (priority)}
+                                  <Select.Item value={priority} label={PRIORITY_LABELS[priority]} />
+                                {/each}
+                              </Select.Content>
+                            </Select.Root>
+                          </div>
+                          <div class="flex flex-col gap-4">
+                            <Label for="step-role">Give it to (role)</Label>
+                            <Input
+                              id="step-role"
+                              bind:value={stepRole}
+                              disabled={saving}
+                              placeholder="assigned_paralegal"
+                              class="w-192"
                             />
                           </div>
-                        {/if}
-                        <div class="flex flex-col gap-4">
-                          <Label for="step-priority">Priority</Label>
-                          <Select.Root type="single" bind:value={stepPriority} disabled={saving}>
-                            <Select.Trigger id="step-priority" class="w-128">
-                              {PRIORITY_LABELS[stepPriority]}
-                            </Select.Trigger>
-                            <Select.Content>
-                              {#each TASK_PRIORITIES as priority (priority)}
-                                <Select.Item value={priority} label={PRIORITY_LABELS[priority]} />
-                              {/each}
-                            </Select.Content>
-                          </Select.Root>
                         </div>
-                        <div class="flex flex-col gap-4">
-                          <Label for="step-role">Give it to (role)</Label>
-                          <Input
-                            id="step-role"
-                            bind:value={stepRole}
+                        <p class="text-xs text-text-muted">
+                          The role is matched against each matter's own team when the plan is offered.
+                          Where nobody holds it, the step arrives unassigned and says so.
+                        </p>
+                        <div class="flex justify-end gap-8">
+                          <Button
+                            variant="secondary"
                             disabled={saving}
-                            placeholder="assigned_paralegal"
-                            class="w-192"
-                          />
+                            onclick={() => (composingStep = false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            disabled={saving || stepTitle.trim().length === 0}
+                            onclick={() =>
+                              runWrite(
+                                () =>
+                                  addPlanStep(
+                                    fetch,
+                                    plan.id,
+                                    {
+                                      title: stepTitle.trim(),
+                                      body: stepBody.trim() === "" ? null : stepBody.trim(),
+                                      priority: stepPriority,
+                                      defaultAssigneeRole:
+                                        stepRole.trim() === "" ? null : stepRole.trim(),
+                                      dueAnchor: stepAnchor,
+                                      offsetDays: stepAnchor === "none" ? null : (offsetNumber ?? 0),
+                                      position: (openPlan?.tasks ?? []).length,
+                                    },
+                                    newWriteKey(),
+                                  ),
+                                "The step was not added.",
+                                () => {
+                                  composingStep = false;
+                                  stepTitle = "";
+                                  stepBody = "";
+                                  stepRole = "";
+                                  stepOffset = "";
+                                  stepAnchor = "none";
+                                  stepPriority = "normal";
+                                },
+                              )}
+                          >
+                            Add Step
+                          </Button>
                         </div>
                       </div>
-                      <p class="text-xs text-text-muted">
-                        The role is matched against each matter's own team when the plan is offered.
-                        Where nobody holds it, the step arrives unassigned and says so.
-                      </p>
-                      <div class="flex justify-end gap-8">
-                        <Button
-                          variant="secondary"
-                          disabled={saving}
-                          onclick={() => (composingStep = false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          disabled={saving || stepTitle.trim().length === 0}
-                          onclick={() =>
-                            runWrite(
-                              () =>
-                                addPlanStep(
-                                  fetch,
-                                  plan.id,
-                                  {
-                                    title: stepTitle.trim(),
-                                    body: stepBody.trim() === "" ? null : stepBody.trim(),
-                                    priority: stepPriority,
-                                    defaultAssigneeRole:
-                                      stepRole.trim() === "" ? null : stepRole.trim(),
-                                    dueAnchor: stepAnchor,
-                                    offsetDays: stepAnchor === "none" ? null : (offsetNumber ?? 0),
-                                    position: (openPlan?.tasks ?? []).length,
-                                  },
-                                  newWriteKey(),
-                                ),
-                              "The step was not added.",
-                              () => {
-                                composingStep = false;
-                                stepTitle = "";
-                                stepBody = "";
-                                stepRole = "";
-                                stepOffset = "";
-                                stepAnchor = "none";
-                                stepPriority = "normal";
-                              },
-                            )}
-                        >
+                    {:else}
+                      <div class="flex justify-end">
+                        <Button variant="ghost" disabled={saving} onclick={() => (composingStep = true)}>
+                          <Plus aria-hidden="true" />
                           Add Step
                         </Button>
                       </div>
-                    </div>
-                  {:else}
-                    <div class="flex justify-end">
-                      <Button variant="ghost" disabled={saving} onclick={() => (composingStep = true)}>
-                        <Plus aria-hidden="true" />
-                        Add Step
-                      </Button>
-                    </div>
+                    {/if}
                   {/if}
-                {/if}
-              </div>
-            {/if}
-          </li>
-        {/each}
-      </ul>
-    {/if}
+                </div>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </LoadingRegion>
   </div>
 </div>

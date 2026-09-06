@@ -26,10 +26,23 @@
    *
    * Filtering is consumer-controlled in this house: bits' inputValue is non-bindable, so the typed
    * text is captured from the Input's oninput and handed back as the controlled inputValue.
+   *
+   * A FIELD THAT CAN MAKE WHAT IT CANNOT FIND SAYS SO BEFORE ANYTHING IS TYPED. Given `onCreate`,
+   * a New control stands beside the field — a button when the field offers one kind, a menu of
+   * Person and Organization when it offers both — and the list ends with an add row per kind that
+   * carries whatever was typed. Both hand the caller the typed text and the kind wanted; the caller
+   * makes the record and writes it back as the selection. The control is top-level on purpose
+   * (owner's direction, 2026-09-05): a way to add a record that only appears after a failed search
+   * is a way you find by accident.
    */
   import type { HTMLAttributes } from "svelte/elements";
   import * as Combobox from "../combobox/index.ts";
+  import * as DropdownMenu from "../dropdown-menu/index.ts";
+  import Building2 from "@lucide/svelte/icons/building-2";
+  import Plus from "@lucide/svelte/icons/plus";
+  import User from "@lucide/svelte/icons/user";
   import X from "@lucide/svelte/icons/x";
+  import Button, { buttonClasses } from "../button/index.ts";
   import EntityIdentity from "../entity-identity/entity-identity.svelte";
   import type { EntityKind } from "../entity-identity/types.ts";
   import { mergeClasses } from "../../internal/merge-classes.ts";
@@ -37,7 +50,12 @@
   import {
     CAPPED_SENTENCE,
     DEFAULT_MINIMUM_QUERY_LENGTH,
+    NEW_CONTROL_LABEL,
     SEARCH_SETTLE_MILLISECONDS,
+    addRowKind,
+    addRowSentence,
+    addRowValue,
+    newControlName,
     offerableEntities,
     runEntitySearch,
     searchRequestFor,
@@ -71,6 +89,7 @@
     onSelect,
     onClear,
     onCreate,
+    createRefusal,
     ref = $bindable(null),
     class: className,
     ...restProps
@@ -102,11 +121,18 @@
     /** The single selection was removed. Fires after `value` has been cleared. */
     onClear?: () => void;
     /**
-     * Given, the list ends with a row that adds whatever is typed. Picking it hands the trimmed
-     * query here and changes no selection; the caller hands the new entity back by writing `value`
-     * or `values`.
+     * Given, the field can make what it cannot find: a New control stands beside it and the list
+     * ends with a row per offered kind that adds whatever is typed. Either hands the trimmed query
+     * (empty from the control when nothing was typed) and the kind wanted here, and changes no
+     * selection; the caller makes the record and hands it back by writing `value` or `values`.
      */
-    onCreate?: (typed: string) => void;
+    onCreate?: (typed: string, kind: EntityKind) => void;
+    /**
+     * Why the field cannot make a record right now — a permission the reader lacks. Present, the New
+     * control stays and renders refused carrying this line, and the list offers no add row: a
+     * control that vanishes reads as a capability that does not exist.
+     */
+    createRefusal?: string;
   } = $props();
 
   /** What is in the input, controlled so the field can be returned to naming its selection. */
@@ -137,6 +163,17 @@
   );
   const typedQuery = $derived(query.trim());
   const listboxItems = $derived(offered.map((hit) => ({ value: hit.identifier, label: hit.name })));
+  /** The kinds the field can make, in the directory's own order: none unless the caller can create. */
+  const creatable = $derived(
+    onCreate === undefined ? [] : EVERY_KIND.filter((kind) => kinds.includes(kind)),
+  );
+  /** Whether the list may end with an add row: the caller can create, and nothing refuses it. */
+  const offersAddRow = $derived(createRefusal === undefined);
+  const newRefused = $derived(disabled || createRefusal !== undefined);
+  const newTitle = $derived(
+    createRefusal ?? (disabled ? disabledReason : undefined) ?? newControlName(creatable),
+  );
+  const KIND_GLYPH = { person: User, organization: Building2 } as const;
   /** Remounts the combobox per pick in multiple mode; single mode keeps one instance. */
   const mountKey = $derived(
     multiple ? values.map((picked) => picked.identifier).join("|") : "single",
@@ -252,12 +289,15 @@
       return;
     }
     if (identifier === NOTE_ROW_VALUE) return;
-    if (Combobox.isAddOption(identifier)) {
+    // The one-kind add row (the combobox's own) and the per-kind rows both hand over the typed text;
+    // the one-kind row's kind is the only kind the field offers.
+    const addKind = Combobox.isAddOption(identifier) ? (creatable[0] ?? null) : addRowKind(identifier);
+    if (addKind !== null) {
       const wanted = typedQuery;
       query = "";
       fieldText = multiple ? "" : (value?.name ?? "");
       open = false;
-      if (wanted !== "") onCreate?.(wanted);
+      if (wanted !== "") onCreate?.(wanted, addKind);
       return;
     }
     const entity = offered.find((hit) => hit.identifier === identifier);
@@ -287,6 +327,16 @@
 
   function retry(): void {
     if (askedQuery !== "") void ask(askedQuery);
+  }
+
+  /** The New control: whatever is typed travels with the kind, so the caller can seed its form. */
+  function create(kind: EntityKind): void {
+    const wanted = typedQuery;
+    abortPending();
+    query = "";
+    open = false;
+    fieldText = multiple ? "" : (value?.name ?? "");
+    onCreate?.(wanted, kind);
   }
 </script>
 
@@ -376,8 +426,21 @@
               </Combobox.Item>
             {/if}
           {/if}
-          {#if onCreate && status !== "idle"}
+          {#if creatable.length === 1 && offersAddRow && status !== "idle"}
             <Combobox.AddOption fieldName={label} query={typedQuery} />
+          {:else if creatable.length > 1 && offersAddRow && status !== "idle"}
+            <!-- One row per kind, because the caller has to be told which record to make. The
+                 label is the typed value, as the combobox's own add row does it, so a pick never
+                 leaves the sentence in the field. -->
+            {#each creatable as kind (kind)}
+              <Combobox.Item
+                value={addRowValue(kind)}
+                label={typedQuery}
+                class="mc-combobox-add-option"
+              >
+                {addRowSentence(kind, typedQuery)}
+              </Combobox.Item>
+            {/each}
           {/if}
         </Combobox.Content>
       </Combobox.Root>
@@ -399,6 +462,47 @@
         <X class="mc-entity-picker-clear-icon" aria-hidden="true" />
       </button>
     {/if}
+
+    {#if creatable.length === 1}
+      <!-- One kind: the control makes it. Refused with the field, and saying why. It stands after
+           the selection's own remove control, which belongs to the field's content; this belongs
+           to the row. -->
+      <Button
+        variant="secondary"
+        size="sm"
+        class="mc-entity-picker-new"
+        disabled={newRefused}
+        title={newTitle}
+        aria-label={newControlName(creatable)}
+        onclick={() => create(creatable[0] ?? "person")}
+      >
+        <Plus class="mc-entity-picker-new-glyph" aria-hidden="true" />
+        {NEW_CONTROL_LABEL}
+      </Button>
+    {:else if creatable.length > 1}
+      <!-- Both kinds: the control is a menu, so the caller is told which record to make. -->
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger
+          class={mergeClasses(buttonClasses({ variant: "secondary", size: "sm" }), "mc-entity-picker-new")}
+          disabled={newRefused}
+          title={newTitle}
+          aria-label={newControlName(creatable)}
+        >
+          <Plus class="mc-entity-picker-new-glyph" aria-hidden="true" />
+          {NEW_CONTROL_LABEL}
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+          {#each creatable as kind (kind)}
+            {@const Glyph = KIND_GLYPH[kind]}
+            <DropdownMenu.Item onSelect={() => create(kind)}>
+              <Glyph class="mc-entity-picker-new-glyph" aria-hidden="true" />
+              {kind === "person" ? "Person" : "Organization"}
+            </DropdownMenu.Item>
+          {/each}
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+    {/if}
+
   </div>
 
   {#if disabled && disabledReason !== undefined}

@@ -719,7 +719,7 @@ const EntityMatterPartyEntry = z
     matterNumber: z
       .string()
       .nullable()
-      .openapi({ description: "Null while the matter is still prospective and undrawn." }),
+      .openapi({ description: "Null while the matter is still consultation and undrawn." }),
     matterStatus: z.string().nullable(),
     linkedAt: z.string(),
   })
@@ -1507,7 +1507,10 @@ const listMatterPartiesRoute = defineOpenAPIRoute(readMeta("listMatterParties", 
 });
 
 const unlinkMatterPartyRoute = defineOpenAPIRoute(
-  mutationMeta("unlinkMatterParty", WRITE_PERMISSION),
+  {
+    ...mutationMeta("unlinkMatterParty", WRITE_PERMISSION),
+    reversal: { kind: "inverse", by: "directory.linkMatterParty" },
+  },
   {
     method: "delete",
     path: "/api/v1/directory/matter-parties/{id}",
@@ -1974,30 +1977,36 @@ const updateEmailRoute = defineOpenAPIRoute(mutationMeta("updateEmail", WRITE_PE
   },
 });
 
-const removeEmailRoute = defineOpenAPIRoute(mutationMeta("removeEmail", WRITE_PERMISSION), {
-  method: "delete",
-  path: "/api/v1/directory/emails/{id}",
-  description:
-    "Removes a email address from an entity. The row is retained and marked removed, never deleted, " +
-    "so a document assembled from it and a conflicts report that named it stay reproducible. " +
-    "Removing one that is already removed reports 404. Where the reason is that the person asked " +
-    "the firm not to use it, withdraw the permission instead: that keeps the instruction attached " +
-    "to the value, and removal does not.",
-  request: { headers: idempotencyKeyHeader, params: emailIdParam },
-  responses: {
-    200: {
-      description: "The email address was removed",
-      content: { "application/json": { schema: CreatedEntityResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const removeEmailRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("removeEmail", WRITE_PERMISSION),
+    reversal: { kind: "inverse", by: "directory.addEmail" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/directory/emails/{id}",
+    description:
+      "Removes a email address from an entity. The row is retained and marked removed, never deleted, " +
+      "so a document assembled from it and a conflicts report that named it stay reproducible. " +
+      "Removing one that is already removed reports 404. Where the reason is that the person asked " +
+      "the firm not to use it, withdraw the permission instead: that keeps the instruction attached " +
+      "to the value, and removal does not.",
+    request: { headers: idempotencyKeyHeader, params: emailIdParam },
+    responses: {
+      200: {
+        description: "The email address was removed",
+        content: { "application/json": { schema: CreatedEntityResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const listPhonesRoute = defineOpenAPIRoute(readMeta("listPhones", null), {
   method: "get",
@@ -2073,30 +2082,36 @@ const updatePhoneRoute = defineOpenAPIRoute(mutationMeta("updatePhone", WRITE_PE
   },
 });
 
-const removePhoneRoute = defineOpenAPIRoute(mutationMeta("removePhone", WRITE_PERMISSION), {
-  method: "delete",
-  path: "/api/v1/directory/phones/{id}",
-  description:
-    "Removes a telephone or fax number from an entity. The row is retained and marked removed, never deleted, " +
-    "so a document assembled from it and a conflicts report that named it stay reproducible. " +
-    "Removing one that is already removed reports 404. Where the reason is that the person asked " +
-    "the firm not to use it, withdraw the permission instead: that keeps the instruction attached " +
-    "to the value, and removal does not.",
-  request: { headers: idempotencyKeyHeader, params: phoneIdParam },
-  responses: {
-    200: {
-      description: "The telephone or fax number was removed",
-      content: { "application/json": { schema: CreatedEntityResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const removePhoneRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("removePhone", WRITE_PERMISSION),
+    reversal: { kind: "inverse", by: "directory.addPhone" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/directory/phones/{id}",
+    description:
+      "Removes a telephone or fax number from an entity. The row is retained and marked removed, never deleted, " +
+      "so a document assembled from it and a conflicts report that named it stay reproducible. " +
+      "Removing one that is already removed reports 404. Where the reason is that the person asked " +
+      "the firm not to use it, withdraw the permission instead: that keeps the instruction attached " +
+      "to the value, and removal does not.",
+    request: { headers: idempotencyKeyHeader, params: phoneIdParam },
+    responses: {
+      200: {
+        description: "The telephone or fax number was removed",
+        content: { "application/json": { schema: CreatedEntityResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const listAddressesRoute = defineOpenAPIRoute(readMeta("listAddresses", null), {
   method: "get",
@@ -2172,30 +2187,36 @@ const updateAddressRoute = defineOpenAPIRoute(mutationMeta("updateAddress", WRIT
   },
 });
 
-const removeAddressRoute = defineOpenAPIRoute(mutationMeta("removeAddress", WRITE_PERMISSION), {
-  method: "delete",
-  path: "/api/v1/directory/addresses/{id}",
-  description:
-    "Removes a postal address from an entity. The row is retained and marked removed, never deleted, " +
-    "so a document assembled from it and a conflicts report that named it stay reproducible. " +
-    "Removing one that is already removed reports 404. Where the reason is that the person asked " +
-    "the firm not to use it, withdraw the permission instead: that keeps the instruction attached " +
-    "to the value, and removal does not.",
-  request: { headers: idempotencyKeyHeader, params: addressIdParam },
-  responses: {
-    200: {
-      description: "The postal address was removed",
-      content: { "application/json": { schema: CreatedEntityResponse } },
-    },
-    400: authErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+const removeAddressRoute = defineOpenAPIRoute(
+  {
+    ...mutationMeta("removeAddress", WRITE_PERMISSION),
+    reversal: { kind: "inverse", by: "directory.addAddress" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/directory/addresses/{id}",
+    description:
+      "Removes a postal address from an entity. The row is retained and marked removed, never deleted, " +
+      "so a document assembled from it and a conflicts report that named it stay reproducible. " +
+      "Removing one that is already removed reports 404. Where the reason is that the person asked " +
+      "the firm not to use it, withdraw the permission instead: that keeps the instruction attached " +
+      "to the value, and removal does not.",
+    request: { headers: idempotencyKeyHeader, params: addressIdParam },
+    responses: {
+      200: {
+        description: "The postal address was removed",
+        content: { "application/json": { schema: CreatedEntityResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
 
 const setPersonLifeDatesRoute = defineOpenAPIRoute(
   mutationMeta("setPersonLifeDates", WRITE_PERMISSION),
