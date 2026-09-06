@@ -133,7 +133,9 @@ describe("uploadIntoFolder", () => {
   it("treats a file with no date as having none, never as 1970", () => {
     expect(sourceInstantOf({ lastModified: 0 })).toBeNull();
     expect(sourceInstantOf({ lastModified: Number.NaN })).toBeNull();
-    expect(sourceInstantOf({ lastModified: Date.UTC(2026, 0, 2) })).toBe("2026-01-02T00:00:00.000Z");
+    expect(sourceInstantOf({ lastModified: Date.UTC(2026, 0, 2) })).toBe(
+      "2026-01-02T00:00:00.000Z",
+    );
   });
 
   it("gives a reservation back when the bytes never land, so no empty row survives the failure", async () => {
@@ -218,7 +220,11 @@ describe("uploadIntoFolder", () => {
         });
       }
       return new Response(
-        JSON.stringify({ sessionStatus: "completed", versionStatus: "clean", quarantineReason: null }),
+        JSON.stringify({
+          sessionStatus: "completed",
+          versionStatus: "clean",
+          quarantineReason: null,
+        }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
     }) as unknown as typeof fetch;

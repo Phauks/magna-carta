@@ -233,6 +233,15 @@
               <dt class="w-96 shrink-0 text-text-muted">Date Modified</dt>
               <dd>{formatInstant(file.updatedAt)}</dd>
             </div>
+            {#if file.sourceModifiedAt !== null}
+              <!-- The date the file carried on the device it was uploaded from. Shown only where
+                   one was recorded: an empty row would read as a fact the platform failed to
+                   collect, and for a file made here there is no such fact. -->
+              <div class="flex items-baseline gap-16">
+                <dt class="w-96 shrink-0 text-text-muted">File's Own Date</dt>
+                <dd>{formatInstant(file.sourceModifiedAt)}</dd>
+              </div>
+            {/if}
             <div class="flex items-baseline gap-16">
               <dt class="w-96 shrink-0 text-text-muted">Document Type</dt>
               <dd>

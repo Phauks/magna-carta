@@ -88,6 +88,20 @@ is usually the fastest way to understand the rule.
   back, and it had. The commit carries the act's own verb ("Upload", not "Save"), a failure reads as
   one ("Upload failed", not "did not land"), and a panel carries no running commentary about what
   it is doing on the reader's behalf. _(file manager upload, 2026-09-03)_
+- **A transfer the reader started outlives the panel that started it, and shows itself in the top
+  bar.** An upload is handed to the app's own queue the moment it is pressed; the panel stays as a
+  report and Close leaves the bytes moving; the top-bar upload tray carries every batch with its
+  tally, its failures, a Retry that resends only what failed, and the way to where the files landed.
+  Uploads and downloads are two trays, not one: the download shelf is a durable register on the
+  member's record, an upload is live state in this tab, and one list mixing the two would make every
+  item ambiguous about what closing the tab does to it. Leaving the screen with files chosen and not
+  yet sent asks first; a running transfer asks nothing inside the app and lets the browser ask
+  before the tab closes. _(file manager upload, 2026-09-06)_
+- **A panel never re-flows when its act begins.** Controls stay where they are and are disabled; a
+  list stays the same list and changes only the column that reports; a line that reported the
+  choice reports the progress in the same place at the same height. The Upload dialog swapped both
+  panes the instant the transfer began and moved under the pointer. _(file manager upload,
+  2026-09-06)_
 
 ### Lists and tables
 

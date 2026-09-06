@@ -46,6 +46,7 @@ export {
   gridColumnAlign,
   gridColumnSum,
   gridColumnTotalText,
+  gridRowComparator,
   movedGridColumnOrder,
   sortGridRows,
   visibleGridColumns,
