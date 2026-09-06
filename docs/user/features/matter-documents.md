@@ -57,8 +57,9 @@ Before a file is sent, Magna Carta reads it and asks whether your firm already h
 bytes. If the matter already has the file, its row reads **Already here** and nothing is sent. If
 another of your firm's matters has it, the file is copied onto this matter without an upload, and
 reads **Uploaded** as usual. So if a batch fails part-way and you send the same folder again, only
-the files that did not land are sent. Very large files (over 256 MB) skip the question and are sent
-directly.
+the files that did not land are sent. The read happens on your computer, a chunk at a time, with
+the row reading **Reading** and the share done, so a file of any size is asked about before a byte
+of it is sent.
 
 ### Watching an upload
 

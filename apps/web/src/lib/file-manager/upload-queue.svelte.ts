@@ -36,7 +36,7 @@ import {
   type UploadRequest,
 } from "./file-upload.ts";
 import type { MatterFile } from "./matter-file-api.ts";
-import { sha256OfFile } from "./upload-hash.ts";
+import { sha256OfFile, type HashProgressOptions } from "./upload-hash.ts";
 import { paceOf, paceText, withSample, type Pace, type PaceSample } from "./upload-pace.ts";
 import {
   intakeEntryKey,
@@ -76,6 +76,8 @@ export interface UploadBatchItem {
   reason?: string;
   /** Bytes the browser has sent so far, while the file is being sent. */
   sentBytes: number;
+  /** Bytes read so far, while the file is being hashed to ask whether the firm holds it. */
+  hashedBytes: number;
   /** The file it became, once reserved — or the file the matter already held. */
   fileId?: string;
   /** The digest, once read; kept across retries so the file is read once. */
@@ -86,8 +88,11 @@ export interface UploadBatchItem {
 export interface UploadQueueDependencies {
   readonly fetchImpl: typeof fetch;
   readonly upload: (request: UploadRequest) => Promise<UploadOutcome>;
-  /** The file's SHA-256, or null to send it without asking whether the firm already holds it. */
-  readonly hash: (file: File) => Promise<string | null>;
+  /**
+   * The file's SHA-256, or null to send it without asking whether the firm already holds it.
+   * Reports the bytes read as it goes and stops on the signal.
+   */
+  readonly hash: (file: File, options: HashProgressOptions) => Promise<string | null>;
   readonly createFolder: (
     input: { matterId: string; parentFolderId: string | null; name: string },
     idempotencyKey: string,
@@ -172,6 +177,7 @@ export class UploadBatch {
       name: entry.relativePath === "" ? entry.file.name : entry.relativePath,
       stage: "chosen" as const,
       sentBytes: 0,
+      hashedBytes: 0,
     }));
     this.landedFolders.set("", Promise.resolve({ id: plan.destinationFolderId }));
   }
@@ -241,6 +247,7 @@ export class UploadBatch {
         {
           stage: item.stage,
           sentBytes: item.sentBytes,
+          hashedBytes: item.hashedBytes,
           ...(item.reason === undefined ? {} : { reason: item.reason }),
         },
       ]),
@@ -309,8 +316,16 @@ export class UploadBatch {
     // question with the same answer rather than reading the file twice.
     item.stage = "hashing";
     item.sentBytes = 0;
+    item.hashedBytes = 0;
     delete item.reason;
-    if (item.sha256 === undefined) item.sha256 = await this.#dependencies.hash(item.entry.file);
+    if (item.sha256 === undefined) {
+      item.sha256 = await this.#dependencies.hash(item.entry.file, {
+        signal: this.#abort.signal,
+        onProgress: (readBytes) => {
+          item.hashedBytes = readBytes;
+        },
+      });
+    }
     if (this.cancelled) {
       item.stage = "cancelled";
       return;

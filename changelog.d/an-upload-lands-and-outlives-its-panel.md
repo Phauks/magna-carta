@@ -37,8 +37,10 @@ through `GET /uploads/{id}/parts/{n}`, sent, and retried on its own with backoff
 as the completion manifest. The single-shot PUT is retried the same way.
 
 **A file the firm already holds is not sent, and the pace is read as it goes.** The browser hashes
-each file first (`upload-hash.ts`, WebCrypto, up to 256 MB) and asks `POST /uploads/matches` what the
-firm holds by digest and size (a new index on `file_version.content_sha256` serves it). A live file on
+each file first (`upload-hash.ts`: an incremental SHA-256 from `@noble/hashes` fed a chunk at a time
+in a Web Worker, so a file of any size is read with nothing held past the chunk in hand, and the row
+reads "Reading · 42%" while it goes) and asks `POST /uploads/matches` what the firm holds by digest
+and size (a new index on `file_version.content_sha256` serves it). A live file on
 the matter with those bytes reads Already here and nothing is sent; one elsewhere in the firm is made
 into a new file on the matter through `POST /uploads/duplicates` (`duplicateVersionIntoMatter`, a
 server-side bucket copy restamped for the target matter, the gate's verdict carried across). So a

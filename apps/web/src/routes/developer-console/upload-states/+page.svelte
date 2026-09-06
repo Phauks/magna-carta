@@ -73,9 +73,18 @@
     let made = 0;
     return {
       fetchImpl: fetch,
-      // The stand-in reads nothing: the gallery's files are a few bytes, and whether the matter
-      // already holds one is the stand-in's own answer below.
-      hash: async () => null,
+      // The stand-in reads nothing real: the gallery's files are a few bytes, so it plays the read
+      // of the size the fixture declares over one beat, and whether the matter already holds a
+      // file is its own answer below.
+      hash: async (file, options) => {
+        const total = SIZES.get(file.name) ?? file.size;
+        for (let step = 1; step <= 10; step += 1) {
+          await new Promise((resolve) => setTimeout(resolve, beatMilliseconds / 10));
+          if (isCancelled(options.signal)) return null;
+          options.onProgress?.(Math.round((total * step) / 10));
+        }
+        return null;
+      },
       upload: async (request) => {
         // The fixture's declared sizes drive the progress the stand-in reports, in ten steps
         // across the sending beat, so the percent and the bytes-of-bytes line can be watched.

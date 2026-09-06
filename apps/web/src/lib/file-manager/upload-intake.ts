@@ -42,6 +42,8 @@ export interface IntakeProgress {
   readonly reason?: string;
   /** Bytes the browser has sent so far, while the file is being sent. */
   readonly sentBytes?: number;
+  /** Bytes read so far, while the file is being hashed. */
+  readonly hashedBytes?: number;
 }
 
 /**
@@ -157,6 +159,8 @@ export interface IntakeFileRow {
   readonly reason?: string;
   /** Bytes sent so far, while the file is being sent. */
   readonly sentBytes: number;
+  /** Bytes read so far, while the file is being hashed. */
+  readonly hashedBytes: number;
 }
 
 export type IntakeRow = IntakeFolderRow | IntakeFileRow;
@@ -271,6 +275,7 @@ function fileRow(
     stage: state?.stage ?? "chosen",
     ...(state?.reason === undefined ? {} : { reason: state.reason }),
     sentBytes: sentBytesOf(entry.file.size, state),
+    hashedBytes: Math.min(entry.file.size, state?.hashedBytes ?? 0),
   };
 }
 
@@ -396,11 +401,21 @@ export function intakePercent(sentBytes: number, totalBytes: number): number {
   return Math.min(100, Math.floor((sentBytes / totalBytes) * 100));
 }
 
-/** The Status column's text for a file row: the stage word, with the share sent while it is sending. */
+/**
+ * The Status column's text for a file row: the stage word, with the share sent while it is sending
+ * and the share read while it is being hashed — a long file is read for seconds before a byte
+ * moves, and a row that only said "Reading" for that long would look stuck.
+ */
 export function intakeFileStatus(row: IntakeFileRow): string {
-  if (row.stage !== "uploading") return INTAKE_STAGE_LABEL[row.stage];
-  const percent = intakePercent(row.sentBytes, row.entry.file.size);
-  return `${INTAKE_STAGE_LABEL.uploading} · ${String(percent)}%`;
+  if (row.stage === "uploading") {
+    const percent = intakePercent(row.sentBytes, row.entry.file.size);
+    return `${INTAKE_STAGE_LABEL.uploading} · ${String(percent)}%`;
+  }
+  if (row.stage === "hashing") {
+    const percent = intakePercent(row.hashedBytes, row.entry.file.size);
+    return `${INTAKE_STAGE_LABEL.hashing} · ${String(percent)}%`;
+  }
+  return INTAKE_STAGE_LABEL[row.stage];
 }
 
 /** The one sentence a row's stage says in full — the tooltip behind the status word. */
@@ -408,7 +423,10 @@ export function intakeStageSentence(row: IntakeFileRow): string {
   if (row.stage === "chosen") return "Chosen.";
   if (row.stage === "failed") return row.reason ?? "Upload failed.";
   if (row.stage === "settled") return row.reason ?? "Uploaded.";
-  if (row.stage === "hashing") return "Reading the file to ask whether the firm already holds it.";
+  if (row.stage === "hashing") {
+    const read = formatBytes(row.hashedBytes);
+    return `Reading the file to ask whether the firm already holds it: ${read} of ${formatBytes(row.entry.file.size)}.`;
+  }
   if (row.stage === "already") return row.reason ?? "The matter already holds this file.";
   if (row.stage === "cancelled")
     return "Not sent: the upload was cancelled before this file's turn.";

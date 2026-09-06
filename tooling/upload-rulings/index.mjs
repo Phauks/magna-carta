@@ -158,6 +158,17 @@ await check("A23", "Nothing moves when Upload is pressed", async () => {
 });
 
 await check(
+  "A31a",
+  "A file is read before it is sent, and the row says how far the read has got",
+  async () => {
+    // The stand-in plays the read over one beat once the file's folder exists.
+    const reading = sourceTable.locator("tbody td:last-child", { hasText: /reading · \d+%/i });
+    await reading.first().waitFor({ timeout: 6_000 });
+    return true;
+  },
+);
+
+await check(
   "A29",
   "A sending row says how far it has got, and the transfer can be cancelled",
   async () => {
@@ -191,7 +202,7 @@ await check(
 );
 
 await check(
-  "A31",
+  "A31b",
   "A file the matter already holds reads Already here, and nothing was sent for it",
   async () => {
     const statuses = (await sourceTable.locator("tbody td:last-child").allInnerTexts()).map(

@@ -265,8 +265,11 @@ describe("startUploadBatch", () => {
           ? { kind: "already", fileId: "held", name: "held.pdf", folderId: null }
           : { kind: "committed", fileId: `file-${request.file.name}`, versionId: "v" },
       ),
-      hash: async (file) => {
+      hash: async (file, options) => {
         hashed += 1;
+        // The read reports as it goes, and the row reads it back as the share done.
+        options.onProgress?.(Math.floor(file.size / 2));
+        options.onProgress?.(file.size);
         return `${file.name}-digest`;
       },
     };
@@ -274,6 +277,9 @@ describe("startUploadBatch", () => {
     await settled();
     flushSync();
     expect(hashed).toBe(2);
+    expect(batch.progress.get(batch.items[0]!.key)?.hashedBytes).toBe(
+      batch.items[0]!.entry.file.size,
+    );
     expect(record.uploads.map((request) => request.sha256)).toEqual([
       "held.pdf-digest",
       "new.pdf-digest",
