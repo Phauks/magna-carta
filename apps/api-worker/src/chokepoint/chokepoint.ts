@@ -60,7 +60,13 @@ export interface ChokepointPorts<FirmContext> {
   // WHOLE session is passed (not just firmId) so the port can run the member-active check against
   // the session's userId — a deactivated member is absent, folded in HERE so the same
   // 404 covers a missing firm and a deactivated member with no per-handler discipline.
-  resolveFirmContext: (c: Context, session: ResolvedSession) => Promise<FirmContext | null>;
+  // meta is passed so the port can tell a route that tolerates an unreachable firm database from
+  // one that must fail closed on it; it never widens what the port may return.
+  resolveFirmContext: (
+    c: Context,
+    session: ResolvedSession,
+    meta: RouteMeta,
+  ) => Promise<FirmContext | null>;
   // Step 3b: the principal's effective permissions in THEIR firm. A missing required permission is
   // a within-firm denial → 403 + requestAccess (the trusted insider may request a grant).
   loadPermissions: (
@@ -138,6 +144,21 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
           `is not in the access-control registry (PERMISSIONS). A route may only require a ` +
           `registered capability; register it in @magna-carta/access-control or correct the ` +
           `route's meta.permission. (Validated at registration time, never per request.)`,
+      );
+    }
+    // A route that tolerates an unreachable firm database is admitted WITHOUT the member-active
+    // check, because that check is the read that cannot run. Naming a capability alongside it would
+    // be a contradiction: capabilities are loaded from the very database that is unreachable, so the
+    // route would either fail anyway or claim an authority nothing verified. Refused at startup for
+    // the same reason an unregistered permission is — a misconfiguration should be loud here rather
+    // than a surprise during the outage it was written for.
+    if (meta.firmDatabaseOutage === "tolerate" && meta.permission !== null) {
+      throw new Error(
+        `Route ${JSON.stringify(path)} declares firmDatabaseOutage: "tolerate" and also names ` +
+          `permission ${JSON.stringify(meta.permission)}. A route admitted without the ` +
+          `member-active check may not require a capability, because permissions are read from the ` +
+          `same firm database the declaration concedes is unreachable. Drop the permission, or ` +
+          `drop the toleration.`,
       );
     }
     return meta;
@@ -292,7 +313,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
 
           // Step 3a: resolve the firm context. null = structural absence (cross-firm / firm row
           // missing / DB unbound / member deactivated) → 404, no existence oracle.
-          const firmContext = await ports.resolveFirmContext(c, session);
+          const firmContext = await ports.resolveFirmContext(c, session, meta);
           if (firmContext === null) {
             return problemJson(c, {
               type: "not-found",

@@ -312,6 +312,15 @@ export const metaDatabaseHealthMeta: RouteMeta = {
   audited: false,
   idempotency: "optional",
   rateLimit: "default",
+  // The read must survive the fault it reports, which is the whole point of it. Every firm read
+  // below is already caught and reported as its own "unreachable"/"unknown" — but none of them ran,
+  // because the chokepoint's member-active check is itself a read against the database in question,
+  // and it threw first. So the route answered 500 rather than the honest diagnosis it was built to
+  // give. Toleration only ever engages while that database is down, and it discloses nothing
+  // thereby: the reads that would carry firm data are the reads that cannot complete. While the
+  // database is up the member-active check runs exactly as before and a deactivated member is
+  // still absent.
+  firmDatabaseOutage: "tolerate",
 };
 
 export const metaDatabaseHealthRoute = defineOpenAPIRoute(metaDatabaseHealthMeta, {
