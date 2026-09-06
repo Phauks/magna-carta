@@ -332,14 +332,18 @@ const DESTINATION_LIST = [
   },
   // Money (draft order: Time, Billing, Trust)
   {
+    // The period ledger: the firm's time over a span of days, across every matter. It is the read
+    // surface, distinct from the top bar's Time Sheet, which is capture and opens over whatever
+    // screen you are on. Alpha, not ready: the period reads, narrows and opens any entry, and the
+    // week grid that captures a missed week in one pass is still to come.
     id: "time",
     label: "Time",
     href: "/time",
     icon: Clock,
-    description: "Time capture and entries, ready for billing.",
+    description: "Every hour recorded, across matters and timekeepers, for the days you choose.",
     group: "money",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {

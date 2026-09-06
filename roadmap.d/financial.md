@@ -201,7 +201,7 @@
   surface: internal
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: per-firm WIP store in packages/timekeeping; my-day.ts documented as read-only over the WIP store, never the ledger
-  notes: WIP store shipped, and the conversion it promised now happens at invoice finalize in packages/billing/src/finalize.ts; what keeps this partial is that no surface reads the store.
+  notes: WIP store shipped, and the conversion it promised now happens at invoice finalize in packages/billing/src/finalize.ts. Two surfaces now read the store — the matter's Time tab and the period ledger at /time — so what keeps this partial is the capture half: the week grid and the My Day cockpit.
 
 - id: financial.time.my-day
   name: My Day visibility
@@ -211,6 +211,16 @@
   slices: 3-1-time-tracking-wip-rate-engine
   evidence: my-day.ts (target shortfall + un-logged-day detection) + routes/my-day.ts; time.target_daily/monthly/annual_hours settings
   notes: Backend shipped; the My Day view is UI, not built; calendar overlay is a deferred Calendar-subsystem seam.
+
+- id: financial.time.period-ledger
+  name: The firm's time over a period
+  scope: One screen reading every entry in a span of work dates, across matters and timekeepers — the question neither the matter's Time tab nor the day view can answer. Span presets and a custom range, whose-time gated on time:viewFirm, the table's own column filters, hours-and-money totals over what is in view, and any row opening the shared entry record.
+  status: partial
+  surface: screen
+  slices: 3-1-time-tracking-wip-rate-engine
+  spec: docs/specs/2026-08-25-personal-timesheet-design.md
+  evidence: apps/web/src/routes/(app)/time/+page.svelte reading the from/to span on GET /api/v1/time-entries (listTimeEntriesInRange in packages/timekeeping/src/queries.ts); the sidebar destination is shipped at stage alpha
+  notes: The list view of the two the personal-timesheet design plans. The week grid — matters by days, typed into cell by cell, committing through the existing grid-batch route — is the other half and is not built; submission from this surface waits on the firm's review-gate setting being served.
 
 - id: financial.time.utilization-reports
   name: Utilization and realization roll-ups

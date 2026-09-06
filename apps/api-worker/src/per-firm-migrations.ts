@@ -100,6 +100,7 @@ import matterStatusIntakeAndConsultationSql from "@magna-carta/database/drizzle/
 import matterHoldStatusSql from "@magna-carta/database/drizzle/per-firm/20260906T030014_matter-hold-status.sql";
 import fileVersionSourceModifiedAtSql from "@magna-carta/database/drizzle/per-firm/20260906T120000_file-version-source-modified-at.sql";
 import fileVersionContentSha256IndexSql from "@magna-carta/database/drizzle/per-firm/20260906T160000_file-version-content-sha256-index.sql";
+import timeEntryWorkDateIndexSql from "@magna-carta/database/drizzle/per-firm/20260906T170000_time-entry-work-date-index.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -214,6 +215,7 @@ export function perFirmMigrations(): Migration[] {
     "20260906T030014_matter-hold-status": matterHoldStatusSql,
     "20260906T120000_file-version-source-modified-at": fileVersionSourceModifiedAtSql,
     "20260906T160000_file-version-content-sha256-index": fileVersionContentSha256IndexSql,
+    "20260906T170000_time-entry-work-date-index": timeEntryWorkDateIndexSql,
   });
 }
 
