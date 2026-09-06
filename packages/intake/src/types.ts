@@ -2,16 +2,20 @@
 // CHECK on the per-firm schema, so a value that reaches a write without appearing here fails at the
 // database and not only at the type checker.
 
-// What a step IS, and therefore who answers it. Eight kinds, held in a CHECK so a ninth is a reviewed
-// migration. The order here is the order an authoring surface offers them, which is roughly the
-// order a firm meets them: who the client is, whether the firm may act, what the client agreed to,
-// what the client paid and told the firm.
+// What a step IS, and therefore who answers it. Ten kinds, held in a CHECK so an eleventh is a
+// reviewed migration. The order here is the order an authoring surface offers them, which is roughly
+// the order a firm meets them: who the client is, whether the firm may act, what the client agreed
+// to, what the client paid and told the firm. client-forms and payment name two steps every
+// receptionist's intake has — the forms the client fills in online, and the money that changes hands
+// — ahead of the client portal and the payments port that will one day answer them.
 export const INTAKE_STEP_KINDS = Object.freeze([
   "identity-verification",
   "conflicts-check",
   "fee-agreement",
   "engagement-letter",
+  "client-forms",
   "retainer",
+  "payment",
   "document",
   "questionnaire",
   "acknowledgement",
@@ -49,7 +53,12 @@ export const INTAKE_STEP_KIND_PROFILES: Readonly<Record<IntakeStepKind, IntakeSt
       recordable: true,
       reference: "documentTemplate",
     },
+    // Both are a member's word until a subsystem can see the fact: the portal's form submissions,
+    // the payments port's receipt. Neither names a reference — a firm says which forms in the
+    // step's instructions until a form catalog exists to point at.
+    "client-forms": { kind: "client-forms", recordable: true, reference: null },
     retainer: { kind: "retainer", recordable: true, reference: null },
+    payment: { kind: "payment", recordable: true, reference: null },
     document: { kind: "document", recordable: true, reference: "documentTemplate" },
     questionnaire: { kind: "questionnaire", recordable: true, reference: "customField" },
     acknowledgement: { kind: "acknowledgement", recordable: true, reference: null },

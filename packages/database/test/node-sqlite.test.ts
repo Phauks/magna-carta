@@ -179,7 +179,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     // seeded to every role; for aiTextDetection the consent setting, not the permission, gates
     // egress.
     // conflicts:read and conflicts:run are broad, everyday capabilities (any member may screen a
-    // prospective matter or read back a completed check) and are likewise seeded to every role;
+    // consultation or read back a completed check) and are likewise seeded to every role;
     // conflicts:dispose is narrower (adjudicating a hit) and stays limited to Owner/Admin and
     // Attorney, so it is absent here.
     expect(grantsFor("Paralegal").toSorted()).toEqual(

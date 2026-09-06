@@ -15,7 +15,7 @@ describe("insertAuditLogStatement", () => {
         event: "matter.opened",
         actorUserId,
         subjectId,
-        metadata: { matterNumber: "RENO-26-0001", previousStatus: "prospective" },
+        metadata: { matterNumber: "RENO-26-0001", previousStatus: "consultation" },
         now: "2026-06-13T00:00:00.000Z",
       }),
     );
@@ -26,7 +26,7 @@ describe("insertAuditLogStatement", () => {
       actorUserId,
       subjectId,
       // canonical JSON — key order normalized
-      '{"matterNumber":"RENO-26-0001","previousStatus":"prospective"}',
+      '{"matterNumber":"RENO-26-0001","previousStatus":"consultation"}',
       "2026-06-13T00:00:00.000Z",
     ]);
   });

@@ -222,7 +222,7 @@ describe("directory e2e — full journey over the HTTP surface", () => {
     // A matter to link the party to (the e2e firm's owner is the responsible member).
     const matter = await post("/api/v1/matters", {
       title: "Smith v. Acme",
-      status: "prospective",
+      status: "consultation",
       responsibleMemberId: ownerUserId,
     });
     expect(matter.status).toBe(201);

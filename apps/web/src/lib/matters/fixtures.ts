@@ -1,7 +1,7 @@
 /*
  * Fixture matters for the matter detail screen. The screen is presentation-only until the
- * matters list stream wires the real API; these three fixtures cover the whole lifecycle
- * (open and numbered, prospective consultation, closed) so every header and page state is
+ * matters list stream wires the real API; these fixtures cover the whole lifecycle
+ * (intake, consultation, open and numbered, on hold, closed) so every header and page state is
  * reviewable at a stable URL. Shapes mirror the matter record and its adjacent surfaces —
  * when wiring lands, these types give way to the generated api-client types.
  */
@@ -10,7 +10,7 @@ export interface MatterFixture {
   id: string;
   title: string;
   description: string | null;
-  status: "prospective" | "open" | "closed";
+  status: "intake" | "consultation" | "open" | "hold" | "closed";
   /** Null until open draws it; frozen thereafter. A consultation has none until it is opened. */
   matterNumber: string | null;
   /** The consultation's own tentative number, kept after opening rather than replaced by it. */
@@ -23,6 +23,8 @@ export interface MatterFixture {
   clientEntityId: string | null;
   eBilling: boolean;
   openedAt: string | null;
+  heldAt: string | null;
+  holdReason: string | null;
   closedAt: string | null;
   createdAt: string;
   files: FileFixtureRow[];
@@ -73,6 +75,8 @@ export const matterFixtures: readonly MatterFixture[] = [
     clientCode: "ASH-01",
     eBilling: true,
     openedAt: "2026-02-11",
+    heldAt: null,
+    holdReason: null,
     closedAt: null,
     createdAt: "2026-02-09",
     files: [
@@ -156,12 +160,63 @@ export const matterFixtures: readonly MatterFixture[] = [
     ],
   },
   {
+    id: "matter-fixture-hold",
+    title: "Okonkwo v. Brightwater Marine",
+    description:
+      "Personal injury claim from a dockside fall; discovery was under way when the client's " +
+      "retainer ran dry and the firm paused its work pending payment.",
+    status: "hold",
+    matterNumber: "2026-0112",
+    consultationNumber: "C2026-0019",
+    matterTypeName: "Personal Injury",
+    locationName: "Reno",
+    responsibleAttorneyName: "Eleanor Vance",
+    clientDisplayName: "Adaeze Okonkwo",
+    clientEntityId: null,
+    clientCode: "OKO-01",
+    eBilling: false,
+    openedAt: "2026-01-22",
+    heldAt: "2026-08-14",
+    holdReason:
+      "The client's retainer is exhausted and two invoices are unpaid; work resumes on payment.",
+    closedAt: null,
+    createdAt: "2026-01-20",
+    files: [],
+    timeEntries: [],
+    costs: [],
+  },
+  {
+    id: "matter-fixture-intake",
+    title: "Intake — Alvarez tenancy call",
+    description:
+      "Caller reports a lockout by a landlord after a rent dispute; the receptionist took the " +
+      "call this morning and the intake procedure is still being answered.",
+    status: "intake",
+    matterNumber: null,
+    consultationNumber: null,
+    matterTypeName: "Landlord & Tenant",
+    locationName: null,
+    responsibleAttorneyName: "Priya Raghunathan",
+    clientDisplayName: "Mateo Alvarez",
+    clientEntityId: null,
+    clientCode: null,
+    eBilling: false,
+    openedAt: null,
+    heldAt: null,
+    holdReason: null,
+    closedAt: null,
+    createdAt: "2026-09-05",
+    files: [],
+    timeEntries: [],
+    costs: [],
+  },
+  {
     id: "matter-fixture-consultation",
     title: "Consultation — Whitmore estate inquiry",
     description:
       "Prospective client seeking advice on contesting the Whitmore testamentary trust; " +
       "conflicts run at intake, retention undecided.",
-    status: "prospective",
+    status: "consultation",
     matterNumber: null,
     consultationNumber: "C2026-0058",
     matterTypeName: "Estate & Probate",
@@ -172,6 +227,8 @@ export const matterFixtures: readonly MatterFixture[] = [
     clientCode: null,
     eBilling: false,
     openedAt: null,
+    heldAt: null,
+    holdReason: null,
     closedAt: null,
     createdAt: "2026-07-02",
     files: [],
@@ -195,6 +252,8 @@ export const matterFixtures: readonly MatterFixture[] = [
     clientCode: "BRR-02",
     eBilling: false,
     openedAt: "2024-05-06",
+    heldAt: null,
+    holdReason: null,
     closedAt: "2025-11-20",
     createdAt: "2024-05-02",
     files: [

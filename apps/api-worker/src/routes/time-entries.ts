@@ -1594,7 +1594,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           ? { results: [] as { id: string; title: string }[] }
           : await firm.firmDatabase
               .prepare(
-                "SELECT id, title FROM matter WHERE title LIKE ?1 ESCAPE '\\' AND status != 'prospective' ORDER BY title LIMIT 10",
+                "SELECT id, title FROM matter WHERE title LIKE ?1 ESCAPE '\\' AND status NOT IN ('intake', 'consultation') ORDER BY title LIMIT 10",
               )
               .bind(`%${parsed.matterHint.replace(/[%_\\]/g, "\\$&")}%`)
               .all<{ id: string; title: string }>();

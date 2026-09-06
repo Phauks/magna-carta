@@ -516,10 +516,16 @@
                   "total": {
                     "type": "number"
                   },
-                  "prospective": {
+                  "intake": {
+                    "type": "number"
+                  },
+                  "consultation": {
                     "type": "number"
                   },
                   "open": {
+                    "type": "number"
+                  },
+                  "hold": {
                     "type": "number"
                   },
                   "closed": {
@@ -528,8 +534,10 @@
                 },
                 "required": [
                   "total",
-                  "prospective",
+                  "intake",
+                  "consultation",
                   "open",
+                  "hold",
                   "closed"
                 ]
               },
@@ -565,10 +573,16 @@
                     "null"
                   ]
                 },
-                "prospective": {
+                "intake": {
+                  "type": "number"
+                },
+                "consultation": {
                   "type": "number"
                 },
                 "open": {
+                  "type": "number"
+                },
+                "hold": {
                   "type": "number"
                 },
                 "closed": {
@@ -580,8 +594,10 @@
               },
               "required": [
                 "matterTypeName",
-                "prospective",
+                "intake",
+                "consultation",
                 "open",
+                "hold",
                 "closed",
                 "total"
               ]
@@ -4019,7 +4035,8 @@
           "status": {
             "type": "string",
             "enum": [
-              "prospective",
+              "intake",
+              "consultation",
               "open"
             ]
           },
@@ -4113,8 +4130,10 @@
           "status": {
             "type": "string",
             "enum": [
-              "prospective",
+              "intake",
+              "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -4245,8 +4264,10 @@
           "status": {
             "type": "string",
             "enum": [
-              "prospective",
+              "intake",
+              "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -4304,6 +4325,18 @@
               "null"
             ]
           },
+          "heldAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "holdReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "closedAt": {
             "type": [
               "string",
@@ -4347,6 +4380,8 @@
           "consultationNumber",
           "eBilling",
           "openedAt",
+          "heldAt",
+          "holdReason",
           "closedAt",
           "createdAt",
           "matterTypeName",
@@ -4363,8 +4398,10 @@
           "status": {
             "type": "string",
             "enum": [
-              "prospective",
+              "intake",
+              "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -4397,6 +4434,51 @@
           "blockers"
         ]
       },
+      "MatterGraduateReadiness": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "intake",
+              "consultation",
+              "open",
+              "hold",
+              "closed"
+            ]
+          },
+          "graduable": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matterId",
+          "status",
+          "graduable",
+          "blockers"
+        ]
+      },
       "MatterCloseReadiness": {
         "type": "object",
         "properties": {
@@ -4406,8 +4488,10 @@
           "status": {
             "type": "string",
             "enum": [
-              "prospective",
+              "intake",
+              "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -4496,6 +4580,21 @@
           }
         }
       },
+      "GraduateMatterResponse": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "consultationNumber": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "matterId",
+          "consultationNumber"
+        ]
+      },
       "OpenMatterResponse": {
         "type": "object",
         "properties": {
@@ -4539,6 +4638,19 @@
         "required": [
           "matterId",
           "notices"
+        ]
+      },
+      "HoldMatterRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "RenumberMatterRequest": {
@@ -8463,7 +8575,7 @@
               "string",
               "null"
             ],
-            "description": "Null while the matter is still prospective and undrawn."
+            "description": "Null while the matter is still consultation and undrawn."
           },
           "matterStatus": {
             "type": [
@@ -14472,7 +14584,9 @@
               "conflicts-check",
               "fee-agreement",
               "engagement-letter",
+              "client-forms",
               "retainer",
+              "payment",
               "document",
               "questionnaire",
               "acknowledgement"
@@ -14573,7 +14687,9 @@
               "conflicts-check",
               "fee-agreement",
               "engagement-letter",
+              "client-forms",
               "retainer",
+              "payment",
               "document",
               "questionnaire",
               "acknowledgement"
@@ -14659,6 +14775,168 @@
           "title"
         ]
       },
+      "IntakeDeskList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntakeDeskRow"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
+      "IntakeDeskRow": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "intake",
+              "consultation"
+            ]
+          },
+          "consultationNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTypeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTypeName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "responsibleMemberId": {
+            "type": "string"
+          },
+          "responsibleMemberName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clientEntityId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clientDisplayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "isStale": {
+            "type": "boolean"
+          },
+          "checklist": {
+            "$ref": "#/components/schemas/IntakeDeskChecklist"
+          },
+          "nextConsultation": {
+            "$ref": "#/components/schemas/IntakeDeskConsultationSetting"
+          }
+        },
+        "required": [
+          "matterId",
+          "title",
+          "status",
+          "consultationNumber",
+          "matterTypeId",
+          "matterTypeName",
+          "responsibleMemberId",
+          "responsibleMemberName",
+          "clientEntityId",
+          "clientDisplayName",
+          "createdAt",
+          "isStale",
+          "checklist",
+          "nextConsultation"
+        ]
+      },
+      "IntakeDeskChecklist": {
+        "type": "object",
+        "properties": {
+          "bound": {
+            "type": "boolean"
+          },
+          "steps": {
+            "type": "integer"
+          },
+          "answered": {
+            "type": "integer"
+          },
+          "outstandingRequired": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bound",
+          "steps",
+          "answered",
+          "outstandingRequired"
+        ]
+      },
+      "IntakeDeskConsultationSetting": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "startsOn": {
+            "type": "string"
+          },
+          "startsAtTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "eventId",
+          "title",
+          "startsOn",
+          "startsAtTime",
+          "timeZone"
+        ]
+      },
       "IntakeChecklist": {
         "type": "object",
         "properties": {
@@ -14668,8 +14946,10 @@
           "matterStatus": {
             "type": "string",
             "enum": [
-              "prospective",
+              "intake",
+              "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -14735,7 +15015,9 @@
               "conflicts-check",
               "fee-agreement",
               "engagement-letter",
+              "client-forms",
               "retainer",
+              "payment",
               "document",
               "questionnaire",
               "acknowledgement"
@@ -40865,7 +41147,7 @@
     },
     "/api/v1/matters": {
       "post": {
-        "description": "Creates a matter. status 'prospective' opens an unnumbered consultation (it appears only in the responsible attorney's Consultations view); status 'open' draws the firm's next matter number atomically and opens it.",
+        "description": "Creates a matter. status 'intake' records an intake with no number of any kind, on the Intake desk, which becomes a consultation once the firm's intake procedure lets it through; status 'consultation' records a consultation outright, drawing its consultation number (it appears in the responsible attorney's Consultations view); status 'open' draws the firm's next matter number atomically and opens it.",
         "operationId": "matters.create",
         "tags": [
           "matters"
@@ -40988,7 +41270,7 @@
         }
       },
       "get": {
-        "description": "Lists the firm's matters (the working caseload — Prospective consultations are excluded unless status=prospective is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.",
+        "description": "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.",
         "operationId": "matters.list",
         "tags": [
           "matters"
@@ -41011,8 +41293,10 @@
             "schema": {
               "type": "string",
               "enum": [
-                "prospective",
+                "intake",
+                "consultation",
                 "open",
+                "hold",
                 "closed"
               ]
             },
@@ -41120,7 +41404,7 @@
     },
     "/api/v1/matters/consultations": {
       "get": {
-        "description": "The Consultations view: the session attorney's unnumbered Prospective matters, each flagged stale once it has sat past the firm's stale-consultation age. Cursor-paginated.",
+        "description": "The Consultations view: the session attorney's unnumbered Consultation matters, each flagged stale once it has sat past the firm's stale-consultation age. Cursor-paginated.",
         "operationId": "matters.listConsultations",
         "tags": [
           "matters"
@@ -41411,7 +41695,7 @@
     },
     "/api/v1/matters/{id}/open-readiness": {
       "get": {
-        "description": "Answers whether this consultation would open right now, without opening it. Runs the same opening rules the open runs and reports each one that stands in the way in the words of the subsystem that owns it: today, each required step of the firm's intake procedure that has no satisfying answer. A matter that is not prospective is reported as not openable, with that as its blocker. A reading of the present, never a guarantee: the open re-runs every rule.",
+        "description": "Answers whether this consultation would open right now, without opening it. Runs the same opening rules the open runs and reports each one that stands in the way in the words of the subsystem that owns it. A matter that is not a consultation — an intake that has not yet cleared the firm's procedure, or an open or closed matter — is reported as not openable, with that as its blocker. A reading of the present, never a guarantee: the open re-runs every rule.",
         "operationId": "matters.openReadiness",
         "tags": [
           "matters"
@@ -41447,6 +41731,91 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MatterOpenReadiness"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{id}/graduate-readiness": {
+      "get": {
+        "description": "Answers whether this intake would become a consultation right now, without changing it. Runs the same rules the graduation runs — each required step of the firm's intake procedure that has no satisfying answer — and reports each in the words of the subsystem that owns it. A matter that is not in intake is reported as not graduable, with that as its blocker.",
+        "operationId": "matters.graduateReadiness",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.graduateReadiness",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:create",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether the intake can become a consultation, and what stands in the way",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterGraduateReadiness"
                 }
               }
             }
@@ -41579,9 +41948,133 @@
         }
       }
     },
+    "/api/v1/matters/{id}/graduate": {
+      "post": {
+        "description": "Completes an intake: runs the firm's intake procedure as a gate, and if every required step is answered draws the consultation number atomically and transitions the matter from intake to consultation. An intake with a required step outstanding is refused with each step named and what answers it. Refuses a matter that is not in intake.",
+        "operationId": "matters.graduate",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.graduate",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:create",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The intake is now a consultation, and carries its consultation number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraduateMatterResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A graduation rule refused the intake, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matters/{id}/open": {
       "post": {
-        "description": "Opens a Prospective matter: draws the firm's next matter number atomically and transitions it to open. Runs the opening rules first: a consultation with a required intake step outstanding is refused with each step named and what answers it. Refuses a matter that is not Prospective.",
+        "description": "Opens a consultation: draws the firm's next matter number atomically and transitions it to open. Runs the opening rules first. Refuses a matter that is not a consultation — an intake becomes one by completing its procedure first.",
         "operationId": "matters.open",
         "tags": [
           "matters"
@@ -41827,9 +42320,267 @@
         }
       }
     },
+    "/api/v1/matters/{id}/hold": {
+      "post": {
+        "description": "Puts an open matter on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, an instruction to wait). The matter keeps its number; nothing is drawn or surrendered. It leaves the active lists and stays on the docket wearing its status. Refuses a matter that is not open.",
+        "operationId": "matters.hold",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.hold",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:hold",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HoldMatterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The matter is on hold",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterActionAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The matter is not open, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{id}/release": {
+      "post": {
+        "description": "Releases a hold: the matter returns to open, and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.",
+        "operationId": "matters.release",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.release",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:hold",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The hold was released and the matter is open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterActionAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The matter is not on hold, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matters/{id}/reopen": {
       "post": {
-        "description": "Reopens a closed matter, restoring its pre-close status (open if it was numbered, else Prospective). The frozen number, if any, is untouched.",
+        "description": "Reopens a closed matter, restoring the status it left: the hold it was in, open if it was numbered, else Consultation or Intake. The frozen number, if any, is untouched.",
         "operationId": "matters.reopen",
         "tags": [
           "matters"
@@ -63171,6 +63922,108 @@
           },
           "422": {
             "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake/consultations": {
+      "get": {
+        "description": "The intake desk: every consultation the firm has in flight, newest first, with the client, the responsible member, the matter type, where it stands against the intake procedure binding its kind (how many steps, how many answered, how many required ones outstanding), whether it has sat past the firm's stale-consultation age, and the next scheduled event on it. A consultation leaves the desk when it opens or closes. Cursor-paginated; the page is capped at fifty because each row's standing is derived from the subsystems that own its facts.",
+        "operationId": "intake.listConsultations",
+        "tags": [
+          "intake"
+        ],
+        "x-mc-operationId": "intake.listConsultations",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intake:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intake"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 50
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the desk",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeDeskList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {

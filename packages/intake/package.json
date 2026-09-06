@@ -12,7 +12,8 @@
     "./record-statements": "./src/record-statements.ts",
     "./record-service": "./src/record-service.ts",
     "./checklist": "./src/checklist.ts",
-    "./open-precondition": "./src/open-precondition.ts",
+    "./desk": "./src/desk.ts",
+    "./graduation-precondition": "./src/graduation-precondition.ts",
     "./readers": "./src/readers/index.ts"
   },
   "scripts": {

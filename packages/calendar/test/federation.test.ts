@@ -333,7 +333,10 @@ describe("the audit log is a source only over its strict allowlist", () => {
     expect(Object.isFrozen(MATTER_LIFECYCLE_EVENT_KEYS)).toBe(true);
     expect([...MATTER_LIFECYCLE_EVENT_KEYS]).toEqual([
       "matter.created",
+      "matter.graduated",
       "matter.opened",
+      "matter.held",
+      "matter.released",
       "matter.closed",
       "matter.reopened",
     ]);

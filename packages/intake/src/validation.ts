@@ -30,7 +30,7 @@ export type IntakeValidationCode =
   // The matter side: the matter, whether it is still a consultation, whether the step is one its
   // procedure asks for, and whether the kind is one a member may answer by hand at all.
   | "matter-unknown"
-  | "matter-not-prospective"
+  | "matter-not-intake"
   | "step-not-bound"
   | "step-not-recordable"
   | "record-rationale-required"

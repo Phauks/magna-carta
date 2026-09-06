@@ -65,12 +65,14 @@
       ? null
       : usage.mattersByType.reduce(
           (sum, row) => ({
-            prospective: sum.prospective + row.prospective,
+            intake: sum.intake + row.intake,
+            consultation: sum.consultation + row.consultation,
             open: sum.open + row.open,
+            hold: sum.hold + row.hold,
             closed: sum.closed + row.closed,
             total: sum.total + row.total,
           }),
-          { prospective: 0, open: 0, closed: 0, total: 0 },
+          { intake: 0, consultation: 0, open: 0, hold: 0, closed: 0, total: 0 },
         ),
   );
 
@@ -111,17 +113,19 @@
     caption: "Matters by type and status",
     columns: [
       { label: "Matter Type", numeric: false },
-      { label: "Prospective", numeric: true },
+      { label: "Intake", numeric: true },
+      { label: "Consultation", numeric: true },
       { label: "Open", numeric: true },
+      { label: "On Hold", numeric: true },
       { label: "Closed", numeric: true },
       { label: "Total", numeric: true },
     ],
     rows: [
-      ["Litigation", "4", "18", "27", "49"],
-      ["Estate Planning", "2", "9", "31", "42"],
-      ["Real Estate", "1", "6", "12", "19"],
+      ["Litigation", "1", "3", "16", "2", "27", "49"],
+      ["Estate Planning", "0", "2", "9", "0", "31", "42"],
+      ["Real Estate", "0", "1", "6", "0", "12", "19"],
     ],
-    totals: ["Total", "7", "33", "70", "110"],
+    totals: ["Total", "1", "6", "31", "2", "70", "110"],
   };
   const FIXTURE_FILES: FixtureTable = {
     caption: "Files and their versions",
@@ -303,8 +307,10 @@
           <DataTable.Header>
             <DataTable.Row>
               <DataTable.Head>Matter Type</DataTable.Head>
-              <DataTable.Head data-align="end">Prospective</DataTable.Head>
+              <DataTable.Head data-align="end">Intake</DataTable.Head>
+              <DataTable.Head data-align="end">Consultation</DataTable.Head>
               <DataTable.Head data-align="end">Open</DataTable.Head>
+              <DataTable.Head data-align="end">On Hold</DataTable.Head>
               <DataTable.Head data-align="end">Closed</DataTable.Head>
               <DataTable.Head data-align="end">Total</DataTable.Head>
             </DataTable.Row>
@@ -319,8 +325,10 @@
                     {row.matterTypeName}
                   {/if}
                 </DataTable.Cell>
-                <DataTable.Cell data-align="end">{formatCount(row.prospective)}</DataTable.Cell>
+                <DataTable.Cell data-align="end">{formatCount(row.intake)}</DataTable.Cell>
+                <DataTable.Cell data-align="end">{formatCount(row.consultation)}</DataTable.Cell>
                 <DataTable.Cell data-align="end">{formatCount(row.open)}</DataTable.Cell>
+                <DataTable.Cell data-align="end">{formatCount(row.hold)}</DataTable.Cell>
                 <DataTable.Cell data-align="end">{formatCount(row.closed)}</DataTable.Cell>
                 <DataTable.Cell data-align="end">{formatCount(row.total)}</DataTable.Cell>
               </DataTable.Row>
@@ -329,10 +337,16 @@
               <DataTable.Row>
                 <DataTable.Cell class={TOTALS_CELL}>Total</DataTable.Cell>
                 <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                  {formatCount(mattersTotals.prospective)}
+                  {formatCount(mattersTotals.intake)}
+                </DataTable.Cell>
+                <DataTable.Cell data-align="end" class={TOTALS_CELL}>
+                  {formatCount(mattersTotals.consultation)}
                 </DataTable.Cell>
                 <DataTable.Cell data-align="end" class={TOTALS_CELL}>
                   {formatCount(mattersTotals.open)}
+                </DataTable.Cell>
+                <DataTable.Cell data-align="end" class={TOTALS_CELL}>
+                  {formatCount(mattersTotals.hold)}
                 </DataTable.Cell>
                 <DataTable.Cell data-align="end" class={TOTALS_CELL}>
                   {formatCount(mattersTotals.closed)}

@@ -32,7 +32,8 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
-  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import DirectoryEntityPicker from "./directory-entity-picker.svelte";
   import FieldRow from "@magna-carta/design-system/field-row";
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
@@ -404,7 +405,7 @@
         <FieldRow columns={2}>
           <LabelledField label={farEndName}>
             {#snippet children({ props })}
-              <EntityPicker
+              <DirectoryEntityPicker
                 {search}
                 kinds={pickerKinds}
                 excluded={[entityId]}

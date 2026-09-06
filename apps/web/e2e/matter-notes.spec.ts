@@ -45,7 +45,7 @@ async function createMatter(page: Page, title: string): Promise<string> {
 
   const created = await page.request.post("/api/v1/matters", {
     headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
-    data: { title, status: "prospective", responsibleMemberId: user.id },
+    data: { title, status: "consultation", responsibleMemberId: user.id },
   });
   expect(created.status(), await created.text()).toBe(201);
   return ((await created.json()) as { matterId: string }).matterId;

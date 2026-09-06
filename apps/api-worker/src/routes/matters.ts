@@ -4,8 +4,12 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import {
   closeMatter,
   createMatter,
+  HOLD_REASON_MAX_LENGTH,
+  holdMatter,
   MatterIdempotencyConflictError,
+  graduateMatter,
   openMatter,
+  releaseMatter,
   reopenMatter,
   renumberMatter,
   updateMatter,
@@ -22,7 +26,7 @@ import {
   runOpenPreconditions,
   type OpenPrecondition,
 } from "@magna-carta/matters/open-preconditions";
-import { matterIntakeOpenPrecondition } from "@magna-carta/intake/open-precondition";
+import { matterIntakeGraduationPrecondition } from "@magna-carta/intake/graduation-precondition";
 import { INTAKE_STEP_READERS } from "./intake.ts";
 import { matterCustodyCloseAdvisory } from "@magna-carta/custodian/close-advisory";
 import { matterTasksCloseAdvisory } from "@magna-carta/tasks/close-advisory";
@@ -56,7 +60,7 @@ import { Problem, problemJson, type ProblemResponse } from "../contracts/problem
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 
-// The matter shell HTTP surface: create (a Prospective consultation or a numbered Open matter),
+// The matter shell HTTP surface: create (an intake, a numbered consultation, or a numbered open matter),
 // list/get, the per-attorney Consultations view, patch, and the lifecycle actions (open/close/
 // reopen/renumber). The matters domain package owns lifecycle, number allocation, and idempotency
 // (design X — each mutation rides runIdempotentEffect); these handlers assemble the render context
@@ -66,7 +70,9 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 
 // ---- request/response contracts ----
 
-const matterStatus = z.enum(["prospective", "open", "closed"]);
+// The lifecycle as stored: intake -> consultation -> open <-> hold -> closed. A hold is an open
+// matter the firm has paused for a recorded reason; it keeps its number.
+const matterStatus = z.enum(["intake", "consultation", "open", "hold", "closed"]);
 
 // The shape of a directory handle, as the directory's own routes state it (routes/directory.ts):
 // a person or an organization, and nothing else can be a client.
@@ -75,7 +81,10 @@ const directoryEntityIdPattern = /^(directoryPerson|directoryOrganization)_[A-Za
 const CreateMatterRequest = z
   .object({
     title: z.string().min(1),
-    status: z.enum(["prospective", "open"]),
+    // Where the matter starts. An intake draws nothing and clears the firm's procedure on the way to
+    // a consultation; a consultation recorded outright draws its consultation number; an open matter
+    // draws its matter number. Closed is somewhere a matter arrives, never somewhere it starts.
+    status: z.enum(["intake", "consultation", "open"]),
     description: z.string().nullable().optional(),
     matterTypeId: identifierField("matterType").nullable().optional(),
     locationId: identifierField("location").nullable().optional(),
@@ -153,6 +162,10 @@ const MatterDetail = z
     consultationNumber: z.string().nullable(),
     eBilling: z.boolean(),
     openedAt: z.string().nullable(),
+    // Set while the matter is on hold: when the pause began, and why, in the firm's own words.
+    // Both null on every matter that is not held.
+    heldAt: z.string().nullable(),
+    holdReason: z.string().nullable(),
     closedAt: z.string().nullable(),
     createdAt: z.string(),
     // The three names beside their ids, resolved in the same read. A screen cannot print a
@@ -195,7 +208,7 @@ const OpenMatterResponse = z
   .object({ matterId: z.string(), matterNumber: z.string() })
   .openapi("OpenMatterResponse");
 // A minimal lifecycle-action acknowledgement: the matter id only. The new status is not echoed —
-// reopen restores open OR prospective, and patch/renumber leave status unchanged; the client refetches
+// reopen restores open OR consultation, and patch/renumber leave status unchanged; the client refetches
 // detail. matterId matches the service's stored value so a replay is byte-identical to the fresh ack.
 const StatusAck = z.object({ matterId: z.string() }).openapi("MatterActionAck");
 
@@ -239,9 +252,34 @@ const OpenReadiness = z
   })
   .openapi("MatterOpenReadiness");
 
+// Whether an intake would graduate to a consultation right now: the same shape as the open
+// readiness, one rung earlier, with each outstanding step of the firm's intake procedure as a
+// blocker in the words of whoever should answer it.
+const GraduateReadiness = z
+  .object({
+    matterId: z.string(),
+    status: matterStatus,
+    graduable: z.boolean(),
+    blockers: z.array(z.object({ code: z.string(), message: z.string() })),
+  })
+  .openapi("MatterGraduateReadiness");
+
+const GraduateMatterResponse = z
+  .object({ matterId: z.string(), consultationNumber: z.string() })
+  .openapi("GraduateMatterResponse");
+
 const RenumberRequest = z
   .object({ matterNumber: z.string().min(1) })
   .openapi("RenumberMatterRequest");
+
+// A hold carries its reason: a client who has stopped paying, a party who has gone quiet, an
+// instruction to wait. Short, because it is the sentence the docket and the status window print;
+// the account of it belongs on the matter's notes.
+const HoldMatterRequest = z
+  .object({
+    reason: z.string().trim().min(1).max(HOLD_REASON_MAX_LENGTH),
+  })
+  .openapi("HoldMatterRequest");
 
 const matterParam = z.object({ id: identifierPathParam("matter", "id") });
 
@@ -258,14 +296,19 @@ const CLOSE_PRECONDITIONS: readonly ClosePrecondition[] = [
   matterClientCreditClosePrecondition,
 ];
 
-// The OPENING rules, registered the same way on the other side of the lifecycle. One today: the
-// intake procedure, which refuses a consultation while a required step of the procedure binding its
-// kind is outstanding. A firm with no procedure has no opening rule, on purpose — the platform seeds
-// no procedure, and a gate a firm did not write is a rule it cannot answer for. The readers are the
-// same registry the checklist route answers with, so the gate and the screen never disagree.
-const OPEN_PRECONDITIONS: readonly OpenPrecondition[] = [
-  matterIntakeOpenPrecondition(INTAKE_STEP_READERS),
+// The GRADUATION rules — what an intake must clear to become a consultation — registered the same
+// way on the first rung of the lifecycle. One today: the intake procedure, which refuses an intake
+// while a required step of the procedure binding its kind is outstanding. A firm with no procedure
+// has no graduation rule, on purpose — the platform seeds no procedure, and a gate a firm did not
+// write is a rule it cannot answer for. The readers are the same registry the checklist route
+// answers with, so the gate and the screen never disagree.
+const GRADUATION_PRECONDITIONS: readonly OpenPrecondition[] = [
+  matterIntakeGraduationPrecondition(INTAKE_STEP_READERS),
 ];
+
+// The OPENING rules: none from this build. The intake procedure gates graduation, and a consultation
+// that has graduated (or was recorded outright) opens on the firm's decision to act.
+const OPEN_PRECONDITIONS: readonly OpenPrecondition[] = [];
 
 // The close NOTICES, registered the same way and kept deliberately separate from the rules above.
 // Custody is the first: closing a matter surfaces the physical originals the firm still holds against
@@ -303,7 +346,10 @@ function matterErrorResponse(
         status: 404,
         detail: "No such matter in this firm.",
       });
-    case "matter-not-prospective":
+    case "matter-not-consultation":
+    case "matter-not-intake":
+    case "matter-not-open":
+    case "matter-not-held":
     case "matter-not-closed":
     case "matter-already-closed":
     case "matter-number-taken":
@@ -314,7 +360,8 @@ function matterErrorResponse(
         detail: error.message,
       });
     default:
-      // empty-matter-title, scheme-missing, matter-number-not-url-safe — a bad request/config.
+      // empty-matter-title, empty-hold-reason, scheme-missing, matter-number-not-url-safe — a bad
+      // request/config.
       return problemJson(c, {
         type: "validation",
         title: "Matter request invalid",
@@ -470,6 +517,18 @@ const getMatterOpenReadinessMeta: RouteMeta = {
   rateLimit: "default",
 };
 
+// The same permission the graduation itself names, on the open readiness's reasoning.
+const getMatterGraduateReadinessMeta: RouteMeta = {
+  operationId: "matters.graduateReadiness",
+  surface: "app",
+  authenticated: true,
+  permission: "matters:create",
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
 const patchMatterMeta: RouteMeta = {
   operationId: "matters.update",
   surface: "app",
@@ -497,8 +556,15 @@ function actionMeta(action: string, permission: RouteMeta["permission"]): RouteM
 }
 
 const openMatterMeta = actionMeta("open", "matters:open");
+// Completing an intake draws the consultation number, which is the same authority as recording a
+// consultation outright: whoever may start one may finish one.
+const graduateMatterMeta = actionMeta("graduate", "matters:create");
 const closeMatterMeta = actionMeta("close", "matters:close");
 const reopenMatterMeta = actionMeta("reopen", "matters:reopen");
+// The hold and its release are one authority in two directions: whoever may pause the firm's work
+// on a matter may resume it.
+const holdMatterMeta = actionMeta("hold", "matters:hold");
+const releaseMatterMeta = actionMeta("release", "matters:hold");
 const renumberMatterMeta = actionMeta("renumber", "matters:renumber");
 
 // Shared response fragments.
@@ -542,9 +608,11 @@ const createMatterRoute = defineOpenAPIRoute(createMatterMeta, {
   method: "post",
   path: "/api/v1/matters",
   description:
-    "Creates a matter. status 'prospective' opens an unnumbered consultation (it appears only in the " +
-    "responsible attorney's Consultations view); status 'open' draws the firm's next matter number " +
-    "atomically and opens it.",
+    "Creates a matter. status 'intake' records an intake with no number of any kind, on the Intake " +
+    "desk, which becomes a consultation once the firm's intake procedure lets it through; status " +
+    "'consultation' records a consultation outright, drawing its consultation number (it appears in " +
+    "the responsible attorney's Consultations view); status 'open' draws the firm's next matter " +
+    "number atomically and opens it.",
   request: {
     headers: idempotencyKeyHeader,
     body: { content: { "application/json": { schema: CreateMatterRequest } }, required: true },
@@ -568,8 +636,8 @@ const listMattersRoute = defineOpenAPIRoute(listMattersMeta, {
   method: "get",
   path: "/api/v1/matters",
   description:
-    "Lists the firm's matters (the working caseload — Prospective consultations are excluded unless " +
-    "status=prospective is named), cursor-paginated, filterable by status/type/location/responsible " +
+    "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless " +
+    "status=consultation is named), cursor-paginated, filterable by status/type/location/responsible " +
     "member and a free-text search over title, number, and client.",
   request: {
     query: z.object({
@@ -597,7 +665,7 @@ const listConsultationsRoute = defineOpenAPIRoute(listConsultationsMeta, {
   method: "get",
   path: "/api/v1/matters/consultations",
   description:
-    "The Consultations view: the session attorney's unnumbered Prospective matters, each flagged " +
+    "The Consultations view: the session attorney's unnumbered Consultation matters, each flagged " +
     "stale once it has sat past the firm's stale-consultation age. Cursor-paginated.",
   request: {
     query: z.object({
@@ -635,14 +703,35 @@ const getMatterOpenReadinessRoute = defineOpenAPIRoute(getMatterOpenReadinessMet
   description:
     "Answers whether this consultation would open right now, without opening it. Runs the same " +
     "opening rules the open runs and reports each one that stands in the way in the words of the " +
-    "subsystem that owns it: today, each required step of the firm's intake procedure that has no " +
-    "satisfying answer. A matter that is not prospective is reported as not openable, with that as " +
-    "its blocker. A reading of the present, never a guarantee: the open re-runs every rule.",
+    "subsystem that owns it. A matter that is not a consultation — an intake that has not yet " +
+    "cleared the firm's procedure, or an open or closed matter — is reported as not openable, with " +
+    "that as its blocker. A reading of the present, never a guarantee: the open re-runs every rule.",
   request: { params: matterParam },
   responses: {
     200: {
       description: "Whether the consultation can open, and what stands in the way",
       content: { "application/json": { schema: OpenReadiness } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const getMatterGraduateReadinessRoute = defineOpenAPIRoute(getMatterGraduateReadinessMeta, {
+  method: "get",
+  path: "/api/v1/matters/{id}/graduate-readiness",
+  description:
+    "Answers whether this intake would become a consultation right now, without changing it. Runs " +
+    "the same rules the graduation runs — each required step of the firm's intake procedure that " +
+    "has no satisfying answer — and reports each in the words of the subsystem that owns it. A " +
+    "matter that is not in intake is reported as not graduable, with that as its blocker.",
+  request: { params: matterParam },
+  responses: {
+    200: {
+      description: "Whether the intake can become a consultation, and what stands in the way",
+      content: { "application/json": { schema: GraduateReadiness } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -700,13 +789,41 @@ const patchMatterRoute = defineOpenAPIRoute(patchMatterMeta, {
   },
 });
 
+const graduateMatterRoute = defineOpenAPIRoute(graduateMatterMeta, {
+  method: "post",
+  path: "/api/v1/matters/{id}/graduate",
+  description:
+    "Completes an intake: runs the firm's intake procedure as a gate, and if every required step is " +
+    "answered draws the consultation number atomically and transitions the matter from intake to " +
+    "consultation. An intake with a required step outstanding is refused with each step named and " +
+    "what answers it. Refuses a matter that is not in intake.",
+  request: { headers: idempotencyKeyHeader, params: matterParam },
+  responses: {
+    200: {
+      description: "The intake is now a consultation, and carries its consultation number",
+      content: { "application/json": { schema: GraduateMatterResponse } },
+    },
+    400: idempotencyErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: {
+      description:
+        "A graduation rule refused the intake, or a request with this Idempotency-Key is still in progress",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: idempotencyErrors[422],
+    429: authErrors[429],
+  },
+});
+
 const openMatterRoute = defineOpenAPIRoute(openMatterMeta, {
   method: "post",
   path: "/api/v1/matters/{id}/open",
   description:
-    "Opens a Prospective matter: draws the firm's next matter number atomically and transitions it to " +
-    "open. Runs the opening rules first: a consultation with a required intake step outstanding is " +
-    "refused with each step named and what answers it. Refuses a matter that is not Prospective.",
+    "Opens a consultation: draws the firm's next matter number atomically and transitions it to " +
+    "open. Runs the opening rules first. Refuses a matter that is not a consultation — an intake " +
+    "becomes one by completing its procedure first.",
   request: { headers: idempotencyKeyHeader, params: matterParam },
   responses: {
     200: {
@@ -758,12 +875,70 @@ const closeMatterRoute = defineOpenAPIRoute(closeMatterMeta, {
   },
 });
 
+const holdMatterRoute = defineOpenAPIRoute(holdMatterMeta, {
+  method: "post",
+  path: "/api/v1/matters/{id}/hold",
+  description:
+    "Puts an open matter on hold: the firm has stopped working it without closing it, for the " +
+    "reason given (a client who has stopped paying, a party who has gone quiet, an instruction " +
+    "to wait). The matter keeps its number; nothing is drawn or surrendered. It leaves the " +
+    "active lists and stays on the docket wearing its status. Refuses a matter that is not open.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: matterParam,
+    body: { content: { "application/json": { schema: HoldMatterRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The matter is on hold",
+      content: { "application/json": { schema: StatusAck } },
+    },
+    400: idempotencyErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: {
+      description:
+        "The matter is not open, or a request with this Idempotency-Key is still in progress",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: idempotencyErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const releaseMatterRoute = defineOpenAPIRoute(releaseMatterMeta, {
+  method: "post",
+  path: "/api/v1/matters/{id}/release",
+  description:
+    "Releases a hold: the matter returns to open, and the reason and the instant of the hold are " +
+    "cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.",
+  request: { headers: idempotencyKeyHeader, params: matterParam },
+  responses: {
+    200: {
+      description: "The hold was released and the matter is open",
+      content: { "application/json": { schema: StatusAck } },
+    },
+    400: idempotencyErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: {
+      description:
+        "The matter is not on hold, or a request with this Idempotency-Key is still in progress",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: idempotencyErrors[422],
+    429: authErrors[429],
+  },
+});
+
 const reopenMatterRoute = defineOpenAPIRoute(reopenMatterMeta, {
   method: "post",
   path: "/api/v1/matters/{id}/reopen",
   description:
-    "Reopens a closed matter, restoring its pre-close status (open if it was numbered, else " +
-    "Prospective). The frozen number, if any, is untouched.",
+    "Reopens a closed matter, restoring the status it left: the hold it was in, open if it was " +
+    "numbered, else Consultation or Intake. The frozen number, if any, is untouched.",
   request: { headers: idempotencyKeyHeader, params: matterParam },
   responses: {
     200: {
@@ -936,7 +1111,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         id: MatterId;
         title: string;
         description: string | null;
-        status: "prospective" | "open" | "closed";
+        status: "intake" | "consultation" | "open" | "hold" | "closed";
         matter_type_id: string | null;
         location_id: string | null;
         responsible_member_id: string;
@@ -946,6 +1121,8 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         consultation_number: string | null;
         e_billing: number;
         opened_at: string | null;
+        held_at: string | null;
+        hold_reason: string | null;
         closed_at: string | null;
         created_at: string;
         matter_type_name: string | null;
@@ -977,6 +1154,8 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           consultationNumber: row.consultation_number,
           eBilling: row.e_billing !== 0,
           openedAt: row.opened_at,
+          heldAt: row.held_at,
+          holdReason: row.hold_reason,
           closedAt: row.closed_at,
           createdAt: row.created_at,
           matterTypeName: row.matter_type_name,
@@ -998,7 +1177,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
       const firm = requireChokepointFirmContext(c);
       const { id } = c.req.valid("param");
       const { results } = await selectMatterDetailStatement(firm.firmDatabase, id).all<{
-        status: "prospective" | "open" | "closed";
+        status: "intake" | "consultation" | "open" | "hold" | "closed";
       }>();
       const row = results[0];
       if (row === undefined) {
@@ -1010,11 +1189,14 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         });
       }
       const blockers =
-        row.status !== "prospective"
+        row.status !== "consultation"
           ? [
               {
-                code: "matter-not-prospective",
-                message: `matter ${id} is ${row.status}, not a consultation; only a consultation opens`,
+                code: "matter-not-consultation",
+                message:
+                  row.status === "intake"
+                    ? `matter ${id} is still in intake; it becomes a consultation once its intake is complete, and opens from there`
+                    : `matter ${id} is ${row.status}, not a consultation; only a consultation opens`,
               },
             ]
           : await runOpenPreconditions(
@@ -1033,6 +1215,51 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     },
   );
 
+  // GET /api/v1/matters/{id}/graduate-readiness — would this intake become a consultation, if asked?
+  app.openapi(
+    {
+      ...getMatterGraduateReadinessRoute,
+      middleware: chokepointMiddleware(chokepoint, getMatterGraduateReadinessRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const { results } = await selectMatterDetailStatement(firm.firmDatabase, id).all<{
+        status: "intake" | "consultation" | "open" | "hold" | "closed";
+      }>();
+      const row = results[0];
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such matter in this firm.",
+        });
+      }
+      const blockers =
+        row.status !== "intake"
+          ? [
+              {
+                code: "matter-not-intake",
+                message: `matter ${id} is ${row.status}, not an intake; only an intake becomes a consultation`,
+              },
+            ]
+          : await runOpenPreconditions(
+              { matterId: id, database: firm.firmDatabase },
+              GRADUATION_PRECONDITIONS,
+            );
+      return c.json(
+        {
+          matterId: id,
+          status: row.status,
+          graduable: blockers.length === 0,
+          blockers: blockers.map((blocker) => ({ code: blocker.code, message: blocker.message })),
+        } as z.infer<typeof GraduateReadiness>,
+        200,
+      );
+    },
+  );
+
   // GET /api/v1/matters/{id}/close-readiness — would this close, if asked?
   app.openapi(
     {
@@ -1043,7 +1270,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
       const firm = requireChokepointFirmContext(c);
       const { id } = c.req.valid("param");
       const { results } = await selectMatterDetailStatement(firm.firmDatabase, id).all<{
-        status: "prospective" | "open" | "closed";
+        status: "intake" | "consultation" | "open" | "hold" | "closed";
       }>();
       const row = results[0];
       if (row === undefined) {
@@ -1102,6 +1329,59 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ matterId: id } as z.infer<typeof StatusAck>, 200);
       } catch (caught) {
+        return mapMutationError(c, caught);
+      }
+    },
+  );
+
+  // POST /api/v1/matters/{id}/graduate — the intake is complete; it becomes a consultation
+  app.openapi(
+    {
+      ...graduateMatterRoute,
+      middleware: chokepointMiddleware(chokepoint, graduateMatterRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      try {
+        const matter = await loadMatterFields(firm.firmDatabase, id);
+        const numberContext =
+          matter === undefined ? undefined : await assembleNumberContext(firm.firmDatabase, matter);
+        const result = await graduateMatter(
+          firm.firmDatabase,
+          id,
+          { numberContext },
+          {
+            clock: serviceClock(),
+            actorUserId: userId,
+            idempotency,
+            graduatePreconditions: GRADUATION_PRECONDITIONS,
+          },
+        );
+        if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
+        return c.json(
+          {
+            matterId: result.matterId,
+            consultationNumber: result.consultationNumber,
+          } as z.infer<typeof GraduateMatterResponse>,
+          200,
+        );
+      } catch (caught) {
+        if (caught instanceof OpenPreconditionError) {
+          return problemJson(c, {
+            type: "matter-graduate-refused",
+            title: "The intake is not complete",
+            status: 409,
+            detail: "One or more intake steps are outstanding.",
+            errors: caught.failures.map((failure) => ({
+              path: "$",
+              code: failure.code,
+              detail: failure.message,
+            })),
+          });
+        }
         return mapMutationError(c, caught);
       }
     },
@@ -1198,6 +1478,58 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
             })),
           });
         }
+        return mapMutationError(c, caught);
+      }
+    },
+  );
+
+  // POST /api/v1/matters/{id}/hold — the firm stops working the matter without closing it
+  app.openapi(
+    {
+      ...holdMatterRoute,
+      middleware: chokepointMiddleware(chokepoint, holdMatterRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const { reason } = c.req.valid("json");
+      try {
+        const result = await holdMatter(
+          firm.firmDatabase,
+          id,
+          { reason },
+          { clock: serviceClock(), actorUserId: userId, idempotency },
+        );
+        if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
+        return c.json({ matterId: id } as z.infer<typeof StatusAck>, 200);
+      } catch (caught) {
+        return mapMutationError(c, caught);
+      }
+    },
+  );
+
+  // POST /api/v1/matters/{id}/release — the hold ends and the matter is open again
+  app.openapi(
+    {
+      ...releaseMatterRoute,
+      middleware: chokepointMiddleware(chokepoint, releaseMatterRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      try {
+        const result = await releaseMatter(firm.firmDatabase, id, {
+          clock: serviceClock(),
+          actorUserId: userId,
+          idempotency,
+        });
+        if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
+        return c.json({ matterId: id } as z.infer<typeof StatusAck>, 200);
+      } catch (caught) {
         return mapMutationError(c, caught);
       }
     },

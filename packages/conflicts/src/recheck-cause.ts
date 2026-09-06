@@ -97,7 +97,7 @@ async function liveMattersWithParties(
          JOIN matter ON matter.id = matter_party.matter_id
         WHERE matter_party.entity_id IN (${placeholders})
           AND matter_party.deleted_at IS NULL
-          AND matter.status IN ('prospective', 'open')
+          AND matter.status IN ('intake', 'consultation', 'open', 'hold')
           AND matter.system_key IS NULL
         ORDER BY matter_party.matter_id ASC`,
     )
@@ -129,7 +129,7 @@ async function liveMattersNearEdge(
         WHERE (directory_edge.from_entity_id IN (?1, ?2) OR directory_edge.to_entity_id IN (?1, ?2))
           AND directory_edge.deleted_at IS NULL
           AND matter_party.deleted_at IS NULL
-          AND matter.status IN ('prospective', 'open')
+          AND matter.status IN ('intake', 'consultation', 'open', 'hold')
           AND matter.system_key IS NULL
         ORDER BY matter_party.matter_id ASC`,
     )
@@ -147,7 +147,7 @@ async function allLiveMatters(database: SqlDatabase): Promise<string[]> {
   const { results } = await database
     .prepare(
       `SELECT id FROM matter
-        WHERE status IN ('prospective', 'open') AND system_key IS NULL
+        WHERE status IN ('intake', 'consultation', 'open', 'hold') AND system_key IS NULL
         ORDER BY id ASC`,
     )
     .all<{ id: string }>();

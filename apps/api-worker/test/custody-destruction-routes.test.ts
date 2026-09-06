@@ -60,11 +60,11 @@ beforeAll(async () => {
   await mirrorMemberWithOwnerRole(owner.userId, "Destruction Owner", firmId);
   ownerUserId = owner.userId;
   ownerCookie = await signInForSessionCookie("custody-destruction-owner@example.com");
-  // Prospective rather than open: no test here reads a matter NUMBER, and drawing one would make
+  // Consultation rather than open: no test here reads a matter NUMBER, and drawing one would make
   // this suite depend on a numbering scheme it does not otherwise need.
   const matter = await post("/api/v1/matters", {
     title: "Destruction register matter",
-    status: "prospective",
+    status: "consultation",
     responsibleMemberId: ownerUserId,
   });
   expect(matter.status).toBe(201);

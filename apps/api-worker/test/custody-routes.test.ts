@@ -152,11 +152,11 @@ async function createPerson(given: string, family: string): Promise<string> {
 }
 
 async function createMatter(title: string, cookie: string, memberId: string): Promise<string> {
-  // Prospective rather than open: the register has no interest in a matter's NUMBER, and drawing one
-  // would make this whole suite depend on a numbering scheme it does not otherwise need.
+  // Consultation rather than open: the register has no interest in a matter's NUMBER, and drawing
+  // one would make this whole suite depend on a numbering scheme it does not otherwise need.
   const response = await post(
     "/api/v1/matters",
-    { title, status: "prospective", responsibleMemberId: memberId },
+    { title, status: "consultation", responsibleMemberId: memberId },
     cookie,
   );
   expect(response.status).toBe(201);

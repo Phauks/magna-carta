@@ -21,7 +21,9 @@ import { matterAuditStatement } from "./audit.ts";
 import {
   MATTER_CLOSED_TOPIC,
   MATTER_CREATED_TOPIC,
+  MATTER_HELD_TOPIC,
   MATTER_OPENED_TOPIC,
+  MATTER_RELEASED_TOPIC,
   MATTER_RENUMBERED_TOPIC,
   MATTER_REOPENED_TOPIC,
   MATTER_UPDATED_TOPIC,
@@ -45,12 +47,15 @@ import {
 } from "./close-advisories.ts";
 import {
   closeMatterStatement,
+  graduateMatterStatement,
+  holdMatterStatement,
   insertMatterStatement,
   isConsultationNumberConflict,
   isMatterNumberConflict,
   type MatterFields,
   type MatterRow,
   openMatterStatement,
+  releaseMatterStatement,
   reopenMatterStatement,
   renumberMatterStatement,
   selectActiveSchemeStatement,
@@ -137,6 +142,10 @@ export interface MatterServiceOptions {
   // package never imports the conflicts engine or the intake procedure to find out whether a matter
   // may open.
   readonly openPreconditions?: readonly OpenPrecondition[];
+  // The graduation rules: what an INTAKE must clear before it becomes a consultation — today the
+  // firm's intake procedure, supplied by the composition root on the same terms. The same shape as
+  // the open hook, because it is the same kind of door one rung earlier.
+  readonly graduatePreconditions?: readonly OpenPrecondition[];
   // The informational notices other subsystems want a person to see when they close a matter,
   // supplied by the composition root. Absent = the matter shell's own registry, which is empty. An
   // advisory never blocks a close and has no path by which it could: `collectCloseAdvisories` returns
@@ -191,6 +200,8 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     matter_number: string | null;
     consultation_number: string | null;
     opened_at: string | null;
+    held_at: string | null;
+    hold_reason: string | null;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -207,6 +218,8 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     matterNumber: row.matter_number,
     consultationNumber: row.consultation_number,
     openedAt: row.opened_at,
+    heldAt: row.held_at,
+    holdReason: row.hold_reason,
   };
 }
 
@@ -417,12 +430,15 @@ interface MatterFieldsInput {
 export interface CreateMatterInput extends MatterFieldsInput {
   readonly title: string;
   readonly responsibleMemberId: UserId;
-  readonly status: "prospective" | "open";
+  // Where the matter starts. An INTAKE draws nothing: it is the walk toward a consultation, and the
+  // consultation number is drawn when the firm's intake procedure lets it through. A CONSULTATION
+  // recorded outright draws its tentative number now; an OPEN matter draws the matter number now.
+  readonly status: "intake" | "consultation" | "open";
   readonly numberContext?: NumberContext;
   /**
    * The directory entity the firm acts for on this matter. Given, the client's party link is
    * written in the same batch as the matter, so no matter is ever readable without its client — a
-   * prospective matter's conflict check needs a person, and billing and trust derive the client
+   * intake's conflict check needs a person, and billing and trust derive the client
    * from that link rather than from the display name. Absent only for the callers that predate the
    * directory link (fixtures, imports, the backfill that supplies the link afterwards).
    */
@@ -475,7 +491,35 @@ export async function createMatter(
   const matterId = newIdentifier("matter", options.randomSource);
   const fields = fieldsFromInput(input);
 
-  if (input.status === "prospective") {
+  if (input.status === "intake") {
+    // An intake in flight. No counter is touched: the consultation number is drawn at graduation,
+    // so an intake that goes nowhere — a caller who never rings back — consumes nothing from either
+    // run. The row exists from the first call so the client is in the conflicts corpus and every
+    // intake step has a matter to be answered on.
+    return runMatterEffect<CreatedMatter>(database, options, 201, () => {
+      const now = options.clock.now();
+      return {
+        statements: [
+          insertMatterStatement(database, {
+            id: matterId,
+            ...fields,
+            status: "intake",
+            matterNumber: null,
+            consultationNumber: null,
+            numberedAt: null,
+            openedAt: null,
+            createdAt: now,
+          }),
+          auditStatement(database, options, "matter.created", matterId),
+          ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
+        ],
+        outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
+        value: { matterId, matterNumber: null, consultationNumber: null },
+      };
+    });
+  }
+
+  if (input.status === "consultation") {
     // A consultation: it draws its own tentative number, from the consultation sequence, and touches
     // the MATTER counter not at all. The two runs are deliberately separate — a consultation that
     // never becomes a matter must consume no matter number, because a gap in that run reads as a
@@ -491,7 +535,7 @@ export async function createMatter(
           insertMatterStatement(database, {
             id: matterId,
             ...fields,
-            status: "prospective",
+            status: "consultation",
             matterNumber: null,
             consultationNumber,
             numberedAt: null,
@@ -542,6 +586,68 @@ export async function createMatter(
   );
 }
 
+export interface GraduateMatterInput {
+  readonly numberContext?: NumberContext;
+}
+
+// Intake -> consultation: the firm's intake procedure has let the matter through, and it draws its
+// consultation number. The same shape as the open, one rung earlier: the rules run before the draw
+// and are skipped on an idempotent retry; the draw rides the bounded-retry allocator; the row is
+// re-read after the commit to prove this call is the one that graduated it.
+export async function graduateMatter(
+  database: BatchDatabase,
+  matterId: MatterId,
+  input: GraduateMatterInput,
+  options: MatterServiceOptions,
+): Promise<{ matterId: MatterId; consultationNumber: string } & ReplayFlag> {
+  const matter = await loadMatter(database, matterId);
+  if (matter === undefined) {
+    throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
+  }
+  if (
+    matter.status !== "intake" &&
+    !(await isIdempotentRetry(database, options.idempotency?.key))
+  ) {
+    throw new MatterValidationError(
+      "matter-not-intake",
+      `matter ${matterId} is ${matter.status}, not an intake`,
+    );
+  }
+  const context = { matterId, database };
+  const preconditions = options.graduatePreconditions;
+  if (matter.status === "intake" && preconditions !== undefined && preconditions.length > 0) {
+    const failures = await runOpenPreconditions(context, preconditions);
+    if (failures.length > 0) throw new OpenPreconditionError(failures);
+  }
+  const guards =
+    preconditions === undefined ? [] : openPreconditionGuardStatements(context, preconditions);
+  const drawn = await runMatterDraw<{ matterId: MatterId; consultationNumber: string }>(
+    database,
+    options,
+    matterId,
+    "consultation",
+    input.numberContext ?? {},
+    (consultationNumber, now) => ({
+      statements: [
+        ...guards,
+        graduateMatterStatement(database, matterId, consultationNumber, now),
+        auditStatement(database, options, "matter.graduated", matterId),
+      ],
+      outboxMessages: [],
+      value: { matterId, consultationNumber },
+    }),
+    200,
+  );
+  const committed = await loadMatter(database, matterId);
+  if (committed?.consultationNumber !== drawn.consultationNumber) {
+    throw new MatterValidationError(
+      "matter-not-intake",
+      `matter ${matterId} was graduated or closed concurrently; it is ${committed?.status ?? "gone"}`,
+    );
+  }
+  return drawn;
+}
+
 export interface OpenMatterInput {
   readonly numberContext?: NumberContext;
 }
@@ -557,15 +663,17 @@ export async function openMatter(
     throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
   }
   // Skipped on an idempotent retry: the mutation this key names is the one that moved the matter off
-  // prospective, so refusing here would 409 the caller on its own completed work instead of replaying
+  // consultation, so refusing here would 409 the caller on its own completed work instead of replaying
   // the number it already drew. Only a genuinely new request — which carries its own key — is refused.
+  // An INTAKE is refused too: it has not yet cleared the firm's procedure, and graduating is the door
+  // it goes through first.
   if (
-    matter.status !== "prospective" &&
+    matter.status !== "consultation" &&
     !(await isIdempotentRetry(database, options.idempotency?.key))
   ) {
     throw new MatterValidationError(
-      "matter-not-prospective",
-      `matter ${matterId} is ${matter.status}, not prospective`,
+      "matter-not-consultation",
+      `matter ${matterId} is ${matter.status}, not a consultation`,
     );
   }
   // The opening rules, run before the draw and skipped on the same idempotent retry the lifecycle
@@ -576,7 +684,7 @@ export async function openMatter(
   const openContext = { matterId, database };
   const openPreconditions = options.openPreconditions;
   if (
-    matter.status === "prospective" &&
+    matter.status === "consultation" &&
     openPreconditions !== undefined &&
     openPreconditions.length > 0
   ) {
@@ -616,7 +724,7 @@ export async function openMatter(
   const committed = await loadMatter(database, matterId);
   if (committed?.matterNumber !== drawn.matterNumber) {
     throw new MatterValidationError(
-      "matter-not-prospective",
+      "matter-not-consultation",
       `matter ${matterId} was opened or closed concurrently; it is ${committed?.status ?? "gone"}`,
     );
   }
@@ -688,6 +796,112 @@ export async function closeMatter(
   }
 }
 
+// The hold: an open matter the firm has stopped working without closing it. Nothing is drawn and
+// nothing is surrendered — the matter number stands — so unlike open and close there is no counter
+// to protect and no precondition registry to run: the one thing a hold must carry is its reason,
+// and the one thing it must not do is overwrite a close that landed between the read and the
+// commit, which the statement's own `status = 'open'` guard refuses in the batch.
+export const HOLD_REASON_MAX_LENGTH = 500;
+
+export interface HoldMatterInput {
+  readonly reason: string;
+}
+
+export async function holdMatter(
+  database: BatchDatabase,
+  matterId: MatterId,
+  input: HoldMatterInput,
+  options: MatterServiceOptions,
+): Promise<{ matterId: MatterId } & ReplayFlag> {
+  const reason = input.reason.trim();
+  if (reason.length === 0) {
+    throw new MatterValidationError(
+      "empty-hold-reason",
+      "a hold carries the reason for it, in the firm's own words",
+    );
+  }
+  if (reason.length > HOLD_REASON_MAX_LENGTH) {
+    throw new MatterValidationError(
+      "empty-hold-reason",
+      `a hold reason is at most ${String(HOLD_REASON_MAX_LENGTH)} characters; put the account of it on the matter's notes`,
+    );
+  }
+  const matter = await loadMatter(database, matterId);
+  if (matter === undefined) {
+    throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
+  }
+  // Same replay rule as every other lifecycle step: a retry under an already-seen key is the request
+  // that put the matter on hold, so the stored response is replayed rather than refused.
+  if (matter.status !== "open" && !(await isIdempotentRetry(database, options.idempotency?.key))) {
+    throw new MatterValidationError(
+      "matter-not-open",
+      `matter ${matterId} is ${matter.status}, not open; only an active matter goes on hold`,
+    );
+  }
+  const result = await runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
+    const now = options.clock.now();
+    return {
+      statements: [
+        holdMatterStatement(database, matterId, reason, now),
+        auditStatement(database, options, "matter.held", matterId),
+      ],
+      outboxMessages: [{ topic: MATTER_HELD_TOPIC, payload: { matterId } }],
+      value: { matterId },
+    };
+  });
+  // The guard matched zero rows if a close (or another hold) landed in between; the batch committed
+  // an audit row over nothing. Confirm what the row actually says, the way the open confirms its
+  // number, so the caller never hears "held" about a matter that is closed.
+  if (!result.idempotentReplay) {
+    const committed = await loadMatter(database, matterId);
+    if (committed?.status !== "hold") {
+      throw new MatterValidationError(
+        "matter-not-open",
+        `matter ${matterId} changed concurrently; it is ${committed?.status ?? "gone"}, not on hold`,
+      );
+    }
+  }
+  return result;
+}
+
+export async function releaseMatter(
+  database: BatchDatabase,
+  matterId: MatterId,
+  options: MatterServiceOptions,
+): Promise<{ matterId: MatterId } & ReplayFlag> {
+  const matter = await loadMatter(database, matterId);
+  if (matter === undefined) {
+    throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
+  }
+  if (matter.status !== "hold" && !(await isIdempotentRetry(database, options.idempotency?.key))) {
+    throw new MatterValidationError(
+      "matter-not-held",
+      `matter ${matterId} is ${matter.status}, not on hold`,
+    );
+  }
+  const result = await runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
+    const now = options.clock.now();
+    return {
+      statements: [
+        releaseMatterStatement(database, matterId, now),
+        auditStatement(database, options, "matter.released", matterId),
+      ],
+      outboxMessages: [{ topic: MATTER_RELEASED_TOPIC, payload: { matterId } }],
+      value: { matterId },
+    };
+  });
+  if (!result.idempotentReplay) {
+    const committed = await loadMatter(database, matterId);
+    if (committed?.status !== "open") {
+      throw new MatterValidationError(
+        "matter-not-held",
+        `matter ${matterId} changed concurrently; it is ${committed?.status ?? "gone"}, not released`,
+      );
+    }
+  }
+  return result;
+}
+
 export async function reopenMatter(
   database: BatchDatabase,
   matterId: MatterId,
@@ -709,10 +923,20 @@ export async function reopenMatter(
       `matter ${matterId} is ${matter.status}, not closed`,
     );
   }
-  // Restore the pre-close status from the honest signal — opened_at, set only when a matter was
-  // actually opened. A consultation handed a manual number via renumberMatter has a number but was
-  // never opened, so it reopens to prospective; the number, if any, is frozen and untouched.
-  const status = matter.openedAt !== null ? "open" : "prospective";
+  // Restore the pre-close status from the honest signals — held_at, left standing by a close so a
+  // matter closed while on hold returns to that hold with its reason; opened_at, set only when a
+  // matter was actually opened; and the consultation number, drawn only when an intake graduated
+  // (or a consultation was recorded outright). A consultation handed a manual number via
+  // renumberMatter has a matter number but was never opened, so it reopens to consultation; an
+  // intake closed before it graduated reopens to intake. Every number is frozen and untouched.
+  const status =
+    matter.heldAt !== null
+      ? "hold"
+      : matter.openedAt !== null
+        ? "open"
+        : matter.consultationNumber !== null
+          ? "consultation"
+          : "intake";
   return runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
     const now = options.clock.now();
     return {
@@ -765,6 +989,16 @@ export async function renumberMatter(
     throw new MatterValidationError(
       "matter-number-not-url-safe",
       `matter number is not URL-safe: ${matterNumber}`,
+    );
+  }
+  // No matter number exists before a matter is active (the owner's ruling): a number set by hand
+  // is a court's number, a legacy number or a correction on a matter the firm has taken on, never a
+  // way to number an intake or a consultation ahead of its opening. A matter that has been active
+  // is one that opened (opened_at) or already wears a number; closed counts, since it opened first.
+  if (matter.openedAt === null && matter.matterNumber === null) {
+    throw new MatterValidationError(
+      "matter-not-open",
+      `matter ${matterId} is ${matter.status} and has never been active; a matter number is drawn when it opens`,
     );
   }
   try {

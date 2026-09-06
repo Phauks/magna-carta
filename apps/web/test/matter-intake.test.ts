@@ -109,10 +109,10 @@ describe("what stands between a draft and a matter", () => {
   });
 
   it("needs a client whatever the starting status, and sends nobody to a tab for it", () => {
-    // A prospective matter's conflict check needs a person, so there is no matter without a client.
+    // An intake's conflict check needs a person, so there is no matter without a client.
     const titled = draft({
       title: "Pemberton v. Hale Construction Co.",
-      startingStatus: "prospective",
+      startingStatus: "consultation",
       team: teamAfterAssign(EMPTY_MATTER_TEAM, "user_osei", "responsible"),
     });
     expect(intakeBlockedOn(titled)).toBe("A matter needs a client.");

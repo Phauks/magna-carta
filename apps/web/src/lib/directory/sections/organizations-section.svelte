@@ -8,7 +8,8 @@
    */
   import Button from "@magna-carta/design-system/button";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
-  import EntityPicker, { type EntitySearch, type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import type { EntitySearch, PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import DirectoryEntityPicker from "../directory-entity-picker.svelte";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
@@ -99,7 +100,7 @@
   <div class="grid items-end gap-8" style="grid-template-columns: minmax(0, 1.4fr) 10rem minmax(0, 1fr) auto">
     <div class="flex flex-col gap-8">
       <Label for={organizationInputId}>Organization</Label>
-      <EntityPicker
+      <DirectoryEntityPicker
         {search}
         kinds={["organization"]}
         {excluded}
