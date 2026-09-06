@@ -104,3 +104,6 @@
 /* The file manager left rail, dressed over the tree recipe it extends, so its rules win where
    the two meet. */
 @import "../components/folder-tree/folder-tree.css";
+/* LoadingRegion is imported LAST on purpose: its bone rules must win over every recipe above at
+   equal specificity, because a loading region can hold any of them. Keep it at the end. */
+@import "../components/loading-region/loading-region.css";

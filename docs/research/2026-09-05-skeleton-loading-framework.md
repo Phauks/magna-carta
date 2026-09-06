@@ -1,7 +1,9 @@
 # One loading framework — research
 
 **Date:** 2026-09-05
-**Status:** Research complete. **Not a spec and not a decision.** Nothing here is built. It answers
+**Status:** Research complete; the owner chose section 3.3 on 2026-09-05 and the design is
+[`../specs/2026-09-05-loading-region-design.md`](../specs/2026-09-05-loading-region-design.md),
+built in the same stream. This document stays as the record of the survey. It answers
 the evaluation the owner flagged on 2026-06-13 in
 [`packages/design-system/CLAUDE.md`](../../packages/design-system/CLAUDE.md) ("if skeleton drift
 becomes real pain across many components, spike it properly: adopt, or borrow the measuring-wrapper

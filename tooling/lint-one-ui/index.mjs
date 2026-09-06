@@ -68,6 +68,7 @@ import {
   findFooterSetProblems,
   findHandComposedModals,
   findHandComposedDetailsPanels,
+  findHandPlacedLoading,
   findHandDrawnGlyphs,
   findHandRolledSelects,
   findHandWrittenCapsRegister,
@@ -426,6 +427,25 @@ mustHaveRead(
   sweep([APP_SOURCE], findHandWrittenRefusals, { svelteOnly: false }),
   "permission refusal",
   [APP_SOURCE],
+);
+
+// Rule: one loading state. Both sides of the line: the app never draws a placeholder by hand, and
+// inside the design system only the homes the registry declares as owning a loading state may.
+const loadingHomes = (registry.loadingHomes ?? []).map((home) => home.home);
+if (loadingHomes.length === 0) {
+  problems.push({
+    rule: "hand-placed-loading",
+    file: "tooling/lint-one-ui/registry.json",
+    detail:
+      "declares no loading homes. The rule below exempts the homes named there, so an empty list " +
+      "means the region itself reads as a hand-placed loading state — a broken check rather than " +
+      "a clean repository",
+  });
+}
+mustHaveRead(
+  sweep(BOTH_SIDES, (path, source) => findHandPlacedLoading(path, source, loadingHomes)),
+  "hand-placed loading",
+  BOTH_SIDES,
 );
 
 // Rule: one details panel. The app only — the shell lives there, and the design system has no

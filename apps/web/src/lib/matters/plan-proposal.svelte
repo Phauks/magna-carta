@@ -22,7 +22,7 @@
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
@@ -132,6 +132,14 @@
     }
     writeFailure = stated(outcome.failure, "The plan was not added to this matter.");
   }
+
+  // The shape drawn while the proposal is read: three lines in the review's own row, ticked, with
+  // the anchor sentence beneath each. Sample words only.
+  const PROPOSAL_FIXTURE = [
+    { title: "Send the engagement letter", due: "Due 2026-09-28, 14 days after the matter opens" },
+    { title: "Calendar the response date", due: "No date proposed" },
+    { title: "Open the trust ledger", due: "Due 2026-10-05, 21 days after the matter opens" },
+  ] as const;
 </script>
 
 <section class="flex flex-col gap-16 rounded-md border border-border-strong p-16">
@@ -152,124 +160,143 @@
       title="Plan Unavailable"
       fallback={readFailure.fallback}
     />
-  {:else if proposal === null}
-    <div class="flex flex-col gap-8">
-      {#each [0, 1, 2] as row (row)}
-        <Skeleton class="h-48 w-full" />
-      {/each}
-    </div>
   {:else}
-    {#if writeFailure !== null}
-      <FailureNotice
-        failure={writeFailure.failure}
-        title="Nothing Was Added"
-        fallback={writeFailure.fallback}
-      />
-    {/if}
-
-    {#if proposal.anchorUnavailable}
-      <Alert.Root variant="warning">
-        <Alert.Title>This Matter Has No Opened Date</Alert.Title>
-        <Alert.Description>
-          Steps that count from the day the matter opens have no date to count from, so none is
-          proposed for them. Give each one a date here, or record the matter's opened date first.
-        </Alert.Description>
-      </Alert.Root>
-    {/if}
-
-    <ul class="flex flex-col gap-8">
-      {#each proposal.tasks as task (task.taskTemplateId)}
-        {@const isKept = kept[task.taskTemplateId] === true}
-        {@const date = dates[task.taskTemplateId] ?? ""}
-        <li class="flex flex-col gap-8 rounded-md border border-border-subtle p-12">
-          <div class="flex items-start gap-8">
-            <Checkbox
-              checked={isKept}
-              disabled={saving}
-              aria-label={`Include "${task.title}"`}
-              onCheckedChange={(value) => (kept[task.taskTemplateId] = value === true)}
-            />
-            <div class="flex min-w-0 flex-col gap-2">
-              <span class={isKept ? "" : "text-text-muted line-through"}>{task.title}</span>
-              {#if task.body !== null}
-                <p class="text-xs text-text-muted whitespace-pre-wrap">{task.body}</p>
-              {/if}
-              <div class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
-                <span>{describeAnchor(task)}</span>
-                {#if task.priority !== "normal"}
-                  <Badge variant={task.priority === "urgent" ? "danger" : "neutral"}>
-                    {PRIORITY_LABELS[task.priority]}
-                  </Badge>
-                {/if}
-                {#if task.blockedByTemplateTaskId !== null}
-                  <Badge variant="neutral">Waits on an earlier step</Badge>
-                {/if}
+    <LoadingRegion
+      loading={proposal === null}
+      label="Reading what this plan would add"
+      class="flex flex-col gap-16"
+    >
+      {#snippet fixture()}
+        <ul class="flex flex-col gap-8">
+          {#each PROPOSAL_FIXTURE as step (step.title)}
+            <li class="flex flex-col gap-8 rounded-md border border-border-subtle p-12">
+              <div class="flex items-start gap-8">
+                <Checkbox checked={true} />
+                <div class="flex min-w-0 flex-col gap-2">
+                  <span>{step.title}</span>
+                  <div class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
+                    <span>{step.due}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </li>
+          {/each}
+        </ul>
+      {/snippet}
+      {#if proposal !== null}
+        {#if writeFailure !== null}
+          <FailureNotice
+            failure={writeFailure.failure}
+            title="Nothing Was Added"
+            fallback={writeFailure.fallback}
+          />
+        {/if}
 
-          {#if isKept}
-            <div class="flex flex-wrap items-end gap-16 pl-24">
-              <div class="flex flex-col gap-4">
-                <Label for={`plan-date-${task.taskTemplateId}`}>Due</Label>
-                <Input
-                  id={`plan-date-${task.taskTemplateId}`}
-                  type="date"
-                  bind:value={dates[task.taskTemplateId]}
+        {#if proposal.anchorUnavailable}
+          <Alert.Root variant="warning">
+            <Alert.Title>This Matter Has No Opened Date</Alert.Title>
+            <Alert.Description>
+              Steps that count from the day the matter opens have no date to count from, so none is
+              proposed for them. Give each one a date here, or record the matter's opened date first.
+            </Alert.Description>
+          </Alert.Root>
+        {/if}
+
+        <ul class="flex flex-col gap-8">
+          {#each proposal.tasks as task (task.taskTemplateId)}
+            {@const isKept = kept[task.taskTemplateId] === true}
+            {@const date = dates[task.taskTemplateId] ?? ""}
+            <li class="flex flex-col gap-8 rounded-md border border-border-subtle p-12">
+              <div class="flex items-start gap-8">
+                <Checkbox
+                  checked={isKept}
                   disabled={saving}
+                  aria-label={`Include "${task.title}"`}
+                  onCheckedChange={(value) => (kept[task.taskTemplateId] = value === true)}
                 />
+                <div class="flex min-w-0 flex-col gap-2">
+                  <span class={isKept ? "" : "text-text-muted line-through"}>{task.title}</span>
+                  {#if task.body !== null}
+                    <p class="text-xs text-text-muted whitespace-pre-wrap">{task.body}</p>
+                  {/if}
+                  <div class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
+                    <span>{describeAnchor(task)}</span>
+                    {#if task.priority !== "normal"}
+                      <Badge variant={task.priority === "urgent" ? "danger" : "neutral"}>
+                        {PRIORITY_LABELS[task.priority]}
+                      </Badge>
+                    {/if}
+                    {#if task.blockedByTemplateTaskId !== null}
+                      <Badge variant="neutral">Waits on an earlier step</Badge>
+                    {/if}
+                  </div>
+                </div>
               </div>
-              <div class="flex flex-col gap-4">
-                <Label for={`plan-assignee-${task.taskTemplateId}`}>Assigned to</Label>
-                <Select.Root
-                  type="single"
-                  bind:value={assignees[task.taskTemplateId]}
-                  disabled={saving}
-                >
-                  <Select.Trigger id={`plan-assignee-${task.taskTemplateId}`} class="w-192">
-                    {assignees[task.taskTemplateId] === ""
-                      ? "Nobody yet"
-                      : nameOf(assignees[task.taskTemplateId] ?? "")}
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="" label="Nobody yet" />
-                    {#each activeMembers as member (member.userId)}
-                      <Select.Item value={member.userId} label={member.displayName} />
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
-              </div>
-              <!-- The template names a role and the platform resolved it. Where it matched nobody the
-                   role is still shown, so the gap is explained rather than blank. -->
-              {#if task.defaultAssigneeRole !== null && task.assigneeUserId === null}
-                <p class="text-xs text-text-muted">
-                  The plan gives this to <strong>{task.defaultAssigneeRole}</strong>, and nobody holds
-                  that role on this matter.
-                </p>
-              {/if}
-              {#if fallsOnAWeekend(date)}
-                <p class="text-xs text-text-muted">
-                  That date is a weekend. Plan dates are counted in plain days, so nothing moved it.
-                </p>
-              {/if}
-            </div>
-          {/if}
-        </li>
-      {/each}
-    </ul>
 
-    <div class="flex items-center justify-between gap-16">
-      <span class="text-xs text-text-muted">
-        {keptCount === 0
-          ? "Nothing is ticked, so nothing will be added."
-          : `${String(keptCount)} of ${String(proposal.tasks.length)} will be added to this matter.`}
-      </span>
-      <div class="flex gap-8">
-        <Button variant="secondary" disabled={saving} onclick={onDismiss}>Cancel</Button>
-        <Button disabled={saving || keptCount === 0} onclick={accept}>
-          Add {keptCount === 1 ? "1 Task" : `${String(keptCount)} Tasks`}
-        </Button>
-      </div>
-    </div>
+              {#if isKept}
+                <div class="flex flex-wrap items-end gap-16 pl-24">
+                  <div class="flex flex-col gap-4">
+                    <Label for={`plan-date-${task.taskTemplateId}`}>Due</Label>
+                    <Input
+                      id={`plan-date-${task.taskTemplateId}`}
+                      type="date"
+                      bind:value={dates[task.taskTemplateId]}
+                      disabled={saving}
+                    />
+                  </div>
+                  <div class="flex flex-col gap-4">
+                    <Label for={`plan-assignee-${task.taskTemplateId}`}>Assigned to</Label>
+                    <Select.Root
+                      type="single"
+                      bind:value={assignees[task.taskTemplateId]}
+                      disabled={saving}
+                    >
+                      <Select.Trigger id={`plan-assignee-${task.taskTemplateId}`} class="w-192">
+                        {assignees[task.taskTemplateId] === ""
+                          ? "Nobody yet"
+                          : nameOf(assignees[task.taskTemplateId] ?? "")}
+                      </Select.Trigger>
+                      <Select.Content>
+                        <Select.Item value="" label="Nobody yet" />
+                        {#each activeMembers as member (member.userId)}
+                          <Select.Item value={member.userId} label={member.displayName} />
+                        {/each}
+                      </Select.Content>
+                    </Select.Root>
+                  </div>
+                  <!-- The template names a role and the platform resolved it. Where it matched nobody the
+                       role is still shown, so the gap is explained rather than blank. -->
+                  {#if task.defaultAssigneeRole !== null && task.assigneeUserId === null}
+                    <p class="text-xs text-text-muted">
+                      The plan gives this to <strong>{task.defaultAssigneeRole}</strong>, and nobody holds
+                      that role on this matter.
+                    </p>
+                  {/if}
+                  {#if fallsOnAWeekend(date)}
+                    <p class="text-xs text-text-muted">
+                      That date is a weekend. Plan dates are counted in plain days, so nothing moved it.
+                    </p>
+                  {/if}
+                </div>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+
+        <div class="flex items-center justify-between gap-16">
+          <span class="text-xs text-text-muted">
+            {keptCount === 0
+              ? "Nothing is ticked, so nothing will be added."
+              : `${String(keptCount)} of ${String(proposal.tasks.length)} will be added to this matter.`}
+          </span>
+          <div class="flex gap-8">
+            <Button variant="secondary" disabled={saving} onclick={onDismiss}>Cancel</Button>
+            <Button disabled={saving || keptCount === 0} onclick={accept}>
+              Add {keptCount === 1 ? "1 Task" : `${String(keptCount)} Tasks`}
+            </Button>
+          </div>
+        </div>
+      {/if}
+    </LoadingRegion>
   {/if}
 </section>

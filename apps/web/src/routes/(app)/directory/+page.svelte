@@ -44,7 +44,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Separator from "@magna-carta/design-system/separator";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Building2 from "@lucide/svelte/icons/building-2";
   import ListFilter from "@lucide/svelte/icons/list-filter";
   import CreateControl from "@magna-carta/design-system/create-control";
@@ -221,6 +221,40 @@
   let searchFailure = $state<StatedFailure | null>(null);
   let searchToken = $state(0);
 
+  /**
+   * The shape the answer takes while the directory is being searched: the same rows the real
+   * answer renders, over sample names of both kinds. Not anybody the firm holds.
+   */
+  const HIT_FIXTURE: readonly DirectorySearchHit[] = [
+    {
+      entityId: "fixture-1",
+      entityKind: "person",
+      displayName: "Eleanor Whitcombe",
+      matchedName: "Eleanor Whitcombe",
+      matchedNameRole: "current",
+      matchedNameIsCurrent: true,
+      relevance: 0,
+    },
+    {
+      entityId: "fixture-2",
+      entityKind: "organization",
+      displayName: "Whitcombe Holdings",
+      matchedName: "Whitcombe Holdings",
+      matchedNameRole: "current",
+      matchedNameIsCurrent: true,
+      relevance: 0,
+    },
+    {
+      entityId: "fixture-3",
+      entityKind: "person",
+      displayName: "Marcus Whitcombe-Adeyemi",
+      matchedName: "Marcus Whitcombe-Adeyemi",
+      matchedNameRole: "current",
+      matchedNameIsCurrent: true,
+      relevance: 0,
+    },
+  ];
+
   $effect(() => {
     const query = asked.trim();
     void searchToken;
@@ -264,6 +298,35 @@
 <svelte:head>
   <title>Directory · Magna Carta</title>
 </svelte:head>
+
+<!-- One table for the answer and for the shape it takes while it is asked, so the two cannot drift. -->
+{#snippet hitTable(rows: readonly DirectorySearchHit[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">
+      Directory records matching the search, in the firm's own relevance order
+    </DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Name</DataTable.Head>
+        <DataTable.Head>Kind</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as hit (hit.entityId)}
+        <DataTable.Row ondblclick={() => void goto(entityRecordHref(hit.entityId))}>
+          <DataTable.Cell>
+            <EntityIdentity
+              kind={hit.entityKind === "organization" ? "organization" : "person"}
+              name={hit.displayName}
+              href={entityRecordHref(hit.entityId)}
+            />
+          </DataTable.Cell>
+          <DataTable.Cell>{searchHitKindLabel(hit.entityKind)}</DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}
 
 {#snippet directoryCell({ row, column, text }: DataTable.GridCellContext<DirectoryEntityListing>)}
   {#if column.id === "name"}
@@ -387,60 +450,40 @@
         whenSilent={searchFailure.whenSilent}
         onRetry={() => searchToken += 1}
       />
-    {:else if hits === null}
-      <div
-        class="flex min-h-0 flex-1 flex-col gap-8"
-        aria-busy="true"
-        aria-label="Searching the directory"
-      >
-        <Skeleton class="h-32 w-full" />
-        <Skeleton class="h-32 w-full" />
-        <Skeleton class="h-32 w-full" />
-        <Skeleton class="h-32 w-full" />
-      </div>
-    {:else if hits.length === 0}
-      <div class="min-h-0 flex-1">
-        <EmptyState title="Nothing Matches That Search">
-          No name on the firm's record answers to that, current or former. Recording them, with New
-          at the top of the screen, is what puts them in front of the next conflicts check.
-        </EmptyState>
-      </div>
     {:else}
-      <div class="min-h-0 flex-1 overflow-auto">
-        <DataTable.Root>
-          <DataTable.Caption class="sr-only">
-            Directory records matching the search, in the firm's own relevance order
-          </DataTable.Caption>
-          <DataTable.Header>
-            <DataTable.Row>
-              <DataTable.Head>Name</DataTable.Head>
-              <DataTable.Head>Kind</DataTable.Head>
-            </DataTable.Row>
-          </DataTable.Header>
-          <DataTable.Body>
-            {#each hits as hit (hit.entityId)}
-              <DataTable.Row ondblclick={() => void goto(entityRecordHref(hit.entityId))}>
-                <DataTable.Cell>
-                  <EntityIdentity
-                    kind={hit.entityKind === "organization" ? "organization" : "person"}
-                    name={hit.displayName}
-                    href={entityRecordHref(hit.entityId)}
-                  />
-                </DataTable.Cell>
-                <DataTable.Cell>{searchHitKindLabel(hit.entityKind)}</DataTable.Cell>
-              </DataTable.Row>
-            {/each}
-          </DataTable.Body>
-        </DataTable.Root>
-      </div>
-      <p class="text-xs text-text-muted">
-        {#if capped}
-          The firm holds more matches than are shown. These are the closest; narrowing the search
-          reaches the rest.
+      <LoadingRegion
+        loading={hits === null}
+        label="Searching the directory"
+        class="flex min-h-0 flex-1 flex-col gap-8"
+      >
+        {#snippet fixture()}
+          <div class="min-h-0 flex-1 overflow-auto">
+            {@render hitTable(HIT_FIXTURE)}
+          </div>
+          <p class="text-xs text-text-muted">Every match the firm holds, in its own relevance order.</p>
+        {/snippet}
+        {@const shown = hits ?? []}
+        {#if shown.length === 0}
+          <div class="min-h-0 flex-1">
+            <EmptyState title="Nothing Matches That Search">
+              No name on the firm's record answers to that, current or former. Recording them, with
+              New at the top of the screen, is what puts them in front of the next conflicts check.
+            </EmptyState>
+          </div>
         {:else}
-          Every match the firm holds, in its own relevance order.
+          <div class="min-h-0 flex-1 overflow-auto">
+            {@render hitTable(shown)}
+          </div>
+          <p class="text-xs text-text-muted">
+            {#if capped}
+              The firm holds more matches than are shown. These are the closest; narrowing the
+              search reaches the rest.
+            {:else}
+              Every match the firm holds, in its own relevance order.
+            {/if}
+          </p>
         {/if}
-      </p>
+      </LoadingRegion>
     {/if}
   {:else if listFailure !== null}
     <Alert.Root variant="danger">

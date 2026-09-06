@@ -15,7 +15,7 @@
    * permission is recorded, never deleted: a number that came back "do not call" is a fact about
    * the record, and the next person must not ring it again.
    */
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import {
@@ -70,6 +70,59 @@
   });
 
   const rows = $derived(points === null ? [] : contactRowsFrom(points));
+
+  /**
+   * The shape the section takes while the record's contact details are being read: three lines of
+   * the kinds it lists, in the same section, over sample words. The domain and the number are the
+   * reserved ones, so they are nobody's.
+   */
+  const CONTACT_FIXTURE: readonly ContactRow[] = [
+    {
+      id: "fixture-1",
+      kind: "email",
+      value: "eleanor.whitcombe@example.com",
+      use: "Work",
+      state: {
+        permitted: true,
+        preferred: true,
+        note: null,
+        verificationStatus: "unverified",
+        verifiedAt: null,
+        verificationDetail: null,
+      },
+      isPrimary: true,
+    },
+    {
+      id: "fixture-2",
+      kind: "telephone",
+      value: "(702) 555-0142",
+      use: "Mobile",
+      state: {
+        permitted: true,
+        preferred: false,
+        note: null,
+        verificationStatus: "unverified",
+        verifiedAt: null,
+        verificationDetail: null,
+      },
+      isPrimary: false,
+    },
+    {
+      id: "fixture-3",
+      kind: "address",
+      value: "1400 Meridian Way, Suite 300, Reno, NV 89501",
+      use: "Office",
+      state: {
+        permitted: true,
+        preferred: false,
+        note: null,
+        verificationStatus: "unverified",
+        verifiedAt: null,
+        verificationDetail: null,
+      },
+      isPrimary: false,
+    },
+  ];
 
   type Channel = "emails" | "phones" | "addresses";
 
@@ -165,21 +218,30 @@
       fallback={readFailure.fallback}
       whenSilent={readFailure.whenSilent}
     />
-  {:else if points === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading this record's contact details">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
   {:else}
-    <ContactSection
-      {rows}
-      canEdit={mayEdit}
-      {editDisabledReason}
-      {busyId}
-      onAdd={(draft) => void add(draft)}
-      onPreferred={(row) => void change(row, { preferred: true }, "The preference is as it was.")}
-      onPermitted={(row, permitted) => void change(row, { permitted }, "The permission is as it was.")}
-      onRemove={(row) => void remove(row)}
-    />
+    <LoadingRegion
+      loading={points === null}
+      label="Reading this record's contact details"
+      class="flex flex-col gap-8"
+    >
+      {#snippet fixture()}
+        {@render contactSection(CONTACT_FIXTURE)}
+      {/snippet}
+      {@render contactSection(rows)}
+    </LoadingRegion>
   {/if}
 </section>
+
+<!-- One section for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet contactSection(listed: readonly ContactRow[])}
+  <ContactSection
+    rows={listed}
+    canEdit={mayEdit}
+    {editDisabledReason}
+    {busyId}
+    onAdd={(draft) => void add(draft)}
+    onPreferred={(row) => void change(row, { preferred: true }, "The preference is as it was.")}
+    onPermitted={(row, permitted) => void change(row, { permitted }, "The permission is as it was.")}
+    onRemove={(row) => void remove(row)}
+  />
+{/snippet}

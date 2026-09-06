@@ -17,7 +17,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import * as Select from "@magna-carta/design-system/select";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Textarea from "@magna-carta/design-system/textarea";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -189,6 +189,13 @@
       active ? "The resource was not restored." : "The resource was not retired.",
     );
   }
+
+  // The shape drawn while the catalog is read: three rows in the table's own columns, sample words.
+  const RESOURCE_FIXTURE = [
+    { name: "Conference Room A", kind: "Room", office: "Downtown", seats: "12" },
+    { name: "Pool Car 2", kind: "Vehicle", office: "Downtown", seats: "" },
+    { name: "Video rig", kind: "Equipment", office: "Henderson", seats: "" },
+  ] as const;
 </script>
 
 <svelte:head>
@@ -223,70 +230,94 @@
           <Button variant="primary" size="sm" onclick={openAdd}>Add a Resource</Button>
         </div>
       {/if}
-      {#if resources === null && readFailure === null}
-        <div class="flex flex-col gap-8 py-12" aria-busy="true" aria-label="Reading the resources">
-          <Skeleton class="h-16 w-full" />
-          <Skeleton class="h-16 w-3/4" />
-        </div>
-      {:else if resources !== null && resources.length === 0}
-        <EmptyState title="No rooms or resources yet">
-          A resource is something bookable the firm owns. Add the first one and it can be booked
-          from any event's window and read on the room grid.
-        </EmptyState>
-      {:else if resources !== null}
-        <DataTable.Root>
-          <DataTable.Caption class="sr-only">The firm's rooms and resources</DataTable.Caption>
-          <DataTable.Header>
-            <DataTable.Row>
-              <DataTable.Head>Name</DataTable.Head>
-              <DataTable.Head>Kind</DataTable.Head>
-              <DataTable.Head>Office</DataTable.Head>
-              <DataTable.Head class="text-end">Seats</DataTable.Head>
-              <DataTable.Head>Standing</DataTable.Head>
-              {#if canEdit}
-                <DataTable.Head class="sr-only">Actions</DataTable.Head>
-              {/if}
-            </DataTable.Row>
-          </DataTable.Header>
-          <DataTable.Body>
-            {#each resources as resource (resource.id)}
-              <DataTable.Row>
-                <DataTable.Cell>
-                  <a class="underline underline-offset-2" href="/calendar/rooms?resource={resource.id}">
-                    {resource.name}
-                  </a>
-                </DataTable.Cell>
-                <DataTable.Cell>{resourceKindLabel(resource.kind)}</DataTable.Cell>
-                <DataTable.Cell>{locationName(resource.locationId)}</DataTable.Cell>
-                <DataTable.Cell class="text-end tabular-nums">
-                  {resource.capacity === null ? "" : resource.capacity}
-                </DataTable.Cell>
-                <DataTable.Cell>
-                  {#if resource.active}
-                    <Badge variant="success">Bookable</Badge>
-                  {:else}
-                    <Badge variant="neutral">Retired</Badge>
+      {#if resources !== null || readFailure === null}
+        <LoadingRegion loading={resources === null} label="Reading the resources" class="flex flex-col">
+          {#snippet fixture()}
+            <DataTable.Root>
+              <DataTable.Header>
+                <DataTable.Row>
+                  <DataTable.Head>Name</DataTable.Head>
+                  <DataTable.Head>Kind</DataTable.Head>
+                  <DataTable.Head>Office</DataTable.Head>
+                  <DataTable.Head class="text-end">Seats</DataTable.Head>
+                  <DataTable.Head>Standing</DataTable.Head>
+                </DataTable.Row>
+              </DataTable.Header>
+              <DataTable.Body>
+                {#each RESOURCE_FIXTURE as row (row.name)}
+                  <DataTable.Row>
+                    <DataTable.Cell>{row.name}</DataTable.Cell>
+                    <DataTable.Cell>{row.kind}</DataTable.Cell>
+                    <DataTable.Cell>{row.office}</DataTable.Cell>
+                    <DataTable.Cell class="text-end tabular-nums">{row.seats}</DataTable.Cell>
+                    <DataTable.Cell><Badge variant="success">Bookable</Badge></DataTable.Cell>
+                  </DataTable.Row>
+                {/each}
+              </DataTable.Body>
+            </DataTable.Root>
+          {/snippet}
+          {@const shown = resources ?? []}
+          {#if shown.length === 0}
+            <EmptyState title="No rooms or resources yet">
+              A resource is something bookable the firm owns. Add the first one and it can be booked
+              from any event's window and read on the room grid.
+            </EmptyState>
+          {:else}
+            <DataTable.Root>
+              <DataTable.Caption class="sr-only">The firm's rooms and resources</DataTable.Caption>
+              <DataTable.Header>
+                <DataTable.Row>
+                  <DataTable.Head>Name</DataTable.Head>
+                  <DataTable.Head>Kind</DataTable.Head>
+                  <DataTable.Head>Office</DataTable.Head>
+                  <DataTable.Head class="text-end">Seats</DataTable.Head>
+                  <DataTable.Head>Standing</DataTable.Head>
+                  {#if canEdit}
+                    <DataTable.Head class="sr-only">Actions</DataTable.Head>
                   {/if}
-                </DataTable.Cell>
-                {#if canEdit}
-                  <DataTable.Cell class="text-end">
-                    <Button variant="ghost" size="sm" onclick={() => openEdit(resource)}>Change</Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onclick={() => void setActive(resource, !resource.active)}
-                    >
-                      {resource.active ? "Retire" : "Restore"}
-                    </Button>
-                  </DataTable.Cell>
-                {/if}
-              </DataTable.Row>
-            {/each}
-          </DataTable.Body>
-        </DataTable.Root>
-        {#if capped}
-          <p class="py-8 text-xs text-text-muted">Showing the first page of the firm's resources.</p>
-        {/if}
+                </DataTable.Row>
+              </DataTable.Header>
+              <DataTable.Body>
+                {#each shown as resource (resource.id)}
+                  <DataTable.Row>
+                    <DataTable.Cell>
+                      <a class="underline underline-offset-2" href="/calendar/rooms?resource={resource.id}">
+                        {resource.name}
+                      </a>
+                    </DataTable.Cell>
+                    <DataTable.Cell>{resourceKindLabel(resource.kind)}</DataTable.Cell>
+                    <DataTable.Cell>{locationName(resource.locationId)}</DataTable.Cell>
+                    <DataTable.Cell class="text-end tabular-nums">
+                      {resource.capacity === null ? "" : resource.capacity}
+                    </DataTable.Cell>
+                    <DataTable.Cell>
+                      {#if resource.active}
+                        <Badge variant="success">Bookable</Badge>
+                      {:else}
+                        <Badge variant="neutral">Retired</Badge>
+                      {/if}
+                    </DataTable.Cell>
+                    {#if canEdit}
+                      <DataTable.Cell class="text-end">
+                        <Button variant="ghost" size="sm" onclick={() => openEdit(resource)}>Change</Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onclick={() => void setActive(resource, !resource.active)}
+                        >
+                          {resource.active ? "Retire" : "Restore"}
+                        </Button>
+                      </DataTable.Cell>
+                    {/if}
+                  </DataTable.Row>
+                {/each}
+              </DataTable.Body>
+            </DataTable.Root>
+            {#if capped}
+              <p class="py-8 text-xs text-text-muted">Showing the first page of the firm's resources.</p>
+            {/if}
+          {/if}
+        </LoadingRegion>
       {/if}
     </SettingsPlate>
   </div>

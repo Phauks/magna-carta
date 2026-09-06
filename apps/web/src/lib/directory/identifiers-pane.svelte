@@ -9,7 +9,8 @@
    * decrypting anything, and revealing one is a separate, audited read.
    */
   import Button from "@magna-carta/design-system/button";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { maskedIdentifier } from "@magna-carta/directory/identifier-shape";
   import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
@@ -77,6 +78,29 @@
   });
 
   const rows = $derived(identifierRowsFrom(held ?? []));
+
+  /**
+   * The shape the section takes while what the record holds is being read: two sealed lines in
+   * the same section, masked the way a real one is. Nothing here was ever a value.
+   */
+  const IDENTIFIER_FIXTURE: readonly IdentifierRow[] = [
+    {
+      id: "fixture-1",
+      type: "ssn",
+      typeLabel: "Social security number",
+      label: null,
+      masked: maskedIdentifier("ssn", null),
+      recordedAt: null,
+    },
+    {
+      id: "fixture-2",
+      type: "drivers_license",
+      typeLabel: "Driver's license",
+      label: "Nevada",
+      masked: maskedIdentifier("drivers_license", null),
+      recordedAt: null,
+    },
+  ];
 
   // ---- the reveal, per type -------------------------------------------------------------------
   //
@@ -192,39 +216,49 @@
       fallback={readFailure.fallback}
       whenSilent={readFailure.whenSilent}
     />
-  {:else if held === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading what this record holds">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
   {:else}
-    <IdentifiersSection
-      {rows}
-      {kind}
-      canEdit={mayEdit}
-      {editDisabledReason}
-      onAdd={(draft) => void seal(draft)}
-      {shownValue}
+    <LoadingRegion
+      loading={held === null}
+      label="Reading what this record holds"
+      class="flex flex-col gap-8"
     >
-      {#snippet rowEnd(row)}
-        {@const revealed = stateOf(row.type)}
-        <Button
-          variant="ghost"
-          size="icon"
-          disabled={!mayReveal}
-          title={revealDisabledReason}
-          aria-label={revealed.phase === "shown"
-            ? `Hide the ${row.typeLabel.toLowerCase()}`
-            : `Reveal the ${row.typeLabel.toLowerCase()}`}
-          onclick={() => void reveal(row.type)}
-        >
-          {#if revealed.phase === "shown"}
-            <EyeOff class="size-16" aria-hidden="true" />
-          {:else}
-            <Eye class="size-16" aria-hidden="true" />
-          {/if}
-        </Button>
+      {#snippet fixture()}
+        {@render identifiersSection(IDENTIFIER_FIXTURE)}
       {/snippet}
-    </IdentifiersSection>
+      {@render identifiersSection(rows)}
+    </LoadingRegion>
   {/if}
 </section>
+
+<!-- One section for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet identifiersSection(listed: readonly IdentifierRow[])}
+  <IdentifiersSection
+    rows={listed}
+    {kind}
+    canEdit={mayEdit}
+    {editDisabledReason}
+    onAdd={(draft) => void seal(draft)}
+    {shownValue}
+    rowEnd={revealControl}
+  />
+{/snippet}
+
+{#snippet revealControl(row: IdentifierRow)}
+  {@const revealed = stateOf(row.type)}
+  <Button
+    variant="ghost"
+    size="icon"
+    disabled={!mayReveal}
+    title={revealDisabledReason}
+    aria-label={revealed.phase === "shown"
+      ? `Hide the ${row.typeLabel.toLowerCase()}`
+      : `Reveal the ${row.typeLabel.toLowerCase()}`}
+    onclick={() => void reveal(row.type)}
+  >
+    {#if revealed.phase === "shown"}
+      <EyeOff class="size-16" aria-hidden="true" />
+    {:else}
+      <Eye class="size-16" aria-hidden="true" />
+    {/if}
+  </Button>
+{/snippet}

@@ -49,7 +49,7 @@
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
   import * as Select from "@magna-carta/design-system/select";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Textarea from "@magna-carta/design-system/textarea";
   import type { ApiOutcome, Failure } from "$lib/api/request.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -1088,6 +1088,17 @@
     if (record.kind === "firmEvent" && record.event.audience === "all_members") return undefined;
     return record.participants.length;
   });
+
+  // ---- the shapes drawn while a read is in flight -----------------------------------------------
+  //
+  // Representative rows in the same components the pane and the tabs draw once a read lands, greyed
+  // by the loading region. Sample words only, never a record's own.
+  const FIXTURE_DATE = parseDate("2026-09-21");
+  const BOOKING_FIXTURE = [
+    { resource: "Conference Room A · Room", when: "2026-09-21 10:00 to 11:30" },
+    { resource: "Pool Car 2 · Vehicle", when: "2026-09-21 09:00 to 12:00" },
+  ] as const;
+  const RELATED_FIXTURE = ["Pretrial conference", "Hearing on the motion to compel"] as const;
 </script>
 
 {#snippet subtitle()}
@@ -1144,349 +1155,401 @@
       <p class="text-sm text-text-muted">
         This deadline is not in the window on screen. Move to its month to open it.
       </p>
-    {:else if record === null}
-      <div class="flex flex-col gap-12" aria-busy="true" aria-label="Reading the record">
-        <Skeleton class="h-32 w-full" />
-        <Skeleton class="h-32 w-2/3" />
-        <Skeleton class="h-32 w-full" />
-      </div>
-    {:else if record.kind === "event" && eventDraft !== null}
-      {@const draft = eventDraft}
-      <div class="flex flex-col gap-4">
-        <Label for="entry-title">Title</Label>
-        <Input id="entry-title" disabled={readOnly} bind:value={draft.title} />
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label id="entry-type-label">Type</Label>
-          <Select.Root
-            type="single"
-            items={typeItems}
-            value={draft.eventTypeId ?? ""}
-            onValueChange={(value) => (draft.eventTypeId = value === "" ? null : value)}
-            disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-type-label">
-              <Select.Value placeholder={placeholderOf("Type")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each typeItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label id="entry-zone-label">Time Zone</Label>
-          <Select.Root
-            type="single"
-            items={zoneItems}
-            value={draft.timeZone}
-            onValueChange={(value) => (draft.timeZone = value)}
-            allowDeselect={false}
-            disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-zone-label">
-              <Select.Value placeholder={placeholderOf("Time Zone")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each zoneItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="Date"
-            value={civilValue(draft.startsOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.startsOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-time">Time</Label>
-          <Input
-            id="entry-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("Time")}
-            title="HH:MM in the time zone above, or empty for all day"
-            disabled={readOnly}
-            bind:value={draft.startsAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="End Date"
-            value={civilValue(draft.endsOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.endsOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-end-time">End Time</Label>
-          <Input
-            id="entry-end-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("End Time")}
-            title="HH:MM in the time zone above, or empty"
-            disabled={readOnly}
-            bind:value={draft.endsAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="entry-where">Where</Label>
-          <Input id="entry-where" disabled={readOnly} bind:value={draft.locationText} />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-court-reference">Court Reference</Label>
-          <Input id="entry-court-reference" disabled={readOnly} bind:value={draft.courtReference} />
-        </div>
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label for="entry-description">Description</Label>
-        <Textarea
-          id="entry-description"
-          class="resize-none"
-          rows={3}
-          disabled={readOnly}
-          bind:value={draft.description}
-        />
-      </div>
-    {:else if record.kind === "deadline" && deadlineDraft !== null}
-      {@const draft = deadlineDraft}
-      <div class="flex flex-col gap-4">
-        <Label for="entry-title">Title</Label>
-        <Input id="entry-title" disabled={readOnly} bind:value={draft.title} />
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="Due"
-            value={civilValue(draft.dueOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.dueOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-time">Time</Label>
-          <Input
-            id="entry-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("Time")}
-            title="HH:MM in the time zone below, or empty for the end of the day"
-            disabled={readOnly}
-            bind:value={draft.dueAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label id="entry-zone-label">Time Zone</Label>
-          <Select.Root
-            type="single"
-            items={zoneItems}
-            value={draft.timeZone}
-            onValueChange={(value) => (draft.timeZone = value)}
-            allowDeselect={false}
-            disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-zone-label">
-              <Select.Value placeholder={placeholderOf("Time Zone")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each zoneItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-priority">Priority</Label>
-          <Input
-            id="entry-priority"
-            inputmode="numeric"
-            placeholder={placeholderOf("Priority")}
-            title="1 is the most urgent, {DEADLINE_PRIORITY_MAX} the least; empty for none"
-            disabled={readOnly}
-            bind:value={draft.priority}
-          />
-        </div>
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label for="entry-authority">Authority</Label>
-        <Input
-          id="entry-authority"
-          title="The rule, statute or order this comes from, in the firm's own words"
-          disabled={readOnly}
-          bind:value={draft.authorityText}
-        />
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="entry-source">Source</Label>
-          <!-- Frozen on the record: where a deadline came from is a fact about its recording. -->
-          <Input id="entry-source" value={deadlineSourceLabel(draft.source)} disabled />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-state">State</Label>
-          <Input
-            id="entry-state"
-            value={record.deadline.overdue && record.deadline.state === "open"
-              ? "Open, past due"
-              : deadlineStateLabel(record.deadline.state)}
-            disabled
-          />
-        </div>
-      </div>
-      {#if record.deadline.state !== "open" && record.deadline.stateReason !== null}
-        <div class="flex flex-col gap-4">
-          <Label for="entry-state-reason">Reason</Label>
-          <Textarea
-            id="entry-state-reason"
-            class="resize-none"
-            rows={2}
-            value={record.deadline.stateReason}
-            disabled
-          />
-        </div>
-      {/if}
-    {:else if record.kind === "firmEvent" && firmEventDraft !== null}
-      {@const draft = firmEventDraft}
-      <div class="flex flex-col gap-4">
-        <Label for="entry-title">Title</Label>
-        <Input id="entry-title" disabled={readOnly} bind:value={draft.title} />
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label id="entry-type-label">Type</Label>
-          <Select.Root
-            type="single"
-            items={typeItems}
-            value={draft.eventTypeId ?? ""}
-            onValueChange={(value) => (draft.eventTypeId = value === "" ? null : value)}
-            disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-type-label">
-              <Select.Value placeholder={placeholderOf("Type")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each typeItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label id="entry-zone-label">Time Zone</Label>
-          <Select.Root
-            type="single"
-            items={zoneItems}
-            value={draft.timeZone}
-            onValueChange={(value) => (draft.timeZone = value)}
-            allowDeselect={false}
-            disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-zone-label">
-              <Select.Value placeholder={placeholderOf("Time Zone")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each zoneItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="Date"
-            value={civilValue(draft.startsOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.startsOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-time">Time</Label>
-          <Input
-            id="entry-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("Time")}
-            title="HH:MM in the time zone above, or empty for all day"
-            disabled={readOnly}
-            bind:value={draft.startsAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="End Date"
-            value={civilValue(draft.endsOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.endsOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-end-time">End Time</Label>
-          <Input
-            id="entry-end-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("End Time")}
-            title="HH:MM in the time zone above, or empty"
-            disabled={readOnly}
-            bind:value={draft.endsAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="entry-audience">Audience</Label>
-          <!-- Who an event is for is decided when it is recorded; a list that grew or shrank
-               afterwards would change whose calendar it is on without anybody choosing that. -->
-          <Input id="entry-audience" value={firmEventAudienceLabel(draft.audience)} disabled />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label id="entry-office-label">Office</Label>
-          <Select.Root
-            type="single"
-            items={officeItems}
-            value={draft.locationId ?? ""}
-            onValueChange={(value) => (draft.locationId = value === "" ? null : value)}
-            disabled={readOnly || officeItems.length === 0}
-          >
-            <Select.Trigger aria-labelledby="entry-office-label">
-              <Select.Value placeholder={placeholderOf("Office")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each officeItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label for="entry-venue">Venue</Label>
-        <Input id="entry-venue" disabled={readOnly} bind:value={draft.locationText} />
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label for="entry-description">Description</Label>
-        <Textarea
-          id="entry-description"
-          class="resize-none"
-          rows={3}
-          disabled={readOnly}
-          bind:value={draft.description}
-        />
-      </div>
+    {:else}
+      <LoadingRegion loading={record === null} label="Reading the record" class="flex flex-col gap-16">
+        {#snippet fixture()}
+          <div class="flex flex-col gap-4">
+            <Label for="entry-fixture-title">Title</Label>
+            <Input id="entry-fixture-title" value="Status conference" />
+          </div>
+          <div class="grid gap-12 @md:grid-cols-2">
+            <div class="flex flex-col gap-4">
+              <Label id="entry-fixture-type-label">Type</Label>
+              <Select.Root type="single" items={typeItems} value="">
+                <Select.Trigger aria-labelledby="entry-fixture-type-label">
+                  <Select.Value placeholder="Hearing" />
+                </Select.Trigger>
+              </Select.Root>
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label id="entry-fixture-zone-label">Time Zone</Label>
+              <Select.Root type="single" items={zoneItems} value="">
+                <Select.Trigger aria-labelledby="entry-fixture-zone-label">
+                  <Select.Value placeholder="America/Los_Angeles" />
+                </Select.Trigger>
+              </Select.Root>
+            </div>
+          </div>
+          <div class="grid gap-12 @md:grid-cols-2">
+            <div class="flex flex-col gap-4">
+              <DatePicker label="Date" value={FIXTURE_DATE} />
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="entry-fixture-time">Time</Label>
+              <Input id="entry-fixture-time" value="10:30" />
+            </div>
+          </div>
+          <div class="grid gap-12 @md:grid-cols-2">
+            <div class="flex flex-col gap-4">
+              <Label for="entry-fixture-where">Where</Label>
+              <Input id="entry-fixture-where" value="Department 12" />
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="entry-fixture-court-reference">Court Reference</Label>
+              <Input id="entry-fixture-court-reference" value="A-26-901234-C" />
+            </div>
+          </div>
+          <div class="flex flex-col gap-4">
+            <Label for="entry-fixture-description">Description</Label>
+            <Textarea
+              id="entry-fixture-description"
+              class="resize-none"
+              rows={3}
+              value="Argument on the motion, then scheduling."
+            />
+          </div>
+        {/snippet}
+        {#if record !== null}
+          {#if record.kind === "event" && eventDraft !== null}
+            {@const draft = eventDraft}
+            <div class="flex flex-col gap-4">
+              <Label for="entry-title">Title</Label>
+              <Input id="entry-title" disabled={readOnly} bind:value={draft.title} />
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <Label id="entry-type-label">Type</Label>
+                <Select.Root
+                  type="single"
+                  items={typeItems}
+                  value={draft.eventTypeId ?? ""}
+                  onValueChange={(value) => (draft.eventTypeId = value === "" ? null : value)}
+                  disabled={readOnly}
+                >
+                  <Select.Trigger aria-labelledby="entry-type-label">
+                    <Select.Value placeholder={placeholderOf("Type")} />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each typeItems as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label id="entry-zone-label">Time Zone</Label>
+                <Select.Root
+                  type="single"
+                  items={zoneItems}
+                  value={draft.timeZone}
+                  onValueChange={(value) => (draft.timeZone = value)}
+                  allowDeselect={false}
+                  disabled={readOnly}
+                >
+                  <Select.Trigger aria-labelledby="entry-zone-label">
+                    <Select.Value placeholder={placeholderOf("Time Zone")} />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each zoneItems as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <DatePicker
+                  label="Date"
+                  value={civilValue(draft.startsOn)}
+                  disabled={readOnly}
+                  onValueChange={(picked) => (draft.startsOn = picked === undefined ? null : picked.toString())}
+                />
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label for="entry-time">Time</Label>
+                <Input
+                  id="entry-time"
+                  inputmode="numeric"
+                  placeholder={placeholderOf("Time")}
+                  title="HH:MM in the time zone above, or empty for all day"
+                  disabled={readOnly}
+                  bind:value={draft.startsAtTime}
+                />
+              </div>
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <DatePicker
+                  label="End Date"
+                  value={civilValue(draft.endsOn)}
+                  disabled={readOnly}
+                  onValueChange={(picked) => (draft.endsOn = picked === undefined ? null : picked.toString())}
+                />
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label for="entry-end-time">End Time</Label>
+                <Input
+                  id="entry-end-time"
+                  inputmode="numeric"
+                  placeholder={placeholderOf("End Time")}
+                  title="HH:MM in the time zone above, or empty"
+                  disabled={readOnly}
+                  bind:value={draft.endsAtTime}
+                />
+              </div>
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <Label for="entry-where">Where</Label>
+                <Input id="entry-where" disabled={readOnly} bind:value={draft.locationText} />
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label for="entry-court-reference">Court Reference</Label>
+                <Input id="entry-court-reference" disabled={readOnly} bind:value={draft.courtReference} />
+              </div>
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="entry-description">Description</Label>
+              <Textarea
+                id="entry-description"
+                class="resize-none"
+                rows={3}
+                disabled={readOnly}
+                bind:value={draft.description}
+              />
+            </div>
+          {:else if record.kind === "deadline" && deadlineDraft !== null}
+            {@const draft = deadlineDraft}
+            <div class="flex flex-col gap-4">
+              <Label for="entry-title">Title</Label>
+              <Input id="entry-title" disabled={readOnly} bind:value={draft.title} />
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <DatePicker
+                  label="Due"
+                  value={civilValue(draft.dueOn)}
+                  disabled={readOnly}
+                  onValueChange={(picked) => (draft.dueOn = picked === undefined ? null : picked.toString())}
+                />
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label for="entry-time">Time</Label>
+                <Input
+                  id="entry-time"
+                  inputmode="numeric"
+                  placeholder={placeholderOf("Time")}
+                  title="HH:MM in the time zone below, or empty for the end of the day"
+                  disabled={readOnly}
+                  bind:value={draft.dueAtTime}
+                />
+              </div>
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <Label id="entry-zone-label">Time Zone</Label>
+                <Select.Root
+                  type="single"
+                  items={zoneItems}
+                  value={draft.timeZone}
+                  onValueChange={(value) => (draft.timeZone = value)}
+                  allowDeselect={false}
+                  disabled={readOnly}
+                >
+                  <Select.Trigger aria-labelledby="entry-zone-label">
+                    <Select.Value placeholder={placeholderOf("Time Zone")} />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each zoneItems as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label for="entry-priority">Priority</Label>
+                <Input
+                  id="entry-priority"
+                  inputmode="numeric"
+                  placeholder={placeholderOf("Priority")}
+                  title="1 is the most urgent, {DEADLINE_PRIORITY_MAX} the least; empty for none"
+                  disabled={readOnly}
+                  bind:value={draft.priority}
+                />
+              </div>
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="entry-authority">Authority</Label>
+              <Input
+                id="entry-authority"
+                title="The rule, statute or order this comes from, in the firm's own words"
+                disabled={readOnly}
+                bind:value={draft.authorityText}
+              />
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <Label for="entry-source">Source</Label>
+                <!-- Frozen on the record: where a deadline came from is a fact about its recording. -->
+                <Input id="entry-source" value={deadlineSourceLabel(draft.source)} disabled />
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label for="entry-state">State</Label>
+                <Input
+                  id="entry-state"
+                  value={record.deadline.overdue && record.deadline.state === "open"
+                    ? "Open, past due"
+                    : deadlineStateLabel(record.deadline.state)}
+                  disabled
+                />
+              </div>
+            </div>
+            {#if record.deadline.state !== "open" && record.deadline.stateReason !== null}
+              <div class="flex flex-col gap-4">
+                <Label for="entry-state-reason">Reason</Label>
+                <Textarea
+                  id="entry-state-reason"
+                  class="resize-none"
+                  rows={2}
+                  value={record.deadline.stateReason}
+                  disabled
+                />
+              </div>
+            {/if}
+          {:else if record.kind === "firmEvent" && firmEventDraft !== null}
+            {@const draft = firmEventDraft}
+            <div class="flex flex-col gap-4">
+              <Label for="entry-title">Title</Label>
+              <Input id="entry-title" disabled={readOnly} bind:value={draft.title} />
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <Label id="entry-type-label">Type</Label>
+                <Select.Root
+                  type="single"
+                  items={typeItems}
+                  value={draft.eventTypeId ?? ""}
+                  onValueChange={(value) => (draft.eventTypeId = value === "" ? null : value)}
+                  disabled={readOnly}
+                >
+                  <Select.Trigger aria-labelledby="entry-type-label">
+                    <Select.Value placeholder={placeholderOf("Type")} />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each typeItems as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label id="entry-zone-label">Time Zone</Label>
+                <Select.Root
+                  type="single"
+                  items={zoneItems}
+                  value={draft.timeZone}
+                  onValueChange={(value) => (draft.timeZone = value)}
+                  allowDeselect={false}
+                  disabled={readOnly}
+                >
+                  <Select.Trigger aria-labelledby="entry-zone-label">
+                    <Select.Value placeholder={placeholderOf("Time Zone")} />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each zoneItems as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <DatePicker
+                  label="Date"
+                  value={civilValue(draft.startsOn)}
+                  disabled={readOnly}
+                  onValueChange={(picked) => (draft.startsOn = picked === undefined ? null : picked.toString())}
+                />
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label for="entry-time">Time</Label>
+                <Input
+                  id="entry-time"
+                  inputmode="numeric"
+                  placeholder={placeholderOf("Time")}
+                  title="HH:MM in the time zone above, or empty for all day"
+                  disabled={readOnly}
+                  bind:value={draft.startsAtTime}
+                />
+              </div>
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <DatePicker
+                  label="End Date"
+                  value={civilValue(draft.endsOn)}
+                  disabled={readOnly}
+                  onValueChange={(picked) => (draft.endsOn = picked === undefined ? null : picked.toString())}
+                />
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label for="entry-end-time">End Time</Label>
+                <Input
+                  id="entry-end-time"
+                  inputmode="numeric"
+                  placeholder={placeholderOf("End Time")}
+                  title="HH:MM in the time zone above, or empty"
+                  disabled={readOnly}
+                  bind:value={draft.endsAtTime}
+                />
+              </div>
+            </div>
+            <div class="grid gap-12 @md:grid-cols-2">
+              <div class="flex flex-col gap-4">
+                <Label for="entry-audience">Audience</Label>
+                <!-- Who an event is for is decided when it is recorded; a list that grew or shrank
+                     afterwards would change whose calendar it is on without anybody choosing that. -->
+                <Input id="entry-audience" value={firmEventAudienceLabel(draft.audience)} disabled />
+              </div>
+              <div class="flex flex-col gap-4">
+                <Label id="entry-office-label">Office</Label>
+                <Select.Root
+                  type="single"
+                  items={officeItems}
+                  value={draft.locationId ?? ""}
+                  onValueChange={(value) => (draft.locationId = value === "" ? null : value)}
+                  disabled={readOnly || officeItems.length === 0}
+                >
+                  <Select.Trigger aria-labelledby="entry-office-label">
+                    <Select.Value placeholder={placeholderOf("Office")} />
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each officeItems as item (item.value)}
+                      <Select.Item value={item.value} label={item.label} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="entry-venue">Venue</Label>
+              <Input id="entry-venue" disabled={readOnly} bind:value={draft.locationText} />
+            </div>
+            <div class="flex flex-col gap-4">
+              <Label for="entry-description">Description</Label>
+              <Textarea
+                id="entry-description"
+                class="resize-none"
+                rows={3}
+                disabled={readOnly}
+                bind:value={draft.description}
+              />
+            </div>
+          {/if}
+        {/if}
+      </LoadingRegion>
     {/if}
   </div>
 {/snippet}
@@ -1551,19 +1614,48 @@
       fallback={bookingsFailure.fallback}
       onRetry={() => void readBookings(record)}
     />
-  {:else if bookings === null}
-    <Skeleton class="h-16 w-full" />
-  {:else if bookConflicts > 0 && bookings.length > 0}
-    <!-- Reported once, after the booking that made it: the room grid shows the pair. -->
-    <p class="text-sm">
-      Double-booked with {bookConflicts} other {bookConflicts === 1 ? "booking" : "bookings"}. The
-      booking stands; the room grid shows the pair.
-    </p>
-    {@render bookingRows(bookings)}
-  {:else if bookings.length === 0}
-    <p class="text-sm text-text-muted">Nothing booked for this event.</p>
   {:else}
-    {@render bookingRows(bookings)}
+    <LoadingRegion
+      loading={bookings === null}
+      label="Reading the event's bookings"
+      class="flex flex-col gap-8"
+    >
+      {#snippet fixture()}
+        <DataTable.Root>
+          <DataTable.Header>
+            <DataTable.Row>
+              <DataTable.Head>Resource</DataTable.Head>
+              <DataTable.Head>When</DataTable.Head>
+              <DataTable.Head class="sr-only">Release</DataTable.Head>
+            </DataTable.Row>
+          </DataTable.Header>
+          <DataTable.Body>
+            {#each BOOKING_FIXTURE as row (row.resource)}
+              <DataTable.Row>
+                <DataTable.Cell>{row.resource}</DataTable.Cell>
+                <DataTable.Cell>{row.when}</DataTable.Cell>
+                <DataTable.Cell class="text-end">
+                  <Button variant="ghost" size="sm">Release</Button>
+                </DataTable.Cell>
+              </DataTable.Row>
+            {/each}
+          </DataTable.Body>
+        </DataTable.Root>
+      {/snippet}
+      {@const shown = bookings ?? []}
+      {#if bookConflicts > 0 && shown.length > 0}
+        <!-- Reported once, after the booking that made it: the room grid shows the pair. -->
+        <p class="text-sm">
+          Double-booked with {bookConflicts} other {bookConflicts === 1 ? "booking" : "bookings"}. The
+          booking stands; the room grid shows the pair.
+        </p>
+        {@render bookingRows(shown)}
+      {:else if shown.length === 0}
+        <p class="text-sm text-text-muted">Nothing booked for this event.</p>
+      {:else}
+        {@render bookingRows(shown)}
+      {/if}
+    </LoadingRegion>
   {/if}
 {/snippet}
 
@@ -1677,38 +1769,53 @@
         fallback={linksFailure.fallback}
         onRetry={() => void readLinks(record)}
       />
-    {:else if relatedLinks === null}
-      <Skeleton class="h-16 w-full" />
-    {:else if relatedLinks.length === 0}
-      <p class="text-sm text-text-muted">Related to nothing.</p>
     {:else}
-      <ul class="flex flex-col gap-8 text-sm">
-        {#each relatedLinks as link (link.id)}
-          <li class="flex items-baseline justify-between gap-16">
-            <div class="flex min-w-0 flex-col">
-              <button
-                type="button"
-                class="text-start underline underline-offset-2"
-                onclick={() => openOther(link.other)}
-              >
-                {link.title ?? (link.other.kind === "event" ? "A setting you cannot see" : "A firm event")}
-              </button>
-              {#if link.note !== null}
-                <span class="text-text-muted">{link.note}</span>
-              {/if}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={eventVerbRefusal !== undefined}
-              title={eventVerbRefusal ?? "Remove the relation; both settings stay as they are"}
-              onclick={() => void unrelate(link.id)}
-            >
-              Remove
-            </Button>
-          </li>
-        {/each}
-      </ul>
+      <LoadingRegion loading={relatedLinks === null} label="Reading the event's links">
+        {#snippet fixture()}
+          <ul class="flex flex-col gap-8 text-sm">
+            {#each RELATED_FIXTURE as title (title)}
+              <li class="flex items-baseline justify-between gap-16">
+                <div class="flex min-w-0 flex-col">
+                  <span class="underline underline-offset-2">{title}</span>
+                </div>
+                <Button variant="ghost" size="sm">Remove</Button>
+              </li>
+            {/each}
+          </ul>
+        {/snippet}
+        {@const shown = relatedLinks ?? []}
+        {#if shown.length === 0}
+          <p class="text-sm text-text-muted">Related to nothing.</p>
+        {:else}
+          <ul class="flex flex-col gap-8 text-sm">
+            {#each shown as link (link.id)}
+              <li class="flex items-baseline justify-between gap-16">
+                <div class="flex min-w-0 flex-col">
+                  <button
+                    type="button"
+                    class="text-start underline underline-offset-2"
+                    onclick={() => openOther(link.other)}
+                  >
+                    {link.title ?? (link.other.kind === "event" ? "A setting you cannot see" : "A firm event")}
+                  </button>
+                  {#if link.note !== null}
+                    <span class="text-text-muted">{link.note}</span>
+                  {/if}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={eventVerbRefusal !== undefined}
+                  title={eventVerbRefusal ?? "Remove the relation; both settings stay as they are"}
+                  onclick={() => void unrelate(link.id)}
+                >
+                  Remove
+                </Button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </LoadingRegion>
     {/if}
   </div>
 {/snippet}

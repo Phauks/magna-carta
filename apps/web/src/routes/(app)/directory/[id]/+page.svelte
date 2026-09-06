@@ -25,7 +25,7 @@
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -134,6 +134,17 @@
   );
   const sections = $derived(entitySectionsFor(data.kind));
 
+  /**
+   * The shape the screen takes while the record is being read: its header over its section strip,
+   * both of which the route already knows the anatomy of, with sample words where the record's own
+   * will go. The panes beneath each carry their own shape once the record has arrived.
+   */
+  const RECORD_FIXTURE = {
+    person: { name: "Eleanor Whitcombe", meta: "she/her" },
+    organization: { name: "Whitcombe Holdings", meta: "Whitcombe Holdings, LLC" },
+  } as const;
+  const fixtureWords = $derived(RECORD_FIXTURE[data.kind]);
+
   function reread(): void {
     reloadToken += 1;
   }
@@ -151,15 +162,37 @@
     whenSilent={failure.whenSilent}
     onRetry={() => reread()}
   />
-{:else if entity === null}
-  <div class="flex flex-col gap-16" aria-busy="true" aria-label="Reading the directory record">
-    <Skeleton class="h-32 w-full max-w-md" />
-    <Skeleton class="h-32 w-full" />
-    <Skeleton class="h-32 w-full" />
-  </div>
 {:else}
+  <LoadingRegion loading={entity === null} label="Reading the directory record" class="flex flex-col">
+    {#snippet fixture()}
+      <div class="mb-24 flex flex-col gap-16">
+        <ScreenHeader title={fixtureWords.name} back="directory" eyebrow={entityKindLabel(data.kind)}>
+          {#snippet meta()}
+            <span>{fixtureWords.meta}</span>
+          {/snippet}
+        </ScreenHeader>
+      </div>
+
+      <Tabs.Root value={sections[0]?.id ?? "names"}>
+        <Tabs.List>
+          {#each sections as section (section.id)}
+            <Tabs.Trigger value={section.id}>
+              {section.label}
+              <MaturityBadge stage={section.stage} />
+            </Tabs.Trigger>
+          {/each}
+        </Tabs.List>
+      </Tabs.Root>
+    {/snippet}
+    {#if entity !== null}
+      {@render record(entity)}
+    {/if}
+  </LoadingRegion>
+{/if}
+
+{#snippet record(read: DirectoryEntityDetail)}
   <div class="mb-24 flex flex-col gap-16">
-    <ScreenHeader title={name} back="directory" eyebrow={entityKindLabel(entity.kind)}>
+    <ScreenHeader title={name} back="directory" eyebrow={entityKindLabel(read.kind)}>
       {#snippet meta()}
         {#if pronouns !== null}
           <span>{pronounShortForm(pronouns)}</span>
@@ -205,17 +238,17 @@
     </Tabs.List>
 
     <Tabs.Content value="names">
-      <NamesPane {entity} {mayEdit} {editDisabledReason} onRecorded={reread} />
+      <NamesPane entity={read} {mayEdit} {editDisabledReason} onRecorded={reread} />
     </Tabs.Content>
 
     <Tabs.Content value="contact">
       <ContactPane entityId={data.entityId} {mayEdit} {editDisabledReason} />
     </Tabs.Content>
 
-    {#if entity.kind === "person"}
+    {#if read.kind === "person"}
       <Tabs.Content value="dates">
         <LifeDatesPane
-          person={entity.person}
+          person={read.person}
           {mayEdit}
           {editDisabledReason}
           onRecorded={reread}
@@ -224,7 +257,7 @@
 
       <Tabs.Content value="pronouns">
         <PronounsPane
-          person={entity.person}
+          person={read.person}
           {mayEdit}
           {editDisabledReason}
           onRecorded={reread}
@@ -235,7 +268,7 @@
     <Tabs.Content value="identifiers">
       <IdentifiersPane
         entityId={data.entityId}
-        kind={entity.kind}
+        kind={read.kind}
         {mayEdit}
         {editDisabledReason}
         {mayReveal}
@@ -244,7 +277,7 @@
     </Tabs.Content>
 
     <Tabs.Content value="duplicates">
-      <DuplicatesPane {entity} {mayEdit} {editDisabledReason} onMerged={reread} />
+      <DuplicatesPane entity={read} {mayEdit} {editDisabledReason} onMerged={reread} />
     </Tabs.Content>
 
     <!--
@@ -255,7 +288,7 @@
     <Tabs.Content value="relationships">
       <EdgesPane
         entityId={data.entityId}
-        kind={entity.kind}
+        kind={read.kind}
         {name}
         filter="all"
         {mayEdit}
@@ -263,11 +296,11 @@
       />
     </Tabs.Content>
 
-    {#if entity.kind === "organization"}
+    {#if read.kind === "organization"}
       <Tabs.Content value="people">
         <EdgesPane
           entityId={data.entityId}
-          kind={entity.kind}
+          kind={read.kind}
           {name}
           filter="people"
           {mayEdit}
@@ -278,7 +311,7 @@
       <Tabs.Content value="organizations">
         <EdgesPane
           entityId={data.entityId}
-          kind={entity.kind}
+          kind={read.kind}
           {name}
           filter="organizations"
           {mayEdit}
@@ -292,7 +325,7 @@
     </Tabs.Content>
 
     <Tabs.Content value="categories">
-      <CategoriesPane entityId={data.entityId} kind={entity.kind} {mayEdit} {editDisabledReason} />
+      <CategoriesPane entityId={data.entityId} kind={read.kind} {mayEdit} {editDisabledReason} />
     </Tabs.Content>
   </Tabs.Root>
-{/if}
+{/snippet}

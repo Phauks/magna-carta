@@ -11,9 +11,9 @@
    * it describes happened, which is frequently an earlier day, and it is what the list and the
    * matter's activity history order by. A note about Tuesday's call belongs beside Tuesday.
    *
-   * THE LIST ALWAYS SETTLES. The skeleton means one thing only — the first read is in flight — so
-   * every path out of that read ends in rows, an empty state, or a failure with a way to try again.
-   * A section that sits on a skeleton is indistinguishable from a firm whose record cannot be read,
+   * THE LIST ALWAYS SETTLES. The loading shape means one thing only — the first read is in flight —
+   * so every path out of that read ends in rows, an empty state, or a failure with a way to try
+   * again. A section left on its loading shape is indistinguishable from a firm whose record cannot be read,
    * which is why the notes read is an effect of its OWN: nothing else the screen wants (who is
    * signed in, the roster, the matter's files) can abort the effect before the read is even asked
    * for, and none of those failing takes the list down with it.
@@ -26,7 +26,7 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -239,6 +239,26 @@
     searchTerm = "";
     applySearch("");
   }
+
+  // The shape drawn while the first page is read: three rows in the list's own anatomy — who wrote
+  // it, when, and the words. Sample words only, never a matter's.
+  const NOTE_FIXTURE = [
+    {
+      author: "Rosalind Chase",
+      happened: "Sep 14, 2026",
+      body: "Called the client about the deposition date; she prefers the week of the twenty-first.",
+    },
+    {
+      author: "Marcus Ellery",
+      happened: "Sep 9, 2026",
+      body: "Opposing counsel agreed to a two-week extension on the interrogatory responses.",
+    },
+    {
+      author: "Rosalind Chase",
+      happened: "Sep 2, 2026",
+      body: "Reviewed the engagement letter with the client; the signed copy is filed.",
+    },
+  ] as const;
 </script>
 
 <svelte:head>
@@ -292,19 +312,35 @@
     />
   {/if}
 
-  <div class="flex min-h-0 flex-1 flex-col gap-8">
+  <!-- The region settles with the list: a failed first read is absorbed as an empty page, so the
+       notice above and the empty state below stand together and no shape is left waiting (owner
+       ruling, docs/conventions/design-corrections.md, 2026-09-01). -->
+  <LoadingRegion
+    loading={notes === null}
+    label="Reading this matter's notes"
+    class="flex min-h-0 flex-1 flex-col gap-8"
+  >
+    {#snippet fixture()}
+      {#each NOTE_FIXTURE as note (note.body)}
+        <div class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
+          <div class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
+            <span class="text-text-default">{note.author}</span>
+            <span class="text-text-default">{note.happened}</span>
+            <span>written {note.happened}</span>
+          </div>
+          <p class="text-sm">{note.body}</p>
+        </div>
+      {/each}
+    {/snippet}
+    {@const shown = notes ?? []}
     {#if isSample}
       <EmptyState title="This is a sample matter, so it has no notes." />
-    {:else if notes === null}
-      <Skeleton class="h-24 w-full" />
-      <Skeleton class="h-24 w-full" />
-      <Skeleton class="h-24 w-full" />
-    {:else if notes.length === 0 && appliedSearch !== ""}
+    {:else if shown.length === 0 && appliedSearch !== ""}
       <EmptyState title="No notes on this matter match that search." />
-    {:else if notes.length === 0}
+    {:else if shown.length === 0}
       <EmptyState title="No notes on this matter yet." />
     {:else}
-      {#each notes as note (note.id)}
+      {#each shown as note (note.id)}
         {@const happened = occurrenceLine(note, formatDate)}
         <!-- The whole row opens the note, because opening a record is what a row in a record list
              does. The window is where it is then read, changed or deleted. -->
@@ -357,7 +393,7 @@
         </div>
       {/if}
     {/if}
-  </div>
+  </LoadingRegion>
 </section>
 
 <NoteRecordWindow
