@@ -161,13 +161,20 @@ await check(
   "A29",
   "A sending row says how far it has got, and the transfer can be cancelled",
   async () => {
-    // The stand-in reserves for one beat before any byte moves; look once the first files are sending.
-    await page.waitForTimeout(1_200);
+    // The stand-in makes the folders and reserves before any byte moves; look once a row is sending.
+    const sending = sourceTable.locator("tbody td:last-child", { hasText: /sending · \d+%/i });
+    await sending.first().waitFor({ timeout: 8_000 });
     const cancel = sourcePane.getByRole("button", { name: /cancel upload/i });
-    const statuses = await sourceTable.locator("tbody td:last-child").allInnerTexts();
-    return (await cancel.count()) === 1 && statuses.some((text) => /sending · \d+%/i.test(text));
+    return (await cancel.count()) === 1;
   },
 );
+
+await check("A32", "The tally reads the rate while bytes move", async () => {
+  // The rate needs two samples a moment apart with bytes between them; give the window a beat.
+  const tally = sourcePane.locator('[role="status"]', { hasText: /\d(\.\d)? [KMG]?B\/s/ });
+  await tally.first().waitFor({ timeout: 6_000 });
+  return true;
+});
 
 // Let the stand-in finish: six files, four stages, at the gallery's default beat.
 await page.waitForTimeout(9_000);
@@ -180,6 +187,18 @@ await check(
       (text) => text.trim(),
     );
     return statuses.includes("Upload failed") && statuses.includes("Uploaded");
+  },
+);
+
+await check(
+  "A31",
+  "A file the matter already holds reads Already here, and nothing was sent for it",
+  async () => {
+    const statuses = (await sourceTable.locator("tbody td:last-child").allInnerTexts()).map(
+      (text) => text.trim(),
+    );
+    const line = await sourcePane.locator('[role="status"]').first().innerText();
+    return statuses.includes("Already here") && /1 already here/.test(line);
   },
 );
 
@@ -199,7 +218,7 @@ await check(
     const text = await tray.innerText();
     const ok =
       /pemberton v\. hale/i.test(text) &&
-      /4 of 6 uploaded/i.test(text) &&
+      /3 of 6 uploaded · 1 already here · 2 failed/i.test(text) &&
       (await tray.getByRole("button", { name: /retry failed/i }).count()) === 1 &&
       (await tray.getByRole("link", { name: /open folder/i }).count()) === 1;
     await page.keyboard.press("Escape");

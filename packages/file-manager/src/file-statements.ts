@@ -235,6 +235,39 @@ export function selectCleanVersionByIdStatement(
     .bind(versionId);
 }
 
+// Every committed version in the firm whose bytes hash to this digest and are the CURRENT version of a
+// live file — what the upload dialog asks before sending bytes the firm already holds. Current-only,
+// so an archived version of a since-changed file is not offered as "already here"; the size rides
+// along so the caller can refuse a digest collision that a size disagrees with. Bounded: a firm that
+// holds the same bytes fifty times over has told the caller enough.
+export function selectCurrentCleanVersionsBySha256Statement(
+  database: SqlDatabase,
+  contentSha256: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id AS version_id, v.file_id, f.matter_id, f.folder_id, f.name, v.size_bytes ` +
+        `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
+        `WHERE v.content_sha256 = ?1 AND v.status = 'clean' AND f.current_version_id = v.id AND f.deleted_at IS NULL ` +
+        `ORDER BY v.committed_at DESC LIMIT 50`,
+    )
+    .bind(contentSha256);
+}
+
+// A committed version's whole set of facts — what a server-side duplicate carries across unchanged,
+// because the bytes are the same bytes and the verdict the gate reached on them still holds.
+export function selectCleanVersionFactsStatement(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, file_id, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, scan_detail ` +
+        `FROM ${FILE_VERSION_TABLE} WHERE id = ?1 AND status = 'clean'`,
+    )
+    .bind(versionId);
+}
+
 // The current (clean) version's hash, for the no-op skip: re-uploading identical bytes must not cut a
 // new version. Reads only the committed version (status = 'clean').
 export function selectCurrentVersionHashStatement(

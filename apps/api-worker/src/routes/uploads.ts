@@ -7,10 +7,14 @@ import { setUploadSessionR2UploadIdStatement } from "@magna-carta/file-manager/f
 import {
   abortUploadSession,
   completeUploadSession,
+  duplicateVersionIntoMatter,
   initiateUpload,
   loadUploadSession,
 } from "@magna-carta/file-manager/file-service";
-import { getUploadSessionStatus } from "@magna-carta/file-manager/queries";
+import {
+  findCurrentVersionsByContent,
+  getUploadSessionStatus,
+} from "@magna-carta/file-manager/queries";
 import { modeThresholdDefinition } from "@magna-carta/file-manager/upload-policy";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type { UploadSessionId } from "@magna-carta/identifiers/types";
@@ -28,6 +32,7 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
+import { copyObjectIntoMatter } from "../files/object-stamping.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import {
   problemResponseForIdempotencyConflict,
@@ -129,6 +134,53 @@ const UploadStatusResponse = z
 
 const uploadSessionParam = z.object({ id: identifierPathParam("uploadSession", "id") });
 
+// The question the upload dialog asks before sending a byte: does the firm already hold these bytes?
+// The digest is the reader's browser's own SHA-256 over the file; the size is a second key.
+const UploadMatchesRequest = z
+  .object({
+    matterId: matterIdField,
+    sha256: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .openapi({ description: "SHA-256 of the file's bytes, lowercase hex." }),
+    sizeBytes: z.number().int().nonnegative(),
+  })
+  .openapi("UploadMatchesRequest");
+
+const UploadMatchesResponse = z
+  .object({
+    // Live files on the TARGET matter whose current version is these bytes: the file is already there.
+    onMatter: z.array(
+      z.object({
+        fileId: z.string(),
+        versionId: z.string(),
+        folderId: z.string().nullable(),
+        name: z.string(),
+      }),
+    ),
+    // Live files elsewhere in the firm with these bytes: a duplicate can be made without an upload.
+    elsewhere: z.array(
+      z.object({ fileId: z.string(), versionId: z.string(), matterId: z.string() }),
+    ),
+  })
+  .openapi("UploadMatchesResponse");
+
+const DuplicateUploadRequest = z
+  .object({
+    sourceVersionId: identifierField("fileVersion"),
+    matterId: matterIdField,
+    folderId: folderIdField.nullable().optional(),
+    name: z.string().min(1),
+    documentTypeId: documentTypeIdField.nullable().optional(),
+    sourceModifiedAt: z.string().datetime({ offset: true }).nullable().optional(),
+    createdAtBasis: z.enum(["upload", "source"]).optional(),
+  })
+  .openapi("DuplicateUploadRequest");
+
+const DuplicateUploadResponse = z
+  .object({ fileId: z.string(), versionId: z.string() })
+  .openapi("DuplicateUploadResponse");
+
 const FILES_PERMISSION = "files:upload" as const;
 
 export const initiateUploadMeta: RouteMeta = {
@@ -184,6 +236,110 @@ export const initiateUploadRoute = defineOpenAPIRoute(initiateUploadMeta, {
     422: {
       description:
         "The firm policy refuses this upload, or the Idempotency-Key was reused with a different payload",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export const uploadMatchesMeta: RouteMeta = {
+  operationId: "uploads.matches",
+  surface: "app",
+  authenticated: true,
+  permission: FILES_PERMISSION,
+  resource: "matter",
+  // A read over the firm's committed hashes: no state moves, so no audit row and no idempotency key.
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const uploadMatchesRoute = defineOpenAPIRoute(uploadMatchesMeta, {
+  method: "post",
+  path: "/api/v1/uploads/matches",
+  description:
+    "Answers whether the firm already holds a file's bytes, by SHA-256 and size, before they are " +
+    "uploaded: the live files on the target matter whose current version is those bytes, and the " +
+    "live files elsewhere in the firm. A match on the matter means the file is already there; a " +
+    "match elsewhere can be duplicated onto the matter server-side (uploads.duplicate) with no " +
+    "bytes sent.",
+  request: {
+    body: { content: { "application/json": { schema: UploadMatchesRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The files that hold these bytes, on the matter and elsewhere in the firm",
+      content: { "application/json": { schema: UploadMatchesResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks files:upload",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export const duplicateUploadMeta: RouteMeta = {
+  operationId: "uploads.duplicate",
+  surface: "app",
+  authenticated: true,
+  permission: FILES_PERMISSION,
+  resource: "matter",
+  audited: true,
+  idempotency: "required",
+  idempotencyStore: "firm",
+  rateLimit: "default",
+};
+
+export const duplicateUploadRoute = defineOpenAPIRoute(duplicateUploadMeta, {
+  method: "post",
+  path: "/api/v1/uploads/duplicates",
+  description:
+    "Makes a new file on a matter out of bytes the firm already holds: the named committed version " +
+    "is copied server-side into the new file's own key and committed at once with the verdict the " +
+    "gate reached on those bytes. No bytes cross the network. The dating and the document type are " +
+    "the new file's own, as for an upload.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: DuplicateUploadRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The file was made from the held bytes",
+      content: { "application/json": { schema: DuplicateUploadResponse } },
+    },
+    400: {
+      description: "Missing Idempotency-Key (this operation requires one)",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks files:upload",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No committed version by that id in this firm, or no such folder on the matter",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    409: {
+      description: "A request with this Idempotency-Key is still in progress",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description: "The Idempotency-Key was reused with a different payload",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -566,6 +722,117 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
         typeof InitiateUploadResponse
       >;
       return c.json(responseBody, 201);
+    },
+  );
+
+  app.openapi(
+    { ...uploadMatchesRoute, middleware: chokepointMiddleware(chokepoint, uploadMatchesRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const request = c.req.valid("json");
+      const matches = await findCurrentVersionsByContent(
+        firm.firmDatabase,
+        request.sha256,
+        request.sizeBytes,
+      );
+      return c.json(
+        {
+          onMatter: matches
+            .filter((match) => match.matterId === request.matterId)
+            .map((match) => ({
+              fileId: match.fileId,
+              versionId: match.versionId,
+              folderId: match.folderId,
+              name: match.name,
+            })),
+          elsewhere: matches
+            .filter((match) => match.matterId !== request.matterId)
+            .map((match) => ({
+              fileId: match.fileId,
+              versionId: match.versionId,
+              matterId: match.matterId,
+            })),
+        } as z.infer<typeof UploadMatchesResponse>,
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    {
+      ...duplicateUploadRoute,
+      middleware: chokepointMiddleware(chokepoint, duplicateUploadRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      const now = () => new Date().toISOString();
+      let result;
+      try {
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          effect: async () => {
+            // The bucket copy runs inside the effect and before its batch: a replayed key never
+            // reaches here, and a copy that fails leaves no row pointing at a missing object.
+            const duplicated = await duplicateVersionIntoMatter(
+              firm.firmDatabase,
+              {
+                sourceVersionId: request.sourceVersionId,
+                matterId: request.matterId,
+                folderId: request.folderId ?? null,
+                name: request.name,
+                documentTypeId: request.documentTypeId ?? null,
+                uploadedBy: userId,
+                sourceModifiedAt: request.sourceModifiedAt ?? null,
+                ...(request.createdAtBasis === undefined
+                  ? {}
+                  : { createdAtBasis: request.createdAtBasis }),
+              },
+              { clock: { now }, actorUserId: userId },
+              (fromKey, toKey, dimensions) =>
+                copyObjectIntoMatter(bucket, fromKey, toKey, dimensions),
+            );
+            return {
+              write: duplicated.effect,
+              responseCode: 201,
+              responseBody: canonicalJsonStringify({
+                fileId: duplicated.fileId,
+                versionId: duplicated.versionId,
+              }),
+            };
+          },
+        });
+      } catch (caught) {
+        if (
+          caught instanceof FileManagerValidationError &&
+          (caught.code === "version-not-clean" ||
+            caught.code === "unknown-file" ||
+            caught.code === "file-deleted" ||
+            caught.code === "unknown-folder" ||
+            caught.code === "file-cross-matter")
+        ) {
+          return problemJson(c, {
+            type: "not-found",
+            title: "Not found",
+            status: 404,
+            detail: "No such resource in this firm.",
+          });
+        }
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(
+        JSON.parse(storedResponseBody(result)) as z.infer<typeof DuplicateUploadResponse>,
+        201,
+      );
     },
   );
 

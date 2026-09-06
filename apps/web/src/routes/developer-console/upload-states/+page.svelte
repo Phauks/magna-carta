@@ -49,6 +49,8 @@
   ];
 
   const FAILS = new Set(["Hale - transcript.pdf", "2026-08-14 reply.docx"]);
+  /** A file the matter already holds: the stand-in answers the hash question with it. */
+  const ALREADY_HELD = new Set(["exhibit index.xlsx"]);
   /** The sizes the fixture declares; the File objects themselves are kept tiny. */
   const SIZES = new Map(FIXTURE.map((item) => [item.file.name, item.file.size]));
   const STAGES: UploadStage[] = ["reserving", "uploading", "committing", "scanning"];
@@ -71,10 +73,24 @@
     let made = 0;
     return {
       fetchImpl: fetch,
+      // The stand-in reads nothing: the gallery's files are a few bytes, and whether the matter
+      // already holds one is the stand-in's own answer below.
+      hash: async () => null,
       upload: async (request) => {
         // The fixture's declared sizes drive the progress the stand-in reports, in ten steps
         // across the sending beat, so the percent and the bytes-of-bytes line can be watched.
         const total = SIZES.get(request.file.name) ?? request.file.size;
+        if (ALREADY_HELD.has(request.file.name)) {
+          request.onStage?.("matching");
+          await beat();
+          request.onStage?.("settled");
+          return {
+            kind: "already",
+            fileId: "file-held",
+            name: request.file.name,
+            folderId: "discovery",
+          };
+        }
         for (const stage of STAGES) {
           if (isCancelled(request.signal)) return { kind: "cancelled", stage };
           request.onStage?.(stage);

@@ -47,6 +47,7 @@ import {
   rescanVerdictStatement,
   restoreFileStatement,
   selectCleanVersionByIdStatement,
+  selectCleanVersionFactsStatement,
   selectCurrentVersionHashStatement,
   selectFileStatement,
   selectMaxVersionNumberStatement,
@@ -827,6 +828,144 @@ export async function commitEditedVersion(
       outboxMessages: [
         { topic: FILE_VERSION_COMMITTED_TOPIC, payload: { fileId: input.fileId, versionId } },
       ],
+    },
+  };
+}
+
+export interface DuplicateVersionInput {
+  /** The committed version whose bytes the new file takes. */
+  readonly sourceVersionId: FileVersionId;
+  readonly matterId: MatterId;
+  readonly folderId?: FolderId | null;
+  readonly name: string;
+  readonly documentTypeId?: DocumentTypeId | null;
+  readonly uploadedBy: UserId | null;
+  readonly sourceModifiedAt?: string | null;
+  readonly createdAtBasis?: "upload" | "source";
+}
+
+export interface DuplicatedVersion {
+  readonly fileId: FileId;
+  readonly versionId: FileVersionId;
+  readonly effect: EffectWrite;
+}
+
+// Makes a NEW file on a matter out of bytes the firm already holds, without a byte crossing the
+// network: the upload dialog hashed the reader's file, the firm's record answered that a committed
+// version has exactly those bytes, and so the version is copied server-side into the new file's own
+// key and committed at once with the facts the gate reached the first time. The verdict carries
+// across because the bytes are the same bytes; the dating and the document type are the new file's
+// own, chosen at the intake like any upload's. copyObject is the injected bucket copy (source key ->
+// the new version's key, restamped with the TARGET matter's dimensions), never a buffer through the
+// Worker; it runs before the batch so no row can point at an object that is not there.
+export async function duplicateVersionIntoMatter(
+  database: SqlDatabase,
+  input: DuplicateVersionInput,
+  options: FileServiceOptions,
+  copyObject: (fromKey: string, toKey: string, dimensions: ObjectDimensions) => Promise<void>,
+): Promise<DuplicatedVersion> {
+  const { results } = await selectCleanVersionFactsStatement(database, input.sourceVersionId).all<{
+    id: FileVersionId;
+    file_id: FileId;
+    r2_key: string;
+    size_bytes: number | null;
+    declared_content_type: string | null;
+    sniffed_content_type: string | null;
+    content_sha256: string | null;
+    scan_verdict: "unscanned" | "clean" | "flagged" | null;
+    scan_engine_version: string | null;
+    scan_detail: string | null;
+  }>();
+  const source = results[0];
+  // A version without a recorded hash could never have been matched to a reader's file, so a
+  // request naming one is not answering a match the firm made; it is refused with the missing one.
+  if (source === undefined || source.content_sha256 === null) {
+    throw new FileManagerValidationError(
+      "version-not-clean",
+      `no committed version to duplicate: ${input.sourceVersionId}`,
+    );
+  }
+  const contentSha256 = source.content_sha256;
+  // The source file must still be live: a deleted file's bytes are not on offer, and a duplicate
+  // must not be the one path that confirms a deleted file still exists.
+  await requireLiveFile(database, source.file_id);
+  if (input.folderId !== undefined && input.folderId !== null) {
+    const folderMatterId = await loadFolderMatter(database, input.folderId);
+    if (folderMatterId === undefined) {
+      throw new FileManagerValidationError("unknown-folder", `no such folder: ${input.folderId}`);
+    }
+    if (folderMatterId !== input.matterId) {
+      throw new FileManagerValidationError(
+        "file-cross-matter",
+        "a file's folder must belong to the same matter",
+      );
+    }
+  }
+
+  const now = options.clock.now();
+  const sourceModifiedAt = validSourceInstant(input.sourceModifiedAt);
+  const fileCreatedAt = recordedCreationInstant(input.createdAtBasis, sourceModifiedAt, now);
+  const fileId = newIdentifier("file", options.randomSource);
+  const versionId = newIdentifier("fileVersion", options.randomSource);
+  const r2Key = fileVersionKey(fileId, versionId);
+  const sizeBytes = source.size_bytes ?? 0;
+
+  await copyObject(
+    source.r2_key,
+    r2Key,
+    matterScopedObjectDimensions({ objectClass: "working-document", matterId: input.matterId }),
+  );
+
+  return {
+    fileId,
+    versionId,
+    effect: {
+      statements: [
+        insertFileStatement(database, {
+          id: fileId,
+          matterId: input.matterId,
+          folderId: input.folderId ?? null,
+          name: input.name,
+          documentTypeId: input.documentTypeId ?? null,
+          createdAt: fileCreatedAt,
+        }),
+        insertFileVersionStatement(database, {
+          id: versionId,
+          fileId,
+          versionNumber: 1,
+          r2Key,
+          declaredContentType: source.declared_content_type,
+          uploadedBy: input.uploadedBy,
+          createdAt: now,
+          sourceModifiedAt,
+        }),
+        commitVersionStatement(database, {
+          versionId,
+          sizeBytes,
+          sniffedContentType: source.sniffed_content_type,
+          contentSha256,
+          // A clean-status version always carries a verdict; the column's nullability is for the
+          // pending row it once was, so a null here reads as the engine-less launch verdict.
+          scanVerdict: source.scan_verdict ?? "unscanned",
+          scanEngineVersion: source.scan_engine_version,
+          scanDetail: source.scan_detail,
+          committedAt: now,
+        }),
+        assertVersionStatusStatement(database, versionId, "clean"),
+        bumpFileCurrentVersionStatement(database, fileId, versionId, now),
+        ...meterCommitStatements(
+          database,
+          { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
+          sizeBytes,
+        ),
+        // Ids only: which version the bytes came from, so the trail says this file was made from
+        // one the firm already held rather than from an upload.
+        fileAuditStatement(database, options, "file.version_committed", versionId, {
+          duplicatedFromVersionId: source.id,
+          folderId: input.folderId ?? null,
+        }),
+      ],
+      outboxMessages: [{ topic: FILE_VERSION_COMMITTED_TOPIC, payload: { fileId, versionId } }],
     },
   };
 }

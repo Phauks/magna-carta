@@ -22,8 +22,9 @@
   import Button from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
   import Progress from "@magna-carta/design-system/progress";
-  import { formatBytes } from "./file-rows.ts";
   import {
+    batchCountsText,
+    batchPaceText,
     cancelUploadBatch,
     dismissFinishedUploads,
     dismissUploadBatch,
@@ -44,17 +45,6 @@
   const needsAttention = $derived(
     inFlight || batches.some((batch) => !batch.running && batch.failed > 0),
   );
-
-  function tally(batch: UploadBatch): string {
-    const parts = [`${String(batch.uploaded)} of ${String(batch.total)} uploaded`];
-    if (batch.failed > 0) parts.push(`${String(batch.failed)} failed`);
-    const unsent = unsentCount(batch);
-    if (unsent > 0) parts.push(`${String(unsent)} not sent`);
-    if (batch.running) {
-      parts.push(`${formatBytes(batch.sentBytes)} of ${formatBytes(batch.totalBytes)}`);
-    }
-    return parts.join(" · ");
-  }
 
   /** The folder the batch landed in, as the file list opens it. */
   function folderHref(batch: UploadBatch): string {
@@ -107,13 +97,14 @@
                 <span class="block truncate text-sm font-medium" title={batch.matterTitle}>
                   {batch.matterTitle}
                 </span>
+                <!-- The counts wrap rather than cut: at the tray's width a count that ends in an
+                     ellipsis is the one figure the glance came for. -->
                 <span
-                  class="block truncate text-xs {batch.failed > 0 && !batch.running
+                  class="block text-xs {batch.failed > 0 && !batch.running
                     ? 'text-status-danger-subtle-foreground'
                     : 'text-text-muted'}"
-                  title="{batch.destinationLabel} · {tally(batch)}"
                 >
-                  {batch.destinationLabel} · {tally(batch)}
+                  {batch.destinationLabel} · {batchCountsText(batch)}
                 </span>
               </span>
               {#if batch.running}
@@ -143,7 +134,11 @@
               max={Math.max(batch.totalBytes, 1)}
               aria-label={`Progress of the upload to ${batch.matterTitle}`}
             />
-            {#if !batch.running}
+            {#if batch.running}
+              <span class="block text-xs text-text-subtle tabular-nums">
+                {batchPaceText(batch)}
+              </span>
+            {:else}
               <div class="flex flex-wrap items-center gap-8">
                 {#if batch.failed > 0 || unsentCount(batch) > 0}
                   <Button
@@ -173,10 +168,16 @@
         {/each}
       </ul>
       {#if batches.length > TRAY_LIMIT}
-        <p class="text-xs text-text-muted">
-          And {String(batches.length - TRAY_LIMIT)} more. Clear finished uploads to see them.
-        </p>
+        <p class="text-xs text-text-muted">And {String(batches.length - TRAY_LIMIT)} more.</p>
       {/if}
     {/if}
+    <a
+      href="/uploads"
+      class="text-sm font-medium"
+      style="color: var(--mc-accent-default)"
+      onclick={() => (open = false)}
+    >
+      Open uploads
+    </a>
   </Popover.Content>
 </Popover.Root>

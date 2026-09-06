@@ -28,7 +28,7 @@ import { folderPathOf } from "@magna-carta/design-system/dropzone";
 import { problemGuidance } from "$lib/documents/document-presentation.ts";
 import { createFolder as createFolderRequest, type FolderSummary } from "./folder-api.ts";
 import { disambiguated } from "./file-names.ts";
-import { MatterFileIndex, fileKey } from "./file-rows.ts";
+import { MatterFileIndex, fileKey, formatBytes } from "./file-rows.ts";
 import {
   uploadIntoFolder,
   UPLOAD_STAGE_NARRATION,
@@ -36,6 +36,8 @@ import {
   type UploadRequest,
 } from "./file-upload.ts";
 import type { MatterFile } from "./matter-file-api.ts";
+import { sha256OfFile } from "./upload-hash.ts";
+import { paceOf, paceText, withSample, type Pace, type PaceSample } from "./upload-pace.ts";
 import {
   intakeEntryKey,
   sentBytesOf,
@@ -45,6 +47,8 @@ import {
 
 /** How many files are sent at once. */
 export const UPLOAD_CONCURRENCY = 3;
+/** How often a running batch samples its bytes for the rate and the time remaining. */
+const PACE_SAMPLE_MILLISECONDS = 500;
 
 /** Everything the dialog decided, handed over once when Upload is pressed. */
 export interface UploadBatchPlan {
@@ -72,14 +76,18 @@ export interface UploadBatchItem {
   reason?: string;
   /** Bytes the browser has sent so far, while the file is being sent. */
   sentBytes: number;
-  /** The file it became, once reserved. */
+  /** The file it became, once reserved — or the file the matter already held. */
   fileId?: string;
+  /** The digest, once read; kept across retries so the file is read once. */
+  sha256?: string | null;
 }
 
 /** The seams the runner uses, injectable so the queue is tested without a network. */
 export interface UploadQueueDependencies {
   readonly fetchImpl: typeof fetch;
   readonly upload: (request: UploadRequest) => Promise<UploadOutcome>;
+  /** The file's SHA-256, or null to send it without asking whether the firm already holds it. */
+  readonly hash: (file: File) => Promise<string | null>;
   readonly createFolder: (
     input: { matterId: string; parentFolderId: string | null; name: string },
     idempotencyKey: string,
@@ -94,6 +102,7 @@ function realDependencies(): UploadQueueDependencies {
   return {
     fetchImpl: fetch,
     upload: uploadIntoFolder,
+    hash: sha256OfFile,
     createFolder: (input, idempotencyKey) => createFolderRequest(fetch, input, idempotencyKey),
     now: () => new Date().toISOString(),
     newIdentifier: () => crypto.randomUUID(),
@@ -176,11 +185,16 @@ export class UploadBatch {
   get failed(): number {
     return this.items.filter((item) => item.stage === "failed").length;
   }
+  /** Files the matter already held: nothing was sent, and nothing was made. */
+  get alreadyHere(): number {
+    return this.items.filter((item) => item.stage === "already").length;
+  }
   get inFlight(): number {
     return this.items.filter(
       (item) =>
         item.stage !== "chosen" &&
         item.stage !== "settled" &&
+        item.stage !== "already" &&
         item.stage !== "failed" &&
         item.stage !== "cancelled",
     ).length;
@@ -195,6 +209,28 @@ export class UploadBatch {
   /** Every byte that has gone: a settled file in full, a sending file as far as it has got. */
   get sentBytes(): number {
     return this.items.reduce((sum, item) => sum + sentBytesOf(item.entry.file.size, item), 0);
+  }
+
+  /**
+   * How fast the bytes are leaving and how long is left, read off samples the run takes every half
+   * second. Both stand still between runs; a finished batch keeps its last reading.
+   */
+  pace = $state<Pace>({ bytesPerSecond: null, secondsRemaining: null });
+  #samples: PaceSample[] = [];
+
+  #samplePace(): void {
+    // The rate is over bytes that crossed the wire: a file the matter already held counts as done
+    // for the bar and the remainder, but it moved nothing and must not read as a burst of speed.
+    const moved = this.items.reduce(
+      (sum, item) =>
+        item.stage === "already" ? sum : sum + sentBytesOf(item.entry.file.size, item),
+      0,
+    );
+    const sample = { at: Date.now(), bytes: moved };
+    // The window opens with the first byte. Before it, the batch is making folders and reserving,
+    // and a rate of nothing over that time is not a stall, it is not yet a transfer.
+    this.#samples = moved === 0 ? [sample] : withSample(this.#samples, sample);
+    this.pace = paceOf(this.#samples, Math.max(0, this.totalBytes - this.sentBytes));
   }
 
   /** Each item's standing, keyed the way the intake table keys its rows. */
@@ -269,10 +305,16 @@ export class UploadBatch {
       this.#takenIn.set(landing.id, taken);
     }
     const filedAs = disambiguated(item.entry.file.name, taken);
-    taken.push({ key: `pending:${filedAs}`, name: filedAs });
-    item.stage = "reserving";
+    // The digest is taken before the reservation, once per item, and kept: a retry asks the same
+    // question with the same answer rather than reading the file twice.
+    item.stage = "hashing";
     item.sentBytes = 0;
     delete item.reason;
+    if (item.sha256 === undefined) item.sha256 = await this.#dependencies.hash(item.entry.file);
+    if (this.cancelled) {
+      item.stage = "cancelled";
+      return;
+    }
     const outcome = await this.#dependencies.upload({
       fetchImpl: this.#dependencies.fetchImpl,
       matterId: this.matterId,
@@ -281,6 +323,7 @@ export class UploadBatch {
       name: filedAs,
       documentTypeId: this.documentTypeId,
       createdAtBasis: this.createdAtBasis,
+      sha256: item.sha256,
       signal: this.#abort.signal,
       onStage: (stage) => {
         item.stage = stage;
@@ -300,7 +343,19 @@ export class UploadBatch {
       item.reason = uploadFailureReason(outcome);
       return;
     }
+    if (outcome.kind === "already") {
+      // The matter holds the file under its own name; the copy name this item would have taken
+      // stays free for the next.
+      item.fileId = outcome.fileId;
+      item.stage = "already";
+      item.reason = `The matter already holds this file as ${outcome.name}. Nothing was sent.`;
+      return;
+    }
+    taken.push({ key: `pending:${filedAs}`, name: filedAs });
     item.fileId = outcome.fileId;
+    if (outcome.kind === "committed" && outcome.copiedFrom === "firm") {
+      item.reason = "Made from a copy the firm already held on another matter. Nothing was sent.";
+    }
     item.stage = "settled";
   }
 
@@ -329,9 +384,17 @@ export class UploadBatch {
         await this.send(item);
       }
     };
-    await Promise.all(
-      Array.from({ length: Math.min(UPLOAD_CONCURRENCY, pending.length) }, () => worker()),
-    );
+    this.#samples = [];
+    this.#samplePace();
+    const sampler = setInterval(() => this.#samplePace(), PACE_SAMPLE_MILLISECONDS);
+    try {
+      await Promise.all(
+        Array.from({ length: Math.min(UPLOAD_CONCURRENCY, pending.length) }, () => worker()),
+      );
+    } finally {
+      clearInterval(sampler);
+    }
+    this.#samplePace();
     this.finishedAt = this.#dependencies.now();
     noteBatchFinished(this);
   }
@@ -387,6 +450,36 @@ export function startUploadBatch(
   holdUnloadGuard();
   void batch.run();
   return batch;
+}
+
+/**
+ * The batch's standing in one line, the same line wherever it is read: the panel above its table,
+ * the tray, the Uploads page. Counts first, then, while it runs, the bytes and the pace.
+ */
+export function batchTallyText(batch: UploadBatch): string {
+  const pace = batchPaceText(batch);
+  return pace === "" ? batchCountsText(batch) : `${batchCountsText(batch)} · ${pace}`;
+}
+
+/** The counts alone: "3 of 6 uploaded · 1 already here · 2 failed". Short enough for a header. */
+export function batchCountsText(batch: UploadBatch): string {
+  const parts = [`${String(batch.uploaded)} of ${String(batch.total)} uploaded`];
+  if (batch.alreadyHere > 0) parts.push(`${String(batch.alreadyHere)} already here`);
+  if (batch.failed > 0) parts.push(`${String(batch.failed)} failed`);
+  const unsent = unsentCount(batch);
+  if (unsent > 0) parts.push(`${String(unsent)} not sent`);
+  return parts.join(" · ");
+}
+
+/**
+ * The bytes and the pace while the batch runs: "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left".
+ * Empty once it has finished. Read beside the bar, where a header line would cut it short.
+ */
+export function batchPaceText(batch: UploadBatch): string {
+  if (!batch.running) return "";
+  const pace = paceText(batch.pace);
+  const bytes = `${formatBytes(batch.sentBytes)} of ${formatBytes(batch.totalBytes)}`;
+  return pace === "" ? bytes : `${bytes} · ${pace}`;
 }
 
 /** How many of a batch's files were left unsent by a cancel. */

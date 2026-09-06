@@ -36,6 +36,20 @@ runs the multipart leg the host already tracked: fixed 16 MiB parts, three in fl
 through `GET /uploads/{id}/parts/{n}`, sent, and retried on its own with backoff; the ETags go back
 as the completion manifest. The single-shot PUT is retried the same way.
 
+**A file the firm already holds is not sent, and the pace is read as it goes.** The browser hashes
+each file first (`upload-hash.ts`, WebCrypto, up to 256 MB) and asks `POST /uploads/matches` what the
+firm holds by digest and size (a new index on `file_version.content_sha256` serves it). A live file on
+the matter with those bytes reads Already here and nothing is sent; one elsewhere in the firm is made
+into a new file on the matter through `POST /uploads/duplicates` (`duplicateVersionIntoMatter`, a
+server-side bucket copy restamped for the target matter, the gate's verdict carried across). So a
+folder re-sent after a failed batch sends only what did not land. A pace sampler in the queue
+(`upload-pace.ts`) reads the rate and the time left over a trailing window; a stall is called only
+once the whole window has seen nothing move, and a file the matter already held adds nothing to the
+rate. The counts (`batchCountsText`) head the panel, the tray and the new `/uploads` page alike, and
+the bytes and pace (`batchPaceText`) sit beside each bar, where a header line would cut them short.
+The page lays out every batch this tab is running through the one source table component
+(`upload-source-table.svelte`), which the dialog now uses too.
+
 **A transfer outlives its panel.** Upload hands the batch to the upload queue
 (`upload-queue.svelte.ts`, module state, three files at a time, one folder creation per path however
 many files wait on it), the panel stays to report it and Close leaves it running, a top-bar
@@ -60,4 +74,7 @@ upload keeps going. The **upload button in the top bar** shows what is still mov
 and what failed, with **Retry Failed** and **Open folder** beside each batch. If a file does not
 upload, it no longer leaves an empty entry in the matter. Each file shows how far it has got, files
 of any size upload (a large one goes in pieces behind the scenes), and **Cancel Upload** stops a
-batch: what has landed stays, and the rest can be sent later with **Send the Rest**.
+batch: what has landed stays, and the rest can be sent later with **Send the Rest**. A file the
+matter already holds is not sent again, and one your firm holds on another matter is copied across
+without an upload; the tally reads the speed and about how long is left; and **Uploads** in the
+sidebar shows every upload in full, the way Downloads does.

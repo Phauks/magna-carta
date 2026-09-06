@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { DroppedEntry } from "@magna-carta/design-system/dropzone";
 import type { UploadOutcome, UploadRequest } from "$lib/file-manager/file-upload.ts";
 import {
+  batchTallyText,
   cancelUploadBatch,
   dismissUploadBatch,
   unsentCount,
@@ -76,6 +77,7 @@ function dependencies(
   let folderNumber = 0;
   return {
     fetchImpl: fetch,
+    hash: async () => null,
     upload: async (request) => {
       record.uploads.push(request);
       request.onStage?.("uploading");
@@ -252,6 +254,39 @@ describe("startUploadBatch", () => {
     expect(batch.uploaded).toBe(5);
     expect(unsentCount(batch)).toBe(0);
     expect(sent - before).toBe(5 - landed);
+  });
+
+  it("hashes each file once, hands the digest to the transfer, and counts a held file as already here", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    let hashed = 0;
+    const withHash: UploadQueueDependencies = {
+      ...dependencies(record, (request) =>
+        request.file.name === "held.pdf"
+          ? { kind: "already", fileId: "held", name: "held.pdf", folderId: null }
+          : { kind: "committed", fileId: `file-${request.file.name}`, versionId: "v" },
+      ),
+      hash: async (file) => {
+        hashed += 1;
+        return `${file.name}-digest`;
+      },
+    };
+    const batch = startUploadBatch(plan([entry("", "held.pdf"), entry("", "new.pdf")]), withHash);
+    await settled();
+    flushSync();
+    expect(hashed).toBe(2);
+    expect(record.uploads.map((request) => request.sha256)).toEqual([
+      "held.pdf-digest",
+      "new.pdf-digest",
+    ]);
+    expect(batch.alreadyHere).toBe(1);
+    expect(batch.uploaded).toBe(1);
+    expect(batch.items.find((item) => item.name === "held.pdf")).toMatchObject({
+      stage: "already",
+      fileId: "held",
+    });
+    // A held file counts in full toward the bytes, so the bar reaches the end.
+    expect(batch.sentBytes).toBe(batch.totalBytes);
+    expect(batchTallyText(batch)).toBe("1 of 2 uploaded · 1 already here");
   });
 
   it("lists batches newest first and lets a finished one be cleared, never a running one", async () => {

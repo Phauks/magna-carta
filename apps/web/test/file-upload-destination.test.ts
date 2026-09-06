@@ -500,6 +500,124 @@ describe("uploadIntoFolder", () => {
     });
   });
 
+  it("asks the firm first with a digest in hand, and sends nothing when the matter already holds the file", async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.endsWith("/api/v1/uploads/matches")) {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          matterId: "matter",
+          sha256: "f".repeat(64),
+          sizeBytes: 5,
+        });
+        return new Response(
+          JSON.stringify({
+            onMatter: [
+              { fileId: "held", versionId: "v", folderId: "discovery", name: "Motion.pdf" },
+            ],
+            elsewhere: [],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      throw new Error(`unexpected ${url}`);
+    }) as unknown as typeof fetch;
+    const outcome = await uploadIntoFolder({
+      fetchImpl,
+      matterId: "matter",
+      folderId: null,
+      file: aFile(),
+      sha256: "f".repeat(64),
+      sleep: async () => {},
+      newIdempotencyKey: () => "key",
+    });
+    expect(outcome).toEqual({
+      kind: "already",
+      fileId: "held",
+      name: "Motion.pdf",
+      folderId: "discovery",
+    });
+    expect(calls).toEqual(["POST /api/v1/uploads/matches"]);
+  });
+
+  it("duplicates a file the firm holds elsewhere instead of sending the bytes", async () => {
+    const calls: string[] = [];
+    let duplicateBody: unknown = null;
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.endsWith("/api/v1/uploads/matches")) {
+        return new Response(
+          JSON.stringify({
+            onMatter: [],
+            elsewhere: [{ fileId: "other", versionId: "other-v", matterId: "matter-2" }],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.endsWith("/api/v1/uploads/duplicates")) {
+        duplicateBody = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({ fileId: "made", versionId: "made-v" }), {
+          status: 201,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected ${url}`);
+    }) as unknown as typeof fetch;
+    const progress: number[] = [];
+    const outcome = await uploadIntoFolder({
+      fetchImpl,
+      matterId: "matter",
+      folderId: "discovery",
+      file: aFile(),
+      name: "Motion (2).pdf",
+      sha256: "f".repeat(64),
+      createdAtBasis: "source",
+      sleep: async () => {},
+      newIdempotencyKey: () => "key",
+      onProgress: (sent) => progress.push(sent),
+    });
+    expect(outcome).toEqual({
+      kind: "committed",
+      fileId: "made",
+      versionId: "made-v",
+      copiedFrom: "firm",
+    });
+    expect(duplicateBody).toMatchObject({
+      sourceVersionId: "other-v",
+      matterId: "matter",
+      folderId: "discovery",
+      name: "Motion (2).pdf",
+      createdAtBasis: "source",
+    });
+    // The bytes count as sent in full without a PUT having happened.
+    expect(progress).toEqual([5]);
+    expect(calls.some((call) => call.endsWith("/api/v1/uploads"))).toBe(false);
+  });
+
+  it("sends the bytes as usual when the question cannot be answered", async () => {
+    // The lookup is an economy: a host that cannot answer it must not cost the reader the upload.
+    const record: { body: unknown } = { body: null };
+    const base = fakeFetch(record);
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/uploads/matches")) return new Response(null, { status: 503 });
+      return base(input, init);
+    }) as unknown as typeof fetch;
+    const outcome = await uploadIntoFolder({
+      fetchImpl,
+      matterId: "matter",
+      folderId: null,
+      file: aFile(),
+      sha256: "f".repeat(64),
+      sleep: async () => {},
+      newIdempotencyKey: () => "key",
+    });
+    expect(outcome.kind).toBe("committed");
+    expect(record.body).toMatchObject({ matterId: "matter" });
+  });
+
   it("reports a flagged file as committed-and-flagged, never as a refusal", async () => {
     // Nothing is ever blocked: the bytes are stored and the reader deals with the finding after.
     const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

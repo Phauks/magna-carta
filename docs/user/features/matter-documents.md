@@ -51,13 +51,27 @@ the file being sent is given back; the rest read **Not sent**, and **Send the Re
 later. A large file (over your firm's limit for a single send, 100 MB unless it was changed) goes in
 pieces behind the scenes; you see one upload, and a piece that stumbles is sent again on its own.
 
+### Files you already have
+
+Before a file is sent, Magna Carta reads it and asks whether your firm already holds exactly those
+bytes. If the matter already has the file, its row reads **Already here** and nothing is sent. If
+another of your firm's matters has it, the file is copied onto this matter without an upload, and
+reads **Uploaded** as usual. So if a batch fails part-way and you send the same folder again, only
+the files that did not land are sent. Very large files (over 256 MB) skip the question and are sent
+directly.
+
 ### Watching an upload
 
 The **upload button in the top bar**, beside the downloads button, marks itself while anything is
 uploading. Press it to see each upload: how many files have landed, how many failed, and, once it
 has finished, **Retry Failed** to send only the files that did not go, and **Open Folder** to see
-the files where they landed. A running upload can be cancelled from here too. Clear finished
-uploads when you no longer need to see them.
+the files where they landed. While it runs, the line under each upload reads the speed and about
+how long is left. A running upload can be cancelled from here too. Clear finished uploads when you
+no longer need to see them.
+
+**Uploads** in the sidebar (add it from Customize if it is not there) shows every upload in full,
+with the same list of files the panel showed, and the same controls. Uploads live in the browser
+tab you started them in: the page shows this tab's uploads, and closing the tab ends them.
 
 If you close the browser tab while files are still uploading, the browser asks before it goes;
 files that had not finished would need to be uploaded again.

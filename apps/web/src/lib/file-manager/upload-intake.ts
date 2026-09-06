@@ -34,7 +34,7 @@ import { UPLOAD_STAGE_NARRATION, type UploadStage } from "./file-upload.ts";
  * Where one chosen file stands: not yet sent, one of the ceremony's steps, failed, or not sent
  * because the reader cancelled the batch before its turn came.
  */
-export type IntakeStage = "chosen" | UploadStage | "failed" | "cancelled";
+export type IntakeStage = "chosen" | "hashing" | UploadStage | "already" | "failed" | "cancelled";
 
 export interface IntakeProgress {
   readonly stage: IntakeStage;
@@ -137,6 +137,8 @@ export interface IntakeFolderRow {
   readonly uploaded: number;
   readonly failed: number;
   readonly inFlight: number;
+  /** Files the matter already held, so nothing was sent for them. */
+  readonly alreadyHere: number;
   /** Bytes sent so far across the files beneath it; a settled file counts in full. */
   readonly sentBytes: number;
   /** Whether the row is showing its children. */
@@ -194,13 +196,19 @@ interface Aggregate {
   uploaded: number;
   failed: number;
   inFlight: number;
+  alreadyHere: number;
   sentBytes: number;
 }
 
 /** What a file's progress counts as sent: everything once the bytes are with the host, else what the browser reports. */
 export function sentBytesOf(size: number, state: IntakeProgress | undefined): number {
   if (state === undefined) return 0;
-  if (state.stage === "settled" || state.stage === "committing" || state.stage === "scanning") {
+  if (
+    state.stage === "settled" ||
+    state.stage === "already" ||
+    state.stage === "committing" ||
+    state.stage === "scanning"
+  ) {
     return size;
   }
   return Math.min(size, state.sentBytes ?? 0);
@@ -214,6 +222,7 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     uploaded: 0,
     failed: 0,
     inFlight: 0,
+    alreadyHere: 0,
     sentBytes: 0,
   };
   for (const entry of node.files) {
@@ -225,6 +234,7 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     const state = progress.get(intakeEntryKey(entry));
     const stage = state?.stage ?? "chosen";
     if (stage === "settled") total.uploaded += 1;
+    else if (stage === "already") total.alreadyHere += 1;
     else if (stage === "failed") total.failed += 1;
     else if (stage !== "chosen" && stage !== "cancelled") total.inFlight += 1;
     total.sentBytes += sentBytesOf(entry.file.size, state);
@@ -239,6 +249,7 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     total.uploaded += below.uploaded;
     total.failed += below.failed;
     total.inFlight += below.inFlight;
+    total.alreadyHere += below.alreadyHere;
     total.sentBytes += below.sentBytes;
   }
   return total;
@@ -352,11 +363,14 @@ export function orderIntakeRows(
 /** The status word a row's stage reads as, in the Status column. */
 export const INTAKE_STAGE_LABEL: Readonly<Record<IntakeStage, string>> = {
   chosen: "Chosen",
+  hashing: "Reading",
+  matching: "Checking",
   reserving: "Reserving",
   uploading: "Sending",
   committing: "Recording",
   scanning: "Checking",
   settled: "Uploaded",
+  already: "Already here",
   failed: "Upload failed",
   cancelled: "Not sent",
 };
@@ -364,11 +378,14 @@ export const INTAKE_STAGE_LABEL: Readonly<Record<IntakeStage, string>> = {
 /** The Status column's values, in the order the transfer moves through them. */
 export const INTAKE_STAGE_ORDER: readonly IntakeStage[] = [
   "chosen",
+  "hashing",
+  "matching",
   "reserving",
   "uploading",
   "committing",
   "scanning",
   "settled",
+  "already",
   "failed",
   "cancelled",
 ];
@@ -390,7 +407,9 @@ export function intakeFileStatus(row: IntakeFileRow): string {
 export function intakeStageSentence(row: IntakeFileRow): string {
   if (row.stage === "chosen") return "Chosen.";
   if (row.stage === "failed") return row.reason ?? "Upload failed.";
-  if (row.stage === "settled") return "Uploaded.";
+  if (row.stage === "settled") return row.reason ?? "Uploaded.";
+  if (row.stage === "hashing") return "Reading the file to ask whether the firm already holds it.";
+  if (row.stage === "already") return row.reason ?? "The matter already holds this file.";
   if (row.stage === "cancelled")
     return "Not sent: the upload was cancelled before this file's turn.";
   if (row.stage === "uploading") {
@@ -402,8 +421,11 @@ export function intakeStageSentence(row: IntakeFileRow): string {
 
 /** A folder row's standing, as one phrase: what is chosen, or how its files are doing. */
 export function intakeFolderStatus(row: IntakeFolderRow): string {
-  if (row.uploaded === 0 && row.failed === 0 && row.inFlight === 0) return "Chosen";
+  if (row.uploaded === 0 && row.failed === 0 && row.inFlight === 0 && row.alreadyHere === 0) {
+    return "Chosen";
+  }
   const parts = [`${String(row.uploaded)} of ${String(row.fileCount)} uploaded`];
+  if (row.alreadyHere > 0) parts.push(`${String(row.alreadyHere)} already here`);
   if (row.failed > 0) parts.push(`${String(row.failed)} failed`);
   if (row.inFlight > 0) parts.push(`${String(intakePercent(row.sentBytes, row.totalBytes))}%`);
   return parts.join(" · ");

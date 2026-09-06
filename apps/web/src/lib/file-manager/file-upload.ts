@@ -39,6 +39,8 @@
 import {
   abortUpload,
   completeUpload,
+  duplicateHeldVersion,
+  findUploadMatches,
   putUploadBytes,
   readUploadStatus,
   signUploadPart,
@@ -49,11 +51,23 @@ import {
 } from "$lib/documents/document-api.ts";
 import { problemOutcome, requestJson, transportOutcome } from "$lib/api/request.ts";
 
-export type UploadStage = "reserving" | "uploading" | "committing" | "scanning" | "settled";
+export type UploadStage =
+  | "matching"
+  | "reserving"
+  | "uploading"
+  | "committing"
+  | "scanning"
+  | "settled";
 
 export type UploadOutcome =
-  /** The bytes cleared the gate: the file is on the matter, in the folder that was asked for. */
-  | { kind: "committed"; fileId: string; versionId: string | null }
+  /**
+   * The bytes cleared the gate: the file is on the matter, in the folder that was asked for.
+   * `copiedFrom` is set when no byte crossed the network — the firm already held the bytes on
+   * another matter and the file was made from them server-side.
+   */
+  | { kind: "committed"; fileId: string; versionId: string | null; copiedFrom?: "firm" }
+  /** The matter already holds exactly these bytes as a live file; nothing was sent or made. */
+  | { kind: "already"; fileId: string; name: string; folderId: string | null }
   /** The gate refused the bytes. The file is on the matter and says so; it has no content. */
   | { kind: "flagged"; fileId: string; reason: string | null }
   /** Everything the caller controls succeeded; the verdict had not landed before the wait ran out. */
@@ -117,6 +131,14 @@ export interface UploadRequest {
   readonly documentTypeId?: string | null;
   /** Present = a new version of a file already on the matter; absent = a new file. */
   readonly fileId?: string;
+  /**
+   * The SHA-256 of the file's bytes, when the caller hashed it first. Given, the firm is asked
+   * whether it already holds the bytes before any are sent: a live file on the matter with them is
+   * reported as already there, and one elsewhere in the firm is duplicated server-side. Null or
+   * absent means the question is not put. Never used for a new version of an existing file — the
+   * host's own hash check at ingest already answers that case.
+   */
+  readonly sha256?: string | null;
   /**
    * How a new file is dated: at the upload (the default), or at the source file's own last-modified
    * instant. The source's instant is sent either way, as a fact about where the bytes came from.
@@ -307,12 +329,66 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
     fileId,
     createdAtBasis,
     onStage,
+    onProgress,
     signal,
     sleep = defaultSleep,
     newIdempotencyKey = () => crypto.randomUUID(),
   } = request;
 
   if (cancelled(signal)) return { kind: "cancelled", stage: "reserving" };
+
+  /*
+   * THE QUESTION BEFORE THE BYTES. With a digest in hand, the firm is asked what it already holds.
+   * A failure to answer is not a failure to upload: the question is an economy, and the transfer
+   * proceeds as if it had not been put. A duplicate that fails likewise falls through to the
+   * ordinary upload, so the reader's file always lands one way or the other.
+   */
+  const sha256 = request.sha256 ?? null;
+  if (sha256 !== null && fileId === undefined) {
+    onStage?.("matching");
+    const matches = await findUploadMatches(
+      fetchImpl,
+      { matterId, sha256, sizeBytes: file.size },
+      signal,
+    );
+    if (cancelled(signal)) return { kind: "cancelled", stage: "matching" };
+    if (matches.kind === "ok") {
+      const here = matches.value.onMatter[0];
+      if (here !== undefined) {
+        onStage?.("settled");
+        return { kind: "already", fileId: here.fileId, name: here.name, folderId: here.folderId };
+      }
+      const held = matches.value.elsewhere[0];
+      if (held !== undefined) {
+        const made = await duplicateHeldVersion(
+          fetchImpl,
+          {
+            sourceVersionId: held.versionId,
+            matterId,
+            folderId,
+            name,
+            documentTypeId: documentTypeId ?? null,
+            sourceModifiedAt: sourceInstantOf(file),
+            ...(createdAtBasis === undefined ? {} : { createdAtBasis }),
+          },
+          newIdempotencyKey(),
+          signal,
+        );
+        if (cancelled(signal)) return { kind: "cancelled", stage: "matching" };
+        if (made.kind === "ok") {
+          onProgress?.(file.size, file.size);
+          onStage?.("settled");
+          return {
+            kind: "committed",
+            fileId: made.value.fileId,
+            versionId: made.value.versionId,
+            copiedFrom: "firm",
+          };
+        }
+      }
+    }
+  }
+
   onStage?.("reserving");
   const reserved = await reserveUpload(
     fetchImpl,
@@ -415,6 +491,7 @@ export function sourceInstantOf(file: Pick<File, "lastModified">): string | null
 
 /** What the reader is told while an upload runs. One sentence per step, never a bare spinner. */
 export const UPLOAD_STAGE_NARRATION: Readonly<Record<UploadStage, string>> = {
+  matching: "Asking whether the firm already holds it",
   reserving: "Reserving the file",
   uploading: "Sending the bytes to storage",
   committing: "Recording the upload",

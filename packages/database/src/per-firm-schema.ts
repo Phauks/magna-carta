@@ -979,6 +979,8 @@ export const fileVersion = sqliteTable(
       table.versionNumber,
     ),
     index("file_version_status_index").on(table.status),
+    // The upload dialog's "does the firm already hold these bytes" lookup, by the committed hash.
+    index("file_version_content_sha256_index").on(table.contentSha256),
     // The tiering sweep's firm-wide candidate scan (storage_class='standard' + status='clean' +
     // committed_at < cutoff) seeks this composite instead of walking every clean version.
     index("file_version_tiering_index").on(table.storageClass, table.status, table.committedAt),

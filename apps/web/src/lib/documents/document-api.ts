@@ -187,6 +187,58 @@ export function completeUpload(
   });
 }
 
+/** What the firm already holds of a file's bytes, asked by digest and size before an upload. */
+export interface UploadMatches {
+  /** Live files on the target matter whose current version is these bytes. */
+  readonly onMatter: readonly {
+    readonly fileId: string;
+    readonly versionId: string;
+    readonly folderId: string | null;
+    readonly name: string;
+  }[];
+  /** Live files elsewhere in the firm with these bytes; one can be duplicated with no upload. */
+  readonly elsewhere: readonly {
+    readonly fileId: string;
+    readonly versionId: string;
+    readonly matterId: string;
+  }[];
+}
+
+export function findUploadMatches(
+  fetchImpl: typeof fetch,
+  input: { matterId: string; sha256: string; sizeBytes: number },
+  signal?: AbortSignal,
+): Promise<ApiOutcome<UploadMatches>> {
+  return requestJson(fetchImpl, "/api/v1/uploads/matches", {
+    method: "POST",
+    body: input,
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/** A new file on a matter, made server-side from a committed version the firm already holds. */
+export function duplicateHeldVersion(
+  fetchImpl: typeof fetch,
+  input: {
+    sourceVersionId: string;
+    matterId: string;
+    folderId: string | null;
+    name: string;
+    documentTypeId?: string | null;
+    sourceModifiedAt?: string | null;
+    createdAtBasis?: "upload" | "source";
+  },
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<ApiOutcome<{ fileId: string; versionId: string }>> {
+  return requestJson(fetchImpl, "/api/v1/uploads/duplicates", {
+    method: "POST",
+    body: input,
+    idempotencyKey,
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
 /** A signed URL for one part of an open multipart session, minted fresh per part. */
 export function signUploadPart(
   fetchImpl: typeof fetch,
