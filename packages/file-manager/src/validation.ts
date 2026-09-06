@@ -23,6 +23,9 @@ export type FileManagerValidationCode =
   | "file-not-deleted"
   | "unknown-version"
   | "version-not-pending"
+  // A duplicate asked of a version that is not committed clean, or that carries no content hash
+  // to have been matched by. The routes surface it as not-found: the version is not on offer.
+  | "version-not-clean"
   // Offline checkout / check-in
   | "unknown-checkout"
   // Same-matter integrity: a file, folder, or move must not cross matter boundaries

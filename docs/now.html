@@ -1873,7 +1873,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Upload &amp; ingest pipeline</span>
 <code>documents.upload</code>
 <p>Uniform direct-to-R2 inbound upload with quarantine-gated ingest; bytes never transit the Worker.</p>
-<p class="note">Upload UI rides the file-surface-web stream (Dropzone primitive shipped; dev upload route on main).</p>
+<p class="note">The single-shot PUT is the built browser path; the resumable multipart client above the mode threshold is still unbuilt on the web surface, so a file over the threshold is refused with its reservation given back.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Direct-to-R2 transfer</span>

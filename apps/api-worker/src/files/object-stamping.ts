@@ -3,6 +3,7 @@ import {
   objectIsStamped,
   OBJECT_CLASS_DIMENSION,
   type MatterScopedObjectClass,
+  type ObjectDimensions,
 } from "@magna-carta/object-dimensions/dimensions";
 import type { MatterId } from "@magna-carta/identifiers/types";
 
@@ -29,6 +30,27 @@ export async function copyObjectPreservingDimensions(
   const dimensions = objectIsStamped(carried)
     ? { ...carried, [OBJECT_CLASS_DIMENSION]: targetObjectClass }
     : carried;
+  await bucket.put(toKey, source.body, {
+    httpMetadata: source.httpMetadata,
+    customMetadata: dimensions,
+  });
+}
+
+// Copying a committed version's bytes into a NEW file on a matter of the caller's choosing — the
+// upload dialog's "the firm already holds these bytes" path. Unlike the copy above, the target's
+// matter is the CALLER's authority: the new file may sit on another matter than the source, so the
+// stamp is written fresh from the destination rather than carried from the source. Nothing else is
+// invented — the content type travels with the bytes.
+export async function copyObjectIntoMatter(
+  bucket: R2Bucket,
+  fromKey: string,
+  toKey: string,
+  dimensions: ObjectDimensions,
+): Promise<void> {
+  const source = await bucket.get(fromKey);
+  if (source === null) {
+    throw new Error(`object to duplicate is missing from the bucket: ${fromKey}`);
+  }
   await bucket.put(toKey, source.body, {
     httpMetadata: source.httpMetadata,
     customMetadata: dimensions,

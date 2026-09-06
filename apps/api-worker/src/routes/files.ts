@@ -110,6 +110,9 @@ const FileSummary = z
     status: z.enum(["clean", "pending", "quarantined"]),
     // The reason a version was quarantined, present only when status is "quarantined".
     quarantineReason: z.string().nullable(),
+    // The last-modified instant the uploading device reported for the display version's source file,
+    // or null where none was recorded. The record's own dates stand beside it, never replaced by it.
+    sourceModifiedAt: z.string().nullable(),
   })
   .openapi("FileSummary");
 
@@ -794,6 +797,7 @@ function toFileSummaryResponse(file: FileListItem): z.infer<typeof FileSummary> 
     scanVerdict: file.scanVerdict,
     status: file.status,
     quarantineReason: file.quarantineReason,
+    sourceModifiedAt: file.sourceModifiedAt,
   };
 }
 

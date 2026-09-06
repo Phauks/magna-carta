@@ -21,7 +21,12 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { DOCUMENT_TYPE_TABLE } from "./document-type-statements.ts";
-import { FILE_TABLE, FILE_VERSION_TABLE, UPLOAD_SESSION_TABLE } from "./file-statements.ts";
+import {
+  FILE_TABLE,
+  FILE_VERSION_TABLE,
+  UPLOAD_SESSION_TABLE,
+  selectCurrentCleanVersionsBySha256Statement,
+} from "./file-statements.ts";
 import { FOLDER_TABLE } from "./folder-statements.ts";
 
 // Read mediation (golden rule 3): every consumer read serves only clean, non-deleted content. A file
@@ -65,6 +70,9 @@ export interface FileListItem {
   // The human-readable reason a version was quarantined (the scan detail), present only when status is
   // "quarantined"; null otherwise.
   readonly quarantineReason: string | null;
+  // The last-modified instant the uploading device reported for the display version's source file, or
+  // null where none was recorded. A fact about where the bytes came from, beside the record's own dates.
+  readonly sourceModifiedAt: string | null;
 }
 
 interface FileSummaryRowRaw {
@@ -82,6 +90,7 @@ interface FileSummaryRowRaw {
   scan_verdict: "unscanned" | "clean" | "flagged" | null;
   version_status: "clean" | "pending" | "quarantined" | "abandoned";
   scan_detail: string | null;
+  source_modified_at: string | null;
 }
 
 function toFileListItem(row: FileSummaryRowRaw): FileListItem {
@@ -106,6 +115,7 @@ function toFileListItem(row: FileSummaryRowRaw): FileListItem {
     scanVerdict: row.scan_verdict,
     status,
     quarantineReason: status === "quarantined" ? row.scan_detail : null,
+    sourceModifiedAt: row.source_modified_at,
   };
 }
 
@@ -114,7 +124,7 @@ function toFileListItem(row: FileSummaryRowRaw): FileListItem {
 const FILE_SUMMARY_COLUMNS =
   "f.id, f.matter_id, f.folder_id, f.name, f.document_type_id, f.current_version_id, " +
   "f.created_at, f.updated_at, dv.version_number, dv.size_bytes, dv.sniffed_content_type, " +
-  "dv.scan_verdict, dv.status AS version_status, dv.scan_detail";
+  "dv.scan_verdict, dv.status AS version_status, dv.scan_detail, dv.source_modified_at";
 
 export function listFilesStatement(
   database: SqlDatabase,
@@ -249,6 +259,47 @@ export async function getUploadSessionStatus(
     versionStatus: row.version_status,
     quarantineReason: row.version_status === "quarantined" ? row.scan_detail : null,
   };
+}
+
+// A file in the firm whose current version holds exactly these bytes.
+export interface ContentMatch {
+  readonly versionId: FileVersionId;
+  readonly fileId: FileId;
+  readonly matterId: MatterId;
+  readonly folderId: FolderId | null;
+  readonly name: string;
+  readonly sizeBytes: number | null;
+}
+
+// Every live file in the firm whose current version's bytes hash to this digest AND are this many
+// bytes long — the size is a second key, so a digest collision (or a caller's mistaken digest) cannot
+// pass an unrelated file off as the same one. What the upload dialog reads before sending bytes.
+export async function findCurrentVersionsByContent(
+  database: SqlDatabase,
+  contentSha256: string,
+  sizeBytes: number,
+): Promise<ContentMatch[]> {
+  const { results } = await selectCurrentCleanVersionsBySha256Statement(
+    database,
+    contentSha256,
+  ).all<{
+    version_id: FileVersionId;
+    file_id: FileId;
+    matter_id: MatterId;
+    folder_id: FolderId | null;
+    name: string;
+    size_bytes: number | null;
+  }>();
+  return results
+    .filter((row) => row.size_bytes === sizeBytes)
+    .map((row) => ({
+      versionId: row.version_id,
+      fileId: row.file_id,
+      matterId: row.matter_id,
+      folderId: row.folder_id,
+      name: row.name,
+      sizeBytes: row.size_bytes,
+    }));
 }
 
 // The clean current version of a non-deleted file — for the signed-download path (r2_key) and the

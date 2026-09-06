@@ -118,6 +118,111 @@ describe("completeUploadSession", () => {
   });
 });
 
+describe("initiateUpload — how a new file is dated", () => {
+  async function fileDates(
+    database: ReturnType<typeof freshDatabase>,
+    fileId: string,
+    versionId: string,
+  ): Promise<{ created_at: string; source_modified_at: string | null }> {
+    const { results } = await database
+      .prepare(
+        "SELECT f.created_at, v.source_modified_at FROM file f JOIN file_version v ON v.id = ?2 WHERE f.id = ?1",
+      )
+      .bind(fileId, versionId)
+      .all<{ created_at: string; source_modified_at: string | null }>();
+    const row = results[0];
+    if (row === undefined) throw new Error("no such file");
+    return row;
+  }
+
+  async function initiateDated(
+    database: ReturnType<typeof freshDatabase>,
+    matterId: string,
+    dating: { sourceModifiedAt?: string | null; createdAtBasis?: "upload" | "source" },
+  ) {
+    const result = await initiateUpload(
+      database,
+      {
+        matterId: matterId as never,
+        name: "brief.pdf",
+        declaredSize: 1024,
+        declaredContentType: "application/pdf",
+        uploadedBy: ACTOR,
+        mode: "put",
+        ...dating,
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+    return result;
+  }
+
+  it("dates the file at the upload by default, and still keeps the source's own date as a fact", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiateDated(database, matterId, {
+      sourceModifiedAt: "2025-03-04T09:30:00.000Z",
+    });
+    expect(await fileDates(database, fileId, versionId)).toEqual({
+      created_at: now(),
+      source_modified_at: "2025-03-04T09:30:00.000Z",
+    });
+  });
+
+  it("dates the file at the source's last-modified instant when asked to", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiateDated(database, matterId, {
+      sourceModifiedAt: "2025-03-04T09:30:00.000Z",
+      createdAtBasis: "source",
+    });
+    expect((await fileDates(database, fileId, versionId)).created_at).toBe(
+      "2025-03-04T09:30:00.000Z",
+    );
+  });
+
+  it("never files a document in the future: a source date past now is clamped to now", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiateDated(database, matterId, {
+      sourceModifiedAt: "2031-01-01T00:00:00.000Z",
+      createdAtBasis: "source",
+    });
+    const dates = await fileDates(database, fileId, versionId);
+    expect(dates.created_at).toBe(now());
+    // The fact is still the fact — only the file's dating is clamped.
+    expect(dates.source_modified_at).toBe("2031-01-01T00:00:00.000Z");
+  });
+
+  it("falls back to the upload instant when the source basis is asked for with no source date", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiateDated(database, matterId, {
+      sourceModifiedAt: null,
+      createdAtBasis: "source",
+    });
+    expect(await fileDates(database, fileId, versionId)).toEqual({
+      created_at: now(),
+      source_modified_at: null,
+    });
+  });
+
+  it("normalises the source instant and drops one that is not an instant", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const offset = await initiateDated(database, matterId, {
+      sourceModifiedAt: "2025-03-04T10:30:00+01:00",
+    });
+    expect((await fileDates(database, offset.fileId, offset.versionId)).source_modified_at).toBe(
+      "2025-03-04T09:30:00.000Z",
+    );
+    const nonsense = await initiateDated(database, matterId, { sourceModifiedAt: "yesterday" });
+    expect(
+      (await fileDates(database, nonsense.fileId, nonsense.versionId)).source_modified_at,
+    ).toBeNull();
+  });
+});
+
 describe("abortUploadSession", () => {
   it("aborts an open session and abandons its pending version, returning the R2 coordinates", async () => {
     const database = freshDatabase();

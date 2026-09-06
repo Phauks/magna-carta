@@ -106,8 +106,8 @@
   slices: 2-1-inbound-upload-untrusted-file-pipeline-async-bulk-download
   adrs: ADR-0081
   spec: docs/specs/2026-06-16-slice-2-1-inbound-upload-untrusted-pipeline-design.md
-  evidence: apps/api-worker/src/routes/uploads.ts + packages/file-manager/src/ingest-core.ts on main; slice 2-1 built, ui todo.
-  notes: Upload UI rides the file-surface-web stream (Dropzone primitive shipped; dev upload route on main).
+  evidence: apps/api-worker/src/routes/uploads.ts + packages/file-manager/src/ingest-core.ts on main; the Upload dialog (apps/web/src/lib/file-manager/upload-dialog.svelte), the upload queue and the top-bar upload tray on main.
+  notes: The single-shot PUT is the built browser path; the resumable multipart client above the mode threshold is still unbuilt on the web surface, so a file over the threshold is refused with its reservation given back.
 
 - id: documents.upload.direct-to-r2
   name: Direct-to-R2 transfer

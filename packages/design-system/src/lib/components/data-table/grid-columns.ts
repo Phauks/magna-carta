@@ -150,18 +150,21 @@ export function compareGridRows<TRow>(column: GridColumn<TRow>, left: TRow, righ
 }
 
 /**
- * Stable sort: equal values (and empty-vs-empty) tie-break on the row key, so re-sorting never
- * shuffles equal rows and a filtered view keeps a deterministic order. Empties stay last in both
- * directions — only the comparison inverts, never the empty-last rule.
+ * The comparator the grid sorts with: the column's typed comparison in the asked direction, with
+ * equal values (and empty-vs-empty) tie-breaking on the row key, so re-sorting never shuffles
+ * equal rows and a filtered view keeps a deterministic order. Empties stay last in both directions
+ * — only the comparison inverts, never the empty-last rule.
+ *
+ * Exposed on its own so a surface that arranges its rows itself (a hierarchy sorting siblings
+ * within their parent) sorts by exactly the rule the flat table would have used.
  */
-export function sortGridRows<TRow>(
-  rows: readonly TRow[],
+export function gridRowComparator<TRow>(
   column: GridColumn<TRow>,
   direction: GridSortDirection,
   rowKey: (row: TRow) => string,
-): TRow[] {
+): (left: TRow, right: TRow) => number {
   const sign = direction === "descending" ? -1 : 1;
-  return rows.toSorted((left, right) => {
+  return (left, right) => {
     const a = column.value(left);
     const b = column.value(right);
     const aEmpty = a == null || a === "";
@@ -170,7 +173,17 @@ export function sortGridRows<TRow>(
     const comparison = aEmpty ? 0 : compareGridRows(column, left, right);
     if (comparison !== 0) return comparison * sign;
     return rowKey(left).localeCompare(rowKey(right));
-  });
+  };
+}
+
+/** Stable sort by `gridRowComparator` — the flat table's own ordering. */
+export function sortGridRows<TRow>(
+  rows: readonly TRow[],
+  column: GridColumn<TRow>,
+  direction: GridSortDirection,
+  rowKey: (row: TRow) => string,
+): TRow[] {
+  return rows.toSorted(gridRowComparator(column, direction, rowKey));
 }
 
 /**
