@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 793 nodes of the feature ledger in
+is the complete register rather than a digest: all 795 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**793 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**795 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **653 that are units of work**, for the reason set out under [What a roll-up is
+count the **655 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 288 | 44% |
-| Part-built | partial, in-build | 117 | 18% |
-| Ahead | designed, planned, researching, not-started | 207 | 32% |
+| Done | shipped | 290 | 44% |
+| Part-built | partial, in-build | 119 | 18% |
+| Ahead | designed, planned, researching, not-started | 205 | 32% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **653** | **100%** |
+| **All units of work** | | **655** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 288 | 44% |
-| `partial` | 116 | 18% |
+| `shipped` | 290 | 44% |
+| `partial` | 118 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 140 | 21% |
+| `not-started` | 138 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 1% |
-| **All statuses** | **653** | **100%** |
+| **All statuses** | **655** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 793 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**140 of the 795 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 288 of 653 (44%). Shipped plus partial is 404 (62%).**
+**Shipped alone is 290 of 655 (44%). Shipped plus partial is 408 (62%).**
 
-The 116 units between those two numbers are work that is engineered and paid for and is not
+The 118 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**405 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**409 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 56 | 14% |
+| A person can open it today (`screen`) | 60 | 15% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 172 | 42% |
-| No user surface by nature (`internal`) | 177 | 44% |
+| No user surface by nature (`internal`) | 177 | 43% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **405** | **100%** |
+| **Everything with something built** | **409** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -97,7 +97,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | AI & Inference | 17 | 3 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 29 | 59% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
-| Calendar and Rules-Based Docketing | 12 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 18 | 67% |
+| Calendar and Rules-Based Docketing | 13 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 19 | 68% |
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 5 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 63% |
@@ -109,7 +109,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 17 | 15 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 54 | 31% |
-| Client Intake / CRM | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 6 | 0% |
+| Client Intake / CRM | 1 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 7 | 14% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **288** | **116** | **1** | **46** | **16** | **5** | **140** | **38** | **3** | **653** | **44%** |
+| **All areas** | **290** | **118** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **655** | **44%** |
 
 ## Where we have been
 
@@ -289,7 +289,7 @@ in this one.
 
 ## Waiting on you
 
-**32 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**30 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -305,8 +305,6 @@ in this one.
 - **Financial statements** (`financial.ledger.operating-gl.financial-statements`) — **Not built.** Are trust accounts on the firm's balance sheet? Correct accounting includes them — the firm holds an asset and an equal liability — and some accountants present a firm balance sheet without them; the recommendation is to include them in labelled sections that must net to zero, and to refuse the statement when they do not, because omitting them hides the one relationship an examiner checks. Also whether a derived cash-basis view is in scope here at all, which it is recommended not to be: the book is accrual and cannot be otherwise, and a cash view is not a tax basis and must never be presented as one. And who is seeded the capability to read statements, where a bookkeeper reads them and posts nothing. General ledger design, flags G16, G2 and G14.
 - **Lead pipeline** (`intake.lead-pipeline`) — **Not built.** Is the pipeline board visible to the whole firm, or per-attorney like the Consultations folder? A shared board is what an intake coordinator needs and what every competitor ships; the narrowing to per-attorney was a deliberate decision (ADR-0080), so widening it is a reversal only the owner can make. Client intake design flag J4.
 - **Public intake forms** (`intake.public-forms`) — **Not built.** Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
-- **Conflict check at intake** (`intake.conflict-check`) — **Not built.** A professional-conduct question with a build attached: may a decline be recorded before a conflicts check has completed? A firm declining instantly on subject matter — we do not do that kind of work — should not be forced through a check; a firm declining because of a conflict must have the record. The two are indistinguishable to the platform at the moment of the click, so the answer decides whether the decline path gates on the check or merely notes its absence. Client intake design flag J5.
-- **Lead-to-matter conversion** (`intake.conversion`) — **Not built.** A professional-conduct question rather than a product one. When the four conversion preconditions are unmet — an open re-check request among them — does opening the matter refuse outright, or proceed on an override with a recorded reason? The conditions are facts about the firm's own procedure rather than conclusions about the client, so gating on them concludes nothing; but a hard refusal will, at some point, stop a firm opening a matter on a day it needed to. The design refuses only to leave an override untraced. Client intake design flag J2.
 - **Firm-wide note search** (`notes.search.firm-wide`) — **Not built.** Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
 - **Payments port** (`payments.port`) — **Not built.** Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
 - **Manually recorded receipt** (`payments.manual-receipt`) — **Not built.** Does this ship as the first payments slice, ahead of any processor work? Payments design flag K1.
@@ -324,7 +322,7 @@ in this one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**34 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**35 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -351,7 +349,8 @@ in this one.
 - **Corrections after finalization** (`financial.billing.corrections`) — **A group of capabilities.** What becomes of money a client over-pays, which the built mechanism cannot express — client_credit.credit_note_id is NOT NULL and the schema policy forbids the destructive rebuild that would relax it, so a payment larger than the bill cannot open a credit. Three ways out: leave the excess as received-and-unapplied cash and report it, which is safe and leaves the firm holding an unexplained figure; add a nullable payment source beside the credit note with a shape check requiring exactly one; or refuse over-payment at the application boundary and make the firm issue a refund. Payments design flag K4.
 - **Invoice delivery record** (`financial.billing.delivery`) — **Built; no screen yet.** Whether a delivery recorded in error can be corrected. The record is append-only by design and a wrong row cannot be edited or removed, but the design names no correction shape either — unlike a credit note, whose answer is a further credit note. Either a superseding row that names the one it corrects, or the record simply stands. Also unresolved: the design names outcome as a column without enumerating it, so delivered and failed are the built floor rather than an answered vocabulary.
 - **Billing automations** (`financial.billing.automations`) — **A group of capabilities.** Three flags decide what gets built. Whether a recurring schedule may finalize a bill or only draft one — finalizing is irreversible, posts the receivable, locks work in progress, and is what permits money to leave trust. Whether payment reminders ship on or off out of the box and on what cadence, since telling a client they owe money is an act in the firm's voice and a schedule nobody set should be a stated default rather than a silence. And whether a payment plan may ever charge anything, which the design recommends against on three independent grounds rather than deferring. Billing automations design, flags M1, M2 and M3.
-- **Client intake / CRM** (`intake`) — **A group of capabilities.** Does the first slice ship staff-entered intake only, with no public form at all? The whole mechanism — submission, triage, prospect entity, prospective matter, preliminary check, stage, comprehensive check, conversion — works with a receptionist typing into a screen, and shipped that way it needs no anonymous surface, no bot control, no rate-limit tuning and no disclosure analysis. The public form is an accelerant on a flow that has to exist either way, and answering this decides how much of the area is in the first slice. Client intake design flag J1.
+- **Client intake / CRM** (`intake`) — **A group of capabilities.** Does the first slice ship staff-entered intake only, with no public form at all? The intake procedure that shipped is staff-side and needs no anonymous surface; the design's recommendation (yes, staff-entered first) was taken for it, and the public form still waits on this answer plus its own flags. Client intake design flag J1.
+- **Conflict check at intake** (`intake.conflict-check`) — **Built and reachable.** A professional-conduct question with a build attached: may a decline be recorded before a conflicts check has completed? A firm declining instantly on subject matter — we do not do that kind of work — should not be forced through a check; a firm declining because of a conflict must have the record. The two are indistinguishable to the platform at the moment of the click, so the answer decides whether the decline path gates on the check or merely notes its absence. Client intake design flag J5.
 - **Documents on a note** (`notes.matter-note.documents`) — **Built and reachable.** A note cannot upload a NEW document, only point at one the matter already holds. Whether the note window should also file a document into the matter — which means the presigned upload, the quarantine chokepoint and a scan wait inside a note — is an owner call, not a gap to close quietly.
 - **Scheduled reminders** (`notifications.scheduling`) — **Built; no screen by nature.** Two, both about how much of a firm's overdue work one pass carries. The deadline horizon's lead window — "an open deadline enters the firm's configured lead window" needs a number and a bound, and a lead the platform picks is a lead the firm did not choose. And whether 200 findings per kind per pass is the right ceiling: it is counted rather than silent, but a busy litigation practice can exceed it honestly, and raising it is a firm-observable change in how much gets reported as well as a load question.
 - **Payments** (`payments`) — **A group of capabilities.** The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.
@@ -524,7 +523,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Calendar and Rules-Based Docketing
 
-[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 18 units of work, 67% shipped. 12 done, 1 part-built, 5 ahead, 0 parked.
+[`roadmap.d/calendar.md`](../roadmap.d/calendar.md) — 19 units of work, 68% shipped. 13 done, 1 part-built, 5 ahead, 0 parked.
 
 - `calendar` · `partial` · **Calendar and docketing** — Calendar surface for matters, deadlines, and appointments; two-way external sync; rules-based court-deadline computation.
   - `calendar.events` · `shipped` · **Litigation events and deadlines** — Member-entered hearings, filings, service, orders, depositions and the like, plus first-class deadlines with a stated authority, satisfaction, and a vacate/supersede trail. _Note: Read on the matter's Calendar section and on the firm calendar; recorded, edited, cancelled, continued, satisfied, vacated and superseded from those screens through the record forms and the entry window._
@@ -532,13 +531,14 @@ to change a line here, edit the node in its area file and re-run the build.
     - `calendar.timeline.activity-section` · `shipped` · **The matter's Activity section** — The federated timeline as a screen — one chronology per matter on the product's shared table, sorted and filtered by its own columns, each row named by the subsystem that owns it through that subsystem's own describe statement and contribution, opening into its section, and the first record (a note) written from it. _Note: The screen names no source and switches on none. A subsystem joins the chronology with a `permission` and a `describe` on its timeline source and an ActivityContribution beside its own web code; the test fails until both exist, and the coverage lint fails until a section owns the source or declares it ownerless. The description is server-side, one statement per source present on the page, gated per source by the member's capabilities: a member without notes:read sees that a note was written and not what it said. The firm-wide read is never described. A file's Type is what the file manager identifies it as (its document type, else the identification's own label), never a name suffix; Section and Type are two columns with two filters. Opening a row follows the timeline's deep link into the owning section; sections honouring `?entry=` is the next step._
   - `calendar.firm-events` · `shipped` · **Firm events** — Events that belong to the firm rather than to a case — meetings, closures, training, holidays, reservations — with an all-members/participants audience and the same civil-date/zone model as case events. _Note: On the firm calendar at /calendar beside the matters' settings, recorded from its Record menu, opened and edited in the entry window; /calendar/firm-events is the deep link the federated read emits._
   - `calendar.resources` · `shipped` · **Rooms and resources** — Bookable firm resources (rooms, vehicles, equipment) with availability as a read, bookings attached to exactly one event, liveness derived from event status, and double-booking as a warn-and-allow visible fact. _Note: The catalog is kept under Settings › Practice › Rooms and Resources; a room is booked from an event's window (its Rooms tab) and read on the room grid at /calendar/rooms. A per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams._
-  - `calendar.links-continuance` · `shipped` · **Event links and continuance** — Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved. _Note: Continue Setting is a verb on a scheduled matter event in the entry window, which lists the trigger-linked open deadlines the operation reports and states that none moved; the Links tab shows continued-from and continued-to. Related links are recorded through the API only until the links surface lands._
+  - `calendar.links-continuance` · `shipped` · **Event links and continuance** — Typed relations between events, and continuance as a new setting pointing at the vacated one — old row byte-untouched, chain held by partial unique indexes, no deadline ever moved. _Note: Continue Setting is a verb on a scheduled matter event in the entry window, which lists the trigger-linked open deadlines the operation reports and states that none moved; the Links tab shows continued-from and continued-to, and the settings related by hand with their titles, Relate (a setting on the same matter, or a firm event within six months) and Remove._
   - `calendar.surface` · `partial` · **Calendar surface** — Calendar of matters, deadlines, and appointments. _Note: One reusable calendar component (CalendarView over the design system's CalendarGrid) embedded with a scope: the firm screen, the matter section, and later the dashboard, an entity and a room._
     - `calendar.surface.firm-calendar` · `shipped` · **Firm calendar screen** — The firm-wide calendar at /calendar: month, week and agenda views over the federated read, the deadlines read and the firm-events read, with a Mine / Everyone scope and a Record menu. _Note: Paints kinds and matter numbers, never titles, on the firm-wide grid; the title is fetched for the one entry opened. The week is seven civil-day columns rather than a time axis (owner flag C3)._
     - `calendar.surface.matter-section` · `shipped` · **Matter calendar section** — The matter's Calendar section: the deadlines and events tables as the List view, plus Month and Agenda views over the same component with the matter scope, and live record controls.
     - `calendar.surface.entry-window` · `shipped` · **Entry window** — The one window an event, a firm event or a deadline opens in: the record, its participants and links, in-place editing, and the verbs (cancel, continue, satisfy, vacate, supersede). _Note: The History tab is a marked Soon seam until a per-record audit read exists; a deadline reached by deep link outside the window on screen says so rather than reading one by id, because no single-deadline route exists._
     - `calendar.surface.record-forms` · `shipped` · **Record forms** — Recording an event on a matter, a deadline on a matter (including superseding one), and a firm event from a screen, with a participant picker over the roster, the directory and external names.
     - `calendar.surface.firm-settings` · `shipped` · **Firm calendar settings** — What the firm decides once about how it reads its calendar, held in the per-firm setting table and edited under Settings › Practice › Calendar; today the day the week begins on. _Note: A firm setting, never a personal preference (owner ruling 2026-09-02); Sunday by default. Read by every member who can read the calendar, moved only under calendar:manage, audited, idempotent. The page is the first settings page with a server behind it and shows no per-browser history._
+    - `calendar.surface.event-types` · `shipped` · **Event-type catalog** — The vocabulary a setting is classified under, kept under Settings › Practice › Event Types: the platform's shipped types (recategorized or retired, never renamed) and the firm's own (added, renamed, retired). _Note: Retiring is one way, as the contract is; a word wanted back is added again as the firm's own. Gated on the session's calendar:manage._
     - `calendar.surface.kind-narrowing` · `shipped` · **Layers, the colleague picker and the settled filter** — Turning the timeline's date-bearing sources (custody due-backs and review dates) on over the firm calendar as a layer, reading one colleague's calendar beside Mine and Everyone, and narrowing the agenda to what is still coming. _Note: Only date-bearing sources are offered as layers; the timeline's history sources (time, costs, mail, documents, trust) stay in the matter timeline rather than flooding a month. Every refinement is mirrored into the address._
     - `calendar.surface.embedded` · `partial` · **Calendar embedded on other surfaces** — The Today card on Home, the matter overview's agenda, and a directory entity's appearances, each the one component with a narrower scope. _Note: Home's Today card (today and tomorrow, the reader's own scope, six rows) and the matter overview's Coming up card (the next thirty days, six rows) are built; a directory entity's appearances wait on a participant read filterable by entity._
     - `calendar.surface.room-grid` · `shipped` · **Room grid and bookings** — A resource's schedule over the availability read with conflicts painted, bookings on an event's window, and the resource catalog under Settings. _Note: The room grid is the one calendar component with the resource scope; a booking paints as its event, danger with a Double-booked line where the read pre-paired it, and opens the event's window. Booking takes the event's own window; changing a booking's span is recorded through the API until a reason to surface it appears._
@@ -946,7 +946,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.time.utilization-reports` · `not-started` · **Utilization and realization roll-ups** — Utilization and realization rolled up into the reports library.
     - `financial.time.utbms` · `shipped` · **UTBMS codes** — UTBMS task/activity codes on entries; e-billing matters require and validate codes at capture.
     - `financial.time.passive-capture` · `deferred` · **Passive/automatic time capture** — Automatic activity capture feeding a draft-approve queue. _Note: Seam only; no capture code._
-  - `financial.trust` · `partial` · **Trust accounting** — Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation. _Note: Backend only - no trust screen exists, and nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code._
+  - `financial.trust` · `partial` · **Trust accounting** — Per-client trust ledgers, jurisdiction-configurable compliance, reconciliation. _Note: The matter's Trust section renders the ledger surface (apps/web/src/lib/trust) built whole against the movement record, empty until a route lists the firm's trust accounts; nothing reads a jurisdiction requirement through the port yet. Owner flags from the 2026-08-04 analysis stay open and are refused rather than defaulted in code._
     - `financial.trust.client-ledgers` · `partial` · **Per-client trust ledgers, no negative balance** — Per-client (per-matter) trust subledgers under a per-account roll-up, with a hard no-negative-balance invariant per client ledger. _Note: No screen reads a client ledger; the balances, holds and movement history are API-only._
     - `financial.trust.authorization-policy` · `shipped` · **Disbursement authorization policy (per-firm)** — Who may release money leaving a client ledger, as firm configuration. Authority is a property of the person - a member holding trust:authorize releases alone, in one act; a member without it raises a request that routes to somebody who holds it, and is told who before composing anything. Every per-firm database is seeded with that posture as version 1 (off plus the authority requirement); a firm adds a ceiling above which two people are required by writing a threshold or always version, and above the ceiling the authority requirement binds whichever of the two decides (peer approval). The earned-fee application follows the same policy through the same approval queue; in-flight requests keep the policy version they were submitted under. _Note: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy._
     - `financial.trust.firm-funds` · `shipped` · **Bank-charge cushion (the firm-funds carve-out)** — The one purpose the firm's own money may sit in a trust account for - bearing the institution's service charges - as a second, narrower composition door rather than a relaxation of the first. _Note: Backend only, no screen. Owner-directed and deliberately incomplete in one direction - the rule text authorizes the deposit and is silent on taking it back out, so there is no movement that withdraws surplus firm funds and none that pays a person. Refused outright on a pooled interest-bearing account, which the corpus records as exempt from the charges it would pay._
@@ -991,15 +991,16 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Client Intake / CRM
 
-[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 6 units of work, 0% shipped. 0 done, 0 part-built, 6 ahead, 0 parked.
+[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 7 units of work, 14% shipped. 1 done, 2 part-built, 4 ahead, 0 parked.
 
-- `intake` · `not-started` · **Client intake / CRM** — Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, and receptionist call intake.
+- `intake` · `partial` · **Client intake / CRM** — Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, receptionist call intake, and the per-matter-type intake procedure a consultation clears before it opens.
+  - `intake.procedure` · `shipped` · **Intake procedure** — A firm-authored, per-matter-type list of steps a consultation must clear before it opens, each answered by the subsystem that owns the fact or by a member's record, gating the open. _Note: Eight step kinds held by a CHECK. Conflicts, billing, document assembly, trust and custom fields answer their kinds today; identity verification and acknowledgement are a member's record until a subsystem exists, and adding the reader is the whole change. The checklist is derived on every read, never stored. A required step refuses the open; the override is a waiver under intake:waive with a rationale, append-and-flip. The platform seeds no procedure._
   - `intake.lead-pipeline` · `not-started` · **Lead pipeline** — Pipeline stages and lead lifecycle feeding prospective matters.
   - `intake.public-forms` · `not-started` · **Public intake forms** — Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus prospective matters.
   - `intake.call-intake` · `not-started` · **Receptionist call intake** — Recorded, transcribed inbound calls turned into a Directory prospect plus prospective matter with the transcript attached.
-  - `intake.conflict-check` · `not-started` · **Conflict check at intake** — Prospects are conflict-checkable entities from first contact; intake triggers a conflicts check.
+  - `intake.conflict-check` · `partial` · **Conflict check at intake** — Prospects are conflict-checkable entities from first contact; intake triggers a conflicts check.
   - `intake.crm` · `not-started` · **CRM fields and activities** — CRM-style fields and activity tracking on prospects.
-  - `intake.conversion` · `not-started` · **Lead-to-matter conversion** — Converting a prospect/prospective matter into an open matter.
+  - `intake.conversion` · `partial` · **Lead-to-matter conversion** — Converting a prospect/prospective matter into an open matter. _Note: The design's flag J2 — hard refusal or override — was answered in the build as an override in the form of a waiver: a named member under intake:waive, a mandatory rationale, an audit row, and the record kept forever, which is the traced override the design refused to leave untraced._
 
 ### Integrations & Plugins
 

@@ -31,7 +31,6 @@
    * knows; a deadline reached by an address alone cannot be, and the pane says so in one sentence
    * rather than reading a matter's whole record to find it.
    */
-  import { parseDate, type CalendarDate } from "@internationalized/date";
   import { untrack } from "svelte";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
@@ -59,6 +58,7 @@
     cancelFirmEvent,
     cancelMatterEvent,
     continueMatterEvent,
+    deadlineStateBadgeLabel,
     deadlineStateLabel,
     deadlineTone,
     eventStatusLabel,
@@ -76,25 +76,19 @@
     type Acknowledged,
     type CalendarDeadline,
     type ContinuanceDeadlineReference,
-    type ContinueEventRequest,
-    type CreateDeadlineRequest,
-    type CreateEventRequest,
-    type CreateFirmEventRequest,
-    type DeadlineState,
     type EventParticipant,
-    type EventStatus,
-    type UpdateDeadlineRequest,
-    type UpdateEventRequest,
-    type UpdateFirmEventRequest,
-    createBooking,
-    deleteBooking,
-    listEventBookings,
-    listResources,
-    resourceKindLabel,
-    type EventBooking,
-    type FirmResource,
   } from "./calendar-api.ts";
   import type { CalendarContext } from "./calendar-context.svelte.ts";
+  import { calendarManageRefusal } from "./calendar-permission.ts";
+  import { ENTRY_KIND_WORDS, PARTICIPANT_KIND_WORDS } from "./calendar-vocabulary.ts";
+  import {
+    continueDraftFrom,
+    continueDraftRequest,
+    continueDraftShortfalls,
+    continueDraftStarted,
+    emptyContinueDraft,
+    type ContinueDraft,
+  } from "./continue-draft.ts";
   import {
     deadlineDraftFrom,
     deadlineDraftRequest,
@@ -104,24 +98,34 @@
     DEADLINE_PRIORITY_MAX,
     type DeadlineDraft,
   } from "./deadline-draft.ts";
+  import { civilDateValue, optionalText } from "./draft-text.ts";
+  import EntryLinksTab from "./entry-links-tab.svelte";
   import { entrySheet } from "./entry-print-sheet.ts";
   import {
     entryRecordDate,
+    entryRecordKindLine,
     entryRecordMatterId,
     entryRecordTitle,
     entryReferenceKey,
     type EntryRecord,
     type EntryReference,
-    type EntryReferenceKind,
   } from "./entry-reference.ts";
+  import EntryRoomsTab from "./entry-rooms-tab.svelte";
+  import { deadlineUpdateOf, eventUpdateOf, firmEventUpdateOf } from "./entry-updates.ts";
+  import {
+    deadlineVerbRefusal as deadlineVerbRefusalOf,
+    editRefusal as editRefusalOf,
+    eventVerbRefusal as eventVerbRefusalOf,
+    linkCount as linkCountOf,
+    participantCount as participantCountOf,
+    type EntryVerbState,
+  } from "./entry-verbs.ts";
   import {
     eventDraftFrom,
     eventDraftRequest,
     eventDraftShortfalls,
     eventDraftStarted,
-    timingShortfalls,
     type EventDraft,
-    type EventTimingDraft,
   } from "./event-draft.ts";
   import {
     firmEventDraftFrom,
@@ -130,8 +134,13 @@
     firmEventDraftStarted,
     type FirmEventDraft,
   } from "./firm-event-draft.ts";
+  import EventTypeSelect from "./event-type-select.svelte";
   import RecordDeadlineDialog from "./record-deadline-dialog.svelte";
-  import { timeZoneOptions } from "./time-zone-options.ts";
+  import RecordTimingFields from "./record-timing-fields.svelte";
+  import TimeZonePicker from "./time-zone-picker.svelte";
+
+  /** Makes the ids the panes mint unique: the window is one of several forms a page may hold. */
+  const idPrefix = $props.id();
 
   let {
     open = $bindable(false),
@@ -264,7 +273,6 @@
     if (generation !== readGeneration) return;
     record = next;
     unreachableDeadline = unreachable;
-    void readBookings(next);
     readFailure = failure === null ? null : stated(failure, "The record could not be read.");
     reading = false;
     seedDrafts();
@@ -275,117 +283,21 @@
     if (target !== null) void readRecord(target);
   }
 
-  /** Re-open this window on a neighbouring setting. */
-  function openEvent(eventId: string): void {
-    current = { kind: "event", recordId: eventId };
+  /** Re-open this window on a neighbouring record; the Links tab follows links this way. */
+  function openReference(reference: EntryReference): void {
+    current = reference;
   }
 
-  // ---- the rooms an event has booked ------------------------------------------------------------
+  // ---- the tabs that own their own reads --------------------------------------------------------
   //
-  // A booking belongs to exactly one event, so the event's window is where its rooms are read and
-  // booked. The catalog is read once per window, lazily, because a deadline never books anything.
+  // The Links tab and the Rooms tab each read, form and fail on their own (entry-links-tab.svelte,
+  // entry-rooms-tab.svelte). The shell holds only what the action bar needs: the way in to their
+  // dialogs, and the counts the tab strip shows.
 
-  let bookings = $state<readonly EventBooking[] | null>(null);
-  let bookingsFailure = $state<StatedFailure | null>(null);
-  let resources = $state<readonly FirmResource[] | null>(null);
-  let bookingsGeneration = 0;
-
-  async function readBookings(target: EntryRecord | null): Promise<void> {
-    bookingsGeneration += 1;
-    const generation = bookingsGeneration;
-    bookings = null;
-    bookingsFailure = null;
-    if (target === null || target.kind === "deadline") return;
-    const event = { kind: target.kind === "event" ? "matterEvent" : "firmEvent", id: target.event.id } as const;
-    const [outcome] = await Promise.all([listEventBookings(fetch, event), readResources()]);
-    if (generation !== bookingsGeneration) return;
-    if (outcome.kind === "ok") {
-      bookings = outcome.value.data;
-    } else {
-      bookingsFailure = stated(outcome.failure, "The event's bookings could not be read.");
-    }
-  }
-
-  async function readResources(): Promise<void> {
-    if (resources !== null) return;
-    const outcome = await listResources(fetch, true);
-    if (outcome.kind === "ok") resources = outcome.value.data;
-  }
-
-  function resourceName(resourceId: string): string {
-    const resource = resources?.find((candidate) => candidate.id === resourceId);
-    return resource === undefined ? "A resource" : `${resource.name} · ${resourceKindLabel(resource.kind)}`;
-  }
-
-  const bookingCount = $derived(bookings?.length ?? 0);
-
-  let bookOpen = $state(false);
-  let bookResourceId = $state("");
-  let bookFailure = $state<StatedFailure | null>(null);
-  let bookConflicts = $state(0);
-  let bookAttemptKey: string | null = null;
-
-  const bookableResources = $derived(
-    (resources ?? [])
-      .filter((resource) => resource.active)
-      .map((resource) => ({ value: resource.id, label: `${resource.name} · ${resourceKindLabel(resource.kind)}` })),
-  );
-  const bookRefusal = $derived(
-    bookResourceId === "" ? "Choose what to book." : undefined,
-  );
-
-  function openBook(): void {
-    bookResourceId = "";
-    bookFailure = null;
-    bookConflicts = 0;
-    bookAttemptKey = null;
-    verbFailure = null;
-    bookOpen = true;
-  }
-
-  /*
-   * The booking takes the event's own window: the room is busy because the event is happening in
-   * it. A booking that double-books LANDS and says so; refusing would make the platform referee
-   * rooms it does not own, and must never be why a hearing cannot be recorded.
-   */
-  async function commitBook(): Promise<ActionOutcome> {
-    if (record === null || record.kind === "deadline" || bookResourceId === "") return "refused";
-    bookFailure = null;
-    bookAttemptKey ??= crypto.randomUUID();
-    const outcome = await createBooking(
-      fetch,
-      record.kind === "event"
-        ? { resourceId: bookResourceId, matterEventId: record.event.id }
-        : { resourceId: bookResourceId, firmEventId: record.event.id },
-      bookAttemptKey,
-    );
-    if (outcome.kind === "ok") {
-      bookAttemptKey = null;
-      bookConflicts = outcome.value.conflicts.length;
-      void readBookings(record);
-      onChanged();
-      return "committed";
-    }
-    if (outcome.kind === "problem") bookAttemptKey = null;
-    bookFailure = stated(
-      outcome.failure,
-      "The booking was not made.",
-      "Nothing answered. The booking was not made, so pressing again makes it once.",
-    );
-    return "refused";
-  }
-
-  async function releaseBooking(bookingId: string): Promise<void> {
-    if (record === null) return;
-    verbFailure = null;
-    const outcome = await deleteBooking(fetch, bookingId, crypto.randomUUID());
-    if (outcome.kind === "ok") {
-      void readBookings(record);
-      onChanged();
-      return;
-    }
-    verbFailure = stated(outcome.failure, "The booking was not released.");
-  }
+  let linksTab = $state<EntryLinksTab>();
+  let roomsTab = $state<EntryRoomsTab>();
+  let relatedCount = $state(0);
+  let bookingCount = $state(0);
 
   // ---- the drafts the fields edit ---------------------------------------------------------------
 
@@ -455,113 +367,22 @@
   const saveRefusal = $derived(saving ? "Saving this record." : shortfall);
 
   // ---- what this account may do ---------------------------------------------------------------
+  //
+  // Every answer is entry-verbs.ts's, over the session's own refusal (calendar-permission.ts); this
+  // file only hands them the record, whether it is still being read, and that refusal.
 
-  const MANAGE_SENTENCE =
-    "Changing a calendar record needs the calendar:manage permission, which this account does not hold.";
-
-  /** Why nothing here may be written, or undefined when it may. */
-  const manageRefusal = $derived.by((): string | undefined => {
-    if (context.mayManage) return undefined;
-    return context.sessionSettled ? MANAGE_SENTENCE : "Reading your session.";
-  });
-
-  /*
-   * Why Edit refuses. It gates ENTRY into the fields: a cancelled setting and a settled deadline
-   * are kept as they were recorded, because what the record said at the moment it was cancelled or
-   * satisfied is itself a fact the firm relies on.
-   */
-  const editRefusal = $derived.by((): string | undefined => {
-    if (manageRefusal !== undefined) return manageRefusal;
-    if (record === null) return reading ? "Reading the record." : "There is no record to change.";
-    if (record.kind === "deadline" && record.deadline.state !== "open") {
-      return "A settled deadline is kept as it was recorded.";
-    }
-    if (record.kind !== "deadline" && record.event.status === "cancelled") {
-      return "A cancelled setting is kept as it was recorded.";
-    }
-    return undefined;
-  });
-
-  function settingRefusal(status: EventStatus): string | undefined {
-    switch (status) {
-      case "scheduled":
-        return undefined;
-      case "occurred":
-        return "This setting has already occurred.";
-      case "cancelled":
-        return "This setting is already cancelled.";
-    }
-  }
-
-  function deadlineRefusal(state: DeadlineState): string | undefined {
-    return state === "open"
-      ? undefined
-      : `This deadline is already ${deadlineStateLabel(state).toLowerCase()}.`;
-  }
-
-  /** Why a setting's verbs refuse, or undefined when the setting is open to them. */
-  const eventVerbRefusal = $derived.by((): string | undefined => {
-    if (manageRefusal !== undefined) return manageRefusal;
-    if (record === null) return reading ? "Reading the record." : "There is no record to act on.";
-    if (record.kind === "deadline") return "Not a setting.";
-    return settingRefusal(record.event.status);
-  });
-
-  /** Why a deadline's verbs refuse, or undefined when the deadline is open to them. */
-  const deadlineVerbRefusal = $derived.by((): string | undefined => {
-    if (manageRefusal !== undefined) return manageRefusal;
-    if (record === null) return reading ? "Reading the record." : "There is no record to act on.";
-    if (record.kind !== "deadline") return "Not a deadline.";
-    return deadlineRefusal(record.deadline.state);
-  });
+  const verbState = $derived.by(
+    (): EntryVerbState => ({
+      record,
+      reading,
+      manageRefusal: calendarManageRefusal("Changing a calendar record", context),
+    }),
+  );
+  const editRefusal = $derived(editRefusalOf(verbState));
+  const eventVerbRefusal = $derived(eventVerbRefusalOf(verbState));
+  const deadlineVerbRefusal = $derived(deadlineVerbRefusalOf(verbState));
 
   // ---- the commit ------------------------------------------------------------------------------
-
-  /*
-   * The record forms send everything; a correction sends the fields this pane edits and nothing
-   * else, so the participants on a setting are never re-sent by a window that did not touch them.
-   */
-  function eventUpdateOf(request: CreateEventRequest): UpdateEventRequest {
-    return {
-      eventTypeId: request.eventTypeId,
-      title: request.title,
-      description: request.description,
-      startsOn: request.startsOn,
-      startsAtTime: request.startsAtTime,
-      endsOn: request.endsOn,
-      endsAtTime: request.endsAtTime,
-      timeZone: request.timeZone,
-      locationText: request.locationText,
-      courtReference: request.courtReference,
-    };
-  }
-
-  function deadlineUpdateOf(request: CreateDeadlineRequest): UpdateDeadlineRequest {
-    return {
-      title: request.title,
-      dueOn: request.dueOn,
-      dueAtTime: request.dueAtTime,
-      timeZone: request.timeZone,
-      authorityText: request.authorityText,
-      triggerEventId: request.triggerEventId,
-      priority: request.priority,
-    };
-  }
-
-  function firmEventUpdateOf(request: CreateFirmEventRequest): UpdateFirmEventRequest {
-    return {
-      eventTypeId: request.eventTypeId,
-      title: request.title,
-      description: request.description,
-      startsOn: request.startsOn,
-      startsAtTime: request.startsAtTime,
-      endsOn: request.endsOn,
-      endsAtTime: request.endsAtTime,
-      timeZone: request.timeZone,
-      locationId: request.locationId,
-      locationText: request.locationText,
-    };
-  }
 
   async function save(): Promise<void> {
     if (record === null || saving || shortfall !== undefined) return;
@@ -629,32 +450,9 @@
   let continuedDeadlines = $state<readonly ContinuanceDeadlineReference[]>([]);
   let supersedeOpen = $state(false);
 
-  type ContinueDraft = EventTimingDraft & {
-    locationText: string;
-    courtReference: string;
-    statusReason: string;
-  };
-  let continueDraft = $state<ContinueDraft>({
-    startsOn: null,
-    startsAtTime: "",
-    endsOn: null,
-    endsAtTime: "",
-    timeZone: "",
-    locationText: "",
-    courtReference: "",
-    statusReason: "",
-  });
-  const continueRefusal = $derived(timingShortfalls(continueDraft)[0]);
-  const continueStarted = $derived(
-    continueDraft.startsOn !== null ||
-      continueDraft.endsOn !== null ||
-      continueDraft.statusReason !== "",
-  );
-
-  function optionalText(text: string): string | null {
-    const trimmed = text.trim();
-    return trimmed === "" ? null : trimmed;
-  }
+  let continueDraft = $state<ContinueDraft>(emptyContinueDraft());
+  const continueRefusal = $derived(continueDraftShortfalls(continueDraft)[0]);
+  const continueStarted = $derived(continueDraftStarted(continueDraft));
 
   function openCancel(): void {
     cancelReason = "";
@@ -680,16 +478,7 @@
    */
   function openContinue(): void {
     if (record === null || record.kind !== "event") return;
-    continueDraft = {
-      startsOn: null,
-      startsAtTime: record.event.startsAtTime ?? "",
-      endsOn: null,
-      endsAtTime: record.event.endsAtTime ?? "",
-      timeZone: record.event.timeZone,
-      locationText: record.event.locationText ?? "",
-      courtReference: record.event.courtReference ?? "",
-      statusReason: "",
-    };
+    continueDraft = continueDraftFrom(record.event);
     verbFailure = null;
     continueOpen = true;
   }
@@ -769,17 +558,12 @@
     if (record === null || record.kind !== "event" || continueRefusal !== undefined) {
       return "refused";
     }
-    const request: ContinueEventRequest = {
-      startsOn: continueDraft.startsOn ?? "",
-      startsAtTime: optionalText(continueDraft.startsAtTime),
-      endsOn: continueDraft.endsOn,
-      endsAtTime: optionalText(continueDraft.endsAtTime),
-      timeZone: continueDraft.timeZone,
-      locationText: optionalText(continueDraft.locationText),
-      courtReference: optionalText(continueDraft.courtReference),
-      statusReason: optionalText(continueDraft.statusReason),
-    };
-    const outcome = await continueMatterEvent(fetch, record.event.id, request, crypto.randomUUID());
+    const outcome = await continueMatterEvent(
+      fetch,
+      record.event.id,
+      continueDraftRequest(continueDraft),
+      crypto.randomUUID(),
+    );
     if (outcome.kind !== "ok") {
       return verbRefused(
         outcome.failure,
@@ -800,28 +584,19 @@
 
   // ---- how the record reads ---------------------------------------------------------------------
 
-  const KIND_WORDS: Record<EntryReferenceKind, string> = {
-    event: "Event",
-    deadline: "Deadline",
-    firmEvent: "Firm Event",
-  };
-
   const heading = $derived(
-    record !== null ? entryRecordTitle(record) : KIND_WORDS[current?.kind ?? "event"],
+    record !== null ? entryRecordTitle(record) : ENTRY_KIND_WORDS[current?.kind ?? "event"],
   );
 
   /** The kind, as the subtitle names it: the type's name where the record has one. */
-  const kindLine = $derived.by((): string => {
-    if (record === null) return KIND_WORDS[current?.kind ?? "event"];
-    switch (record.kind) {
-      case "event":
-        return record.event.eventTypeName ?? KIND_WORDS.event;
-      case "deadline":
-        return KIND_WORDS.deadline;
-      case "firmEvent":
-        return context.eventTypeById(record.event.eventTypeId)?.name ?? KIND_WORDS.firmEvent;
-    }
-  });
+  const kindLine = $derived(
+    entryRecordKindLine(
+      record,
+      current?.kind ?? "event",
+      ENTRY_KIND_WORDS,
+      (eventTypeId) => context.eventTypeById(eventTypeId)?.name,
+    ),
+  );
 
   const matterNumber = $derived.by((): string | null => {
     if (record === null) return null;
@@ -845,22 +620,6 @@
     return "Directory record";
   }
 
-  const PARTICIPANT_KIND_WORDS = {
-    member: "Firm member",
-    entity: "Directory record",
-    external: "External",
-  } as const;
-
-  /** A civil date as the picker holds it, or undefined while the field is empty or half-entered. */
-  function civilValue(text: string | null): CalendarDate | undefined {
-    if (text === null) return undefined;
-    try {
-      return parseDate(text);
-    } catch {
-      return undefined;
-    }
-  }
-
   /** The catalog as the type select offers it: the active types, plus the record's own if retired. */
   const typeItems = $derived.by(() => {
     const currentId =
@@ -870,18 +629,23 @@
       .map((type) => ({ value: type.id, label: type.name }));
   });
 
-  /** The zones on offer: the record's own first, then the reader's, then everything. */
-  const zoneItems = $derived.by(() => {
+  /** The zones offered first: the record's own, then the reader's. */
+  const preferredZones = $derived.by((): readonly string[] => {
     const recordZone =
       record === null
         ? null
         : record.kind === "deadline"
           ? record.deadline.timeZone
           : record.event.timeZone;
-    return timeZoneOptions(
-      [recordZone, context.readerTimeZone].filter((zone): zone is string => zone !== null),
-    );
+    return [recordZone, context.readerTimeZone].filter((zone): zone is string => zone !== null);
   });
+
+  /** The State field's word: the state, and whether an open one is already past its day. */
+  function deadlineStateWord(deadline: CalendarDeadline): string {
+    return deadline.overdue && deadline.state === "open"
+      ? "Open, past due"
+      : deadlineStateLabel(deadline.state);
+  }
 
   const officeItems = $derived.by(() => {
     const currentId = record?.kind === "firmEvent" ? record.event.locationId : null;
@@ -910,22 +674,8 @@
         }),
   );
 
-  const linkCount = $derived.by((): number | undefined => {
-    if (record === null) return undefined;
-    if (record.kind === "event") {
-      return [record.event.continuedFromEventId, record.event.continuedToEventId].filter(
-        (id) => id !== null,
-      ).length;
-    }
-    if (record.kind === "deadline") return record.deadline.triggerEventId === null ? 0 : 1;
-    return 0;
-  });
-
-  const participantCount = $derived.by((): number | undefined => {
-    if (record === null || record.kind === "deadline") return undefined;
-    if (record.kind === "firmEvent" && record.event.audience === "all_members") return undefined;
-    return record.participants.length;
-  });
+  const linkCount = $derived(linkCountOf(record, relatedCount));
+  const participantCount = $derived(participantCountOf(record));
 </script>
 
 {#snippet subtitle()}
@@ -940,11 +690,7 @@
   {/if}
   {#if record !== null}
     {#if record.kind === "deadline"}
-      <Badge variant={deadlineTone(record.deadline)}>
-        {record.deadline.overdue && record.deadline.state === "open"
-          ? "Past due"
-          : deadlineStateLabel(record.deadline.state)}
-      </Badge>
+      <Badge variant={deadlineTone(record.deadline)}>{deadlineStateBadgeLabel(record.deadline)}</Badge>
     {:else}
       <Badge variant={eventStatusTone(record.event.status)}>
         {eventStatusLabel(record.event.status)}
@@ -991,106 +737,40 @@
     {:else if record.kind === "event" && eventDraft !== null}
       {@const draft = eventDraft}
       <div class="flex flex-col gap-4">
-        <Label for="entry-title">Title</Label>
-        <Input id="entry-title" disabled={readOnly} bind:value={draft.title} />
+        <Label for="{idPrefix}-title">Title</Label>
+        <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
       </div>
+      <EventTypeSelect
+        id="{idPrefix}-type"
+        items={typeItems}
+        value={draft.eventTypeId}
+        disabled={readOnly}
+        onchange={(value) => (draft.eventTypeId = value)}
+      />
+      <RecordTimingFields
+        bind:draft={eventDraft}
+        idPrefix="{idPrefix}-timing"
+        preferred={preferredZones}
+        disabled={readOnly}
+      />
       <div class="grid gap-12 @md:grid-cols-2">
         <div class="flex flex-col gap-4">
-          <Label id="entry-type-label">Type</Label>
-          <Select.Root
-            type="single"
-            items={typeItems}
-            value={draft.eventTypeId ?? ""}
-            onValueChange={(value) => (draft.eventTypeId = value === "" ? null : value)}
-            disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-type-label">
-              <Select.Value placeholder={placeholderOf("Type")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each typeItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          <Label for="{idPrefix}-where">Where</Label>
+          <Input id="{idPrefix}-where" disabled={readOnly} bind:value={draft.locationText} />
         </div>
         <div class="flex flex-col gap-4">
-          <Label id="entry-zone-label">Time Zone</Label>
-          <Select.Root
-            type="single"
-            items={zoneItems}
-            value={draft.timeZone}
-            onValueChange={(value) => (draft.timeZone = value)}
-            allowDeselect={false}
-            disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-zone-label">
-              <Select.Value placeholder={placeholderOf("Time Zone")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each zoneItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="Date"
-            value={civilValue(draft.startsOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.startsOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-time">Time</Label>
+          <Label for="{idPrefix}-court-reference">Court reference</Label>
           <Input
-            id="entry-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("Time")}
-            title="HH:MM in the time zone above, or empty for all day"
+            id="{idPrefix}-court-reference"
             disabled={readOnly}
-            bind:value={draft.startsAtTime}
+            bind:value={draft.courtReference}
           />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="End Date"
-            value={civilValue(draft.endsOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.endsOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-end-time">End Time</Label>
-          <Input
-            id="entry-end-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("End Time")}
-            title="HH:MM in the time zone above, or empty"
-            disabled={readOnly}
-            bind:value={draft.endsAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="entry-where">Where</Label>
-          <Input id="entry-where" disabled={readOnly} bind:value={draft.locationText} />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-court-reference">Court Reference</Label>
-          <Input id="entry-court-reference" disabled={readOnly} bind:value={draft.courtReference} />
         </div>
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="entry-description">Description</Label>
+        <Label for="{idPrefix}-description">Description</Label>
         <Textarea
-          id="entry-description"
+          id="{idPrefix}-description"
           class="resize-none"
           rows={3}
           disabled={readOnly}
@@ -1100,22 +780,22 @@
     {:else if record.kind === "deadline" && deadlineDraft !== null}
       {@const draft = deadlineDraft}
       <div class="flex flex-col gap-4">
-        <Label for="entry-title">Title</Label>
-        <Input id="entry-title" disabled={readOnly} bind:value={draft.title} />
+        <Label for="{idPrefix}-title">Title</Label>
+        <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
       </div>
       <div class="grid gap-12 @md:grid-cols-2">
         <div class="flex flex-col gap-4">
           <DatePicker
             label="Due"
-            value={civilValue(draft.dueOn)}
+            value={civilDateValue(draft.dueOn)}
             disabled={readOnly}
             onValueChange={(picked) => (draft.dueOn = picked === undefined ? null : picked.toString())}
           />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="entry-time">Time</Label>
+          <Label for="{idPrefix}-time">Time</Label>
           <Input
-            id="entry-time"
+            id="{idPrefix}-time"
             inputmode="numeric"
             placeholder={placeholderOf("Time")}
             title="HH:MM in the time zone below, or empty for the end of the day"
@@ -1126,29 +806,19 @@
       </div>
       <div class="grid gap-12 @md:grid-cols-2">
         <div class="flex flex-col gap-4">
-          <Label id="entry-zone-label">Time Zone</Label>
-          <Select.Root
-            type="single"
-            items={zoneItems}
-            value={draft.timeZone}
-            onValueChange={(value) => (draft.timeZone = value)}
-            allowDeselect={false}
+          <Label for="{idPrefix}-time-zone">Time zone</Label>
+          <TimeZonePicker
+            inputId="{idPrefix}-time-zone"
+            label="Time zone"
+            preferred={preferredZones}
             disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-zone-label">
-              <Select.Value placeholder={placeholderOf("Time Zone")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each zoneItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
+            bind:value={draft.timeZone}
+          />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="entry-priority">Priority</Label>
+          <Label for="{idPrefix}-priority">Priority</Label>
           <Input
-            id="entry-priority"
+            id="{idPrefix}-priority"
             inputmode="numeric"
             placeholder={placeholderOf("Priority")}
             title="1 is the most urgent, {DEADLINE_PRIORITY_MAX} the least; empty for none"
@@ -1158,9 +828,9 @@
         </div>
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="entry-authority">Authority</Label>
+        <Label for="{idPrefix}-authority">Authority</Label>
         <Input
-          id="entry-authority"
+          id="{idPrefix}-authority"
           title="The rule, statute or order this comes from, in the firm's own words"
           disabled={readOnly}
           bind:value={draft.authorityText}
@@ -1168,26 +838,20 @@
       </div>
       <div class="grid gap-12 @md:grid-cols-2">
         <div class="flex flex-col gap-4">
-          <Label for="entry-source">Source</Label>
+          <Label for="{idPrefix}-source">Source</Label>
           <!-- Frozen on the record: where a deadline came from is a fact about its recording. -->
-          <Input id="entry-source" value={deadlineSourceLabel(draft.source)} disabled />
+          <Input id="{idPrefix}-source" value={deadlineSourceLabel(draft.source)} disabled />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="entry-state">State</Label>
-          <Input
-            id="entry-state"
-            value={record.deadline.overdue && record.deadline.state === "open"
-              ? "Open, past due"
-              : deadlineStateLabel(record.deadline.state)}
-            disabled
-          />
+          <Label for="{idPrefix}-state">State</Label>
+          <Input id="{idPrefix}-state" value={deadlineStateWord(record.deadline)} disabled />
         </div>
       </div>
       {#if record.deadline.state !== "open" && record.deadline.stateReason !== null}
         <div class="flex flex-col gap-4">
-          <Label for="entry-state-reason">Reason</Label>
+          <Label for="{idPrefix}-state-reason">Reason</Label>
           <Textarea
-            id="entry-state-reason"
+            id="{idPrefix}-state-reason"
             class="resize-none"
             rows={2}
             value={record.deadline.stateReason}
@@ -1198,101 +862,31 @@
     {:else if record.kind === "firmEvent" && firmEventDraft !== null}
       {@const draft = firmEventDraft}
       <div class="flex flex-col gap-4">
-        <Label for="entry-title">Title</Label>
-        <Input id="entry-title" disabled={readOnly} bind:value={draft.title} />
+        <Label for="{idPrefix}-title">Title</Label>
+        <Input id="{idPrefix}-title" disabled={readOnly} bind:value={draft.title} />
       </div>
+      <EventTypeSelect
+        id="{idPrefix}-type"
+        items={typeItems}
+        value={draft.eventTypeId}
+        disabled={readOnly}
+        onchange={(value) => (draft.eventTypeId = value)}
+      />
+      <RecordTimingFields
+        bind:draft={firmEventDraft}
+        idPrefix="{idPrefix}-timing"
+        preferred={preferredZones}
+        disabled={readOnly}
+      />
       <div class="grid gap-12 @md:grid-cols-2">
         <div class="flex flex-col gap-4">
-          <Label id="entry-type-label">Type</Label>
-          <Select.Root
-            type="single"
-            items={typeItems}
-            value={draft.eventTypeId ?? ""}
-            onValueChange={(value) => (draft.eventTypeId = value === "" ? null : value)}
-            disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-type-label">
-              <Select.Value placeholder={placeholderOf("Type")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each typeItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label id="entry-zone-label">Time Zone</Label>
-          <Select.Root
-            type="single"
-            items={zoneItems}
-            value={draft.timeZone}
-            onValueChange={(value) => (draft.timeZone = value)}
-            allowDeselect={false}
-            disabled={readOnly}
-          >
-            <Select.Trigger aria-labelledby="entry-zone-label">
-              <Select.Value placeholder={placeholderOf("Time Zone")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each zoneItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="Date"
-            value={civilValue(draft.startsOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.startsOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-time">Time</Label>
-          <Input
-            id="entry-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("Time")}
-            title="HH:MM in the time zone above, or empty for all day"
-            disabled={readOnly}
-            bind:value={draft.startsAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="End Date"
-            value={civilValue(draft.endsOn)}
-            disabled={readOnly}
-            onValueChange={(picked) => (draft.endsOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-end-time">End Time</Label>
-          <Input
-            id="entry-end-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("End Time")}
-            title="HH:MM in the time zone above, or empty"
-            disabled={readOnly}
-            bind:value={draft.endsAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 @md:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="entry-audience">Audience</Label>
+          <Label for="{idPrefix}-audience">Audience</Label>
           <!-- Who an event is for is decided when it is recorded; a list that grew or shrank
                afterwards would change whose calendar it is on without anybody choosing that. -->
-          <Input id="entry-audience" value={firmEventAudienceLabel(draft.audience)} disabled />
+          <Input id="{idPrefix}-audience" value={firmEventAudienceLabel(draft.audience)} disabled />
         </div>
         <div class="flex flex-col gap-4">
-          <Label id="entry-office-label">Office</Label>
+          <Label id="{idPrefix}-office-label">Office</Label>
           <Select.Root
             type="single"
             items={officeItems}
@@ -1300,7 +894,7 @@
             onValueChange={(value) => (draft.locationId = value === "" ? null : value)}
             disabled={readOnly || officeItems.length === 0}
           >
-            <Select.Trigger aria-labelledby="entry-office-label">
+            <Select.Trigger aria-labelledby="{idPrefix}-office-label">
               <Select.Value placeholder={placeholderOf("Office")} />
             </Select.Trigger>
             <Select.Content>
@@ -1312,13 +906,13 @@
         </div>
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="entry-venue">Venue</Label>
-        <Input id="entry-venue" disabled={readOnly} bind:value={draft.locationText} />
+        <Label for="{idPrefix}-venue">Venue</Label>
+        <Input id="{idPrefix}-venue" disabled={readOnly} bind:value={draft.locationText} />
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="entry-description">Description</Label>
+        <Label for="{idPrefix}-description">Description</Label>
         <Textarea
-          id="entry-description"
+          id="{idPrefix}-description"
           class="resize-none"
           rows={3}
           disabled={readOnly}
@@ -1375,129 +969,25 @@
   {/if}
 {/snippet}
 
-<!-- What acts like a link looks like a link: these re-open this window on the other record, so
-     they are buttons under the hood and wear the link register on top. -->
-{#snippet roomsTab()}
-  {#if record === null}
-    <p class="text-sm text-text-muted">&nbsp;</p>
-  {:else if record.kind === "deadline"}
-    <p class="text-sm text-text-muted">A deadline books nothing.</p>
-  {:else if bookingsFailure !== null}
-    <FailureNotice
-      failure={bookingsFailure.failure}
-      title="The Bookings Could Not Be Read"
-      fallback={bookingsFailure.fallback}
-      onRetry={() => void readBookings(record)}
-    />
-  {:else if bookings === null}
-    <Skeleton class="h-16 w-full" />
-  {:else if bookConflicts > 0 && bookings.length > 0}
-    <!-- Reported once, after the booking that made it: the room grid shows the pair. -->
-    <p class="text-sm">
-      Double-booked with {bookConflicts} other {bookConflicts === 1 ? "booking" : "bookings"}. The
-      booking stands; the room grid shows the pair.
-    </p>
-    {@render bookingRows(bookings)}
-  {:else if bookings.length === 0}
-    <p class="text-sm text-text-muted">Nothing booked for this event.</p>
-  {:else}
-    {@render bookingRows(bookings)}
-  {/if}
+{#snippet roomsTabContent()}
+  <EntryRoomsTab
+    bind:this={roomsTab}
+    {record}
+    readerTimeZone={context.readerTimeZone}
+    verbRefusal={eventVerbRefusal}
+    bind:bookingCount
+    {onChanged}
+  />
 {/snippet}
 
-{#snippet bookingRows(rows: readonly EventBooking[])}
-  <DataTable.Root>
-    <DataTable.Caption class="sr-only">What this event has booked</DataTable.Caption>
-    <DataTable.Header>
-      <DataTable.Row>
-        <DataTable.Head>Resource</DataTable.Head>
-        <DataTable.Head>When</DataTable.Head>
-        <DataTable.Head class="sr-only">Release</DataTable.Head>
-      </DataTable.Row>
-    </DataTable.Header>
-    <DataTable.Body>
-      {#each rows as booking (booking.id)}
-        <DataTable.Row>
-          <DataTable.Cell>{resourceName(booking.resourceId)}</DataTable.Cell>
-          <DataTable.Cell>
-            {booking.startsOn}{booking.startsAtTime === null ? "" : ` ${formatWallClock(booking.startsAtTime, booking.timeZone, context.readerTimeZone) ?? ""}`}
-            {#if booking.endsAtTime !== null}
-              to {formatWallClock(booking.endsAtTime, booking.timeZone, context.readerTimeZone) ?? ""}
-            {/if}
-          </DataTable.Cell>
-          <DataTable.Cell class="text-end">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={eventVerbRefusal !== undefined}
-              title={eventVerbRefusal ?? "Free the resource; the event stays as it is"}
-              onclick={() => void releaseBooking(booking.id)}
-            >
-              Release
-            </Button>
-          </DataTable.Cell>
-        </DataTable.Row>
-      {/each}
-    </DataTable.Body>
-  </DataTable.Root>
-{/snippet}
-
-{#snippet linksTab()}
-  {#if record === null}
-    <p class="text-sm text-text-muted">&nbsp;</p>
-  {:else if record.kind === "event" && (record.event.continuedFromEventId !== null || record.event.continuedToEventId !== null)}
-    {@const event = record.event}
-    <dl class="flex flex-col gap-8 text-sm">
-      {#if event.continuedFromEventId !== null}
-        {@const fromId = event.continuedFromEventId}
-        <div class="flex items-baseline justify-between gap-16">
-          <dt class="text-text-muted">Continued from</dt>
-          <dd>
-            <button
-              type="button"
-              class="underline underline-offset-2"
-              onclick={() => openEvent(fromId)}
-            >
-              The earlier setting
-            </button>
-          </dd>
-        </div>
-      {/if}
-      {#if event.continuedToEventId !== null}
-        {@const toId = event.continuedToEventId}
-        <div class="flex items-baseline justify-between gap-16">
-          <dt class="text-text-muted">Continued to</dt>
-          <dd>
-            <button
-              type="button"
-              class="underline underline-offset-2"
-              onclick={() => openEvent(toId)}
-            >
-              The later setting
-            </button>
-          </dd>
-        </div>
-      {/if}
-    </dl>
-  {:else if record.kind === "deadline" && record.deadline.triggerEventId !== null}
-    {@const triggerId = record.deadline.triggerEventId}
-    <dl class="flex flex-col gap-8 text-sm">
-      <div class="flex items-baseline justify-between gap-16">
-        <dt class="text-text-muted">Started by</dt>
-        <dd>
-          <button
-            type="button"
-            class="underline underline-offset-2"
-            onclick={() => openEvent(triggerId)}
-          >
-            The setting that started the clock
-          </button>
-        </dd>
-      </div>
-    </dl>
-  {:else}
-    <p class="text-sm text-text-muted">No links.</p>
-  {/if}
+{#snippet linksTabContent()}
+  <EntryLinksTab
+    bind:this={linksTab}
+    {record}
+    verbRefusal={eventVerbRefusal}
+    bind:relatedCount
+    onOpen={openReference}
+  />
 {/snippet}
 
 {#snippet historyTab()}
@@ -1537,9 +1027,17 @@
         variant="secondary"
         disabled={eventVerbRefusal !== undefined}
         title={eventVerbRefusal ?? "Book a room, a car or equipment for this setting's window"}
-        onclick={openBook}
+        onclick={() => roomsTab?.openBook()}
       >
         Book a Room
+      </Button>
+      <Button
+        variant="secondary"
+        disabled={eventVerbRefusal !== undefined}
+        title={eventVerbRefusal ?? "Relate this setting to another on the same matter"}
+        onclick={() => void linksTab?.openRelate()}
+      >
+        Relate
       </Button>
     {:else if current?.kind === "deadline"}
       <Button
@@ -1579,9 +1077,17 @@
         variant="secondary"
         disabled={eventVerbRefusal !== undefined}
         title={eventVerbRefusal ?? "Book a room, a car or equipment for this event's window"}
-        onclick={openBook}
+        onclick={() => roomsTab?.openBook()}
       >
         Book a Room
+      </Button>
+      <Button
+        variant="secondary"
+        disabled={eventVerbRefusal !== undefined}
+        title={eventVerbRefusal ?? "Relate this event to another of the firm's"}
+        onclick={() => void linksTab?.openRelate()}
+      >
+        Relate
       </Button>
     {/if}
     <Button onclick={() => (open = false)}>Close</Button>
@@ -1597,8 +1103,8 @@
   {actions}
   tabs={[
     { key: "participants", label: "Participants", count: participantCount, content: participantsTab },
-    { key: "links", label: "Links", count: linkCount, content: linksTab },
-    { key: "rooms", label: "Rooms", count: bookingCount, content: roomsTab },
+    { key: "links", label: "Links", count: linkCount, content: linksTabContent },
+    { key: "rooms", label: "Rooms", count: bookingCount, content: roomsTabContent },
     { key: "history", label: "History", content: historyTab },
   ] satisfies RecordWindowTab[]}
   editDisabledReason={editRefusal}
@@ -1698,88 +1204,35 @@
 >
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
+      <!-- The same timing fields the record forms ask; the date is the one the old setting lacks. -->
+      <RecordTimingFields
+        bind:draft={continueDraft}
+        idPrefix="{idPrefix}-continue"
+        preferred={preferredZones}
+        disabled={busy}
+      />
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-4">
-          <DatePicker
-            label="New Date"
-            value={civilValue(continueDraft.startsOn)}
-            disabled={busy}
-            onValueChange={(picked) =>
-              (continueDraft.startsOn = picked === undefined ? null : picked.toString())}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-continue-time">Time</Label>
+          <Label for="{idPrefix}-continue-where">Where</Label>
           <Input
-            id="entry-continue-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("Time")}
-            title="HH:MM in the time zone below, or empty for all day"
+            id="{idPrefix}-continue-where"
             disabled={busy}
-            bind:value={continueDraft.startsAtTime}
-          />
-        </div>
-      </div>
-      <div class="grid gap-12 sm:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="End Date"
-            value={civilValue(continueDraft.endsOn)}
-            disabled={busy}
-            onValueChange={(picked) =>
-              (continueDraft.endsOn = picked === undefined ? null : picked.toString())}
+            bind:value={continueDraft.locationText}
           />
         </div>
         <div class="flex flex-col gap-4">
-          <Label for="entry-continue-end-time">End Time</Label>
+          <Label for="{idPrefix}-continue-court-reference">Court reference</Label>
           <Input
-            id="entry-continue-end-time"
-            inputmode="numeric"
-            placeholder={placeholderOf("End Time")}
-            title="HH:MM in the time zone below, or empty"
-            disabled={busy}
-            bind:value={continueDraft.endsAtTime}
-          />
-        </div>
-      </div>
-      <div class="flex flex-col gap-4">
-        <Label id="entry-continue-zone-label">Time Zone</Label>
-        <Select.Root
-          type="single"
-          items={zoneItems}
-          value={continueDraft.timeZone}
-          onValueChange={(value) => (continueDraft.timeZone = value)}
-          allowDeselect={false}
-          disabled={busy}
-        >
-          <Select.Trigger aria-labelledby="entry-continue-zone-label">
-            <Select.Value placeholder={placeholderOf("Time Zone")} />
-          </Select.Trigger>
-          <Select.Content>
-            {#each zoneItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-      <div class="grid gap-12 sm:grid-cols-2">
-        <div class="flex flex-col gap-4">
-          <Label for="entry-continue-where">Where</Label>
-          <Input id="entry-continue-where" disabled={busy} bind:value={continueDraft.locationText} />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="entry-continue-court-reference">Court Reference</Label>
-          <Input
-            id="entry-continue-court-reference"
+            id="{idPrefix}-continue-court-reference"
             disabled={busy}
             bind:value={continueDraft.courtReference}
           />
         </div>
       </div>
       <div class="flex flex-col gap-4">
-        <Label for="entry-continue-reason">Reason</Label>
+        <Label for="{idPrefix}-continue-reason">Reason</Label>
         <Textarea
-          id="entry-continue-reason"
+          id="{idPrefix}-continue-reason"
           rows={2}
           title="Why the old setting is not happening"
           disabled={busy}
@@ -1826,51 +1279,3 @@
   />
 {/if}
 
-<ActionDialog
-  bind:open={bookOpen}
-  heading="Book a Room"
-  commitLabel="Book"
-  commitBusyLabel="Booking"
-  commitRefusal={bookRefusal}
-  unsavedChanges={bookResourceId !== ""}
-  onCommit={commitBook}
->
-  {#snippet notice()}
-    {#if bookFailure !== null}
-      <FailureNotice
-        failure={bookFailure.failure}
-        title="The Booking Was Not Made"
-        fallback={bookFailure.fallback}
-        whenSilent={bookFailure.whenSilent}
-      />
-    {/if}
-  {/snippet}
-  {#snippet fields()}
-  <div class="flex flex-col gap-16">
-    <p class="text-sm text-text-muted">
-      The booking takes this event's own window. A resource already taken is booked anyway and the
-      double-booking is reported, never refused.
-    </p>
-    <div class="flex flex-col gap-4">
-      <Label for="entry-book-resource">Resource</Label>
-      {#if bookableResources.length === 0}
-        <p class="text-sm text-text-muted">
-          The firm has no rooms or resources yet. They are added under Settings › Practice › Rooms
-          and Resources.
-        </p>
-      {:else}
-        <Select.Root type="single" items={bookableResources} bind:value={bookResourceId} allowDeselect={false}>
-          <Select.Trigger id="entry-book-resource" class="w-full">
-            <Select.Value placeholder={placeholderOf("Resource")} />
-          </Select.Trigger>
-          <Select.Content>
-            {#each bookableResources as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      {/if}
-    </div>
-  </div>
-  {/snippet}
-</ActionDialog>

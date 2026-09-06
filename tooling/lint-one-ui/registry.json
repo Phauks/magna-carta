@@ -68,6 +68,10 @@
       "home": "apps/web/src/lib/calendar"
     },
     {
+      "name": "MoneySurface",
+      "home": "apps/web/src/lib/money"
+    },
+    {
       "name": "EntityIdentity",
       "home": "packages/design-system/src/lib/components/entity-identity"
     },
@@ -78,6 +82,42 @@
     {
       "name": "RecordParties",
       "home": "packages/design-system/src/lib/components/record-parties"
+    },
+    {
+      "name": "DataTable",
+      "home": "packages/design-system/src/lib/components/data-table"
+    },
+    {
+      "name": "DetailsPanel",
+      "home": "apps/web/src/lib/details-panel"
+    },
+    {
+      "name": "Masthead",
+      "home": "packages/design-system/src/lib/components/masthead"
+    },
+    {
+      "name": "TopBar",
+      "home": "packages/design-system/src/lib/components/top-bar"
+    },
+    {
+      "name": "EmptyState",
+      "home": "packages/design-system/src/lib/components/empty-state"
+    },
+    {
+      "name": "LabelledField",
+      "home": "packages/design-system/src/lib/components/labelled-field"
+    },
+    {
+      "name": "FieldLabel",
+      "home": "packages/design-system/src/lib/components/field-label"
+    },
+    {
+      "name": "FieldRow",
+      "home": "packages/design-system/src/lib/components/field-row"
+    },
+    {
+      "name": "StatusMark",
+      "home": "packages/design-system/src/lib/components/status-mark"
     }
   ],
   "modalShellsComment": [
@@ -153,6 +193,11 @@
       "rule": "table-machinery",
       "file": "apps/web/src/lib/tools/firm-usage/by-location-table.svelte",
       "reason": "predates the rule; a sort written locally over the presentational primitives, with the remainder, offsite and totals rows held outside it by hand. It should be a DataTable.Grid — the Grid's row groups and scope-honest totals row already model the three rows this table keeps outside its sort — and that port is a design round on the firm-usage surface, reviewed on the deployed site, not a lint fix."
+    },
+    {
+      "rule": "permission-refusal",
+      "file": "apps/web/src/lib/matters/practice-area-picker.svelte",
+      "reason": "A Combobox group heading is a LABEL, and the shared sentence is a sentence: \"Adding a practice area needs the matters:manageTypes permission, which this account does not hold.\" is about ninety characters in a slot whose other branch reads \"Add to the Firm's Practice Areas\", and it would wrap or truncate. The heading keeps the first clause of the shared wording verbatim, so the two cannot say different things about the same permission, and drops only the trailing \"which this account does not hold\" that the reader can see for themselves from the disabled row beneath it. If the group heading ever gains room for a full sentence, this becomes a call to permissionRefusal and this entry goes."
     },
     {
       "rule": "status-tone",

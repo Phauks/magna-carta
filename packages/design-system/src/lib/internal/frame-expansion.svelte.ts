@@ -40,7 +40,9 @@ export const actionDialogExpansion: ExpansionMemory = $state({ expanded: false }
  * The utilities an expanded frame wears in place of its width cap. Utilities rather than a recipe,
  * for the reason recorded on the frame: the dialog panel underneath arrives wearing its own cap as
  * a utility, and only another utility can replace it. Filling the screen IS the gesture, so the
- * cap goes entirely.
+ * cap goes entirely — and so does the gutter the stage keeps around a windowed panel: the stage
+ * (styles/recipes/modal-stage.css) reads the panel's `data-expanded` and drops its inset to zero,
+ * so the screen-sized utilities here are not trimmed by it.
  */
 export const EXPANDED_FRAME_CLASSES = "h-screen w-screen max-w-none";
 

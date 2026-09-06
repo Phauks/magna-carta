@@ -43,6 +43,7 @@ import {
 } from "$lib/records/record-menu-model.ts";
 import { BILLING_PERMISSIONS } from "./billing-api.ts";
 import { billUnpaidMinor, matterUnpaidMinor, type InvoiceRow } from "./invoice-standing.ts";
+import { permissionRefusal } from "$lib/access/refusal.ts";
 
 /** Every act the register and the invoice window can offer. Surfaces switch on the identifier. */
 export type BillActionIdentifier =
@@ -95,10 +96,6 @@ export const BILL_DEPENDENCIES = {
 
 function lacks(context: BillActionContext, capability: string): boolean {
   return context.permissions !== null && !context.permissions.includes(capability);
-}
-
-function permissionRefusal(capability: string): string {
-  return `This account does not hold the ${capability} capability.`;
 }
 
 /**
@@ -177,7 +174,7 @@ export function billActions(
     ...(!isDraft
       ? { disabledReason: `Only a draft finalizes. This invoice is ${standingWord}.` }
       : lacks(context, BILLING_PERMISSIONS.finalize)
-        ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.finalize) }
+        ? { disabledReason: permissionRefusal("Finalizing a bill", BILLING_PERMISSIONS.finalize) }
         : detailUnread
           ? { disabledReason: "This draft's lines have not been read yet." }
           : {}),
@@ -194,7 +191,7 @@ export function billActions(
             "Only a draft can be voided — a finalized bill is corrected by a credit note beside it.",
         }
       : lacks(context, BILLING_PERMISSIONS.draft)
-        ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.draft) }
+        ? { disabledReason: permissionRefusal("Voiding a draft bill", BILLING_PERMISSIONS.draft) }
         : {}),
   });
 
@@ -221,7 +218,7 @@ export function billActions(
     ...(!isFinal
       ? { disabledReason: "Only a finalized bill can be delivered." }
       : lacks(context, BILLING_PERMISSIONS.draft)
-        ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.draft) }
+        ? { disabledReason: permissionRefusal("Recording delivery", BILLING_PERMISSIONS.draft) }
         : {}),
   });
 
@@ -235,7 +232,7 @@ export function billActions(
       : unpaid <= 0
         ? { disabledReason: "This bill is settled: there is nothing left to apply against." }
         : lacks(context, BILLING_PERMISSIONS.apply)
-          ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.apply) }
+          ? { disabledReason: permissionRefusal("Applying trust funds", BILLING_PERMISSIONS.apply) }
           : {}),
   });
 
@@ -261,7 +258,7 @@ export function billActions(
       : !isFinal || unpaid <= 0
         ? { disabledReason: "Nothing is owed on this bill." }
         : lacks(context, BILLING_PERMISSIONS.apply)
-          ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.apply) }
+          ? { disabledReason: permissionRefusal("Recording a payment", BILLING_PERMISSIONS.apply) }
           : {}),
   });
 
@@ -273,7 +270,7 @@ export function billActions(
     ...(matterUnpaid <= 0
       ? { disabledReason: "This matter owes nothing on this bill." }
       : lacks(context, BILLING_PERMISSIONS.credit)
-        ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.credit) }
+        ? { disabledReason: permissionRefusal("Writing off a balance", BILLING_PERMISSIONS.credit) }
         : {}),
   });
 
@@ -285,7 +282,12 @@ export function billActions(
     ...(!isFinal
       ? { disabledReason: "A correction stands beside a finalized bill; a draft simply changes." }
       : lacks(context, BILLING_PERMISSIONS.credit)
-        ? { disabledReason: permissionRefusal(BILLING_PERMISSIONS.credit) }
+        ? {
+            disabledReason: permissionRefusal(
+              "Recording a credit note",
+              BILLING_PERMISSIONS.credit,
+            ),
+          }
         : {}),
   });
 

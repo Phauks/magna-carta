@@ -22,6 +22,7 @@
    *   yet — the section lights up when it ships.
    */
   import Badge from "@magna-carta/design-system/badge";
+  import FieldLabel from "@magna-carta/design-system/field-label";
 
   const SAMPLE_WINDOW_MILLISECONDS = 60_000;
   const LAG_INTERVAL_MILLISECONDS = 500;
@@ -247,9 +248,9 @@
 
 <div class="flex flex-col gap-12">
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Memory
-    </p>
+    </FieldLabel>
     <dl class="flex flex-col gap-4">
       {#if memorySource === "unavailable"}
         {@render meterRow("JavaScript memory", "Unavailable in this browser")}
@@ -266,9 +267,9 @@
   </div>
 
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Responsiveness
-    </p>
+    </FieldLabel>
     <dl class="flex flex-col gap-4">
       {@render meterRow("Event-loop lag", formatMilliseconds(eventLoopLagMilliseconds))}
       {@render meterRow("Worst lag this session", formatMilliseconds(worstLagMilliseconds))}
@@ -284,9 +285,9 @@
   </div>
 
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Storage
-    </p>
+    </FieldLabel>
     <dl class="flex flex-col gap-4">
       {#if storageUsedBytes !== null && storageQuotaBytes !== null && storageQuotaBytes > 0}
         {@render meterRow(
@@ -300,9 +301,9 @@
   </div>
 
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Network
-    </p>
+    </FieldLabel>
     <dl class="flex flex-col gap-4">
       {@render meterRow("Requests (last 60s)", String(recentRequestCount))}
       {@render meterRow("Transferred (last 60s)", formatBytes(recentTransferBytes))}
@@ -313,9 +314,9 @@
   </div>
 
   <div class="flex flex-col gap-8">
-    <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+    <FieldLabel as="p">
       Open Tabs
-    </p>
+    </FieldLabel>
     <dl class="flex flex-col gap-4">
       {@render meterRow("Magna Carta tabs", String(openTabCount))}
     </dl>
@@ -323,9 +324,9 @@
 
   <div class="flex flex-col gap-8">
     <div class="flex items-center gap-8">
-      <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="p">
         Active Work
-      </p>
+      </FieldLabel>
       <Badge variant="neutral">Soon</Badge>
     </div>
     <p class="text-xs text-text-muted">

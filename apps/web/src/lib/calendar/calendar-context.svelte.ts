@@ -33,12 +33,12 @@ import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
 import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
 import {
   listEventTypes,
-  MANAGE_CALENDAR_PERMISSION,
   readCalendarSettings,
   readerTimeZone,
   type EventType,
   type WeekStartsOn,
 } from "./calendar-api.ts";
+import { mayManageCalendar } from "./calendar-permission.ts";
 import type { EntryContext } from "./calendar-entries.ts";
 import { eventTypesByCode } from "./calendar-vocabulary.ts";
 
@@ -81,7 +81,7 @@ export class CalendarContext {
 
   /** Whether this account may record, change, cancel and settle calendar records. */
   get mayManage(): boolean {
-    return this.session?.permissions.includes(MANAGE_CALENDAR_PERMISSION) ?? false;
+    return mayManageCalendar(this.session);
   }
 
   /** Whether the session read has answered, so a refusal can say "not held" rather than "reading". */

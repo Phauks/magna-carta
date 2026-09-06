@@ -9,11 +9,13 @@
    * The breadcrumb's root is the HOME ICON, the same Lucide house the rail's root row draws, so the
    * two names for one place cannot drift into two glyphs.
    *
-   * THE TOOLBAR CARRIES NO CREATE CONTROL. The New menu that anchored its far end — the three ways
-   * something new lands here — moved up to the matter header beside the matter's search (owner's
-   * placement, 2026-09-03), where one control serves every section. The pane toggles end the row
-   * now; the New Folder in the rail and the folder-level context menu are gestures on a place,
-   * not a second button, and stay.
+   * THE TOOLBAR CARRIES NEITHER THE CREATE CONTROL NOR THE PANE TOGGLES. The New menu that anchored
+   * its far end — the three ways something new lands here — moved up to the matter header beside the
+   * matter's search (owner's placement, 2026-09-03), where one control serves every section. The two
+   * pane toggles went the other way, down to the counts strip (owner's ruling, 2026-09-03), which is
+   * where every surface in the product now answers the question: this toolbar is where a reader goes
+   * somewhere, not where they arrange the panes. The New Folder in the rail and the folder-level
+   * context menu are gestures on a place, not a second button, and stay.
    */
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Button from "@magna-carta/design-system/button";
@@ -26,8 +28,6 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import List from "@lucide/svelte/icons/list";
-  import PanelLeft from "@lucide/svelte/icons/panel-left";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
   import Search from "@lucide/svelte/icons/search";
   import Settings2 from "@lucide/svelte/icons/settings-2";
   import { FOLDER_TREE_HOME_ICON } from "@magna-carta/design-system/folder-tree";
@@ -38,8 +38,6 @@
     /** Home first, then each ancestor, ending here. Empty past Home means the reader is at the root. */
     trail,
     viewTitle = null,
-    onToggleRail,
-    onTogglePanel,
     onSearch,
   }: {
     manager: FileManagerState;
@@ -49,8 +47,6 @@
      * heading beneath it — one name for where you are, in the place the name already lives.
      */
     viewTitle?: string | null;
-    onToggleRail: () => void;
-    onTogglePanel: () => void;
     /** What the reader typed. Searching opens the results view; emptying it goes back. */
     onSearch: (query: string) => void;
   } = $props();
@@ -207,26 +203,5 @@
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     {/if}
-    <!-- An active pane toggle reads through its glyph and hairline, never a dark fill. -->
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-pressed={manager.railOpen}
-      title="Show or hide the folder tree"
-      aria-label="Show or hide the folder tree"
-      onclick={onToggleRail}
-    >
-      <PanelLeft class="size-16" aria-hidden="true" />
-    </Button>
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-pressed={manager.panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={onTogglePanel}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
   </div>
 </div>

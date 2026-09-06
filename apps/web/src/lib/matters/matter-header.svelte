@@ -56,6 +56,7 @@
    * screen-header.svelte owns it; this file no longer decides anything about it.
    */
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import MatterCreateControl from "$lib/matters/matter-create-control.svelte";
   import type { MatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
@@ -115,12 +116,10 @@
     <!-- The ledger line and the status seal lead the citation: the first things read on the line,
          without costing a line of their own. Both hold their width so the citation is what gives
          when the band narrows. -->
-    <span
-      class="flex-none text-xs font-semibold text-text-subtle uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
+    <FieldLabel as="span" class="flex-none"
     >
       {ledgerLine}
-    </span>
+    </FieldLabel>
     <!-- The seal is where the matter's status is read, and also where it is changed. -->
     <span class="flex-none"><MatterStatusDialog {matter} /></span>
     <Masthead.MetaSeparator />

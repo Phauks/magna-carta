@@ -1,11 +1,10 @@
 <script lang="ts">
+  import FieldLabel from "@magna-carta/design-system/field-label";
   /* The engraved rule a panel divides its findings with. One shape, so every panel divides alike. */
   let { children }: { children: import("svelte").Snippet } = $props();
 </script>
 
-<h3
-  class="m-0 text-xs font-semibold text-text-subtle uppercase"
-  style="letter-spacing: var(--mc-tracking-caps)"
+<FieldLabel as="h3" class="m-0"
 >
   {@render children()}
-</h3>
+</FieldLabel>

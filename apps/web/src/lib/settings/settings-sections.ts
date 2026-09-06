@@ -245,6 +245,20 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
+    // The event-type catalog: the shared vocabulary the platform ships (immutable in name and code,
+    // retirable) and the types the firm adds. A CATALOG page on the resources pattern: each act
+    // commits through its own dialog against the event-type routes, gated on the session's
+    // `calendar:manage`.
+    id: "event-types",
+    label: "Event Types",
+    href: "/settings/event-types",
+    group: "practice",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "calendar",
+    shipped: true,
+  },
+  {
     // The firm's bookable resources: rooms, vehicles, equipment. A CATALOG page rather than a
     // settings form: each act (add, change, retire) commits through its own dialog against
     // GET/POST/PATCH /api/v1/calendar/resources, so the posture is "applies immediately" and
@@ -267,6 +281,19 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: "matter-plans",
     label: "Matter Plans",
     href: "/settings/matter-plans",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
+  {
+    // The firm's intake procedures: what a kind of matter must clear before it opens. Firm scope,
+    // beside Matter Plans, because the two are the before and after of an opening; the controls
+    // inside are gated on intake:manageProcedures from the session.
+    id: "intake-procedures",
+    label: "Intake Procedures",
+    href: "/settings/intake-procedures",
     group: "practice",
     scope: "firm",
     commitMode: "draft",

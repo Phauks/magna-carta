@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FieldLabel from "@magna-carta/design-system/field-label";
   /*
    * The account surface — the member's own identity and credentials, rendered in the Secure Shell
    * (no workspace chrome; see secure-shell.svelte). A SINGLE "Account" band — every section here
@@ -39,12 +40,10 @@
              band). -->
         <div class="flex items-center gap-8 border-b border-border-strong px-12 pb-8">
           <UserRound class="size-16 text-text-muted" aria-hidden="true" />
-          <p
-            class="text-xs font-semibold text-text-default uppercase"
-            style="letter-spacing: var(--mc-tracking-caps)"
+          <FieldLabel as="p" class="text-text-default"
           >
             {ACCOUNT_BAND_LABEL}
-          </p>
+          </FieldLabel>
         </div>
 
         <!-- Page rows: control-sized rounded rows, the canvas cousin of the sidebar's menu buttons.

@@ -17,6 +17,13 @@ import {
   type ClosePrecondition,
 } from "@magna-carta/matters/close-preconditions";
 import type { CloseAdvisory } from "@magna-carta/matters/close-advisories";
+import {
+  OpenPreconditionError,
+  runOpenPreconditions,
+  type OpenPrecondition,
+} from "@magna-carta/matters/open-preconditions";
+import { matterIntakeOpenPrecondition } from "@magna-carta/intake/open-precondition";
+import { INTAKE_STEP_READERS } from "./intake.ts";
 import { matterCustodyCloseAdvisory } from "@magna-carta/custodian/close-advisory";
 import { matterTasksCloseAdvisory } from "@magna-carta/tasks/close-advisory";
 import { NumberingRenderError } from "@magna-carta/matters/numbering/render";
@@ -220,6 +227,18 @@ const CloseReadiness = z
   })
   .openapi("MatterCloseReadiness");
 
+// The open side's mirror: whether the consultation would open right now, read from the same rules
+// the open runs. `openable` means "nothing stands in the way right now", never "this open will
+// succeed" — the number draw and the guards have the last word.
+const OpenReadiness = z
+  .object({
+    matterId: z.string(),
+    status: matterStatus,
+    openable: z.boolean(),
+    blockers: z.array(z.object({ code: z.string(), message: z.string() })),
+  })
+  .openapi("MatterOpenReadiness");
+
 const RenumberRequest = z
   .object({ matterNumber: z.string().min(1) })
   .openapi("RenumberMatterRequest");
@@ -237,6 +256,15 @@ const matterParam = z.object({ id: identifierPathParam("matter", "id") });
 const CLOSE_PRECONDITIONS: readonly ClosePrecondition[] = [
   matterTrustClosePrecondition,
   matterClientCreditClosePrecondition,
+];
+
+// The OPENING rules, registered the same way on the other side of the lifecycle. One today: the
+// intake procedure, which refuses a consultation while a required step of the procedure binding its
+// kind is outstanding. A firm with no procedure has no opening rule, on purpose — the platform seeds
+// no procedure, and a gate a firm did not write is a rule it cannot answer for. The readers are the
+// same registry the checklist route answers with, so the gate and the screen never disagree.
+const OPEN_PRECONDITIONS: readonly OpenPrecondition[] = [
+  matterIntakeOpenPrecondition(INTAKE_STEP_READERS),
 ];
 
 // The close NOTICES, registered the same way and kept deliberately separate from the rules above.
@@ -429,6 +457,19 @@ const getMatterCloseReadinessMeta: RouteMeta = {
   rateLimit: "default",
 };
 
+// The same permission the open itself names: whoever may draw the number is whoever reads what
+// stands in the way of drawing it.
+const getMatterOpenReadinessMeta: RouteMeta = {
+  operationId: "matters.openReadiness",
+  surface: "app",
+  authenticated: true,
+  permission: "matters:open",
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
 const patchMatterMeta: RouteMeta = {
   operationId: "matters.update",
   surface: "app",
@@ -588,6 +629,28 @@ const getMatterRoute = defineOpenAPIRoute(getMatterMeta, {
   },
 });
 
+const getMatterOpenReadinessRoute = defineOpenAPIRoute(getMatterOpenReadinessMeta, {
+  method: "get",
+  path: "/api/v1/matters/{id}/open-readiness",
+  description:
+    "Answers whether this consultation would open right now, without opening it. Runs the same " +
+    "opening rules the open runs and reports each one that stands in the way in the words of the " +
+    "subsystem that owns it: today, each required step of the firm's intake procedure that has no " +
+    "satisfying answer. A matter that is not prospective is reported as not openable, with that as " +
+    "its blocker. A reading of the present, never a guarantee: the open re-runs every rule.",
+  request: { params: matterParam },
+  responses: {
+    200: {
+      description: "Whether the consultation can open, and what stands in the way",
+      content: { "application/json": { schema: OpenReadiness } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
 const getMatterCloseReadinessRoute = defineOpenAPIRoute(getMatterCloseReadinessMeta, {
   method: "get",
   path: "/api/v1/matters/{id}/close-readiness",
@@ -642,7 +705,8 @@ const openMatterRoute = defineOpenAPIRoute(openMatterMeta, {
   path: "/api/v1/matters/{id}/open",
   description:
     "Opens a Prospective matter: draws the firm's next matter number atomically and transitions it to " +
-    "open. Refuses a matter that is not Prospective.",
+    "open. Runs the opening rules first: a consultation with a required intake step outstanding is " +
+    "refused with each step named and what answers it. Refuses a matter that is not Prospective.",
   request: { headers: idempotencyKeyHeader, params: matterParam },
   responses: {
     200: {
@@ -653,7 +717,11 @@ const openMatterRoute = defineOpenAPIRoute(openMatterMeta, {
     401: authErrors[401],
     403: authErrors[403],
     404: authErrors[404],
-    409: idempotencyErrors[409],
+    409: {
+      description:
+        "An opening rule refused the consultation, or a request with this Idempotency-Key is still in progress",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     422: idempotencyErrors[422],
     429: authErrors[429],
   },
@@ -920,6 +988,51 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     },
   );
 
+  // GET /api/v1/matters/{id}/open-readiness — would this open, if asked?
+  app.openapi(
+    {
+      ...getMatterOpenReadinessRoute,
+      middleware: chokepointMiddleware(chokepoint, getMatterOpenReadinessRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const { results } = await selectMatterDetailStatement(firm.firmDatabase, id).all<{
+        status: "prospective" | "open" | "closed";
+      }>();
+      const row = results[0];
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such matter in this firm.",
+        });
+      }
+      const blockers =
+        row.status !== "prospective"
+          ? [
+              {
+                code: "matter-not-prospective",
+                message: `matter ${id} is ${row.status}, not a consultation; only a consultation opens`,
+              },
+            ]
+          : await runOpenPreconditions(
+              { matterId: id, database: firm.firmDatabase },
+              OPEN_PRECONDITIONS,
+            );
+      return c.json(
+        {
+          matterId: id,
+          status: row.status,
+          openable: blockers.length === 0,
+          blockers: blockers.map((blocker) => ({ code: blocker.code, message: blocker.message })),
+        } as z.infer<typeof OpenReadiness>,
+        200,
+      );
+    },
+  );
+
   // GET /api/v1/matters/{id}/close-readiness — would this close, if asked?
   app.openapi(
     {
@@ -1013,7 +1126,12 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           firm.firmDatabase,
           id,
           { numberContext },
-          { clock: serviceClock(), actorUserId: userId, idempotency },
+          {
+            clock: serviceClock(),
+            actorUserId: userId,
+            idempotency,
+            openPreconditions: OPEN_PRECONDITIONS,
+          },
         );
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json(
@@ -1024,6 +1142,19 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           200,
         );
       } catch (caught) {
+        if (caught instanceof OpenPreconditionError) {
+          return problemJson(c, {
+            type: "matter-open-refused",
+            title: "Matter cannot be opened yet",
+            status: 409,
+            detail: "One or more opening rules refused this consultation.",
+            errors: caught.failures.map((failure) => ({
+              path: "$",
+              code: failure.code,
+              detail: failure.message,
+            })),
+          });
+        }
         return mapMutationError(c, caught);
       }
     },

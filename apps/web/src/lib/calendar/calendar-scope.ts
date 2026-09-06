@@ -50,6 +50,47 @@ export function describeScope(scope: CalendarScope): string {
   }
 }
 
+/** Whose calendar, on the firm side: everyone's, the reader's own, or one chosen colleague's. */
+export type ScopeChoice = "everyone" | "mine" | "member";
+
+/**
+ * Whose calendar the grid is, in the possessive: "your", "Ada Lovelace's", "the firm's". A matter
+ * or a resource scope names itself; on the firm side the choice decides, and a colleague is named
+ * as the roster knows them.
+ */
+export function whoseCalendar(
+  scope: CalendarScope,
+  choice: ScopeChoice,
+  memberChoice: string | null,
+  memberName: (userId: string) => string,
+): string {
+  if (scope.kind === "matter") return "this matter's";
+  if (scope.kind === "resource") return "this resource's";
+  if (scope.kind === "mine" || choice === "mine") return "your";
+  if (choice === "member" && memberChoice !== null) return `${memberName(memberChoice)}'s`;
+  return "the firm's";
+}
+
+/** The grid's accessible name: whose calendar it is, as a sentence opens. */
+export function calendarLabel(whose: string): string {
+  return `${whose.charAt(0).toUpperCase()}${whose.slice(1)} calendar`;
+}
+
+/**
+ * The sentence an empty grid says over the window's name. A resource is booked, not recorded on;
+ * the firm's and a matter's calendars say what was recorded; a person's says whose it is.
+ */
+export function emptyCalendarMessage(
+  scope: CalendarScope,
+  whose: string,
+  windowTitle: string,
+): string {
+  if (scope.kind === "resource") return `Nothing booked in ${windowTitle}.`;
+  return whose === "the firm's" || whose === "this matter's"
+    ? `Nothing recorded in ${windowTitle}.`
+    : `Nothing on ${whose} calendar in ${windowTitle}.`;
+}
+
 /** True when the scope is one the firm-side toggles (Mine, Everyone, a colleague, the layers) apply to. */
 export function isFirmSideScope(scope: CalendarScope): boolean {
   return scope.kind === "firm" || scope.kind === "mine";

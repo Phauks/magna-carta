@@ -19,7 +19,6 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import CostLedger from "$lib/costs/cost-ledger.svelte";
-  import FullHeightSection from "$lib/components/full-height-section.svelte";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import { gapReason } from "$lib/costs/cost-gaps.ts";
@@ -89,6 +88,21 @@
   <title>Costs · {matter.title} · Magna Carta</title>
 </svelte:head>
 
+<!-- The next page is asked for on the surface's line directly above the counts strip, and the
+     line exists only while there is a next page: the surface draws the band whenever it is
+     handed the snippet, so the page hands it over only then. -->
+{#snippet beneath()}
+  <div class="flex flex-col items-start gap-8">
+    <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
+      {list.loadingMore ? "Loading" : "Load more costs"}
+    </Button>
+    <p class="text-xs text-text-muted">
+      Showing the {(costs ?? []).length} most recently incurred. The figures below cover only
+      what is loaded, so they are not the matter's whole cost record until every page is read.
+    </p>
+  </div>
+{/snippet}
+
 {#if loadFailure !== null}
   <FailureScreen
     failure={loadFailure}
@@ -118,30 +132,20 @@
     </Alert.Root>
   </section>
 {:else}
-  <!-- The ledger takes the rest of the screen and keeps it: the table scrolls inside itself and
-       the counts footer stays on the bottom, so the page does not grow taller as costs arrive. -->
-  <FullHeightSection>
-    <CostLedger
-      bind:this={ledger}
-      costs={costs ?? []}
-      openCostId={entryFromUrl()}
-      loading={costs === null}
-      matterId={matter.id}
-      matterTitle={matter.title}
-      matterNumber={matter.matterNumber}
-      {permissions}
-      onChanged={() => (reloadToken += 1)}
-    />
-    {#if list.nextCursor !== null}
-      <div class="flex flex-none flex-col items-start gap-8 pt-12 pb-24">
-        <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
-          {list.loadingMore ? "Loading" : "Load more costs"}
-        </Button>
-        <p class="text-xs text-text-muted">
-          Showing the {(costs ?? []).length} most recently incurred. The figures above cover only what is
-          loaded, so they are not the matter's whole cost record until every page is read.
-        </p>
-      </div>
-    {/if}
-  </FullHeightSection>
+  <!-- The ledger renders inside the money surface, which takes the rest of the screen and runs it
+       to the edges: the table scrolls inside itself and the counts strip stays on the bottom, so
+       the page does not grow taller as costs arrive. Load more sits on the surface's line directly
+       above that strip, so the next page is asked for where the count is read. -->
+  <CostLedger
+    bind:this={ledger}
+    costs={costs ?? []}
+    openCostId={entryFromUrl()}
+    loading={costs === null}
+    matterId={matter.id}
+    matterTitle={matter.title}
+    matterNumber={matter.matterNumber}
+    {permissions}
+    onChanged={() => (reloadToken += 1)}
+    beneath={list.nextCursor !== null ? beneath : undefined}
+  />
 {/if}

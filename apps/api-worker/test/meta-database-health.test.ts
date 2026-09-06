@@ -1,0 +1,194 @@
+/*
+ * The database-health read's resolution rules. Two contracts are worth pinning here and nothing
+ * else is: every check lands in exactly one honest state, and NO single failing check can fail the
+ * reply or contaminate a sibling — the whole point of the route is to be readable during the outage
+ * it is describing.
+ */
+import { describe, expect, it } from "vitest";
+import type { UserId } from "@magna-carta/identifiers/types";
+import {
+  collectDatabaseHealth,
+  type ControlPlaneReader,
+} from "../src/routes/meta-database-health.ts";
+import type { FirmContext } from "../src/chokepoint/ports.ts";
+
+const USER_ID = "usr_0000000000000000000000" as UserId;
+const FIRM_ID = "frm_0000000000000000000000";
+const EXPECTED_HEAD = "20260903T020000_conflicts-hit-entity-index";
+
+// What each statement the collector sends should answer with. Keyed by a fragment of the SQL, which
+// is how a fake stays legible: the test says "the migrations read answers these tags", not "the
+// third prepare call".
+interface FirmDatabasePlan {
+  readonly migrations?: { tag: string }[] | "throw";
+  readonly member?: { status: string }[] | "throw";
+  readonly roles?: { name: string }[] | "throw";
+  readonly rolePermissions?: { permission: string }[] | "throw";
+  readonly roundTrip?: "throw";
+}
+
+function fakeFirmDatabase(plan: FirmDatabasePlan): FirmContext["firmDatabase"] {
+  const answerFor = (
+    sql: string,
+  ):
+    | { tag: string }[]
+    | { status: string }[]
+    | { name: string }[]
+    | { permission: string }[]
+    | "throw"
+    | [] => {
+    if (sql.includes("_migrations")) return plan.migrations ?? [];
+    if (sql.includes("FROM member WHERE")) return plan.member ?? [];
+    if (sql.includes("FROM role JOIN member_role")) return plan.roles ?? [];
+    if (sql.includes("role_permission")) return plan.rolePermissions ?? [];
+    if (sql.includes("direct_grant")) return [];
+    if (sql.includes("SELECT 1")) return plan.roundTrip ?? [];
+    throw new Error(`unexpected statement: ${sql}`);
+  };
+  const statementFor = (sql: string) => ({
+    sql,
+    bindings: [] as readonly unknown[],
+    bind: () => statementFor(sql),
+    run: () => Promise.resolve({ meta: { changes: 0 } }),
+    first: () => Promise.resolve(null),
+    all: <T>(): Promise<{ results: T[] }> => {
+      const answer = answerFor(sql);
+      if (answer === "throw") return Promise.reject(new Error(`read failed: ${sql}`));
+      return Promise.resolve({ results: answer as T[] });
+    },
+  });
+  return {
+    prepare: (sql: string) => statementFor(sql) as never,
+    batch: () => Promise.resolve([]),
+  } as unknown as FirmContext["firmDatabase"];
+}
+
+function fakeControlPlane(
+  backlog: { pending: number; dead_lettered: number } | "throw",
+): ControlPlaneReader {
+  return {
+    prepare: (sql: string) => ({
+      bind: () => ({
+        first: <T>(): Promise<T | null> => {
+          if (backlog === "throw") return Promise.reject(new Error("control plane down"));
+          if (sql.includes("SELECT 1")) return Promise.resolve({ ok: 1 } as T);
+          return Promise.resolve(backlog as T);
+        },
+      }),
+    }),
+  };
+}
+
+function collect(options: {
+  firm?: FirmDatabasePlan;
+  backlog?: { pending: number; dead_lettered: number } | "throw";
+  bucketName?: string | null;
+}) {
+  const firmContext = {
+    firmDatabase: fakeFirmDatabase(options.firm ?? {}),
+    readFirmName: () => Promise.resolve("Test Firm"),
+    bucketName: options.bucketName === undefined ? "firm-bucket" : options.bucketName,
+  } satisfies FirmContext;
+  return collectDatabaseHealth({
+    controlPlane: fakeControlPlane(options.backlog ?? { pending: 0, dead_lettered: 0 }),
+    firmContext,
+    firmId: FIRM_ID,
+    userId: USER_ID,
+    expectedHead: EXPECTED_HEAD,
+  });
+}
+
+const HEALTHY_FIRM: FirmDatabasePlan = {
+  migrations: [{ tag: "20260704T041516_baseline" }, { tag: EXPECTED_HEAD }],
+  member: [{ status: "active" }],
+  roles: [{ name: "Owner/Admin" }],
+  rolePermissions: [{ permission: "firm:manageMembers" }, { permission: "matters:create" }],
+};
+
+describe("collectDatabaseHealth", () => {
+  it("reports a healthy firm on every check", async () => {
+    const health = await collect({ firm: HEALTHY_FIRM });
+    expect(health.firmDatabase.state).toBe("reachable");
+    expect(health.firmDatabase.roundTripMilliseconds).not.toBeNull();
+    expect(health.schema).toMatchObject({ state: "current", appliedHead: EXPECTED_HEAD });
+    expect(health.membership).toMatchObject({
+      state: "active",
+      roles: ["Owner/Admin"],
+      permissionCount: 2,
+    });
+    expect(health.controlPlane).toMatchObject({ state: "reachable", bucketProvisioned: true });
+    expect(health.provisioning).toMatchObject({ state: "read", pending: 0, deadLettered: 0 });
+  });
+
+  it("names a member whose mirror has not landed, with the backlog that explains it", async () => {
+    // The state this whole route exists for: the account is in the firm, its member row is not in
+    // the firm's database yet, and a message is still waiting to write it.
+    const health = await collect({
+      firm: { ...HEALTHY_FIRM, member: [], roles: [], rolePermissions: [] },
+      backlog: { pending: 1, dead_lettered: 0 },
+    });
+    expect(health.membership).toMatchObject({ state: "missing", roles: [], permissionCount: 0 });
+    expect(health.provisioning).toMatchObject({ pending: 1, deadLettered: 0 });
+    // And nothing else is blamed for it.
+    expect(health.firmDatabase.state).toBe("reachable");
+    expect(health.schema.state).toBe("current");
+  });
+
+  it("separates a mirrored member with no role from one with no member row", async () => {
+    const health = await collect({
+      firm: { ...HEALTHY_FIRM, roles: [], rolePermissions: [] },
+    });
+    expect(health.membership).toMatchObject({ state: "active", roles: [], permissionCount: 0 });
+  });
+
+  it("reports a database behind this build's lineage without calling it a fault", async () => {
+    const health = await collect({
+      firm: { ...HEALTHY_FIRM, migrations: [{ tag: "20260704T041516_baseline" }] },
+    });
+    expect(health.schema).toMatchObject({
+      state: "behind",
+      appliedHead: "20260704T041516_baseline",
+      expectedHead: EXPECTED_HEAD,
+      appliedCount: 1,
+    });
+  });
+
+  it("reports an unreachable firm database without a made-up round trip", async () => {
+    const health = await collect({ firm: { ...HEALTHY_FIRM, roundTrip: "throw" } });
+    expect(health.firmDatabase).toEqual({ state: "unreachable", roundTripMilliseconds: null });
+  });
+
+  it("keeps one failing check from failing or contaminating the others", async () => {
+    const health = await collect({
+      firm: { ...HEALTHY_FIRM, migrations: "throw" },
+      backlog: "throw",
+    });
+    expect(health.schema.state).toBe("unknown");
+    expect(health.provisioning.state).toBe("unknown");
+    // The checks that could answer still did, and the control plane's own probe failing is its own
+    // row rather than the whole read's.
+    expect(health.membership.state).toBe("active");
+    expect(health.firmDatabase.state).toBe("reachable");
+    expect(health.controlPlane.state).toBe("unreachable");
+  });
+
+  it("reports a member read that failed as unknown, never as a missing member", async () => {
+    // The distinction that matters: "we could not read your membership" must never render as "you
+    // have no membership", which is a sentence that sends somebody to an administrator for nothing.
+    const health = await collect({ firm: { ...HEALTHY_FIRM, member: "throw" } });
+    expect(health.membership).toMatchObject({ state: "unknown", roles: [], permissionCount: 0 });
+  });
+
+  it("reports a firm whose storage has not been allocated yet", async () => {
+    const health = await collect({ firm: HEALTHY_FIRM, bucketName: null });
+    expect(health.controlPlane).toMatchObject({ state: "reachable", bucketProvisioned: false });
+  });
+
+  it("reports a dead-lettered provisioning message", async () => {
+    const health = await collect({
+      firm: { ...HEALTHY_FIRM, member: [], roles: [], rolePermissions: [] },
+      backlog: { pending: 0, dead_lettered: 2 },
+    });
+    expect(health.provisioning).toMatchObject({ state: "read", pending: 0, deadLettered: 2 });
+  });
+});

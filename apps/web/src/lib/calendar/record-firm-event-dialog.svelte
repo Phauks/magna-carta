@@ -39,6 +39,7 @@
     type FirmEventDraft,
   } from "./firm-event-draft.ts";
   import ParticipantPicker from "./participant-picker.svelte";
+  import EventTypeSelect from "./event-type-select.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
 
   const AUDIENCES: readonly { value: FirmEventAudience; label: string }[] = [
@@ -153,25 +154,13 @@
           <Label for="{idPrefix}-title">Title</Label>
           <Input id="{idPrefix}-title" disabled={busy} bind:value={draft.title} />
         </div>
-        <div class="flex flex-col gap-8">
-          <Label id="{idPrefix}-type-label">Type</Label>
-          <Select.Root
-            type="single"
-            items={typeItems}
-            value={draft.eventTypeId ?? ""}
-            onValueChange={(value) => (draft.eventTypeId = value === "" ? null : value)}
-            disabled={busy || typeItems.length === 0}
-          >
-            <Select.Trigger aria-labelledby="{idPrefix}-type-label">
-              <Select.Value placeholder={placeholderOf("Type")} />
-            </Select.Trigger>
-            <Select.Content>
-              {#each typeItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
+        <EventTypeSelect
+          id="{idPrefix}-type"
+          items={typeItems}
+          value={draft.eventTypeId}
+          disabled={busy}
+          onchange={(value) => (draft.eventTypeId = value)}
+        />
       </div>
 
       <RecordTimingFields

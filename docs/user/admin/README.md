@@ -8,6 +8,9 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
   authority to release money out of client trust ledgers (and take earned fees against bills),
   whether larger payments take a second person as well, and how a payment reaches somebody who can
   release it when the person raising it cannot.
+- [Event types](event-types.md) — the vocabulary a setting is classified under: the platform's
+  shipped types (recategorized or retired, never renamed), the firm's own (added, renamed, retired),
+  and why retiring is one way.
 - [The first day of the week](calendar-week-start.md) — the day every calendar in the firm begins
   its week on, why it is the firm's setting and not each member's, who can change it, and what a
   change does and does not move.

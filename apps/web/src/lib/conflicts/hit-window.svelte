@@ -31,6 +31,7 @@
   import Separator from "@magna-carta/design-system/separator";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Gavel from "@lucide/svelte/icons/gavel";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -256,7 +257,7 @@
       {#if hit.disposition !== null}
         <Separator />
         <div class="flex flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">Latest Answer</h3>
+          <FieldLabel as="h3">Latest Answer</FieldLabel>
           <p class="text-sm">{hit.disposition.rationale}</p>
           <p class="text-xs text-text-muted">
             {personName(reviewerName)} &middot; {formatInstant(hit.disposition.createdAt)}
@@ -272,7 +273,7 @@
              is missing, because "no document filed" and "consent never confirmed in writing" send a
              lawyer to do two different things. -->
         <div class="flex flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">The Waiver</h3>
+          <FieldLabel as="h3">The Waiver</FieldLabel>
           <dl class="flex flex-col gap-4 text-sm">
             {@render fact(
               "Given By",
@@ -314,7 +315,7 @@
   {#if hit !== null}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <h3 class="text-xs text-text-subtle uppercase">Every Channel That Fired</h3>
+        <FieldLabel as="h3">Every Channel That Fired</FieldLabel>
         <!-- Verbatim, and every one of them: the engine records each comparison that matched rather
              than only the one that set the tier, because that is what a reviewer adjudicates on and
              what an auditor reads years later. -->

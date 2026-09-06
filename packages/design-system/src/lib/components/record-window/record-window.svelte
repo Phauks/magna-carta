@@ -298,10 +298,11 @@
     data-editing={editing ? "true" : "false"}
     class={mergeClasses(
       "mc-modal-frame mc-record-window",
-      // Width and height are utilities, never the recipe: the dialog panel underneath arrives
-      // wearing its own default cap as a utility, and only another utility can replace it.
-      // Expanded drops the cap entirely, because filling the screen IS the gesture.
-      expansion.panelClasses("max-h-screen w-full max-w-record-window"),
+      // Width is a utility, never the recipe: the dialog panel underneath arrives wearing its own
+      // default cap as a utility, and only another utility can replace it. Height needs no
+      // utility: the stage the panel sits in caps it at the screen less its gutter. Expanded drops
+      // the cap entirely, because filling the screen IS the gesture.
+      expansion.panelClasses("w-full max-w-record-window"),
       className,
     )}
     style={isExpanded ? undefined : style}

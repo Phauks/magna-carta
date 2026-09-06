@@ -36,6 +36,7 @@
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import Textarea from "@magna-carta/design-system/textarea";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
   import RecipientPicker from "$lib/components/recipient-picker.svelte";
@@ -173,9 +174,9 @@
     <!-- The setting under discussion, stated as facts: name and what it reads today — the
          context the administrator needs before weighing the proposal. -->
     <div class="flex flex-col gap-4">
-      <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+      <FieldLabel as="p">
         Setting
-      </p>
+      </FieldLabel>
       <p class="text-sm font-medium">{definition.label}</p>
       <p class="text-xs text-text-muted">
         Current value: <span class="tabular-nums">{currentValueLabel}</span>

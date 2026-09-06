@@ -36,6 +36,7 @@
   import Label from "@magna-carta/design-system/label";
   import PasswordInput from "@magna-carta/design-system/password-input";
   import ProgressSteps from "@magna-carta/design-system/progress-steps";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import AuthPanel from "../auth-panel.svelte";
   import CredentialNotice from "../credential-notice.svelte";
   import { QUIET_LINK } from "../quiet-link.ts";
@@ -215,12 +216,10 @@
       <div class="flex flex-col gap-12">
         <div class="flex items-center gap-12">
           <span class="h-px flex-auto bg-border-default" aria-hidden="true"></span>
-          <span
-            class="text-xs text-text-subtle uppercase"
-            style="letter-spacing: var(--mc-tracking-caps)"
+          <FieldLabel as="span"
           >
             or
-          </span>
+          </FieldLabel>
           <span class="h-px flex-auto bg-border-default" aria-hidden="true"></span>
         </div>
 

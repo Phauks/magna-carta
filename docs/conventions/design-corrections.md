@@ -106,7 +106,15 @@ is usually the fastest way to understand the rule.
   the row hover means "this is a thing you can select and open" and there is nothing there to
   select. So an empty table does not light up under the pointer — stretching the hover across the
   whole frame would be worse, because it invites a click that does nothing. Absence is the signal.
-  _(matters docket, 2026-08-30)_
+  **Reissued 2026-09-05, because the ruling was recorded and only half carried out.** The
+  placeholders were still `<tr class="mc-table-row">` in the same body as the records, so the row
+  hover found them: an empty table answered the pointer with a grey band as tall as its message and
+  no taller, leaving the rest of the frame white — which the owner read, correctly, as a hover that
+  gives out partway down the table. It is not enough for the placeholder's CELL to be marked; the
+  treatment the ruling withholds is the ROW's, so the row is what says it holds no record —
+  `data-placeholder="true"`, which the shared recipe passes over for both the fill and the pointer
+  cursor, and which the loading rows need too (they carry a skeleton per column and no placeholder
+  cell at all). _(matters docket, 2026-08-30; the empty table, 2026-09-05)_
 - **A placeholder's content centres in the FRAME, not in the table.** A placeholder row spans every
   column, so its cell is as wide as the table — wider than what the reader can see the moment the
   columns overflow, and far wider once anybody has widened one. Content centred in that cell lands
@@ -266,6 +274,29 @@ is usually the fastest way to understand the rule.
   icon control the file manager uses, reading its state through its glyph, and it sits last among a
   surface's controls. Four ledgers each drew it differently, which is how a reader learns that two
   screens are two products. _(the financial ledgers, 2026-09-02)_
+- **A pane toggle is a quiet chrome affordance, and it ends the counts strip.** Showing or hiding a
+  side pane is not an act on the record, so it never wears a button's border or fill and it does not
+  belong where a surface's verbs are: it is the ghost glyph, reading its state through `aria-pressed`
+  alone, at the inline end of the strip beneath the table — after the surface's figures, last on the
+  line, on every surface that has a pane. It is not free and does not need to be: measured, the strip
+  grows from 32 points to 41 to seat the control, against the 41 the row above the table cost — a net
+  32 points back to the table, and one less band between the reader and the records. On the four
+  financial ledgers that row had no other occupant most of the time. A surface with a
+  toolbar it draws anyway is not an exception — the file manager's two toggles came down to the strip
+  as well, so a reader never has to remember which screen keeps the answer at the top. One component
+  (`$lib/records/pane-toggle.svelte`), because four ledgers each drawing their own is how a reader
+  learns that two screens are two products. _(the financial ledgers, 2026-09-02; placement corrected
+  2026-09-03)_
+- **A row above a table renders only when something has to be in it.** Not an empty band a reader
+  meets before they meet the records. The corollary of moving the pane toggle off it: what is left on
+  the ledgers is the way out of a filter, and Costs' Review where the firm runs review, so an
+  unfiltered ledger draws no row at all and its table starts at the top of the screen.
+  _(the financial ledgers, 2026-09-03)_ **Amended 2026-09-05:** the rule stands; what changed is
+  that the money sections now always have something to put in the row. The money toolbar carries
+  where the reader is within Money and the siblings one click away (the section strip shows only
+  "Money" with the gold bar, so nothing else on the screen named the sub-part), the surface's acts,
+  and the two view settings. A row with a standing occupant is not the empty band this rule was
+  issued against. _(the money sections, 2026-09-05)_
 - **A resizable divider carries no grip handle.** The whole edge drags and the separator takes the
   keyboard, so a centred grip is a second affordance for a gesture already answered — and it reads
   as a control parked in the middle of the screen. The hairline that thickens under the pointer is
@@ -575,6 +606,23 @@ surface, which is most of the product.
 
 ### Layout
 
+- **The five money sections are one surface, and it wears the file manager's frame.** Time, Fees,
+  Costs, Billing and Trust each render inside `MoneySurface` (`apps/web/src/lib/money/`), which is
+  the file manager's arrangement applied to a ledger: the surface runs to the edges of the work
+  canvas, a toolbar strip sits flush under the section strip, the table connects to it with no
+  rounded card between them, and the counts strip sits on the bottom edge. The owner's words: the
+  four framed tables "look good, but I like how Files looks more, where the features and the table
+  start at the top, connected up there" — and wanted one central component that looks the same for
+  every money sub-part. Nothing under Money draws its own frame, acts row, footer or pane toggle;
+  a ledger declares its columns, cells, figures and verbs and hands them to the surface.
+  _(the money sections, 2026-09-05)_
+- **The framed look survives as the reader's alternative, one setting for every money section.**
+  The surface offers two layouts, flush (the default, the file manager's) and framed (the table in
+  its rounded card inside the canvas padding), switched from the toolbar and remembered under one
+  key for all five sections, so the money screens can never be in two looks at once. The density
+  step (comfortable or compact rows) is the same kind of setting and lives beside it. Both are view
+  settings, so they sit on the toolbar where the file manager keeps its list-or-icons switch,
+  never on the counts strip, which holds the pane toggles. _(the money sections, 2026-09-05)_
 - **A working surface takes the rest of the screen and keeps it.** Most pages are documents and are
   as tall as what is on them. A few — the file manager, the financial ledgers — are surfaces you
   work in: the list scrolls inside itself and the counts footer belongs on the bottom of the screen.
@@ -587,6 +635,18 @@ surface, which is most of the product.
   of something; at full size there is nothing underneath, and the curve reads as four notches of
   desktop showing through the corners of the application. Fixed on the shared modal frame, so any
   shell that grows an expand gesture inherits it. _(Time record window, 2026-09-03)_
+- **A windowed modal never touches the edge of the screen.** On a laptop a long record ran from the
+  top edge of the screen to the bottom edge with its rounded corners cut off against them, and at a
+  laptop's width the record-width panels touched both sides too; the owner read it as the modal
+  taking the screen. A panel is a thing lying over the application, and it keeps a gutter of screen
+  around it on every side (`size.modal-gutter`, 32px) that its width cap and its content are measured
+  inside: a panel that fits opens at its own height with air around it, and one that does not caps
+  at the screen less the gutter and scrolls inside. The gutter is a fixed length rather than a share
+  of the screen, because a share swells on a large monitor, where the width caps already leave room,
+  and shrinks on a small one, where the air is needed most. Expanding is the one exception, by
+  design: filling the screen is that gesture. Every dialog, alert dialog, action dialog and record
+  window inherits it from the shared modal stage; edge sheets are drawers and stay on their edge.
+  _(the modal shells on a laptop, 2026-09-03)_
 - **A totals strip sits on the bottom edge of its frame, not under the last row.** A ledger fills
   the height it is given, so the ordinary case is a table with room beneath it; totals that come to
   rest halfway up the screen with a band of empty surface below them read as a table that failed to
@@ -628,6 +688,40 @@ surface. The generalization is promoted above; what is local to this surface:
   with the capacity beside each — above the record's own facts. The directory host adds nothing.
 - The record's Names and Duplicates acts keep their own panels, which open over the window.
 - The old record address redirects to the directory with the record's window open.
+
+### 2026-09-05 — the money sections, one surface
+
+The owner walked Time, Costs and Billing against Files: "time, costs, and billings all appear as
+separate tables. It looks good, but I like how files looks more, where the features and the table
+starts at the top, connected up there." Then: an alternative table view with the same functionality
+for these screens, applied to Costs as well, and to Trust; and "streamline and get this closer a
+central component that looks more or less the same for all money sub-parts."
+
+What is local to these surfaces:
+
+- **`MoneySurface` is the one frame.** Toolbar, notices band, list, the line above the footer, the
+  counts strip with the pane toggle last — every money ledger hands the surface its columns, cells,
+  figures, acts and panel and draws none of that itself. `LedgerPanes` stays underneath it as the
+  two-pane geometry.
+- **The toolbar leads with the money sub-parts.** A coins glyph, then Time · Fees · Costs · Billing
+  · Trust as quiet links in the section strip's own register, the current one marked. The strip's
+  Money group is what put them a menu away; this row puts them a click away and names the one the
+  reader is on.
+- **Clear Filters is the surface's, not the ledger's.** Four copies of one control became one,
+  rendered while a filter is on, in the toolbar's trailing group ahead of a ledger's own acts
+  (Costs' Review).
+- **Load more sits directly above the counts strip**, on the line the file manager keeps for an
+  archive's crumb, rather than beneath the footer where it was pushing the strip off the bottom.
+- **Trust takes a real surface.** The ledger is built whole against the trust movement record —
+  date, kind, method, reference, counterparty, purpose, in, out, who recorded it, who authorized it
+  and on what footing — with Balance, Held and Available as its figures, on the same surface as the
+  other four. It stands empty and says why: the matter's ledger is read against a trust account,
+  and no route lists the firm's trust accounts yet. New Deposit is the header's control, disabled
+  with that reason. The section stub is gone.
+
+What generalizes, and is promoted above: the five money sections are one surface wearing the file
+manager's frame; the framed look survives as one setting for all of them; and the amendment to the
+row-above-a-table rule.
 
 ### 2026-09-02 — the matter search, first deployed round
 

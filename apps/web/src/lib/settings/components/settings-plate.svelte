@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FieldLabel from "@magna-carta/design-system/field-label";
   /*
    * A settings PLATE — one category group of rows in the engraved-table voice. Structure comes
    * from rules, not boxes: the small-caps group header seats directly on a full-width ink-tinted
@@ -14,12 +15,10 @@
 </script>
 
 <section class="flex flex-col">
-  <h3
-    class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-    style="letter-spacing: var(--mc-tracking-caps)"
+  <FieldLabel as="h3" class="border-b border-border-strong pb-8"
   >
     {heading}
-  </h3>
+  </FieldLabel>
   <div class="flex flex-col divide-y divide-border-default border-b border-border-strong">
     {@render children()}
   </div>

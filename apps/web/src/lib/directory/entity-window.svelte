@@ -61,6 +61,7 @@
   import NamesPane from "./names-pane.svelte";
   import PronounsPane from "./pronouns-pane.svelte";
   import SectionHeading from "./sections/section-heading.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let {
     open = $bindable(false),
@@ -153,7 +154,7 @@
       ? "Reading your session."
       : mayEdit
         ? undefined
-        : "Changing a directory record needs the directory:edit permission, which this account does not hold.",
+        : permissionRefusal("Changing a directory record", "directory:edit"),
   );
 
   const mayReveal = $derived(
@@ -164,7 +165,7 @@
       ? "Reading your session."
       : mayReveal
         ? undefined
-        : "Reading a sealed identifier needs the directory:viewSensitiveIdentifiers permission, which this account does not hold.",
+        : permissionRefusal("Reading a sealed identifier", "directory:viewSensitiveIdentifiers"),
   );
 
   // ---- what the window says --------------------------------------------------------------------

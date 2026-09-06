@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FieldLabel from "@magna-carta/design-system/field-label";
   /*
    * The grouped page-link list for the Fixtures module (and any future listing that's a flat,
    * optionally-titled set rather than a tree). The Sitemap uses its own tree renderer.
@@ -13,9 +14,9 @@
   {#each groups as group, index (group.title ?? index)}
     <div class="flex flex-col gap-8">
       {#if group.title}
-        <p class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
+        <FieldLabel as="p">
           {group.title}
-        </p>
+        </FieldLabel>
       {/if}
       <ul class="flex flex-col gap-2">
         {#each group.pages as devPage (devPage.href)}
