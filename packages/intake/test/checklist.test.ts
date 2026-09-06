@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { IntakeProcedureStepId, MatterId } from "@magna-carta/identifiers/types";
 import { readIntakeChecklist } from "../src/checklist.ts";
-import { INTAKE_STEP_OUTSTANDING, matterIntakeOpenPrecondition } from "../src/open-precondition.ts";
+import {
+  INTAKE_STEP_OUTSTANDING,
+  matterIntakeGraduationPrecondition,
+} from "../src/graduation-precondition.ts";
 import { recordStepCompleted, reopenStep, waiveStep } from "../src/record-service.ts";
 import { readStepRecordHistory } from "../src/record-statements.ts";
 import {
@@ -32,7 +35,7 @@ describe("the derived checklist", () => {
       "fee-agreement": { satisfied: true, statement: "In force since 2026-09-01: hourly." },
     });
     const checklist = await readIntakeChecklist(database.database, CONSULTATION, readers);
-    expect(checklist.matterStatus).toBe("prospective");
+    expect(checklist.matterStatus).toBe("intake");
     expect(checklist.procedures.map((procedure) => procedure.name)).toEqual(["Injury intake"]);
     expect(
       checklist.steps.map((step) => [
@@ -201,7 +204,7 @@ describe("a member's record", () => {
     const identity = database.stepIds[2]!;
     await expect(
       recordStepCompleted(database.database, { matterId: OPEN_MATTER, stepId: identity }, options),
-    ).rejects.toMatchObject({ code: "matter-not-prospective" });
+    ).rejects.toMatchObject({ code: "matter-not-intake" });
     await expect(
       recordStepCompleted(
         database.database,
@@ -226,14 +229,14 @@ describe("a member's record", () => {
   });
 });
 
-describe("the opening gate", () => {
+describe("the graduation gate", () => {
   it("refuses while any required step is outstanding, naming each, and passes once each is answered", async () => {
     const database = await firmWithProcedure(STEPS);
     const readers = fakeReaders({
       "conflicts-check": { satisfied: false, statement: "A conflicts check has not yet run." },
       "fee-agreement": { satisfied: true, statement: "In force." },
     });
-    const gate = matterIntakeOpenPrecondition(readers);
+    const gate = matterIntakeGraduationPrecondition(readers);
     const context = { database: database.database, matterId: CONSULTATION };
     let failures = await gate.check(context);
     expect(failures.map((failure) => failure.code)).toEqual([
@@ -266,7 +269,7 @@ describe("the opening gate", () => {
 
   it("imposes nothing on a consultation no procedure binds", async () => {
     const database = await firmWithProcedure(STEPS);
-    const gate = matterIntakeOpenPrecondition({});
+    const gate = matterIntakeGraduationPrecondition({});
     expect(await gate.check({ database: database.database, matterId: OTHER_CONSULTATION })).toEqual(
       [],
     );

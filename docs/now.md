@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 796 nodes of the feature ledger in
+is the complete register rather than a digest: all 797 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**796 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**797 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **656 that are units of work**, for the reason set out under [What a roll-up is
+count the **657 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 291 | 45% |
+| Done | shipped | 292 | 45% |
 | Part-built | partial, in-build | 119 | 18% |
 | Ahead | designed, planned, researching, not-started | 205 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **656** | **100%** |
+| **All units of work** | | **657** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 291 | 44% |
+| `shipped` | 292 | 44% |
 | `partial` | 118 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 138 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 1% |
-| **All statuses** | **656** | **100%** |
+| **All statuses** | **657** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 796 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 797 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 291 of 656 (44%). Shipped plus partial is 409 (62%).**
+**Shipped alone is 292 of 657 (44%). Shipped plus partial is 410 (62%).**
 
 The 118 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**410 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**411 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 60 | 15% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 172 | 42% |
+| A person can open it today (`screen`) | 62 | 15% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 171 | 42% |
 | No user surface by nature (`internal`) | 178 | 43% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **410** | **100%** |
+| **Everything with something built** | **411** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -109,7 +109,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 17 | 15 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 54 | 31% |
-| Client Intake / CRM | 1 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 7 | 14% |
+| Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **291** | **118** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **656** | **44%** |
+| **All areas** | **292** | **118** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **657** | **44%** |
 
 ## Where we have been
 
@@ -289,7 +289,7 @@ in this one.
 
 ## Waiting on you
 
-**30 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**29 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -303,7 +303,6 @@ in this one.
 - **Fiscal-period close** (`financial.ledger.operating-gl.period-close`) — **Not built.** Five flags, and the first decides whether this sub-slice exists — period close is not in the slice map's scope, and against that, statements nobody can rely on are not worth assembling. Then: who may close, and does closing take a second person the way a trust act does. What an operator may do to a closed period — reopen with a reason and an append-only event, post into it under a permission, or never. Whether the hard lock ever gets a route or stays a column nothing sets until a jurisdiction requires it. And whether the lock is checked inside the posting primitive itself, which is the one with reach: after it, a trust movement or an invoice finalization backdated into a closed period refuses, which is a behaviour change in shipped subsystems and is also the only version of a lock a caller cannot decline to honour. General ledger design, flags G3, G4, G5, G6 and G12.
 - **Accounts payable** (`financial.ledger.operating-gl.accounts-payable`) — **Not built.** May accounts payable pay from anything but the resolved operating account — a firm with two operating banks has a legitimate need the single role cannot express, and the recommendation is a second role rather than a caller-supplied parameter. At what status a bill-originated cost enters the cost store, where draft respects the billability review and a firm whose lawyers never review costs would leave advanced costs unbilled forever. And whether vendor credits are in this pass or their own design, given they are the mirror of billing's credit note and need the same care about attribution. General ledger design, flags G7, G8 and G9.
 - **Financial statements** (`financial.ledger.operating-gl.financial-statements`) — **Not built.** Are trust accounts on the firm's balance sheet? Correct accounting includes them — the firm holds an asset and an equal liability — and some accountants present a firm balance sheet without them; the recommendation is to include them in labelled sections that must net to zero, and to refuse the statement when they do not, because omitting them hides the one relationship an examiner checks. Also whether a derived cash-basis view is in scope here at all, which it is recommended not to be: the book is accrual and cannot be otherwise, and a cash view is not a tax basis and must never be presented as one. And who is seeded the capability to read statements, where a bookkeeper reads them and posts nothing. General ledger design, flags G16, G2 and G14.
-- **Lead pipeline** (`intake.lead-pipeline`) — **Not built.** Is the pipeline board visible to the whole firm, or per-attorney like the Consultations folder? A shared board is what an intake coordinator needs and what every competitor ships; the narrowing to per-attorney was a deliberate decision (ADR-0080), so widening it is a reversal only the owner can make. Client intake design flag J4.
 - **Public intake forms** (`intake.public-forms`) — **Not built.** Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 - **Firm-wide note search** (`notes.search.firm-wide`) — **Not built.** Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
 - **Payments port** (`payments.port`) — **Not built.** Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
@@ -330,7 +329,7 @@ in this one.
 - **Conflicts Check** (`conflicts`) — **A group of capabilities.** Two of the deepening design's calls still decide what the platform asserts about a firm's ethical position rather than how it is coded. Whether an imputed conflict follows a lateral hire, and whether a screen cures it, which decides whether the personnel trigger produces a conflict or a screening prompt and whether screening is modelled at all. And whether a matter may refuse to open over undisposed tier-1 hits, or only advise loudly — a hard block is the platform making an ethics judgement, and no block means a firm can open a file over an unanswered exact-identifier match. Conflicts deepening design, flags F2 and F11. A third, whether the balanced band searches former, maiden and alias names, no longer blocks anything: ConflictsPolicy.balancedNameRoles in packages/conflicts/src/settings.ts ships the design's recommended answer as a firm setting recorded verbatim on every check row, so answering it either way is a settings edit rather than a release (flag F1).
 - **Pronouns on a person** (`directory.pronouns`) — **Built and reachable.** Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
 - **Matters** (`matters`) — **A group of capabilities.** The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
-- **Consultations (prospective matters)** (`matters.lifecycle.consultations`) — **Built; no screen yet.** May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
+- **Consultations** (`matters.lifecycle.consultations`) — **Built; no screen yet.** May a fee agreement be recorded against an intake or a consultation, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
 - **Consolidated matter search** (`matters.search`) — **A group of capabilities.** Four standing recommendations the build proceeded under, each reversible and none of them reaching the registry or the route — M3 whether a hit may show a snippet within a matter, M5 the new search:matter permission and its broad seeding, M6 that "include deleted" stays per source rather than one global toggle, M7 that a source withheld for want of a permission says so rather than reading as empty. M1, M2 and M4 are settled.
 - **Retention and destruction dates** (`custodian.retention-destruction`) — **Built; no screen yet.** Does the platform ever ship a retention default? The recommendation is never — a firm sets the retention date per packet or item, and a jurisdiction catalogue supplies suggestions only once it is built and verified. The node says owner-gated in prose and has said so since the design merged; the reason it is not merely unbuilt is that shipping a default here is the platform deciding when a firm's irreplaceable original may be destroyed, which is unrecoverable in the one direction that matters. Custodian design, flag C7.
 - **Search** (`discovery.search`) — **A group of capabilities.** Six settings, all reasoned rather than measured, because nothing in the repository can price them until the search container runs against a real corpus. The container's instance size is a guess that mirrors the malware scanner, whose working set is one file where search's is however many splits a firm keeps open — and whether a split cache earns its authorization complexity is the same unmeasured question. Then the four from compaction: the merge thresholds, how long a superseded index object is kept before retirement, whether the search worker gains a compaction endpoint, and ratification of the changed query input shape.
@@ -630,16 +629,16 @@ to change a line here, edit the node in its area file and re-run the build.
   - `directory.temporal-audit` · `shipped` · **Temporal history and audit** — Key fields (names, addresses, affiliations, roles) time-bounded (valid-from/valid-to) to answer "what was true then"; every change audited (who/what/when).
   - `directory.legacy-id` · `not-started` · **Legacy source-system ID** — A legacy source-system identifier on every entity for LEAP migration traceability. _Note: LEAP migration itself is deferred (ADR-0021); this lands with that slice._
 - `matters` · `partial` · **Matters** — Matter as the top-level access unit and cost center, opened directly with the client as a Directory link. _Note: Backend shipped, and the matter host has landed since this said otherwise — thirteen section routes under the matter, a matter header and a section nav, an overview reading the real record, and a Files section running the whole document loop against the file API through the same-origin seam in apps/web/src/lib/documents/. The matters LIST is still the honest empty state rather than a list; of the thirteen sections, seven render a SectionStub and six read the firm's own record (Overview, Files, Time, Costs, Parties, Calendar). The file-surface-web stream named here is abandoned and superseded; what carried its reasoning forward has landed._
-  - `matters.parties` · `partial` · **Matter parties** — Parties attached via Directory role-links; multiple roles per entity on one matter. _Note: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a prospective matter's conflict check needs a person._
-  - `matters.numbering` · `partial` · **Configurable matter numbering** — Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open. _Note: Backend shipped; scheme configuration UI not built._
+  - `matters.parties` · `partial` · **Matter parties** — Parties attached via Directory role-links; multiple roles per entity on one matter. _Note: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a consultation's conflict check needs a person._
+  - `matters.numbering` · `shipped` · **Configurable matter numbering** — Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open, the settings editor that writes it, and a number set by hand. _Note: Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs._
     - `matters.numbering.location-segment` · `shipped` · **Location segment in numbering** — Optional location segment/prefix in the numbering scheme.
   - `matters.types` · `partial` · **Flexible matter types** — Matter types carrying type-specific fields for mixed practices, via the shared custom-fields engine. _Note: Backend shipped; practice-area templates explicitly deferred (status.d/1-4: "before first client"); UI not built._
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: The document-automation dependency is met; the matter-type binding and the workflow engine are not._
   - `matters.home-location` · `partial` · **Optional home Location** — A matter optionally assigned to a firm office, which supplies its number prefix, letterhead/remit-to on generated documents and bills, and per-location reporting; firm default otherwise. _Note: Link and number-prefix shipped; letterhead/remit-to on documents and bills awaits billing and document automation; per-location reporting awaits the reports slice._
-  - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Prospective, Open, Closed statuses; Open draws the matter number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens a short status window - the status, how the matter is engaged (the signed agreement on file and the fee arrangement it rests on, with Amend beside it and the history folded away; moved here from the Fees screen by the owner's ruling of 2026-09-03), what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
-    - `matters.lifecycle.consultations` · `partial` · **Consultations (prospective matters)** — Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
+  - `matters.lifecycle` · `shipped` · **Matter lifecycle** — Intake, Consultation, Open, Hold and Closed statuses; Open draws the matter number; Hold pauses an open matter for a recorded reason and keeps its number; Closed is archived-but-additive with reopen support. _Note: The UI has landed. Pressing the status seal opens a short status window - the status, how the matter is engaged (the signed agreement on file and the fee arrangement it rests on, with Amend beside it and the history folded away; moved here from the Fees screen by the owner's ruling of 2026-09-03), what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. The steps a status allows and never a status picker - the contract takes no status on any lifecycle operation; an active matter offers the close and the pause (Put On Hold asks for its reason in place), a held one its release and the close (owner ruling, 2026-09-06). The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt._
+    - `matters.lifecycle.consultations` · `partial` · **Consultations** — Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake. _Note: Backend shipped, consultation numbering included — a consultation draws a tentative number from its own sequence, when an intake graduates or when a consultation is recorded outright, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers._
     - `matters.lifecycle.close-preconditions` · `shipped` · **Close-precondition hook** — Named close-precondition registry run at close; any failure blocks the close; empty until the Financial Core registers "all bills paid, no remaining balance". _Note: The hook is also readable without acting on it - GET /api/v1/matters/{id}/close-readiness runs the same rules and reports what stands in the way, so the status window states a verdict rather than making somebody press a button to discover it; the close still re-asserts every rule inside its own batch, which is what makes a probe safe to offer. Two rules are registered and both are about somebody else's money — a client trust ledger still holding funds, and a conceded client credit. There is deliberately NO rule on an unpaid bill: an uncollectable receivable is an ordinary business outcome whose lawful exit is a write-off. Custody is registered separately as an ADVISORY rather than a rule, because a firm holds a client's will for decades after the last matter closed and a block would only teach people to unlink packets before closing._
-    - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
+    - `matters.lifecycle.stale-consultations` · `partial` · **Stale-consultation policy and bulk close** — Per-firm age policy flags stale consultations for bulk close; closed consultations retained forever as conflict history. _Note: Flagging backend shipped; the bulk-close affordance is UI and no bulk-close operation was found._
   - `matters.physical-file` · `not-started` · **Physical file register and retention** — The firm's OWN paper file for a matter - what holds it, where that is kept, and the date the file may be destroyed under a firm retention policy. Distinct from Custodian, which holds client property left with the firm to guard. _Note: NEEDS ITS OWN DESIGN WORK, and the owner has said so: what holds a file is not one shape. A box at a remote store, a drawer in a cabinet, a safe, a shelf, a crate - the medium is a firm's own choice and a model that hardcodes any one of them is wrong for most firms, so the container is a record carrying its own kind rather than a field spelling "box". A container is a record in its own right for a second reason too: one holds the folders of several matters, so a matter points at it. Surfaced rather than hidden meanwhile - the matter status window gives it a panel of its own, marked Soon, naming what it waits on, because a window that answers "where is the file" while silently omitting the question is worse than one that says it cannot answer yet. It sits beside the status rather than under the close because the file is a standing fact: a folder sits where it sits whatever the matter's status is, and the panel says so. A destruction date is jurisdictional, so the policy is a firm setting rather than a number this platform picks._
   - `matters.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop. _Note: The Files UI has landed since this said it was queued. What it does not yet offer is folder navigation, document-type assignment or drag-and-drop, which is the rest of this node's scope; the backend for all three is built._
     - `matters.file-manager.content-hash` · `shipped` · **Content hash on every stored object** — SHA-256 computed at write time for fixity, delta verification, duplicate detection, upload short-circuit, scan-verdict caching, and no-op version skip. _Note: Cross-matter blob dedup deliberately undecided per the white paper._
@@ -797,7 +796,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.file-manager.bulk-download` · `shipped` · **Bulk download (zip)** — Streaming store-mode ZIP64 archive of selected files/folders/matter, version-pinned, RBAC-gated, audit-logged, memory-flat.
       - `documents.file-manager.bulk-download.async` · `shipped` · **Async bulk bundle** — Large bundles run as a tracked background job (Durable Object) building an R2 artifact fetched by signed URL.
     - `documents.file-manager.storage-metering` · `shipped` · **Storage metering** — Per-firm rollup of bytes and object counts by storage class and key prefix, exact in D1, reconciled against R2, feeding firm-usage diagnostics.
-  - `documents.upload` · `partial` · **Upload & ingest pipeline** — Uniform direct-to-R2 inbound upload with quarantine-gated ingest; bytes never transit the Worker. _Note: Upload UI rides the file-surface-web stream (Dropzone primitive shipped; dev upload route on main)._
+  - `documents.upload` · `partial` · **Upload & ingest pipeline** — Uniform direct-to-R2 inbound upload with quarantine-gated ingest; bytes never transit the Worker. _Note: The single-shot PUT is the built browser path; the resumable multipart client above the mode threshold is still unbuilt on the web surface, so a file over the threshold is refused with its reservation given back._
     - `documents.upload.direct-to-r2` · `shipped` · **Direct-to-R2 transfer** — Presigned single PUT for small files, resumable S3 multipart above a threshold; Worker only authorizes, mints URLs, records metadata.
     - `documents.upload.policy-gates` · `shipped` · **Pre-acceptance gates** — Per-firm size and content-type allow-list enforced at presign and re-verified against real bytes; magic-byte validation; filename sanitization.
     - `documents.upload.quarantine` · `shipped` · **Quarantine-on-arrival** — Bytes land at their final key not visible/servable/indexed until the async ingest consumer clears them (gates, SHA-256, scan port, version commit in one read).
@@ -992,16 +991,17 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Client Intake / CRM
 
-[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 7 units of work, 14% shipped. 1 done, 2 part-built, 4 ahead, 0 parked.
+[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 8 units of work, 25% shipped. 2 done, 2 part-built, 4 ahead, 0 parked.
 
-- `intake` · `partial` · **Client intake / CRM** — Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, receptionist call intake, and the per-matter-type intake procedure a consultation clears before it opens.
-  - `intake.procedure` · `shipped` · **Intake procedure** — A firm-authored, per-matter-type list of steps a consultation must clear before it opens, each answered by the subsystem that owns the fact or by a member's record, gating the open. _Note: Eight step kinds held by a CHECK. Conflicts, billing, document assembly, trust and custom fields answer their kinds today; identity verification and acknowledgement are a member's record until a subsystem exists, and adding the reader is the whole change. The checklist is derived on every read, never stored. A required step refuses the open; the override is a waiver under intake:waive with a rationale, append-and-flip. The platform seeds no procedure._
-  - `intake.lead-pipeline` · `not-started` · **Lead pipeline** — Pipeline stages and lead lifecycle feeding prospective matters.
-  - `intake.public-forms` · `not-started` · **Public intake forms** — Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus prospective matters.
-  - `intake.call-intake` · `not-started` · **Receptionist call intake** — Recorded, transcribed inbound calls turned into a Directory prospect plus prospective matter with the transcript attached.
+- `intake` · `partial` · **Client intake / CRM** — The intake desk over the matter lifecycle's first two rungs (intake, then consultation), a lead pipeline with stages, public intake forms capturing prospects into the Directory, receptionist call intake, and the per-matter-type intake procedure a consultation clears before it opens.
+  - `intake.procedure` · `shipped` · **Intake procedure** — A firm-authored, per-matter-type list of steps a consultation must clear before it opens, each answered by the subsystem that owns the fact or by a member's record, gating the open. _Note: Ten step kinds held by a CHECK. Conflicts, billing, document assembly, trust and custom fields answer their kinds today; identity verification, the client's online forms, a payment and an acknowledgement are a member's record until a subsystem exists, and adding the reader is the whole change. The checklist is derived on every read, never stored. A required step refuses the open; the override is a waiver under intake:waive with a rationale, append-and-flip. The platform seeds no procedure._
+  - `intake.desk` · `shipped` · **Intake desk** — The sidebar's Intake: every intake in flight, firm-wide, with who it is for, who carries it and how far it is against the procedure; starting one; resuming one; scheduling the consultation once the intake is complete. _Note: An intake in flight is a matter in the intake status, the first rung of the lifecycle (owner's ruling, 2026-09-05: intake -> consultation -> open -> closed, the second rung renamed from prospective; a hold rung beside open followed on 2026-09-06); the desk lists intakes and consultations and adds no table. The desk is firm-wide (the wider design's flag J4, answered by the owner's workflow); the per-attorney Consultations view is unchanged. Complete Intake is the graduation step: refused with the reason while a required step is outstanding, it draws the consultation number through POST /api/v1/matters/{id}/graduate; Schedule follows on a consultation. The row states counts, never a verdict._
+  - `intake.lead-pipeline` · `not-started` · **Lead pipeline** — Pipeline stages and lead lifecycle feeding intakes.
+  - `intake.public-forms` · `not-started` · **Public intake forms** — Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus intakes.
+  - `intake.call-intake` · `not-started` · **Receptionist call intake** — Recorded, transcribed inbound calls turned into a Directory prospect plus an intake with the transcript attached.
   - `intake.conflict-check` · `partial` · **Conflict check at intake** — Prospects are conflict-checkable entities from first contact; intake triggers a conflicts check.
   - `intake.crm` · `not-started` · **CRM fields and activities** — CRM-style fields and activity tracking on prospects.
-  - `intake.conversion` · `partial` · **Lead-to-matter conversion** — Converting a prospect/prospective matter into an open matter. _Note: The design's flag J2 — hard refusal or override — was answered in the build as an override in the form of a waiver: a named member under intake:waive, a mandatory rationale, an audit row, and the record kept forever, which is the traced override the design refused to leave untraced._
+  - `intake.conversion` · `partial` · **Lead-to-matter conversion** — Converting a consultation into an open matter. _Note: The design's flag J2 — hard refusal or override — was answered in the build as an override in the form of a waiver: a named member under intake:waive, a mandatory rationale, an audit row, and the record kept forever, which is the traced override the design refused to leave untraced._
 
 ### Integrations & Plugins
 

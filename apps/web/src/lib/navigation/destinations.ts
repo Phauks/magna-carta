@@ -29,6 +29,7 @@ import type { Component } from "svelte";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import House from "@lucide/svelte/icons/house";
 import Download from "@lucide/svelte/icons/download";
+import Upload from "@lucide/svelte/icons/upload";
 import Bell from "@lucide/svelte/icons/bell";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
 import CalendarDays from "@lucide/svelte/icons/calendar-days";
@@ -147,6 +148,20 @@ const DESTINATION_LIST = [
     defaultStarred: true,
   },
   {
+    // The uploads this browser tab is running: every batch in full, with each file's standing, the
+    // rate and the time left. Live state rather than a register — an upload dies with the tab — so
+    // it is the download shelf's opposite number, not a second shelf.
+    id: "uploads",
+    label: "Uploads",
+    href: "/uploads",
+    icon: Upload,
+    description: "Files you are sending to matters, each one's progress, and what did not go.",
+    group: "top",
+    shipped: true,
+    stage: "alpha",
+    defaultStarred: false,
+  },
+  {
     // A shipped stub: the page exists (an honest empty state) so the top-bar bell has a home to
     // open into. The alerts machinery that fills it arrives later.
     id: "notifications",
@@ -223,8 +238,10 @@ const DESTINATION_LIST = [
     icon: Inbox,
     description: "New client and matter intake, from first inquiry to open file.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The desk lists every intake in flight, starts one, and schedules the consultation; the public
+    // form, the pipeline board and call intake are still to come.
+    stage: "alpha",
     defaultStarred: true,
   },
   {

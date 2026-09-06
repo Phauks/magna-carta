@@ -1,46 +1,45 @@
 <script lang="ts">
   /*
-   * Settings · Matter Numbering — the scheme new matter numbers follow, under Practice. A
-   * BESPOKE stub in the Beta Access pattern: the real routes exist (numbering-scheme read and
-   * update plus preview, audited), and the REAL page is a segment-template editor with a live
-   * preview — this stub reserves its home with honest Soon seams until that editor is built.
-   * It supersedes the interim two-preset row Firm Profile used to carry.
+   * Settings · Matter Numbering — the templates the firm's two sequences follow, under Practice.
+   *
+   * TWO SCHEMES, ONE PAGE. A firm numbers two things and shapes them separately: the permanent
+   * matter number, drawn the moment a matter opens and frozen from then on, and the tentative
+   * number a consultation carries until (and after) it opens. Each is its own editor on this page,
+   * each saved in its own audited write, because a change to one is not a change to the other and a
+   * firm that has set neither is numbering consultations from the built-in sequence already.
+   *
+   * THE PAGE APPLIES ON SAVE, PER SCHEME. The settings surface's draft-and-footer anatomy is for a
+   * page of rows; a scheme is a list edited in place with a live preview beneath it, so each
+   * editor carries its own Save and Discard and the masthead states the posture without a page
+   * draft. The record of a change is the audit row the server writes, not a per-browser ledger.
+   *
+   * NO NUMBER BEFORE ACTIVE, AND NONE CHANGED HERE. A matter draws its number when it opens and
+   * never before; an intake and a consultation carry none. Saving a scheme reaches only the matters
+   * numbered from then on. A single matter's number is set by hand from the matter's own status
+   * window, never from here.
    */
-  import * as Select from "@magna-carta/design-system/select";
-  import Badge from "@magna-carta/design-system/badge";
-  import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
+  import * as Alert from "@magna-carta/design-system/alert";
+  import NumberingSchemeEditor from "$lib/matters/numbering-scheme-editor.svelte";
+  import { MANAGE_NUMBERING_PERMISSION } from "$lib/matters/numbering-api.ts";
+  import { civilToday } from "$lib/billing/invoice-standing.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
-  import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
-  import SettingsRow from "$lib/settings/components/settings-row.svelte";
-  import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
-  import { SettingsDraft } from "$lib/settings/settings-draft.svelte.ts";
-  import { canEditFirmSettings } from "$lib/settings/settings-permissions.ts";
+  import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
 
-  const canEdit = canEditFirmSettings("firm");
-  const draft = new SettingsDraft("matter-numbering");
+  let session = $state<SessionBootstrap | null>(null);
+  // Unknown until the session answers; the editors are drawn on the answer, because the scheme
+  // read itself needs the permission and a refused read would say the same thing less well.
+  const mayManage = $derived(
+    session === null ? null : session.permissions.includes(MANAGE_NUMBERING_PERMISSION),
+  );
+  const today = civilToday();
 
-  const NUMBERING_SCHEME_DEFINITION: SettingDefinition = {
-    id: "matter-numbering.scheme",
-    sectionId: "matter-numbering",
-    label: "Numbering Scheme",
-    description: "The segment template new matter numbers follow.",
-    kind: "text",
-    defaultValue: "",
-    sensitivity: "open",
-  };
-
-  // The preview is a reported fact (a sample number computed from the scheme), so its seam is
-  // the same honest em-dash the diagnostics rows use.
-  const SCHEME_PREVIEW_DEFINITION: SettingDefinition = {
-    id: "matter-numbering.preview",
-    sectionId: "matter-numbering",
-    label: "Scheme Preview",
-    description: "What the next matter number would look like under the scheme.",
-    kind: "text",
-    defaultValue: "—",
-    sensitivity: "open",
-  };
+  $effect(() => {
+    void readSession(fetch).then((outcome) => {
+      if (outcome.kind === "ok") session = outcome.value;
+    });
+  });
 </script>
 
 <svelte:head>
@@ -50,37 +49,36 @@
 <SettingsMasthead
   sectionId="matter-numbering"
   title="Matter Numbering"
-  posture={canEdit ? "draft" : "readOnly"}
-  draft={canEdit ? draft : undefined}
+  posture={mayManage === false ? "readOnly" : "draft"}
+  showHistory={false}
 />
 
 <!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
      room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. Full canvas width (owner-directed): the table uses the space. -->
+     identical width. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
-  <SettingsDescription>The scheme new matter numbers follow across the whole firm.</SettingsDescription>
+    <SettingsDescription>The shape of every matter number and consultation number the firm draws.</SettingsDescription>
 
-  <SettingsPlate heading="Scheme">
-    <SettingsRow definition={NUMBERING_SCHEME_DEFINITION}>
-      {#snippet control()}
-        <Badge variant="neutral">Soon</Badge>
-        <Select.Root type="single" items={[]} disabled>
-          <Select.Trigger
-            class="w-full"
-            aria-label="Numbering Scheme (arrives with the segment-template editor)"
-          >
-            <Select.Value placeholder="—" />
-          </Select.Trigger>
-        </Select.Root>
-      {/snippet}
-    </SettingsRow>
+    <Alert.Root variant="info">
+      <Alert.Title>A Number Is Drawn Once, When The Matter Opens</Alert.Title>
+      <Alert.Description>
+        A matter number is drawn the moment a matter becomes active and never changes; an intake
+        and a consultation carry none. A consultation carries its own tentative number from its own
+        sequence, so a consultation the firm never takes on consumes no matter number. Each scheme
+        is an ordered list of parts with exactly one counter; a part marked to restart the count
+        starts the counter over for each of its values, the way a file room begins at 0001 every
+        January. Saving a scheme reaches only the matters numbered from then on.
+      </Alert.Description>
+    </Alert.Root>
 
-    <SettingsRow definition={SCHEME_PREVIEW_DEFINITION} value="—" />
-  </SettingsPlate>
+    {#if mayManage === false}
+      <p class="text-sm text-text-muted">
+        {permissionRefusal("Reading and changing the firm's numbering", MANAGE_NUMBERING_PERMISSION)}
+      </p>
+    {:else if mayManage === true}
+      <NumberingSchemeEditor purpose="matter" canManage {today} />
+      <NumberingSchemeEditor purpose="consultation" canManage {today} />
+    {/if}
   </div>
 </div>
-
-{#if canEdit}
-  <SettingsCommitFooter {draft} />
-{/if}

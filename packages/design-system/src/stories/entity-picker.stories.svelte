@@ -318,10 +318,11 @@
       search={ordinarySearch}
       bind:value={party}
       label="Payee"
-      onCreate={(typed) => {
+      kinds={["organization"]}
+      onCreate={(typed, kind) => {
         created = typed;
         // The caller makes the record and hands it back; the picker changed no selection itself.
-        party = { identifier: `entity-new-${typed}`, name: typed, kind: "organization" };
+        party = { identifier: `entity-new-${typed}`, name: typed, kind };
       }}
     />
     <p>Created: {created}. Payee: {party?.name ?? "nobody"}.</p>
@@ -341,6 +342,54 @@
       await userEvent.click(body.getByRole("option", { name: 'Add "Northwind Couriers"' }));
       await waitFor(() => expect(body.queryByRole("listbox")).toBeNull());
       await expect(canvas.getByText("Created: Northwind Couriers. Payee: Northwind Couriers.")).toBeVisible();
+      await expect(input).toHaveValue("Northwind Couriers");
+    });
+  }}
+/>
+
+{#snippet createEitherTemplate(args: EntityPickerStoryArgs)}
+  <div class="max-w-sm">
+    <EntityPicker
+      {...args}
+      search={ordinarySearch}
+      bind:value={party}
+      label="Client"
+      onCreate={(typed, kind) => {
+        created = `${kind}:${typed}`;
+        party = typed === "" ? null : { identifier: `entity-new-${typed}`, name: typed, kind };
+      }}
+    />
+    <p>Created: {created}. Client: {party?.name ?? "nobody"}.</p>
+  </div>
+{/snippet}
+
+<Story
+  name="CreatesEither"
+  template={createEitherTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+
+    await step("The New control is there before anything is typed, and asks which kind", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "New person or organization" }));
+      await waitFor(() => expect(body.getByRole("menuitem", { name: "Person" })).toBeVisible());
+      await expect(body.getByRole("menuitem", { name: "Organization" })).toBeVisible();
+      await userEvent.click(body.getByRole("menuitem", { name: "Person" }));
+      await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
+      await expect(canvas.getByText("Created: person:. Client: nobody.")).toBeVisible();
+    });
+
+    await step("A name nothing matches can be added as either kind from the list", async () => {
+      const input = canvas.getByRole("combobox", { name: "Client" });
+      await userEvent.type(input, "Northwind Couriers");
+      await waitFor(() => expect(body.getByText("No record matches that search.")).toBeVisible());
+      await expect(body.getByRole("option", { name: 'Add "Northwind Couriers" as a person' })).toBeVisible();
+      await userEvent.click(
+        body.getByRole("option", { name: 'Add "Northwind Couriers" as an organization' }),
+      );
+      await waitFor(() => expect(body.queryByRole("listbox")).toBeNull());
+      await expect(
+        canvas.getByText("Created: organization:Northwind Couriers. Client: Northwind Couriers."),
+      ).toBeVisible();
       await expect(input).toHaveValue("Northwind Couriers");
     });
   }}

@@ -352,7 +352,7 @@ export interface EntityMatterPartyRow {
   readonly capacity: string | null;
   /** The matter's title, or null when the link points at a matter the firm no longer holds. */
   readonly matterTitle: string | null;
-  /** The number the firm files it under, null while the matter is still prospective. */
+  /** The number the firm files it under, null while the matter is still consultation. */
   readonly matterNumber: string | null;
   readonly matterStatus: string | null;
   readonly linkedAt: string;

@@ -1,7 +1,7 @@
 import type { NumberSegment } from "./segments.ts";
 
 /*
- * The consultation sequence: the tentative number a prospective matter wears from the moment it is
+ * The consultation sequence: the tentative number a consultation wears from the moment it graduates from intake (or is recorded outright), until (and after)
  * created, until (and after) opening draws the permanent matter number.
  *
  * It is a SEPARATE sequence from the matter number, not a preview of it. A firm's matter numbers are

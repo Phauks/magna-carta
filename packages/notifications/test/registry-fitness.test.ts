@@ -132,6 +132,8 @@ describe("the notification registry", () => {
       // accountable for the file is the person who has to notice.
       "system.matter.closed",
       "system.matter.reopened",
+      "system.matter.held",
+      "system.matter.released",
     ]);
     for (const type of NOTIFICATION_TYPES) {
       if (!type.matterAnchored || NARROW_BY_DESIGN.has(type.key)) continue;

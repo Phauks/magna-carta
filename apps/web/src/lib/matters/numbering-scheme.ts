@@ -1,0 +1,342 @@
+/*
+ * A firm's numbering scheme, as the settings editor holds it.
+ *
+ * A NUMBER IS A TEMPLATE OF SEGMENTS. The firm writes its matter numbers, and the tentative numbers
+ * its consultations carry, as an ordered list of parts: a fixed piece of text, the year the matter
+ * opened, its office's code, its practice area's code, the client's code, and exactly one counter
+ * that ticks up. Any part that varies can be marked as SCOPING, which starts the count over for
+ * each distinct value of it — a year-scoped counter runs 0001 again each January, the way a file
+ * room's numbers do. The matters package owns the model and the renderer; this file spells the
+ * same shape for the editor and states, in the reader's words, what each part is.
+ *
+ * WHY THE EDITOR VALIDATES BEFORE THE SERVER DOES. The one rule that cannot be broken — exactly
+ * one counter — is the server's to enforce, and it does. It is repeated here so the editor can
+ * say what is wrong beside the list instead of after a refused save, and so the live preview is
+ * not asked to render a scheme the server would refuse.
+ *
+ * A NUMBER, ONCE DRAWN, IS FROZEN. A scheme change reaches only the matters numbered after it.
+ * That is the matters package's rule, restated on the screen so nobody expects a renumbering.
+ */
+
+/** Which of the firm's two sequences a scheme shapes. */
+export type NumberingPurpose = "matter" | "consultation";
+
+/** One part of a number, spelled the way the numbering contract stores it. */
+export type NumberSegment =
+  | { kind: "literal"; text: string }
+  | { kind: "counter"; padWidth: number; start?: number }
+  | { kind: "year"; digits: 2 | 4; scoping?: boolean }
+  | { kind: "date_opened"; scoping?: boolean }
+  | { kind: "location_code"; scoping?: boolean }
+  | { kind: "matter_type_code"; scoping?: boolean }
+  | { kind: "client_code"; scoping?: boolean }
+  | { kind: "staff_initials"; scoping?: boolean }
+  | { kind: "client_name"; scoping?: boolean };
+
+export type NumberSegmentKind = NumberSegment["kind"];
+
+/** RFC 3986 unreserved characters: what a rendered number, and so a literal, may be made of. */
+export const URL_SAFE_PATTERN = /^[A-Za-z0-9._~-]+$/;
+
+export interface NumberSegmentVocabularyEntry {
+  readonly kind: NumberSegmentKind;
+  /** The part's name, as the kind picker offers it. */
+  readonly label: string;
+  /** What the part renders as, in one sentence. */
+  readonly description: string;
+  /** Whether the part takes its value from the matter, and so can scope the counter. */
+  readonly valued: boolean;
+}
+
+/**
+ * The parts a number can be made of, in the order the picker offers them: the two structural
+ * parts first, then the dates, then what the matter carries.
+ */
+export const NUMBER_SEGMENT_VOCABULARY: readonly NumberSegmentVocabularyEntry[] = [
+  {
+    kind: "literal",
+    label: "Text",
+    description: "A fixed piece of text, such as a separator or a prefix.",
+    valued: false,
+  },
+  {
+    kind: "counter",
+    label: "Counter",
+    description: "The part that ticks up with each number drawn. Every scheme has exactly one.",
+    valued: false,
+  },
+  {
+    kind: "year",
+    label: "Year",
+    description: "The year the matter opened, as two or four digits.",
+    valued: true,
+  },
+  {
+    kind: "date_opened",
+    label: "Date Opened",
+    description: "The date the matter opened, as eight digits (YYYYMMDD).",
+    valued: true,
+  },
+  {
+    kind: "location_code",
+    label: "Office Code",
+    description: "The code of the office the matter belongs to.",
+    valued: true,
+  },
+  {
+    kind: "matter_type_code",
+    label: "Practice Area Code",
+    description: "The code of the matter's practice area.",
+    valued: true,
+  },
+  {
+    kind: "client_code",
+    label: "Client Code",
+    description: "The firm's own short code for the client.",
+    valued: true,
+  },
+  {
+    kind: "staff_initials",
+    label: "Attorney Initials",
+    description: "The responsible attorney's initials.",
+    valued: true,
+  },
+  {
+    kind: "client_name",
+    label: "Client Name",
+    description: "The client's name, with spaces and accents folded out.",
+    valued: true,
+  },
+];
+
+export function numberSegmentVocabulary(kind: NumberSegmentKind): NumberSegmentVocabularyEntry {
+  const entry = NUMBER_SEGMENT_VOCABULARY.find((candidate) => candidate.kind === kind);
+  if (entry === undefined) throw new Error(`no vocabulary for segment kind ${kind}`);
+  return entry;
+}
+
+/** A fresh part of the given kind, with the defaults a firm most often keeps. */
+export function newNumberSegment(kind: NumberSegmentKind): NumberSegment {
+  switch (kind) {
+    case "literal":
+      return { kind, text: "-" };
+    case "counter":
+      return { kind, padWidth: 4, start: 1 };
+    case "year":
+      // The year scopes by default: a per-year run is what a file room's numbers do.
+      return { kind, digits: 4, scoping: true };
+    case "date_opened":
+    case "location_code":
+    case "matter_type_code":
+    case "client_code":
+    case "staff_initials":
+    case "client_name":
+      return { kind, scoping: false };
+  }
+}
+
+/** Whether a part can scope the counter: the parts that take a value from the matter. */
+export function isScopingCapable(segment: NumberSegment): boolean {
+  return numberSegmentVocabulary(segment.kind).valued;
+}
+
+/** Whether a part is marked scoping. */
+export function isScoping(segment: NumberSegment): boolean {
+  return "scoping" in segment && segment.scoping === true;
+}
+
+/** How one part reads on the scheme's own line, before the preview renders it. */
+export function numberSegmentSummary(segment: NumberSegment): string {
+  switch (segment.kind) {
+    case "literal":
+      return `"${segment.text}"`;
+    case "counter":
+      return `Counter, ${String(segment.padWidth)} digits${
+        segment.start !== undefined && segment.start !== 1 ? `, from ${String(segment.start)}` : ""
+      }`;
+    case "year":
+      return `Year, ${String(segment.digits)} digits${segment.scoping === true ? ", restarts the count" : ""}`;
+    default:
+      return `${numberSegmentVocabulary(segment.kind).label}${isScoping(segment) ? ", restarts the count" : ""}`;
+  }
+}
+
+/**
+ * What stands in the way of saving a scheme, in one sentence, or null where nothing does. The
+ * counter rule is the server's own; the rest is what the server would refuse segment by segment.
+ */
+export function numberingSchemeRefusal(segments: readonly NumberSegment[]): string | null {
+  if (segments.length === 0) return "A scheme needs at least a counter.";
+  const counters = segments.filter((segment) => segment.kind === "counter").length;
+  if (counters === 0) return "A scheme needs a counter: the part that ticks up with each number.";
+  if (counters > 1) return "A scheme has exactly one counter; remove the others.";
+  for (const segment of segments) {
+    if (segment.kind === "literal" && !URL_SAFE_PATTERN.test(segment.text)) {
+      return segment.text.length === 0
+        ? "A text part cannot be empty."
+        : `Text can carry only letters, digits and . _ ~ -; "${segment.text}" cannot appear in a number.`;
+    }
+    if (
+      segment.kind === "counter" &&
+      (!Number.isInteger(segment.padWidth) || segment.padWidth < 1)
+    ) {
+      return "The counter's width is at least one digit.";
+    }
+    if (
+      segment.kind === "counter" &&
+      segment.start !== undefined &&
+      (!Number.isInteger(segment.start) || segment.start < 1)
+    ) {
+      return "The counter starts at one or higher.";
+    }
+  }
+  return null;
+}
+
+/** The list with one part moved by `delta` places; unchanged when the move would leave the list. */
+export function moveNumberSegment(
+  segments: readonly NumberSegment[],
+  index: number,
+  delta: -1 | 1,
+): readonly NumberSegment[] {
+  const target = index + delta;
+  if (index < 0 || index >= segments.length || target < 0 || target >= segments.length) {
+    return segments;
+  }
+  const next = [...segments];
+  const [moved] = next.splice(index, 1);
+  if (moved === undefined) return segments;
+  next.splice(target, 0, moved);
+  return next;
+}
+
+export function replaceNumberSegment(
+  segments: readonly NumberSegment[],
+  index: number,
+  segment: NumberSegment,
+): readonly NumberSegment[] {
+  return segments.map((existing, at) => (at === index ? segment : existing));
+}
+
+export function removeNumberSegment(
+  segments: readonly NumberSegment[],
+  index: number,
+): readonly NumberSegment[] {
+  return segments.filter((_, at) => at !== index);
+}
+
+/** Whether two schemes are the same template, part for part. */
+export function numberingSchemesEqual(
+  left: readonly NumberSegment[] | null,
+  right: readonly NumberSegment[] | null,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export interface NumberingStarter {
+  readonly key: string;
+  readonly label: string;
+  /** What it renders as, for a matter opened in 2026 at the first draw. */
+  readonly example: string;
+  readonly segments: readonly NumberSegment[];
+}
+
+/**
+ * The shapes a firm most often begins from. Each is a complete scheme the editor loads into the
+ * list; every part is then the firm's to change. The examples are what the renderer produces for
+ * the first number drawn in 2026, so a starter can be chosen by what it looks like.
+ */
+export const NUMBERING_STARTERS: readonly NumberingStarter[] = [
+  {
+    key: "year-counter",
+    label: "Year and counter",
+    example: "2026-0001",
+    segments: [
+      { kind: "year", digits: 4, scoping: true },
+      { kind: "literal", text: "-" },
+      { kind: "counter", padWidth: 4, start: 1 },
+    ],
+  },
+  {
+    key: "counter",
+    label: "A running count",
+    example: "00001",
+    segments: [{ kind: "counter", padWidth: 5, start: 1 }],
+  },
+  {
+    key: "type-year-counter",
+    label: "Practice area, year and counter",
+    example: "LIT-2026-0001",
+    segments: [
+      { kind: "matter_type_code", scoping: true },
+      { kind: "literal", text: "-" },
+      { kind: "year", digits: 4, scoping: true },
+      { kind: "literal", text: "-" },
+      { kind: "counter", padWidth: 4, start: 1 },
+    ],
+  },
+  {
+    key: "client-counter",
+    label: "Client code and counter",
+    example: "ASH-001",
+    segments: [
+      { kind: "client_code", scoping: true },
+      { kind: "literal", text: "-" },
+      { kind: "counter", padWidth: 3, start: 1 },
+    ],
+  },
+];
+
+/**
+ * The sample matter the live preview renders against. Every valued part has a value here, so a
+ * scheme previews whatever parts it uses; the sentence beside the preview says these are samples.
+ */
+export interface NumberingSampleContext {
+  readonly openedDate: string;
+  readonly locationCode: string;
+  readonly matterTypeCode: string;
+  readonly clientCode: string;
+  readonly staffInitials: string;
+  readonly clientName: string;
+}
+
+export function numberingSampleContext(today: string): NumberingSampleContext {
+  return {
+    openedDate: today,
+    locationCode: "RNO",
+    matterTypeCode: "LIT",
+    clientCode: "ASH",
+    staffInitials: "EV",
+    clientName: "Ashcombe Mercantile",
+  };
+}
+
+/** How the sample reads beside the preview, so a rendered code is never mistaken for the firm's. */
+export function numberingSampleSentence(context: NumberingSampleContext): string {
+  return (
+    `Previewed for a matter opened ${context.openedDate} at office ${context.locationCode}, ` +
+    `practice area ${context.matterTypeCode}, client code ${context.clientCode}, ` +
+    `attorney ${context.staffInitials}, client ${context.clientName}.`
+  );
+}
+
+/** The two purposes as the screen names them. */
+export function numberingPurposeLabel(purpose: NumberingPurpose): string {
+  return purpose === "matter" ? "Matter Numbers" : "Consultation Numbers";
+}
+
+// ---- a number set by hand -------------------------------------------------------------------
+
+/**
+ * What stands in the way of setting a matter's number by hand, or null where nothing does. A
+ * court's number, a legacy number from the firm's old system, a correction: the server checks the
+ * same two things (URL-safe, unique in the firm) and the second only it can answer.
+ */
+export function matterNumberRefusal(candidate: string): string | null {
+  const trimmed = candidate.trim();
+  if (trimmed.length === 0) return "Type the number.";
+  if (!URL_SAFE_PATTERN.test(trimmed)) {
+    return "A matter number can carry only letters, digits and . _ ~ - so it can stand in a link.";
+  }
+  return null;
+}

@@ -40,7 +40,8 @@
   import Separator from "@magna-carta/design-system/separator";
   import { personName } from "@magna-carta/design-system/formatters";
   import { parseDate, type DateValue } from "@internationalized/date";
-  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import MatterDocumentPicker from "$lib/documents/matter-document-picker.svelte";
   import { permissionRefusal } from "$lib/access/refusal.ts";
@@ -257,7 +258,7 @@
         {#snippet children({ props })}
           <!-- A Directory record, not a typed name: the consenting party has to be somebody a
                reader can look up, which is the difference between a waiver and a claim of one. -->
-          <EntityPicker
+          <DirectoryEntityPicker
             search={partySearch}
             bind:value={consentingParty}
             label="Waiver given by"

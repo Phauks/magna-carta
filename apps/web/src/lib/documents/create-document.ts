@@ -11,6 +11,7 @@
 import {
   completeUpload,
   initiateUpload,
+  abortUpload,
   putUploadBytes,
   readAssemblyStatus,
   readUploadStatus,
@@ -115,7 +116,9 @@ export async function uploadDocument(
   if (reservation.mode !== "put" || reservation.url === undefined) {
     // A document over the firm's mode threshold reserves a resumable multipart session instead. That
     // ceremony signs and tracks every part, which this surface does not do — so it says so plainly
-    // rather than half-running it and leaving a pending version behind.
+    // rather than half-running it. The pending version the reservation minted is given back first,
+    // so the refusal leaves no half-made document behind.
+    await abortUpload(fetchImpl, reservation.uploadId);
     return {
       kind: "problem",
       stage: "reserving",
@@ -130,11 +133,20 @@ export async function uploadDocument(
 
   onStage?.("uploading");
   const put = await putUploadBytes(fetchImpl, reservation.url, reservation.headers ?? {}, file);
-  if (put.kind !== "ok") return atStage(put, "uploading");
+  if (put.kind !== "ok") {
+    // The reservation already put a pending version on the matter; bytes that never landed must not
+    // leave it there as a document with nothing behind it. Best-effort: the failure being reported
+    // is the one that matters, and the stale-pending sweep catches what this cannot reach.
+    await abortUpload(fetchImpl, reservation.uploadId);
+    return atStage(put, "uploading");
+  }
 
   onStage?.("committing");
   const completed = await completeUpload(fetchImpl, reservation.uploadId, newIdempotencyKey());
-  if (completed.kind !== "ok") return atStage(completed, "committing");
+  if (completed.kind !== "ok") {
+    await abortUpload(fetchImpl, reservation.uploadId);
+    return atStage(completed, "committing");
+  }
 
   onStage?.("scanning");
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
