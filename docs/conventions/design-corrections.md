@@ -502,6 +502,19 @@ is usually the fastest way to understand the rule.
   its own label it restates those metrics, and the two blocks change together. _(Time record window,
   2026-09-03)_
 
+- **A submenu holds what it is named after, and settings are not filed under a noun.** The table
+  header menu kept the display settings — row shading, and whatever the surface added — inside its
+  Columns submenu, one arrow to the right of a trigger that names something else. A column roster is
+  what a submenu is for: one row per column, the hidden ones included, since a hidden column has no
+  header left to right-click. How the table LOOKS is not a column, so it sits in the menu's own
+  root, in the menu the reader already has open. _(the file manager, 2026-09-06)_
+- **A control that comes and goes never ends a row.** The end of a right-aligned row is an anchor,
+  and a control that appears only in some states must not hold it: everything before it slides
+  sideways each time it arrives or leaves. The file manager's display settings, which belong to the
+  icon view alone, sit BEFORE the list-or-icons swapper for exactly this reason — the swapper is on
+  every view, so the swapper keeps the end. Same property the create control's fixed width protects
+  in the matter header. _(the file manager, 2026-09-06)_
+
 ### List screens
 
 Issued against the matters list and re-issued against the directory. They bind every List/Index
@@ -659,6 +672,19 @@ surface, which is most of the product.
   rest halfway up the screen with a band of empty surface below them read as a table that failed to
   load the rest. _(the four financial ledgers, 2026-09-03)_
 
+- **The document declares its colour scheme, and the root declares its ink.** The token cascade
+  re-points every `--mc-*` per theme and mode, so anything drawn from a token follows the mode — but
+  the browser paints a great deal no token reaches (the canvas behind an overscroll, scrollbars,
+  form controls, the caret, and the system colour that stands in wherever a colour was never named),
+  and all of it follows `color-scheme` alone. Neither was declared, so on the dark themes the
+  browser was still painting in light mode underneath the design system, and any element written
+  without a colour took `canvastext`, which is BLACK whatever the page behind it looks like. It
+  surfaced as the file manager's breadcrumb reading black on a dark band; it was never a file
+  manager defect, and every screen carried it. One stylesheet in the `base` layer
+  (`packages/design-system/src/lib/styles/base.css`), imported by the app entry and the catalog
+  preview alike, so the two review the same product. A component still names its own ink — this is
+  only what the document starts from. _(the file manager, 2026-09-06)_
+
 ### Spacing and rhythm
 
 - **Meta text sits at a fixed offset under the element it annotates**, expressed as one rule, not
@@ -680,6 +706,12 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-06 — the file manager, seventeenth round
+
+Five corrections against the deployed file manager. The generalizable parts are promoted above — the
+document base, and the rule that a submenu holds what it is named after; what is local to this
+surface is in [`file-manager-rulings.md`](file-manager-rulings.md) (round seventeen).
 
 ### 2026-09-05 — the directory record, from a screen to one window
 

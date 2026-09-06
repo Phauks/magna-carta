@@ -11,6 +11,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import FileManager from "$lib/file-manager/file-manager.svelte";
   import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
+  import { queryFromUrl } from "$lib/matters/query-from-url.ts";
   import FullHeightSection from "$lib/components/full-height-section.svelte";
   import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
   import FolderPlus from "@lucide/svelte/icons/folder-plus";
@@ -72,6 +73,7 @@
       matterId={matter.id}
       matterTitle={matter.title}
       revealFileId={entryFromUrl()}
+      searchQuery={queryFromUrl()}
     />
   </FullHeightSection>
 {/if}
