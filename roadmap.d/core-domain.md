@@ -200,18 +200,17 @@
 
 - id: matters.numbering
   name: Configurable matter numbering
-  scope: Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open.
-  status: partial
+  scope: Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open, the settings editor that writes it, and a number set by hand.
+  status: shipped
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0079
-  evidence: packages/matters/src/numbering/ (scheme-service, segments, counters, render) + routes/numbering.ts
-  notes: Backend shipped; scheme configuration UI not built.
+  evidence: packages/matters/src/numbering/ (scheme-service, segments, counters, render) + routes/numbering.ts; the editor in apps/web/src/lib/matters/numbering-scheme-editor.svelte under Settings · Matter Numbering, with the model in numbering-scheme.ts; Set Number on the status window over the renumber route
+  notes: Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs.
 
 - id: matters.numbering.location-segment
   name: Location segment in numbering
   scope: Optional location segment/prefix in the numbering scheme.
   status: shipped
-  surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   evidence: location_code segment kind in packages/matters/src/numbering/segments.ts
 

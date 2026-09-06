@@ -64,6 +64,7 @@
   import CircleDot from "@lucide/svelte/icons/circle-dot";
   import ClipboardCheck from "@lucide/svelte/icons/clipboard-check";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import Hash from "@lucide/svelte/icons/hash";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -87,8 +88,11 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import Textarea from "@magna-carta/design-system/textarea";
+  import { renumberMatter, RENUMBER_MATTER_PERMISSION } from "./numbering-api.ts";
+  import { matterNumberRefusal } from "./numbering-scheme.ts";
   import type { MatterRecord } from "./matter-record.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
   import {
@@ -190,6 +194,31 @@
   /** Null until the session read comes back, either way; `settled` is what tells the two apart. */
   let permissions = $state<readonly string[] | null>(null);
   let sessionSettled = $state(false);
+
+  /**
+   * The matter's number, set by hand: a court's number, a legacy number, a correction. Offered only
+   * where the matter has been active (the number is drawn at open and never before), and asked in
+   * place the way the hold's reason is.
+   */
+  let numberFormOpen = $state(false);
+  let numberDraft = $state("");
+  let numberTouched = $state(false);
+  let numberSaving = $state(false);
+  let numberFailure = $state<StatedFailure | null>(null);
+  /** The server's own refusal of the number: taken by another matter, or unfit for a link. */
+  let numberRefusal = $state<string | null>(null);
+  const numberError = $derived(
+    numberRefusal ?? (numberTouched ? matterNumberRefusal(numberDraft) : null),
+  );
+  /** A number belongs only to a matter that has been active; the unnumbered rungs never carry one. */
+  const mayCarryNumber = $derived(matter.openedAt !== null || matter.matterNumber !== null);
+  const numberBlock = $derived.by((): string | null => {
+    if (!sessionSettled) return "Reading your session.";
+    if (permissions === null) return null;
+    return permissions.includes(RENUMBER_MATTER_PERMISSION)
+      ? null
+      : permissionRefusal("Setting the number", RENUMBER_MATTER_PERMISSION);
+  });
 
   /** The pause asks for its reason in place: the field is drawn once Put On Hold is pressed. */
   let holdFormOpen = $state(false);
@@ -324,6 +353,43 @@
     holdFormOpen = false;
     holdReason = "";
     holdReasonTouched = false;
+    numberFormOpen = false;
+    numberDraft = "";
+    numberTouched = false;
+    numberFailure = null;
+    numberRefusal = null;
+  }
+
+  async function setNumber(): Promise<void> {
+    numberTouched = true;
+    numberRefusal = null;
+    if (numberSaving || matterNumberRefusal(numberDraft) !== null) return;
+    numberSaving = true;
+    numberFailure = null;
+    const outcome = await renumberMatter(fetch, matter.id, numberDraft.trim(), crypto.randomUUID());
+    numberSaving = false;
+    if (outcome.kind === "ok") {
+      numberFormOpen = false;
+      numberDraft = "";
+      numberTouched = false;
+      await invalidateAll();
+      return;
+    }
+    // The two refusals a person can act on read beside the field; anything else is a failure and
+    // travels whole, with its Error ID.
+    if (outcome.kind === "problem" && outcome.problem.status === 409) {
+      numberRefusal = "Another matter already wears that number.";
+      return;
+    }
+    if (outcome.kind === "problem" && outcome.problem.status === 422) {
+      numberRefusal = outcome.problem.detail ?? "That number cannot be used.";
+      return;
+    }
+    numberFailure = stated(
+      outcome.failure,
+      "The number was not set.",
+      "Nothing answered. The matter's number is unchanged.",
+    );
   }
 
   function report(
@@ -539,6 +605,101 @@
           </dl>
         </div>
       {/if}
+
+      <!-- The matter's number, and the way to set one by hand. A standing fact rather than a
+           step: it is drawn when the matter opens and sits here so a court's number or a legacy
+           number can be put on the record without leaving the window that states the status. -->
+      <div class="flex flex-col gap-8">
+        <FieldLabel as="h3">Number</FieldLabel>
+        <dl class="flex flex-col gap-8 text-sm">
+          <div class="grid grid-cols-2 items-center gap-16">
+            <dt class="text-text-muted">Matter Number</dt>
+            <dd class="flex flex-wrap items-center gap-8">
+              {#if matter.matterNumber !== null}
+                <span class="tabular-nums">{matter.matterNumber}</span>
+              {:else}
+                <span class="text-text-subtle">
+                  {mayCarryNumber ? "Not recorded" : "Drawn when the matter opens"}
+                </span>
+              {/if}
+              {#if mayCarryNumber && !isSample}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={numberBlock !== null || numberSaving}
+                  title={numberBlock ?? undefined}
+                  aria-expanded={numberFormOpen}
+                  onclick={() => {
+                    numberFormOpen = !numberFormOpen;
+                    numberRefusal = null;
+                  }}
+                >
+                  <Hash class="size-16" aria-hidden="true" />
+                  {matter.matterNumber === null ? "Set Number" : "Change Number"}
+                </Button>
+              {/if}
+            </dd>
+          </div>
+          {#if matter.consultationNumber !== null}
+            <div class="grid grid-cols-2 items-center gap-16">
+              <dt class="text-text-muted">Consultation Number</dt>
+              <dd class="tabular-nums">{matter.consultationNumber}</dd>
+            </div>
+          {/if}
+        </dl>
+        {#if mayCarryNumber && !isSample && numberBlock !== null}
+          <p class="text-xs text-text-subtle">{numberBlock}</p>
+        {/if}
+        {#if numberFormOpen}
+          <LabelledField
+            label={matter.matterNumber === null ? "Matter Number" : "New Matter Number"}
+            hint="A court's number, a number from the firm's old system, or a correction. It has to be unique in the firm and able to stand in a link; the number it replaces stays on the record."
+            error={numberError ?? undefined}
+          >
+            {#snippet children({ props })}
+              <Input
+                {...props}
+                bind:value={numberDraft}
+                disabled={numberSaving}
+                onblur={() => (numberTouched = true)}
+                onkeydown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void setNumber();
+                  }
+                }}
+              />
+            {/snippet}
+          </LabelledField>
+          {#if numberFailure !== null}
+            <FailureNotice
+              failure={numberFailure.failure}
+              title="The Number Was Not Set"
+              fallback={numberFailure.fallback}
+              whenSilent={numberFailure.whenSilent}
+            />
+          {/if}
+          <div class="flex flex-wrap items-center gap-8">
+            <Button variant="primary" size="sm" disabled={numberSaving} onclick={() => void setNumber()}>
+              <Hash class="size-16" aria-hidden="true" />
+              {numberSaving ? "Setting" : matter.matterNumber === null ? "Set Number" : "Change Number"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={numberSaving}
+              onclick={() => {
+                numberFormOpen = false;
+                numberDraft = "";
+                numberTouched = false;
+                numberRefusal = null;
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        {/if}
+      </div>
 
       {#if holdFormOpen && matter.status === "open"}
         <!-- The pause's reason, asked in place. Required, because a matter on hold with nothing

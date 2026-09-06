@@ -169,6 +169,13 @@ status it held before it closed — On Hold if it was on hold, Active if it carr
 Consultation if it carries a consultation number, and Intake if it carries neither — and clears the
 recorded close date.
 
+**The matter's number** sits under **Number** in the same window, with the consultation number
+beside it where the matter had one. On a matter that has been active, **Set Number** (or **Change
+Number**) records a court's number, a number from the firm's previous system, or a correction. It
+has to be unique in the firm and able to stand in a link, and it touches no counter; the number it
+replaces stays on the record. It needs the `matters:renumber` permission. An intake or a
+consultation shows that the number is drawn when the matter opens, and cannot be given one by hand.
+
 **Notices are not refusals.** A close can report things worth knowing without stopping: if the firm
 still holds a client's property in the safe-custody register against the matter, the window says so
 after the matter closes. The property stays exactly where it is, listed in the register, until
@@ -200,8 +207,8 @@ affairs need it, long after the matter that brought it in has closed.
 ## If a matter will not open
 
 **"No active numbering scheme is configured."** A matter draws its number from your firm's numbering
-scheme, and the firm has not set one up. An administrator sets it in **Settings**, under **Matter
-numbering**. Recording the file as a consultation instead still works: consultations number
+scheme, and the firm has not set one up. An administrator sets it in **Settings › Practice ›
+Matter Numbering** ([`../admin/matter-numbering.md`](../admin/matter-numbering.md)). Recording the file as a consultation instead still works: consultations number
 themselves from a built-in sequence until the firm sets its own, so a file can always be taken down
 while the numbering is being decided.
 
