@@ -366,6 +366,36 @@ export function reopenMatter(
   });
 }
 
+/**
+ * Put an active matter on hold: the firm stops working it without closing it, for the reason given.
+ * The matter keeps its number. The acknowledgement carries only the identifier; the screen re-reads
+ * the matter, which now carries the reason and the instant.
+ */
+export function holdMatter(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  reason: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ matterId: string }>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/hold`, {
+    method: "POST",
+    idempotencyKey,
+    body: { reason },
+  });
+}
+
+/** Release a hold: the matter is active again, and the reason and the instant are cleared. */
+export function releaseMatter(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ matterId: string }>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/release`, {
+    method: "POST",
+    idempotencyKey,
+  });
+}
+
 /** What completing an intake answers: the matter, and the consultation number the firm's sequence drew. */
 export interface GraduateMatterResult {
   matterId: string;
@@ -393,6 +423,8 @@ export const GRADUATE_MATTER_PERMISSION = "matters:create";
 export const OPEN_MATTER_PERMISSION = "matters:open";
 export const CLOSE_MATTER_PERMISSION = "matters:close";
 export const REOPEN_MATTER_PERMISSION = "matters:reopen";
+/** One authority in two directions: whoever may pause the firm's work on a matter may resume it. */
+export const HOLD_MATTER_PERMISSION = "matters:hold";
 
 /** One rule standing in the way of a close, in the words of the subsystem that owns it. */
 export interface MatterCloseBlocker {

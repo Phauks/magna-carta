@@ -32,6 +32,7 @@ export interface MattersByTypeRow {
   intake: number;
   consultation: number;
   open: number;
+  hold: number;
   closed: number;
   total: number;
 }

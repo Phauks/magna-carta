@@ -664,7 +664,7 @@ export function registerAutoFileRuleRoutes(
       // A rule the guardrails could never act on is refused rather than stored: the fire-time checks
       // would suppress on a closed or platform-owned matter forever, and a rule that never fires and
       // never says why is worse than no rule.
-      if (matter.systemOwned || matter.status !== "open") {
+      if (matter.systemOwned || (matter.status !== "open" && matter.status !== "hold")) {
         return notCreatable(
           c,
           "An auto-file rule can only be created on an open matter. A rule naming a matter that is " +

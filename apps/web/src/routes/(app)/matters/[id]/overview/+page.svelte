@@ -83,6 +83,14 @@
     if (matter.openedAt) {
       facts.push({ label: "Opened", value: formatDate(matter.openedAt) });
     }
+    // The pause is stated where the status is: when it began and why, because a reader who sees
+    // On Hold on the seal asks both at once.
+    if (matter.status === "hold" && matter.heldAt) {
+      facts.push({ label: "On hold since", value: formatDate(matter.heldAt) });
+    }
+    if (matter.status === "hold" && matter.holdReason) {
+      facts.push({ label: "Hold reason", value: matter.holdReason });
+    }
     if (matter.closedAt) {
       facts.push({ label: "Closed", value: formatDate(matter.closedAt) });
     }

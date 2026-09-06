@@ -30,10 +30,11 @@ export function firmUsageExportDocument(
       intake: sum.intake + row.intake,
       consultation: sum.consultation + row.consultation,
       open: sum.open + row.open,
+      hold: sum.hold + row.hold,
       closed: sum.closed + row.closed,
       total: sum.total + row.total,
     }),
-    { intake: 0, consultation: 0, open: 0, closed: 0, total: 0 },
+    { intake: 0, consultation: 0, open: 0, hold: 0, closed: 0, total: 0 },
   );
   const totalMatters =
     usage.byLocation.rows.reduce((sum, row) => sum + row.matters, 0) +
@@ -77,7 +78,7 @@ export function firmUsageExportDocument(
       },
       {
         title: "Matters by Type",
-        headers: ["Matter Type", "Intake", "Consultation", "Open", "Closed", "Total"],
+        headers: ["Matter Type", "Intake", "Consultation", "Open", "On Hold", "Closed", "Total"],
         endAlignedColumns: [1, 2, 3, 4, 5],
         rows: [
           ...usage.mattersByType.map((row) => [
@@ -85,6 +86,7 @@ export function firmUsageExportDocument(
             count(row.intake),
             count(row.consultation),
             count(row.open),
+            count(row.hold),
             count(row.closed),
             count(row.total),
           ]),
@@ -93,6 +95,7 @@ export function firmUsageExportDocument(
             count(mattersTotals.intake),
             count(mattersTotals.consultation),
             count(mattersTotals.open),
+            count(mattersTotals.hold),
             count(mattersTotals.closed),
             count(mattersTotals.total),
           ],

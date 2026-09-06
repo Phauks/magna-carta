@@ -61,6 +61,7 @@ describe("permission registry", () => {
       "matters:open",
       "matters:close",
       "matters:reopen",
+      "matters:hold",
       "matters:edit",
       "matters:renumber",
       "matters:manageTypes",

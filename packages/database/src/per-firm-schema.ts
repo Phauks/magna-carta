@@ -604,7 +604,9 @@ export const matter = sqliteTable(
     id: text("id").primaryKey().$type<MatterId>(), // matter_ handle
     title: text("title").notNull(),
     description: text("description"),
-    status: text("status", { enum: ["intake", "consultation", "open", "closed"] }).notNull(),
+    status: text("status", {
+      enum: ["intake", "consultation", "open", "hold", "closed"],
+    }).notNull(),
     matterTypeId: text("matter_type_id")
       .$type<MatterTypeId>()
       .references(() => matterType.id),
@@ -647,6 +649,14 @@ export const matter = sqliteTable(
     // depend on) is not forced by one consumer's need.
     systemKey: text("system_key"),
     openedAt: text("opened_at"),
+    // A HOLD is an open matter the firm has stopped working without closing it: a client who has
+    // stopped paying, a party who has gone quiet, an instruction to wait. The matter keeps its
+    // number, because a hold is a pause of the engagement and not the end of it; what it gains is
+    // the reason, in the firm's own words, and the instant the pause began. Both are cleared when
+    // the hold is released and the matter returns to open. A close leaves them standing so a
+    // reopen can return the matter to the hold it was in, which is the rung it left.
+    heldAt: text("held_at"),
+    holdReason: text("hold_reason"),
     closedAt: text("closed_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -679,12 +689,17 @@ export const matter = sqliteTable(
     index("matter_created_at_id_index").on(table.createdAt, table.id),
     // The lifecycle: an INTAKE is the walk from first contact to a consultation the firm's own
     // procedure lets through; a CONSULTATION is a prospective client's matter, numbered from the
-    // consultation sequence and not yet taken on; OPEN draws the matter number; CLOSED keeps the
-    // record. Held by a CHECK so a fifth status is a reviewed migration.
+    // consultation sequence and not yet taken on; OPEN draws the matter number; HOLD is an open
+    // matter the firm has paused, for a recorded reason, keeping its number; CLOSED keeps the
+    // record. Held by a CHECK so a sixth status is a reviewed migration.
     check(
       "matter_status_check",
-      sql`${table.status} IN ('intake', 'consultation', 'open', 'closed')`,
+      sql`${table.status} IN ('intake', 'consultation', 'open', 'hold', 'closed')`,
     ),
+    // A hold is a reason and an instant together, or neither: a matter on hold with no reason
+    // recorded would be a pause nobody can explain, and a reason with no instant a pause nobody
+    // can date.
+    check("matter_hold_check", sql`(${table.heldAt} IS NULL) = (${table.holdReason} IS NULL)`),
     check("matter_title_nonempty_check", sql`length(${table.title}) > 0`),
     check("matter_e_billing_check", sql`${table.eBilling} IN (0, 1)`),
     check(

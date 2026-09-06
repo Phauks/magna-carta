@@ -38,6 +38,7 @@ describe("readMatterCounts", () => {
       intake: 0,
       consultation: 0,
       open: 0,
+      hold: 0,
       closed: 0,
     });
   });
@@ -54,6 +55,7 @@ describe("readMatterCounts", () => {
       intake: 0,
       consultation: 1,
       open: 2,
+      hold: 0,
       closed: 1,
     });
   });

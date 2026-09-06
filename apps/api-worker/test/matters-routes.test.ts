@@ -200,6 +200,59 @@ describe("matter lifecycle routes", () => {
     expect(closed.status).toBe(200);
   });
 
+  it("puts an active matter on hold with a reason, reads it back, and releases it", async () => {
+    const created = await post("/api/v1/matters", {
+      title: "Okonkwo v. Brightwater",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(created.status).toBe(201);
+    const { matterId } = (await created.json()) as { matterId: string; matterNumber: string };
+
+    // A hold with nothing said about why is refused at the contract.
+    const blank = await post(`/api/v1/matters/${matterId}/hold`, { reason: "   " });
+    expect(blank.status).toBe(422);
+
+    const held = await post(`/api/v1/matters/${matterId}/hold`, {
+      reason: "Two invoices unpaid; work resumes on payment.",
+    });
+    expect(held.status).toBe(200);
+
+    const detail = await get(`/api/v1/matters/${matterId}`);
+    const detailBody = (await detail.json()) as {
+      status: string;
+      matterNumber: string | null;
+      heldAt: string | null;
+      holdReason: string | null;
+    };
+    expect(detailBody.status).toBe("hold");
+    expect(detailBody.matterNumber).toMatch(/^\d{4}-\d{4}$/);
+    expect(detailBody.heldAt).not.toBeNull();
+    expect(detailBody.holdReason).toBe("Two invoices unpaid; work resumes on payment.");
+
+    // A held matter is a numbered matter and stays on the docket, wearing its status.
+    const list = await get("/api/v1/matters");
+    const listBody = (await list.json()) as { data: { id: string; status: string }[] };
+    expect(listBody.data.find((m) => m.id === matterId)?.status).toBe("hold");
+
+    // A second hold is refused: the matter is not open.
+    const again = await post(`/api/v1/matters/${matterId}/hold`, { reason: "Again" });
+    expect(again.status).toBe(409);
+
+    const released = await post(`/api/v1/matters/${matterId}/release`, {});
+    expect(released.status).toBe(200);
+    const after = (await (await get(`/api/v1/matters/${matterId}`)).json()) as {
+      status: string;
+      heldAt: string | null;
+      holdReason: string | null;
+    };
+    expect(after).toMatchObject({ status: "open", heldAt: null, holdReason: null });
+
+    // And a release of a matter not on hold is refused.
+    const notHeld = await post(`/api/v1/matters/${matterId}/release`, {});
+    expect(notHeld.status).toBe(409);
+  });
+
   it("writes the client's party link in the same batch as the matter, for both starting statuses", async () => {
     const person = await post("/api/v1/directory/persons", {
       given: "Eleanor",

@@ -10,8 +10,8 @@
  * THE ONE PLACE THEY DIFFER, STATED PLAINLY. The firm's word for a matter it is working is ACTIVE.
  * The contract stores that state as `open` — the code the listing filters on, the code the create
  * request carries, the code the database column holds. So `open` is what crosses the wire and
- * "Active" is what prints, and this map is the only place the two meet. Intake, Consultation and
- * Closed spell the same both ways.
+ * "Active" is what prints, and this map is the only place the two meet. The pause is stored as
+ * `hold` and prints as On Hold. Intake, Consultation and Closed spell the same both ways.
  *
  * CLOSED IS A REAL LIFECYCLE STATE AND NOT A CREATABLE ONE. The contract stores it, a matter
  * reaches it by being closed, and the docket must be able to filter for it whether or not the firm
@@ -23,13 +23,14 @@ import { statusEntry, type StatusKey } from "@magna-carta/design-system/status-r
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
 
 /** The status codes the matters contract stores and filters on. */
-export type MatterStatus = "intake" | "consultation" | "open" | "closed";
+export type MatterStatus = "intake" | "consultation" | "open" | "hold" | "closed";
 
 /** Which word in the product's register each stored code speaks. */
 const MATTER_STATUS_WORDS: Readonly<Record<MatterStatus, StatusKey>> = {
   intake: "intake",
   consultation: "consultation",
   open: "active",
+  hold: "on-hold",
   closed: "closed",
 };
 
@@ -61,6 +62,7 @@ export const MATTER_STATUSES: readonly MatterStatus[] = [
   "intake",
   "consultation",
   "open",
+  "hold",
   "closed",
 ];
 
@@ -85,6 +87,14 @@ export const CREATABLE_MATTER_STATUSES: readonly MatterStatus[] = [
 export function isCreatableMatterStatus(status: MatterStatus): boolean {
   return CREATABLE_MATTER_STATUSES.includes(status);
 }
+
+/**
+ * Why a matter cannot be started on hold, and never will be. A hold is a pause of work the firm
+ * was doing, placed on an active matter from its status window; a file that starts paused has no
+ * work to pause. Stated as its own sentence, not a Soon, because nothing is coming.
+ */
+export const HOLD_AT_CREATION_REASON =
+  "A matter is put on hold from its status window once it is active. A hold pauses work, so nothing can start in it.";
 
 /** What creating a matter already closed waits on, as a noun phrase the Soon affordance completes. */
 export const CLOSED_AT_CREATION_DEPENDENCY =

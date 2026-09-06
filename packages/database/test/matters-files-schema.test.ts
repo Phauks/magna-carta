@@ -17,7 +17,7 @@ describe("matters / locations / file-manager schema", () => {
     expect(config.name).toBe("matter");
     const status = config.columns.find((column) => column.name === "status");
     expect(status?.notNull).toBe(true);
-    expect(status?.enumValues).toEqual(["intake", "consultation", "open", "closed"]);
+    expect(status?.enumValues).toEqual(["intake", "consultation", "open", "hold", "closed"]);
     expect(config.checks.map((check) => check.name)).toContain("matter_status_check");
     // The matter_number UNIQUE is PARTIAL (WHERE matter_number IS NOT NULL) so many unnumbered
     // consultations coexist while two numbered matters can never share a number.

@@ -702,9 +702,9 @@ const conflictsCheckSource = directInstantSource({
 // retention, redaction, and access posture, which must be able to change without the product's read
 // surface changing with it.
 //
-// It is still the only home for one class of fact: a matter's own lifecycle, which exists as two
-// nullable columns on `matter` and a trail here and NOWHERE ELSE. So exactly these four keys are
-// read, and a key not on this list is not a timeline entry however it is spelled.
+// It is still the only home for one class of fact: a matter's own lifecycle, which exists as a few
+// nullable columns on `matter` and a trail here and NOWHERE ELSE. So exactly these keys are read,
+// and a key not on this list is not a timeline entry however it is spelled.
 //
 // `matter.created` is on the list beside `matter.opened` because the write path distinguishes them:
 // a matter that is opened at creation writes only `created`, and `opened` is the separate
@@ -712,7 +712,10 @@ const conflictsCheckSource = directInstantSource({
 // beginning for every matter a firm opened outright, which is most of them.
 export const MATTER_LIFECYCLE_EVENT_KEYS = Object.freeze([
   "matter.created",
+  "matter.graduated",
   "matter.opened",
+  "matter.held",
+  "matter.released",
   "matter.closed",
   "matter.reopened",
 ] as const);

@@ -84,7 +84,7 @@ export interface AutoFileExistingLink {
 // A matter the deciding evidence names, with the facts a firing needs about it.
 export interface AutoFileTargetMatter {
   readonly matterId: string;
-  readonly status: "intake" | "consultation" | "open" | "closed";
+  readonly status: "intake" | "consultation" | "open" | "hold" | "closed";
   // A platform-owned row that exists to satisfy a structural requirement rather than to hold a
   // client engagement. Never a filing target for a rule.
   readonly systemOwned: boolean;
@@ -610,7 +610,9 @@ export function resolveAutoFileDecision(evidence: AutoFileEvidence): AutoFileDec
       matterId: targetMatterId,
     });
   }
-  if (target.systemOwned || target.status !== "open") {
+  // A matter on hold is still the matter its mail is about — the firm has paused its own work, not
+  // the correspondence — so a hold neither suppresses the rule nor asks for it to be pruned.
+  if (target.systemOwned || (target.status !== "open" && target.status !== "hold")) {
     return nothingLinked("matterNotOpen", {
       ruleId: firingRule.ruleId,
       matterId: targetMatterId,

@@ -3,10 +3,17 @@ category: Added
 audience: public
 ---
 
-**The matter lifecycle gains its first rung, and the intake desk stands on it.** A matter now
-passes through `intake`, `consultation` (the status formerly stored as `prospective`, renamed as
-spelled because no firm holds a matter yet; a reviewed rebuild of `matter` widens the CHECK), `open`
-and `closed`. An intake draws no number of any kind; `graduateMatter` behind
+**The matter lifecycle gains its first rung and a hold, and the intake desk stands on it.** A
+matter now passes through `intake`, `consultation` (the status formerly stored as `prospective`,
+renamed as spelled because no firm holds a matter yet; a reviewed rebuild of `matter` widens the
+CHECK), `open`, `hold` and `closed`. A hold is an open matter the firm has stopped working without
+closing it, for a recorded reason: `holdMatter` behind `POST /api/v1/matters/{id}/hold` (the reason
+in the body) and `releaseMatter` behind `.../release`, guarded in the batch, drawing and surrendering
+nothing, carrying `held_at` and `hold_reason` on the row (a second reviewed rebuild), and audited as
+`matter.held` and `matter.released`, which the matter timeline, the activity section and the
+responsible member's notifications all read. One permission, `matters:hold`, both ways, seeded to
+Owner/Admin and Attorney. The docket keeps held matters under their own status; the conflicts corpus
+and auto-file rules treat them as live; reopen returns a matter closed on hold to its hold. An intake draws no number of any kind; `graduateMatter` behind
 `POST /api/v1/matters/{id}/graduate` (and its readiness read) runs the intake procedure as its gate
 and draws the consultation number; `openMatter` requires a consultation and runs no intake gate;
 reopen returns a matter to the rung it left. The docket excludes both unnumbered rungs. The sidebar's
@@ -35,5 +42,8 @@ and then, and the same button now stands beside every field where a person or an
 chosen. Open an intake to answer its steps; when every required step is answered, Complete Intake
 makes it a consultation and gives it its consultation number; and Schedule puts the consultation on
 the calendar with the client and the attorney already on it. A matter's status now reads Intake,
-Consultation, Active or Closed. Your intake procedures can now name
+Consultation, Active, On Hold or Closed. An active matter the firm has stopped working without
+ending it — a client who has stopped paying, a party who has gone quiet — goes On Hold from its
+status window, with the reason in a sentence; it keeps its number, stays on the docket, and Release
+Hold makes it active again. Your intake procedures can now name
 two more kinds of step: the forms the client fills in online, and a payment sent or received.

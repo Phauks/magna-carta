@@ -62,10 +62,11 @@
             intake: sum.intake + row.intake,
             consultation: sum.consultation + row.consultation,
             open: sum.open + row.open,
+            hold: sum.hold + row.hold,
             closed: sum.closed + row.closed,
             total: sum.total + row.total,
           }),
-          { intake: 0, consultation: 0, open: 0, closed: 0, total: 0 },
+          { intake: 0, consultation: 0, open: 0, hold: 0, closed: 0, total: 0 },
         ),
   );
 
@@ -182,6 +183,7 @@
             <DataTable.Head data-align="end">Intake</DataTable.Head>
             <DataTable.Head data-align="end">Consultation</DataTable.Head>
             <DataTable.Head data-align="end">Open</DataTable.Head>
+            <DataTable.Head data-align="end">On Hold</DataTable.Head>
             <DataTable.Head data-align="end">Closed</DataTable.Head>
             <DataTable.Head data-align="end">Total</DataTable.Head>
           </DataTable.Row>
@@ -199,6 +201,7 @@
               <DataTable.Cell data-align="end">{formatCount(row.intake)}</DataTable.Cell>
               <DataTable.Cell data-align="end">{formatCount(row.consultation)}</DataTable.Cell>
               <DataTable.Cell data-align="end">{formatCount(row.open)}</DataTable.Cell>
+              <DataTable.Cell data-align="end">{formatCount(row.hold)}</DataTable.Cell>
               <DataTable.Cell data-align="end">{formatCount(row.closed)}</DataTable.Cell>
               <DataTable.Cell data-align="end">{formatCount(row.total)}</DataTable.Cell>
             </DataTable.Row>
@@ -214,6 +217,9 @@
               </DataTable.Cell>
               <DataTable.Cell data-align="end" class={TOTALS_CELL}>
                 {formatCount(mattersTotals.open)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end" class={TOTALS_CELL}>
+                {formatCount(mattersTotals.hold)}
               </DataTable.Cell>
               <DataTable.Cell data-align="end" class={TOTALS_CELL}>
                 {formatCount(mattersTotals.closed)}

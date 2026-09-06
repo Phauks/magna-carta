@@ -37,6 +37,7 @@ export const PERMISSIONS = [
   "matters:open", // draw a matter number on a consultation (consultation -> open)
   "matters:close", // archive a matter (closed-but-additive)
   "matters:reopen", // return a closed matter to open
+  "matters:hold", // put an open matter on hold for a recorded reason, and release it back to open
   "matters:edit", // edit matter fields (title/description/type/location/attorney/client)
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types

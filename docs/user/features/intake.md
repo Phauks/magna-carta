@@ -4,11 +4,12 @@
 consultation your firm has in flight, starts a new intake, completes one into a consultation once
 your intake procedure is satisfied, and puts the consultation on the calendar.
 
-A matter passes through four statuses. **Intake** is the walk from the first call to a
+A matter passes through five statuses. **Intake** is the walk from the first call to a
 consultation: the matter exists from the moment someone asks the firm to act, so the caller is in
 the conflicts record, but it carries no number yet. **Consultation** is a matter the firm has not
 taken on, with its own consultation number. **Active** is an open matter with a matter number.
-**Closed** is a matter whose work has ended.
+**On Hold** is an active matter the firm has paused for a recorded reason; it keeps its number.
+**Closed** is a matter whose work has ended. No matter number exists until a matter is active.
 
 ## Starting an Intake
 

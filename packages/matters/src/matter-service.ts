@@ -21,7 +21,9 @@ import { matterAuditStatement } from "./audit.ts";
 import {
   MATTER_CLOSED_TOPIC,
   MATTER_CREATED_TOPIC,
+  MATTER_HELD_TOPIC,
   MATTER_OPENED_TOPIC,
+  MATTER_RELEASED_TOPIC,
   MATTER_RENUMBERED_TOPIC,
   MATTER_REOPENED_TOPIC,
   MATTER_UPDATED_TOPIC,
@@ -46,12 +48,14 @@ import {
 import {
   closeMatterStatement,
   graduateMatterStatement,
+  holdMatterStatement,
   insertMatterStatement,
   isConsultationNumberConflict,
   isMatterNumberConflict,
   type MatterFields,
   type MatterRow,
   openMatterStatement,
+  releaseMatterStatement,
   reopenMatterStatement,
   renumberMatterStatement,
   selectActiveSchemeStatement,
@@ -196,6 +200,8 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     matter_number: string | null;
     consultation_number: string | null;
     opened_at: string | null;
+    held_at: string | null;
+    hold_reason: string | null;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -212,6 +218,8 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     matterNumber: row.matter_number,
     consultationNumber: row.consultation_number,
     openedAt: row.opened_at,
+    heldAt: row.held_at,
+    holdReason: row.hold_reason,
   };
 }
 
@@ -788,6 +796,112 @@ export async function closeMatter(
   }
 }
 
+// The hold: an open matter the firm has stopped working without closing it. Nothing is drawn and
+// nothing is surrendered — the matter number stands — so unlike open and close there is no counter
+// to protect and no precondition registry to run: the one thing a hold must carry is its reason,
+// and the one thing it must not do is overwrite a close that landed between the read and the
+// commit, which the statement's own `status = 'open'` guard refuses in the batch.
+export const HOLD_REASON_MAX_LENGTH = 500;
+
+export interface HoldMatterInput {
+  readonly reason: string;
+}
+
+export async function holdMatter(
+  database: BatchDatabase,
+  matterId: MatterId,
+  input: HoldMatterInput,
+  options: MatterServiceOptions,
+): Promise<{ matterId: MatterId } & ReplayFlag> {
+  const reason = input.reason.trim();
+  if (reason.length === 0) {
+    throw new MatterValidationError(
+      "empty-hold-reason",
+      "a hold carries the reason for it, in the firm's own words",
+    );
+  }
+  if (reason.length > HOLD_REASON_MAX_LENGTH) {
+    throw new MatterValidationError(
+      "empty-hold-reason",
+      `a hold reason is at most ${String(HOLD_REASON_MAX_LENGTH)} characters; put the account of it on the matter's notes`,
+    );
+  }
+  const matter = await loadMatter(database, matterId);
+  if (matter === undefined) {
+    throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
+  }
+  // Same replay rule as every other lifecycle step: a retry under an already-seen key is the request
+  // that put the matter on hold, so the stored response is replayed rather than refused.
+  if (matter.status !== "open" && !(await isIdempotentRetry(database, options.idempotency?.key))) {
+    throw new MatterValidationError(
+      "matter-not-open",
+      `matter ${matterId} is ${matter.status}, not open; only an active matter goes on hold`,
+    );
+  }
+  const result = await runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
+    const now = options.clock.now();
+    return {
+      statements: [
+        holdMatterStatement(database, matterId, reason, now),
+        auditStatement(database, options, "matter.held", matterId),
+      ],
+      outboxMessages: [{ topic: MATTER_HELD_TOPIC, payload: { matterId } }],
+      value: { matterId },
+    };
+  });
+  // The guard matched zero rows if a close (or another hold) landed in between; the batch committed
+  // an audit row over nothing. Confirm what the row actually says, the way the open confirms its
+  // number, so the caller never hears "held" about a matter that is closed.
+  if (!result.idempotentReplay) {
+    const committed = await loadMatter(database, matterId);
+    if (committed?.status !== "hold") {
+      throw new MatterValidationError(
+        "matter-not-open",
+        `matter ${matterId} changed concurrently; it is ${committed?.status ?? "gone"}, not on hold`,
+      );
+    }
+  }
+  return result;
+}
+
+export async function releaseMatter(
+  database: BatchDatabase,
+  matterId: MatterId,
+  options: MatterServiceOptions,
+): Promise<{ matterId: MatterId } & ReplayFlag> {
+  const matter = await loadMatter(database, matterId);
+  if (matter === undefined) {
+    throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
+  }
+  if (matter.status !== "hold" && !(await isIdempotentRetry(database, options.idempotency?.key))) {
+    throw new MatterValidationError(
+      "matter-not-held",
+      `matter ${matterId} is ${matter.status}, not on hold`,
+    );
+  }
+  const result = await runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
+    const now = options.clock.now();
+    return {
+      statements: [
+        releaseMatterStatement(database, matterId, now),
+        auditStatement(database, options, "matter.released", matterId),
+      ],
+      outboxMessages: [{ topic: MATTER_RELEASED_TOPIC, payload: { matterId } }],
+      value: { matterId },
+    };
+  });
+  if (!result.idempotentReplay) {
+    const committed = await loadMatter(database, matterId);
+    if (committed?.status !== "open") {
+      throw new MatterValidationError(
+        "matter-not-held",
+        `matter ${matterId} changed concurrently; it is ${committed?.status ?? "gone"}, not released`,
+      );
+    }
+  }
+  return result;
+}
+
 export async function reopenMatter(
   database: BatchDatabase,
   matterId: MatterId,
@@ -809,17 +923,20 @@ export async function reopenMatter(
       `matter ${matterId} is ${matter.status}, not closed`,
     );
   }
-  // Restore the pre-close status from the honest signals — opened_at, set only when a matter was
-  // actually opened, and the consultation number, drawn only when an intake graduated (or a
-  // consultation was recorded outright). A consultation handed a manual number via renumberMatter
-  // has a matter number but was never opened, so it reopens to consultation; an intake closed
-  // before it graduated reopens to intake. Every number is frozen and untouched.
+  // Restore the pre-close status from the honest signals — held_at, left standing by a close so a
+  // matter closed while on hold returns to that hold with its reason; opened_at, set only when a
+  // matter was actually opened; and the consultation number, drawn only when an intake graduated
+  // (or a consultation was recorded outright). A consultation handed a manual number via
+  // renumberMatter has a matter number but was never opened, so it reopens to consultation; an
+  // intake closed before it graduated reopens to intake. Every number is frozen and untouched.
   const status =
-    matter.openedAt !== null
-      ? "open"
-      : matter.consultationNumber !== null
-        ? "consultation"
-        : "intake";
+    matter.heldAt !== null
+      ? "hold"
+      : matter.openedAt !== null
+        ? "open"
+        : matter.consultationNumber !== null
+          ? "consultation"
+          : "intake";
   return runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
     const now = options.clock.now();
     return {

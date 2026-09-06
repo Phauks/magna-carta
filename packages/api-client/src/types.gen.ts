@@ -134,6 +134,7 @@ export type FirmUsageResponse = {
             intake: number;
             consultation: number;
             open: number;
+            hold: number;
             closed: number;
         };
         files: number;
@@ -146,6 +147,7 @@ export type FirmUsageResponse = {
         intake: number;
         consultation: number;
         open: number;
+        hold: number;
         closed: number;
         total: number;
     }>;
@@ -987,7 +989,7 @@ export type MatterSummary = {
     id: string;
     title: string;
     clientEntityId: string | null;
-    status: 'intake' | 'consultation' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
     responsibleMemberId: string;
@@ -1015,7 +1017,7 @@ export type MatterDetail = {
     id: string;
     title: string;
     description: string | null;
-    status: 'intake' | 'consultation' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
     responsibleMemberId: string;
@@ -1026,6 +1028,8 @@ export type MatterDetail = {
     consultationNumber: string | null;
     eBilling: boolean;
     openedAt: string | null;
+    heldAt: string | null;
+    holdReason: string | null;
     closedAt: string | null;
     createdAt: string;
     matterTypeName: string | null;
@@ -1035,7 +1039,7 @@ export type MatterDetail = {
 
 export type MatterOpenReadiness = {
     matterId: string;
-    status: 'intake' | 'consultation' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     openable: boolean;
     blockers: Array<{
         code: string;
@@ -1045,7 +1049,7 @@ export type MatterOpenReadiness = {
 
 export type MatterGraduateReadiness = {
     matterId: string;
-    status: 'intake' | 'consultation' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     graduable: boolean;
     blockers: Array<{
         code: string;
@@ -1055,7 +1059,7 @@ export type MatterGraduateReadiness = {
 
 export type MatterCloseReadiness = {
     matterId: string;
-    status: 'intake' | 'consultation' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     closable: boolean;
     blockers: Array<{
         code: string;
@@ -1093,6 +1097,10 @@ export type MatterCloseAck = {
         code: string;
         message: string;
     }>;
+};
+
+export type HoldMatterRequest = {
+    reason: string;
 };
 
 export type RenumberMatterRequest = {
@@ -3538,7 +3546,7 @@ export type IntakeDeskConsultationSetting = {
 
 export type IntakeChecklist = {
     matterId: string;
-    matterStatus: 'intake' | 'consultation' | 'open' | 'closed';
+    matterStatus: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     procedures: Array<{
         id: string;
         name: string;
@@ -11114,7 +11122,7 @@ export type MattersListData = {
     body?: never;
     path?: never;
     query?: {
-        status?: 'intake' | 'consultation' | 'open' | 'closed';
+        status?: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
         matterTypeId?: string;
         locationId?: string;
         responsibleMemberId?: string;
@@ -11606,6 +11614,114 @@ export type MattersCloseResponses = {
 };
 
 export type MattersCloseResponse = MattersCloseResponses[keyof MattersCloseResponses];
+
+export type MattersHoldData = {
+    body: HoldMatterRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/hold';
+};
+
+export type MattersHoldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * The matter is not open, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersHoldError = MattersHoldErrors[keyof MattersHoldErrors];
+
+export type MattersHoldResponses = {
+    /**
+     * The matter is on hold
+     */
+    200: MatterActionAck;
+};
+
+export type MattersHoldResponse = MattersHoldResponses[keyof MattersHoldResponses];
+
+export type MattersReleaseData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/release';
+};
+
+export type MattersReleaseErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * The matter is not on hold, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersReleaseError = MattersReleaseErrors[keyof MattersReleaseErrors];
+
+export type MattersReleaseResponses = {
+    /**
+     * The hold was released and the matter is open
+     */
+    200: MatterActionAck;
+};
+
+export type MattersReleaseResponse = MattersReleaseResponses[keyof MattersReleaseResponses];
 
 export type MattersReopenData = {
     body?: never;

@@ -7,6 +7,11 @@ export type MatterValidationCode =
   | "matter-not-intake"
   | "matter-not-closed"
   | "matter-already-closed"
+  // The hold: only an open matter can be put on hold, only a held one released, and a hold with no
+  // reason is a pause nobody can explain.
+  | "matter-not-open"
+  | "matter-not-held"
+  | "empty-hold-reason"
   | "scheme-missing"
   | "matter-number-not-url-safe"
   | "matter-number-taken"

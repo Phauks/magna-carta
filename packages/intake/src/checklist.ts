@@ -84,7 +84,7 @@ export interface ChecklistStep {
 
 export interface IntakeChecklist {
   readonly matterId: string;
-  readonly matterStatus: "intake" | "consultation" | "open" | "closed";
+  readonly matterStatus: "intake" | "consultation" | "open" | "hold" | "closed";
   readonly procedures: readonly { readonly id: string; readonly name: string }[];
   readonly steps: readonly ChecklistStep[];
   // How many REQUIRED steps have no satisfying answer — the number the opening gate refuses on and
@@ -94,7 +94,7 @@ export interface IntakeChecklist {
 
 interface MatterAnchorRow {
   readonly id: MatterId;
-  readonly status: "intake" | "consultation" | "open" | "closed";
+  readonly status: "intake" | "consultation" | "open" | "hold" | "closed";
   readonly matter_type_id: MatterTypeId | null;
 }
 

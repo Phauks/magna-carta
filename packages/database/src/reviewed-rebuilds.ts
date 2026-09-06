@@ -57,4 +57,9 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // takes the original name, so every referencing row resolves to the row it resolved to before. The
   // reasoning is written out in the migration's own `-- contract:` header.
   "20260906T013304_matter-status-intake-and-consultation",
+  // Widens matter_status_check with `hold` and adds the two hold columns (held_at, hold_reason) with
+  // their paired-nullability CHECK. The copy is exhaustive over every existing column and NULL for
+  // the two new ones; ids are preserved verbatim under PRAGMA foreign_keys=OFF/ON. The reasoning is
+  // in the migration's own `-- contract:` header.
+  "20260906T030014_matter-hold-status",
 ]);

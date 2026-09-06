@@ -80,8 +80,8 @@ describe("the matter-status register", () => {
   });
 
   it("carries every status the firm can hold, in lifecycle order", () => {
-    expect(MATTER_STATUS_LABELS).toEqual(["Intake", "Consultation", "Active", "Closed"]);
-    expect(MATTER_STATUSES).toEqual(["intake", "consultation", "open", "closed"]);
+    expect(MATTER_STATUS_LABELS).toEqual(["Intake", "Consultation", "Active", "On Hold", "Closed"]);
+    expect(MATTER_STATUSES).toEqual(["intake", "consultation", "open", "hold", "closed"]);
   });
 
   it("says which statuses a matter can be CREATED in, and Closed is not one of them", () => {
@@ -237,6 +237,7 @@ describe("the status column", () => {
       "Intake",
       "Consultation",
       "Active",
+      "On Hold",
       "Closed",
     ]);
   });

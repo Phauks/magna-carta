@@ -55,12 +55,13 @@ prospective", then "perhaps prospective is the improper name, and it should be c
 "we have no matters to migrate, so store it as consultation and open") gives the lifecycle four
 rungs, stored as spelled:
 
-| Status         | What it is                                                                                                                              | Number it carries   | How it is reached                                                                         |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------- |
-| `intake`       | The walk from first contact to a consultation. The matter exists so the caller is in the conflicts corpus and every step has an anchor. | none                | New Intake (`POST /api/v1/matters`, `status: intake`)                                     |
-| `consultation` | A prospective client's matter the firm has not taken on. Formerly spelled `prospective`.                                                | consultation number | `POST /api/v1/matters/{id}/graduate`, gated by the intake procedure; or recorded outright |
-| `open`         | The engagement.                                                                                                                         | matter number       | `POST /api/v1/matters/{id}/open`, no intake gate                                          |
-| `closed`       | The record, kept.                                                                                                                       | whatever it had     | close; reopen returns to the rung it left                                                 |
+| Status         | What it is                                                                                                                               | Number it carries   | How it is reached                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------- |
+| `intake`       | The walk from first contact to a consultation. The matter exists so the caller is in the conflicts corpus and every step has an anchor.  | none                | New Intake (`POST /api/v1/matters`, `status: intake`)                                     |
+| `consultation` | A prospective client's matter the firm has not taken on. Formerly spelled `prospective`.                                                 | consultation number | `POST /api/v1/matters/{id}/graduate`, gated by the intake procedure; or recorded outright |
+| `open`         | The engagement.                                                                                                                          | matter number       | `POST /api/v1/matters/{id}/open`, no intake gate                                          |
+| `hold`         | An open matter the firm has stopped working without closing it, for a recorded reason (a client who stopped paying, a party gone quiet). | matter number, kept | `POST /api/v1/matters/{id}/hold` with the reason; `.../release` returns it to open        |
+| `closed`       | The record, kept.                                                                                                                        | whatever it had     | close, from open or from hold; reopen returns to the rung it left, the hold included      |
 
 The matter row still exists from the first call, for the reasons the analysis gave the owner: the
 conflicts check, the files, the calendar and every checklist reader are anchored on a matter, and a
@@ -70,6 +71,22 @@ opening, the consultation number is drawn at graduation rather than at first cal
 call consumes nothing), and the docket excludes intakes, which live on the desk until they graduate.
 The stored value is renamed rather than mapped because no firm holds a matter at this date; the
 migration is a reviewed rebuild of `matter` with an exhaustive copy.
+
+**The hold, ruled the next day (2026-09-06).** "We should also add a HOLD status, for matters that
+are not closed, but there are various issues relating to why they are no longer considered active,
+like clients not paying bills. What's important is that no matter number is assigned until it
+becomes an active matter." And: "status pillbox modal will need to allow changing into this hold
+status as well." So `hold` is reached only from `open` — "no longer active" presumes the matter was —
+and keeps the number the open drew; nothing is drawn or surrendered on either side of it, which is
+the ruling's second sentence kept by construction. The row gains `held_at` and `hold_reason`,
+paired by a CHECK, because a pause nobody can explain or date is not a pause anybody can resume.
+Release clears both; a close leaves them standing so a reopen returns the matter to its hold. The
+status window offers the pause beside the close on an active matter and the release beside the
+close on a held one, and asks for the reason in place. The docket keeps held matters (they are
+numbered) under their own status; the conflicts corpus treats them as live; auto-file rules still
+fire on them, because the firm paused its work and not the correspondence. One permission,
+`matters:hold`, in both directions, seeded to Owner/Admin and Attorney. The migration is a second
+reviewed rebuild of `matter` (`20260906T030014`, snapshot `0097`).
 
 ## 2. What was built
 

@@ -114,17 +114,30 @@ would not be real.
 ## Changing a matter's status
 
 A matter's status is the badge at the top left of its own page, beside the matter number: **Intake**,
-**Consultation**, **Active** or **Closed**. Press the badge to change it.
+**Consultation**, **Active**, **On Hold** or **Closed**. Press the badge to change it.
 
-The window is short on purpose, and it has two sides. On the left, the matter's status, the one step
+The window is short on purpose, and it has two sides. On the left, the matter's status, the steps
 the current status allows, and what closing requires. On the right, the firm's own physical file for
 the matter.
 
-The step sits beside the status itself, not at the foot of the window: an intake completes into a
-consultation, a consultation opens, an active matter closes, a closed matter reopens. There is no list of statuses to pick from, because a
-matter reaches a status by being opened, closed or reopened, not by being set to one. The bottom of
-the window offers only **Done**, so a window you opened to read something cannot close a matter with
-a press in the corner your hand goes to by habit.
+The steps sit beside the status itself, not at the foot of the window: an intake completes into a
+consultation, a consultation opens, an active matter closes or is put on hold, a matter on hold is
+released or closed, a closed matter reopens. There is no list of statuses to pick from, because a
+matter reaches a status by being opened, held, released, closed or reopened, not by being set to
+one. The bottom of the window offers only **Done**, so a window you opened to read something cannot
+close a matter with a press in the corner your hand goes to by habit.
+
+**Putting a matter on hold.** An active matter the firm has stopped working, without ending it, goes
+on hold: a client who has stopped paying, a party who has gone quiet, an instruction to wait. Press
+**Put On Hold**, say why in a sentence, and confirm. The reason is required, because a matter on
+hold with nothing said about why is a matter nobody knows how to resume, and it prints on the
+matter's Overview and in this window under **On Hold**, with the date the pause began. The matter
+keeps its number; nothing is drawn or surrendered. It stays on the docket wearing **On Hold** so it
+can be found and filtered, and its mail still files to it. Press **Release Hold** to make it active
+again; the reason clears and the record keeps that it was held. A matter can also be closed from
+hold, and reopening it later returns it to the hold it was in. Both directions need the same
+permission, `matters:hold`, and a matter cannot be started on hold: a hold pauses work, so there
+has to be work to pause.
 
 **Requirements to close** lists what has to be true, each one already answered. Magna Carta runs
 the firm's own rules against the matter when the window opens, so a requirement is marked met or not
@@ -152,16 +165,17 @@ outcome, and writing it off is its lawful exit.
 procedure is answered; the window lists what is outstanding under **Requirements To Complete
 Intake**. **Opening a consultation** draws your firm's next matter number, which then stays with the
 matter for good, and moves it into the working docket. **Reopening a matter** returns it to the
-status it held before it closed — Active if it carries a matter number, Consultation if it carries
-a consultation number, and Intake if it carries neither — and clears the recorded close date.
+status it held before it closed — On Hold if it was on hold, Active if it carries a matter number,
+Consultation if it carries a consultation number, and Intake if it carries neither — and clears the
+recorded close date.
 
 **Notices are not refusals.** A close can report things worth knowing without stopping: if the firm
 still holds a client's property in the safe-custody register against the matter, the window says so
 after the matter closes. The property stays exactly where it is, listed in the register, until
 somebody moves, releases or destroys it.
 
-**"This step needs the matters:close permission."** Closing, opening and reopening are each a
-permission your firm grants, and this account does not have that one. Ask whoever administers your
+**"This step needs the matters:close permission."** Closing, opening, holding and reopening are
+each a permission your firm grants, and this account does not have that one. Ask whoever administers your
 firm.
 
 ### The physical file

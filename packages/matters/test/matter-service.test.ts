@@ -5,12 +5,14 @@ import { describe, expect, it } from "vitest";
 import { ClosePreconditionError, type ClosePrecondition } from "../src/close-preconditions.ts";
 import { OpenPreconditionError, type OpenPrecondition } from "../src/open-preconditions.ts";
 import {
-  graduateMatter,
   closeMatter,
   createMatter,
+  graduateMatter,
+  holdMatter,
   openMatter,
-  reopenMatter,
+  releaseMatter,
   renumberMatter,
+  reopenMatter,
   updateMatter,
 } from "../src/matter-service.ts";
 import type { NumberSegment } from "../src/numbering/segments.ts";
@@ -111,7 +113,7 @@ async function seedScheme(
 async function readMatter(database: BatchDatabase, matterId: MatterId) {
   const { results } = await database
     .prepare(
-      "SELECT status, matter_number, consultation_number, opened_at, closed_at FROM matter WHERE id = ?1",
+      "SELECT status, matter_number, consultation_number, opened_at, held_at, hold_reason, closed_at FROM matter WHERE id = ?1",
     )
     .bind(matterId)
     .all<{
@@ -119,6 +121,8 @@ async function readMatter(database: BatchDatabase, matterId: MatterId) {
       matter_number: string | null;
       consultation_number: string | null;
       opened_at: string | null;
+      held_at: string | null;
+      hold_reason: string | null;
       closed_at: string | null;
     }>();
   return results[0];
@@ -333,6 +337,74 @@ describe("closeMatter / reopenMatter", () => {
     expect(await readMatter(database, matterId)).toMatchObject({
       status: "open",
       matter_number: "2026-0001",
+      closed_at: null,
+    });
+  });
+
+  it("puts an open matter on hold with its reason, keeps the number, and releases it back to open", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await holdMatter(database, matterId, { reason: "  The client has stopped paying.  " }, options);
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "hold",
+      matter_number: "2026-0001",
+      hold_reason: "The client has stopped paying.",
+    });
+    expect((await readMatter(database, matterId))?.held_at).not.toBeNull();
+    await releaseMatter(database, matterId, options);
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "open",
+      matter_number: "2026-0001",
+      held_at: null,
+      hold_reason: null,
+    });
+    // One audit row each way, and nothing drawn: the counter is where the open left it.
+    const { results } = await database
+      .prepare(
+        "SELECT event, COUNT(*) AS c FROM audit_log WHERE subject_id = ?1 AND event IN ('matter.held', 'matter.released') GROUP BY event ORDER BY event",
+      )
+      .bind(matterId)
+      .all<{ event: string; c: number }>();
+    expect(results).toEqual([
+      { event: "matter.held", c: 1 },
+      { event: "matter.released", c: 1 },
+    ]);
+  });
+
+  it("refuses a hold with no reason, and a hold on anything but an open matter", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await expect(holdMatter(database, matterId, { reason: "   " }, options)).rejects.toMatchObject({
+      code: "empty-hold-reason",
+    });
+    const consultation = await createMatter(
+      database,
+      { ...baseInput, status: "consultation" },
+      options,
+    );
+    await expect(
+      holdMatter(database, consultation.matterId, { reason: "Waiting" }, options),
+    ).rejects.toMatchObject({ code: "matter-not-open" });
+    await holdMatter(database, matterId, { reason: "Waiting on the client" }, options);
+    await expect(
+      holdMatter(database, matterId, { reason: "Again" }, options),
+    ).rejects.toMatchObject({ code: "matter-not-open" });
+    // And a release of a matter that is not held.
+    await expect(releaseMatter(database, consultation.matterId, options)).rejects.toMatchObject({
+      code: "matter-not-held",
+    });
+  });
+
+  it("closes a held matter and reopens it to the hold it was in, reason intact", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await holdMatter(database, matterId, { reason: "Unpaid invoices" }, options);
+    await closeMatter(database, matterId, options);
+    expect(await readMatter(database, matterId)).toMatchObject({ status: "closed" });
+    await reopenMatter(database, matterId, options);
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "hold",
+      hold_reason: "Unpaid invoices",
       closed_at: null,
     });
   });

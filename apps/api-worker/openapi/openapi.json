@@ -525,6 +525,9 @@
                   "open": {
                     "type": "number"
                   },
+                  "hold": {
+                    "type": "number"
+                  },
                   "closed": {
                     "type": "number"
                   }
@@ -534,6 +537,7 @@
                   "intake",
                   "consultation",
                   "open",
+                  "hold",
                   "closed"
                 ]
               },
@@ -578,6 +582,9 @@
                 "open": {
                   "type": "number"
                 },
+                "hold": {
+                  "type": "number"
+                },
                 "closed": {
                   "type": "number"
                 },
@@ -590,6 +597,7 @@
                 "intake",
                 "consultation",
                 "open",
+                "hold",
                 "closed",
                 "total"
               ]
@@ -4125,6 +4133,7 @@
               "intake",
               "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -4258,6 +4267,7 @@
               "intake",
               "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -4315,6 +4325,18 @@
               "null"
             ]
           },
+          "heldAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "holdReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "closedAt": {
             "type": [
               "string",
@@ -4358,6 +4380,8 @@
           "consultationNumber",
           "eBilling",
           "openedAt",
+          "heldAt",
+          "holdReason",
           "closedAt",
           "createdAt",
           "matterTypeName",
@@ -4377,6 +4401,7 @@
               "intake",
               "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -4421,6 +4446,7 @@
               "intake",
               "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -4465,6 +4491,7 @@
               "intake",
               "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -4611,6 +4638,19 @@
         "required": [
           "matterId",
           "notices"
+        ]
+      },
+      "HoldMatterRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
         ]
       },
       "RenumberMatterRequest": {
@@ -14909,6 +14949,7 @@
               "intake",
               "consultation",
               "open",
+              "hold",
               "closed"
             ]
           },
@@ -41081,7 +41122,7 @@
     },
     "/api/v1/matters": {
       "post": {
-        "description": "Creates a matter. status 'consultation' opens an unnumbered consultation (it appears only in the responsible attorney's Consultations view); status 'open' draws the firm's next matter number atomically and opens it.",
+        "description": "Creates a matter. status 'intake' records an intake with no number of any kind, on the Intake desk, which becomes a consultation once the firm's intake procedure lets it through; status 'consultation' records a consultation outright, drawing its consultation number (it appears in the responsible attorney's Consultations view); status 'open' draws the firm's next matter number atomically and opens it.",
         "operationId": "matters.create",
         "tags": [
           "matters"
@@ -41204,7 +41245,7 @@
         }
       },
       "get": {
-        "description": "Lists the firm's matters (the working caseload — Consultation consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.",
+        "description": "Lists the firm's matters (the working caseload — intakes and consultations are excluded unless status=consultation is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.",
         "operationId": "matters.list",
         "tags": [
           "matters"
@@ -41230,6 +41271,7 @@
                 "intake",
                 "consultation",
                 "open",
+                "hold",
                 "closed"
               ]
             },
@@ -42253,9 +42295,267 @@
         }
       }
     },
+    "/api/v1/matters/{id}/hold": {
+      "post": {
+        "description": "Puts an open matter on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, an instruction to wait). The matter keeps its number; nothing is drawn or surrendered. It leaves the active lists and stays on the docket wearing its status. Refuses a matter that is not open.",
+        "operationId": "matters.hold",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.hold",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:hold",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HoldMatterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The matter is on hold",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterActionAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The matter is not open, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matters/{id}/release": {
+      "post": {
+        "description": "Releases a hold: the matter returns to open, and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.",
+        "operationId": "matters.release",
+        "tags": [
+          "matters"
+        ],
+        "x-mc-operationId": "matters.release",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "matters:hold",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "matters"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The hold was released and the matter is open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterActionAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the matter is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The matter is not on hold, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matters/{id}/reopen": {
       "post": {
-        "description": "Reopens a closed matter, restoring its pre-close status (open if it was numbered, else Consultation). The frozen number, if any, is untouched.",
+        "description": "Reopens a closed matter, restoring the status it left: the hold it was in, open if it was numbered, else Consultation or Intake. The frozen number, if any, is untouched.",
         "operationId": "matters.reopen",
         "tags": [
           "matters"

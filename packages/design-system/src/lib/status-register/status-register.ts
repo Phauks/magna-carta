@@ -72,6 +72,7 @@ export type StatusKey =
   | "intake"
   | "consultation"
   | "active"
+  | "on-hold"
   | "closed"
   // How a conflict hit stands. Only the unanswered one asks for anything.
   | "unanswered"
@@ -273,6 +274,16 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     meaning: "Open work. The firm's next matter number was drawn when it opened, and is fixed.",
     presentation: "chip",
   },
+  // On hold is the one lifecycle state that asks for attention: the firm stopped working the
+  // matter for a reason somebody recorded, and the reason has not gone away. Warning, not danger:
+  // nothing is wrong with the record, and the matter keeps its number.
+  "on-hold": {
+    label: "On Hold",
+    tone: "warning",
+    meaning:
+      "The firm has paused its work, for a recorded reason, without closing the matter. It keeps its number and returns to Active when released.",
+    presentation: "chip",
+  },
   closed: {
     label: "Closed",
     tone: "neutral",
@@ -333,7 +344,7 @@ export const STATUS_VOCABULARIES = {
   /** What the firm physically holds, and what has become of it. */
   custody: ["held", "out", "released", "destroyed", "lost", "superseded"],
   /** A matter's own lifecycle, in the order a matter passes through it. */
-  matterLifecycle: ["intake", "consultation", "active", "closed"],
+  matterLifecycle: ["intake", "consultation", "active", "on-hold", "closed"],
   /**
    * How a conflict hit stands. Unanswered leads because it is the only one that asks for
    * something; the four answers follow in no order of preference, because there is none.

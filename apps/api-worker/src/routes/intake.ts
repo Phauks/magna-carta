@@ -183,7 +183,7 @@ const HistoryRecord = ChecklistRecord.extend({
 const Checklist = z
   .object({
     matterId: z.string(),
-    matterStatus: z.enum(["intake", "consultation", "open", "closed"]),
+    matterStatus: z.enum(["intake", "consultation", "open", "hold", "closed"]),
     procedures: z.array(z.object({ id: z.string(), name: z.string() })),
     steps: z.array(ChecklistStep),
     outstandingRequired: z.number().int(),

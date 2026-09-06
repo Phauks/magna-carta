@@ -7,9 +7,10 @@ export const NUMBERING_SCHEME_TABLE = "numbering_scheme";
 
 // The lifecycle, in the order a matter passes through it. An intake becomes a consultation when the
 // firm's intake procedure lets it through (the consultation number is drawn then); a consultation
-// opens (the matter number is drawn then); an open matter closes; a closed matter reopens to where
-// it was.
-export type MatterStatus = "intake" | "consultation" | "open" | "closed";
+// opens (the matter number is drawn then); an open matter can be put on hold for a recorded reason
+// and released back to open; an open or held matter closes; a closed matter reopens to where it
+// was. No number is drawn or surrendered on either side of a hold.
+export type MatterStatus = "intake" | "consultation" | "open" | "hold" | "closed";
 
 // The two sequences a firm numbers, each with its own active scheme: the permanent matter number,
 // and the tentative number a consultation carries. Kept apart so a consultation that never becomes
@@ -70,12 +71,16 @@ export interface MatterRow extends MatterFields {
   // The honest "was this matter ever opened" signal: set by createMatter (status 'open') and by
   // openMatter, never by renumberMatter — so reopen restores the real pre-close status.
   readonly openedAt: string | null;
+  // Set while the matter is on hold, and left standing by a close so a reopen returns the matter to
+  // the hold it was in. Null on every matter that is not held.
+  readonly heldAt: string | null;
+  readonly holdReason: string | null;
 }
 
 export function selectMatterStatement(database: SqlDatabase, id: MatterId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, opened_at FROM ${MATTER_TABLE} WHERE id = ?1`,
+      `SELECT id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, opened_at, held_at, hold_reason FROM ${MATTER_TABLE} WHERE id = ?1`,
     )
     .bind(id);
 }
@@ -106,6 +111,8 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
               matter.consultation_number AS consultation_number,
               matter.e_billing AS e_billing,
               matter.opened_at AS opened_at,
+              matter.held_at AS held_at,
+              matter.hold_reason AS hold_reason,
               matter.closed_at AS closed_at,
               matter.created_at AS created_at,
               matter_type.name AS matter_type_name,
@@ -197,10 +204,40 @@ export function closeMatterStatement(
     .bind(id, closedAt);
 }
 
+// The hold and its release. `status = 'open'` and `status = 'hold'` are the in-batch belts behind
+// the service's read-then-write checks, for the same reason the open carries one: a close landing
+// between the read and this commit must not be overwritten by a hold, and a release racing a close
+// must not resurrect a closed matter. The release clears the reason with the instant, because the
+// two are one fact (matter_hold_check).
+export function holdMatterStatement(
+  database: SqlDatabase,
+  id: MatterId,
+  reason: string,
+  heldAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MATTER_TABLE} SET status = 'hold', held_at = ?3, hold_reason = ?2, updated_at = ?3 WHERE id = ?1 AND status = 'open'`,
+    )
+    .bind(id, reason, heldAt);
+}
+
+export function releaseMatterStatement(
+  database: SqlDatabase,
+  id: MatterId,
+  releasedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MATTER_TABLE} SET status = 'open', held_at = NULL, hold_reason = NULL, updated_at = ?2 WHERE id = ?1 AND status = 'hold'`,
+    )
+    .bind(id, releasedAt);
+}
+
 export function reopenMatterStatement(
   database: SqlDatabase,
   id: MatterId,
-  status: "open" | "consultation" | "intake",
+  status: "open" | "hold" | "consultation" | "intake",
   updatedAt: string,
 ): SqlStatement {
   return database

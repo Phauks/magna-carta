@@ -97,6 +97,7 @@ import directoryIdentifierLabelSql from "@magna-carta/database/drizzle/per-firm/
 import intakeProcedureSql from "@magna-carta/database/drizzle/per-firm/20260903T150000_intake-procedure.sql";
 import intakeStepKindsClientFormsAndPaymentSql from "@magna-carta/database/drizzle/per-firm/20260905T195543_intake-step-kinds-client-forms-and-payment.sql";
 import matterStatusIntakeAndConsultationSql from "@magna-carta/database/drizzle/per-firm/20260906T013304_matter-status-intake-and-consultation.sql";
+import matterHoldStatusSql from "@magna-carta/database/drizzle/per-firm/20260906T030014_matter-hold-status.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -208,6 +209,7 @@ export function perFirmMigrations(): Migration[] {
     "20260905T195543_intake-step-kinds-client-forms-and-payment":
       intakeStepKindsClientFormsAndPaymentSql,
     "20260906T013304_matter-status-intake-and-consultation": matterStatusIntakeAndConsultationSql,
+    "20260906T030014_matter-hold-status": matterHoldStatusSql,
   });
 }
 

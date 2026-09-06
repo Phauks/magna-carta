@@ -648,6 +648,30 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-09-06 — the matter lifecycle: a hold beside active, and no number before active
+
+The owner, the morning after the intake rung: "we should also add a HOLD status, for matters that
+are not closed, but there are various issues relating to why they are no longer considered active,
+like clients not paying bills. whats important is that no matter number is assigned until it
+becomes an active matter." And: "status pillbox modal will need to allow changing into this hold
+status as well." What binds:
+
+- **A matter's statuses are Intake, Consultation, Active, On Hold and Closed**, stored as `intake`,
+  `consultation`, `open`, `hold`, `closed`. On Hold is reached only from Active — "no longer
+  active" presumes it was — and returns only to Active.
+- **A hold keeps the number and draws nothing.** No number of any kind exists before a matter is
+  active, and none is surrendered or re-drawn on either side of a pause. A held matter stays on the
+  docket wearing its status; it is not an unnumbered rung and does not go to the Intake desk.
+- **A hold carries its reason, and the reason is required.** It is asked in a sentence, in place,
+  beneath the step that records it, and printed beside the status wherever the status is read. A
+  pause nobody can explain is not a pause anybody can resume.
+- **The status window offers every step a status allows, never a picker.** Active offers Close
+  Matter and Put On Hold; On Hold offers Release Hold and Close Matter. The first is the step the
+  lifecycle runs toward, the second the pause or the exit. One permission, `matters:hold`, both
+  ways: whoever may pause the firm's work may resume it.
+- **A matter cannot be started on hold**, and the New Matter window says so in its own words, with
+  no Soon mark, because nothing is coming: a hold pauses work, so there has to be work to pause.
+
 ### 2026-09-05 — the matter lifecycle: an intake rung before the consultation, and the word
 
 The owner, walking the desk: "I don't think that intake should have a matter yet. Intake gets

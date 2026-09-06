@@ -358,6 +358,7 @@ describe("end-to-end", () => {
         "matters:close",
         "matters:create",
         "matters:edit",
+        "matters:hold",
         "matters:manageNumbering",
         "matters:manageTypes",
         "matters:open",

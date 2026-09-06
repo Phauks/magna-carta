@@ -78,6 +78,7 @@
     isCreatableMatterStatus,
     matterStatusLabel,
     CLOSED_AT_CREATION_DEPENDENCY,
+    HOLD_AT_CREATION_REASON,
     MATTER_STATUSES,
   } from "./matter-status.ts";
   import { createMatterAssignment } from "./matter-assignments-api.ts";
@@ -176,13 +177,18 @@
    * Status column cannot disagree; Closed is offered and refused rather than hidden, because a firm
    * that wants to record a concluded matter should see that the state exists.
    */
+  const closedDependency = soonDependencySentence(CLOSED_AT_CREATION_DEPENDENCY);
+
+  // Two statuses cannot be started in, for two different reasons, and the difference is drawn:
+  // Closed waits on the contract and wears the Soon mark; On Hold is a pause of work already under
+  // way, so it is never a starting point and says so without promising anything.
   const STATUS_ITEMS = MATTER_STATUSES.map((status) => ({
     value: status,
     label: matterStatusLabel(status),
     creatable: isCreatableMatterStatus(status),
+    unavailable: status === "hold" ? HOLD_AT_CREATION_REASON : closedDependency,
+    soon: status !== "hold",
   }));
-
-  const closedDependency = soonDependencySentence(CLOSED_AT_CREATION_DEPENDENCY);
 
   const locationOptions = $derived(
     locations
@@ -481,11 +487,13 @@
                       value={item.value}
                       label={item.label}
                       disabled
-                      title={closedDependency}
+                      title={item.unavailable}
                     >
                       <span class="flex items-center gap-8">
                         {item.label}
-                        <MaturityBadge stage="soon" />
+                        {#if item.soon}
+                          <MaturityBadge stage="soon" />
+                        {/if}
                       </span>
                     </Select.Item>
                   {/if}

@@ -108,7 +108,7 @@ export interface IntakeHistoryRecord extends IntakeRecord {
 
 export interface IntakeChecklist {
   matterId: string;
-  matterStatus: "intake" | "consultation" | "open" | "closed";
+  matterStatus: "intake" | "consultation" | "open" | "hold" | "closed";
   procedures: { id: string; name: string }[];
   steps: IntakeChecklistStep[];
   /** Required steps with no satisfying answer: what stands between the consultation and opening. */
