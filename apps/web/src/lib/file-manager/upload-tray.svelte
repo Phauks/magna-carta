@@ -15,16 +15,20 @@
    * the icon is honest state — it means something is moving right now, or something finished with a
    * failure the reader has not cleared.
    */
+  import Ban from "@lucide/svelte/icons/ban";
   import Upload from "@lucide/svelte/icons/upload";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import X from "@lucide/svelte/icons/x";
   import Button from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
   import Progress from "@magna-carta/design-system/progress";
+  import { formatBytes } from "./file-rows.ts";
   import {
+    cancelUploadBatch,
     dismissFinishedUploads,
     dismissUploadBatch,
     retryFailedUploads,
+    unsentCount,
     uploadBatches,
     uploadsInFlight,
     type UploadBatch,
@@ -44,6 +48,11 @@
   function tally(batch: UploadBatch): string {
     const parts = [`${String(batch.uploaded)} of ${String(batch.total)} uploaded`];
     if (batch.failed > 0) parts.push(`${String(batch.failed)} failed`);
+    const unsent = unsentCount(batch);
+    if (unsent > 0) parts.push(`${String(unsent)} not sent`);
+    if (batch.running) {
+      parts.push(`${formatBytes(batch.sentBytes)} of ${formatBytes(batch.totalBytes)}`);
+    }
     return parts.join(" · ");
   }
 
@@ -107,11 +116,22 @@
                   {batch.destinationLabel} · {tally(batch)}
                 </span>
               </span>
-              {#if !batch.running}
+              {#if batch.running}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Cancel the upload to ${batch.matterTitle}`}
+                  title="Cancel Upload"
+                  onclick={() => cancelUploadBatch(batch)}
+                >
+                  <Ban class="size-16" aria-hidden="true" />
+                </Button>
+              {:else}
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   aria-label={`Clear the upload to ${batch.matterTitle} from the list`}
+                  title="Clear"
                   onclick={() => dismissUploadBatch(batch)}
                 >
                   <X class="size-16" aria-hidden="true" />
@@ -119,22 +139,22 @@
               {/if}
             </div>
             <Progress
-              value={batch.uploaded + batch.failed}
-              max={batch.total}
+              value={batch.sentBytes}
+              max={Math.max(batch.totalBytes, 1)}
               aria-label={`Progress of the upload to ${batch.matterTitle}`}
             />
             {#if !batch.running}
               <div class="flex flex-wrap items-center gap-8">
-                {#if batch.failed > 0}
+                {#if batch.failed > 0 || unsentCount(batch) > 0}
                   <Button
                     variant="secondary"
                     size="sm"
                     class="whitespace-nowrap"
                     onclick={() => retryFailedUploads(batch)}
-                    aria-label={`Retry the ${String(batch.failed)} files that failed`}
+                    title={`Send the ${String(batch.failed + unsentCount(batch))} files that did not go`}
                   >
                     <RotateCcw class="size-16" aria-hidden="true" />
-                    Retry Failed
+                    {batch.failed > 0 ? "Retry Failed" : "Send the Rest"}
                   </Button>
                 {/if}
                 {#if batch.uploaded > 0}

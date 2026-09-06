@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { DroppedEntry } from "@magna-carta/design-system/dropzone";
 import type { UploadOutcome, UploadRequest } from "$lib/file-manager/file-upload.ts";
 import {
+  cancelUploadBatch,
   dismissUploadBatch,
+  unsentCount,
   matterUploadRevision,
   resetUploadQueueForTests,
   retryFailedUploads,
@@ -193,6 +195,63 @@ describe("startUploadBatch", () => {
     expect(record.uploads).toHaveLength(3);
     expect(record.folders).toHaveLength(1);
     expect(record.uploads[2]?.folderId).toBe("made-1");
+  });
+
+  it("counts bytes as they leave, and a cancel stops the rest without losing what landed", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let sent = 0;
+    const slow: UploadQueueDependencies = {
+      ...dependencies(record),
+      upload: async (request) => {
+        sent += 1;
+        request.onStage?.("uploading");
+        request.onProgress?.(2, request.file.size);
+        if (sent === 1) {
+          // The first file is half-way when the reader cancels; it reports the cancel and stops.
+          await held;
+          return { kind: "cancelled", stage: "uploading" };
+        }
+        request.onProgress?.(request.file.size, request.file.size);
+        return { kind: "committed", fileId: `file-${request.file.name}`, versionId: "v" };
+      },
+    };
+    // Five files, three at a time: one holds, two land, two never start once cancelled.
+    const batch = startUploadBatch(
+      plan([
+        entry("", "a.pdf"),
+        entry("", "b.pdf"),
+        entry("", "c.pdf"),
+        entry("", "d.pdf"),
+        entry("", "e.pdf"),
+      ]),
+      slow,
+    );
+    await settled();
+    flushSync();
+    expect(batch.totalBytes).toBe(25);
+    // a is half-way (2 bytes), b and c have landed in full, d and e have followed b and c.
+    expect(batch.sentBytes).toBeGreaterThanOrEqual(2 + 5 + 5);
+    cancelUploadBatch(batch);
+    release();
+    await settled();
+    flushSync();
+    expect(batch.running).toBe(false);
+    expect(batch.cancelled).toBe(true);
+    expect(batch.items.find((item) => item.name === "a.pdf")?.stage).toBe("cancelled");
+    expect(batch.uploaded).toBeGreaterThanOrEqual(2);
+    expect(unsentCount(batch)).toBeGreaterThanOrEqual(1);
+    // Sending the rest picks up exactly what did not go, and nothing that did.
+    const landed = batch.uploaded;
+    const before = sent;
+    retryFailedUploads(batch);
+    await settled();
+    expect(batch.uploaded).toBe(5);
+    expect(unsentCount(batch)).toBe(0);
+    expect(sent - before).toBe(5 - landed);
   });
 
   it("lists batches newest first and lets a finished one be cleared, never a running one", async () => {

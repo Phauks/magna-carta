@@ -28,6 +28,14 @@ turns from the chosen count into the running tally. The grid gained an `orderRow
 `gridRowComparator` export so a hierarchy sorts siblings by the grid's own rule
 (`upload-intake.ts` holds the row model, tested without a browser).
 
+**Progress is bytes, and large files upload in parts.** The storage write moved from `fetch` to
+XMLHttpRequest, the one browser transport that reports upload progress (`putUploadBytes` takes
+`onProgress`, an `AbortSignal`, and answers the ETag), so a sending row reads "Sending · 42%" and
+the bars measure bytes. Above the firm's mode threshold (100 MB by default) `uploadIntoFolder` now
+runs the multipart leg the host already tracked: fixed 16 MiB parts, three in flight, each signed
+through `GET /uploads/{id}/parts/{n}`, sent, and retried on its own with backoff; the ETags go back
+as the completion manifest. The single-shot PUT is retried the same way.
+
 **A transfer outlives its panel.** Upload hands the batch to the upload queue
 (`upload-queue.svelte.ts`, module state, three files at a time, one folder creation per path however
 many files wait on it), the panel stays to report it and Close leaves it running, a top-bar
@@ -35,7 +43,8 @@ many files wait on it), the panel stays to report it and Close leaves it running
 tally, a Retry Failed that resends only what failed into the same folders, and Open folder
 (`/matters/{id}/files?folder=`), and the file list re-reads when a batch on its matter finishes.
 Closing the tab while bytes move asks first; navigating away from the screen with files chosen and
-not yet sent asks first. `file_version.source_modified_at` records the device's last-modified
+not yet sent asks first. **Cancel Upload** stops a running batch (what landed stays, what is being
+sent is given back, the rest reads Not sent and can be sent afterwards). `file_version.source_modified_at` records the device's last-modified
 instant for every uploaded version, and the reservation's `createdAtBasis` dates a new file by it
 when asked, clamped to now; the inspector shows it as **File's Own Date**.
 
@@ -49,4 +58,6 @@ folder; you can also drop them anywhere on the right. Filter the list from its c
 Press **Upload** and the panel shows each file's progress; close it whenever you like, because the
 upload keeps going. The **upload button in the top bar** shows what is still moving, what finished
 and what failed, with **Retry Failed** and **Open folder** beside each batch. If a file does not
-upload, it no longer leaves an empty entry in the matter.
+upload, it no longer leaves an empty entry in the matter. Each file shows how far it has got, files
+of any size upload (a large one goes in pieces behind the scenes), and **Cancel Upload** stops a
+batch: what has landed stays, and the rest can be sent later with **Send the Rest**.

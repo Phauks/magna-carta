@@ -49,6 +49,8 @@
   ];
 
   const FAILS = new Set(["Hale - transcript.pdf", "2026-08-14 reply.docx"]);
+  /** The sizes the fixture declares; the File objects themselves are kept tiny. */
+  const SIZES = new Map(FIXTURE.map((item) => [item.file.name, item.file.size]));
   const STAGES: UploadStage[] = ["reserving", "uploading", "committing", "scanning"];
 
   const index = new MatterFileIndex(
@@ -59,6 +61,9 @@
     [],
   );
 
+  /** Read through a call, so the checker does not narrow a flag that flips while the stand-in awaits. */
+  const isCancelled = (signal: AbortSignal | undefined): boolean => signal?.aborted ?? false;
+
   /** The stand-in for the network: each stage takes a beat, and the named files fail on sending. */
   function stagedDependencies(beatMilliseconds: number): UploadQueueDependencies {
     const beat = (): Promise<void> =>
@@ -67,16 +72,28 @@
     return {
       fetchImpl: fetch,
       upload: async (request) => {
+        // The fixture's declared sizes drive the progress the stand-in reports, in ten steps
+        // across the sending beat, so the percent and the bytes-of-bytes line can be watched.
+        const total = SIZES.get(request.file.name) ?? request.file.size;
         for (const stage of STAGES) {
+          if (isCancelled(request.signal)) return { kind: "cancelled", stage };
           request.onStage?.(stage);
-          await beat();
-          if (stage === "uploading" && FAILS.has(request.file.name)) {
-            return {
-              kind: "problem",
-              stage,
-              problem: { status: 403, errorId: "ERR-7F3A2C" },
-            };
+          if (stage === "uploading") {
+            for (let step = 1; step <= 10; step += 1) {
+              await new Promise((resolve) => setTimeout(resolve, beatMilliseconds / 10));
+              if (isCancelled(request.signal)) return { kind: "cancelled", stage };
+              request.onProgress?.(Math.round((total * step) / 10), total);
+            }
+            if (FAILS.has(request.file.name)) {
+              return {
+                kind: "problem",
+                stage,
+                problem: { status: 403, errorId: "ERR-7F3A2C" },
+              };
+            }
+            continue;
           }
+          await beat();
         }
         request.onStage?.("settled");
         return { kind: "committed", fileId: `file-${request.file.name}`, versionId: "v1" };

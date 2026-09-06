@@ -41,16 +41,23 @@ Selected**. Nothing is sent until you press **Upload**.
   way, and shows in the file's details as **File's Own Date**.
 - **Document Type** — a type to give every file in this upload, if your firm uses them.
 
-Press **Upload**. The list on the right shows each file's progress. You do not have to wait: close
-the panel and carry on, because the upload keeps going. If you try to leave the screen with files
-chosen but not yet sent, you are asked first, so a choice you spent time on is not lost by accident.
+Press **Upload**. The list on the right shows each file's progress, with how much of it has been
+sent, and the bar above it measures the whole batch. You do not have to wait: close the panel and
+carry on, because the upload keeps going. If you try to leave the screen with files chosen but not
+yet sent, you are asked first, so a choice you spent time on is not lost by accident.
+
+**Cancel Upload** stops a batch that is running. Files that have already landed stay on the matter;
+the file being sent is given back; the rest read **Not sent**, and **Send the Rest** sends them
+later. A large file (over your firm's limit for a single send, 100 MB unless it was changed) goes in
+pieces behind the scenes; you see one upload, and a piece that stumbles is sent again on its own.
 
 ### Watching an upload
 
 The **upload button in the top bar**, beside the downloads button, marks itself while anything is
 uploading. Press it to see each upload: how many files have landed, how many failed, and, once it
-has finished, **Retry Failed** to send only the files that did not go, and **Open folder** to see
-the files where they landed. Clear finished uploads when you no longer need to see them.
+has finished, **Retry Failed** to send only the files that did not go, and **Open Folder** to see
+the files where they landed. A running upload can be cancelled from here too. Clear finished
+uploads when you no longer need to see them.
 
 If you close the browser tab while files are still uploading, the browser asks before it goes;
 files that had not finished would need to be uploaded again.

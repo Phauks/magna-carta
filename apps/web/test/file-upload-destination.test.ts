@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { sourceInstantOf, uploadIntoFolder } from "../src/lib/file-manager/file-upload.ts";
+import { putUploadBytes } from "../src/lib/documents/document-api.ts";
 
 /*
  * The reported defect, pinned: an upload made from inside a folder was filed at the matter root.
@@ -239,6 +240,264 @@ describe("uploadIntoFolder", () => {
     expect(sent).not.toBeNull();
     expect((sent as unknown as Headers).get("content-type")).toBe("application/pdf");
     expect((sent as unknown as Headers).get("x-amz-meta-matter")).toBe("matter");
+  });
+
+  it("runs the multipart ceremony above the threshold: sign each part, send it, complete with the manifest", async () => {
+    const calls: string[] = [];
+    let completeBody: unknown = null;
+    const partBodies = new Map<string, number>();
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.endsWith("/api/v1/uploads")) {
+        return new Response(
+          JSON.stringify({
+            mode: "multipart",
+            uploadId: "session-9",
+            fileId: "file",
+            versionId: "version",
+            key: "key",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      const part = /\/parts\/(\d+)$/.exec(url);
+      if (part !== null) {
+        return new Response(JSON.stringify({ url: `https://storage.example/part/${part[1]}` }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (url.startsWith("https://storage.example/part/")) {
+        const number = url.slice(url.lastIndexOf("/") + 1);
+        partBodies.set(number, (init?.body as Blob).size);
+        return new Response(null, { status: 200, headers: { ETag: `"etag-${number}"` } });
+      }
+      if (url.endsWith("/complete")) {
+        completeBody = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({ key: "key", location: "here" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          sessionStatus: "completed",
+          versionStatus: "clean",
+          quarantineReason: null,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as unknown as typeof fetch;
+    // 16 MiB parts: a 40 MiB file is two full parts and an 8 MiB tail.
+    const large = new File([new Uint8Array(40 * 1024 * 1024)], "deposition.mp4", {
+      type: "video/mp4",
+    });
+    const progress: number[] = [];
+    const outcome = await uploadIntoFolder({
+      fetchImpl,
+      matterId: "matter",
+      folderId: null,
+      file: large,
+      sleep: async () => {},
+      newIdempotencyKey: () => "key",
+      onProgress: (sent) => progress.push(sent),
+    });
+    expect(outcome.kind).toBe("committed");
+    expect([...partBodies.entries()].toSorted()).toEqual([
+      ["1", 16 * 1024 * 1024],
+      ["2", 16 * 1024 * 1024],
+      ["3", 8 * 1024 * 1024],
+    ]);
+    expect(completeBody).toEqual({
+      parts: [
+        { partNumber: 1, etag: '"etag-1"' },
+        { partNumber: 2, etag: '"etag-2"' },
+        { partNumber: 3, etag: '"etag-3"' },
+      ],
+    });
+    expect(progress.at(-1)).toBe(40 * 1024 * 1024);
+    expect(calls.some((call) => call.endsWith("/abort"))).toBe(false);
+  });
+
+  it("sends a part again on its own when the storage falters, never the whole file", async () => {
+    let firstAttempt = true;
+    const putCount = new Map<string, number>();
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/uploads")) {
+        return new Response(
+          JSON.stringify({
+            mode: "multipart",
+            uploadId: "s",
+            fileId: "f",
+            versionId: "v",
+            key: "k",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      const part = /\/parts\/(\d+)$/.exec(url);
+      if (part !== null) {
+        return new Response(JSON.stringify({ url: `https://storage.example/part/${part[1]}` }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (url.startsWith("https://storage.example/part/")) {
+        const number = url.slice(url.lastIndexOf("/") + 1);
+        putCount.set(number, (putCount.get(number) ?? 0) + 1);
+        if (number === "2" && firstAttempt) {
+          firstAttempt = false;
+          return new Response(null, { status: 503 });
+        }
+        return new Response(null, { status: 200, headers: { ETag: `"e${number}"` } });
+      }
+      if (url.endsWith("/complete")) {
+        return new Response(JSON.stringify({ key: "k", location: "here" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          sessionStatus: "completed",
+          versionStatus: "clean",
+          quarantineReason: null,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as unknown as typeof fetch;
+    const slept: number[] = [];
+    const outcome = await uploadIntoFolder({
+      fetchImpl,
+      matterId: "matter",
+      folderId: null,
+      file: new File([new Uint8Array(33 * 1024 * 1024)], "big.bin"),
+      sleep: async (milliseconds) => {
+        slept.push(milliseconds);
+      },
+      newIdempotencyKey: () => "key",
+    });
+    expect(outcome.kind).toBe("committed");
+    expect(putCount.get("2")).toBe(2);
+    expect(putCount.get("1")).toBe(1);
+    expect(putCount.get("3")).toBe(1);
+    // Backed off before the second try, and not by nothing.
+    expect(slept[0]).toBeGreaterThan(0);
+  });
+
+  it("stops on a cancel, gives the reservation back, and says it was cancelled rather than failed", async () => {
+    const calls: string[] = [];
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.endsWith("/api/v1/uploads")) {
+        return new Response(
+          JSON.stringify({
+            mode: "put",
+            uploadId: "session-c",
+            fileId: "file",
+            versionId: "version",
+            key: "key",
+            method: "PUT",
+            url: "https://storage.example/put",
+            headers: { "content-type": "application/pdf" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url === "https://storage.example/put") {
+        // The reader cancels while the bytes are going; the write reports as aborted.
+        controller.abort();
+        throw new DOMException("aborted", "AbortError");
+      }
+      if (url.endsWith("/abort")) {
+        return new Response(JSON.stringify({ status: "aborted" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected ${url}`);
+    }) as unknown as typeof fetch;
+    const outcome = await uploadIntoFolder({
+      fetchImpl,
+      matterId: "matter",
+      folderId: null,
+      file: aFile(),
+      signal: controller.signal,
+      sleep: async () => {},
+      newIdempotencyKey: () => "key",
+    });
+    expect(outcome).toEqual({ kind: "cancelled", stage: "uploading" });
+    expect(calls).toContain("POST /api/v1/uploads/session-c/abort");
+    // No retry after a cancel: the reader changed their mind.
+    expect(calls.filter((call) => call === "PUT https://storage.example/put")).toHaveLength(1);
+  });
+
+  it("reports bytes as they leave when a progress-capable transport is at hand", async () => {
+    // A stand-in for XMLHttpRequest: fires two progress events and then a 200 with an ETag.
+    class FakeRequest {
+      status = 0;
+      upload: {
+        onprogress:
+          | ((event: { loaded: number; total: number; lengthComputable: boolean }) => void)
+          | null;
+      } = { onprogress: null };
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      headers: Record<string, string> = {};
+      opened = "";
+      open(method: string, url: string): void {
+        this.opened = `${method} ${url}`;
+      }
+      setRequestHeader(name: string, value: string): void {
+        this.headers[name] = value;
+      }
+      send(body: Blob): void {
+        queueMicrotask(() => {
+          this.upload.onprogress?.({
+            loaded: Math.floor(body.size / 2),
+            total: body.size,
+            lengthComputable: true,
+          });
+          this.upload.onprogress?.({ loaded: body.size, total: body.size, lengthComputable: true });
+          this.status = 200;
+          this.onload?.();
+        });
+      }
+      abort(): void {
+        this.onabort?.();
+      }
+      getResponseHeader(name: string): string | null {
+        return name === "ETag" ? '"x"' : null;
+      }
+    }
+    const made: FakeRequest[] = [];
+    const progress: number[] = [];
+    const outcome = await putUploadBytes(
+      fetch,
+      "https://storage.example/put",
+      { "content-type": "application/pdf", "x-amz-meta-matter": "m" },
+      new File(["0123456789"], "a.pdf"),
+      {
+        onProgress: (sent) => progress.push(sent),
+        xhr: () => {
+          const request = new FakeRequest();
+          made.push(request);
+          return request;
+        },
+      },
+    );
+    expect(outcome).toEqual({ kind: "ok", value: { etag: '"x"' } });
+    expect(progress).toEqual([5, 10, 10]);
+    expect(made[0]?.opened).toBe("PUT https://storage.example/put");
+    expect(made[0]?.headers).toEqual({
+      "content-type": "application/pdf",
+      "x-amz-meta-matter": "m",
+    });
   });
 
   it("reports a flagged file as committed-and-flagged, never as a refusal", async () => {

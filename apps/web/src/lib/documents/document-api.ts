@@ -164,16 +164,39 @@ export function initiateUpload(
   });
 }
 
+/** One part of a multipart upload, as the storage acknowledged it: its number and its ETag. */
+export interface UploadedPart {
+  readonly partNumber: number;
+  readonly etag: string;
+}
+
+/**
+ * Close the session. A single-shot PUT sends no manifest (its object already exists); a multipart
+ * session sends every part's number and ETag, which is what the storage assembles the object from.
+ */
 export function completeUpload(
   fetchImpl: typeof fetch,
   uploadId: string,
   idempotencyKey: string,
+  parts?: readonly UploadedPart[],
 ): Promise<ApiOutcome<{ key: string; location: string }>> {
   return requestJson(fetchImpl, `/api/v1/uploads/${encodeURIComponent(uploadId)}/complete`, {
     method: "POST",
-    body: {},
+    body: parts === undefined ? {} : { parts },
     idempotencyKey,
   });
+}
+
+/** A signed URL for one part of an open multipart session, minted fresh per part. */
+export function signUploadPart(
+  fetchImpl: typeof fetch,
+  uploadId: string,
+  partNumber: number,
+): Promise<ApiOutcome<{ url: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/uploads/${encodeURIComponent(uploadId)}/parts/${String(partNumber)}`,
+  );
 }
 
 export function readUploadStatus(
@@ -217,28 +240,124 @@ export function openEditSession(
   });
 }
 
+/** What a storage write answers with: the ETag the storage gave the bytes, when it exposed one. */
+export interface PutUploadResult {
+  readonly etag: string | null;
+}
+
+export interface PutUploadOptions {
+  /**
+   * Bytes sent so far, and the total, as the browser reports them while the request body goes out.
+   * Given, the write runs on XMLHttpRequest — the one browser transport that reports upload
+   * progress; `fetch` has no such event — and falls back to `fetch` where XMLHttpRequest is absent
+   * (a test in Node). Omitted, the write is a plain fetch.
+   */
+  readonly onProgress?: (sentBytes: number, totalBytes: number) => void;
+  /** Abandons the write. An aborted write resolves as `transport`, like any other that produced no response. */
+  readonly signal?: AbortSignal;
+  /** The XMLHttpRequest constructor to use. A seam for tests; the browser's own otherwise. */
+  readonly xhr?: () => XMLHttpRequestLike;
+}
+
+/** The slice of XMLHttpRequest the progress transport uses, narrowed so a test can stand in for it. */
+export interface XMLHttpRequestLike {
+  open(method: string, url: string): void;
+  setRequestHeader(name: string, value: string): void;
+  send(body: Blob): void;
+  abort(): void;
+  getResponseHeader(name: string): string | null;
+  readonly status: number;
+  upload: {
+    onprogress:
+      | ((event: { loaded: number; total: number; lengthComputable: boolean }) => void)
+      | null;
+  };
+  onload: (() => void) | null;
+  onerror: (() => void) | null;
+  onabort: (() => void) | null;
+}
+
+// The signed URL is never the request line: it carries the signature, an expiry and the object
+// key as query parameters, and this line is built to be copied into a report.
+const PUT_LINE = "PUT (presigned object storage)";
+
 /**
  * PUT the bytes at the URL the host signed. This leg does NOT go through `requestJson`: it is an
  * object-storage write, not an API call — no session cookie belongs on it, the body is the raw file,
- * and the only thing the caller needs back is whether the bytes landed.
+ * and what the caller needs back is whether the bytes landed and, for a multipart part, the ETag
+ * the storage gave them.
  */
 export async function putUploadBytes(
   fetchImpl: typeof fetch,
   url: string,
   headers: Record<string, string>,
   body: Blob,
-): Promise<ApiOutcome<null>> {
-  // The signed URL is never the request line: it carries the signature, an expiry and the object
-  // key as query parameters, and this line is built to be copied into a report.
-  const line = "PUT (presigned object storage)";
+  options: PutUploadOptions = {},
+): Promise<ApiOutcome<PutUploadResult>> {
+  const sent = signedHeaders(headers);
+  const xhrAvailable =
+    options.xhr !== undefined || typeof globalThis.XMLHttpRequest !== "undefined";
+  if (options.onProgress !== undefined && xhrAvailable) {
+    return putWithProgress(url, sent, body, options);
+  }
   let response: Response;
   try {
-    response = await fetchImpl(url, { method: "PUT", headers: signedHeaders(headers), body });
+    response = await fetchImpl(url, {
+      method: "PUT",
+      headers: sent,
+      body,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
   } catch {
-    return transportOutcome(line);
+    return transportOutcome(PUT_LINE);
   }
-  if (!response.ok) return problemOutcome({ status: response.status }, line);
-  return { kind: "ok", value: null };
+  if (!response.ok) return problemOutcome({ status: response.status }, PUT_LINE);
+  return { kind: "ok", value: { etag: response.headers.get("ETag") } };
+}
+
+/*
+ * The progress-reporting write. XMLHttpRequest sends no cookies to a cross-origin URL unless asked
+ * (it is not asked), sets exactly the headers it is given, and fires `upload.onprogress` as the body
+ * leaves — which is the whole reason it is here. A Blob body with no type sets no Content-Type of
+ * its own, so a part's unsigned PUT goes out with exactly the headers the caller passed.
+ */
+function putWithProgress(
+  url: string,
+  headers: Record<string, string>,
+  body: Blob,
+  options: PutUploadOptions,
+): Promise<ApiOutcome<PutUploadResult>> {
+  return new Promise((resolve) => {
+    const request = options.xhr?.() ?? (new XMLHttpRequest() as unknown as XMLHttpRequestLike);
+    const { signal, onProgress } = options;
+    if (signal?.aborted === true) {
+      resolve(transportOutcome(PUT_LINE));
+      return;
+    }
+    const abort = (): void => request.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    const settle = (outcome: ApiOutcome<PutUploadResult>): void => {
+      signal?.removeEventListener("abort", abort);
+      resolve(outcome);
+    };
+    request.open("PUT", url);
+    for (const [name, value] of Object.entries(headers)) request.setRequestHeader(name, value);
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded, event.total);
+      else onProgress?.(event.loaded, body.size);
+    };
+    request.onload = () => {
+      if (request.status < 200 || request.status >= 300) {
+        settle(problemOutcome({ status: request.status }, PUT_LINE));
+        return;
+      }
+      onProgress?.(body.size, body.size);
+      settle({ kind: "ok", value: { etag: request.getResponseHeader("ETag") } });
+    };
+    request.onerror = () => settle(transportOutcome(PUT_LINE));
+    request.onabort = () => settle(transportOutcome(PUT_LINE));
+    request.send(body);
+  });
 }
 
 /**

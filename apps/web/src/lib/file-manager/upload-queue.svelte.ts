@@ -36,7 +36,12 @@ import {
   type UploadRequest,
 } from "./file-upload.ts";
 import type { MatterFile } from "./matter-file-api.ts";
-import { intakeEntryKey, type IntakeProgress, type IntakeStage } from "./upload-intake.ts";
+import {
+  intakeEntryKey,
+  sentBytesOf,
+  type IntakeProgress,
+  type IntakeStage,
+} from "./upload-intake.ts";
 
 /** How many files are sent at once. */
 export const UPLOAD_CONCURRENCY = 3;
@@ -65,6 +70,8 @@ export interface UploadBatchItem {
   readonly name: string;
   stage: IntakeStage;
   reason?: string;
+  /** Bytes the browser has sent so far, while the file is being sent. */
+  sentBytes: number;
   /** The file it became, once reserved. */
   fileId?: string;
 }
@@ -123,6 +130,10 @@ export class UploadBatch {
   readonly startedAt: string;
   items = $state<UploadBatchItem[]>([]);
   finishedAt = $state<string | null>(null);
+  /** Raised when the reader cancels: no further item starts, and the ones in flight are abandoned. */
+  cancelled = $state(false);
+  /** The signal every write in this batch listens to; replaced on a retry so a cancel is one-shot. */
+  #abort = new AbortController();
 
   /**
    * The folders this batch has made or found, by intake path, as the PROMISE of each — so three
@@ -151,6 +162,7 @@ export class UploadBatch {
       entry,
       name: entry.relativePath === "" ? entry.file.name : entry.relativePath,
       stage: "chosen" as const,
+      sentBytes: 0,
     }));
     this.landedFolders.set("", Promise.resolve({ id: plan.destinationFolderId }));
   }
@@ -166,11 +178,23 @@ export class UploadBatch {
   }
   get inFlight(): number {
     return this.items.filter(
-      (item) => item.stage !== "chosen" && item.stage !== "settled" && item.stage !== "failed",
+      (item) =>
+        item.stage !== "chosen" &&
+        item.stage !== "settled" &&
+        item.stage !== "failed" &&
+        item.stage !== "cancelled",
     ).length;
   }
   get running(): boolean {
     return this.finishedAt === null;
+  }
+  /** Every byte the batch was asked to send. */
+  get totalBytes(): number {
+    return this.items.reduce((sum, item) => sum + item.entry.file.size, 0);
+  }
+  /** Every byte that has gone: a settled file in full, a sending file as far as it has got. */
+  get sentBytes(): number {
+    return this.items.reduce((sum, item) => sum + sentBytesOf(item.entry.file.size, item), 0);
   }
 
   /** Each item's standing, keyed the way the intake table keys its rows. */
@@ -178,9 +202,11 @@ export class UploadBatch {
     return new Map(
       this.items.map((item) => [
         item.key,
-        item.reason === undefined
-          ? { stage: item.stage }
-          : { stage: item.stage, reason: item.reason },
+        {
+          stage: item.stage,
+          sentBytes: item.sentBytes,
+          ...(item.reason === undefined ? {} : { reason: item.reason }),
+        },
       ]),
     );
   }
@@ -245,6 +271,7 @@ export class UploadBatch {
     const filedAs = disambiguated(item.entry.file.name, taken);
     taken.push({ key: `pending:${filedAs}`, name: filedAs });
     item.stage = "reserving";
+    item.sentBytes = 0;
     delete item.reason;
     const outcome = await this.#dependencies.upload({
       fetchImpl: this.#dependencies.fetchImpl,
@@ -254,12 +281,22 @@ export class UploadBatch {
       name: filedAs,
       documentTypeId: this.documentTypeId,
       createdAtBasis: this.createdAtBasis,
+      signal: this.#abort.signal,
       onStage: (stage) => {
         item.stage = stage;
       },
+      onProgress: (sentBytes) => {
+        item.sentBytes = sentBytes;
+      },
     });
+    if (outcome.kind === "cancelled") {
+      item.stage = "cancelled";
+      item.sentBytes = 0;
+      return;
+    }
     if (outcome.kind === "problem" || outcome.kind === "transport") {
       item.stage = "failed";
+      item.sentBytes = 0;
       item.reason = uploadFailureReason(outcome);
       return;
     }
@@ -267,16 +304,28 @@ export class UploadBatch {
     item.stage = "settled";
   }
 
-  /** Run every item that has not gone yet, a few at a time, and mark the batch finished after. */
+  /**
+   * Run every item that has not gone yet, a few at a time, and mark the batch finished after. A
+   * cancelled batch stops taking items: what is in flight is abandoned through the signal, and what
+   * had not started reads "Not sent".
+   */
   async run(): Promise<void> {
     this.finishedAt = null;
-    const pending = this.items.filter((item) => item.stage === "chosen" || item.stage === "failed");
+    this.cancelled = false;
+    this.#abort = new AbortController();
+    const pending = this.items.filter(
+      (item) => item.stage === "chosen" || item.stage === "failed" || item.stage === "cancelled",
+    );
     let next = 0;
     const worker = async (): Promise<void> => {
       for (;;) {
         const item = pending[next];
         next += 1;
         if (item === undefined) return;
+        if (this.cancelled) {
+          item.stage = "cancelled";
+          continue;
+        }
         await this.send(item);
       }
     };
@@ -285,6 +334,13 @@ export class UploadBatch {
     );
     this.finishedAt = this.#dependencies.now();
     noteBatchFinished(this);
+  }
+
+  /** Stop: nothing further starts, and whatever is being sent is abandoned and given back. */
+  cancel(): void {
+    if (!this.running) return;
+    this.cancelled = true;
+    this.#abort.abort();
   }
 }
 
@@ -333,11 +389,21 @@ export function startUploadBatch(
   return batch;
 }
 
-/** Send a batch's failed items again, into the same places. */
+/** How many of a batch's files were left unsent by a cancel. */
+export function unsentCount(batch: UploadBatch): number {
+  return batch.items.filter((item) => item.stage === "cancelled").length;
+}
+
+/** Send a batch's failed and unsent items again, into the same places. */
 export function retryFailedUploads(batch: UploadBatch): void {
-  if (batch.running || batch.failed === 0) return;
+  if (batch.running || (batch.failed === 0 && unsentCount(batch) === 0)) return;
   holdUnloadGuard();
   void batch.run();
+}
+
+/** Stop a running batch. Files already uploaded stay; the rest are given back or never start. */
+export function cancelUploadBatch(batch: UploadBatch): void {
+  batch.cancel();
 }
 
 /** Clear a finished batch from the list. A running one stays: it is still happening. */

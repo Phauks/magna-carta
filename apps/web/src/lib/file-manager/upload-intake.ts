@@ -30,13 +30,18 @@ import { formatBytes } from "./file-rows.ts";
 import { countPhrase } from "./file-manager-vocabulary.ts";
 import { UPLOAD_STAGE_NARRATION, type UploadStage } from "./file-upload.ts";
 
-/** Where one chosen file stands: not yet sent, one of the ceremony's steps, or failed. */
-export type IntakeStage = "chosen" | UploadStage | "failed";
+/**
+ * Where one chosen file stands: not yet sent, one of the ceremony's steps, failed, or not sent
+ * because the reader cancelled the batch before its turn came.
+ */
+export type IntakeStage = "chosen" | UploadStage | "failed" | "cancelled";
 
 export interface IntakeProgress {
   readonly stage: IntakeStage;
   /** Why it failed, when it did — the stage and the Error ID, in the reader's words. */
   readonly reason?: string;
+  /** Bytes the browser has sent so far, while the file is being sent. */
+  readonly sentBytes?: number;
 }
 
 /**
@@ -132,6 +137,8 @@ export interface IntakeFolderRow {
   readonly uploaded: number;
   readonly failed: number;
   readonly inFlight: number;
+  /** Bytes sent so far across the files beneath it; a settled file counts in full. */
+  readonly sentBytes: number;
   /** Whether the row is showing its children. */
   readonly expanded: boolean;
 }
@@ -146,6 +153,8 @@ export interface IntakeFileRow {
   readonly depth: number;
   readonly stage: IntakeStage;
   readonly reason?: string;
+  /** Bytes sent so far, while the file is being sent. */
+  readonly sentBytes: number;
 }
 
 export type IntakeRow = IntakeFolderRow | IntakeFileRow;
@@ -185,6 +194,16 @@ interface Aggregate {
   uploaded: number;
   failed: number;
   inFlight: number;
+  sentBytes: number;
+}
+
+/** What a file's progress counts as sent: everything once the bytes are with the host, else what the browser reports. */
+export function sentBytesOf(size: number, state: IntakeProgress | undefined): number {
+  if (state === undefined) return 0;
+  if (state.stage === "settled" || state.stage === "committing" || state.stage === "scanning") {
+    return size;
+  }
+  return Math.min(size, state.sentBytes ?? 0);
 }
 
 function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgress>): Aggregate {
@@ -195,6 +214,7 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     uploaded: 0,
     failed: 0,
     inFlight: 0,
+    sentBytes: 0,
   };
   for (const entry of node.files) {
     total.fileCount += 1;
@@ -202,10 +222,12 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     if (entry.file.lastModified > 0) {
       total.latestModified = Math.max(total.latestModified ?? 0, entry.file.lastModified);
     }
-    const stage = progress.get(intakeEntryKey(entry))?.stage ?? "chosen";
+    const state = progress.get(intakeEntryKey(entry));
+    const stage = state?.stage ?? "chosen";
     if (stage === "settled") total.uploaded += 1;
     else if (stage === "failed") total.failed += 1;
-    else if (stage !== "chosen") total.inFlight += 1;
+    else if (stage !== "chosen" && stage !== "cancelled") total.inFlight += 1;
+    total.sentBytes += sentBytesOf(entry.file.size, state);
   }
   for (const child of node.children.values()) {
     const below = aggregate(child, progress);
@@ -217,6 +239,7 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     total.uploaded += below.uploaded;
     total.failed += below.failed;
     total.inFlight += below.inFlight;
+    total.sentBytes += below.sentBytes;
   }
   return total;
 }
@@ -236,6 +259,7 @@ function fileRow(
     depth,
     stage: state?.stage ?? "chosen",
     ...(state?.reason === undefined ? {} : { reason: state.reason }),
+    sentBytes: sentBytesOf(entry.file.size, state),
   };
 }
 
@@ -334,6 +358,7 @@ export const INTAKE_STAGE_LABEL: Readonly<Record<IntakeStage, string>> = {
   scanning: "Checking",
   settled: "Uploaded",
   failed: "Upload failed",
+  cancelled: "Not sent",
 };
 
 /** The Status column's values, in the order the transfer moves through them. */
@@ -345,13 +370,33 @@ export const INTAKE_STAGE_ORDER: readonly IntakeStage[] = [
   "scanning",
   "settled",
   "failed",
+  "cancelled",
 ];
+
+/** The share of a file that has gone, as a whole percent, for the row that is sending it. */
+export function intakePercent(sentBytes: number, totalBytes: number): number {
+  if (totalBytes <= 0) return 100;
+  return Math.min(100, Math.floor((sentBytes / totalBytes) * 100));
+}
+
+/** The Status column's text for a file row: the stage word, with the share sent while it is sending. */
+export function intakeFileStatus(row: IntakeFileRow): string {
+  if (row.stage !== "uploading") return INTAKE_STAGE_LABEL[row.stage];
+  const percent = intakePercent(row.sentBytes, row.entry.file.size);
+  return `${INTAKE_STAGE_LABEL.uploading} · ${String(percent)}%`;
+}
 
 /** The one sentence a row's stage says in full — the tooltip behind the status word. */
 export function intakeStageSentence(row: IntakeFileRow): string {
   if (row.stage === "chosen") return "Chosen.";
   if (row.stage === "failed") return row.reason ?? "Upload failed.";
   if (row.stage === "settled") return "Uploaded.";
+  if (row.stage === "cancelled")
+    return "Not sent: the upload was cancelled before this file's turn.";
+  if (row.stage === "uploading") {
+    const sent = formatBytes(row.sentBytes);
+    return `${UPLOAD_STAGE_NARRATION.uploading}: ${sent} of ${formatBytes(row.entry.file.size)}.`;
+  }
   return UPLOAD_STAGE_NARRATION[row.stage];
 }
 
@@ -360,6 +405,7 @@ export function intakeFolderStatus(row: IntakeFolderRow): string {
   if (row.uploaded === 0 && row.failed === 0 && row.inFlight === 0) return "Chosen";
   const parts = [`${String(row.uploaded)} of ${String(row.fileCount)} uploaded`];
   if (row.failed > 0) parts.push(`${String(row.failed)} failed`);
+  if (row.inFlight > 0) parts.push(`${String(intakePercent(row.sentBytes, row.totalBytes))}%`);
   return parts.join(" · ");
 }
 
@@ -441,8 +487,7 @@ export function intakeColumns(context: { readonly filtering: boolean }): GridCol
       // Stuck to the trailing edge, so where a file stands is in reach however wide the names run.
       pinnedEnd: true,
       filterValues: INTAKE_STAGE_ORDER.map((stage) => INTAKE_STAGE_LABEL[stage]),
-      value: (row) =>
-        row.kind === "folder" ? intakeFolderStatus(row) : INTAKE_STAGE_LABEL[row.stage],
+      value: (row) => (row.kind === "folder" ? intakeFolderStatus(row) : intakeFileStatus(row)),
     },
   ];
 }

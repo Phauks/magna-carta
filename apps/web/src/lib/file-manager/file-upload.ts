@@ -13,6 +13,17 @@
  * the list, which shows one folder at a time, then had nothing to show. From the reader's side that
  * is indistinguishable from an upload that did not work.
  *
+ * TWO LEGS, ONE CEREMONY. At or below the firm's mode threshold (100 MB by default) the host answers
+ * a single signed PUT. Above it the host opens a multipart session and this module runs the S3
+ * ceremony the host tracks: sign each part, PUT it, keep the ETag the storage answers, and hand the
+ * manifest back on completion. Parts are fixed-size (the storage requires every part but the last
+ * to be the same size), several go at once, and a part that fails is sent again on its own — never
+ * the whole file, which is the point of having parts (docs/conventions/network-resilience.md).
+ *
+ * BYTES ARE REPORTED AS THEY LEAVE. The write runs on the one browser transport that reports upload
+ * progress, and every leg reports the bytes sent so far against the file's size, so a row can say
+ * "Sending · 42%" rather than only that it is sending.
+ *
  * Nothing here blocks a file. A suspected finding or a type mismatch never refuses the write: the
  * file is stored and committed, and the reader deals with it afterwards. Refusing to save is the
  * greater hazard.
@@ -30,10 +41,13 @@ import {
   completeUpload,
   putUploadBytes,
   readUploadStatus,
+  signUploadPart,
   type ApiOutcome,
   type Problem,
+  type PutUploadOptions,
+  type UploadedPart,
 } from "$lib/documents/document-api.ts";
-import { requestJson } from "$lib/api/request.ts";
+import { problemOutcome, requestJson, transportOutcome } from "$lib/api/request.ts";
 
 export type UploadStage = "reserving" | "uploading" | "committing" | "scanning" | "settled";
 
@@ -45,9 +59,11 @@ export type UploadOutcome =
   /** Everything the caller controls succeeded; the verdict had not landed before the wait ran out. */
   | { kind: "settling"; fileId: string }
   | { kind: "problem"; problem: Problem; stage: UploadStage }
-  | { kind: "transport"; stage: UploadStage };
+  | { kind: "transport"; stage: UploadStage }
+  /** The caller abandoned the transfer. The reservation was given back; nothing is on the matter. */
+  | { kind: "cancelled"; stage: UploadStage };
 
-/** The reservation, as the host answers it. Only the single-shot PUT leg is run here. */
+/** The reservation, as the host answers it. */
 interface ReservedUpload {
   mode: "put" | "multipart";
   uploadId: string;
@@ -63,6 +79,31 @@ interface ReservedUpload {
 // nobody is left staring. Running out is NOT a failure; it is its own outcome.
 const POLL_ATTEMPTS = 20;
 const POLL_INTERVAL_MILLISECONDS = 1_500;
+
+const MEBIBYTE = 1024 * 1024;
+/**
+ * The part size a multipart upload is cut into. Sixteen mebibytes: large enough that a gigabyte is
+ * sixty-odd round trips rather than two hundred, small enough that a lost part costs seconds to
+ * resend. The storage's own floor is five; its ceiling is ten thousand parts, so a file past 160 GB
+ * takes larger parts to fit under it.
+ */
+export const MULTIPART_PART_SIZE = 16 * MEBIBYTE;
+const MULTIPART_MAX_PARTS = 10_000;
+/** How many parts of ONE file are in flight at once. */
+export const MULTIPART_CONCURRENCY = 3;
+/**
+ * How a failed write is retried: progressive backoff, connection kept, the same bytes sent again.
+ * Three tries. A part is retried on its own; a single-shot body is small enough that a resend is
+ * cheaper than telling the reader to start over.
+ */
+const RETRY_DELAYS_MILLISECONDS: readonly number[] = [500, 1_500, 4_000];
+
+/** The part size for a file of this many bytes: the fixed size, grown only to fit the part ceiling. */
+export function multipartPartSize(totalBytes: number): number {
+  const minimum = Math.ceil(totalBytes / MULTIPART_MAX_PARTS);
+  if (minimum <= MULTIPART_PART_SIZE) return MULTIPART_PART_SIZE;
+  return Math.ceil(minimum / MEBIBYTE) * MEBIBYTE;
+}
 
 export interface UploadRequest {
   readonly fetchImpl: typeof fetch;
@@ -82,12 +123,27 @@ export interface UploadRequest {
    */
   readonly createdAtBasis?: "upload" | "source";
   readonly onStage?: (stage: UploadStage) => void;
+  /** Bytes sent so far against the file's size, as they leave the browser. */
+  readonly onProgress?: (sentBytes: number, totalBytes: number) => void;
+  /** Abandons the transfer. Whatever was reserved is given back; the outcome is `cancelled`. */
+  readonly signal?: AbortSignal;
   readonly sleep?: (milliseconds: number) => Promise<void>;
   readonly newIdempotencyKey?: () => string;
+  /** The XMLHttpRequest constructor the byte writes use. A seam for tests. */
+  readonly xhr?: PutUploadOptions["xhr"];
 }
 
 function defaultSleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+/**
+ * Whether the reader has cancelled. A function rather than a read of `signal.aborted` in place,
+ * because the flag flips while the code awaits, and a property read is narrowed by the type-checker
+ * as if it could not.
+ */
+function cancelled(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted ?? false;
 }
 
 /**
@@ -98,13 +154,146 @@ function reserveUpload(
   fetchImpl: typeof fetch,
   body: Record<string, unknown>,
   idempotencyKey: string,
+  signal: AbortSignal | undefined,
 ): Promise<ApiOutcome<ReservedUpload>> {
-  return requestJson(fetchImpl, "/api/v1/uploads", { method: "POST", body, idempotencyKey });
+  return requestJson(fetchImpl, "/api/v1/uploads", {
+    method: "POST",
+    body,
+    idempotencyKey,
+    ...(signal === undefined ? {} : { signal }),
+  });
 }
 
 function at(outcome: ApiOutcome<unknown>, stage: UploadStage): UploadOutcome {
   if (outcome.kind === "problem") return { kind: "problem", problem: outcome.problem, stage };
   return { kind: "transport", stage };
+}
+
+/** Whether a failed write is worth sending again: nothing answered, or the storage's side broke. */
+function retryable(outcome: ApiOutcome<unknown>): boolean {
+  if (outcome.kind === "transport") return true;
+  return outcome.kind === "problem" && outcome.problem.status >= 500;
+}
+
+/**
+ * Run a write, and run it again with progressive backoff when the failure is the kind that a
+ * second try can answer. An abort ends the attempts at once: the reader has changed their mind, and
+ * a retry would be the opposite of what they asked.
+ */
+async function withRetries<T>(
+  attempt: () => Promise<ApiOutcome<T>>,
+  sleep: (milliseconds: number) => Promise<void>,
+  signal: AbortSignal | undefined,
+): Promise<ApiOutcome<T>> {
+  let outcome = await attempt();
+  for (const delay of RETRY_DELAYS_MILLISECONDS) {
+    if (outcome.kind === "ok" || !retryable(outcome) || cancelled(signal)) return outcome;
+    await sleep(delay);
+    if (cancelled(signal)) return outcome;
+    outcome = await attempt();
+  }
+  return outcome;
+}
+
+/** The single-shot leg: the whole file to the URL the reservation signed, with its signed headers. */
+async function sendSingle(
+  request: UploadRequest,
+  reservation: ReservedUpload & { url: string },
+  sleep: (milliseconds: number) => Promise<void>,
+): Promise<ApiOutcome<unknown>> {
+  const { fetchImpl, file, signal, xhr } = request;
+  return withRetries(
+    () =>
+      putUploadBytes(fetchImpl, reservation.url, reservation.headers ?? {}, file, {
+        ...(request.onProgress === undefined ? {} : { onProgress: request.onProgress }),
+        ...(signal === undefined ? {} : { signal }),
+        ...(xhr === undefined ? {} : { xhr }),
+      }),
+    sleep,
+    signal,
+  );
+}
+
+/**
+ * The multipart leg: the file cut into fixed parts, each signed and sent on its own, several at a
+ * time, each retried on its own. Answers the manifest the completion needs, or the first failure
+ * that survived its retries.
+ */
+async function sendParts(
+  request: UploadRequest,
+  reservation: ReservedUpload,
+  sleep: (milliseconds: number) => Promise<void>,
+): Promise<ApiOutcome<UploadedPart[]>> {
+  const { fetchImpl, file, signal, xhr, onProgress } = request;
+  const partSize = multipartPartSize(file.size);
+  const partCount = Math.max(1, Math.ceil(file.size / partSize));
+  const sent = new Array<number>(partCount).fill(0);
+  const report = (): void => {
+    onProgress?.(
+      sent.reduce((sum, bytes) => sum + bytes, 0),
+      file.size,
+    );
+  };
+  const parts: UploadedPart[] = [];
+  let failure: ApiOutcome<unknown> | null = null;
+  let next = 0;
+
+  const sendPart = async (partNumber: number): Promise<void> => {
+    const start = (partNumber - 1) * partSize;
+    const slice = file.slice(start, Math.min(start + partSize, file.size));
+    const outcome = await withRetries(
+      async () => {
+        const signed = await signUploadPart(fetchImpl, reservation.uploadId, partNumber);
+        if (signed.kind !== "ok") return signed;
+        return putUploadBytes(fetchImpl, signed.value.url, {}, slice, {
+          onProgress: (loaded) => {
+            sent[partNumber - 1] = loaded;
+            report();
+          },
+          ...(signal === undefined ? {} : { signal }),
+          ...(xhr === undefined ? {} : { xhr }),
+        });
+      },
+      sleep,
+      signal,
+    );
+    if (outcome.kind !== "ok") {
+      failure ??= outcome;
+      return;
+    }
+    sent[partNumber - 1] = slice.size;
+    report();
+    // A storage that exposes no ETag cannot complete a multipart upload: the manifest would be
+    // empty-handed. Said as a problem the reader can report, not as a silent hang.
+    if (outcome.value.etag === null) {
+      failure ??= problemOutcome(
+        {
+          status: 502,
+          detail:
+            "The storage did not return the part's ETag, so the upload cannot be assembled. The " +
+            "bucket's CORS policy must expose the ETag header.",
+        },
+        "PUT (presigned object storage)",
+      );
+      return;
+    }
+    parts.push({ partNumber, etag: outcome.value.etag });
+  };
+
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      if (failure !== null || cancelled(signal)) return;
+      next += 1;
+      if (next > partCount) return;
+      await sendPart(next);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(MULTIPART_CONCURRENCY, partCount) }, () => worker()),
+  );
+  if (failure !== null) return failure as ApiOutcome<UploadedPart[]>;
+  if (cancelled(signal)) return transportOutcome("PUT (presigned object storage)");
+  return { kind: "ok", value: parts.toSorted((left, right) => left.partNumber - right.partNumber) };
 }
 
 export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOutcome> {
@@ -118,10 +307,12 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
     fileId,
     createdAtBasis,
     onStage,
+    signal,
     sleep = defaultSleep,
     newIdempotencyKey = () => crypto.randomUUID(),
   } = request;
 
+  if (cancelled(signal)) return { kind: "cancelled", stage: "reserving" };
   onStage?.("reserving");
   const reserved = await reserveUpload(
     fetchImpl,
@@ -142,43 +333,45 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
       ...(createdAtBasis === undefined ? {} : { createdAtBasis }),
     },
     newIdempotencyKey(),
+    signal,
   );
-  if (reserved.kind !== "ok") return at(reserved, "reserving");
-
-  const reservation = reserved.value;
-  if (reservation.mode !== "put" || reservation.url === undefined) {
-    // A file over the firm's mode threshold reserves a resumable multipart session instead. That
-    // ceremony signs and tracks every part, which this surface does not run — so it says so plainly
-    // rather than half-running it. The reservation it was handed is given back first: the session
-    // already minted a pending version, and "the matter is unchanged" has to be made true, not said.
-    await abortUpload(fetchImpl, reservation.uploadId);
-    return {
-      kind: "problem",
-      stage: "reserving",
-      problem: {
-        status: 413,
-        detail:
-          "This file is large enough to need the resumable upload, which this screen does not run " +
-          "yet. Nothing was written; the matter is unchanged.",
-      },
-    };
+  if (reserved.kind !== "ok") {
+    return cancelled(signal)
+      ? { kind: "cancelled", stage: "reserving" }
+      : at(reserved, "reserving");
   }
+  const reservation = reserved.value;
+
+  /** Give the reservation back and say how the transfer ended. */
+  const giveBack = async (
+    stage: UploadStage,
+    outcome: ApiOutcome<unknown>,
+  ): Promise<UploadOutcome> => {
+    await abortUpload(fetchImpl, reservation.uploadId);
+    return cancelled(signal) ? { kind: "cancelled", stage } : at(outcome, stage);
+  };
 
   onStage?.("uploading");
-  // The signed headers carry the object's dimensions and are passed through untouched: bytes
-  // written without them land somewhere nothing can place.
-  const put = await putUploadBytes(fetchImpl, reservation.url, reservation.headers ?? {}, file);
-  if (put.kind !== "ok") {
-    await abortUpload(fetchImpl, reservation.uploadId);
-    return at(put, "uploading");
+  let manifest: UploadedPart[] | undefined;
+  if (reservation.mode === "put" && reservation.url !== undefined) {
+    // The signed headers carry the object's dimensions and are passed through untouched: bytes
+    // written without them land somewhere nothing can place.
+    const put = await sendSingle(request, { ...reservation, url: reservation.url }, sleep);
+    if (put.kind !== "ok") return giveBack("uploading", put);
+  } else {
+    const sentParts = await sendParts(request, reservation, sleep);
+    if (sentParts.kind !== "ok") return giveBack("uploading", sentParts);
+    manifest = sentParts.value;
   }
 
   onStage?.("committing");
-  const completed = await completeUpload(fetchImpl, reservation.uploadId, newIdempotencyKey());
-  if (completed.kind !== "ok") {
-    await abortUpload(fetchImpl, reservation.uploadId);
-    return at(completed, "committing");
-  }
+  const completed = await completeUpload(
+    fetchImpl,
+    reservation.uploadId,
+    newIdempotencyKey(),
+    manifest,
+  );
+  if (completed.kind !== "ok") return giveBack("committing", completed);
 
   onStage?.("scanning");
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
@@ -220,22 +413,11 @@ export function sourceInstantOf(file: Pick<File, "lastModified">): string | null
   return new Date(milliseconds).toISOString();
 }
 
-/**
- * One file's live line in the Upload dialog: its name, where its ceremony stands, and — when it
- * failed — a reason that names the stage and quotes the Error ID, because "an unexpected error
- * occurred" with nothing to report was exactly the complaint this line exists to answer.
- */
-export interface UploadProgressItem {
-  readonly name: string;
-  readonly stage: UploadStage | "failed";
-  readonly reason?: string;
-}
-
 /** What the reader is told while an upload runs. One sentence per step, never a bare spinner. */
 export const UPLOAD_STAGE_NARRATION: Readonly<Record<UploadStage, string>> = {
   reserving: "Reserving the file",
   uploading: "Sending the bytes to storage",
   committing: "Recording the upload",
   scanning: "Checking the file",
-  settled: "Finished",
+  settled: "Uploaded",
 };

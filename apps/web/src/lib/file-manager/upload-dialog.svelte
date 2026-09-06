@@ -48,6 +48,7 @@
     entriesFromFileList,
     type DroppedEntry,
   } from "@magna-carta/design-system/dropzone";
+  import Ban from "@lucide/svelte/icons/ban";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
@@ -76,7 +77,9 @@
     type IntakeRow,
   } from "./upload-intake.ts";
   import {
+    cancelUploadBatch,
     retryFailedUploads,
+    unsentCount,
     type UploadBatch,
     type UploadBatchPlan,
   } from "./upload-queue.svelte.ts";
@@ -276,6 +279,11 @@
     if (batch === null) return "";
     const parts = [`${String(batch.uploaded)} of ${String(batch.total)} uploaded`];
     if (batch.failed > 0) parts.push(`${String(batch.failed)} failed`);
+    const unsent = unsentCount(batch);
+    if (unsent > 0) parts.push(`${String(unsent)} not sent`);
+    if (batch.running) {
+      parts.push(`${formatBytes(batch.sentBytes)} of ${formatBytes(batch.totalBytes)}`);
+    }
     return parts.join(" · ");
   });
 
@@ -477,12 +485,21 @@
               Remove Selected
             </Button>
           {/if}
-          {#if batch !== null && !batch.running && batch.failed > 0}
+          {#if batch !== null && batch.running}
+            {@const running = batch}
+            <!-- Stopping is offered where the transfer is watched. What has landed stays; what is
+                 being sent is given back; what had not started reads "Not sent". -->
+            <Button variant="secondary" size="sm" onclick={() => cancelUploadBatch(running)}>
+              <Ban class="size-16" aria-hidden="true" />
+              Cancel Upload
+            </Button>
+          {/if}
+          {#if batch !== null && !batch.running && (batch.failed > 0 || unsentCount(batch) > 0)}
             {@const finished = batch}
             <!-- The way to try again sits beside the failure it answers, not only in the tray. -->
             <Button variant="secondary" size="sm" onclick={() => retryFailedUploads(finished)}>
               <RotateCcw class="size-16" aria-hidden="true" />
-              Retry Failed
+              {finished.failed > 0 ? "Retry Failed" : "Send the Rest"}
             </Button>
           {/if}
           <DropdownMenu.Root>
@@ -509,10 +526,12 @@
         </span>
       </div>
 
-      <!-- Mounted from the start at zero, so the press adds no row above the table. -->
+      <!-- Mounted from the start at zero, so the press adds no row above the table. Bytes, not
+           files: one large file among many small ones would otherwise sit at "almost done" for
+           most of the transfer. -->
       <Progress
-        value={batch === null ? 0 : batch.uploaded + batch.failed}
-        max={batch === null ? 1 : Math.max(batch.total, 1)}
+        value={batch === null ? 0 : batch.sentBytes}
+        max={batch === null ? 1 : Math.max(batch.totalBytes, 1)}
         aria-label="Upload progress"
       />
 
@@ -613,10 +632,12 @@
           class="size-16 shrink-0 text-status-danger-subtle-foreground"
           aria-hidden="true"
         />
-      {:else if row.stage !== "chosen"}
+      {:else if row.stage !== "chosen" && row.stage !== "cancelled"}
         <LoaderCircle class="size-16 shrink-0 text-text-subtle" aria-hidden="true" />
       {/if}
-      <span class={row.stage === "chosen" ? "text-text-subtle" : undefined}>{text}</span>
+      <span class={row.stage === "chosen" || row.stage === "cancelled" ? "text-text-subtle" : undefined}>
+        {text}
+      </span>
     </span>
   {:else}
     {text}
