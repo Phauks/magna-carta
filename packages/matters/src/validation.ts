@@ -3,7 +3,8 @@
 export type MatterValidationCode =
   | "empty-matter-title"
   | "matter-not-found"
-  | "matter-not-prospective"
+  | "matter-not-consultation"
+  | "matter-not-intake"
   | "matter-not-closed"
   | "matter-already-closed"
   | "scheme-missing"

@@ -206,8 +206,8 @@ describe("slice 1·1 end-to-end", () => {
 
   it("creates a consultation that carries no number and sits only in the Consultations view", async () => {
     const response = await post("/api/v1/matters", {
-      title: "Prospective Smith",
-      status: "prospective",
+      title: "Consultation Smith",
+      status: "consultation",
       responsibleMemberId: firm.owner.id,
       locationId,
     });
@@ -216,7 +216,7 @@ describe("slice 1·1 end-to-end", () => {
     expect(body.matterNumber).toBeNull();
     consultationId = body.matterId;
 
-    // Absent from the working caseload (the default list excludes prospective matters).
+    // Absent from the working caseload (the default list excludes consultation matters).
     const list = await get("/api/v1/matters");
     const listBody = (await list.json()) as { data: { id: string }[] };
     expect(listBody.data.some((m) => m.id === consultationId)).toBe(false);

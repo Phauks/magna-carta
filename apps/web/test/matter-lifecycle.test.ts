@@ -29,7 +29,8 @@ import { MATTER_STATUSES } from "../src/lib/matters/matter-status.ts";
 
 describe("matterLifecycleStep", () => {
   it("offers one step per status, in the direction the lifecycle runs", () => {
-    expect(matterLifecycleStep("prospective").action).toBe("open");
+    expect(matterLifecycleStep("intake").action).toBe("graduate");
+    expect(matterLifecycleStep("consultation").action).toBe("open");
     expect(matterLifecycleStep("open").action).toBe("close");
     expect(matterLifecycleStep("closed").action).toBe("reopen");
   });
@@ -41,7 +42,8 @@ describe("matterLifecycleStep", () => {
   });
 
   it("names the permission each endpoint enforces", () => {
-    expect(MATTER_LIFECYCLE_STEPS.prospective.permission).toBe("matters:open");
+    expect(MATTER_LIFECYCLE_STEPS.intake.permission).toBe("matters:create");
+    expect(MATTER_LIFECYCLE_STEPS.consultation.permission).toBe("matters:open");
     expect(MATTER_LIFECYCLE_STEPS.open.permission).toBe("matters:close");
     expect(MATTER_LIFECYCLE_STEPS.closed.permission).toBe("matters:reopen");
   });
@@ -243,7 +245,7 @@ describe("what opening requires", () => {
     expect(matterOpenRequirements(null, true)).toEqual([]);
     const rows = matterOpenRequirements({
       matterId: "matter_a",
-      status: "prospective",
+      status: "consultation",
       openable: false,
       blockers,
     });
@@ -258,7 +260,7 @@ describe("what opening requires", () => {
   it("answers whether the consultation would open only once the rules have", () => {
     expect(matterCanOpen(null)).toBeNull();
     expect(
-      matterCanOpen({ matterId: "matter_a", status: "prospective", openable: true, blockers: [] }),
+      matterCanOpen({ matterId: "matter_a", status: "consultation", openable: true, blockers: [] }),
     ).toBe(true);
   });
 

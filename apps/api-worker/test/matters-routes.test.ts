@@ -166,7 +166,7 @@ describe("matter lifecycle routes", () => {
 
     const consultation = await post("/api/v1/matters", {
       title: "Walk-in consult",
-      status: "prospective",
+      status: "consultation",
       responsibleMemberId: ownerUserId,
     });
     expect(consultation.status).toBe(201);
@@ -176,13 +176,13 @@ describe("matter lifecycle routes", () => {
     };
     expect(consultationBody.matterNumber).toBeNull();
 
-    // The main list is the working caseload — the prospective consultation is excluded.
+    // The main list is the working caseload — the consultation is excluded.
     const list = await get("/api/v1/matters");
     const listBody = (await list.json()) as { data: { id: string; status: string }[] };
     expect(listBody.data.some((m) => m.id === openBody.matterId)).toBe(true);
     expect(listBody.data.some((m) => m.id === consultationBody.matterId)).toBe(false);
 
-    // The Consultations view holds the prospective.
+    // The Consultations view holds the consultation.
     const consultations = await get("/api/v1/matters/consultations");
     const consultationsBody = (await consultations.json()) as {
       data: { id: string; isStale: boolean }[];
@@ -208,7 +208,7 @@ describe("matter lifecycle routes", () => {
     expect(person.status).toBe(201);
     const { id: clientEntityId } = (await person.json()) as { id: string };
 
-    for (const status of ["open", "prospective"] as const) {
+    for (const status of ["open", "consultation"] as const) {
       const created = await post("/api/v1/matters", {
         title: `Pemberton ${status}`,
         status,
@@ -384,7 +384,7 @@ describe("the matter detail read", () => {
   it("reports an unset type and Location as absent rather than inventing one", async () => {
     const created = await post("/api/v1/matters", {
       title: "Bare Matter",
-      status: "prospective",
+      status: "consultation",
       responsibleMemberId: ownerUserId,
     });
     expect(created.status).toBe(201);
@@ -398,7 +398,7 @@ describe("the matter detail read", () => {
     };
     expect(body.matterTypeName).toBeNull();
     expect(body.locationName).toBeNull();
-    // A prospective matter has not opened, and says so.
+    // A consultation has not opened, and says so.
     expect(body.openedAt).toBeNull();
   });
 });

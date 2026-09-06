@@ -22,6 +22,9 @@ const MATTER_LIST_COLUMNS =
 
 export interface ListMattersFilters {
   readonly status?: MatterStatus;
+  // Several statuses at once, for a reader that spans rungs (the intake desk lists intakes and
+  // consultations together). Ignored when `status` names one.
+  readonly statuses?: readonly MatterStatus[];
   readonly matterTypeId?: MatterTypeId;
   readonly locationId?: LocationId;
   readonly responsibleMemberId?: UserId;
@@ -42,13 +45,17 @@ export function listMattersStatement(
   if (filters.status !== undefined) {
     conditions.push("status = ?");
     bindings.push(filters.status);
+  } else if (filters.statuses !== undefined && filters.statuses.length > 0) {
+    conditions.push(`status IN (${filters.statuses.map(() => "?").join(", ")})`);
+    bindings.push(...filters.statuses);
   } else {
-    // The main list is the working caseload — unnumbered prospectives live in the consultations view.
-    // Stated as a range exclusion (not status IN ('open','closed')) so the planner satisfies the
-    // (created_at, id) keyset sort straight from matter_created_at_id_index: an equality/IN on status
-    // would instead drive the status index and force a materialize-and-sort temporary B-tree. status
-    // is one of exactly three values (the matter_status_check constraint), so this is equivalent.
-    conditions.push("status != 'prospective'");
+    // The main list is the working caseload — the numbered matters. Intakes live on the intake desk
+    // and unnumbered consultations in the consultations view. Stated as exclusions rather than
+    // status IN ('open','closed') so the planner satisfies the (created_at, id) keyset sort straight
+    // from matter_created_at_id_index: an equality/IN on status would instead drive the status index
+    // and force a materialize-and-sort temporary B-tree. status is one of exactly four values (the
+    // matter_status_check constraint), so this is equivalent.
+    conditions.push("status != 'intake'", "status != 'consultation'");
   }
   if (filters.matterTypeId !== undefined) {
     conditions.push("matter_type_id = ?");
@@ -219,7 +226,7 @@ export function listConsultationsStatement(
   cursor: SortCursor | undefined,
   limit: number,
 ): SqlStatement {
-  const conditions = ["status = 'prospective'", "responsible_member_id = ?"];
+  const conditions = ["status = 'consultation'", "responsible_member_id = ?"];
   const bindings: unknown[] = [responsibleMemberId];
   appendCursorPredicate(conditions, bindings, cursor);
   bindings.push(limit);
@@ -253,7 +260,8 @@ const MS_PER_DAY = 86_400_000;
 
 export interface MatterCounts {
   readonly total: number;
-  readonly prospective: number;
+  readonly intake: number;
+  readonly consultation: number;
   readonly open: number;
   readonly closed: number;
 }
@@ -263,10 +271,10 @@ export async function readMatterCounts(database: SqlDatabase): Promise<MatterCou
   const { results } = await database
     .prepare(`SELECT status, COUNT(*) AS c FROM ${MATTER_TABLE} GROUP BY status`)
     .all<{ status: string; c: number }>();
-  const counts = { total: 0, prospective: 0, open: 0, closed: 0 };
+  const counts = { total: 0, intake: 0, consultation: 0, open: 0, closed: 0 };
   for (const row of results) {
     counts.total += row.c;
-    if (row.status === "prospective" || row.status === "open" || row.status === "closed") {
+    if (isMatterStatus(row.status)) {
       counts[row.status] += row.c;
     }
   }
@@ -277,10 +285,15 @@ export interface MatterTypeCounts {
   // Null when the matter carries no type: those matters still count, as their own row, because a
   // rollup that dropped them would report fewer matters than the firm has.
   readonly matterTypeName: string | null;
-  readonly prospective: number;
+  readonly intake: number;
+  readonly consultation: number;
   readonly open: number;
   readonly closed: number;
   readonly total: number;
+}
+
+function isMatterStatus(value: string): value is MatterStatus {
+  return value === "intake" || value === "consultation" || value === "open" || value === "closed";
 }
 
 // Per-firm matter counts grouped by the firm's own matter-type catalog. System matters are
@@ -294,18 +307,19 @@ export async function readMatterCountsByType(
       `SELECT matter_type.name AS type_name, ${MATTER_TABLE}.status AS status, COUNT(*) AS c FROM ${MATTER_TABLE} LEFT JOIN ${MATTER_TYPE_TABLE} AS matter_type ON matter_type.id = ${MATTER_TABLE}.matter_type_id WHERE ${MATTER_TABLE}.system_key IS NULL GROUP BY matter_type.name, ${MATTER_TABLE}.status`,
     )
     .all<{ type_name: string | null; status: string; c: number }>();
-  const byName = new Map<string | null, { prospective: number; open: number; closed: number }>();
+  const byName = new Map<
+    string | null,
+    { intake: number; consultation: number; open: number; closed: number }
+  >();
   for (const row of results) {
-    const bucket = byName.get(row.type_name) ?? { prospective: 0, open: 0, closed: 0 };
-    if (row.status === "prospective" || row.status === "open" || row.status === "closed") {
-      bucket[row.status] += row.c;
-    }
+    const bucket = byName.get(row.type_name) ?? { intake: 0, consultation: 0, open: 0, closed: 0 };
+    if (isMatterStatus(row.status)) bucket[row.status] += row.c;
     byName.set(row.type_name, bucket);
   }
   return [...byName.entries()]
     .map(([matterTypeName, bucket]) =>
       Object.assign({ matterTypeName }, bucket, {
-        total: bucket.prospective + bucket.open + bucket.closed,
+        total: bucket.intake + bucket.consultation + bucket.open + bucket.closed,
       }),
     )
     .sort(

@@ -39,7 +39,7 @@ async function seedMatter(database: BatchDatabase, matterId: MatterId): Promise<
     .run();
   await database
     .prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Smith v. Jones', 'prospective', ?2, ?3, ?3)",
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Smith v. Jones', 'consultation', ?2, ?3, ?3)",
     )
     .bind(matterId, "user_attorney" as UserId, NOW)
     .run();

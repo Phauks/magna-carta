@@ -5,8 +5,10 @@ import type {
 } from "@magna-carta/matters/open-preconditions";
 import { readIntakeChecklist, type IntakeStepReaders } from "./checklist.ts";
 
-// THE OPENING GATE. A consultation does not open while a REQUIRED step of the procedure binding it
-// has no satisfying answer — from the subsystem that owns the fact, or from a member's record.
+// THE GRADUATION GATE. An intake does not become a consultation while a REQUIRED step of the
+// procedure binding its kind has no satisfying answer — from the subsystem that owns the fact, or
+// from a member's record. The owner's ordering (2026-09-05): intake is the walk to the consultation,
+// and the firm's procedure is what it must clear on the way.
 //
 // It is a gate on the firm's own procedure and never on a verdict. A conflicts-check step is
 // satisfied when a check has run at the firm's floor, every surfaced hit has a reviewer's answer and
@@ -20,10 +22,10 @@ import { readIntakeChecklist, type IntakeStepReaders } from "./checklist.ts";
 // procedure (the schema says why), and a gate a firm did not write is a rule it cannot answer for.
 //
 // There is no commit guard. The facts this reads are derived across several subsystems and a
-// member's records, and no single statement re-asserts them inside the open's own batch; the window
-// between the read and the draw is the same one every derived precondition has, and a step reopened
-// in it is a step the matter's Intake section will show as outstanding on an open matter, which is
-// visible rather than silent.
+// member's records, and no single statement re-asserts them inside the graduation's own batch; the
+// window between the read and the draw is the same one every derived precondition has, and a step
+// reopened in it is a step the matter's Intake section will show as outstanding on a consultation,
+// which is visible rather than silent.
 
 export const INTAKE_STEP_OUTSTANDING = "intake-step-outstanding";
 
@@ -36,12 +38,12 @@ async function check(
     .filter((step) => step.required && !step.standing.satisfied)
     .map((step) => ({
       code: INTAKE_STEP_OUTSTANDING,
-      message: `the intake step "${step.title}" (${step.procedureName}) is outstanding: ${step.standing.statement} Answer it on the matter's Intake section, or a member who may waive it records why the matter opens without it.`,
+      message: `the intake step "${step.title}" (${step.procedureName}) is outstanding: ${step.standing.statement} Answer it on the matter's Intake section, or a member who may waive it records why the intake completes without it.`,
     }));
 }
 
-// What the composition root registers against the matter shell's open hook. The readers are the
-// same registry the checklist route uses, so the gate and the screen can never answer differently.
-export function matterIntakeOpenPrecondition(readers: IntakeStepReaders): OpenPrecondition {
+// What the composition root registers against the matter shell's graduation hook. The readers are
+// the same registry the checklist route uses, so the gate and the screen can never answer differently.
+export function matterIntakeGraduationPrecondition(readers: IntakeStepReaders): OpenPrecondition {
   return { check: (context) => check(context, readers) };
 }

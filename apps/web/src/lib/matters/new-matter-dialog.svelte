@@ -34,7 +34,7 @@
    * operation staffs everybody else, and a practice area the firm has not adopted yet becomes one
    * of the firm's own matter types when it is chosen. The client is a directory record, chosen and
    * never typed, and the conflict check runs against it before the matter exists. What cannot be
-   * used yet says so: a matter cannot be CREATED closed (the create operation takes only Prospective
+   * used yet says so: a matter cannot be CREATED closed (the create operation takes only Consultation
    * or Active), and money is recorded against a matter that does not exist yet. Neither is a field
    * that quietly discards what somebody typed.
    *
@@ -43,7 +43,7 @@
    * handed the same one.
    *
    * THE SAME WINDOW STARTS AN INTAKE. Opened from the intake desk (`purpose="intake"`), it records
-   * a consultation and nothing else: the status is fixed at Prospective and not offered, the commit
+   * a consultation and nothing else: the status is fixed at Consultation and not offered, the commit
    * says Start Intake, and the money block is not drawn, because on an intake the fee and the
    * deposit are steps of the firm's procedure and the checklist asks for them. A second window for
    * the same act would be a second place for the client field and the conflict check to drift.
@@ -118,7 +118,7 @@
     onMatterTypeAdopted,
   }: {
     open?: boolean;
-    /** What the window is for: a matter in any creatable status, or an intake (always prospective). */
+    /** What the window is for: a matter in any creatable status, or an intake (always consultation). */
     purpose?: "matter" | "intake";
     /** Who is asking. The responsible attorney defaults to them, and can be changed. */
     session: SessionBootstrap;
@@ -218,9 +218,8 @@
   // ---- the conflict check ----------------------------------------------------------------------
 
   /*
-   * The check runs against the client BEFORE the matter exists — a prospective matter's whole point
-   * is finding out whether the firm may act, and the engine takes a directory entity, which the
-   * client now is. Once the matter is created its own preliminary check runs on the server against
+   * The check runs against the client BEFORE the matter exists — an intake's whole point is finding
+   * out whether the firm may act, and the engine takes a directory entity, which the client now is. Once the matter is created its own preliminary check runs on the server against
    * every party; this one is the answer a person wants while the file is still a question.
    */
   let checkRunning = $state(false);
@@ -287,9 +286,9 @@
 
   /** The commit says what it will do, because the outcomes are genuinely different files. */
   const commitLabel = $derived(
-    purpose === "intake"
+    startingStatus === "intake"
       ? "Start Intake"
-      : startingStatus === "prospective"
+      : startingStatus === "consultation"
         ? "Record Consultation"
         : "Open Matter",
   );
@@ -324,7 +323,7 @@
   // from the same place a first one does.
   function reset(): void {
     title = "";
-    startingStatus = purpose === "intake" ? "prospective" : "open";
+    startingStatus = purpose === "intake" ? "intake" : "open";
     client = null;
     checkOutcome = null;
     checkFailure = null;
@@ -342,7 +341,9 @@
   /** Only a creatable status can arrive: the others are rendered disabled, so bits never sends one. */
   function chooseStatus(next: string | string[] | undefined): void {
     const chosen = Array.isArray(next) ? (next[0] ?? "") : (next ?? "");
-    if (chosen === "prospective" || chosen === "open") startingStatus = chosen;
+    if (chosen === "intake" || chosen === "consultation" || chosen === "open") {
+      startingStatus = chosen;
+    }
   }
 
   function nameResponsible(memberId: string): void {

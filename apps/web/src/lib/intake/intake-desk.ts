@@ -3,10 +3,12 @@
  * to it. Mirrors `intake.listConsultations` in apps/api-worker/openapi/openapi.json; the transport
  * envelope lives in $lib/api/request.ts.
  *
- * AN INTAKE IN FLIGHT IS A CONSULTATION — a prospective matter — and the desk is a reading of the
- * matters the firm already holds, never a register of its own. It leaves the desk when it opens or
- * closes, and it is resumed by opening the matter's own Intake section, where every step stands in
- * the words of whoever answered it.
+ * THE DESK HOLDS TWO RUNGS OF THE MATTER LIFECYCLE and nothing of its own: an INTAKE, still
+ * clearing the firm's procedure, and a CONSULTATION, which the procedure let through and which
+ * awaits its meeting. A matter leaves the desk when it opens or closes. An intake is resumed by
+ * opening the matter's own Intake section, where every step stands in the words of whoever
+ * answered it; it is COMPLETED from here, which draws its consultation number; and a consultation is
+ * SCHEDULED from here.
  *
  * THE DESK STATES COUNTS, NEVER A VERDICT. "3 of 5 answered, 1 required outstanding" is a fact about
  * the firm's own procedure; nothing here summarises a checklist into a word about the client, and
@@ -16,6 +18,11 @@ import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 import { permissionRefusal } from "$lib/access/refusal.ts";
 import { MANAGE_CALENDAR_PERMISSION } from "$lib/calendar/calendar-api.ts";
+import { GRADUATE_MATTER_PERMISSION } from "$lib/matters/matters-api.ts";
+import { matterStatusLabel } from "$lib/matters/matter-status.ts";
+
+/** The two rungs the desk holds. */
+export type IntakeDeskStatus = "intake" | "consultation";
 
 export interface IntakeDeskChecklist {
   /** Whether any active procedure binds this consultation's kind. */
@@ -35,6 +42,7 @@ export interface IntakeDeskConsultation {
 
 export interface IntakeDeskRow {
   matterId: string;
+  status: IntakeDeskStatus;
   title: string;
   consultationNumber: string | null;
   matterTypeId: string | null;
@@ -73,52 +81,86 @@ export function intakeResumeHref(row: Pick<IntakeDeskRow, "matterId">): string {
   return `/matters/${encodeURIComponent(row.matterId)}/intake`;
 }
 
-/** The word the desk prints for a consultation number the firm's sequence has not given. */
+/** The word the desk prints for a matter with no number yet: every intake, by construction. */
 export const UNNUMBERED_INTAKE = "Unnumbered";
 
 /**
  * How far an intake is, as the one line its row carries. Counts of the firm's own steps, and the
  * absence of a procedure stated as an absence rather than as nothing outstanding.
  */
-export function intakeStandingText(checklist: IntakeDeskChecklist): string {
+export function intakeStandingText(
+  checklist: IntakeDeskChecklist,
+  status: IntakeDeskStatus = "intake",
+): string {
+  // A consultation has finished its intake, whatever the procedure says now: the record stood when
+  // it graduated, and the desk does not re-grade it.
+  if (status === "consultation") return "Intake complete";
   if (!checklist.bound) return "No procedure binds this kind of matter";
   const answered = `${String(checklist.answered)} of ${String(checklist.steps)} answered`;
-  if (checklist.outstandingRequired === 0) return `${answered}, ready to open`;
+  if (checklist.outstandingRequired === 0) return `${answered}, ready to complete`;
   return checklist.outstandingRequired === 1
     ? `${answered}, 1 required outstanding`
     : `${answered}, ${String(checklist.outstandingRequired)} required outstanding`;
 }
 
-/** Whether every required step is answered: what the owner's workflow calls a complete intake. */
+/** Whether every required step is answered: what lets an intake complete. */
 export function intakeComplete(checklist: IntakeDeskChecklist): boolean {
   return checklist.outstandingRequired === 0;
 }
 
+/** The two rungs' labels, from the one status register, for the Status column's filter. */
+export const INTAKE_DESK_STATUS_LABELS: readonly string[] = (
+  ["intake", "consultation"] as const
+).map((status) => matterStatusLabel(status));
+
 /**
- * Why the consultation cannot be scheduled from this row, or undefined when it can.
+ * Why the intake cannot be completed from this row, or undefined when it can.
  *
- * The owner's workflow schedules the consultation once the intake is complete, so a required step
- * still outstanding refuses it and names how many. A consultation already on the calendar is not
- * scheduled again from here; the row shows when it is, and the matter's Calendar moves it.
+ * Completing an intake is the lifecycle step that makes it a consultation and draws its number, so
+ * it carries the same authority as recording a consultation outright, and it is refused, naming how
+ * many, while a required step is outstanding — the server holds the same door.
  */
-export function scheduleRefusal(
-  row: Pick<IntakeDeskRow, "checklist" | "nextConsultation">,
+export function completeRefusal(
+  row: Pick<IntakeDeskRow, "status" | "checklist">,
   /** The session's permissions, or null while the session is still being read. */
   permissions: readonly string[] | null,
 ): string | undefined {
   // Not yet known is not the same as not held, and the line says which.
   if (permissions === null) return "Reading your session.";
-  if (!permissions.includes(MANAGE_CALENDAR_PERMISSION)) {
-    return permissionRefusal("Scheduling the consultation", MANAGE_CALENDAR_PERMISSION);
+  if (!permissions.includes(GRADUATE_MATTER_PERMISSION)) {
+    return permissionRefusal("Completing the intake", GRADUATE_MATTER_PERMISSION);
   }
-  if (row.nextConsultation !== null) {
-    return "The consultation is already scheduled. Move it from the matter's Calendar.";
-  }
+  if (row.status !== "intake") return "The intake is complete.";
   const outstanding = row.checklist.outstandingRequired;
   if (outstanding > 0) {
     return outstanding === 1
-      ? "One required step is outstanding. The consultation is scheduled once the intake is complete."
-      : `${String(outstanding)} required steps are outstanding. The consultation is scheduled once the intake is complete.`;
+      ? "One required step is outstanding."
+      : `${String(outstanding)} required steps are outstanding.`;
+  }
+  return undefined;
+}
+
+/**
+ * Why the consultation cannot be scheduled from this row, or undefined when it can.
+ *
+ * The owner's workflow schedules the consultation once the intake is complete, so an intake still
+ * in flight refuses it and says what comes first. A consultation already on the calendar is not
+ * scheduled again from here; the row shows when it is, and the matter's Calendar moves it.
+ */
+export function scheduleRefusal(
+  row: Pick<IntakeDeskRow, "status" | "nextConsultation">,
+  /** The session's permissions, or null while the session is still being read. */
+  permissions: readonly string[] | null,
+): string | undefined {
+  if (permissions === null) return "Reading your session.";
+  if (!permissions.includes(MANAGE_CALENDAR_PERMISSION)) {
+    return permissionRefusal("Scheduling the consultation", MANAGE_CALENDAR_PERMISSION);
+  }
+  if (row.status === "intake") {
+    return "Complete the intake first. The consultation is scheduled once it is.";
+  }
+  if (row.nextConsultation !== null) {
+    return "The consultation is already scheduled. Move it from the matter's Calendar.";
   }
   return undefined;
 }
@@ -167,6 +209,13 @@ export function intakeDeskColumns(vocabulary: IntakeDeskVocabulary): GridColumn<
       value: (row) => row.consultationNumber ?? UNNUMBERED_INTAKE,
     },
     {
+      id: "status",
+      label: "Status",
+      filter: "set",
+      value: (row) => matterStatusLabel(row.status),
+      filterValues: INTAKE_DESK_STATUS_LABELS,
+    },
+    {
       id: "client",
       label: "Client",
       filter: "set",
@@ -190,11 +239,12 @@ export function intakeDeskColumns(vocabulary: IntakeDeskVocabulary): GridColumn<
     {
       id: "standing",
       label: "Intake",
-      // Sorted by what is left to do, so the intakes nearest to opening rise together.
+      // Sorted by what is left to do, so the intakes nearest to completing rise together and the
+      // completed consultations sit ahead of them.
       type: "number",
       align: "start",
-      value: (row) => row.checklist.outstandingRequired,
-      text: (row) => intakeStandingText(row.checklist),
+      value: (row) => (row.status === "consultation" ? -1 : row.checklist.outstandingRequired),
+      text: (row) => intakeStandingText(row.checklist, row.status),
     },
     {
       id: "consultation",

@@ -6,11 +6,12 @@ import { readIntakeChecklist, type IntakeStepReaders } from "./checklist.ts";
 
 // The intake desk: every intake the firm has in flight, and where each stands.
 //
-// AN INTAKE IN FLIGHT IS A PROSPECTIVE MATTER. Nothing else. A receptionist who starts an intake
-// records a consultation (a matter with no number), the intake procedure's checklist is derived over
-// it, and it leaves this list the moment it opens or closes. So the desk is a READING of the matters
-// the firm already holds, never a register of its own: an intake cannot be on the desk and missing
-// from the docket, and there is no second row to keep in step.
+// AN INTAKE IN FLIGHT IS A MATTER IN THE INTAKE STATUS. Nothing else. A receptionist who starts an
+// intake records the matter (no number of any kind yet), the intake procedure's checklist is derived
+// over it, and when every required step is answered it GRADUATES to a consultation and draws its
+// consultation number. The desk lists both rungs — the intakes still clearing their procedure and
+// the consultations awaiting their meeting — and a matter leaves it the moment it opens or closes.
+// So the desk is a READING of the matters the firm already holds, never a register of its own.
 //
 // THE DESK IS FIRM-WIDE, by the owner's direction of 2026-09-05 ("multiple intakes can happen at the
 // same time, and they can be resumed"): a receptionist takes the call, a paralegal sends the forms, an
@@ -46,6 +47,7 @@ export interface DeskConsultationSetting {
 export interface DeskRow {
   readonly matterId: string;
   readonly title: string;
+  readonly status: "intake" | "consultation";
   readonly consultationNumber: string | null;
   readonly matterTypeId: string | null;
   readonly matterTypeName: string | null;
@@ -143,7 +145,9 @@ export async function readIntakeDesk(
 ): Promise<Page<DeskRow>> {
   const pageSize = Math.min(params.pageSize ?? DEFAULT_DESK_PAGE_SIZE, MAX_DESK_PAGE_SIZE);
   const page = await listMatters(database, {
-    status: "prospective",
+    // Both rungs before opening: an intake still clearing its procedure, and a consultation that
+    // has cleared it and awaits its meeting. The row says which.
+    statuses: ["intake", "consultation"],
     search: params.search,
     cursor: params.cursor,
     pageSize,
@@ -176,6 +180,7 @@ export async function readIntakeDesk(
     rows.push({
       matterId: matter.id,
       title: matter.title,
+      status: matter.status === "intake" ? "intake" : "consultation",
       consultationNumber: matter.consultationNumber,
       matterTypeId: matter.matterTypeId,
       matterTypeName:

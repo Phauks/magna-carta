@@ -4,7 +4,7 @@
  *
  * A matter reaches this screen one of two ways. A LIVE matter is the firm's own record, read from
  * the API by its identifier; a SAMPLE matter is one of the in-repo fixtures, which exist so the
- * chrome's three lifecycle states (prospective, open, closed) stay reviewable at a stable URL with
+ * chrome's four lifecycle states (intake, consultation, open, closed) stay reviewable at a stable URL with
  * no firm data behind them. Both render the same chrome, and `source` says which is which — a
  * screen that shows firm data and a screen that shows invented data must never look identical, so
  * every surface that reads this record can mark the difference rather than guess.
@@ -31,7 +31,7 @@ export interface MatterRecord {
   id: string;
   title: string;
   description: string | null;
-  status: "prospective" | "open" | "closed";
+  status: "intake" | "consultation" | "open" | "closed";
   /** Null until open draws it; frozen thereafter. A consultation has none until it is opened. */
   matterNumber: string | null;
   /** The consultation's own tentative number, kept after opening rather than replaced by it. */
@@ -64,7 +64,7 @@ interface MatterReadPayload {
   id: string;
   title: string;
   description: string | null;
-  status: "prospective" | "open" | "closed";
+  status: "intake" | "consultation" | "open" | "closed";
   matterNumber: string | null;
   consultationNumber?: string | null;
   clientDisplayName: string | null;
@@ -127,7 +127,8 @@ export function isMatterReadPayload(body: unknown): body is MatterReadPayload {
   return (
     typeof candidate.id === "string" &&
     typeof candidate.title === "string" &&
-    (candidate.status === "prospective" ||
+    (candidate.status === "intake" ||
+      candidate.status === "consultation" ||
       candidate.status === "open" ||
       candidate.status === "closed")
   );

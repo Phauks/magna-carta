@@ -60,6 +60,7 @@
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import CircleDot from "@lucide/svelte/icons/circle-dot";
+  import ClipboardCheck from "@lucide/svelte/icons/clipboard-check";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import SquarePen from "@lucide/svelte/icons/square-pen";
@@ -86,9 +87,12 @@
   import { matterStatusPresentation } from "./matter-status.ts";
   import {
     matterCanClose,
+    matterCanGraduate,
     matterCanOpen,
     matterCloseRefusals,
     matterCloseRequirements,
+    matterGraduateRefusals,
+    matterGraduateRequirements,
     matterLifecycleBlock,
     matterLifecycleStep,
     matterOpenRefusals,
@@ -100,13 +104,16 @@
   } from "./matter-lifecycle.ts";
   import {
     closeMatter,
+    graduateMatter,
     openMatter,
     readMatterCloseReadiness,
+    readMatterGraduateReadiness,
     readMatterOpenReadiness,
     readSession,
     reopenMatter,
     type MatterCloseNotice,
     type MatterCloseReadiness,
+    type MatterGraduateReadiness,
     type MatterOpenReadiness,
   } from "./matters-api.ts";
   import type { ApiOutcome } from "$lib/api/request.ts";
@@ -121,7 +128,7 @@
 
   // The lifecycle glyph per step. Closing wears Archive rather than a destructive glyph: the record
   // stays additive after a close, and a bin would say the file was destroyed.
-  const STEP_ICON = { open: FolderOpen, close: Archive, reopen: RotateCcw };
+  const STEP_ICON = { graduate: ClipboardCheck, open: FolderOpen, close: Archive, reopen: RotateCcw };
   // A met requirement wears the product's one affirmative mark (StatusMark, the filled disc), so a
   // requirement that is satisfied looks exactly like a file that is clean. The other three are
   // outline glyphs: unmet is a finding, and the two kinds of no-answer wear the quiet register on
@@ -150,9 +157,13 @@
   let readiness = $state<MatterCloseReadiness | null>(null);
   let readinessFailed = $state(false);
 
-  /** What the program says about opening: the intake steps outstanding. Null until it answers. */
+  /** What the program says about opening. Null until it answers. */
   let openReadiness = $state<MatterOpenReadiness | null>(null);
   let openReadinessFailed = $state(false);
+
+  /** What the program says about completing the intake: the steps outstanding. Null until it answers. */
+  let graduateReadiness = $state<MatterGraduateReadiness | null>(null);
+  let graduateReadinessFailed = $state(false);
 
   /** Null until the session read comes back, either way; `settled` is what tells the two apart. */
   let permissions = $state<readonly string[] | null>(null);
@@ -183,6 +194,10 @@
   const canClose = $derived(matterCanClose(readiness));
   const openRequirements = $derived(matterOpenRequirements(openReadiness, openReadinessFailed));
   const canOpen = $derived(matterCanOpen(openReadiness));
+  const graduateRequirements = $derived(
+    matterGraduateRequirements(graduateReadiness, graduateReadinessFailed),
+  );
+  const canGraduate = $derived(matterCanGraduate(graduateReadiness));
   const intakeHref = $derived(`/matters/${encodeURIComponent(matter.id)}/intake`);
   const block = $derived(matterLifecycleBlock({ step, isSample, sessionSettled, permissions }));
   // A control does not offer a press whose refusal is already on the screen. An unanswered question
@@ -190,7 +205,8 @@
   // authority either way.
   const refused = $derived(
     (step.action === "close" && canClose === false) ||
-      (step.action === "open" && canOpen === false),
+      (step.action === "open" && canOpen === false) ||
+      (step.action === "graduate" && canGraduate === false),
   );
 
   // Who is asking, read once and only when somebody actually opens the window. Every matter page in
@@ -233,6 +249,20 @@
     })();
   });
 
+  // Whether the intake can complete, asked of the firm's intake procedure itself. Only where
+  // completing the intake is the step in front of the reader.
+  let graduateReadinessAsked = false;
+  $effect(() => {
+    if (!open || graduateReadinessAsked || isSample || step.action !== "graduate") return;
+    graduateReadinessAsked = true;
+    const matterId = matter.id;
+    void (async () => {
+      const outcome = await readMatterGraduateReadiness(fetch, matterId);
+      if (outcome.kind === "ok") graduateReadiness = outcome.value;
+      else graduateReadinessFailed = true;
+    })();
+  });
+
   // The engagement is read when the window opens, every time: an amendment recorded elsewhere
   // between two openings must not leave this window stating the old deal.
   $effect(() => {
@@ -265,6 +295,17 @@
     // accounts of what closing requires at once. Anything else is a failure, and it travels whole —
     // the Error ID and the remedy come with the record rather than being squeezed into a sentence.
     if (outcome.kind === "problem") {
+      const refusedGraduation = matterGraduateRefusals(outcome.problem);
+      if (refusedGraduation.length > 0) {
+        graduateReadiness = {
+          matterId: matter.id,
+          status: matter.status,
+          graduable: false,
+          blockers: [...refusedGraduation],
+        };
+        graduateReadinessFailed = false;
+        return;
+      }
       const refusedOpen = matterOpenRefusals(outcome.problem);
       if (refusedOpen.length > 0) {
         openReadiness = {
@@ -292,7 +333,7 @@
   }
 
   // The matter behind the chrome is re-read rather than guessed at: reopen restores open OR
-  // prospective, and only the server knows which, so every step settles the same way.
+  // consultation, and only the server knows which, so every step settles the same way.
   async function settle(completed: MatterLifecycleStep): Promise<void> {
     taken = completed;
     // A step with nothing to report dismisses itself: the answer to "what happened" is the seal
@@ -322,9 +363,11 @@
       return;
     }
     const outcome =
-      completed.action === "open"
-        ? await openMatter(fetch, matter.id, idempotencyKey)
-        : await reopenMatter(fetch, matter.id, idempotencyKey);
+      completed.action === "graduate"
+        ? await graduateMatter(fetch, matter.id, idempotencyKey)
+        : completed.action === "open"
+          ? await openMatter(fetch, matter.id, idempotencyKey)
+          : await reopenMatter(fetch, matter.id, idempotencyKey);
     working = false;
     if (outcome.kind === "ok") {
       await settle(completed);
@@ -520,27 +563,27 @@
         </div>
       {/if}
 
-      {#if step.action === "open" && !isSample}
-        <!-- What opening requires: the firm's own intake procedure, each required step that has no
-             satisfying answer, in the words of whoever should answer it. The rows are the refusals
-             themselves — there is no fixed roster to state as met, because what a consultation must
-             clear is the firm's to write and may be nothing at all. -->
+      {#if step.action === "graduate" && !isSample}
+        <!-- What completing the intake requires: the firm's own intake procedure, each required
+             step that has no satisfying answer, in the words of whoever should answer it. The rows
+             are the refusals themselves — there is no fixed roster to state as met, because what an
+             intake must clear is the firm's to write and may be nothing at all. -->
         <div class="flex flex-col gap-8">
-          <FieldLabel as="h3">Requirements To Open</FieldLabel>
-          {#if openReadiness === null && !openReadinessFailed}
+          <FieldLabel as="h3">Requirements To Complete Intake</FieldLabel>
+          {#if graduateReadiness === null && !graduateReadinessFailed}
             <p class="text-xs text-text-subtle">Reading the intake procedure.</p>
-          {:else if openReadinessFailed}
+          {:else if graduateReadinessFailed}
             <p class="text-xs text-text-subtle">
-              These could not be checked, so the open will check them.
+              These could not be checked, so completing the intake will check them.
             </p>
-          {:else if openRequirements.length === 0}
+          {:else if graduateRequirements.length === 0}
             <p class="flex items-center gap-8 text-sm text-text-muted">
               <StatusMark decorative class="size-16" />
               Every required intake step is answered.
             </p>
           {:else}
             <ul class="flex flex-col gap-8 text-sm">
-              {#each openRequirements as requirement (requirement.key)}
+              {#each graduateRequirements as requirement (requirement.key)}
                 <li class="flex items-start gap-8">
                   <CircleAlert
                     class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE.unmet}"
@@ -557,6 +600,26 @@
           >
             Open the Intake section
           </a>
+        </div>
+      {/if}
+
+      {#if step.action === "open" && !isSample && openRequirements.length > 0}
+        <!-- Opening has no roster of its own now that the procedure gates the intake; the block is
+             drawn only when the open itself refused with reasons, so they can be read where the
+             control is. -->
+        <div class="flex flex-col gap-8">
+          <FieldLabel as="h3">Requirements To Open</FieldLabel>
+          <ul class="flex flex-col gap-8 text-sm">
+            {#each openRequirements as requirement (requirement.key)}
+              <li class="flex items-start gap-8">
+                <CircleAlert
+                  class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE.unmet}"
+                  aria-hidden="true"
+                />
+                <span class="text-text-default">{requirement.label}</span>
+              </li>
+            {/each}
+          </ul>
         </div>
       {/if}
 

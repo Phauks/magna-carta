@@ -98,10 +98,12 @@ export function listMatters(
 /**
  * Every matter the firm has, as one paged listing.
  *
- * WHY THIS IS TWO READS. The listing endpoint's default omits unnumbered consultations — it serves
- * the working docket — and its `status` parameter takes one status, never "all". So the whole
- * record is the default listing (the numbered matters) plus the prospective one, and there is no
- * single request that answers it. Merging here rather than asking for an endpoint change keeps the
+ * WHY THIS IS TWO READS. The listing endpoint's default omits the unnumbered rungs — it serves the
+ * working docket — and its `status` parameter takes one status, never "all". So the docket is the
+ * default listing (the numbered matters) plus the consultation stream, and there is no single
+ * request that answers it. Intakes are deliberately NOT a third stream: an intake in flight lives
+ * on the Intake desk until it becomes a consultation, and a docket that listed every phone call
+ * would bury the firm's files under its own front door. Merging here rather than asking for an endpoint change keeps the
  * screen honest today; a listing that could serve the whole record in one read would replace this
  * with `listMatters` and nothing above it would change.
  *
@@ -119,20 +121,20 @@ export async function listEveryMatter(
   query: { search?: string; cursor?: string } = {},
 ): Promise<ApiOutcome<Page<MatterSummary>>> {
   const resume = docketCursorFromToken(query.cursor);
-  const [numbered, prospective] = await Promise.all([
+  const [numbered, consultation] = await Promise.all([
     docketStreamPage(fetchImpl, "caseload", query.search, resume.numbered),
-    docketStreamPage(fetchImpl, "prospective", query.search, resume.prospective),
+    docketStreamPage(fetchImpl, "consultation", query.search, resume.consultation),
   ]);
   if (numbered.kind !== "ok") return numbered;
-  if (prospective.kind !== "ok") return prospective;
+  if (consultation.kind !== "ok") return consultation;
   const next: DocketCursor = {
     numbered: numbered.value?.nextCursor ?? null,
-    prospective: prospective.value?.nextCursor ?? null,
+    consultation: consultation.value?.nextCursor ?? null,
   };
   return {
     kind: "ok",
     value: {
-      data: [...(numbered.value?.data ?? []), ...(prospective.value?.data ?? [])],
+      data: [...(numbered.value?.data ?? []), ...(consultation.value?.data ?? [])],
       nextCursor: docketCursorToken(next),
     },
   };
@@ -144,23 +146,23 @@ export async function listEveryMatter(
  */
 interface DocketCursor {
   readonly numbered: string | null;
-  readonly prospective: string | null;
+  readonly consultation: string | null;
 }
 
 /** The two server cursors carried as one token. Each half stays opaque: carried, never parsed. */
 function docketCursorToken(cursor: DocketCursor): string | null {
-  if (cursor.numbered === null && cursor.prospective === null) return null;
+  if (cursor.numbered === null && cursor.consultation === null) return null;
   return JSON.stringify(cursor);
 }
 
 /** Absent means "the first read", where both streams start from their own beginning. */
 function docketCursorFromToken(token: string | undefined): {
   numbered: string | null | undefined;
-  prospective: string | null | undefined;
+  consultation: string | null | undefined;
 } {
-  if (token === undefined) return { numbered: undefined, prospective: undefined };
+  if (token === undefined) return { numbered: undefined, consultation: undefined };
   const parsed = JSON.parse(token) as DocketCursor;
-  return { numbered: parsed.numbered, prospective: parsed.prospective };
+  return { numbered: parsed.numbered, consultation: parsed.consultation };
 }
 
 /**
@@ -181,8 +183,12 @@ async function docketStreamPage(
  * optional on the contract, and a firm with no types and no Locations can still open a matter. */
 export interface CreateMatterRequest {
   title: string;
-  /** Only these two: "closed" is somewhere a matter arrives, never somewhere it starts. */
-  status: "prospective" | "open";
+  /**
+   * Where the matter starts. An intake draws nothing and walks the firm's procedure toward a
+   * consultation; a consultation recorded outright draws its consultation number; an open matter
+   * draws its matter number. "closed" is somewhere a matter arrives, never somewhere it starts.
+   */
+  status: "intake" | "consultation" | "open";
   description?: string | null;
   matterTypeId?: string | null;
   locationId?: string | null;
@@ -199,7 +205,7 @@ export interface CreateMatterRequest {
 /** What the server answers: the matter, and the number it drew if the matter was opened. */
 export interface CreateMatterResponse {
   matterId: string;
-  /** Null for a prospective consultation: its number is the consultation number below. */
+  /** Null until the matter opens: an intake has no number, and a consultation's is the one below. */
   matterNumber: string | null;
   /** The tentative number a consultation is created with; null on a matter opened outright. */
   consultationNumber: string | null;
@@ -311,7 +317,7 @@ export interface CloseMatterResult {
 }
 
 /**
- * Open a prospective matter. The number is the SERVER's to mint: the firm's next matter number is
+ * Open a consultation. The number is the SERVER's to mint: the firm's next matter number is
  * drawn from its own counter atomically at this moment, and nothing here may supply or suggest one.
  */
 export function openMatter(
@@ -346,7 +352,7 @@ export function closeMatter(
 
 /**
  * Reopen a closed matter. The status it returns to is the server's to decide — open if the matter
- * carries a number, prospective if it does not — which is why the acknowledgement carries only the
+ * carries a number, consultation if it does not — which is why the acknowledgement carries only the
  * identifier and the screen re-reads the matter rather than assuming.
  */
 export function reopenMatter(
@@ -360,7 +366,30 @@ export function reopenMatter(
   });
 }
 
-/** The permissions the three lifecycle endpoints name. A member without one is refused server-side. */
+/** What completing an intake answers: the matter, and the consultation number the firm's sequence drew. */
+export interface GraduateMatterResult {
+  matterId: string;
+  consultationNumber: string;
+}
+
+/**
+ * Complete an intake: it becomes a consultation and draws its consultation number. The server runs
+ * the firm's intake procedure as the gate first, and a refusal comes back as a 409 problem document
+ * whose `errors` name each outstanding step in the words of whoever should answer it.
+ */
+export function graduateMatter(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<GraduateMatterResult>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/graduate`, {
+    method: "POST",
+    idempotencyKey,
+  });
+}
+
+/** The permissions the lifecycle endpoints name. A member without one is refused server-side. */
+export const GRADUATE_MATTER_PERMISSION = "matters:create";
 export const OPEN_MATTER_PERMISSION = "matters:open";
 export const CLOSE_MATTER_PERMISSION = "matters:close";
 export const REOPEN_MATTER_PERMISSION = "matters:reopen";
@@ -397,14 +426,36 @@ export interface MatterOpenReadiness {
 
 /**
  * Ask whether the consultation would open, without opening it. The open rules are reads, so the
- * server runs them read-only; today they are the required steps of the firm's intake procedure that
- * have no satisfying answer, each in the words of whoever should answer it.
+ * server runs them read-only. The intake procedure gates the step before this one, so today the one
+ * blocker an open can report is that the matter is not yet a consultation.
  */
 export function readMatterOpenReadiness(
   fetchImpl: typeof fetch,
   matterId: string,
 ): Promise<ApiOutcome<MatterOpenReadiness>> {
   return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/open-readiness`);
+}
+
+/** Whether an intake would become a consultation right now, and what stands in the way if not. */
+export interface MatterGraduateReadiness {
+  matterId: string;
+  status: MatterStatus;
+  graduable: boolean;
+  blockers: MatterCloseBlocker[];
+}
+
+/**
+ * Ask whether the intake would complete, without completing it: the required steps of the firm's
+ * intake procedure that have no satisfying answer, each in the words of whoever should answer it.
+ */
+export function readMatterGraduateReadiness(
+  fetchImpl: typeof fetch,
+  matterId: string,
+): Promise<ApiOutcome<MatterGraduateReadiness>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/matters/${encodeURIComponent(matterId)}/graduate-readiness`,
+  );
 }
 
 export function readMatterCloseReadiness(

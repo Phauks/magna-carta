@@ -32,8 +32,9 @@ against the wider intake design in
 - `src/desk.ts` — **`readIntakeDesk`**: every consultation in flight, firm-wide, with the names it
   needs in one batched read each, the next scheduled event, and one checklist read per row for the
   counts; the page is capped at fifty because that last read is derived, never stored
-- `src/open-precondition.ts` — `matterIntakeOpenPrecondition(readers)`: the opening gate the
-  composition root registers against `@magna-carta/matters`'s open hook
+- `src/graduation-precondition.ts` — `matterIntakeGraduationPrecondition(readers)`: the gate on
+  intake -> consultation that the composition root registers against `@magna-carta/matters`'s
+  graduation hook
 - `src/readers/` — the built readers: conflicts posture, billing arrangement, trust position,
   document assembly, custom-field value; `BUILT_STEP_READERS` is the registry the worker registers
 
@@ -57,8 +58,13 @@ against the wider intake design in
 - **Readers are registered, never imported, by the checklist.** A kind may exist ahead of the
   subsystem that will answer it (`identity-verification`, `client-forms` and `payment` today);
   adding the reader is the whole change when the subsystem lands.
-- **The desk adds no table.** An intake in flight is a prospective matter; `readIntakeDesk` reads
-  the matters listing and derives the rest, so nothing here can disagree with the docket.
+- **The desk adds no table.** An intake in flight is a matter in the `intake` status and a
+  consultation is one the procedure let through; `readIntakeDesk` reads both rungs through the
+  matters listing and derives the rest, so nothing here can disagree with the docket.
+- **The procedure gates graduation, not opening.** `graduation-precondition.ts` is registered
+  against the matter shell's `graduatePreconditions` hook (intake -> consultation); a consultation
+  opens on the firm's decision with no intake gate, and a member's records are refused once the
+  matter has left intake.
 
 ## Dependencies & contracts
 

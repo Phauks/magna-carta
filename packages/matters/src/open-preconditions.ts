@@ -2,7 +2,7 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import type { MatterId } from "@magna-carta/identifiers/types";
 
 // The named open-precondition hook: the close hook's mirror on the other side of the lifecycle.
-// Opening a matter (drawing its number, prospective -> open) runs every supplied precondition; any
+// Opening a matter (drawing its number, consultation -> open) runs every supplied precondition; any
 // failure blocks the open and is surfaced to the caller as a list (a problem document's errors[]).
 // The registry below is EMPTY and stays empty — the matter shell imposes no opening rule of its own,
 // and a rule that belongs to another subsystem (what a consultation must clear before the firm acts:

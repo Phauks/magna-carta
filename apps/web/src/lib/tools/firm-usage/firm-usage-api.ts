@@ -29,7 +29,8 @@ export interface FirmUsageStorage {
 /** One row per matter type in the firm's own catalog; null collects the matters with no type. */
 export interface MattersByTypeRow {
   matterTypeName: string | null;
-  prospective: number;
+  intake: number;
+  consultation: number;
   open: number;
   closed: number;
   total: number;

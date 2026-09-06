@@ -53,8 +53,8 @@ export function seedFirm(raw: ReturnType<typeof migratedDatabase>["raw"]): void 
   const columns =
     "id, title, status, matter_type_id, responsible_member_id, system_key, opened_at, created_at, updated_at";
   const matters: readonly [MatterId, string, string, MatterTypeId | null, string | null][] = [
-    [CONSULTATION, "Herrera consultation", "prospective", MATTER_TYPE, null],
-    [OTHER_CONSULTATION, "Brown estate consultation", "prospective", OTHER_MATTER_TYPE, null],
+    [CONSULTATION, "Herrera consultation", "intake", MATTER_TYPE, null],
+    [OTHER_CONSULTATION, "Brown estate consultation", "intake", OTHER_MATTER_TYPE, null],
     [OPEN_MATTER, "Nakamura sale", "open", MATTER_TYPE, null],
     [HOLDING_MATTER, "Custody holdings", "open", null, "custody-holding"],
   ];

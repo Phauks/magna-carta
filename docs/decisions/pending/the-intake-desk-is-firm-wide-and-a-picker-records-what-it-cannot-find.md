@@ -3,10 +3,10 @@ slug: the-intake-desk-is-firm-wide-and-a-picker-records-what-it-cannot-find
 status: Accepted
 area: Client intake
 date: 2026-09-05
-summary: "The intake desk is a firm-wide reading of the firm's prospective matters — never a register of its own — and an intake is complete when no required step of the procedure binding its kind is outstanding, which is when the consultation may be scheduled from it. Every intake is resumed on its matter's own Intake section. And a field that picks a person or an organization can RECORD one from where it stands: the design system's picker offers a top-level New and a per-kind add row, and the application wraps it with the Directory's own New Person and New Organization windows so a record made from a client field is the same record, past the same duplicate gate, as one made from the Directory."
+summary: "The intake desk is a firm-wide reading of the firm's intakes and consultations — never a register of its own — and an intake is complete when no required step of the procedure binding its kind is outstanding, which is when the consultation may be scheduled from it. Every intake is resumed on its matter's own Intake section. And a field that picks a person or an organization can RECORD one from where it stands: the design system's picker offers a top-level New and a per-kind add row, and the application wraps it with the Directory's own New Person and New Organization windows so a record made from a client field is the same record, past the same duplicate gate, as one made from the Directory."
 ---
 
-**An intake in flight is a prospective matter, the desk is every one of them, and a person can be
+**An intake in flight is a matter in the intake status, the desk is every one of them, and a person can be
 recorded from wherever they are chosen.**
 
 **Context:** the owner's direction of 2026-09-05 described the receptionist's workflow — open
@@ -18,7 +18,7 @@ asked for a top-level New on the client field and every other place a person is 
 Consultations view deliberately per-attorney, and the picker could add a record only through a row
 that appeared after a failed search.
 
-**Decision:** the desk reads the firm's prospective matters through the matters listing's own
+**Decision:** the desk reads the firm's intakes and consultations through the matters listing's own
 statement, firm-wide behind `intake:read`, and adds no table; a consultation leaves it by opening
 or closing. "Complete" is the procedure's own count of outstanding required steps, the same number
 the opening gate refuses on, and the desk prints counts and never a word about the client. The

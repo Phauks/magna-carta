@@ -6,7 +6,7 @@
 
 - id: intake
   name: Client intake / CRM
-  scope: Lead pipeline with stages feeding prospective matters, public intake forms capturing prospects into the Directory, receptionist call intake, and the per-matter-type intake procedure a consultation clears before it opens.
+  scope: The intake desk over the matter lifecycle's first two rungs (intake, then consultation), a lead pipeline with stages, public intake forms capturing prospects into the Directory, receptionist call intake, and the per-matter-type intake procedure a consultation clears before it opens.
   status: partial
   slices: 6-4-intake-procedure, 6-5-intake-desk
   spec: docs/specs/2026-08-15-client-intake-design.md
@@ -34,24 +34,24 @@
   surface: screen
   spec: docs/specs/2026-09-05-intake-desk-design.md
   evidence: packages/intake/src/desk.ts and GET /api/v1/intake/consultations (apps/api-worker/src/routes/intake.ts, intake:read, cursor-paged, capped at fifty), apps/web/src/routes/(app)/intake/+page.svelte over apps/web/src/lib/intake/intake-desk.ts, the intake purpose of apps/web/src/lib/matters/new-matter-dialog.svelte, the seeded title and participants of apps/web/src/lib/calendar/record-event-dialog.svelte, and the shipped Intake row in apps/web/src/lib/navigation/destinations.ts.
-  notes: An intake in flight is a prospective matter; the desk reads the firm's consultations and adds no table. The desk is firm-wide (the wider design's flag J4, answered by the owner's workflow); the per-attorney Consultations view is unchanged. Complete means no required step outstanding — the opening gate's own number — and Schedule is refused with the reason until then. The row states counts, never a verdict.
+  notes: An intake in flight is a matter in the intake status, the first rung of the lifecycle (owner's ruling, 2026-09-05: intake -> consultation -> open -> closed, the second rung renamed from prospective); the desk lists intakes and consultations and adds no table. The desk is firm-wide (the wider design's flag J4, answered by the owner's workflow); the per-attorney Consultations view is unchanged. Complete Intake is the graduation step: refused with the reason while a required step is outstanding, it draws the consultation number through POST /api/v1/matters/{id}/graduate; Schedule follows on a consultation. The row states counts, never a verdict.
 
 - id: intake.lead-pipeline
   name: Lead pipeline
-  scope: Pipeline stages and lead lifecycle feeding prospective matters.
+  scope: Pipeline stages and lead lifecycle feeding intakes.
   status: not-started
   evidence: No stage entity or board. The desk (intake.desk) lists every intake in flight and how far it is against the procedure, which answers the question a board would until a firm needs a word the procedure cannot express. The visibility question is settled: the desk is firm-wide.
 
 - id: intake.public-forms
   name: Public intake forms
-  scope: Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus prospective matters.
+  scope: Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus intakes.
   status: not-started
   evidence: No form builder or public intake route exists. The bot control such a form would sit behind does: apps/api-worker/src/human-verification/ ships Turnstile server-side verification, gating registrations and invitation redemptions, and serves them unprotected while no secret is provisioned.
   awaiting-owner: Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 
 - id: intake.call-intake
   name: Receptionist call intake
-  scope: Recorded, transcribed inbound calls turned into a Directory prospect plus prospective matter with the transcript attached.
+  scope: Recorded, transcribed inbound calls turned into a Directory prospect plus an intake with the transcript attached.
   status: not-started
   evidence: Depends on the unbuilt voice/telephony port and transcription; no capture flow exists.
 
@@ -73,10 +73,10 @@
 
 - id: intake.conversion
   name: Lead-to-matter conversion
-  scope: Converting a prospect/prospective matter into an open matter.
+  scope: Converting a consultation into an open matter.
   status: partial
   slices: 6-4-intake-procedure
   surface: screen
   adrs: ADR-0080
-  evidence: Conversion is the shipped open transition in packages/matters/src/matter-service.ts, which draws the number in the matter's own atomic batch. The intake preconditions in front of it now exist: openPreconditions on the matter shell, the intake procedure's gate registered in apps/api-worker/src/routes/matters.ts, the open-readiness read, and Requirements To Open in the status window. What is missing is the pipeline it converts from and the engagement-letter and fee-agreement hand-offs as one act.
+  evidence: Conversion is the shipped open transition in packages/matters/src/matter-service.ts, which draws the number in the matter's own atomic batch. The intake procedure now gates the rung before it: graduateMatter (intake -> consultation) behind graduatePreconditions, POST /api/v1/matters/{id}/graduate and its readiness read, and Requirements To Complete Intake in the status window; a consultation opens on the firm's decision. What is missing is the pipeline it converts from and the engagement-letter and fee-agreement hand-offs as one act.
   notes: The design's flag J2 — hard refusal or override — was answered in the build as an override in the form of a waiver: a named member under intake:waive, a mandatory rationale, an audit row, and the record kept forever, which is the traced override the design refused to leave untraced.

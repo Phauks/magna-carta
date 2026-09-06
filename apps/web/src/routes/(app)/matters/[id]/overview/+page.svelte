@@ -5,7 +5,7 @@
    * calendar component with this matter's scope, headless and capped), and honest placeholder
    * tiles for the figures that accrue once time and trust flow ("Soon", never fake numbers).
    * Status is displayed as a fact and never gates content — every section renders the same
-   * for a prospective, open, or closed matter.
+   * for a consultation, open, or closed matter.
    */
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";

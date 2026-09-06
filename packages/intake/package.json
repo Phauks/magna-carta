@@ -13,7 +13,7 @@
     "./record-service": "./src/record-service.ts",
     "./checklist": "./src/checklist.ts",
     "./desk": "./src/desk.ts",
-    "./open-precondition": "./src/open-precondition.ts",
+    "./graduation-precondition": "./src/graduation-precondition.ts",
     "./readers": "./src/readers/index.ts"
   },
   "scripts": {

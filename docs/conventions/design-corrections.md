@@ -648,6 +648,27 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-09-05 — the matter lifecycle: an intake rung before the consultation, and the word
+
+The owner, walking the desk: "I don't think that intake should have a matter yet. Intake gets
+something to prospective after it has graduated all the other requirements for intake. Intake is
+like the walkthrough to get to prospective." Then: "perhaps prospective is the improper name, and
+it should be consultation?" Then: "we have no matters to migrate, so store it as consultation and
+open." What binds:
+
+- **A matter's statuses are Intake, Consultation, Active and Closed**, in that order, stored as
+  `intake`, `consultation`, `open`, `closed`. The word "prospective" is not a status word anywhere a
+  reader sees it; it survives only where it means the client's standing under the conduct rules.
+- **Intake is a rung, not a phase derived from a checklist.** The matter row exists from the first
+  call (the conflicts corpus, the files, the calendar and every procedure reader need it) but it
+  carries no number of any kind, it appears on the Intake desk and not the docket, and it
+  graduates into a consultation by a recorded act.
+- **The firm's intake procedure holds the door between intake and consultation**, never the door
+  into opening. Completing the intake draws the consultation number; opening draws the matter
+  number and is the firm's decision.
+- **A control that takes a lifecycle step reads the step's own verb**: Complete Intake, Open
+  Matter, Close Matter, Reopen Matter. Never "graduate", which is the code's word.
+
 ### 2026-09-05 — the intake desk, and New beside every person field
 
 The owner described the receptionist's workflow: open Intake from the sidebar; choose the caller

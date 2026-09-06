@@ -45,4 +45,16 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // replacement takes the original name, so every member's record resolves to the step it resolved
   // to before. The reasoning is written out in the migration's own `-- contract:` header.
   "20260905T195543_intake-step-kinds-client-forms-and-payment",
+  // The matter lifecycle gains `intake` and renames `prospective` to `consultation`, a CHECK
+  // constraint on `matter` that cannot be widened in place. Audited: the copy is column-for-column
+  // over the whole table — nineteen columns, in the order the replacement declares them, with no
+  // WHERE and no expression between source and target — so every matter carries across unchanged.
+  // The CHECK could reject a row still spelled `prospective`, and none exists: no firm holds a
+  // matter at this migration's date (owner, 2026-09-05), which is why the rename is a rename and
+  // not a rewrite. The six indexes, three of them partial uniques, are recreated after the rename.
+  // Many tables carry a foreign key into `matter`, which is why the file brackets the swap in
+  // PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the replacement
+  // takes the original name, so every referencing row resolves to the row it resolved to before. The
+  // reasoning is written out in the migration's own `-- contract:` header.
+  "20260906T013304_matter-status-intake-and-consultation",
 ]);

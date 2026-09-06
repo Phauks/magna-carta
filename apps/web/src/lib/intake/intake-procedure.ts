@@ -165,27 +165,29 @@ export function intakeStepMark(
 }
 
 /**
- * The one line under the checklist heading: how far the consultation is from opening, as a fact
- * about the firm's procedure. Never a word about the client.
+ * The one line under the checklist heading: how far the intake is from complete, as a fact about the
+ * firm's procedure. Never a word about the client.
  */
 export function intakeChecklistSummary(
   checklist: Pick<IntakeChecklist, "matterStatus" | "steps" | "outstandingRequired">,
 ): string {
   if (checklist.steps.length === 0) {
-    return checklist.matterStatus === "prospective"
-      ? "No intake procedure binds this kind of matter, so nothing stands between it and opening."
+    return checklist.matterStatus === "intake"
+      ? "No intake procedure binds this kind of matter, so nothing stands between it and the consultation."
       : "No intake procedure binds this kind of matter.";
   }
-  if (checklist.matterStatus !== "prospective") {
-    return "The matter has opened; what follows is the record of its intake.";
+  if (checklist.matterStatus !== "intake") {
+    return checklist.matterStatus === "consultation"
+      ? "The intake is complete; what follows is its record. The consultation opens from its status window."
+      : "The matter has opened; what follows is the record of its intake.";
   }
   const outstanding = checklist.outstandingRequired;
   if (outstanding === 0) {
-    return "Every required step is answered. The matter can be opened from its status window.";
+    return "Every required step is answered. Complete the intake from the desk or the status window.";
   }
   return outstanding === 1
-    ? "One required step is outstanding before the matter can open."
-    : `${String(outstanding)} required steps are outstanding before the matter can open.`;
+    ? "One required step is outstanding before the intake is complete."
+    : `${String(outstanding)} required steps are outstanding before the intake is complete.`;
 }
 
 /**
@@ -203,7 +205,7 @@ export function intakeStepActions(
   matterStatus: IntakeChecklist["matterStatus"],
   permissions: readonly string[],
 ): IntakeStepActions {
-  if (matterStatus !== "prospective") return { record: false, waive: false, reopen: false };
+  if (matterStatus !== "intake") return { record: false, waive: false, reopen: false };
   const mayRecord = permissions.includes("intake:record");
   const mayWaive = permissions.includes("intake:waive");
   const live = step.record !== null;

@@ -69,7 +69,8 @@ export type StatusKey =
   // A matter's own lifecycle. Active is the word the firm uses for a matter it is working; the
   // matters contract stores that state under the code `open`, which is a storage spelling and not a
   // word anybody reads.
-  | "prospective"
+  | "intake"
+  | "consultation"
   | "active"
   | "closed"
   // How a conflict hit stands. Only the unanswered one asks for anything.
@@ -250,12 +251,20 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
 
   // A matter's own lifecycle. Closed is archived-but-additive here — a closed matter can still
   // accrue record — so it reads quiet neutral and never destructive red, which would say the file
-  // was destroyed rather than finished. Prospective is work the firm has not taken on yet, which is
-  // information rather than progress.
-  prospective: {
-    label: "Prospective",
+  // was destroyed rather than finished. Consultation is work the firm has not taken on yet, which is
+  // information rather than progress; intake is quieter still, because nothing has been decided.
+  intake: {
+    label: "Intake",
+    tone: "neutral",
+    meaning:
+      "An intake in flight: the firm is collecting what its procedure requires before it consults. It carries no number of any kind.",
+    presentation: "chip",
+  },
+  consultation: {
+    label: "Consultation",
     tone: "info",
-    meaning: "A consultation the firm has not taken on. It carries no matter number.",
+    meaning:
+      "A prospective client's matter the firm has not taken on. It carries a consultation number and no matter number.",
     presentation: "chip",
   },
   active: {
@@ -324,7 +333,7 @@ export const STATUS_VOCABULARIES = {
   /** What the firm physically holds, and what has become of it. */
   custody: ["held", "out", "released", "destroyed", "lost", "superseded"],
   /** A matter's own lifecycle, in the order a matter passes through it. */
-  matterLifecycle: ["prospective", "active", "closed"],
+  matterLifecycle: ["intake", "consultation", "active", "closed"],
   /**
    * How a conflict hit stands. Unanswered leads because it is the only one that asks for
    * something; the four answers follow in no order of preference, because there is none.

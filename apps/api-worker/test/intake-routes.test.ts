@@ -168,18 +168,23 @@ describe("intake procedure routes", () => {
       ["acknowledgement", false],
     ]);
 
-    // A consultation of that kind is bound; one of another kind is not.
+    // An intake of that kind is bound; one of another kind is not. An intake draws no number of any
+    // kind until it graduates.
     const consultation = await send("POST", "/api/v1/matters", {
       title: "Herrera consultation",
-      status: "prospective",
+      status: "intake",
       responsibleMemberId: ownerUserId,
       matterTypeId,
     });
     expect(consultation.status).toBe(201);
-    const { matterId } = (await consultation.json()) as { matterId: string };
+    const created = await readJson<{ matterId: string; consultationNumber: string | null }>(
+      consultation,
+    );
+    const { matterId } = created;
+    expect(created.consultationNumber).toBeNull();
     const other = await send("POST", "/api/v1/matters", {
       title: "Untyped consultation",
-      status: "prospective",
+      status: "intake",
       responsibleMemberId: ownerUserId,
     });
     const { matterId: otherId } = (await other.json()) as { matterId: string };
@@ -187,7 +192,7 @@ describe("intake procedure routes", () => {
     const checklist = await get(`/api/v1/matters/${matterId}/intake`);
     expect(checklist.status).toBe(200);
     const listed = (await checklist.json()) as Checklist;
-    expect(listed.matterStatus).toBe("prospective");
+    expect(listed.matterStatus).toBe("intake");
     expect(listed.outstandingRequired).toBe(2);
     expect(
       listed.steps.map((step) => [step.kind, step.standing.answeredBy, step.recordable]),
@@ -203,27 +208,35 @@ describe("intake procedure routes", () => {
     const unbound = (await (await get(`/api/v1/matters/${otherId}/intake`)).json()) as Checklist;
     expect(unbound.steps).toEqual([]);
 
-    // The readiness read and the open agree: refused, naming both outstanding steps.
-    const readiness = await get(`/api/v1/matters/${matterId}/open-readiness`);
+    // The readiness read and the graduation agree: refused, naming both outstanding steps. An
+    // intake cannot skip to open either — it has to become a consultation first.
+    const readiness = await get(`/api/v1/matters/${matterId}/graduate-readiness`);
     expect(readiness.status).toBe(200);
     const readinessBody = (await readiness.json()) as {
-      openable: boolean;
+      graduable: boolean;
       blockers: { code: string; message: string }[];
     };
-    expect(readinessBody.openable).toBe(false);
+    expect(readinessBody.graduable).toBe(false);
     expect(readinessBody.blockers.map((blocker) => blocker.code)).toEqual([
       "intake-step-outstanding",
       "intake-step-outstanding",
     ]);
-    const refusedOpen = await send("POST", `/api/v1/matters/${matterId}/open`, {});
-    expect(refusedOpen.status).toBe(409);
-    const refusal = (await refusedOpen.json()) as {
+    const refusedGraduation = await send("POST", `/api/v1/matters/${matterId}/graduate`, {});
+    expect(refusedGraduation.status).toBe(409);
+    const refusal = (await refusedGraduation.json()) as {
       type: string;
       errors: { code: string; detail: string }[];
     };
-    expect(refusal.type).toContain("matter-open-refused");
+    expect(refusal.type).toContain("matter-graduate-refused");
     expect(refusal.errors.length).toBe(2);
     expect(refusal.errors[1]?.detail).toContain("Verify the client's identity");
+    const openedTooEarly = await send("POST", `/api/v1/matters/${matterId}/open`, {});
+    expect(openedTooEarly.status).toBe(409);
+    const openReadiness = await readJson<{ openable: boolean; blockers: { code: string }[] }>(
+      await get(`/api/v1/matters/${matterId}/open-readiness`),
+    );
+    expect(openReadiness.openable).toBe(false);
+    expect(openReadiness.blockers[0]?.code).toBe("matter-not-consultation");
 
     // The paralegal records identity; the conflicts step cannot be recorded by hand, and the
     // paralegal may not waive it.
@@ -271,18 +284,18 @@ describe("intake procedure routes", () => {
       "Recorded as completed: Driving licence sighted",
     );
 
-    // Reopening the identity step supersedes its record and the open is refused again; recording
-    // it again answers it, and the history keeps both records.
+    // Reopening the identity step supersedes its record and the graduation is refused again;
+    // recording it again answers it, and the history keeps both records.
     const reopened = await send(
       "DELETE",
       `/api/v1/matters/${matterId}/intake/steps/${stepIds[1]}/record`,
       undefined,
     );
     expect(reopened.status).toBe(200);
-    const afterReopen = await readJson<{ openable: boolean }>(
-      await get(`/api/v1/matters/${matterId}/open-readiness`),
+    const afterReopen = await readJson<{ graduable: boolean }>(
+      await get(`/api/v1/matters/${matterId}/graduate-readiness`),
     );
-    expect(afterReopen.openable).toBe(false);
+    expect(afterReopen.graduable).toBe(false);
     const again = await send(
       "POST",
       `/api/v1/matters/${matterId}/intake/steps/${stepIds[1]}/completion`,
@@ -298,19 +311,33 @@ describe("intake procedure routes", () => {
       ],
     );
 
-    const opened = await send("POST", `/api/v1/matters/${matterId}/open`, {});
-    expect(opened.status).toBe(200);
-    expect((await readJson<{ matterNumber: string }>(opened)).matterNumber).toMatch(
-      /^\d{4}-\d{4}$/,
+    // The intake is complete: it graduates, drawing its consultation number, and a second
+    // graduation is refused because it is no longer an intake.
+    const graduated = await send("POST", `/api/v1/matters/${matterId}/graduate`, {});
+    expect(graduated.status).toBe(200);
+    expect((await readJson<{ consultationNumber: string }>(graduated)).consultationNumber).toMatch(
+      /^C\d{4}-\d{4}$/,
     );
+    const graduatedAgain = await send("POST", `/api/v1/matters/${matterId}/graduate`, {});
+    expect(graduatedAgain.status).toBe(409);
 
-    // The funnel ended: a record on an open matter is refused, and the checklist still reads.
+    // The intake ended: a record on a consultation is refused, the checklist still reads, and the
+    // consultation opens on the firm's decision with no further intake gate.
     const late = await send(
       "POST",
       `/api/v1/matters/${matterId}/intake/steps/${stepIds[2]}/completion`,
       {},
     );
     expect(late.status).toBe(409);
+    const asConsultation = await readJson<Checklist>(
+      await get(`/api/v1/matters/${matterId}/intake`),
+    );
+    expect(asConsultation.matterStatus).toBe("consultation");
+    const opened = await send("POST", `/api/v1/matters/${matterId}/open`, {});
+    expect(opened.status).toBe(200);
+    expect((await readJson<{ matterNumber: string }>(opened)).matterNumber).toMatch(
+      /^\d{4}-\d{4}$/,
+    );
     const afterOpen = (await (await get(`/api/v1/matters/${matterId}/intake`)).json()) as Checklist;
     expect(afterOpen.matterStatus).toBe("open");
   });
@@ -372,7 +399,7 @@ describe("intake procedure routes", () => {
     const { id: clientEntityId } = await readJson<{ id: string }>(person);
     const consultation = await send("POST", "/api/v1/matters", {
       title: "Chase estate consultation",
-      status: "prospective",
+      status: "intake",
       responsibleMemberId: ownerUserId,
       matterTypeId,
       clientEntityId,
@@ -384,6 +411,7 @@ describe("intake procedure routes", () => {
     // Nothing scheduled yet: the desk says so.
     interface DeskRow {
       matterId: string;
+      status: string;
       title: string;
       matterTypeName: string | null;
       responsibleMemberName: string | null;
@@ -400,6 +428,7 @@ describe("intake procedure routes", () => {
     const before = await readJson<Desk>(await get("/api/v1/intake/consultations"));
     const unscheduled = before.data.find((row) => row.matterId === matterId);
     expect(unscheduled).toMatchObject({
+      status: "intake",
       title: "Chase estate consultation",
       matterTypeName: "Estate planning",
       responsibleMemberName: "Intake Owner",
@@ -409,8 +438,8 @@ describe("intake procedure routes", () => {
       checklist: { bound: true, steps: 2, answered: 0, outstandingRequired: 1 },
       nextConsultation: null,
     });
-    // A consultation whose kind no procedure binds is on the desk and says it is unbound; the
-    // matter the first test opened has left it.
+    // An intake whose kind no procedure binds is on the desk and says it is unbound; the matter
+    // the first test opened has left it.
     const unbound = before.data.find((row) => row.title === "Untyped consultation");
     expect(unbound?.checklist).toEqual({
       bound: false,

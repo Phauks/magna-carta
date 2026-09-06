@@ -45,6 +45,7 @@ import {
 } from "./close-advisories.ts";
 import {
   closeMatterStatement,
+  graduateMatterStatement,
   insertMatterStatement,
   isConsultationNumberConflict,
   isMatterNumberConflict,
@@ -137,6 +138,10 @@ export interface MatterServiceOptions {
   // package never imports the conflicts engine or the intake procedure to find out whether a matter
   // may open.
   readonly openPreconditions?: readonly OpenPrecondition[];
+  // The graduation rules: what an INTAKE must clear before it becomes a consultation — today the
+  // firm's intake procedure, supplied by the composition root on the same terms. The same shape as
+  // the open hook, because it is the same kind of door one rung earlier.
+  readonly graduatePreconditions?: readonly OpenPrecondition[];
   // The informational notices other subsystems want a person to see when they close a matter,
   // supplied by the composition root. Absent = the matter shell's own registry, which is empty. An
   // advisory never blocks a close and has no path by which it could: `collectCloseAdvisories` returns
@@ -417,12 +422,15 @@ interface MatterFieldsInput {
 export interface CreateMatterInput extends MatterFieldsInput {
   readonly title: string;
   readonly responsibleMemberId: UserId;
-  readonly status: "prospective" | "open";
+  // Where the matter starts. An INTAKE draws nothing: it is the walk toward a consultation, and the
+  // consultation number is drawn when the firm's intake procedure lets it through. A CONSULTATION
+  // recorded outright draws its tentative number now; an OPEN matter draws the matter number now.
+  readonly status: "intake" | "consultation" | "open";
   readonly numberContext?: NumberContext;
   /**
    * The directory entity the firm acts for on this matter. Given, the client's party link is
    * written in the same batch as the matter, so no matter is ever readable without its client — a
-   * prospective matter's conflict check needs a person, and billing and trust derive the client
+   * intake's conflict check needs a person, and billing and trust derive the client
    * from that link rather than from the display name. Absent only for the callers that predate the
    * directory link (fixtures, imports, the backfill that supplies the link afterwards).
    */
@@ -475,7 +483,35 @@ export async function createMatter(
   const matterId = newIdentifier("matter", options.randomSource);
   const fields = fieldsFromInput(input);
 
-  if (input.status === "prospective") {
+  if (input.status === "intake") {
+    // An intake in flight. No counter is touched: the consultation number is drawn at graduation,
+    // so an intake that goes nowhere — a caller who never rings back — consumes nothing from either
+    // run. The row exists from the first call so the client is in the conflicts corpus and every
+    // intake step has a matter to be answered on.
+    return runMatterEffect<CreatedMatter>(database, options, 201, () => {
+      const now = options.clock.now();
+      return {
+        statements: [
+          insertMatterStatement(database, {
+            id: matterId,
+            ...fields,
+            status: "intake",
+            matterNumber: null,
+            consultationNumber: null,
+            numberedAt: null,
+            openedAt: null,
+            createdAt: now,
+          }),
+          auditStatement(database, options, "matter.created", matterId),
+          ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
+        ],
+        outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
+        value: { matterId, matterNumber: null, consultationNumber: null },
+      };
+    });
+  }
+
+  if (input.status === "consultation") {
     // A consultation: it draws its own tentative number, from the consultation sequence, and touches
     // the MATTER counter not at all. The two runs are deliberately separate — a consultation that
     // never becomes a matter must consume no matter number, because a gap in that run reads as a
@@ -491,7 +527,7 @@ export async function createMatter(
           insertMatterStatement(database, {
             id: matterId,
             ...fields,
-            status: "prospective",
+            status: "consultation",
             matterNumber: null,
             consultationNumber,
             numberedAt: null,
@@ -542,6 +578,68 @@ export async function createMatter(
   );
 }
 
+export interface GraduateMatterInput {
+  readonly numberContext?: NumberContext;
+}
+
+// Intake -> consultation: the firm's intake procedure has let the matter through, and it draws its
+// consultation number. The same shape as the open, one rung earlier: the rules run before the draw
+// and are skipped on an idempotent retry; the draw rides the bounded-retry allocator; the row is
+// re-read after the commit to prove this call is the one that graduated it.
+export async function graduateMatter(
+  database: BatchDatabase,
+  matterId: MatterId,
+  input: GraduateMatterInput,
+  options: MatterServiceOptions,
+): Promise<{ matterId: MatterId; consultationNumber: string } & ReplayFlag> {
+  const matter = await loadMatter(database, matterId);
+  if (matter === undefined) {
+    throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
+  }
+  if (
+    matter.status !== "intake" &&
+    !(await isIdempotentRetry(database, options.idempotency?.key))
+  ) {
+    throw new MatterValidationError(
+      "matter-not-intake",
+      `matter ${matterId} is ${matter.status}, not an intake`,
+    );
+  }
+  const context = { matterId, database };
+  const preconditions = options.graduatePreconditions;
+  if (matter.status === "intake" && preconditions !== undefined && preconditions.length > 0) {
+    const failures = await runOpenPreconditions(context, preconditions);
+    if (failures.length > 0) throw new OpenPreconditionError(failures);
+  }
+  const guards =
+    preconditions === undefined ? [] : openPreconditionGuardStatements(context, preconditions);
+  const drawn = await runMatterDraw<{ matterId: MatterId; consultationNumber: string }>(
+    database,
+    options,
+    matterId,
+    "consultation",
+    input.numberContext ?? {},
+    (consultationNumber, now) => ({
+      statements: [
+        ...guards,
+        graduateMatterStatement(database, matterId, consultationNumber, now),
+        auditStatement(database, options, "matter.graduated", matterId),
+      ],
+      outboxMessages: [],
+      value: { matterId, consultationNumber },
+    }),
+    200,
+  );
+  const committed = await loadMatter(database, matterId);
+  if (committed?.consultationNumber !== drawn.consultationNumber) {
+    throw new MatterValidationError(
+      "matter-not-intake",
+      `matter ${matterId} was graduated or closed concurrently; it is ${committed?.status ?? "gone"}`,
+    );
+  }
+  return drawn;
+}
+
 export interface OpenMatterInput {
   readonly numberContext?: NumberContext;
 }
@@ -557,15 +655,17 @@ export async function openMatter(
     throw new MatterValidationError("matter-not-found", `no such matter: ${matterId}`);
   }
   // Skipped on an idempotent retry: the mutation this key names is the one that moved the matter off
-  // prospective, so refusing here would 409 the caller on its own completed work instead of replaying
+  // consultation, so refusing here would 409 the caller on its own completed work instead of replaying
   // the number it already drew. Only a genuinely new request — which carries its own key — is refused.
+  // An INTAKE is refused too: it has not yet cleared the firm's procedure, and graduating is the door
+  // it goes through first.
   if (
-    matter.status !== "prospective" &&
+    matter.status !== "consultation" &&
     !(await isIdempotentRetry(database, options.idempotency?.key))
   ) {
     throw new MatterValidationError(
-      "matter-not-prospective",
-      `matter ${matterId} is ${matter.status}, not prospective`,
+      "matter-not-consultation",
+      `matter ${matterId} is ${matter.status}, not a consultation`,
     );
   }
   // The opening rules, run before the draw and skipped on the same idempotent retry the lifecycle
@@ -576,7 +676,7 @@ export async function openMatter(
   const openContext = { matterId, database };
   const openPreconditions = options.openPreconditions;
   if (
-    matter.status === "prospective" &&
+    matter.status === "consultation" &&
     openPreconditions !== undefined &&
     openPreconditions.length > 0
   ) {
@@ -616,7 +716,7 @@ export async function openMatter(
   const committed = await loadMatter(database, matterId);
   if (committed?.matterNumber !== drawn.matterNumber) {
     throw new MatterValidationError(
-      "matter-not-prospective",
+      "matter-not-consultation",
       `matter ${matterId} was opened or closed concurrently; it is ${committed?.status ?? "gone"}`,
     );
   }
@@ -709,10 +809,17 @@ export async function reopenMatter(
       `matter ${matterId} is ${matter.status}, not closed`,
     );
   }
-  // Restore the pre-close status from the honest signal — opened_at, set only when a matter was
-  // actually opened. A consultation handed a manual number via renumberMatter has a number but was
-  // never opened, so it reopens to prospective; the number, if any, is frozen and untouched.
-  const status = matter.openedAt !== null ? "open" : "prospective";
+  // Restore the pre-close status from the honest signals — opened_at, set only when a matter was
+  // actually opened, and the consultation number, drawn only when an intake graduated (or a
+  // consultation was recorded outright). A consultation handed a manual number via renumberMatter
+  // has a matter number but was never opened, so it reopens to consultation; an intake closed
+  // before it graduated reopens to intake. Every number is frozen and untouched.
+  const status =
+    matter.openedAt !== null
+      ? "open"
+      : matter.consultationNumber !== null
+        ? "consultation"
+        : "intake";
   return runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
     const now = options.clock.now();
     return {

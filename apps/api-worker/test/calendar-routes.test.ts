@@ -85,11 +85,11 @@ async function del(path: string, cookie = ownerCookie) {
 }
 
 async function createMatter(title: string): Promise<string> {
-  // Prospective rather than open: the calendar has no interest in a matter's NUMBER, and drawing
+  // Consultation rather than open: the calendar has no interest in a matter's NUMBER, and drawing
   // one would make this block depend on a numbering scheme it does not otherwise need.
   const response = await post("/api/v1/matters", {
     title,
-    status: "prospective",
+    status: "consultation",
     responsibleMemberId: ownerUserId,
   });
   expect(response.status).toBe(201);

@@ -59,12 +59,13 @@
       ? null
       : usage.mattersByType.reduce(
           (sum, row) => ({
-            prospective: sum.prospective + row.prospective,
+            intake: sum.intake + row.intake,
+            consultation: sum.consultation + row.consultation,
             open: sum.open + row.open,
             closed: sum.closed + row.closed,
             total: sum.total + row.total,
           }),
-          { prospective: 0, open: 0, closed: 0, total: 0 },
+          { intake: 0, consultation: 0, open: 0, closed: 0, total: 0 },
         ),
   );
 
@@ -178,7 +179,8 @@
         <DataTable.Header>
           <DataTable.Row>
             <DataTable.Head>Matter Type</DataTable.Head>
-            <DataTable.Head data-align="end">Prospective</DataTable.Head>
+            <DataTable.Head data-align="end">Intake</DataTable.Head>
+            <DataTable.Head data-align="end">Consultation</DataTable.Head>
             <DataTable.Head data-align="end">Open</DataTable.Head>
             <DataTable.Head data-align="end">Closed</DataTable.Head>
             <DataTable.Head data-align="end">Total</DataTable.Head>
@@ -194,7 +196,8 @@
                   {row.matterTypeName}
                 {/if}
               </DataTable.Cell>
-              <DataTable.Cell data-align="end">{formatCount(row.prospective)}</DataTable.Cell>
+              <DataTable.Cell data-align="end">{formatCount(row.intake)}</DataTable.Cell>
+              <DataTable.Cell data-align="end">{formatCount(row.consultation)}</DataTable.Cell>
               <DataTable.Cell data-align="end">{formatCount(row.open)}</DataTable.Cell>
               <DataTable.Cell data-align="end">{formatCount(row.closed)}</DataTable.Cell>
               <DataTable.Cell data-align="end">{formatCount(row.total)}</DataTable.Cell>
@@ -204,7 +207,10 @@
             <DataTable.Row>
               <DataTable.Cell class={TOTALS_CELL}>Total</DataTable.Cell>
               <DataTable.Cell data-align="end" class={TOTALS_CELL}>
-                {formatCount(mattersTotals.prospective)}
+                {formatCount(mattersTotals.intake)}
+              </DataTable.Cell>
+              <DataTable.Cell data-align="end" class={TOTALS_CELL}>
+                {formatCount(mattersTotals.consultation)}
               </DataTable.Cell>
               <DataTable.Cell data-align="end" class={TOTALS_CELL}>
                 {formatCount(mattersTotals.open)}

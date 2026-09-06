@@ -182,8 +182,8 @@ const MATTER_FACETS: readonly NamedFacet[] = [
     sensitivity: ORDINARY,
     prominence: "secondary",
     label: "Matter status",
-    description: "Whether the matter is prospective, open, or closed.",
-    synonyms: ["open", "closed", "prospective"],
+    description: "Whether the matter is in intake, a consultation, open, or closed.",
+    synonyms: ["open", "closed", "consultation", "intake"],
     example: { kind: "text", text: "open" },
   },
   {

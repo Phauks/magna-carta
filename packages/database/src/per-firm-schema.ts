@@ -594,17 +594,17 @@ export const matterNumberCounter = sqliteTable("matter_number_counter", {
   nextValue: integer("next_value").notNull(),
 });
 
-// The matter shell. status drives the owner-shaped lifecycle: prospective (an unnumbered
+// The matter shell. status drives the owner-shaped lifecycle: consultation (an unnumbered
 // consultation) -> open (draws the number) -> closed (archived but still additive). The number is
 // frozen at assignment; the partial UNIQUE index makes a duplicate number within the firm impossible
-// while leaving unnumbered prospectives unconstrained.
+// while leaving unnumbered consultations unconstrained.
 export const matter = sqliteTable(
   "matter",
   {
     id: text("id").primaryKey().$type<MatterId>(), // matter_ handle
     title: text("title").notNull(),
     description: text("description"),
-    status: text("status", { enum: ["prospective", "open", "closed"] }).notNull(),
+    status: text("status", { enum: ["intake", "consultation", "open", "closed"] }).notNull(),
     matterTypeId: text("matter_type_id")
       .$type<MatterTypeId>()
       .references(() => matterType.id),
@@ -631,12 +631,12 @@ export const matter = sqliteTable(
     matterNumber: text("matter_number"), // null until open draws it; frozen thereafter
     numberedAt: text("numbered_at"),
     // The tentative number a consultation carries from the moment it is created, drawn from the
-    // firm's consultation sequence. A prospective matter is a real thing a firm has to be able to
+    // firm's consultation sequence. A consultation is a real thing a firm has to be able to
     // name — on an intake sheet, a conflicts check, a bill for the consultation itself — and
     // "Consultation" is not a name. It is drawn once and frozen: opening the matter draws the
     // permanent matter_number alongside it rather than replacing it, so a document filed under the
     // tentative number still resolves. Null only on matters created straight to open (which never
-    // were a consultation) and on prospectives created before the sequence existed. The draw instant
+    // were a consultation) and on consultations created before the sequence existed. The draw instant
     // is created_at by construction — the number is allocated in the insert's own batch.
     consultationNumber: text("consultation_number"),
     // Names a platform-owned matter that exists to satisfy a structural requirement rather than to
@@ -677,7 +677,14 @@ export const matter = sqliteTable(
       table.id,
     ),
     index("matter_created_at_id_index").on(table.createdAt, table.id),
-    check("matter_status_check", sql`${table.status} IN ('prospective', 'open', 'closed')`),
+    // The lifecycle: an INTAKE is the walk from first contact to a consultation the firm's own
+    // procedure lets through; a CONSULTATION is a prospective client's matter, numbered from the
+    // consultation sequence and not yet taken on; OPEN draws the matter number; CLOSED keeps the
+    // record. Held by a CHECK so a fifth status is a reviewed migration.
+    check(
+      "matter_status_check",
+      sql`${table.status} IN ('intake', 'consultation', 'open', 'closed')`,
+    ),
     check("matter_title_nonempty_check", sql`length(${table.title}) > 0`),
     check("matter_e_billing_check", sql`${table.eBilling} IN (0, 1)`),
     check(
@@ -2391,7 +2398,7 @@ export const conflictsCheck = sqliteTable(
   {
     id: text("id").primaryKey().$type<ConflictsCheckId>(),
     trigger: text("trigger").notNull(),
-    // Null for a pre-consult check against a prospective party set that has no matter yet.
+    // Null for a pre-consult check against a consultation party set that has no matter yet.
     subjectMatterId: text("subject_matter_id").$type<MatterId>(),
     subjectPartiesJson: text("subject_parties_json").notNull(), // JSON array of entity ids
     // The scope in force: each source class with its availability. An auditor must be able to tell

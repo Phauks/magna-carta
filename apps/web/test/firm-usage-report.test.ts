@@ -16,8 +16,8 @@ const usage: FirmUsageResponse = {
     },
   },
   mattersByType: [
-    { matterTypeName: "Estate Planning", prospective: 1, open: 1, closed: 0, total: 2 },
-    { matterTypeName: null, prospective: 0, open: 0, closed: 1, total: 1 },
+    { matterTypeName: "Estate Planning", intake: 0, consultation: 1, open: 1, closed: 0, total: 2 },
+    { matterTypeName: null, intake: 0, consultation: 0, open: 0, closed: 1, total: 1 },
   ],
   files: {
     currentFiles: { count: 2, bytes: 1024 },
@@ -69,7 +69,7 @@ describe("firmUsageExportDocument", () => {
   it("sums the matters-by-type totals row and names the untyped bucket", () => {
     const matters = exportDocument.sections[1];
     expect(matters?.rows.some((row) => row[0] === "No Type Assigned")).toBe(true);
-    expect(matters?.rows.at(-1)?.map(exportCellText)).toEqual(["Total", "1", "1", "1", "3"]);
+    expect(matters?.rows.at(-1)?.map(exportCellText)).toEqual(["Total", "0", "1", "1", "1", "3"]);
   });
 
   it("states absences instead of dropping them", () => {

@@ -70,7 +70,7 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
   "numbering.preview":
     "Pure render of a candidate numbering scheme against a sample context — no write, no counter touch.",
   "directory.duplicateCandidates":
-    "Read-shaped POST: unions the phonetic/trigram/blind-index blocking channels for a prospective entity (match facts ride the body) — no write, no decrypt.",
+    "Read-shaped POST: unions the phonetic/trigram/blind-index blocking channels for a consultation entity (match facts ride the body) — no write, no decrypt.",
   "shipping.rateShipment":
     "Live rate-shop read-through to the carrier — POSTs the package to fetch ephemeral rates, persists nothing.",
   "shipping.tracking":
@@ -1165,6 +1165,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matters.endAssignment",
       "matters.estate",
       "matters.get",
+      "matters.graduate",
+      "matters.graduateReadiness",
       "matters.list",
       "matters.listAssignments",
       "matters.listConsultations",

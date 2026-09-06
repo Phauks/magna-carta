@@ -5,7 +5,11 @@ import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/id
 export const MATTER_TABLE = "matter";
 export const NUMBERING_SCHEME_TABLE = "numbering_scheme";
 
-export type MatterStatus = "prospective" | "open" | "closed";
+// The lifecycle, in the order a matter passes through it. An intake becomes a consultation when the
+// firm's intake procedure lets it through (the consultation number is drawn then); a consultation
+// opens (the matter number is drawn then); an open matter closes; a closed matter reopens to where
+// it was.
+export type MatterStatus = "intake" | "consultation" | "open" | "closed";
 
 // The two sequences a firm numbers, each with its own active scheme: the permanent matter number,
 // and the tentative number a consultation carries. Kept apart so a consultation that never becomes
@@ -116,10 +120,10 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
     .bind(id);
 }
 
-// The number draw on an existing prospective: prospective -> open, carrying the rendered number and
+// The number draw on an existing consultation: consultation -> open, carrying the rendered number and
 // its draw/open instants. The matter_number UNIQUE index aborts the batch on a colliding draw.
 //
-// `status = 'prospective'` is the in-batch belt behind the service's read-then-write precondition:
+// `status = 'consultation'` is the in-batch belt behind the service's read-then-write precondition:
 // D1 has no interactive transaction, so a concurrent open (or a close) can land between that read
 // and this commit. Without the predicate the second writer silently rewrites an already-open
 // matter's frozen number and its opened_at. With it the UPDATE matches zero rows instead, and the
@@ -132,9 +136,27 @@ export function openMatterStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MATTER_TABLE} SET status = 'open', matter_number = ?2, numbered_at = ?3, opened_at = ?3, updated_at = ?3 WHERE id = ?1 AND status = 'prospective'`,
+      `UPDATE ${MATTER_TABLE} SET status = 'open', matter_number = ?2, numbered_at = ?3, opened_at = ?3, updated_at = ?3 WHERE id = ?1 AND status = 'consultation'`,
     )
     .bind(id, matterNumber, openedAt);
+}
+
+// The consultation-number draw on an intake: intake -> consultation, carrying the tentative number.
+// `status = 'intake'` is the same in-batch belt the open carries, for the same race: a concurrent
+// graduation (or a close) between the service's read and this commit matches zero rows here rather
+// than rewriting a number already drawn, and the service confirms the row carries the number this
+// call drew.
+export function graduateMatterStatement(
+  database: SqlDatabase,
+  id: MatterId,
+  consultationNumber: string,
+  graduatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MATTER_TABLE} SET status = 'consultation', consultation_number = ?2, updated_at = ?3 WHERE id = ?1 AND status = 'intake'`,
+    )
+    .bind(id, consultationNumber, graduatedAt);
 }
 
 export function updateMatterFieldsStatement(
@@ -178,7 +200,7 @@ export function closeMatterStatement(
 export function reopenMatterStatement(
   database: SqlDatabase,
   id: MatterId,
-  status: "open" | "prospective",
+  status: "open" | "consultation" | "intake",
   updatedAt: string,
 ): SqlStatement {
   return database

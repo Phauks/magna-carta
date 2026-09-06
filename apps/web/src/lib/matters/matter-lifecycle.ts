@@ -6,9 +6,9 @@
  * test, and a test cannot reach a sentence written inside a template.
  *
  * ONE STEP, NEVER A PICKER. A matter's status is not a field somebody chooses a value for. Each
- * status offers exactly one next step: a consultation opens, an active matter closes, a closed
- * matter reopens. That is also the shape of the contract — three operations, each a POST with no
- * body, none of which takes a status. A control that let somebody pick "Closed" from a list would
+ * status offers exactly one next step: an intake completes into a consultation, a consultation
+ * opens, an active matter closes, a closed matter reopens. That is also the shape of the contract —
+ * four operations, each a POST with no body, none of which takes a status. A control that let somebody pick "Closed" from a list would
  * be offering a state the lifecycle may not put a matter in from where it stands.
  *
  * THE PROGRAM ANSWERS THE REQUIREMENTS, NOT THE READER. The close-readiness route runs the firm's
@@ -22,15 +22,17 @@ import type { MatterStatus } from "./matter-status.ts";
 import { permissionRefusal } from "$lib/access/refusal.ts";
 import {
   CLOSE_MATTER_PERMISSION,
+  GRADUATE_MATTER_PERMISSION,
   OPEN_MATTER_PERMISSION,
   REOPEN_MATTER_PERMISSION,
   type MatterCloseBlocker,
   type MatterCloseReadiness,
+  type MatterGraduateReadiness,
   type MatterOpenReadiness,
 } from "./matters-api.ts";
 
-/** The lifecycle operations, which are also the three endpoints that serve them. */
-export type MatterLifecycleAction = "open" | "close" | "reopen";
+/** The lifecycle operations, which are also the four endpoints that serve them. */
+export type MatterLifecycleAction = "graduate" | "open" | "close" | "reopen";
 
 export interface MatterLifecycleStep {
   /** Which operation the step runs. */
@@ -59,7 +61,15 @@ export const MATTER_LIFECYCLE_TRANSPORT_FAILURE =
 
 /** The step each status offers. */
 export const MATTER_LIFECYCLE_STEPS: Readonly<Record<MatterStatus, MatterLifecycleStep>> = {
-  prospective: {
+  intake: {
+    action: "graduate",
+    label: "Complete Intake",
+    busyLabel: "Completing",
+    permission: GRADUATE_MATTER_PERMISSION,
+    doneSentence: "The intake is complete. The matter is a consultation.",
+    failureSentence: "The intake could not be completed.",
+  },
+  consultation: {
     action: "open",
     label: "Open Matter",
     busyLabel: "Opening",
@@ -221,16 +231,49 @@ export function matterCloseRefusals(problem: Problem): readonly MatterCloseBlock
   return (problem.errors ?? []).map((reason) => ({ code: reason.code, message: reason.detail }));
 }
 
+// ---- what completing the intake requires ---------------------------------------------------------
+
+/**
+ * What stands between an intake and the consultation, one row per rule that refused.
+ *
+ * The rows are the refusals the readiness read returned — each an intake step, in the words of
+ * whoever should answer it — and an empty list with an answer means nothing stands in the way. The
+ * shape is the open readiness's, one rung earlier.
+ */
+export function matterGraduateRequirements(
+  readiness: MatterGraduateReadiness | null,
+  failed = false,
+): readonly MatterOpenRequirementStatus[] {
+  if (failed || readiness === null) return [];
+  return readiness.blockers.map((blocker, index) => ({
+    key: `${blocker.code}-${String(index)}`,
+    label: leadingCapital(blocker.message),
+    state: "unmet" as const,
+  }));
+}
+
+/** Whether the program says this intake would complete right now. Unknown until it has answered. */
+export function matterCanGraduate(readiness: MatterGraduateReadiness | null): boolean | null {
+  return readiness === null ? null : readiness.graduable;
+}
+
+/** The problem type the graduation answers with when the intake procedure refuses the intake. */
+export const GRADUATE_REFUSED_PROBLEM_TYPE = "matter-graduate-refused";
+
+export function matterGraduateRefusals(problem: Problem): readonly MatterCloseBlocker[] {
+  if (problem.type !== GRADUATE_REFUSED_PROBLEM_TYPE) return [];
+  return (problem.errors ?? []).map((reason) => ({ code: reason.code, message: reason.detail }));
+}
+
 // ---- what opening requires -----------------------------------------------------------------------
 
 /**
  * What stands between a consultation and opening, one row per rule that refused.
  *
- * Unlike the close, the open has no fixed roster of rules to state as met: what a consultation must
- * clear is the firm's own intake procedure, which differs by kind of matter and may be empty. So
- * the rows are exactly the refusals the readiness read returned — each one an intake step, in the
- * words of whoever should answer it — and an empty list with an answer means nothing stands in the
- * way. `checking` and `unknown` keep the same meaning they have for the close: not asked yet, and
+ * Unlike the close, the open has no fixed roster of rules to state as met. The intake procedure
+ * gates the rung before this one, so today the open reports at most that the matter is not yet a
+ * consultation; the rows are exactly the refusals the readiness read returned, and an empty list
+ * with an answer means nothing stands in the way. `checking` and `unknown` keep the same meaning they have for the close: not asked yet, and
  * could not be asked, neither of which is a refusal.
  */
 export interface MatterOpenRequirementStatus {

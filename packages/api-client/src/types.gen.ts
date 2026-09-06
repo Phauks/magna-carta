@@ -131,7 +131,8 @@ export type FirmUsageResponse = {
     counts: {
         matters: {
             total: number;
-            prospective: number;
+            intake: number;
+            consultation: number;
             open: number;
             closed: number;
         };
@@ -142,7 +143,8 @@ export type FirmUsageResponse = {
     };
     mattersByType: Array<{
         matterTypeName: string | null;
-        prospective: number;
+        intake: number;
+        consultation: number;
         open: number;
         closed: number;
         total: number;
@@ -963,7 +965,7 @@ export type CreateMatterResponse = {
 
 export type CreateMatterRequest = {
     title: string;
-    status: 'prospective' | 'open';
+    status: 'intake' | 'consultation' | 'open';
     description?: string | null;
     matterTypeId?: string | null;
     locationId?: string | null;
@@ -985,7 +987,7 @@ export type MatterSummary = {
     id: string;
     title: string;
     clientEntityId: string | null;
-    status: 'prospective' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
     responsibleMemberId: string;
@@ -1013,7 +1015,7 @@ export type MatterDetail = {
     id: string;
     title: string;
     description: string | null;
-    status: 'prospective' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
     responsibleMemberId: string;
@@ -1033,8 +1035,18 @@ export type MatterDetail = {
 
 export type MatterOpenReadiness = {
     matterId: string;
-    status: 'prospective' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'closed';
     openable: boolean;
+    blockers: Array<{
+        code: string;
+        message: string;
+    }>;
+};
+
+export type MatterGraduateReadiness = {
+    matterId: string;
+    status: 'intake' | 'consultation' | 'open' | 'closed';
+    graduable: boolean;
     blockers: Array<{
         code: string;
         message: string;
@@ -1043,7 +1055,7 @@ export type MatterOpenReadiness = {
 
 export type MatterCloseReadiness = {
     matterId: string;
-    status: 'prospective' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'closed';
     closable: boolean;
     blockers: Array<{
         code: string;
@@ -1063,6 +1075,11 @@ export type PatchMatterRequest = {
     responsibleMemberId?: string;
     clientDisplayName?: string | null;
     clientCode?: string | null;
+};
+
+export type GraduateMatterResponse = {
+    matterId: string;
+    consultationNumber: string;
 };
 
 export type OpenMatterResponse = {
@@ -2099,7 +2116,7 @@ export type DirectoryEntityMatterPartyEntry = {
      */
     matterTitle: string | null;
     /**
-     * Null while the matter is still prospective and undrawn.
+     * Null while the matter is still consultation and undrawn.
      */
     matterNumber: string | null;
     matterStatus: string | null;
@@ -3490,6 +3507,7 @@ export type IntakeDeskList = {
 export type IntakeDeskRow = {
     matterId: string;
     title: string;
+    status: 'intake' | 'consultation';
     consultationNumber: string | null;
     matterTypeId: string | null;
     matterTypeName: string | null;
@@ -3520,7 +3538,7 @@ export type IntakeDeskConsultationSetting = {
 
 export type IntakeChecklist = {
     matterId: string;
-    matterStatus: 'prospective' | 'open' | 'closed';
+    matterStatus: 'intake' | 'consultation' | 'open' | 'closed';
     procedures: Array<{
         id: string;
         name: string;
@@ -11096,7 +11114,7 @@ export type MattersListData = {
     body?: never;
     path?: never;
     query?: {
-        status?: 'prospective' | 'open' | 'closed';
+        status?: 'intake' | 'consultation' | 'open' | 'closed';
         matterTypeId?: string;
         locationId?: string;
         responsibleMemberId?: string;
@@ -11349,6 +11367,45 @@ export type MattersOpenReadinessResponses = {
 
 export type MattersOpenReadinessResponse = MattersOpenReadinessResponses[keyof MattersOpenReadinessResponses];
 
+export type MattersGraduateReadinessData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/graduate-readiness';
+};
+
+export type MattersGraduateReadinessErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersGraduateReadinessError = MattersGraduateReadinessErrors[keyof MattersGraduateReadinessErrors];
+
+export type MattersGraduateReadinessResponses = {
+    /**
+     * Whether the intake can become a consultation, and what stands in the way
+     */
+    200: MatterGraduateReadiness;
+};
+
+export type MattersGraduateReadinessResponse = MattersGraduateReadinessResponses[keyof MattersGraduateReadinessResponses];
+
 export type MattersCloseReadinessData = {
     body?: never;
     path: {
@@ -11387,6 +11444,60 @@ export type MattersCloseReadinessResponses = {
 };
 
 export type MattersCloseReadinessResponse = MattersCloseReadinessResponses[keyof MattersCloseReadinessResponses];
+
+export type MattersGraduateData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/graduate';
+};
+
+export type MattersGraduateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A graduation rule refused the intake, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersGraduateError = MattersGraduateErrors[keyof MattersGraduateErrors];
+
+export type MattersGraduateResponses = {
+    /**
+     * The intake is now a consultation, and carries its consultation number
+     */
+    200: GraduateMatterResponse;
+};
+
+export type MattersGraduateResponse = MattersGraduateResponses[keyof MattersGraduateResponses];
 
 export type MattersOpenData = {
     body?: never;

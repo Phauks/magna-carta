@@ -143,7 +143,7 @@ describe("GET /api/v1/firm-usage", () => {
         },
       },
       counts: {
-        matters: { total: 2, prospective: 0, open: 2, closed: 0 },
+        matters: { total: 2, intake: 0, consultation: 0, open: 2, closed: 0 },
         files: 0,
         fileVersions: 0,
         folders: 0,
@@ -151,8 +151,15 @@ describe("GET /api/v1/firm-usage", () => {
       },
       mattersByType: [
         // Equal totals tie-break on name, and the no-type bucket sorts as the empty string.
-        { matterTypeName: null, prospective: 0, open: 1, closed: 0, total: 1 },
-        { matterTypeName: "Estate Planning", prospective: 0, open: 1, closed: 0, total: 1 },
+        { matterTypeName: null, intake: 0, consultation: 0, open: 1, closed: 0, total: 1 },
+        {
+          matterTypeName: "Estate Planning",
+          intake: 0,
+          consultation: 0,
+          open: 1,
+          closed: 0,
+          total: 1,
+        },
       ],
       files: {
         currentFiles: { count: 0, bytes: 0 },

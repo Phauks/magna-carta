@@ -10,24 +10,25 @@
  * THE ONE PLACE THEY DIFFER, STATED PLAINLY. The firm's word for a matter it is working is ACTIVE.
  * The contract stores that state as `open` — the code the listing filters on, the code the create
  * request carries, the code the database column holds. So `open` is what crosses the wire and
- * "Active" is what prints, and this map is the only place the two meet. Prospective and Closed
- * spell the same both ways.
+ * "Active" is what prints, and this map is the only place the two meet. Intake, Consultation and
+ * Closed spell the same both ways.
  *
  * CLOSED IS A REAL LIFECYCLE STATE AND NOT A CREATABLE ONE. The contract stores it, a matter
  * reaches it by being closed, and the docket must be able to filter for it whether or not the firm
- * has one today. The create operation, though, accepts only prospective and open — so the intake
- * offers Closed as a state that exists and cannot yet be started in, rather than hiding a word the
- * firm uses.
+ * has one today. The create operation, though, accepts only intake, consultation and open — so the
+ * intake offers Closed as a state that exists and cannot yet be started in, rather than hiding a
+ * word the firm uses.
  */
 import { statusEntry, type StatusKey } from "@magna-carta/design-system/status-register";
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
 
 /** The status codes the matters contract stores and filters on. */
-export type MatterStatus = "prospective" | "open" | "closed";
+export type MatterStatus = "intake" | "consultation" | "open" | "closed";
 
 /** Which word in the product's register each stored code speaks. */
 const MATTER_STATUS_WORDS: Readonly<Record<MatterStatus, StatusKey>> = {
-  prospective: "prospective",
+  intake: "intake",
+  consultation: "consultation",
   open: "active",
   closed: "closed",
 };
@@ -56,7 +57,12 @@ export function matterStatusLabel(status: MatterStatus): string {
  * The lifecycle statuses in the order a matter passes through them. Drives any control that offers
  * a status, so two surfaces cannot disagree about which comes first.
  */
-export const MATTER_STATUSES: readonly MatterStatus[] = ["prospective", "open", "closed"];
+export const MATTER_STATUSES: readonly MatterStatus[] = [
+  "intake",
+  "consultation",
+  "open",
+  "closed",
+];
 
 /** Every lifecycle label, in lifecycle order — what a filter offers whether or not one is loaded. */
 export const MATTER_STATUS_LABELS: readonly string[] = MATTER_STATUSES.map(matterStatusLabel);
@@ -69,7 +75,11 @@ export const MATTER_STATUS_LABELS: readonly string[] = MATTER_STATUSES.map(matte
  * a concluded matter the firm handled before it kept its record here is the ordinary case — so the
  * gap is the contract's, not the design's.
  */
-export const CREATABLE_MATTER_STATUSES: readonly MatterStatus[] = ["prospective", "open"];
+export const CREATABLE_MATTER_STATUSES: readonly MatterStatus[] = [
+  "intake",
+  "consultation",
+  "open",
+];
 
 /** Whether a matter can be created in this status today. */
 export function isCreatableMatterStatus(status: MatterStatus): boolean {
@@ -78,4 +88,4 @@ export function isCreatableMatterStatus(status: MatterStatus): boolean {
 
 /** What creating a matter already closed waits on, as a noun phrase the Soon affordance completes. */
 export const CLOSED_AT_CREATION_DEPENDENCY =
-  "the create operation accepting a closed status, which today takes only Prospective or Active";
+  "the create operation accepting a closed status, which today takes only Intake, Consultation or Active";

@@ -183,7 +183,7 @@ const HistoryRecord = ChecklistRecord.extend({
 const Checklist = z
   .object({
     matterId: z.string(),
-    matterStatus: z.enum(["prospective", "open", "closed"]),
+    matterStatus: z.enum(["intake", "consultation", "open", "closed"]),
     procedures: z.array(z.object({ id: z.string(), name: z.string() })),
     steps: z.array(ChecklistStep),
     outstandingRequired: z.number().int(),
@@ -219,6 +219,8 @@ const DeskRow = z
   .object({
     matterId: z.string(),
     title: z.string(),
+    // Which rung: an intake still clearing its procedure, or a consultation awaiting its meeting.
+    status: z.enum(["intake", "consultation"]),
     consultationNumber: z.string().nullable(),
     matterTypeId: z.string().nullable(),
     matterTypeName: z.string().nullable(),
@@ -313,7 +315,7 @@ function intakeErrorResponse(
     case "procedure-inactive":
     case "procedure-name-taken":
     case "step-inactive":
-    case "matter-not-prospective":
+    case "matter-not-intake":
     case "step-not-bound":
     case "step-not-recordable":
     case "record-none-live":

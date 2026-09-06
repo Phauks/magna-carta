@@ -7,6 +7,7 @@ import { navigateInto, type ActivityContribution } from "$lib/activity/contribut
 
 const HAPPENED: Readonly<Record<string, string>> = {
   "matter.created": "The matter was created",
+  "matter.graduated": "The intake was completed and the matter became a consultation",
   "matter.opened": "The matter was opened",
   "matter.closed": "The matter was closed",
   "matter.reopened": "The matter was reopened",

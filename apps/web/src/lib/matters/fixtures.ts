@@ -1,7 +1,7 @@
 /*
  * Fixture matters for the matter detail screen. The screen is presentation-only until the
  * matters list stream wires the real API; these three fixtures cover the whole lifecycle
- * (open and numbered, prospective consultation, closed) so every header and page state is
+ * (intake, consultation, open and numbered, closed) so every header and page state is
  * reviewable at a stable URL. Shapes mirror the matter record and its adjacent surfaces —
  * when wiring lands, these types give way to the generated api-client types.
  */
@@ -10,7 +10,7 @@ export interface MatterFixture {
   id: string;
   title: string;
   description: string | null;
-  status: "prospective" | "open" | "closed";
+  status: "intake" | "consultation" | "open" | "closed";
   /** Null until open draws it; frozen thereafter. A consultation has none until it is opened. */
   matterNumber: string | null;
   /** The consultation's own tentative number, kept after opening rather than replaced by it. */
@@ -156,12 +156,35 @@ export const matterFixtures: readonly MatterFixture[] = [
     ],
   },
   {
+    id: "matter-fixture-intake",
+    title: "Intake — Alvarez tenancy call",
+    description:
+      "Caller reports a lockout by a landlord after a rent dispute; the receptionist took the " +
+      "call this morning and the intake procedure is still being answered.",
+    status: "intake",
+    matterNumber: null,
+    consultationNumber: null,
+    matterTypeName: "Landlord & Tenant",
+    locationName: null,
+    responsibleAttorneyName: "Priya Raghunathan",
+    clientDisplayName: "Mateo Alvarez",
+    clientEntityId: null,
+    clientCode: null,
+    eBilling: false,
+    openedAt: null,
+    closedAt: null,
+    createdAt: "2026-09-05",
+    files: [],
+    timeEntries: [],
+    costs: [],
+  },
+  {
     id: "matter-fixture-consultation",
     title: "Consultation — Whitmore estate inquiry",
     description:
       "Prospective client seeking advice on contesting the Whitmore testamentary trust; " +
       "conflicts run at intake, retention undecided.",
-    status: "prospective",
+    status: "consultation",
     matterNumber: null,
     consultationNumber: "C2026-0058",
     matterTypeName: "Estate & Probate",

@@ -28,7 +28,7 @@ async function seedMember(database: BatchDatabase, userId: string): Promise<void
 
 interface SeedMatter {
   id: string;
-  status: "prospective" | "open" | "closed";
+  status: "intake" | "consultation" | "open" | "closed";
   createdAt: string;
   responsibleMemberId?: string;
   matterTypeId?: string | null;
@@ -72,9 +72,10 @@ async function setup(): Promise<BatchDatabase> {
 const day = (n: number) => `2026-06-${String(n).padStart(2, "0")}T12:00:00.000Z`;
 
 describe("listMatters", () => {
-  it("excludes prospectives by default", async () => {
+  it("excludes intakes and consultations by default", async () => {
     const database = await setup();
-    await seedMatter(database, { id: "matter_p", status: "prospective", createdAt: day(1) });
+    await seedMatter(database, { id: "matter_i", status: "intake", createdAt: day(0) });
+    await seedMatter(database, { id: "matter_p", status: "consultation", createdAt: day(1) });
     await seedMatter(database, { id: "matter_o", status: "open", createdAt: day(2) });
     await seedMatter(database, { id: "matter_c", status: "closed", createdAt: day(3) });
     const { data } = await listMatters(database, {});
@@ -158,26 +159,26 @@ describe("listMatters", () => {
 });
 
 describe("listConsultations", () => {
-  it("returns the member's prospectives with a stale flag at the day boundary", async () => {
+  it("returns the member's consultations with a stale flag at the day boundary", async () => {
     const database = await setup();
     const nowInstant = "2026-06-13T12:00:00.000Z";
     // Created exactly 14 days ago -> stale (inclusive boundary); 13 days ago -> fresh.
     await seedMatter(database, {
       id: "matter_stale",
-      status: "prospective",
+      status: "consultation",
       createdAt: "2026-05-30T12:00:00.000Z",
       responsibleMemberId: ATTORNEY,
     });
     await seedMatter(database, {
       id: "matter_fresh",
-      status: "prospective",
+      status: "consultation",
       createdAt: "2026-05-31T12:00:00.000Z",
       responsibleMemberId: ATTORNEY,
     });
-    // Another member's prospective must not appear.
+    // Another member's consultation must not appear.
     await seedMatter(database, {
       id: "matter_other",
-      status: "prospective",
+      status: "consultation",
       createdAt: "2026-05-30T12:00:00.000Z",
       responsibleMemberId: OTHER,
     });
@@ -203,7 +204,7 @@ describe("listConsultations", () => {
 describe("readMattersByIds", () => {
   it("hydrates a known set in one read, regardless of lifecycle status", async () => {
     const database = await setup();
-    await seedMatter(database, { id: "matter_p", status: "prospective", createdAt: day(1) });
+    await seedMatter(database, { id: "matter_p", status: "consultation", createdAt: day(1) });
     await seedMatter(database, { id: "matter_c", status: "closed", createdAt: day(2) });
     const rows = await readMattersByIds(database, [
       "matter_p" as MatterId,

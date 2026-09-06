@@ -196,7 +196,7 @@
   surface: screen
   slices: 1-1-matters-locations-file-manager, 1-3-directory
   evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/api-worker/src/routes/directory.ts; the matter Parties section at apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte on the RecordParties tab links, reads and severs; the client's own party row is written by packages/matters createMatter in the same batch as the matter (clientPartyStatements).
-  notes: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a prospective matter's conflict check needs a person.
+  notes: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a consultation's conflict check needs a person.
 
 - id: matters.numbering
   name: Configurable matter numbering
@@ -246,19 +246,19 @@
   status: shipped
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0079, ADR-0080
-  evidence: packages/matters/src/matter-service.ts (prospective/open/closed transitions, reopen restoring prior state, frozen numbers), reached from the matter masthead's status seal in apps/web/src/lib/matters/matter-status-dialog.svelte over the open/close/reopen routes.
+  evidence: packages/matters/src/matter-service.ts (intake/consultation/open/closed transitions — graduateMatter draws the consultation number behind the intake procedure's gate — reopen restoring the prior rung, frozen numbers), reached from the matter masthead's status seal in apps/web/src/lib/matters/matter-status-dialog.svelte over the open/close/reopen routes.
   notes: The UI has landed. Pressing the status seal opens a short status window - the status, how the matter is engaged (the signed agreement on file and the fee arrangement it rests on, with Amend beside it and the history folded away; moved here from the Fees screen by the owner's ruling of 2026-09-03), what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt.
 
 - id: matters.lifecycle.consultations
-  name: Consultations (prospective matters)
+  name: Consultations
   scope: Lightweight matters kept out of the main list, carrying a tentative number from their own firm-settable sequence, surfaced in a per-attorney Consultations virtual view; parties feed conflicts permanently; conflicts run at intake.
   status: partial
   surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0080
-  evidence: prospective status drawing matter.consultation_number from the consultation-purpose scheme in matter-service.ts (numbering/consultation-scheme.ts holds the built-in default); consultation queries with staleness in queries.ts
-  awaiting-owner: May a fee agreement be recorded against a prospective matter, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
-  notes: Backend shipped, consultation numbering included — a prospective matter draws a tentative number at creation from its own sequence, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers.
+  evidence: the consultation status drawing matter.consultation_number from the consultation-purpose scheme in matter-service.ts (at graduation from intake, or at creation when recorded outright) (numbering/consultation-scheme.ts holds the built-in default); consultation queries with staleness in queries.ts
+  awaiting-owner: May a fee agreement be recorded against an intake or a consultation, before the firm has agreed to act? The billing engine would accept one today — nothing in the arrangement model asks whether the matter is numbered. The question is whether a firm should be able to agree a fee on a file it has not taken, which is a professional-conduct call rather than an engineering one. Client intake design flag J7.
+  notes: Backend shipped, consultation numbering included — a consultation draws a tentative number from its own sequence, when an intake graduates or when a consultation is recorded outright, kept separate from the matter run so a consultation that is never taken consumes no matter number, and kept on the row after opening. Consultations folder view is UI (not built). The conflicts engine is shipped and its matter.created trigger already records a preliminary check, but the pre-engagement screen the scope promises has no intake flow to fire it from — see conflicts.triggers.
 
 - id: matters.lifecycle.close-preconditions
   name: Close-precondition hook
@@ -271,7 +271,7 @@
 
 - id: matters.lifecycle.stale-consultations
   name: Stale-consultation policy and bulk close
-  scope: Per-firm age policy flags stale consultations for bulk close; closed prospectives retained forever as conflict history.
+  scope: Per-firm age policy flags stale consultations for bulk close; closed consultations retained forever as conflict history.
   status: partial
   surface: awaiting-screen
   slices: 1-1-matters-locations-file-manager

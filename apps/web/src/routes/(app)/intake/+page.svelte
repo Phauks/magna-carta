@@ -4,13 +4,14 @@
    *
    * WHAT THE DESK IS. A receptionist takes a call from somebody who wants the firm to act. They
    * start an intake here: the caller is chosen from the directory or recorded into it from the same
-   * field, the matter is named, and a consultation is recorded — a prospective matter, unnumbered.
-   * What the firm requires before it acts is the intake procedure bound to that kind of matter, and
-   * the consultation's Intake section is where each step is answered, by the subsystem that owns
-   * the fact or by a member's record. Several intakes run at once and each is resumed from this
-   * list; when every required step is answered the desk schedules the consultation, and the matter
-   * opens from its own status window. The desk is therefore a READING of the firm's prospective
-   * matters, never a register of its own: nothing is on the desk and missing from the docket.
+   * field, the matter is named, and a matter is recorded in the INTAKE status — no number of any
+   * kind yet. What the firm requires before it consults is the intake procedure bound to that kind
+   * of matter, and the matter's Intake section is where each step is answered, by the subsystem
+   * that owns the fact or by a member's record. Several intakes run at once and each is resumed
+   * from this list. When every required step is answered, Complete Intake makes the matter a
+   * CONSULTATION and draws its consultation number; Schedule then puts the consultation on the
+   * calendar; and the consultation opens from its own status window. The desk is therefore a
+   * READING of the firm's matters on the two rungs before opening, never a register of its own.
    *
    * IT IS ONE TABLE, AND THE TABLE IS WHAT NARROWS IT. The search is the read's own server-side
    * search over title, number and client; everything else is a column with its own filter. No tab
@@ -31,10 +32,13 @@
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import CalendarPlus from "@lucide/svelte/icons/calendar-plus";
+  import ClipboardCheck from "@lucide/svelte/icons/clipboard-check";
   import FunnelX from "@lucide/svelte/icons/funnel-x";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { permissionRefusal } from "$lib/access/refusal.ts";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import NewMatterDialog from "$lib/matters/new-matter-dialog.svelte";
   import RecordEventDialog from "$lib/calendar/record-event-dialog.svelte";
@@ -42,6 +46,7 @@
   import { listEventTypes, readerTimeZone, type EventType } from "$lib/calendar/calendar-api.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
+    graduateMatter,
     listEveryMatter,
     listLocations,
     listMatterTypes,
@@ -52,6 +57,7 @@
     type SessionBootstrap,
   } from "$lib/matters/matters-api.ts";
   import {
+    completeRefusal,
     consultationText,
     consultationTitle,
     intakeDeskColumns,
@@ -181,6 +187,34 @@
     reread();
   }
 
+  // ---- completing an intake -----------------------------------------------------------------
+
+  /** The row whose graduation is in flight, so a double press cannot draw two numbers. */
+  let completing = $state<string | null>(null);
+  let completed = $state<{ matterId: string; consultationNumber: string } | null>(null);
+  let completeFailure = $state<StatedFailure | null>(null);
+
+  async function complete(row: IntakeDeskRow): Promise<void> {
+    if (completing !== null) return;
+    completing = row.matterId;
+    completeFailure = null;
+    // One key per attempt: a repeat answers with the number the first press drew.
+    const outcome = await graduateMatter(fetch, row.matterId, crypto.randomUUID());
+    completing = null;
+    if (outcome.kind === "ok") {
+      completed = outcome.value;
+      lastStarted = null;
+      reread();
+      return;
+    }
+    // A refusal names each outstanding step in its own words; the desk repeats them.
+    completeFailure = stated(
+      outcome.failure,
+      "The intake could not be completed.",
+      "Nothing answered. The intake is unchanged.",
+    );
+  }
+
   // ---- scheduling the consultation ------------------------------------------------------------
 
   let scheduling = $state<IntakeDeskRow | null>(null);
@@ -251,16 +285,41 @@
   </ScreenHeader>
 
   {#if lastStarted !== null}
-    <!-- The number the consultation was given, which is what a receptionist quotes back. It opens
-         the intake, because the next thing anyone does with a new one is answer its steps. -->
+    <!-- It opens the intake, because the next thing anyone does with a new one is answer its
+         steps. An intake carries no number yet; that is drawn when it completes. -->
     <Alert.Root variant="success">
       <Alert.Title>The Intake Is Started</Alert.Title>
       <Alert.Description>
         <a class="underline underline-offset-2" href={intakeResumeHref(lastStarted)}>
-          {lastStarted.consultationNumber ?? "Open the intake"}
+          Open the intake
         </a>
       </Alert.Description>
     </Alert.Root>
+  {/if}
+
+  {#if completed !== null}
+    <!-- The consultation number the firm's sequence drew, which is what a receptionist quotes
+         back to the caller from here on. -->
+    <Alert.Root variant="success">
+      <Alert.Title>The Intake Is Complete</Alert.Title>
+      <Alert.Description>
+        <a
+          class="underline underline-offset-2 tabular-nums"
+          href="/matters/{encodeURIComponent(completed.matterId)}"
+        >
+          {completed.consultationNumber}
+        </a>
+      </Alert.Description>
+    </Alert.Root>
+  {/if}
+
+  {#if completeFailure !== null}
+    <FailureNotice
+      failure={completeFailure.failure}
+      title="The Intake Was Not Completed"
+      fallback={completeFailure.fallback}
+      whenSilent={completeFailure.whenSilent}
+    />
   {/if}
 
   {#if firmRoster.failure !== null}
@@ -335,13 +394,39 @@
         {row.consultationNumber}
       </a>
     {/if}
+  {:else if column.id === "status"}
+    {@const seal = matterStatusPresentation(row.status)}
+    <Badge variant={seal.variant} title={seal.meaning}>{seal.label}</Badge>
   {:else if column.id === "standing"}
-    <span
-      class={row.checklist.bound && row.checklist.outstandingRequired === 0
-        ? "text-text-default"
-        : "text-text-muted"}
-    >
-      {intakeStandingText(row.checklist)}
+    {@const refusal = completeRefusal(row, permissions)}
+    <span class="flex items-center gap-8">
+      <span
+        class={row.status === "consultation" ||
+        (row.checklist.bound && row.checklist.outstandingRequired === 0)
+          ? "text-text-default"
+          : "text-text-muted"}
+      >
+        {intakeStandingText(row.checklist, row.status)}
+      </span>
+      {#if row.status === "intake"}
+        <!-- The lifecycle step itself, on the row: present and refused with the reason until every
+             required step is answered, because the desk's whole point is that the consultation
+             follows a complete intake. -->
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={refusal !== undefined || completing !== null}
+          title={refusal ?? `Complete the intake for ${row.title}`}
+          aria-label="Complete the intake for {row.title}"
+          onclick={(event) => {
+            event.stopPropagation();
+            void complete(row);
+          }}
+        >
+          <ClipboardCheck class="size-16" aria-hidden="true" />
+          {completing === row.matterId ? "Completing" : "Complete Intake"}
+        </Button>
+      {/if}
     </span>
   {:else if column.id === "consultation"}
     {@const refusal = scheduleRefusal(row, permissions)}
@@ -349,9 +434,9 @@
       <span class={row.nextConsultation === null ? "text-text-muted" : "tabular-nums"}>
         {consultationText(row.nextConsultation)}
       </span>
-      <!-- Present and refused rather than absent, carrying the reason: the desk's whole point is
-           that the consultation follows a complete intake, and a control that vanished would not
-           say so — nor, once one is scheduled, where the act moved to. -->
+      <!-- Present and refused rather than absent, carrying the reason: on an intake it says the
+           intake comes first, and once a consultation is scheduled it says where the act moved to.
+           A control that vanished would say neither. -->
       <Button
         variant="ghost"
         size="sm"

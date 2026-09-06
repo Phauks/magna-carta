@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { ClosePreconditionError, type ClosePrecondition } from "../src/close-preconditions.ts";
 import { OpenPreconditionError, type OpenPrecondition } from "../src/open-preconditions.ts";
 import {
+  graduateMatter,
   closeMatter,
   createMatter,
   openMatter,
@@ -143,11 +144,11 @@ async function setup(segments: NumberSegment[] = YEAR_COUNTER_SCHEME): Promise<B
 const baseInput = { title: "Smith v. Jones", responsibleMemberId: RESPONSIBLE } as const;
 
 describe("createMatter", () => {
-  it("creates a prospective consultation with a consultation number and no matter number", async () => {
+  it("creates a consultation with a consultation number and no matter number", async () => {
     const database = await setup();
     const { matterId, matterNumber, consultationNumber } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     expect(matterNumber).toBeNull();
@@ -156,7 +157,7 @@ describe("createMatter", () => {
     expect(consultationNumber).toBe("C2026-0001");
     const row = await readMatter(database, matterId);
     expect(row).toMatchObject({
-      status: "prospective",
+      status: "consultation",
       matter_number: null,
       consultation_number: "C2026-0001",
       opened_at: null,
@@ -165,8 +166,8 @@ describe("createMatter", () => {
 
   it("counts consultations on their own run, leaving the matter counter untouched", async () => {
     const database = await setup();
-    const first = await createMatter(database, { ...baseInput, status: "prospective" }, options);
-    const second = await createMatter(database, { ...baseInput, status: "prospective" }, options);
+    const first = await createMatter(database, { ...baseInput, status: "consultation" }, options);
+    const second = await createMatter(database, { ...baseInput, status: "consultation" }, options);
     expect([first.consultationNumber, second.consultationNumber]).toEqual([
       "C2026-0001",
       "C2026-0002",
@@ -198,7 +199,7 @@ describe("createMatter", () => {
     );
     const { consultationNumber } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     expect(consultationNumber).toBe("INTAKE-040");
@@ -230,11 +231,11 @@ describe("createMatter", () => {
 });
 
 describe("openMatter", () => {
-  it("draws the number at open, not at creation, for a prospective", async () => {
+  it("draws the number at open, not at creation, for a consultation", async () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     expect((await readMatter(database, matterId))?.matter_number).toBeNull();
@@ -249,11 +250,11 @@ describe("openMatter", () => {
     });
   });
 
-  it("refuses to open a matter that is not prospective", async () => {
+  it("refuses to open a matter that is not a consultation", async () => {
     const database = await setup();
     const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
     await expect(openMatter(database, matterId, {}, options)).rejects.toMatchObject({
-      code: "matter-not-prospective",
+      code: "matter-not-consultation",
     });
   });
 
@@ -268,17 +269,17 @@ describe("openMatter", () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     // The winner opens the same matter while the racing call is mid-flight, after it has already
-    // read the matter as prospective and drawn its own number.
+    // read the matter as consultation and drawn its own number.
     let winner = "";
     const racing = interleaveBeforeFirstCommit(database, async () => {
       winner = (await openMatter(database, matterId, {}, options)).matterNumber;
     });
     await expect(openMatter(racing, matterId, {}, options)).rejects.toMatchObject({
-      code: "matter-not-prospective",
+      code: "matter-not-consultation",
     });
     // The winner's number and open instant stand — the loser rewrote nothing.
     expect(await readMatter(database, matterId)).toMatchObject({
@@ -292,14 +293,14 @@ describe("openMatter", () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     const racing = interleaveBeforeFirstCommit(database, () =>
       closeMatter(database, matterId, options),
     );
     await expect(openMatter(racing, matterId, {}, options)).rejects.toMatchObject({
-      code: "matter-not-prospective",
+      code: "matter-not-consultation",
     });
     // A declined consultation stays closed and unnumbered: the late open neither revived it nor
     // stamped a number on it.
@@ -336,41 +337,120 @@ describe("closeMatter / reopenMatter", () => {
     });
   });
 
-  it("closes a prospective (declined consultation) and reopens it to prospective", async () => {
+  it("creates an intake with no number of either kind, and no counter touched", async () => {
+    const database = await setup();
+    const created = await createMatter(database, { ...baseInput, status: "intake" }, options);
+    expect(created.matterNumber).toBeNull();
+    expect(created.consultationNumber).toBeNull();
+    expect(await readMatter(database, created.matterId)).toMatchObject({
+      status: "intake",
+      matter_number: null,
+      consultation_number: null,
+      opened_at: null,
+    });
+    // The consultation run is untouched: the next consultation recorded outright is the first.
+    const outright = await createMatter(
+      database,
+      { ...baseInput, status: "consultation" },
+      options,
+    );
+    expect(outright.consultationNumber).toBe("C2026-0001");
+  });
+
+  it("graduates an intake to a consultation, drawing its consultation number, and only once", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "intake" }, options);
+    const graduated = await graduateMatter(database, matterId, {}, options);
+    expect(graduated.consultationNumber).toBe("C2026-0001");
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "consultation",
+      consultation_number: "C2026-0001",
+      matter_number: null,
+      opened_at: null,
+    });
+    await expect(graduateMatter(database, matterId, {}, options)).rejects.toMatchObject({
+      code: "matter-not-intake",
+    });
+    // Graduated, it opens like any consultation and keeps the tentative number beside the real one.
+    const opened = await openMatter(database, matterId, {}, options);
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "open",
+      matter_number: opened.matterNumber,
+      consultation_number: "C2026-0001",
+    });
+  });
+
+  it("refuses to open an intake: it has to become a consultation first", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "intake" }, options);
+    await expect(openMatter(database, matterId, {}, options)).rejects.toMatchObject({
+      code: "matter-not-consultation",
+    });
+  });
+
+  it("graduation runs the supplied preconditions and leaves a refused intake untouched", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "intake" }, options);
+    const refusing = {
+      check: async () => [{ code: "intake-step-outstanding", message: "the identity step" }],
+    };
+    await expect(
+      graduateMatter(database, matterId, {}, { ...options, graduatePreconditions: [refusing] }),
+    ).rejects.toMatchObject({ failures: [{ code: "intake-step-outstanding" }] });
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "intake",
+      consultation_number: null,
+    });
+  });
+
+  it("closes an intake that went nowhere and reopens it to intake, never to consultation", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "intake" }, options);
+    await closeMatter(database, matterId, options);
+    expect((await readMatter(database, matterId))?.status).toBe("closed");
+    await reopenMatter(database, matterId, options);
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "intake",
+      consultation_number: null,
+      matter_number: null,
+    });
+  });
+
+  it("closes a consultation (declined consultation) and reopens it to consultation", async () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     await closeMatter(database, matterId, options);
     expect((await readMatter(database, matterId))?.status).toBe("closed");
     await reopenMatter(database, matterId, options);
     expect(await readMatter(database, matterId)).toMatchObject({
-      status: "prospective",
+      status: "consultation",
       matter_number: null,
     });
   });
 
-  it("reopens a manually-numbered consultation to prospective, not open", async () => {
+  it("reopens a manually-numbered consultation to consultation, not open", async () => {
     const database = await setup();
     // A consultation given a manual number never sets opened_at, so it was never opened.
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     await renumberMatter(database, matterId, "LEGACY-7", options);
     expect(await readMatter(database, matterId)).toMatchObject({
-      status: "prospective",
+      status: "consultation",
       matter_number: "LEGACY-7",
       opened_at: null,
     });
     await closeMatter(database, matterId, options);
     await reopenMatter(database, matterId, options);
-    // Restored from opened_at (null), not inferred from the present number — stays prospective.
+    // Restored from opened_at (null), not inferred from the present number — stays consultation.
     expect(await readMatter(database, matterId)).toMatchObject({
-      status: "prospective",
+      status: "consultation",
       matter_number: "LEGACY-7",
       closed_at: null,
     });
@@ -523,11 +603,11 @@ describe("updateMatter", () => {
 });
 
 describe("renumberMatter", () => {
-  it("assigns a manual number to a prospective without drawing a counter", async () => {
+  it("assigns a manual number to a consultation without drawing a counter", async () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     await renumberMatter(database, matterId, "LEGACY-7", options);
@@ -563,7 +643,7 @@ describe("renumberMatter", () => {
     const first = await createMatter(database, { ...baseInput, status: "open" }, options);
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     await expect(
@@ -585,7 +665,7 @@ describe("number allocation under contention", () => {
   it("a counter draw retries past a manual number that collides with it", async () => {
     const database = await setup();
     // Park a manual number equal to the counter's SECOND draw.
-    const parked = await createMatter(database, { ...baseInput, status: "prospective" }, options);
+    const parked = await createMatter(database, { ...baseInput, status: "consultation" }, options);
     await renumberMatter(database, parked.matterId, "2026-0002", options);
     // First draw takes 0001; the second draw renders 0002, collides, and retries to 0003.
     const first = await createMatter(database, { ...baseInput, status: "open" }, options);
@@ -720,13 +800,13 @@ describe("matter idempotency (design X)", () => {
   });
 
   // A retried request must never be refused by a precondition its own first attempt satisfied. The
-  // matter is no longer prospective precisely BECAUSE this key's open succeeded, so the retry replays
+  // matter is no longer consultation precisely BECAUSE this key's open succeeded, so the retry replays
   // the number it drew rather than reporting that the matter cannot be opened.
   it("replays a retried open — the number it drew, not a refusal", async () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     const first = await openMatter(database, matterId, {}, withKey("open-1"));
@@ -738,7 +818,7 @@ describe("matter idempotency (design X)", () => {
     expect(replay.matterNumber).toBe("2026-0001");
 
     // The replay drew nothing: the next genuinely new open takes the following number.
-    const other = await createMatter(database, { ...baseInput, status: "prospective" }, options);
+    const other = await createMatter(database, { ...baseInput, status: "consultation" }, options);
     const next = await openMatter(database, other.matterId, {}, withKey("open-2"));
     expect(next.matterNumber).toBe("2026-0002");
   });
@@ -748,12 +828,12 @@ describe("matter idempotency (design X)", () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     await openMatter(database, matterId, {}, withKey("open-1"));
     await expect(openMatter(database, matterId, {}, withKey("open-2"))).rejects.toMatchObject({
-      code: "matter-not-prospective",
+      code: "matter-not-consultation",
     });
   });
 
@@ -813,7 +893,7 @@ describe("openMatter — the open-precondition hook", () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     const state = { refuse: true, asked: 0 };
@@ -827,7 +907,7 @@ describe("openMatter — the open-precondition hook", () => {
     );
     expect(state.asked).toBe(1);
     expect(await readMatter(database, matterId)).toMatchObject({
-      status: "prospective",
+      status: "consultation",
       matter_number: null,
     });
     // Only the consultation draw at creation; the matter counter was never touched.
@@ -840,7 +920,7 @@ describe("openMatter — the open-precondition hook", () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     const state = { refuse: false, asked: 0 };
@@ -857,7 +937,7 @@ describe("openMatter — the open-precondition hook", () => {
     state.refuse = true;
     await expect(
       openMatter(database, matterId, {}, { ...options, openPreconditions: [rule(state)] }),
-    ).rejects.toMatchObject({ code: "matter-not-prospective" });
+    ).rejects.toMatchObject({ code: "matter-not-consultation" });
     expect(state.asked).toBe(1);
   });
 
@@ -865,7 +945,7 @@ describe("openMatter — the open-precondition hook", () => {
     const database = await setup();
     const { matterId } = await createMatter(
       database,
-      { ...baseInput, status: "prospective" },
+      { ...baseInput, status: "consultation" },
       options,
     );
     // A guard that always aborts: a statement violating a constraint, never one storing a row.
@@ -881,7 +961,7 @@ describe("openMatter — the open-precondition hook", () => {
       openMatter(database, matterId, {}, { ...options, openPreconditions: [guarded] }),
     ).rejects.toBeDefined();
     expect(await readMatter(database, matterId)).toMatchObject({
-      status: "prospective",
+      status: "consultation",
       matter_number: null,
     });
   });

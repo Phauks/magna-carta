@@ -7,8 +7,9 @@ intake design ([`2026-08-15-client-intake-design.md`](2026-08-15-client-intake-d
 restates neither.
 
 **White paper:** _Client intake / CRM_, read with _Matters and File Manager_, _Directory_, _Conflicts
-Check_ and _Case calendar_. **Binding decisions:** ADR-0080 (a consultation is a prospective
-matter), ADR-0079 (the number is drawn at open), ADR-0085 (the Directory is the one corpus a
+Check_ and _Case calendar_. **Binding decisions:** ADR-0080 (a consultation is its own
+lightweight matter), extended on 2026-09-05 by the owner's ruling that the lifecycle has an intake
+rung before it and that the second rung is spelled _consultation_, ADR-0079 (the number is drawn at open), ADR-0085 (the Directory is the one corpus a
 prospect lives in), ADR-0013 (the conflicts posture), and the intake procedure decision of
 2026-09-03 (the checklist is derived, a kind may exist ahead of its subsystem).
 
@@ -25,11 +26,11 @@ create the entity from that location: a top-level New.
 
 ## 1. What the desk is, and what it is not
 
-**An intake in flight is a prospective matter.** Nothing else was added to carry it. The wider
+**An intake in flight is a matter in the `intake` status.** Nothing else was added to carry it, and no number of any kind is drawn for it. The wider
 design settled that a lead and a consultation are one record and the procedure slice settled that a
 consultation's checklist is derived over it; the desk is therefore a **reading** of the firm's
-prospective matters, never a register of its own. An intake cannot be on the desk and missing from
-the docket, it needs no reconciliation, and it leaves the desk by the two exits a prospective matter
+matters on the two rungs before opening, never a register of its own. An intake cannot be on the desk and missing from
+the docket, it needs no reconciliation, and it leaves the desk by the two exits every matter
 already has: opening and closing.
 
 **The desk is firm-wide.** The 2026-08-15 design left this open as flag J4, because ADR-0080 had
@@ -45,11 +46,36 @@ refuses on, and the desk prints it as a count — "3 of 5 answered, 1 required o
 a word about the client. The conflicts step's standing stays a sentence on the matter's Intake
 section in the conflicts record's own vocabulary; the desk does not summarise it.
 
+## 1a. The lifecycle, after the owner's second ruling
+
+The desk as first built stood on the two-rung lifecycle (prospective, open) and treated an intake
+in flight as a prospective matter with steps outstanding. The owner's ruling later the same day
+("I don't think that intake should have a matter yet ... intake is like the walkthrough to get to
+prospective", then "perhaps prospective is the improper name, and it should be consultation", then
+"we have no matters to migrate, so store it as consultation and open") gives the lifecycle four
+rungs, stored as spelled:
+
+| Status         | What it is                                                                                                                              | Number it carries   | How it is reached                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------- |
+| `intake`       | The walk from first contact to a consultation. The matter exists so the caller is in the conflicts corpus and every step has an anchor. | none                | New Intake (`POST /api/v1/matters`, `status: intake`)                                     |
+| `consultation` | A prospective client's matter the firm has not taken on. Formerly spelled `prospective`.                                                | consultation number | `POST /api/v1/matters/{id}/graduate`, gated by the intake procedure; or recorded outright |
+| `open`         | The engagement.                                                                                                                         | matter number       | `POST /api/v1/matters/{id}/open`, no intake gate                                          |
+| `closed`       | The record, kept.                                                                                                                       | whatever it had     | close; reopen returns to the rung it left                                                 |
+
+The matter row still exists from the first call, for the reasons the analysis gave the owner: the
+conflicts check, the files, the calendar and every checklist reader are anchored on a matter, and a
+prospective client is owed the record from the first consultation. What the ruling changes is
+**where the door is**: the intake procedure gates graduation (intake to consultation) rather than
+opening, the consultation number is drawn at graduation rather than at first call (so an abandoned
+call consumes nothing), and the docket excludes intakes, which live on the desk until they graduate.
+The stored value is renamed rather than mapped because no firm holds a matter at this date; the
+migration is a reviewed rebuild of `matter` with an exhaustive copy.
+
 ## 2. What was built
 
 **The read.** `readIntakeDesk` in `packages/intake/src/desk.ts`, behind
-`GET /api/v1/intake/consultations`: the firm's prospective matters (the matters listing's own
-statement, so the search is the docket's search over title, number and client), joined in one
+`GET /api/v1/intake/consultations`: the firm's intakes and consultations (the matters listing's own
+statement, over both statuses, so the search is the docket's search over title, number and client), joined in one
 batched read each to the client party, the responsible member's name and the matter type's name,
 plus the earliest scheduled event on or after today per matter, and one checklist read per row for
 the counts. The page is capped at fifty because that last read is derived across several subsystems
@@ -63,14 +89,16 @@ stale-consultation age. Activating a row resumes the intake on the matter's Inta
 the steps are answered.
 
 **Starting one.** New Intake opens the New Matter window in its intake purpose: the status is fixed
-at Prospective and not offered, the commit says Start Intake, and the consultation-fee and
+at Intake and not offered, the commit says Start Intake, and the consultation-fee and
 trust-deposit affordances are not drawn, because on an intake those are steps of the firm's
 procedure and the checklist asks for them. The client field is the directory picker, which can now
 record the caller in place (section 3).
 
-**Scheduling the consultation.** Each row carries Schedule, refused with the reason until every
-required step is answered (the owner's ordering: a complete intake leads to the consultation) and
-refused with a different reason once a consultation is on the calendar. It opens the calendar's own
+**Completing the intake, then scheduling the consultation.** An intake row carries Complete Intake,
+refused with the reason until every required step is answered; pressing it is the graduation
+transition, and the row becomes a consultation wearing its new number. A consultation row carries
+Schedule (the owner's ordering: a complete intake leads to the consultation), refused with a
+different reason once a consultation is on the calendar. It opens the calendar's own
 Record an Event window on the consultation, seeded with a title and the two people the desk already
 knows are attending — the client and the responsible attorney — every part editable. Nothing here
 is a second event form.

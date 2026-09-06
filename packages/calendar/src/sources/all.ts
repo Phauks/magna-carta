@@ -708,7 +708,7 @@ const conflictsCheckSource = directInstantSource({
 //
 // `matter.created` is on the list beside `matter.opened` because the write path distinguishes them:
 // a matter that is opened at creation writes only `created`, and `opened` is the separate
-// prospective-to-open transition. A timeline that took `opened` alone would silently have no
+// consultation-to-open transition. A timeline that took `opened` alone would silently have no
 // beginning for every matter a firm opened outright, which is most of them.
 export const MATTER_LIFECYCLE_EVENT_KEYS = Object.freeze([
   "matter.created",

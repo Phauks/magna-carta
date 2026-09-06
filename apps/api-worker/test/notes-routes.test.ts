@@ -82,7 +82,7 @@ beforeAll(async () => {
 
   const created = await post("/api/v1/matters", {
     title: "Herrera v Alvarez",
-    status: "prospective",
+    status: "consultation",
     responsibleMemberId: ownerUserId,
   });
   expect(created.status).toBe(201);

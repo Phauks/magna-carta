@@ -24,14 +24,15 @@ record, not just the rows currently on screen, so a matter you have not scrolled
 
 | Showing            | What you get                                                                  |
 | ------------------ | ----------------------------------------------------------------------------- |
-| The working docket | The firm's live caseload. Consultations are left out.                         |
+| The working docket | The firm's live caseload. Intakes and consultations are left out.             |
 | Open matters       | Only matters that are open.                                                   |
 | Closed matters     | Only matters that have been closed. A closed matter is kept, not lost.        |
 | Consultations      | Matters the firm has not taken on yet, each with its own consultation number. |
 
 Consultations are deliberately absent from the working docket. A consultation is a file the firm is
 still deciding about, and mixing it into the live caseload would overstate how much work the firm
-has taken on. Choose **Consultations** to see them.
+has taken on. Choose **Consultations** to see them. Intakes, the step before a consultation, appear
+only on the **Intake** desk in the sidebar (see [`intake.md`](intake.md)).
 
 ## Reading the table
 
@@ -47,8 +48,9 @@ Three columns are worth explaining:
 
 **Matter number.** A matter's number is drawn when it opens and never changes afterwards. A
 consultation has not drawn one yet, so the column shows its **consultation number** instead — the
-tentative number every consultation is given the moment it is recorded, so there is always something
-to quote on an intake sheet or a conflicts check. Consultation numbers come from their own sequence,
+tentative number a consultation is given when its intake completes, or the moment it is recorded
+outright, so there is always something to quote on an intake sheet or a conflicts check. An intake
+has no number of either kind yet, and its column reads **Intake**. Consultation numbers come from their own sequence,
 separate from the firm's matter numbers, and read "C2026-0001" unless your firm has set its own
 shape. When the matter is opened it takes a matter number, and the column shows that from then on;
 the consultation number stays on the matter's own page, so anything filed under it still finds its
@@ -83,10 +85,13 @@ Marsh".
 
 - **Open the matter and draw its number.** The firm's counter issues the next matter number and the
   matter joins the working docket. This is the usual choice.
+- **Start an intake.** The matter is recorded with no number at all and appears on the Intake desk,
+  where the firm's intake procedure is answered step by step. This is the usual choice for a new
+  caller; [`intake.md`](intake.md) walks through it.
 - **Record a consultation.** The matter is recorded with a consultation number rather than a matter
-  number, and sits under Consultations until the firm decides to take it. Use this when someone has
-  approached the firm and nothing has been agreed yet. The consultation number is shown as soon as
-  the file is recorded, so it can be written on an intake sheet straight away.
+  number, skipping intake, and sits under Consultations until the firm decides to take it. Use this
+  when the intake has already happened outside the platform and nothing has been agreed yet. The
+  consultation number is shown as soon as the file is recorded.
 
 **Client** is chosen from the firm's Directory. Type three characters of the name and pick the
 person or organization; the matter is linked to their record from the moment it exists, whether it
@@ -108,15 +113,15 @@ would not be real.
 
 ## Changing a matter's status
 
-A matter's status is the badge at the top left of its own page, beside the matter number: **Active**,
-**Prospective** or **Closed**. Press the badge to change it.
+A matter's status is the badge at the top left of its own page, beside the matter number: **Intake**,
+**Consultation**, **Active** or **Closed**. Press the badge to change it.
 
 The window is short on purpose, and it has two sides. On the left, the matter's status, the one step
 the current status allows, and what closing requires. On the right, the firm's own physical file for
 the matter.
 
-The step sits beside the status itself, not at the foot of the window: a consultation opens, an
-active matter closes, a closed matter reopens. There is no list of statuses to pick from, because a
+The step sits beside the status itself, not at the foot of the window: an intake completes into a
+consultation, a consultation opens, an active matter closes, a closed matter reopens. There is no list of statuses to pick from, because a
 matter reaches a status by being opened, closed or reopened, not by being set to one. The bottom of
 the window offers only **Done**, so a window you opened to read something cannot close a matter with
 a press in the corner your hand goes to by habit.
@@ -143,10 +148,12 @@ against another of this client's bills.
 An unpaid bill does **not** stop a close. An uncollectable receivable is an ordinary business
 outcome, and writing it off is its lawful exit.
 
-**Opening a consultation** draws your firm's next matter number, which then stays with the matter for
-good, and moves it into the working docket. **Reopening a matter** returns it to the status it held
-before it closed, which is Active if it carries a number and Prospective if it does not, and clears
-the recorded close date.
+**Completing an intake** draws the consultation number once every required step of your intake
+procedure is answered; the window lists what is outstanding under **Requirements To Complete
+Intake**. **Opening a consultation** draws your firm's next matter number, which then stays with the
+matter for good, and moves it into the working docket. **Reopening a matter** returns it to the
+status it held before it closed — Active if it carries a matter number, Consultation if it carries
+a consultation number, and Intake if it carries neither — and clears the recorded close date.
 
 **Notices are not refusals.** A close can report things worth knowing without stopping: if the firm
 still holds a client's property in the safe-custody register against the matter, the window says so

@@ -1,6 +1,6 @@
 # @magna-carta/matters — CLAUDE.md
 
-**Purpose.** The matter-shell domain module: the owner-shaped lifecycle (prospective consultation →
+**Purpose.** The matter-shell domain module: the owner-shaped lifecycle (intake → consultation →
 open → closed), the segment-template numbering engine, per-firm matter/document types, and the
 list/consultations queries. Validates in memory and composes statements into @magna-carta/data-access's
 `composeEffectBatch`; never runs logic mid-transaction and never calls external services.
@@ -34,12 +34,14 @@ list/consultations queries. Validates in memory and composes statements into @ma
 - `src/member-professional-profile.ts` — the whole-record profile upsert keyed by the member's own
   user id; the one home for that write (route and fixtures share it). A bar number is deliberately
   NOT a column here — it is a protected Directory identifier.
-- `src/queries.ts` — `listMatters` (excludes prospective by default) + `listConsultations` (with the stale flag)
+- `src/queries.ts` — `listMatters` (excludes intakes and consultations by default) + `listConsultations` (with the stale flag)
 
 ## Invariants that apply here
 
-- **Two sequences, drawn at different moments, both frozen at assignment.** A prospective
-  consultation draws a CONSULTATION number the moment it is created, from its own sequence
+- **Two sequences, drawn at different moments, both frozen at assignment.** An intake draws no
+  number of any kind; it draws a CONSULTATION number when it graduates (`graduateMatter`, gated by
+  the intake procedure the composition root registers) — or the moment it is created, when a
+  consultation is recorded outright — from its own sequence
   (`numbering_scheme.purpose = 'consultation'`, falling back to `DEFAULT_CONSULTATION_SCHEME` when
   the firm has configured none — a consultation is never unnumbered). `openMatter` then draws the
   MATTER number and leaves the consultation number standing: opening ADDS a number, it never rewrites
@@ -62,8 +64,8 @@ list/consultations queries. Validates in memory and composes statements into @ma
   one. Manual numbers touch no counter and get no allocation row.
 - **Lifecycle transitions are guarded in the batch, not only pre-read.** D1 has no interactive
   transaction, so every read-then-write precondition needs its predicate on the UPDATE too: `openMatter`
-  writes `AND status = 'prospective'` and confirms after the commit that the row carries the number it
-  drew; `closeMatter` writes `AND status != 'closed'` so a racing close never moves `closed_at`. A
+  writes `AND status = 'consultation'` and confirms after the commit that the row carries the number it
+  drew; `graduateMatter` writes `AND status = 'intake'` and confirms the consultation number the same way; `closeMatter` writes `AND status != 'closed'` so a racing close never moves `closed_at`. A
   precondition is skipped when the Idempotency-Key has already been seen — that is the same request
   retried, and the shared primitive replays its stored response.
 - **Closed = archived-but-additive.** A closed matter still accepts documents; close runs the
