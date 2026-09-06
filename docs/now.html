@@ -135,7 +135,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   <p>It is the single most misleading number here, and it is the third largest.
   <strong>118 units of work are partial</strong> — delivered in part, and not finished.
   Counting those as progress is honest; counting them as done is not. A further
-  109 roll-up parents are also partial and are deliberately not counted: a parent is
+  108 roll-up parents are also partial and are deliberately not counted: a parent is
   partial by definition once its children disagree, so it reports its subtree rather than any work of
   its own.</p>
   <p style="color:var(--soft)">Shipped plus partial is 410 of 657
@@ -149,8 +149,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   can reach one is a separate fact from how complete it is, and no status holds it: a backend nobody
   can open and a screen somebody uses every day are both shipped. The ledger records it separately.</p>
   <div class="band">
-    <div class="k g"><span>Reachable</span><b>61</b><em>A person can open it in the application today.</em></div>
-    <div class="k y"><span>Waiting on a screen</span><b>172</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
+    <div class="k g"><span>Reachable</span><b>62</b><em>A person can open it in the application today.</em></div>
+    <div class="k y"><span>Waiting on a screen</span><b>171</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
     <div class="k b"><span>Under the floor</span><b>178</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Every one of them is classified. The middle figure is the interface debt stated directly rather than guessed at from
@@ -180,7 +180,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   <p class="lede">All 797, in ledger order, indented by depth. Filter by status or search the
   names, ids and scope text.</p>
   <div class="controls">
-    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>309</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>227</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>1</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>52</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>17</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>144</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>38</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>3</b></button>
+    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>310</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>226</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>1</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>52</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>17</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>144</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>38</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>3</b></button>
     <button class="f" id="clear" aria-pressed="true">All</button>
     <input id="q" type="search" placeholder="Search names, ids, scope" aria-label="Search the register">
     <span id="hits">797 shown</span>
@@ -1043,12 +1043,12 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <code>matters.parties</code>
 <p>Parties attached via Directory role-links; multiple roles per entity on one matter.</p>
 <p class="note">The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a consultation's conflict check needs a person.</p>
-</li><li class="n d1" data-s="partial">
-<span class="chip part">Partial</span>
+</li><li class="n d1" data-s="shipped">
+<span class="chip done">Shipped</span>
 <span class="nm">Configurable matter numbering</span>
 <code>matters.numbering</code>
-<p>Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open.</p>
-<p class="note">Backend shipped; scheme configuration UI not built.</p>
+<p>Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open, the settings editor that writes it, and a number set by hand.</p>
+<p class="note">Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Location segment in numbering</span>

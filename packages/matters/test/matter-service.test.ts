@@ -504,30 +504,6 @@ describe("closeMatter / reopenMatter", () => {
     });
   });
 
-  it("reopens a manually-numbered consultation to consultation, not open", async () => {
-    const database = await setup();
-    // A consultation given a manual number never sets opened_at, so it was never opened.
-    const { matterId } = await createMatter(
-      database,
-      { ...baseInput, status: "consultation" },
-      options,
-    );
-    await renumberMatter(database, matterId, "LEGACY-7", options);
-    expect(await readMatter(database, matterId)).toMatchObject({
-      status: "consultation",
-      matter_number: "LEGACY-7",
-      opened_at: null,
-    });
-    await closeMatter(database, matterId, options);
-    await reopenMatter(database, matterId, options);
-    // Restored from opened_at (null), not inferred from the present number — stays consultation.
-    expect(await readMatter(database, matterId)).toMatchObject({
-      status: "consultation",
-      matter_number: "LEGACY-7",
-      closed_at: null,
-    });
-  });
-
   it("refuses to close an already-closed matter, so its recorded close date never moves", async () => {
     const database = await setup();
     const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
@@ -675,18 +651,43 @@ describe("updateMatter", () => {
 });
 
 describe("renumberMatter", () => {
-  it("assigns a manual number to a consultation without drawing a counter", async () => {
+  it("assigns a manual number to an open matter without drawing a counter", async () => {
     const database = await setup();
-    const { matterId } = await createMatter(
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await renumberMatter(database, matterId, "LEGACY-7", options);
+    expect((await readMatter(database, matterId))?.matter_number).toBe("LEGACY-7");
+    // The counter was never touched — the next drawn matter continues the run at 0002.
+    const next = await createMatter(database, { ...baseInput, status: "open" }, options);
+    expect(next.matterNumber).toBe("2026-0002");
+  });
+
+  it("refuses a manual number on an intake or a consultation: no matter number before active", async () => {
+    const database = await setup();
+    const consultation = await createMatter(
       database,
       { ...baseInput, status: "consultation" },
       options,
     );
-    await renumberMatter(database, matterId, "LEGACY-7", options);
-    expect((await readMatter(database, matterId))?.matter_number).toBe("LEGACY-7");
-    // The counter was never touched — the next drawn matter still starts at 0001.
-    const next = await createMatter(database, { ...baseInput, status: "open" }, options);
-    expect(next.matterNumber).toBe("2026-0001");
+    await expect(
+      renumberMatter(database, consultation.matterId, "LEGACY-7", options),
+    ).rejects.toMatchObject({ code: "matter-not-open" });
+    const intake = await createMatter(database, { ...baseInput, status: "intake" }, options);
+    await expect(
+      renumberMatter(database, intake.matterId, "LEGACY-8", options),
+    ).rejects.toMatchObject({ code: "matter-not-open" });
+    expect((await readMatter(database, consultation.matterId))?.matter_number).toBeNull();
+  });
+
+  it("accepts a manual number on a held matter and on a closed matter that had opened", async () => {
+    const database = await setup();
+    const held = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await holdMatter(database, held.matterId, { reason: "Waiting" }, options);
+    await renumberMatter(database, held.matterId, "CV-2019-044", options);
+    expect((await readMatter(database, held.matterId))?.matter_number).toBe("CV-2019-044");
+    const closed = await createMatter(database, { ...baseInput, status: "open" }, options);
+    await closeMatter(database, closed.matterId, options);
+    await renumberMatter(database, closed.matterId, "CV-2018-101", options);
+    expect((await readMatter(database, closed.matterId))?.matter_number).toBe("CV-2018-101");
   });
 
   it("records the displaced number, so a filing quoting it can still be resolved", async () => {
@@ -713,11 +714,7 @@ describe("renumberMatter", () => {
   it("refuses a number already in use", async () => {
     const database = await setup();
     const first = await createMatter(database, { ...baseInput, status: "open" }, options);
-    const { matterId } = await createMatter(
-      database,
-      { ...baseInput, status: "consultation" },
-      options,
-    );
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
     await expect(
       renumberMatter(database, matterId, first.matterNumber as string, options),
     ).rejects.toMatchObject({ code: "matter-number-taken" });
@@ -736,14 +733,13 @@ describe("number allocation under contention", () => {
 
   it("a counter draw retries past a manual number that collides with it", async () => {
     const database = await setup();
-    // Park a manual number equal to the counter's SECOND draw.
-    const parked = await createMatter(database, { ...baseInput, status: "consultation" }, options);
+    // The first draw takes 0001; park a manual number on it equal to the counter's SECOND draw.
+    const parked = await createMatter(database, { ...baseInput, status: "open" }, options);
+    expect(parked.matterNumber).toBe("2026-0001");
     await renumberMatter(database, parked.matterId, "2026-0002", options);
-    // First draw takes 0001; the second draw renders 0002, collides, and retries to 0003.
-    const first = await createMatter(database, { ...baseInput, status: "open" }, options);
-    const second = await createMatter(database, { ...baseInput, status: "open" }, options);
-    expect(first.matterNumber).toBe("2026-0001");
-    expect(second.matterNumber).toBe("2026-0003");
+    // The next draw renders 0002, collides with the parked number, and retries to 0003.
+    const next = await createMatter(database, { ...baseInput, status: "open" }, options);
+    expect(next.matterNumber).toBe("2026-0003");
   });
 
   it("records the counter value each draw consumed", async () => {

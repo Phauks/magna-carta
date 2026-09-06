@@ -53,7 +53,7 @@ not](#what-a-roll-up-is-not).
 
 ### What a roll-up is not
 
-**140 of the 797 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 797 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -81,8 +81,8 @@ ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 61 | 15% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 172 | 42% |
+| A person can open it today (`screen`) | 62 | 15% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 171 | 42% |
 | No user surface by nature (`internal`) | 178 | 43% |
 | Not yet classified | 0 | 0% |
 | **Everything with something built** | **411** | **100%** |
@@ -630,7 +630,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `directory.legacy-id` · `not-started` · **Legacy source-system ID** — A legacy source-system identifier on every entity for LEAP migration traceability. _Note: LEAP migration itself is deferred (ADR-0021); this lands with that slice._
 - `matters` · `partial` · **Matters** — Matter as the top-level access unit and cost center, opened directly with the client as a Directory link. _Note: Backend shipped, and the matter host has landed since this said otherwise — thirteen section routes under the matter, a matter header and a section nav, an overview reading the real record, and a Files section running the whole document loop against the file API through the same-origin seam in apps/web/src/lib/documents/. The matters LIST is still the honest empty state rather than a list; of the thirteen sections, seven render a SectionStub and six read the firm's own record (Overview, Files, Time, Costs, Parties, Calendar). The file-surface-web stream named here is abandoned and superseded; what carried its reasoning forward has landed._
   - `matters.parties` · `partial` · **Matter parties** — Parties attached via Directory role-links; multiple roles per entity on one matter. _Note: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a consultation's conflict check needs a person._
-  - `matters.numbering` · `partial` · **Configurable matter numbering** — Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open. _Note: Backend shipped; scheme configuration UI not built._
+  - `matters.numbering` · `shipped` · **Configurable matter numbering** — Firm-configurable numbering scheme engine (ordered segment template, counters) drawing the number at open, the settings editor that writes it, and a number set by hand. _Note: Backend and the settings editor shipped (2026-09-06). One editor per purpose, the parts named for the reader, scoping drawn as "restarts the count", starters for the common shapes, and the preview rendered by the server's own renderer against a sample matter. A matter's number is set by hand from its status window, only where the matter has been active; the renumber service refuses the unnumbered rungs._
     - `matters.numbering.location-segment` · `shipped` · **Location segment in numbering** — Optional location segment/prefix in the numbering scheme.
   - `matters.types` · `partial` · **Flexible matter types** — Matter types carrying type-specific fields for mixed practices, via the shared custom-fields engine. _Note: Backend shipped; practice-area templates explicitly deferred (status.d/1-4: "before first client"); UI not built._
     - `matters.types.templates-workflows` · `not-started` · **Per-type templates and workflows** — Matter types carrying document templates and workflows. _Note: The document-automation dependency is met; the matter-type binding and the workflow engine are not._

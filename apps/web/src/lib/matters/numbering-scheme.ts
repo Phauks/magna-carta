@@ -176,7 +176,10 @@ export function numberingSchemeRefusal(segments: readonly NumberSegment[]): stri
         ? "A text part cannot be empty."
         : `Text can carry only letters, digits and . _ ~ -; "${segment.text}" cannot appear in a number.`;
     }
-    if (segment.kind === "counter" && (!Number.isInteger(segment.padWidth) || segment.padWidth < 1)) {
+    if (
+      segment.kind === "counter" &&
+      (!Number.isInteger(segment.padWidth) || segment.padWidth < 1)
+    ) {
       return "The counter's width is at least one digit.";
     }
     if (

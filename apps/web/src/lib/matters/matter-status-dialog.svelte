@@ -375,14 +375,10 @@
       await invalidateAll();
       return;
     }
-    // The two refusals a person can act on read beside the field; anything else is a failure and
-    // travels whole, with its Error ID.
+    // The one refusal a person can act on from the field reads beside it; anything else, the
+    // server's refusal of the number itself included, travels whole with its Error ID.
     if (outcome.kind === "problem" && outcome.problem.status === 409) {
       numberRefusal = "Another matter already wears that number.";
-      return;
-    }
-    if (outcome.kind === "problem" && outcome.problem.status === 422) {
-      numberRefusal = outcome.problem.detail ?? "That number cannot be used.";
       return;
     }
     numberFailure = stated(

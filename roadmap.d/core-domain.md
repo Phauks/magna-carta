@@ -211,6 +211,7 @@
   name: Location segment in numbering
   scope: Optional location segment/prefix in the numbering scheme.
   status: shipped
+  surface: screen
   slices: 1-1-matters-locations-file-manager
   evidence: location_code segment kind in packages/matters/src/numbering/segments.ts
 

@@ -757,6 +757,7 @@ generalization is promoted under _Data entry_ above. What is local:
 - **The picker's New is a button for one kind and a menu for both**, in the field's row, at the
   small secondary size; the add rows in the list say which kind they will make when both are
   offered ("Add "Northwind Couriers" as an organization").
+
 ### 2026-09-05 — the directory record, from a screen to one window
 
 Raised by the owner after walking from a matter's parties into a person: the person opened as a

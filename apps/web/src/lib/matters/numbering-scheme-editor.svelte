@@ -92,7 +92,7 @@
 
   /** The server's rendering of the draft, or its refusal, or nothing while it has not answered. */
   let preview = $state<NumberingPreview | null>(null);
-  let previewRefusal = $state<string | null>(null);
+  let previewFailure = $state<StatedFailure | null>(null);
 
   async function load(): Promise<void> {
     const outcome = await readNumberingScheme(fetch, purpose);
@@ -120,7 +120,7 @@
     if (!loaded) return;
     if (refused !== null || segments.length === 0) {
       preview = null;
-      previewRefusal = null;
+      previewFailure = null;
       return;
     }
     const handle = setTimeout(() => {
@@ -130,13 +130,16 @@
         if (segments !== draft) return;
         if (outcome.kind === "ok") {
           preview = outcome.value;
-          previewRefusal = null;
+          previewFailure = null;
         } else {
+          // A refused preview is the renderer's own sentence — which part has no value in the
+          // sample — and it travels whole rather than as a line squeezed out of it.
           preview = null;
-          previewRefusal =
-            outcome.kind === "problem"
-              ? (outcome.problem.detail ?? "The scheme could not be previewed.")
-              : "The preview did not answer.";
+          previewFailure = stated(
+            outcome.failure,
+            "The scheme could not be previewed.",
+            "The preview did not answer.",
+          );
         }
       })();
     }, 250);
@@ -249,9 +252,9 @@
 
     <!-- What is in force, stated before anything is edited. -->
     <dl class="flex flex-col gap-4 text-sm">
-      <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] items-baseline gap-16">
+      <div class="grid grid-cols-4 items-baseline gap-16">
         <dt class="text-text-muted">In force</dt>
-        <dd>
+        <dd class="col-span-3">
           {#if committed === null}
             <span class="text-text-subtle">
               {purpose === "matter"
@@ -453,8 +456,13 @@
           <FieldLabel as="h3">Preview</FieldLabel>
           {#if refusal !== null}
             <p class="text-sm text-status-danger-subtle-foreground">{refusal}</p>
-          {:else if previewRefusal !== null}
-            <p class="text-sm text-status-danger-subtle-foreground">{previewRefusal}</p>
+          {:else if previewFailure !== null}
+            <FailureNotice
+              failure={previewFailure.failure}
+              title="The Scheme Could Not Be Previewed"
+              fallback={previewFailure.fallback}
+              whenSilent={previewFailure.whenSilent}
+            />
           {:else if preview === null}
             <p class="text-sm text-text-subtle">Rendering.</p>
           {:else}

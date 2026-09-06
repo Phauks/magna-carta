@@ -991,6 +991,16 @@ export async function renumberMatter(
       `matter number is not URL-safe: ${matterNumber}`,
     );
   }
+  // No matter number exists before a matter is active (the owner's ruling): a number set by hand
+  // is a court's number, a legacy number or a correction on a matter the firm has taken on, never a
+  // way to number an intake or a consultation ahead of its opening. A matter that has been active
+  // is one that opened (opened_at) or already wears a number; closed counts, since it opened first.
+  if (matter.openedAt === null && matter.matterNumber === null) {
+    throw new MatterValidationError(
+      "matter-not-open",
+      `matter ${matterId} is ${matter.status} and has never been active; a matter number is drawn when it opens`,
+    );
+  }
   try {
     // A manual number is the caller's choice — a collision is terminal, not retryable.
     return await runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
