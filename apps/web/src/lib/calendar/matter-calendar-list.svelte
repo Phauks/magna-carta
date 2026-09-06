@@ -25,12 +25,14 @@
    * real matter" are different facts.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import { sampleCivilDate, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import {
     deadlineStateBadgeLabel,
@@ -64,20 +66,37 @@
   const eventList = new PagedList<CalendarEvent>("The events on this matter could not be read.");
 
   const deadlines = $derived(deadlineList.items);
-  const deadlineFailure = $derived(deadlineList.failureMessage);
   const events = $derived(eventList.items);
-  const eventFailure = $derived(eventList.failureMessage);
 
-  function readBoth(subject: string): void {
+  // A failed FIRST read settles the region to the notice with Retry, so the shape never stands
+  // over nothing. A failed further page keeps the rows already read and says so above them: those
+  // rows were read successfully and are still true.
+  const deadlineFirstReadFailed = $derived(
+    deadlineList.failure !== null && (deadlines?.length ?? 0) === 0,
+  );
+  const eventFirstReadFailed = $derived(eventList.failure !== null && (events?.length ?? 0) === 0);
+
+  function readDeadlines(subject: string): void {
     deadlineList.reset(subject);
-    eventList.reset(subject);
     if (isSample) {
       deadlineList.settleEmpty();
-      eventList.settleEmpty();
       return;
     }
     void deadlineList.load((cursor) => listMatterDeadlines(fetch, subject, cursor));
+  }
+
+  function readEvents(subject: string): void {
+    eventList.reset(subject);
+    if (isSample) {
+      eventList.settleEmpty();
+      return;
+    }
     void eventList.load((cursor) => listMatterEvents(fetch, subject, cursor));
+  }
+
+  function readBoth(subject: string): void {
+    readDeadlines(subject);
+    readEvents(subject);
   }
 
   /** The refresh token the tables were last read against, so a bump is told from a re-run. */
@@ -112,14 +131,16 @@
   //
   // Representative rows in the record's own shape, so each table is ONE snippet serving both the
   // rows and the shape they take while they are read; the loading region greys them. Sample words
-  // only, never a matter's own.
+  // only, never a matter's own. The titles, authorities and places are field-specific words the
+  // sample vocabulary does not carry, and the dates stay in the wire shape the row formatter
+  // takes, which the vocabulary does not carry either.
 
   const DEADLINE_FIXTURE: readonly CalendarDeadline[] = [
     {
       id: "fixture-deadline-responses",
       matterId: "fixture-matter",
       title: "Responses to the first set of interrogatories",
-      dueOn: "2026-09-28",
+      dueOn: sampleCivilDate(3),
       dueAtTime: "17:00",
       timeZone: "America/Chicago",
       source: "member",
@@ -137,7 +158,7 @@
       id: "fixture-deadline-summary-judgment",
       matterId: "fixture-matter",
       title: "Motion for summary judgment",
-      dueOn: "2026-10-16",
+      dueOn: sampleCivilDate(4),
       dueAtTime: null,
       timeZone: "America/Chicago",
       source: "court_order",
@@ -163,14 +184,14 @@
       description: null,
       status: "scheduled",
       statusReason: null,
-      startsOn: "2026-10-02",
+      startsOn: sampleCivilDate(3),
       startsAtTime: "09:30",
       endsOn: null,
       endsAtTime: null,
       timeZone: "America/Chicago",
       locationText: "Department 12",
       courtReference: null,
-      recordedAt: "2026-09-01T15:00:00Z",
+      recordedAt: sampleInstant(0),
       recordedBy: null,
       continuedFromEventId: null,
       continuedToEventId: null,
@@ -184,14 +205,14 @@
       description: null,
       status: "scheduled",
       statusReason: null,
-      startsOn: "2026-10-14",
+      startsOn: sampleCivilDate(4),
       startsAtTime: "13:00",
       endsOn: null,
       endsAtTime: null,
       timeZone: "America/Chicago",
       locationText: "Conference Room A",
       courtReference: null,
-      recordedAt: "2026-09-01T15:00:00Z",
+      recordedAt: sampleInstant(1),
       recordedBy: null,
       continuedFromEventId: null,
       continuedToEventId: null,
@@ -306,52 +327,67 @@
       Deadlines
     </FieldLabel>
 
-    {#if deadlineFailure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Deadlines Could Not Be Read</Alert.Title>
-        <Alert.Description>{deadlineFailure}</Alert.Description>
-      </Alert.Root>
-    {:else}
-      <LoadingRegion
-        loading={deadlines === null}
-        label="Reading the matter's deadlines"
-        class="flex flex-col gap-8"
-      >
-        {#snippet fixture()}
-          {@render deadlineTable(DEADLINE_FIXTURE)}
-        {/snippet}
-        {@const shown = deadlines ?? []}
+    <LoadingRegion
+      loading={deadlines === null}
+      failed={deadlineFirstReadFailed}
+      empty={deadlines !== null && deadlines.length === 0}
+      label="Reading the matter's deadlines"
+      onRetry={() => readDeadlines(matterId)}
+      class="flex flex-col gap-8"
+    >
+      {#snippet failure()}
+        {#if deadlineList.failure !== null}
+          <FailureNotice
+            failure={deadlineList.failure}
+            title="Deadlines Could Not Be Read"
+            fallback="The deadlines on this matter could not be read."
+            onRetry={() => readDeadlines(matterId)}
+          />
+        {/if}
+      {/snippet}
+      {#snippet emptyState()}
         {#if isSample}
           <EmptyState title="No Deadlines On A Sample Matter">
             This is one of the sample matters the interface is reviewed against. It has no firm
             behind it, so there is nothing on its calendar.
           </EmptyState>
-        {:else if shown.length === 0}
+        {:else}
           <EmptyState title="No Deadlines Yet">
             Responses, filings, statutes of limitation. Every date this matter is held to is
             recorded here with the authority it comes from, and reports whether it has passed.
           </EmptyState>
-        {:else}
-          {@render deadlineTable(shown)}
-
-          {#if deadlineList.nextCursor !== null}
-            <div class="flex flex-col items-start gap-8">
-              <Button
-                variant="secondary"
-                onclick={loadMoreDeadlines}
-                disabled={deadlineList.loadingMore}
-              >
-                {deadlineList.loadingMore ? "Loading" : "Load more deadlines"}
-              </Button>
-              <p class="text-xs text-text-muted">
-                Showing the {shown.length} soonest. The past-due count above covers only what is
-                on screen.
-              </p>
-            </div>
-          {/if}
         {/if}
-      </LoadingRegion>
-    {/if}
+      {/snippet}
+      {#snippet fixture()}
+        {@render deadlineTable(DEADLINE_FIXTURE)}
+      {/snippet}
+      {@const shown = deadlines ?? []}
+      {#if deadlineList.failure !== null}
+        <FailureNotice
+          failure={deadlineList.failure}
+          title="The Rest Of The Deadlines Could Not Be Read"
+          fallback="The next page of deadlines could not be read. What is shown was read and stands."
+          onRetry={loadMoreDeadlines}
+        />
+      {/if}
+      {@render deadlineTable(shown)}
+
+      {#if deadlineList.nextCursor !== null}
+        <div class="flex flex-col items-start gap-8">
+          <Button
+            variant="secondary"
+            onclick={loadMoreDeadlines}
+            disabled={deadlineList.loadingMore}
+          >
+            {deadlineList.loadingMore ? "Loading" : "Load more deadlines"}
+          </Button>
+          <p class="text-xs text-text-muted">
+            Showing the {shown.length} soonest. The past-due count above covers only what is
+            on screen.
+          </p>
+        </div>
+      {/if}
+    </LoadingRegion>
   </div>
 
   <div class="flex flex-col gap-8">
@@ -359,46 +395,61 @@
       Events
     </FieldLabel>
 
-    {#if eventFailure !== null}
-      <Alert.Root variant="danger">
-        <Alert.Title>Events Could Not Be Read</Alert.Title>
-        <Alert.Description>{eventFailure}</Alert.Description>
-      </Alert.Root>
-    {:else}
-      <LoadingRegion
-        loading={events === null}
-        label="Reading the matter's events"
-        class="flex flex-col gap-8"
-      >
-        {#snippet fixture()}
-          {@render eventTable(EVENT_FIXTURE)}
-        {/snippet}
-        {@const shown = events ?? []}
+    <LoadingRegion
+      loading={events === null}
+      failed={eventFirstReadFailed}
+      empty={events !== null && events.length === 0}
+      label="Reading the matter's events"
+      onRetry={() => readEvents(matterId)}
+      class="flex flex-col gap-8"
+    >
+      {#snippet failure()}
+        {#if eventList.failure !== null}
+          <FailureNotice
+            failure={eventList.failure}
+            title="Events Could Not Be Read"
+            fallback="The events on this matter could not be read."
+            onRetry={() => readEvents(matterId)}
+          />
+        {/if}
+      {/snippet}
+      {#snippet emptyState()}
         {#if isSample}
           <EmptyState title="No Events On A Sample Matter">
             This is one of the sample matters the interface is reviewed against. It has no firm
             behind it, so there is nothing on its calendar.
           </EmptyState>
-        {:else if shown.length === 0}
+        {:else}
           <EmptyState title="No Events Yet">
             Hearings, depositions, closings, client meetings. Every setting recorded for this
             matter appears here with where it is and the time zone that time is read in.
           </EmptyState>
-        {:else}
-          {@render eventTable(shown)}
-
-          {#if eventList.nextCursor !== null}
-            <div class="flex flex-col items-start gap-8">
-              <Button variant="secondary" onclick={loadMoreEvents} disabled={eventList.loadingMore}>
-                {eventList.loadingMore ? "Loading" : "Load more events"}
-              </Button>
-              <p class="text-xs text-text-muted">
-                Showing the {shown.length} furthest ahead.
-              </p>
-            </div>
-          {/if}
         {/if}
-      </LoadingRegion>
-    {/if}
+      {/snippet}
+      {#snippet fixture()}
+        {@render eventTable(EVENT_FIXTURE)}
+      {/snippet}
+      {@const shown = events ?? []}
+      {#if eventList.failure !== null}
+        <FailureNotice
+          failure={eventList.failure}
+          title="The Rest Of The Events Could Not Be Read"
+          fallback="The next page of events could not be read. What is shown was read and stands."
+          onRetry={loadMoreEvents}
+        />
+      {/if}
+      {@render eventTable(shown)}
+
+      {#if eventList.nextCursor !== null}
+        <div class="flex flex-col items-start gap-8">
+          <Button variant="secondary" onclick={loadMoreEvents} disabled={eventList.loadingMore}>
+            {eventList.loadingMore ? "Loading" : "Load more events"}
+          </Button>
+          <p class="text-xs text-text-muted">
+            Showing the {shown.length} furthest ahead.
+          </p>
+        </div>
+      {/if}
+    </LoadingRegion>
   </div>
 </div>

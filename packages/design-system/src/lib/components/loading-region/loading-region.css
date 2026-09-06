@@ -201,6 +201,33 @@
     -webkit-text-fill-color: currentcolor;
   }
 
+  /* A re-read keeps the content where the reader is looking; only the cursor says something is up. */
+  [data-mc-refreshing] {
+    cursor: progress;
+  }
+
+  /*
+   * A stalled read states itself on the screen, above the shape, with the way to ask again beside
+   * it. A quiet band rather than a status colour: nothing has failed yet, it is only late.
+   */
+  .mc-loading-stalled {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mc-space-8);
+    margin-block-end: var(--mc-space-12);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    border: var(--mc-border-width-default) solid var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-raised);
+  }
+  .mc-loading-stalled-sentence {
+    font-size: var(--mc-font-size-sm);
+    color: var(--mc-text-muted);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     [data-mc-loading] * {
       animation: none;

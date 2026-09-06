@@ -71,6 +71,12 @@
     void search.run(fetch, query, sources, PAGE_LIMIT);
   });
 
+  /** The same question again, for the region's stalled line and the notice's Retry. */
+  function retrySearch(): void {
+    const sources = options.find((option) => option.value === addressScope)?.sources ?? [];
+    void search.run(fetch, addressQuery, sources, PAGE_LIMIT);
+  }
+
   // Typing in the header field rewrites the address, which re-runs the search through the effect
   // above. One path, so the field and the address can never say different things.
   function submit(next: string): void {
@@ -153,6 +159,7 @@
         answer={search.answer}
         failure={search.failure}
         busy={search.busy}
+        onRetry={retrySearch}
         density="comfortable"
       />
     {/if}

@@ -27,6 +27,11 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import {
+    SAMPLE_SENTENCE,
+    sampleDate,
+    samplePerson,
+  } from "@magna-carta/design-system/loading-fixtures";
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import { formatDate } from "@magna-carta/design-system/data-table";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -58,7 +63,11 @@
   const roster = new FirmRoster();
 
   const notes = $derived(noteList.items);
-  const failure = $derived(noteList.failure);
+  const readFailure = $derived(noteList.failure);
+  // A failed FIRST read settles the list to the notice with Retry and never leaves the shape
+  // standing (owner ruling, docs/conventions/design-corrections.md, 2026-09-01). A failed further
+  // page keeps the rows already read and says so above them.
+  const firstReadFailed = $derived(readFailure !== null && (notes?.length ?? 0) === 0);
 
   // Bumped after a write, so the list re-reads what the server now holds rather than guessing.
   let reloadToken = $state(0);
@@ -241,24 +250,13 @@
   }
 
   // The shape drawn while the first page is read: three rows in the list's own anatomy — who wrote
-  // it, when, and the words. Sample words only, never a matter's.
+  // it, when, and the words. Sample words only, never a matter's: the sample vocabulary's people,
+  // dates and sentence.
   const NOTE_FIXTURE = [
-    {
-      author: "Rosalind Chase",
-      happened: "Sep 14, 2026",
-      body: "Called the client about the deposition date; she prefers the week of the twenty-first.",
-    },
-    {
-      author: "Marcus Ellery",
-      happened: "Sep 9, 2026",
-      body: "Opposing counsel agreed to a two-week extension on the interrogatory responses.",
-    },
-    {
-      author: "Rosalind Chase",
-      happened: "Sep 2, 2026",
-      body: "Reviewed the engagement letter with the client; the signed copy is filed.",
-    },
-  ] as const;
+    { id: "fixture-note-0", author: samplePerson(0).name, happened: sampleDate(0), body: SAMPLE_SENTENCE },
+    { id: "fixture-note-1", author: samplePerson(1).name, happened: sampleDate(1), body: SAMPLE_SENTENCE },
+    { id: "fixture-note-2", author: samplePerson(0).name, happened: sampleDate(2), body: SAMPLE_SENTENCE },
+  ];
 </script>
 
 <svelte:head>
@@ -303,25 +301,38 @@
     </Alert.Root>
   {/if}
 
-  {#if failure !== null}
-    <FailureNotice
-      {failure}
-      title="Notes Unavailable"
-      fallback="The notes on this matter could not be read."
-      onRetry={refresh}
-    />
-  {/if}
-
-  <!-- The region settles with the list: a failed first read is absorbed as an empty page, so the
-       notice above and the empty state below stand together and no shape is left waiting (owner
-       ruling, docs/conventions/design-corrections.md, 2026-09-01). -->
+  <!-- The region holds the whole state set: a failed first read renders the notice with Retry
+       first, and no shape is left waiting (owner ruling, docs/conventions/design-corrections.md,
+       2026-09-01). -->
   <LoadingRegion
     loading={notes === null}
+    failed={firstReadFailed}
+    empty={notes !== null && notes.length === 0}
     label="Reading this matter's notes"
+    onRetry={refresh}
     class="flex min-h-0 flex-1 flex-col gap-8"
   >
+    {#snippet failure()}
+      {#if readFailure !== null}
+        <FailureNotice
+          failure={readFailure}
+          title="Notes Unavailable"
+          fallback="The notes on this matter could not be read."
+          onRetry={refresh}
+        />
+      {/if}
+    {/snippet}
+    {#snippet emptyState()}
+      {#if isSample}
+        <EmptyState title="This is a sample matter, so it has no notes." />
+      {:else if appliedSearch !== ""}
+        <EmptyState title="No notes on this matter match that search." />
+      {:else}
+        <EmptyState title="No notes on this matter yet." />
+      {/if}
+    {/snippet}
     {#snippet fixture()}
-      {#each NOTE_FIXTURE as note (note.body)}
+      {#each NOTE_FIXTURE as note (note.id)}
         <div class="flex flex-col gap-8 rounded-md border border-border-strong p-16">
           <div class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
             <span class="text-text-default">{note.author}</span>
@@ -333,13 +344,16 @@
       {/each}
     {/snippet}
     {@const shown = notes ?? []}
-    {#if isSample}
-      <EmptyState title="This is a sample matter, so it has no notes." />
-    {:else if shown.length === 0 && appliedSearch !== ""}
-      <EmptyState title="No notes on this matter match that search." />
-    {:else if shown.length === 0}
-      <EmptyState title="No notes on this matter yet." />
-    {:else}
+    {#if readFailure !== null}
+      <!-- A further page that did not land. The rows below were read and stand. -->
+      <FailureNotice
+        failure={readFailure}
+        title="The Rest Of The Notes Could Not Be Read"
+        fallback="The next page of notes could not be read. What is shown was read and stands."
+        onRetry={refresh}
+      />
+    {/if}
+    {#if shown.length > 0}
       {#each shown as note (note.id)}
         {@const happened = occurrenceLine(note, formatDate)}
         <!-- The whole row opens the note, because opening a record is what a row in a record list

@@ -22,6 +22,7 @@
   import Button from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { sampleDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import Separator from "@magna-carta/design-system/separator";
   import ScrollText from "@lucide/svelte/icons/scroll-text";
   import { goto } from "$app/navigation";
@@ -61,27 +62,28 @@
   let historyFailure = $state<StatedFailure | null>(null);
 
   /*
-   * The shape the list takes while it is read: its own rows, over invented checks. Inert and hidden
-   * from assistive technology while it stands, so no row in it reads as a check the firm ran.
+   * The shape the list takes while it is read: its own rows, over invented checks from the sample
+   * vocabulary. Inert and hidden from assistive technology while it stands, so no row in it reads
+   * as a check the firm ran.
    */
   const HISTORY_FIXTURE = [
     {
       id: "fixture-1",
-      when: "12 Feb 2026, 09:14",
+      when: sampleDate(0),
       trigger: triggerVocabulary("comprehensive").label,
-      actor: "Rosalind Chase",
+      actor: samplePerson(0).name,
       count: "3 candidates",
     },
     {
       id: "fixture-2",
-      when: "4 Feb 2026, 16:40",
+      when: sampleDate(1),
       trigger: triggerVocabulary("new_party").label,
       actor: "Run automatically",
       count: "0 candidates",
     },
     {
       id: "fixture-3",
-      when: "28 Jan 2026, 11:02",
+      when: sampleDate(2),
       trigger: triggerVocabulary("periodic_rescan").label,
       actor: "Run automatically",
       count: "1 candidate",
@@ -97,7 +99,10 @@
     void firmRoster.load(fetch);
   });
 
-  $effect(() => {
+  /** Read the firm's checks. Retry asks again from the start. */
+  function readHistory(): void {
+    history = null;
+    historyFailure = null;
     void (async () => {
       const outcome = await listConflictsChecks(fetch);
       if (outcome.kind !== "ok") {
@@ -107,6 +112,10 @@
       history = outcome.value.data;
       historyHasMore = outcome.value.nextCursor !== null;
     })();
+  }
+
+  $effect(() => {
+    readHistory();
   });
 
   $effect(() => {
@@ -236,75 +245,79 @@
 
   <section class="flex flex-col gap-8">
     <h2 class="text-base font-semibold">Earlier Checks</h2>
-    {#if historyFailure !== null}
-      <FailureNotice
-        failure={historyFailure.failure}
-        subject="The checks this firm has run"
-        fallback={historyFailure.fallback}
-      />
-    {:else}
-      <LoadingRegion
-        loading={history === null}
-        label="Reading the checks this firm has run"
-        class="flex flex-col gap-8"
-      >
-        {#snippet fixture()}
-          <ul class="flex flex-col divide-y divide-border-default">
-            {#each HISTORY_FIXTURE as row (row.id)}
-              <li class="flex flex-wrap items-baseline gap-x-12 gap-y-4 py-8">
-                <span class="text-sm underline underline-offset-2">{row.when}</span>
-                <span class="text-sm text-text-muted">{row.trigger}</span>
-                <span class="text-xs text-text-subtle">{row.actor}</span>
-                <span class="ms-auto text-sm tabular-nums text-text-muted">{row.count}</span>
-              </li>
-            {/each}
-          </ul>
-        {/snippet}
-        {@const shown = history ?? []}
-        {#if shown.length === 0}
+    <LoadingRegion
+      loading={history === null}
+      failed={historyFailure !== null}
+      empty={history !== null && history.length === 0}
+      label="Reading the checks this firm has run"
+      onRetry={readHistory}
+      class="flex flex-col gap-8"
+    >
+      {#snippet failure()}
+        {#if historyFailure !== null}
+          <FailureNotice
+            failure={historyFailure.failure}
+            subject="The checks this firm has run"
+            fallback={historyFailure.fallback}
+            onRetry={readHistory}
+          />
+        {/if}
+      {/snippet}
+      {#snippet fixture()}
+        <ul class="flex flex-col divide-y divide-border-default">
+          {#each HISTORY_FIXTURE as row (row.id)}
+            <li class="flex flex-wrap items-baseline gap-x-12 gap-y-4 py-8">
+              <span class="text-sm underline underline-offset-2">{row.when}</span>
+              <span class="text-sm text-text-muted">{row.trigger}</span>
+              <span class="text-xs text-text-subtle">{row.actor}</span>
+              <span class="ms-auto text-sm tabular-nums text-text-muted">{row.count}</span>
+            </li>
+          {/each}
+        </ul>
+      {/snippet}
+      {#snippet emptyState()}
         <p class="text-sm text-text-muted">
           This firm has run no conflicts checks yet. That is a fact about the record, and says nothing
           about any matter.
         </p>
-        {:else}
-        <ul class="flex flex-col divide-y divide-border-default">
-          {#each shown as check (check.id)}
-            <li class="flex flex-wrap items-baseline gap-x-12 gap-y-4 py-8">
-              <a class="text-sm underline underline-offset-2" href="/conflicts/checks/{check.id}">
-                {formatInstant(check.createdAt)}
-              </a>
-              <span class="text-sm text-text-muted">{triggerVocabulary(check.trigger).label}</span>
-              <!-- What set it going, and who asked where anybody did. An automated run is nobody's
-                   act, and saying so is different from leaving the actor blank. -->
-              <span class="text-xs text-text-subtle">
-                {check.triggerSource === "manual"
-                  ? personName(memberNames.get(check.actorUserId ?? "") ?? null, {
-                      whenUnrecorded: check.actorUserId ?? "a member",
-                    })
-                  : check.triggerSource === null
-                    ? "The row does not say what started it"
-                    : "Run automatically"}
-              </span>
-              {#if check.floorRaised}
-                <!-- It searched WIDER than asked. Worth the row, because it explains a result set
-                     larger than the requester expected. -->
-                <Badge variant="neutral">Raised to the firm floor</Badge>
-              {/if}
-              <span class="ms-auto text-sm tabular-nums text-text-muted">
-                {check.hitCount}
-                {check.hitCount === 1 ? "candidate" : "candidates"}
-              </span>
-            </li>
-          {/each}
-        </ul>
-        {#if historyHasMore}
-          <p class="text-xs text-text-subtle">
-            The most recent {shown.length} checks. Older ones are on the record and are not shown
-            here.
-          </p>
-        {/if}
-        {/if}
-      </LoadingRegion>
-    {/if}
+      {/snippet}
+      {@const shown = history ?? []}
+      <ul class="flex flex-col divide-y divide-border-default">
+        {#each shown as check (check.id)}
+          <li class="flex flex-wrap items-baseline gap-x-12 gap-y-4 py-8">
+            <a class="text-sm underline underline-offset-2" href="/conflicts/checks/{check.id}">
+              {formatInstant(check.createdAt)}
+            </a>
+            <span class="text-sm text-text-muted">{triggerVocabulary(check.trigger).label}</span>
+            <!-- What set it going, and who asked where anybody did. An automated run is nobody's
+                 act, and saying so is different from leaving the actor blank. -->
+            <span class="text-xs text-text-subtle">
+              {check.triggerSource === "manual"
+                ? personName(memberNames.get(check.actorUserId ?? "") ?? null, {
+                    whenUnrecorded: check.actorUserId ?? "a member",
+                  })
+                : check.triggerSource === null
+                  ? "The row does not say what started it"
+                  : "Run automatically"}
+            </span>
+            {#if check.floorRaised}
+              <!-- It searched WIDER than asked. Worth the row, because it explains a result set
+                   larger than the requester expected. -->
+              <Badge variant="neutral">Raised to the firm floor</Badge>
+            {/if}
+            <span class="ms-auto text-sm tabular-nums text-text-muted">
+              {check.hitCount}
+              {check.hitCount === 1 ? "candidate" : "candidates"}
+            </span>
+          </li>
+        {/each}
+      </ul>
+      {#if historyHasMore}
+        <p class="text-xs text-text-subtle">
+          The most recent {shown.length} checks. Older ones are on the record and are not shown
+          here.
+        </p>
+      {/if}
+    </LoadingRegion>
   </section>
 </div>

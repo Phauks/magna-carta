@@ -10,10 +10,16 @@
    *
    * A check that cannot run is not a finding: it leaves the list empty rather than claiming the
    * firm holds nobody similar.
+   *
+   * THE CHECK IS A REFRESH, NEVER A PLACEHOLDER. The previous candidates stay in view while the
+   * directory is asked again for the name as it now reads; the region marks itself busy and says
+   * "Checking the directory" for assistive technology, and nothing is greyed. There is no absent
+   * answer for a fixture to stand in for, so the region never shows one.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import EntityIdentity from "@magna-carta/design-system/entity-identity";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { findDuplicateCandidates, readDirectoryEntity, type DirectoryEntityKind } from "./directory-api.ts";
   import { directoryEntityName, entityRecordHref } from "./entity-presentation.ts";
@@ -98,36 +104,42 @@
   });
 </script>
 
-<div class="flex flex-col gap-4" aria-busy={checking ? "true" : undefined}>
+<div class="flex flex-col gap-4">
   <SectionHeading
     label="May Already Be In The Directory"
     count={ready && !checking && !failed ? candidates.length : null}
   />
-  {#if failed}
-    <Alert.Root variant="warning">
-      <Alert.Title>The Directory Could Not Be Checked</Alert.Title>
-      <Alert.Description>Nothing here says the firm holds nobody similar.</Alert.Description>
-    </Alert.Root>
-  {:else if candidates.length > 0}
-    <ul class="flex flex-col">
-      {#each candidates as candidate (candidate.entityId)}
-        <li class="flex items-center gap-8 border-b border-border-default py-4">
-          <div class="min-w-0 flex-auto">
-            <EntityIdentity kind={candidate.kind} name={candidate.name} size="default" />
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            href={entityRecordHref(candidate.entityId)}
-            {...opensBeside("unsaved-work")}
-          >
-            Open
-          </Button>
-        </li>
-      {/each}
-    </ul>
-  {/if}
-  <!-- Mounted whether or not a check is running, with inert filler when it is not, so the pane's
-       height never depends on whether the directory is being asked at this moment. -->
-  <p class="text-xs text-text-muted" aria-live="polite">{checking ? "Checking the directory" : " "}</p>
+  <LoadingRegion
+    loading={false}
+    refreshing={checking}
+    {failed}
+    label="Checking the directory"
+    class="flex flex-col"
+  >
+    {#snippet failure()}
+      <Alert.Root variant="warning">
+        <Alert.Title>The Directory Could Not Be Checked</Alert.Title>
+        <Alert.Description>Nothing here says the firm holds nobody similar.</Alert.Description>
+      </Alert.Root>
+    {/snippet}
+    {#if candidates.length > 0}
+      <ul class="flex flex-col">
+        {#each candidates as candidate (candidate.entityId)}
+          <li class="flex items-center gap-8 border-b border-border-default py-4">
+            <div class="min-w-0 flex-auto">
+              <EntityIdentity kind={candidate.kind} name={candidate.name} size="default" />
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              href={entityRecordHref(candidate.entityId)}
+              {...opensBeside("unsaved-work")}
+            >
+              Open
+            </Button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </LoadingRegion>
 </div>

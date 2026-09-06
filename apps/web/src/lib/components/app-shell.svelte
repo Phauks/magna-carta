@@ -61,6 +61,8 @@
   } from "$lib/navigation/sidebar-preferences.svelte.ts";
   import { developerPreferences } from "$lib/settings/developer-preferences.svelte.ts";
   import { applyStaticSkeletons, readStaticSkeletons } from "$lib/developer/static-skeletons.ts";
+  import { SETTLED_EVENT, type LoadingSettledDetail } from "@magna-carta/design-system/loading-region";
+  import { record } from "$lib/diagnostics/breadcrumbs.ts";
   import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
@@ -80,6 +82,22 @@
     if (import.meta.env.DEV) {
       applyStaticSkeletons(readStaticSkeletons());
     }
+  });
+
+  // Every loading region reports how long its read took, as a bubbling event with the region's
+  // sentence (a shape, never a value) and the milliseconds. The shell is the one listener: it
+  // records a breadcrumb, so a report says which reads a member waited on and for how long, and
+  // the User Timing entry the region also writes is what a profile shows. No screen wires this.
+  function onLoadingSettled(event: Event): void {
+    const detail = (event as CustomEvent<LoadingSettledDetail>).detail;
+    if (detail === undefined) return;
+    record("loading", `${detail.label} · ${detail.milliseconds} ms${detail.failed ? " · failed" : ""}`);
+  }
+  // A custom event's name cannot be written as a markup attribute, so the listener is attached
+  // here rather than on <svelte:window>.
+  $effect(() => {
+    window.addEventListener(SETTLED_EVENT, onLoadingSettled);
+    return () => window.removeEventListener(SETTLED_EVENT, onLoadingSettled);
   });
 
   let collapsed = $state(false);

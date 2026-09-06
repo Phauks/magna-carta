@@ -69,6 +69,9 @@ import {
   findHandComposedModals,
   findHandComposedDetailsPanels,
   findHandPlacedLoading,
+  findSilentLoading,
+  findFixtureShapeProblems,
+  findLoadingLabelProblems,
   findHandDrawnGlyphs,
   findHandRolledSelects,
   findHandWrittenCapsRegister,
@@ -447,6 +450,17 @@ mustHaveRead(
   "hand-placed loading",
   BOTH_SIDES,
 );
+
+// Rule: no silent loading. The app only: a surface that draws nothing while its data is null is a
+// screen's defect, and the design system's components render their own shapes.
+mustHaveRead(sweep([APP_SOURCE], findSilentLoading), "silent loading", [APP_SOURCE]);
+
+// Rule: a fixture is the shape it stands in for. Both sides of the line, wherever a region is
+// written with a fixture.
+mustHaveRead(sweep(BOTH_SIDES, findFixtureShapeProblems), "fixture shape", BOTH_SIDES);
+
+// Rule: a loading label is a sentence in the house voice. Both sides of the line.
+mustHaveRead(sweep(BOTH_SIDES, findLoadingLabelProblems), "loading label", BOTH_SIDES);
 
 // Rule: one details panel. The app only — the shell lives there, and the design system has no
 // business composing one.

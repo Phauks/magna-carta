@@ -141,7 +141,7 @@
   surface: internal
   spec: docs/specs/2026-09-05-loading-region-design.md
   evidence: packages/design-system/src/lib/components/loading-region, tooling/lint-one-ui (hand-placed-loading), apps/web/src/routes/developer-console/loading-states
-  notes: Every loading state in apps/web migrated in the same stream; busy live acts that are not placeholders stand as recorded allowances.
+  notes: Every loading state in apps/web migrated in the same stream. Second round 2026-09-06 — the region holds failed, empty and refreshing, states a stall, announces the finish and measures every settle; the sample vocabulary; the silent-loading and fixture-shape rules; the bone contrast measured and pinned.
 
 - id: design-system.ui-pipeline
   name: UI build pipeline

@@ -40,6 +40,7 @@
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -96,6 +97,8 @@
   let reloadToken = $state(0);
   let shownFor = $state<string | null>(null);
   let section = $state("names");
+  /** True while the record on screen is being read again, after a pane wrote to it. */
+  let refreshing = $state(false);
 
   $effect(() => {
     if (!open) return;
@@ -103,17 +106,20 @@
     void reloadToken;
     // Only a change of RECORD discards what is on screen. A re-read after a write is the same
     // record being read again, and blanking it would flash a placeholder over what somebody is
-    // reading.
+    // reading — so what is on screen stays, and the regions say they are busy.
     if (shownFor !== id) {
       shownFor = id;
       entity = null;
       failure = null;
       section = "names";
+    } else {
+      refreshing = true;
     }
     let cancelled = false;
     void (async () => {
       const outcome = await readDirectoryEntity(fetch, id);
       if (cancelled) return;
+      refreshing = false;
       if (outcome.kind === "ok") {
         entity = outcome.value;
         failure = null;
@@ -123,6 +129,7 @@
     })();
     return () => {
       cancelled = true;
+      refreshing = false;
     };
   });
 
@@ -151,8 +158,8 @@
    */
   const FIXTURE_SECTIONS: readonly EntitySection[] = entitySectionsFor("person");
   const FIXTURE_NAMES: readonly { name: string; role: string; period: string }[] = [
-    { name: "Eleanor Whitcombe", role: "Current", period: "From 2018-06-14" },
-    { name: "Eleanor Marsh", role: "Former", period: "— to 2018-06-14" },
+    { name: samplePerson(0).name, role: "Current", period: "From 2018-06-14" },
+    { name: samplePerson(2).name, role: "Former", period: "— to 2018-06-14" },
   ];
   const FIXTURE_FACTS: readonly StandingLine[] = [
     { label: "Kind", value: "Person" },
@@ -244,7 +251,9 @@
     {#if entity !== null || failure === null}
       <LoadingRegion
         loading={entity === null}
+        {refreshing}
         label="Reading the directory record"
+        onRetry={reread}
         class="flex min-w-0 flex-col"
       >
         {#snippet fixture()}
@@ -421,7 +430,9 @@
       {#if entity !== null || failure === null}
         <LoadingRegion
           loading={entity === null}
+          {refreshing}
           label="Reading this record's own facts"
+          onRetry={reread}
           class="flex flex-col gap-8"
         >
           {#snippet fixture()}

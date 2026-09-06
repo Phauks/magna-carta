@@ -166,6 +166,19 @@ export class CalendarContext {
     await this.#inFlight;
   }
 
+  /**
+   * Ask again. `load` is single-flight for the life of the context so every host mounting on the
+   * same page shares one read; a Retry after a failed read is a different request, and this is the
+   * one path that makes it. A read still in flight is awaited rather than doubled.
+   */
+  async reload(fetchImpl: typeof fetch): Promise<void> {
+    if (this.#inFlight !== null) {
+      await this.#inFlight;
+    }
+    this.#inFlight = this.#read(fetchImpl);
+    await this.#inFlight;
+  }
+
   async #read(fetchImpl: typeof fetch): Promise<void> {
     await Promise.all([
       this.#readSession(fetchImpl),

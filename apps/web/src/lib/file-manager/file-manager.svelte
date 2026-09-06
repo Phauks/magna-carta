@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Failure } from "$lib/api/problem.ts";
   /*
    * The matter's file manager: the folder rail, the file list, and the details panel, in three
    * panes a reader can resize from either inner edge.
@@ -947,6 +948,9 @@
 
   let versions = $state<readonly MatterFileVersion[] | null>(null);
   let versionsLoading = $state(false);
+  let versionsFailure = $state<Failure | null>(null);
+  // Bumped by Retry so the read effect below asks again for the same file.
+  let versionsReadToken = $state(0);
   let integrity = $state<IntegrityVerification | null>(null);
   let integrityRunning = $state(false);
 
@@ -957,15 +961,20 @@
     integrity = null;
     if (row === null || row.kind !== "file") {
       versions = null;
+      versionsFailure = null;
       return;
     }
     const fileId = row.file.id;
+    void versionsReadToken;
     let cancelled = false;
     versionsLoading = true;
+    versionsFailure = null;
     void (async () => {
       const outcome = await listFileVersions(fetch, fileId);
       if (cancelled) return;
+      // A failed read is stated as one, never collapsed into "no versions yet".
       versions = outcome.kind === "ok" ? outcome.value.data : null;
+      versionsFailure = outcome.kind === "ok" ? null : outcome.failure;
       versionsLoading = false;
     })();
     return () => {
@@ -975,7 +984,9 @@
 
   async function runIntegrityCheck(): Promise<void> {
     const row = inspectedRow;
-    if (row === null || row.kind !== "file") return;
+    // One verify at a time: the hashes region's stall offers Retry, and a second press while the
+    // first is still computing must not start a second computation over the same file.
+    if (row === null || row.kind !== "file" || integrityRunning) return;
     integrityRunning = true;
     const outcome = await verifyFileIntegrity(fetch, row.file.id);
     integrityRunning = false;
@@ -1983,6 +1994,8 @@
               {documentTypes}
               {versions}
               {versionsLoading}
+              {versionsFailure}
+              onRetryVersions={() => (versionsReadToken += 1)}
               {integrity}
               {integrityRunning}
               folderAggregateOf={(folderId) => folderAggregate(index, folderId, safetyKeyOf)}
