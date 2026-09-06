@@ -312,6 +312,24 @@
           : `${chosen.label}'s time`,
   );
 
+  /*
+   * The same fact mid-sentence, where the masthead's version cannot go.
+   *
+   * The masthead line opens a line of its own and is capitalised for it; dropping it into a
+   * sentence needs the lower case — but only on the words the product chose, never on a person's
+   * name. Lower-casing the whole line turned a colleague into "alba ferreira's time", which is a
+   * screen mis-spelling somebody's name back at them.
+   */
+  const whoseTimePhrase = $derived(
+    chosen === null
+      ? "you"
+      : chosen.timekeeperUserId === null
+        ? "anybody at the firm"
+        : chosen.timekeeperUserId === sessionUserId
+          ? "you"
+          : chosen.label,
+  );
+
   const readRefusal = $derived.by((): string | null => {
     const failure = list.failure;
     if (failure === null) return null;
@@ -489,11 +507,9 @@
           </EmptyState>
         {:else}
           <EmptyState title="No Time In This Period">
-            Nothing was recorded for {whoseTimeLine.toLowerCase()} between {spanLabel(
-              scope.from,
-              scope.to,
-            )}. A wider span is one click away, and the Time Sheet in the top bar records a row
-            without leaving whatever screen you are on.
+            Nothing was recorded by {whoseTimePhrase} between {spanLabel(scope.from, scope.to)}. A
+            wider span is one click away, and the Time Sheet in the top bar records a row without
+            leaving whatever screen you are on.
           </EmptyState>
         {/if}
       {/snippet}
