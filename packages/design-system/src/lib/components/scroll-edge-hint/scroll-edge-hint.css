@@ -1,0 +1,50 @@
+@layer components {
+  /*
+   * ScrollEdgeHint — the gilt scroll-edge rule. A hairline in the identity gold at the edge of a
+   * scroll area, drawn while there is more content that way. Gold never fades in: it DRAWS, from
+   * the start of the axis it runs along (the mc-draw keyframes), and it leaves instantly when the
+   * component unmounts it. The rule is inset from the corners so two rules meeting at a corner
+   * read as two marks rather than a frame.
+   *
+   * Absolute, so it costs no layout and never enters the scrollport itself; it resolves against
+   * the positioned shell the component's own note describes.
+   */
+  .mc-scroll-edge-hint {
+    position: absolute;
+    background-color: var(--mc-accent-default);
+    pointer-events: none;
+  }
+  /* The block pair runs across the area, so its thickness is a block size and it draws sideways. */
+  .mc-scroll-edge-hint[data-edge="block-start"],
+  .mc-scroll-edge-hint[data-edge="block-end"] {
+    inset-inline: var(--mc-space-8);
+    block-size: var(--mc-focus-ring-width);
+    transform-origin: left center;
+    animation: mc-draw-x var(--mc-duration-fast) var(--mc-easing-standard);
+  }
+  .mc-scroll-edge-hint[data-edge="block-start"] {
+    inset-block-start: var(--mc-space-0);
+  }
+  .mc-scroll-edge-hint[data-edge="block-end"] {
+    inset-block-end: var(--mc-space-0);
+  }
+  /* The inline pair runs down the area, so the two measures and the draw axis both turn. */
+  .mc-scroll-edge-hint[data-edge="inline-start"],
+  .mc-scroll-edge-hint[data-edge="inline-end"] {
+    inset-block: var(--mc-space-8);
+    inline-size: var(--mc-focus-ring-width);
+    transform-origin: center top;
+    animation: mc-draw-y var(--mc-duration-fast) var(--mc-easing-standard);
+  }
+  .mc-scroll-edge-hint[data-edge="inline-start"] {
+    inset-inline-start: var(--mc-space-0);
+  }
+  .mc-scroll-edge-hint[data-edge="inline-end"] {
+    inset-inline-end: var(--mc-space-0);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-scroll-edge-hint {
+      animation-duration: var(--mc-duration-instant);
+    }
+  }
+}

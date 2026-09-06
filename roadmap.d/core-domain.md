@@ -11,28 +11,28 @@
   slices: 1-3-directory
   adrs: ADR-0006, ADR-0085
   spec: docs/specs/2026-06-12-slice-1-3-directory-design.md
-  evidence: packages/directory on main; status.d/1-3-directory.md built+tested done, ui todo
+  evidence: packages/directory on main; the Directory list at apps/web/src/routes/(app)/directory and the entity window every record opens in at apps/web/src/lib/directory/entity-window.svelte; the linking family at packages/design-system/src/lib/components/{entity-identity,entity-picker,record-parties}
   audience: public
   public-name: One record for every person and organization
   public-summary: Clients, opposing parties, courts, experts and vendors in one place, with the relationships between them held as facts rather than notes.
-  notes: Backend complete on main; UI deferred until the design-system app shell lands.
+  notes: Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md).
 
 - id: directory.entities
   name: Person and Organization entities
   scope: Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role.
   status: partial
   slices: 1-3-directory
-  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts
-  notes: Backend shipped; no entity UI yet (ui todo in status.d/1-3-directory.md).
+  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts, person-record.ts (a whole person in one batch); apps/web/src/lib/directory/new-person-dialog.svelte (every section reachable at creation, on the side rail) and apps/web/src/lib/directory/entity-window.svelte, the one window a record opens in from the directory, a matter or a conflicts hit, with the Names, Contact, Pronouns, Dates, Identifiers, Duplicates, Relationships, Matters and (organizations only) Categories panes on the same rail
+  notes: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling.
 
 - id: directory.entities.categories
   name: Entity categories
   scope: Per-firm classification labels (attorney, judge, court, expert, vendor, client) that are not schema variants.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 1-3-directory
-  evidence: packages/directory/src/categories.ts; category repointing handled in merge.ts
-  notes: Backend shipped; category management UI not built.
+  evidence: packages/directory/src/categories.ts; apps/web/src/lib/directory/categories-pane.svelte, on organizations only, assigns and creates a category the firm has not named yet through the add row; category repointing handled in merge.ts
+  notes: Backend shipped; assignment and creation are on the record's window. Archiving a category has no route yet.
 
 - id: directory.entities.category-fields
   name: Category-specific custom fields
@@ -48,28 +48,28 @@
   name: Structured names and name history
   scope: Structured person names (prefix/first/middle/last/suffix), aliases/AKAs, maiden and former names, preferred/display name; org legal name, DBAs/trade names, former names; retained name-change history.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 1-3-directory
-  evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts
-  notes: Backend shipped including phonetic codes on every name row; UI not built.
+  evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts; apps/web/src/lib/directory/names-pane.svelte
+  notes: Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. display_text and the legal/preferred roles remain.
 
 - id: directory.pronouns
   name: Pronouns on a person
   scope: Optional, owner-entered pronouns on a Directory person — the whole declension plus verb agreement — feeding the document-assembly pronoun helpers; never inferred from a name, a title, or a gender attribute.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 1-3-directory, 2-6-document-automation
-  evidence: six columns on directory_person with an all-or-nothing table CHECK, packages/directory/src/pronouns.ts, PUT /api/v1/directory/persons/{id}/pronouns, and the pronoun()/pronounVerb() helpers in packages/document-assembly/src/expression
+  evidence: apps/web/src/lib/directory/pronouns-pane.svelte; six columns on directory_person with an all-or-nothing table CHECK, packages/directory/src/pronouns.ts, PUT /api/v1/directory/persons/{id}/pronouns, and the pronoun()/pronounVerb() helpers in packages/document-assembly/src/expression
   awaiting-owner: Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.
-  notes: Backend shipped; the entry surface (common-set presets plus free-form entry) is deferred to the owner with the rest of the Directory UI. A separate gender field is deliberately not built and is flagged for the owner.
+  notes: Backend shipped and the Pronouns pane on the record screen enters them. A separate gender field is deliberately not built and is flagged for the owner.
 
 - id: directory.edges
   name: Typed edges
   scope: First-class typed, dated edges between entities (affiliations, relationships, representation, role assignments) with valid-from/valid-to.
   status: partial
   slices: 1-3-directory
-  evidence: packages/directory/src/edges.ts; EDGE_TYPES catalog in types.ts
-  notes: Backend shipped; edge management UI not built.
+  evidence: packages/directory/src/edges.ts; EDGE_TYPES catalog in types.ts with the membership family; apps/web/src/lib/directory/edges-pane.svelte records an edge from either record through EntityPicker, the direction decided by the type (edge-draft.ts)
+  notes: Backend and the record screen shipped. The tighter constituent class for the conflicts traversal waits for the conflicts pass; every constituent type is classed control meanwhile.
 
 - id: directory.edges.affiliations
   name: Affiliations (person-org)
@@ -77,8 +77,8 @@
   status: partial
   surface: awaiting-screen
   slices: 1-3-directory
-  evidence: edge_type "affiliation" with role qualifier + valid_from/valid_to in edges.ts
-  notes: Typed/dated edges shipped; the promised contact flags (primary/billing/do-not-contact) were not found in the schema or package.
+  evidence: EDGE_TYPES officer_of, director_of, partner_of, trustee_of, personal_representative_of, agent_of, employment, member_of, shareholder_of, point_of_contact_for beside the legacy affiliation; an organization's People pane and a person's Organizations pane in apps/web/src/lib/directory/edges-pane.svelte
+  notes: The membership family is built and offered; affiliation stays for the rows already recorded. The promised per-contact flags (primary/billing/do-not-contact) are not built; contact permission and preference live on the contact points instead, and do-not-contact is a per-matter derivation by the entity-model design.
 
 - id: directory.edges.relationships
   name: Relationships (person-person, org-org)
@@ -86,8 +86,8 @@
   status: partial
   surface: awaiting-screen
   slices: 1-3-directory
-  evidence: EDGE_TYPES includes relationship, corporate_parent, corporate_subsidiary, corporate_successor; conflict-oriented read-all-current query in edges.ts
-  notes: Backend shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing — and edge management UI is not built.
+  evidence: EDGE_TYPES includes relationship, guardian_of, beneficiary_of, corporate_parent, corporate_subsidiary, corporate_successor; conflict-oriented read-all-current query in edges.ts; recorded from the Relationships pane
+  notes: Backend and the record screen shipped; the conflicts engine consumes these — expandGraph in packages/conflicts/src/expansion.ts walks them and costs the corporate types nothing.
 
 - id: directory.edges.representation
   name: Representation edges
@@ -102,18 +102,18 @@
   name: Matter role assignments
   scope: Entity-to-matter role links with the role on the link, not the entity; one entity can hold multiple roles in one matter.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 1-3-directory, 1-1-matters-locations-file-manager
-  evidence: packages/directory/src/party.ts (matter_party rows, one per role, no uniqueness on (matter, entity))
-  notes: Backend shipped; party management UI not built.
+  evidence: packages/directory/src/party.ts (matter_party rows, one per role, no uniqueness on (matter, entity)); apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte on the RecordParties tab
+  notes: Backend shipped; the matter's Parties page adds a party from the Directory picker with a role and a capacity, and removes one. The matter's client is a party row from the moment the matter exists, written by the intake's create.
 
 - id: directory.identifiers
   name: Typed identifiers
   scope: Typed identifier list (bar number, EIN/Tax ID, SSN, DOB, driver's license) used for conflicts, billing, and document generation.
-  status: partial
+  status: shipped
   slices: 1-3-directory
-  evidence: packages/directory/src/identifiers.ts; IDENTIFIER_TYPES catalog in types.ts
-  notes: Backend shipped; UI not built.
+  evidence: packages/directory/src/identifiers.ts and identifier-shape.ts (the type decides the fields and checks the shape; the label column names what a sealed value is of); apps/web/src/lib/directory/sections/identifiers-section.svelte on the record's Identifiers pane and the New Person screen
+  notes: Typed shapes with format checks on both sides; accounts sealed with their username and secret; the dob kind removed (dates live on the person).
 
 - id: directory.identifiers.protected-fields
   name: Field-level encryption and access control
@@ -128,12 +128,12 @@
 - id: directory.duplicates
   name: Duplicate detection
   scope: Fuzzy name + identifier matching on entry and import surfacing possible-duplicate candidates.
-  status: partial
+  status: shipped
   surface: awaiting-screen
   slices: 1-3-directory
   adrs: ADR-0086
   evidence: findDuplicateCandidates export (phonetic-block, trigram, blind-index equality) in packages/directory/src/search.ts, phonetics.ts
-  notes: Candidate engine shipped; entry-time "possible duplicate?" prompt is UI, not built.
+  notes: Candidate engine shipped; the entry-time gate runs beside the New Person and New Organization entry (apps/web/src/lib/directory/duplicate-gate.svelte), permanently in view as the name is typed.
 
 - id: directory.merge
   name: Non-destructive merge
@@ -183,7 +183,7 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0007
   spec: docs/specs/2026-06-11-slice-1-1-matters-locations-file-manager-design.md
-  evidence: packages/matters + apps/api-worker/src/routes/matters.ts on main; status.d/1-1 built done, ui todo
+  evidence: packages/matters + apps/api-worker/src/routes/matters.ts on main; the intake at apps/web/src/lib/matters/new-matter-dialog.svelte chooses the client from the directory (EntityPicker) and the create writes the client party in the same batch
   audience: public
   public-summary: Open a matter, set who is involved and how it is numbered, and keep everything about it in the one place for the life of the file.
   awaiting-owner: The platform carries no note, comment or timeline entity on any record, and one design now asks whether to build one. Is the note primitive built at all, and as a platform slice belonging to every matter and every Directory entity rather than to whichever subsystem needs it first? If no, intake's prospect timeline stays derived-only and cannot hold "she is thinking about it", the matter detail keeps promising a Notes section it will not have, tasks land on an activity stream nobody owns, and every subsystem that needs somewhere to write a sentence grows its own note column. If yes, it comes before tasks and before intake. Notes and activity design flag W1, raised by the client intake design as J6.
@@ -195,8 +195,8 @@
   status: partial
   surface: screen
   slices: 1-1-matters-locations-file-manager, 1-3-directory
-  evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/api-worker/src/routes/directory.ts; the matter Parties section at apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte reads and severs.
-  notes: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party from the screen still waits on the directory picker, so the section renders that action disabled and says so; the link route itself has always worked.
+  evidence: packages/directory/src/party.ts (link, read with the entity name and capacity resolved, sever) over three routes in apps/api-worker/src/routes/directory.ts; the matter Parties section at apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte on the RecordParties tab links, reads and severs; the client's own party row is written by packages/matters createMatter in the same batch as the matter (clientPartyStatements).
+  notes: The read and the sever were both missing until the section was built - a link could be written through the API and never read back, and nothing anywhere set matter_party.deleted_at although five readers filtered on it. Adding a party is live on the design-system picker; the client is chosen from the directory at intake and is required for an open matter and a consultation alike, because a prospective matter's conflict check needs a person.
 
 - id: matters.numbering
   name: Configurable matter numbering
@@ -247,7 +247,7 @@
   slices: 1-1-matters-locations-file-manager
   adrs: ADR-0079, ADR-0080
   evidence: packages/matters/src/matter-service.ts (prospective/open/closed transitions, reopen restoring prior state, frozen numbers), reached from the matter masthead's status seal in apps/web/src/lib/matters/matter-status-dialog.svelte over the open/close/reopen routes.
-  notes: The UI has landed. Pressing the status seal opens a short status window - the status, what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt.
+  notes: The UI has landed. Pressing the status seal opens a short status window - the status, how the matter is engaged (the signed agreement on file and the fee arrangement it rests on, with Amend beside it and the history folded away; moved here from the Fees screen by the owner's ruling of 2026-09-03), what closing requires with each requirement already answered, what becomes of the paper file, and the one step the status allows. The answers are the program's: GET /api/v1/matters/{id}/close-readiness runs the registered rules read-only when the window opens, so a requirement arrives met or unmet rather than as a box to tick, and a press whose refusal is already known is disabled rather than offered. One step per status, never a status picker - the contract takes no status on any of the three operations. The Consultations folder view and the stale-consultation bulk close are their own nodes and are still UI debt.
 
 - id: matters.lifecycle.consultations
   name: Consultations (prospective matters)

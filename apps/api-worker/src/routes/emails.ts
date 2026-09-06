@@ -32,6 +32,7 @@ import { selectMatterStatement } from "@magna-carta/matters/matter-statements";
 import type { EmailMessageId, MatterId } from "@magna-carta/identifiers/types";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -385,32 +386,42 @@ const acceptRoute = defineOpenAPIRoute(acceptMeta, {
   },
 });
 
-const unlinkRoute = defineOpenAPIRoute(unlinkMeta, {
-  method: "delete",
-  path: "/api/v1/matters/{matterId}/emails/{emailMessageId}",
-  description:
-    "Unlink an email from this matter (the link → unlinked). Never deletes the message: it stays on any " +
-    "other matters it is filed to.",
-  request: { params: messageParam },
-  responses: {
-    200: {
-      description: "The link was unlinked (or was already unlinked)",
-      content: { "application/json": { schema: LinkActionAck } },
-    },
-    401: {
-      description: "No session",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    403: {
-      description: "Missing emails:manageLinks",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    429: {
-      description: "Rate limit exceeded",
-      content: { "application/problem+json": { schema: Problem } },
+const unlinkRoute = defineOpenAPIRoute(
+  {
+    ...unlinkMeta,
+    reversal: {
+      kind: "none",
+      reason:
+        "The link row is retained as unlinked, but nothing re-files an already-captured message onto a matter it was unlinked from. Filing it again means filing the bytes again.",
     },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/matters/{matterId}/emails/{emailMessageId}",
+    description:
+      "Unlink an email from this matter (the link → unlinked). Never deletes the message: it stays on any " +
+      "other matters it is filed to.",
+    request: { params: messageParam },
+    responses: {
+      200: {
+        description: "The link was unlinked (or was already unlinked)",
+        content: { "application/json": { schema: LinkActionAck } },
+      },
+      401: {
+        description: "No session",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      403: {
+        description: "Missing emails:manageLinks",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      429: {
+        description: "Rate limit exceeded",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+    },
+  },
+);
 
 type EmailsContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
 
@@ -602,7 +613,9 @@ export function registerEmailsRoutes(
       const stagedR2Key = `emails/staging/${jobId}`;
       // Staged mail carries no matter even when the caller named one: what is filed onto a matter is
       // the captured message record, and the staged bytes are consumed and dropped by the capture.
-      await c.env.R2.put(stagedR2Key, bytes, {
+      // Written through the same seam the capture consumer reads back through, on the bucket name the
+      // message below carries — the staging PUT and the consumer GET can never name two buckets.
+      await resolveFirmBucket(c.env, firm.bucketName).bucket.put(stagedR2Key, bytes, {
         customMetadata: firmScopedObjectDimensions("email-staging"),
       });
       const message: EmailsCaptureMessage = {

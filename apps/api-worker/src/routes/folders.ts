@@ -208,25 +208,28 @@ const patchFolderRoute = defineOpenAPIRoute(patchFolderMeta, {
   },
 });
 
-const deleteFolderRoute = defineOpenAPIRoute(deleteFolderMeta, {
-  method: "delete",
-  path: "/api/v1/folders/{id}",
-  description: "Deletes a folder. Refuses a folder that still contains any subfolder or file.",
-  request: { headers: idempotencyKeyHeader, params: folderParam },
-  responses: {
-    200: {
-      description: "The folder was deleted",
-      content: { "application/json": { schema: FolderActionAck } },
+const deleteFolderRoute = defineOpenAPIRoute(
+  { ...deleteFolderMeta, reversal: { kind: "inverse", by: "folders.create" } },
+  {
+    method: "delete",
+    path: "/api/v1/folders/{id}",
+    description: "Deletes a folder. Refuses a folder that still contains any subfolder or file.",
+    request: { headers: idempotencyKeyHeader, params: folderParam },
+    responses: {
+      200: {
+        description: "The folder was deleted",
+        content: { "application/json": { schema: FolderActionAck } },
+      },
+      400: idempotencyErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: idempotencyErrors[409],
+      422: idempotencyErrors[422],
+      429: authErrors[429],
     },
-    400: idempotencyErrors[400],
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: idempotencyErrors[409],
-    422: idempotencyErrors[422],
-    429: authErrors[429],
   },
-});
+);
 
 type FoldersApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 

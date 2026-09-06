@@ -26,6 +26,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
   import { expect, userEvent, waitFor, within } from "storybook/test";
+  import { actionDialogExpansion } from "../lib/internal/frame-expansion.svelte.ts";
   import ActionDialog from "../lib/components/action-dialog/action-dialog.svelte";
   import type { ActionOutcome } from "../lib/components/action-dialog/types.ts";
   import Input from "../lib/components/input/index.ts";
@@ -75,6 +76,7 @@
     reading: false,
     soon: false,
     keyboard: false,
+    stays: false,
   });
 
   let amount = $state("");
@@ -95,12 +97,19 @@
     showing.reading = false;
     showing.soon = false;
     showing.keyboard = false;
+    showing.stays = false;
   }
 
   /** A commit that lands. The shell closes the panel; the caller never writes `open`. */
   async function succeed(): Promise<ActionOutcome> {
     committedCount += 1;
     return "committed";
+  }
+
+  /** A commit that lands and has something to show for it. The panel stays, with nothing to ask. */
+  async function succeedAndStay(): Promise<ActionOutcome> {
+    committedCount += 1;
+    return "done";
   }
 
   /** A commit the server turns down. The panel stays, and the notice slot says why. */
@@ -406,6 +415,40 @@
   />
 {/snippet}
 
+{#snippet reportFields({ busy, done }: { busy: boolean; done: boolean })}
+  {#if done}
+    <p class="text-sm">Sent. It was recorded as <span class="font-semibold">REF-2026-0147</span>.</p>
+  {:else}
+    <div class="flex flex-col gap-8">
+      <Label for="action-dialog-story-report">What happened</Label>
+      <Input id="action-dialog-story-report" disabled={busy} bind:value={amount} />
+    </div>
+  {/if}
+{/snippet}
+
+{#snippet staysTemplate(args: ActionDialogProps)}
+  <button
+    type="button"
+    class="mc-button mc-button-secondary mc-button-md"
+    onclick={() => (showing.stays = true)}
+  >
+    Send a report
+  </button>
+  <ActionDialog
+    {...acting(args)}
+    heading="Send a Report"
+    subtitle="Support reads these in the order they arrive"
+    commitLabel="Send the Report"
+    commitBusyLabel="Sending"
+    bind:open={showing.stays}
+    kind="form"
+    unsavedChanges={false}
+    fields={reportFields}
+    onOpen={resetAmount}
+    onCommit={succeedAndStay}
+  />
+{/snippet}
+
 {#snippet guardedTemplate(args: ActionDialogProps)}
   <button
     type="button"
@@ -503,7 +546,8 @@
       expect(inside.getByRole("button", { name: "Cancel" })).toBeVisible();
     });
 
-    await step("A question has no incidental dismiss — no corner control", () => {
+    await step("A question has no incidental dismiss — no corner control, and nothing to expand", () => {
+      expect(panel.querySelector('[data-action-dialog-action="expand"]')).toBeNull();
       expect(inside.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
     });
 
@@ -820,5 +864,94 @@
     });
 
     closeEveryPanel();
+  }}
+/>
+
+<Story
+  name="StaysToShowWhatHappened"
+  template={staysTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const trigger = canvas.getByRole("button", { name: "Send a report" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = await body.findByRole("dialog");
+    await waitFor(() => expect(panel).toBeVisible());
+    const inside = within(panel);
+
+    await step("The commit lands and reports done — the panel stays", async () => {
+      await userEvent.click(inside.getByRole("button", { name: "Send the Report" }));
+      expect(await inside.findByText("REF-2026-0147")).toBeVisible();
+      expect(panel).toBeVisible();
+    });
+
+    await step("With nothing left to ask, the bar ends at Close and the commit is gone", () => {
+      const marked = [...panel.querySelectorAll("[data-action-dialog-action]")].map((control) =>
+        control.getAttribute("data-action-dialog-action"),
+      );
+      expect(marked).not.toContain("commit");
+      expect(panel.querySelector('[data-action-dialog-action="dismiss"]')).toHaveAccessibleName(
+        "Close",
+      );
+    });
+
+    await step("And there is nothing to lose, so Escape leaves at once", async () => {
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(body.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    closeEveryPanel();
+  }}
+/>
+
+<Story
+  name="FillsTheScreen"
+  template={formTemplate}
+  play={async ({ canvas, step }) => {
+    const body = within(document.body);
+    const trigger = canvas.getByRole("button", { name: "Write off a balance" });
+    await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+    await userEvent.click(trigger);
+    const panel = await body.findByRole("dialog");
+    await waitFor(() => expect(panel).toBeVisible());
+    const expand = within(panel).getByRole("button", { name: "Fill the screen" });
+
+    await step("A form offers to fill the screen, from the corner, before the way out", () => {
+      const controls = [...panel.querySelectorAll(".mc-modal-frame-header-action")].map(
+        (control) => control.getAttribute("data-action-dialog-action"),
+      );
+      expect(controls).toEqual(["expand", "close"]);
+      expect(expand).toHaveAttribute("aria-pressed", "false");
+    });
+
+    await step("Pressing it drops the width cap and the frame takes the viewport", async () => {
+      await userEvent.click(expand);
+      await waitFor(() => expect(panel).toHaveAttribute("data-expanded", "true"));
+      // The panel scale-fades in, so poll until the entrance settles rather than reading one frame.
+      await waitFor(() =>
+        expect(Math.round(panel.getBoundingClientRect().width)).toBe(window.innerWidth),
+      );
+      expect(within(panel).getByRole("button", { name: "Shrink back to a window" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+
+    await step("The choice is remembered for the session, so the next form opens the same way", async () => {
+      await userEvent.click(within(panel).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(body.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(actionDialogExpansion.expanded).toBe(true);
+      // The scrim's pointer lock lifts a beat after the panel has gone.
+      await waitFor(() => expect(trigger).not.toHaveStyle({ pointerEvents: "none" }));
+      await userEvent.click(trigger);
+      const again = await body.findByRole("dialog");
+      await waitFor(() => expect(again).toHaveAttribute("data-expanded", "true"));
+      await userEvent.click(within(again).getByRole("button", { name: "Shrink back to a window" }));
+      await waitFor(() => expect(again).toHaveAttribute("data-expanded", "false"));
+    });
+
+    closeEveryPanel();
+    actionDialogExpansion.expanded = false;
   }}
 />

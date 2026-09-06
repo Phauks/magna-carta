@@ -56,6 +56,14 @@ is usually the fastest way to understand the rule.
   Password". Not sentence case, not all caps. _(auth flow, 2026-08-07)_
 - **No em dashes in user-facing copy.** They read as machine-written. Restructure the sentence or
   use a colon. Internal documents are unaffected. _(auth flow, 2026-08-07)_
+- **"Filed" means filed WITH A COURT. Nothing else may say it.** Adding a document to a matter's own
+  record is adding it; an email arriving on a matter is saved to it; a version is uploaded. This
+  platform files nothing with a court, so a screen that says a document was filed is telling a lawyer
+  something that did not happen, in the one vocabulary where being wrong has consequences. The word
+  is correct in exactly its own sense — a filing fee, a filing deadline, e-filing — and the test is
+  whether a court is on the other end of it. Source keys and column names that already carry the word
+  (`documentFiled`, `emailFiled`) are wire contracts and stay; what a person READS is decided at the
+  presentation layer, which is why the two are separate files. _(matter activity, 2026-09-02)_
 - **Short explanatory copy is one flowing paragraph.** A few sentences split across stacked
   paragraph elements read as a hard line break in the middle of one thought; join them unless the
   sentences genuinely address different subjects. _(WHOIS Lookup tool page, 2026-08-31)_
@@ -70,6 +78,16 @@ is usually the fastest way to understand the rule.
   scanned before anything else touches it"). It is read once, skipped ever after, and it takes room
   from the answer the reader came for. A fact that a reader must have to read the result correctly
   is part of the result, in its own row. _(file workbench, 2026-08-31)_
+- **A failed act states itself where it happened, with the way to try again beside it.** A download
+  that fails gets "Download failed" and a **Retry** button on its own row, on the Downloads page and
+  in the top-bar tray alike, never only in a toast: a toast vanishes, and the reader who watched it
+  go has nothing left to press. _(downloads, 2026-09-03)_
+- **Nothing is saved until the commit is pressed, and a panel never says otherwise.** The Upload
+  dialog opens before any byte moves and sends only on **Upload**; "Closing keeps what has already
+  landed in EWAAAE" was the line that made the owner afraid something had been saved behind their
+  back, and it had. The commit carries the act's own verb ("Upload", not "Save"), a failure reads as
+  one ("Upload failed", not "did not land"), and a panel carries no running commentary about what
+  it is doing on the reader's behalf. _(file manager upload, 2026-09-03)_
 
 ### Lists and tables
 
@@ -88,7 +106,15 @@ is usually the fastest way to understand the rule.
   the row hover means "this is a thing you can select and open" and there is nothing there to
   select. So an empty table does not light up under the pointer — stretching the hover across the
   whole frame would be worse, because it invites a click that does nothing. Absence is the signal.
-  _(matters docket, 2026-08-30)_
+  **Reissued 2026-09-05, because the ruling was recorded and only half carried out.** The
+  placeholders were still `<tr class="mc-table-row">` in the same body as the records, so the row
+  hover found them: an empty table answered the pointer with a grey band as tall as its message and
+  no taller, leaving the rest of the frame white — which the owner read, correctly, as a hover that
+  gives out partway down the table. It is not enough for the placeholder's CELL to be marked; the
+  treatment the ruling withholds is the ROW's, so the row is what says it holds no record —
+  `data-placeholder="true"`, which the shared recipe passes over for both the fill and the pointer
+  cursor, and which the loading rows need too (they carry a skeleton per column and no placeholder
+  cell at all). _(matters docket, 2026-08-30; the empty table, 2026-09-05)_
 - **A placeholder's content centres in the FRAME, not in the table.** A placeholder row spans every
   column, so its cell is as wide as the table — wider than what the reader can see the moment the
   columns overflow, and far wider once anybody has widened one. Content centred in that cell lands
@@ -101,6 +127,13 @@ is usually the fastest way to understand the rule.
 - **A control that undoes a state exists only while that state is in play.** The clear-filters
   control appears when something is narrowing the view and is absent otherwise, so its absence is
   itself the answer to "is anything hidden". _(matters docket, 2026-08-30)_
+- **A control that recurs on every table is a table component, not a snippet each surface writes.**
+  The clear-filters control was built seven times in three shapes, the labelled figures strip five
+  times (one already in the opposite reading order), and the load-more control three times in two
+  places. Each is now one component — `DataTable.ClearFilters`, `DataTable.GridFigures`,
+  `DataTable.LoadMore` — and what a surface still varies is where it puts it, never what it looks
+  like. The clear control lives in the control row above the table, where the filters were set; the
+  undo and redo pair lives in the footer. _(every list surface, 2026-09-03)_
 - **Every scroll region we own wears the app's scrollbar, corner included.** A themed track and
   thumb still leave the corner where a horizontal and a vertical bar meet painted by the user
   agent, and a table wide enough to scroll sideways is where it shows first. _(matters docket,
@@ -130,6 +163,12 @@ is usually the fastest way to understand the rule.
   entry has to pass on the right, permanently in view. Wider and shorter, so the whole thing fits a
   screen and nothing scrolls. A gate behind a tab is a gate somebody has to remember to go and look
   at. _(new matter, 2026-08-30)_
+- **A creation screen's sections may stand as a rail inside its own dialog.** The one-rail ruling
+  under Controls is about the app shell: a second vertical navigation beside the shell's own makes
+  the member ask which one they are in. A dialog is not the canvas, and the sections of a record
+  being created are not module navigation; the owner chose the side rail for New Person from a
+  canvas of four directions on 2026-09-03, with a count on each section and the gate beside it.
+  _(new person, 2026-09-03)_
 - **A data-entry surface carries no helper prose.** Every visible line is a label, a value, or the
   one honest sentence a Soon capability owes about what it waits on. A block with nothing in it is
   not drawn at all rather than announcing its own emptiness. _(new matter, 2026-08-30)_
@@ -137,14 +176,134 @@ is usually the fastest way to understand the rule.
   field is what starts a fresh search; leaving it returns the field to naming the selection. A
   filled seat that renders its ghost text reads as an empty field with nobody in it. _(new matter,
   2026-08-30)_
+- **A record is MADE in the same window it is read in.** Starting one is a modal act: the record
+  window opens with nothing in it and its fields already open. A form that unfolds inside the list
+  it will join is a second place to learn where a record's fields live, and the list loses its own
+  shape while somebody is typing. _(matter notes, 2026-09-01)_
+- **A field's label is the plain word for what it holds.** "Date", not "When It Happened"; a label
+  that reads as a sentence is a question the surface is asking rather than a name for the value. A
+  field whose meaning genuinely needs a sentence gets the sentence beside it, and keeps the plain
+  label. _(matter notes, 2026-09-01)_
+- **One moment is one line.** A date and the time on that date are a single fact, so they sit side
+  by side; stacking them reads as two separate questions and doubles the height of every record that
+  carries one. The same holds for a value and its unit, and a quantity and its currency. _(matter
+  notes, 2026-09-01)_
+- **What a record will carry is on screen before it is saved, generated fields included.** Who is
+  writing, what it will be filed against, the instant it will be stamped with. They are stated, not
+  editable — but a person writing a record that may be read years later must never have to guess
+  what is being stored beside their words. _(matter notes, 2026-09-01)_
+- **A record takes its attachments while it is still being written.** The files ride the record from
+  the first draft: chosen in the window, held, and written the moment the record itself is. Making
+  somebody save, find the record again and reopen it to attach the document they were writing about
+  is the same work done twice. _(matter notes, 2026-09-01)_
+- **A source a surface cannot actually use is not offered.** A picker, dropzone or button with
+  nothing behind it swallows the gesture in silence: the person watches their file go in, sees
+  nothing happen, and cannot tell that from a failure. Either wire it or leave it out — a control
+  that does nothing is worse than an absent one. _(matter notes, 2026-09-01)_
+- **A screen that consolidates other screens' records names nothing itself.** Every word on a row
+  of a consolidation — a chronology, a search result, a dashboard tile — is declared by the
+  subsystem that owns the row, beside that subsystem's own code, and the consolidating screen draws
+  what it is told. The moment the consolidation decides what a file or a hearing is called, it is a
+  second file manager and a second calendar, each a little wrong, and every new subsystem becomes a
+  change to it. Enforced by a pairing test against the server's registry and a coverage lint against
+  the section registry, so it cannot be forgotten. _(matter activity, 2026-09-02)_
+- **A type column names the thing's REAL type, never our category word for it.** "Document" on
+  every row of a document register is the column repeating its own heading. A file's type is what
+  the file manager identifies it as — its document type where one is set, else the identification
+  the file manager itself draws from the content type and the name — and never a name suffix
+  standing in for that identification. Where a subsystem knows a more exact word than the surface
+  does, the surface takes it. _(matter activity, 2026-09-02)_
+- **Filtering belongs to the columns, never to a bar above them.** Narrowing to one kind is a set
+  filter on the Kind column; narrowing to last month is the Date column's range; narrowing to one
+  person is Who. A row of chips over a table that can already do all three is a second filter to
+  learn and a second place for the two to disagree. _(matter activity, 2026-09-02)_
+- **A signed-in member is not a stranger, and a screen must not withhold from them.** Where the
+  record already decides who may see a matter, its own rows carry no further secret: a row that says
+  only that "a document was added" is a row a reader has to open something else to understand. State
+  what the thing IS. Where a narrower permission genuinely exists — a note behind `notes:read` — the
+  screen honours it by reading through that subsystem's own gate, which refuses on its own, rather
+  than by keeping every reader in the dark to cover one. _(matter activity, 2026-09-02)_
+- **A field whose empty state is a real value offers that value, rather than a sentence explaining
+  its absence.** Two paragraphs saying the firm has no codes turned on is the product apologising
+  for a configuration that is both common and correct; a `(None)` row makes the field work, states
+  the same fact, and lets the entry be filed. Reserve the explanatory line for a genuine inability —
+  this account may not read the catalogue, or the read failed. _(Time record window, 2026-09-03)_
+- **Two options that mean the same thing are one option.** Offering both makes a reader choose
+  between them, and there is no right answer to that choice. _(Time record window, 2026-09-03)_
+- **A public note and its private twin sit together, stacked, in that order.** They are one act of
+  writing that differs only in who reads it; separating them turns the private half into a second,
+  equal fact about the record and strands it wherever it landed. _(Time and Cost record windows,
+  2026-09-03)_
+- **A record's attachments can be gathered before the record exists.** "Save it first" is a true
+  statement about a route and a wrong one about the work: the person has the document open in front
+  of them. Hold the picks and apply them when the record is written. _(Time record window,
+  2026-09-03)_
 
 ### Controls and patterns
 
+- **A screen makes something new through ONE control, and it is the same control on every screen.**
+  The design system's `CreateControl`: a primary button reading "New" and one noun ("New Fee",
+  "New Matter", "New Packet"), pressing straight through or opening a menu in the same footprint,
+  held at a token width (`size.create-control`) so it never changes size as the label changes.
+  On a matter it sits in the header beside the search and its label follows the section from the
+  registry (`sections.ts` answers `createNoun` for every section, or declines with a line);
+  the section's page claims the behaviour while it is mounted. Elsewhere it sits in the
+  masthead's action row, after the search. Nothing else on the screen makes the record: the
+  action-row buttons and the empty-state buttons that used to are removed, not moved, and an empty
+  state names the control at the top instead. When nothing can be made right now the control is
+  disabled with the reason as its title; it never leaves the row. Enforced by
+  `pnpm run lint:matter-create-control`. _(the matter screens, 2026-09-03)_
+- **The search and the create control travel together, search first.** A screen that carries one
+  carries the other, in that order at the row's inline end: the search grows toward the inline
+  start, so the control after it is the one place the field's growth cannot reach. The custody
+  register had the create control and no search; it has both now. _(the Custodian register,
+  2026-09-03)_
+- **A destination opens beside the reader's work only through one gate, for a named reason.** A
+  link navigates in place; a new tab is the exception, and an exception each screen decides for
+  itself is how a product ends up with fifteen `target="_blank"`s in three spellings and no rule
+  anybody can state. Every opening beside the reader goes through `$lib/navigation/open-beside`,
+  naming why the destination cannot open in place from a closed set — it leaves the product, it is
+  a file, it is a separate working session, or it is opened from a surface holding unsaved work —
+  and a source scan refuses any other `_blank`. Adding a reason is a reviewed change to that file.
+  _(new matter, 2026-09-02)_
+- **A directory record is one window, wherever it opens.** A person or an organization has no
+  screen of its own: it opens in the entity window, in the New Person screen's shape — the record's
+  sections as a rail on the left, the chosen section beside it, what stands about the record on the
+  right — over whatever the reader was doing, and closes back to it. So a party opened from a
+  matter never leaves the matter, and the header's way back on every screen keeps meaning the
+  screen above. A related record opened from inside the window swaps its subject rather than
+  stacking a second window; one opened from another window stacks once. The address of a record is
+  the directory's, carrying which record to open, so a pasted link still lands on it. Chosen over an
+  origin-aware way back ("hard to keep track of over time") and over a breadcrumb trail. _(the
+  directory record, 2026-09-05)_
 - **A pane toggle is a quiet chrome affordance, and it ends the row.** Showing or hiding a details
   panel is not an act on the record, so it never wears a button's border or fill: it is the ghost
   icon control the file manager uses, reading its state through its glyph, and it sits last among a
   surface's controls. Four ledgers each drew it differently, which is how a reader learns that two
   screens are two products. _(the financial ledgers, 2026-09-02)_
+- **A pane toggle is a quiet chrome affordance, and it ends the counts strip.** Showing or hiding a
+  side pane is not an act on the record, so it never wears a button's border or fill and it does not
+  belong where a surface's verbs are: it is the ghost glyph, reading its state through `aria-pressed`
+  alone, at the inline end of the strip beneath the table — after the surface's figures, last on the
+  line, on every surface that has a pane. It is not free and does not need to be: measured, the strip
+  grows from 32 points to 41 to seat the control, against the 41 the row above the table cost — a net
+  32 points back to the table, and one less band between the reader and the records. On the four
+  financial ledgers that row had no other occupant most of the time. A surface with a
+  toolbar it draws anyway is not an exception — the file manager's two toggles came down to the strip
+  as well, so a reader never has to remember which screen keeps the answer at the top. One component
+  (`$lib/records/pane-toggle.svelte`), because four ledgers each drawing their own is how a reader
+  learns that two screens are two products. _(the financial ledgers, 2026-09-02; placement corrected
+  2026-09-03)_
+- **A row above a table renders only when something has to be in it.** Not an empty band a reader
+  meets before they meet the records. The corollary of moving the pane toggle off it: what is left on
+  the ledgers is the way out of a filter, and Costs' Review where the firm runs review, so an
+  unfiltered ledger draws no row at all and its table starts at the top of the screen.
+  _(the financial ledgers, 2026-09-03)_ **Amended 2026-09-05:** the rule stands; what changed is
+  that the money sections now always have something to put in the row. The money toolbar carries
+  where the reader is within Money and the siblings one click away (the section strip shows only
+  "Money" with the gold bar, so nothing else on the screen named the sub-part), the surface's acts,
+  and the two view settings. A row with a standing occupant is not the empty band this rule was
+  issued against. _(the money sections, 2026-09-05)_
 - **A resizable divider carries no grip handle.** The whole edge drags and the separator takes the
   keyboard, so a centred grip is a second affordance for a gesture already answered — and it reads
   as a control parked in the middle of the screen. The hairline that thickens under the pointer is
@@ -153,6 +312,12 @@ is usually the fastest way to understand the rule.
   the top bar does not emphasise it, it reclassifies it: the reader takes it for a status readout,
   or for a control of a different kind. Whatever a control has to say, it says with its own content.
   _(the top bar, 2026-09-02)_
+- **A calendar's week begins on the day the firm chose, and that is a firm setting, never a
+  personal preference.** The week is the unit a firm plans in, so two members of one firm looking
+  at the same week must see the same columns: a deadline "next week" has to name the same seven
+  days to everybody who reads it. Sunday by default, because United States legal practice reads a
+  Sunday-start week. It lives under Settings › Practice › Calendar, behind the calendar's own
+  manage right, and no per-member override exists. _(the calendar, 2026-09-02)_
 - **Only a surface nobody can open yet wears a maturity mark.** A screen a member can reach does
   not announce how finished it is: "Alpha" beside a working tab is a fact about the build, not
   about the matter, and once eight of fourteen tabs carry one the navigation reads as a release
@@ -283,7 +448,9 @@ is usually the fastest way to understand the rule.
   under it. _(file workbench, 2026-08-31)_
 - **A list of records is the product's one grid**, with its sorting, its per-column filters, its
   show/hide, its selection gestures and its footer counts. A pane being narrow is a reason to start
-  columns hidden, never a reason to hand-roll a second list. _(file workbench, 2026-08-31)_
+  columns hidden, never a reason to hand-roll a second list — and a chronology is not one either: a
+  list written by hand has none of it and earns each piece back one at a time, differently. _(file
+  workbench, 2026-08-31; matter activity, 2026-09-02)_
 - **A page's primary query control sits at the reading edge, not in the masthead's far-right
   actions slot.** Left-aligned below the masthead, where the eye starts; the far right is for
   secondary actions. Results render below it, so nothing about the control reflows when they
@@ -327,42 +494,13 @@ is usually the fastest way to understand the rule.
   surface around it every time the condition flips; mount it unconditionally and give it inert
   filler when it has nothing to report, so height never depends on wording. _(Build Versions panel,
   second round, 2026-08-31)_
-
-### List screens
-
-Issued against the matters list and re-issued against the directory. They bind every List/Index
-surface, which is most of the product.
-
-- **A heading carries no explanatory sub-text.** No sub-heading under a page title, no sentence
-  under a section heading restating what the section obviously is. "The firm's active docket" under
-  _Matters_, and "Clients, parties, counsel and courts, in one book" under _Directory_, were both
-  removed for the same reason: they spend vertical space on a working screen and tell a working user
-  nothing they did not know before they clicked. This is not the same as an honest line that carries
-  a CONSEQUENCE — "revealing a value is recorded in the firm's audit log" stays, because it says
-  something a reader must know before they press. The test is whether removing the line loses a
-  fact. _(matters list, 2026-08-30)_
-- **Actions collapse into one compact action row.** Everything above the data that is not the data
-  is a single row: the primary action, then narrowing and searching as icon controls that open what
-  they need when they are needed. A labelled dropdown and a labelled search box, each with a
-  sentence under it, cost three rows of a screen whose subject is a list. Where a screen would carry
-  a button per variant of one action ("New person", "New organization"), it carries ONE primary
-  action with a menu instead. _(matters list, 2026-08-30)_
-- **The table holds the vertical space it would occupy when full.** The list region takes the
-  remaining height and keeps it, so the screen does not reflow as rows arrive, as a filter narrows
-  them, or as an empty state replaces them. In practice: the page is a full-height column and the
-  table is `min-h-0 flex-1` inside it. _(matters list, 2026-08-30)_
-- **One place to narrow.** Where several mechanisms narrow the same list — a server-side scope, a
-  server-side search, the table's own column filters — they sit behind one control, because from
-  where a reader sits they answer one question. Answering it in three places is how somebody ends up
-  staring at an empty table with a filter set on a control they are not looking at. _(matters list,
-  2026-08-30)_
-- **A listing states how many there are; a capped answer states that it is capped.** These are the
-  two shapes a list of records comes in and they must not be presented alike. A LISTING is sorted,
-  walkable to the end, and carries the size of the whole record — not of the page in hand. A RANKED
-  ANSWER is in the server's relevance order, is never re-sorted on the client (that would put the
-  best of an arbitrary slice at the top and read as the best of the firm's record), and says so
-  when more matches exist than were returned. A screen that has both shows them as two different
-  objects. Never fake a listing out of a search. _(directory, 2026-08-30)_
+- **A field's label does not get a badge repeating it.** "Internal Memo" wearing an "Internal" chip
+  says the same word twice in two voices. _(Time record window, 2026-09-03)_
+- **Every labelled control in a row starts at the same baseline, which means every label carries the
+  same type metrics.** A label that omits the line-height the others set sits its control a few
+  pixels low, and a row of three fields reads as two fields and a mistake. Where a primitive renders
+  its own label it restates those metrics, and the two blocks change together. _(Time record window,
+  2026-09-03)_
 
 ### List screens
 
@@ -422,6 +560,28 @@ surface, which is most of the product.
   filter set and a print sheet over records nobody can add is a reader for somebody else's data. The
   entry path ships with the surface, and where the backend already serves it, its absence is the
   defect rather than the roadmap. _(Custodian register, 2026-09-01)_
+- **A control that clears or dismisses says so on screen, not only on a key.** A keyboard way out
+  is not an affordance: nothing advertises it, and a pointer user is left to select the contents and
+  delete them. ScreenSearch shipped with Escape-to-clear and no glyph on the reasoning that the key
+  was enough; it was not. Where a control can be emptied or closed, the visible way to do it is
+  present whenever there is something to empty — and the key keeps working, routed through the same
+  function so the two cannot drift. _(matter search, 2026-09-02)_
+- **A click on bare background is a click away.** A person who clicks a page's empty margin has left
+  the control, and a transient thing — an unused field, a popover — closes. Reading focus alone
+  cannot see this: clicking a margin moves focus nowhere, so nothing fires that says "away", and
+  code that waits to be told will wait forever. Watch the pointer as well as the focus. What stays
+  open is a control still carrying STATE a reader needs — a live query keeps its field open, because
+  a narrowed list must carry its reason on screen. _(matter search, 2026-09-02)_
+- **Enter means the next thing, not the same thing again.** On a field that already searches as you
+  type, the answer is on screen before Enter could be pressed, so re-running the search is a no-op
+  wearing the costume of a response. Enter goes to wherever the whole answer lives, and pending
+  debounce is flushed first so the destination never opens on a query one keystroke stale. A screen
+  with no such destination leaves Enter alone rather than inventing one. _(matter search, 2026-09-02)_
+- **A way through to the full surface does not require starting the task first.** A panel that only
+  appears once a query is typed puts everything in its header — the scope, the link onward — behind
+  work the reader has not decided to do yet. The panel opens with its control; it is its header row
+  until there is something to answer. _(matter search, 2026-09-02)_
+
 - **A status word is legible against the others in its set, not on its own.** Where a state leaves a
   reader asking what it is, the label takes a word the domain already writes for it — but the test
   it has to pass is the PAIR: custody's "Out" became "Checked out" and was then read as the same
@@ -431,8 +591,57 @@ surface, which is most of the product.
   synonym: the enum, the ledger and the filter are unchanged, and the word chosen is the domain's
   own (the ledger row for this state records a `borrower`). _(Custodian register, 2026-09-01)_
 
+### Screen search
+
+- **A live query carries an X that clears it**, at the field's trailing edge, shown only while there
+  is something to clear. This REVERSES the original rule that Escape was clearing enough: Escape is
+  a keyboard affordance and nothing on screen advertises it, so a pointer user had no way to empty
+  the field but to select the text and delete it. Escape still clears, and both paths run the same
+  code so they cannot drift. _(matter search, 2026-09-02)_
+- **Clicking outside an empty search closes it.** Also a reversal: focus landing on the document
+  body was read as "focus went nowhere", so the control stayed open. To a person there is no such
+  place — they clicked away. A live query still holds the control open, because a narrowed list has
+  to carry its reason on screen; the X is how you empty it. _(matter search, 2026-09-02)_
+- **Enter goes to the fuller surface, where the screen has one.** A search that already answers on
+  every keystroke has nothing to re-run, so Enter must mean the next thing rather than nothing at
+  all. A screen that narrows rows in place has no such destination and leaves Enter alone rather
+  than inventing one. _(matter search, 2026-09-02)_
+- **The control opens in two directions, and each one has a job.** To the inline START it opens
+  into the field, which is for WRITING the query; DOWNWARD it opens into a panel, which is for
+  everything else — what the query reaches, and what it found. Aiming a search is not part of typing
+  it, and a scope named in full ("Everything on this matter") took most of the width the field had
+  on a header line. ScreenSearch's `scope` seam, which seats a scope control inside the field's
+  leading edge, is therefore NOT what a long scope vocabulary should use. _(matter search,
+  2026-09-02)_
+- **The downward panel belongs to the control, not beside it.** A panel rendered as a sibling is
+  outside the control's root, so the collapse watches read a click into it as a click away and shut
+  the whole thing on first use. `ScreenSearch`'s `panel` seam renders it inside that root, which
+  makes the correct behaviour structural rather than something each surface has to rediscover.
+  _(matter search, 2026-09-02)_
+- **A search panel opens with the field, not with the first keystroke.** Anything a person needs
+  before they have typed — the scope, the way through to the full results — is unreachable if the
+  panel is gated on a query, and gating it made changing where the search looked require starting a
+  search first. Empty, the panel is its header row and nothing else. _(matter search, 2026-09-02)_
+
 ### Layout
 
+- **The five money sections are one surface, and it wears the file manager's frame.** Time, Fees,
+  Costs, Billing and Trust each render inside `MoneySurface` (`apps/web/src/lib/money/`), which is
+  the file manager's arrangement applied to a ledger: the surface runs to the edges of the work
+  canvas, a toolbar strip sits flush under the section strip, the table connects to it with no
+  rounded card between them, and the counts strip sits on the bottom edge. The owner's words: the
+  four framed tables "look good, but I like how Files looks more, where the features and the table
+  start at the top, connected up there" — and wanted one central component that looks the same for
+  every money sub-part. Nothing under Money draws its own frame, acts row, footer or pane toggle;
+  a ledger declares its columns, cells, figures and verbs and hands them to the surface.
+  _(the money sections, 2026-09-05)_
+- **The framed look survives as the reader's alternative, one setting for every money section.**
+  The surface offers two layouts, flush (the default, the file manager's) and framed (the table in
+  its rounded card inside the canvas padding), switched from the toolbar and remembered under one
+  key for all five sections, so the money screens can never be in two looks at once. The density
+  step (comfortable or compact rows) is the same kind of setting and lives beside it. Both are view
+  settings, so they sit on the toolbar where the file manager keeps its list-or-icons switch,
+  never on the counts strip, which holds the pane toggles. _(the money sections, 2026-09-05)_
 - **A working surface takes the rest of the screen and keeps it.** Most pages are documents and are
   as tall as what is on them. A few — the file manager, the financial ledgers — are surfaces you
   work in: the list scrolls inside itself and the counts footer belongs on the bottom of the screen.
@@ -441,6 +650,26 @@ surface, which is most of the product.
   chain of flex-grow over min-height-0 — never a percentage, which resolves against an indefinite
   height and quietly does nothing — and the chain is one shared component, not a class list each
   page repeats. _(the file manager and the financial ledgers, 2026-09-02)_
+- **A modal filling the screen has square corners.** A radius says the panel is a sheet lying on top
+  of something; at full size there is nothing underneath, and the curve reads as four notches of
+  desktop showing through the corners of the application. Fixed on the shared modal frame, so any
+  shell that grows an expand gesture inherits it. _(Time record window, 2026-09-03)_
+- **A windowed modal never touches the edge of the screen.** On a laptop a long record ran from the
+  top edge of the screen to the bottom edge with its rounded corners cut off against them, and at a
+  laptop's width the record-width panels touched both sides too; the owner read it as the modal
+  taking the screen. A panel is a thing lying over the application, and it keeps a gutter of screen
+  around it on every side (`size.modal-gutter`, 32px) that its width cap and its content are measured
+  inside: a panel that fits opens at its own height with air around it, and one that does not caps
+  at the screen less the gutter and scrolls inside. The gutter is a fixed length rather than a share
+  of the screen, because a share swells on a large monitor, where the width caps already leave room,
+  and shrinks on a small one, where the air is needed most. Expanding is the one exception, by
+  design: filling the screen is that gesture. Every dialog, alert dialog, action dialog and record
+  window inherits it from the shared modal stage; edge sheets are drawers and stay on their edge.
+  _(the modal shells on a laptop, 2026-09-03)_
+- **A totals strip sits on the bottom edge of its frame, not under the last row.** A ledger fills
+  the height it is given, so the ordinary case is a table with room beneath it; totals that come to
+  rest halfway up the screen with a band of empty surface below them read as a table that failed to
+  load the rest. _(the four financial ledgers, 2026-09-03)_
 
 ### Spacing and rhythm
 
@@ -463,6 +692,223 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-05 — the directory record, from a screen to one window
+
+Raised by the owner after walking from a matter's parties into a person: the person opened as a
+screen in the directory, and the way back at the top of it led to the directory's list, not to the
+matter just left. Three shapes were put up — an origin-aware way back, a window over the matter, a
+breadcrumb trail — and the owner ruled for the window, then for the window as the record's only
+surface. The generalization is promoted above; what is local to this surface:
+
+- The window takes the New Person screen's arrangement, not the tabbed screen's: the owner
+  preferred the side rail with the section beside it to a row of tabs across the top.
+- The right pane shows what the host alone knows — on a matter, the roles this record holds there
+  with the capacity beside each — above the record's own facts. The directory host adds nothing.
+- The record's Names and Duplicates acts keep their own panels, which open over the window.
+- The old record address redirects to the directory with the record's window open.
+
+### 2026-09-05 — the money sections, one surface
+
+The owner walked Time, Costs and Billing against Files: "time, costs, and billings all appear as
+separate tables. It looks good, but I like how files looks more, where the features and the table
+starts at the top, connected up there." Then: an alternative table view with the same functionality
+for these screens, applied to Costs as well, and to Trust; and "streamline and get this closer a
+central component that looks more or less the same for all money sub-parts."
+
+What is local to these surfaces:
+
+- **`MoneySurface` is the one frame.** Toolbar, notices band, list, the line above the footer, the
+  counts strip with the pane toggle last — every money ledger hands the surface its columns, cells,
+  figures, acts and panel and draws none of that itself. `LedgerPanes` stays underneath it as the
+  two-pane geometry.
+- **The toolbar leads with the money sub-parts.** A coins glyph, then Time · Fees · Costs · Billing
+  · Trust as quiet links in the section strip's own register, the current one marked. The strip's
+  Money group is what put them a menu away; this row puts them a click away and names the one the
+  reader is on.
+- **Clear Filters is the surface's, not the ledger's.** Four copies of one control became one,
+  rendered while a filter is on, in the toolbar's trailing group ahead of a ledger's own acts
+  (Costs' Review).
+- **Load more sits directly above the counts strip**, on the line the file manager keeps for an
+  archive's crumb, rather than beneath the footer where it was pushing the strip off the bottom.
+- **Trust takes a real surface.** The ledger is built whole against the trust movement record —
+  date, kind, method, reference, counterparty, purpose, in, out, who recorded it, who authorized it
+  and on what footing — with Balance, Held and Available as its figures, on the same surface as the
+  other four. It stands empty and says why: the matter's ledger is read against a trust account,
+  and no route lists the firm's trust accounts yet. New Deposit is the header's control, disabled
+  with that reason. The section stub is gone.
+
+What generalizes, and is promoted above: the five money sections are one surface wearing the file
+manager's frame; the framed look survives as one setting for all of them; and the amendment to the
+row-above-a-table rule.
+
+### 2026-09-02 — the matter search, first deployed round
+
+Five corrections against the matter's consolidated search, the first time it was walked on the
+deployed site. Four were plain defects and are fixed in the shared component rather than the one
+screen, because ScreenSearch is every list screen's search and a divergence here would have been a
+second search box with second behaviour. The generalizations are promoted above.
+
+- An empty field did not close when clicked away from. The cause was deliberate and wrong: focus
+  landing on the body was read as "focus went nowhere" and treated as staying. There is no such
+  place from where a person sits.
+- No X. Escape cleared the field and nothing said so.
+- Enter did nothing at all.
+- The full search page could not be reached without typing something first, because the panel that
+  holds the way to it did not open until there was a query.
+- Searching for a folder by name found nothing. Local to the matter search rather than general: the
+  files source queried file names and joined the folder table only to LABEL which folder a file was
+  in. Recorded here because the shape recurs — a table joined for display is easy to mistake for a
+  table being searched.
+
+Still open at the end of the round: where the scope filter sits. It spells out "Everything on this
+matter" on the header line and takes most of the rail. Three placements were put to the owner (a
+chip inside the field, the panel's header row, chips beneath the field); this entry gets the ruling
+when it is issued.
+
+### 2026-09-03 — the create control, moved up and made one component
+
+The owner asked for the "+ New" button to move next to the search at the top of the matter screen,
+as one modular control that reflects the screen it is on without reflowing — "New Fee", "New Cost",
+"New File" — with the lower buttons removed; then, that the control be a main component that can go
+into the matter list, the directory and anywhere something new is made; then, that the custody
+register, which had the button and no search, carry the pair. The generalizations are promoted
+above. What is local:
+
+- **The label per section** is the registry's: Files → File, Time → Time, Fees → Fee, Costs → Cost,
+  Billing → Bill, Notes → Note, Custodian → Packet, Parties → Party, Calendar → Event (disabled,
+  waiting on the event and deadline forms, where the section used to draw two disabled buttons).
+  Overview, Trust, Emails, Messaging and Magnus decline with a line; the bare "New" shows off a
+  section (the results page).
+- **Files' control is a menu** — New Document, New Folder, Upload Files — replacing the toolbar's
+  New menu. The rail's New Folder and the folder-level right-click menu stay: gestures on a place,
+  not a second button. The empty-folder state's two buttons are gone.
+- **Parties' control opens the tab's own add row**, the one its inline Add… opens; the tab is a
+  shared component and keeps that gesture.
+- **The Directory's control reads the bare "New"** and opens its person-or-organization menu; the
+  "New person" empty-state button is gone.
+- **The width is a token, 136px**, sized to "New Packet" with the glyph, the chevron and the
+  button's padding; the noun budget is seven characters.
+- **The registry's declared slug is checked against the address**: a page claiming the control for
+  a section it is not on is refused loudly, as is a second claimant on one screen.
+
+### 2026-09-03 — the Time tab, second round
+
+The owner walked the time record window, the sheet and the cost window together. Most of what came
+back was about fields explaining themselves instead of working: two paragraphs apologising that a
+firm has no codes turned on, a badge repeating the word already in a label, a rate that could be
+read and not set, and one duration field where a firm thinks in three.
+
+What is local to these surfaces:
+
+- **A time entry's rate is a field.** The rate chain has always ranked a per-entry override first
+  and capture has always accepted one; the record window now offers it, and the update route carries
+  it, so an entry captured at the wrong rate is corrected rather than voided and typed again.
+- **A duration can be stated three ways** — in hours, in the firm's own billing units, or as the two
+  clock times the work happened between. All three are live at once and each is a view of the same
+  minutes; which of them are ON SCREEN is the reader's own setting, in the window's menu, and the
+  last one standing cannot be turned off.
+- **A void can be undone.** `POST /time-entries/{id}/unvoid` returns the entry to draft with its
+  number, its memo, its codes, its documents and its history. It refuses the one void that must
+  stay one: an entry whose value was moved onto a cost record, where restoring the time would charge
+  the same work twice. It restores to DRAFT and never to submitted or approved — those were
+  somebody's judgement about an entry that has since been withdrawn.
+- **The vocabulary is void, never strike.** One word for the act, across the history rail, the
+  sheet, the ledger and the record window.
+- **The Billing dropdown lost "No charge, on the bill at nothing"** — it is non-billable under a
+  longer name, and two rows for one disposition make a reader choose between them with no right
+  answer.
+- **The cost window commits with "Save & Close"**, as the time window does.
+
+What generalizes, and is promoted above.
+
+### 2026-09-02 — the matter Activity section, fourth review round (from scratch)
+
+The owner rejected the third round outright — a file's kind read as `txt`, `zip`, `bin` when "we
+have a whole file manager that has the file read functionality" — and asked for the section to be
+reviewed line by line and rebuilt as a consolidation that respects the modular seams of the parts
+it consolidates, naming where those parts are not modular enough. The review and the plan are the
+design artifact of that day; what it changed is recorded here.
+
+- **A consolidation view names nothing itself.** Every word on an Activity row — the section, the
+  type, the glyph, the facts, how it opens, how one is made — is declared by the subsystem that owns
+  the row, in an `ActivityContribution` beside that subsystem's own web code, and the server half is
+  a `describe` on that subsystem's own timeline source. The two central files that had decided all
+  of it in `$lib/matters` are gone. Promoted above as a standing rule.
+- **A file's type is what the file manager identifies it as.** The document type where the firm set
+  one, else the label of the identification the design-system `FileIcon` resolves from the content
+  type and the name — "PDF document", "Archive" — composed once in
+  `$lib/file-manager/file-identity.ts` with the size and the safety standing out of the status
+  register, and drawn with the file manager's own glyph. Never a name suffix.
+- **Section and Type are two columns.** Which part of the matter a row belongs to (a closed
+  vocabulary the registry declares, so the filter offers every section) and what the row IS in its
+  own subsystem's words. One column doing both had mixed "Deadline" with "pdf" in one filter list.
+- **The description is server-side and by identity.** The first cut read each subsystem's first
+  page on the client and joined by row id, so a document older than that page silently had no name.
+  The rebuilt read names the rows on the page, one statement per source present on it, behind each
+  source's own read capability: a member without `notes:read` sees that a note was written and not
+  what it said. The firm-wide read is never described.
+- **The screen can make a record.** "+ New Note" opens the note window on the Activity section; a
+  subsystem with a window of its own adds a verb and the control becomes a menu.
+
+### 2026-09-02 — the matter Activity section, first review round
+
+The owner opened the new Activity section and reported that it lacked useful information, that
+uploading a file is not filing one, and that it needed a way to filter. The vocabulary ruling is
+promoted above; it binds everywhere. What is local to this surface:
+
+- **A row leads with what the thing is CALLED, where its own subsystem can name it.** The screen
+  reads the owning subsystem's own access-gated read for the rows on the page — the same read a
+  person could make by opening that section themselves — so a document row leads with the file name,
+  its size, its version and whether it is quarantined, and a note row leads with its opening line.
+  The federated read still projects none of that: it spans matters, and a note's first eight words on
+  a firm-wide read is the disclosure the label discipline exists to prevent. Enriching at the client,
+  for one matter somebody is already standing inside, is following the deep link eagerly rather than
+  loosening anything.
+- **The kind drops to one quiet word once the name leads.** "A document was added to the matter" on
+  forty rows is forty repetitions of what the glyph already said. The whole sentence survives as the
+  primary text of a row whose subsystem has no name to offer, because there it carries the row.
+- **The filter starts at All, and All is a pressed control rather than an absence.** Any number of
+  bands can be on at once. Beside them: Any time / Past / Upcoming, and a From and To date. Every one
+  of them narrows the READ — the source keys and bounds travel with the request and the server
+  narrows its registry before it builds a statement — so a filtered chronology is cheaper as well as
+  shorter, and Clear Filters appears only while something is hidden.
+
+### 2026-09-02 — the matter Activity section, third review round
+
+Three corrections, all promoted above except what is local:
+
+- **A document row's Kind is what the file manager says the file IS**, not the word "Document",
+  which told a reader nothing the glyph had not. The first pass took a name suffix for that and was
+  corrected the same day: the file manager identifies a file from its content type and its name
+  through the design-system `FileIcon` vocabulary, grades its safety, and knows its document type,
+  and Activity shows that identification rather than a suffix. A subsystem may refine any row's
+  kind, and the Kind filter picks the refinement up on its own.
+- **There is no Columns button.** Choosing columns is a right-click on a column heading, through the
+  shared grid's own head menu (`DataTable.GridHeadMenu`), which every register now carries. The
+  branch had first built a second menu over the whole register for the same gesture; `main` landed
+  the head menu in the meantime and the duplicate was removed rather than merged — two menus over
+  one region would race for the same right-click, and the ruling that a column's controls are
+  summoned from the column is promoted above.
+
+### 2026-09-02 — the matter Activity section, second review round
+
+The owner rejected the hand-built chronology outright: it should be the same table as every other
+register, filtering belongs in it, and withholding content from a signed-in member "is stupid and
+helps no one". All three are promoted above. What is local to this surface:
+
+- The register is `DataTable.Grid` with six columns — Date (anchored, the chronology's own order),
+  Time, Kind, What, Details, Who. Kind and Who carry set filters; Date carries its range.
+- **The band chips are gone.** Kind's set filter declares the platform's whole vocabulary through
+  `filterValues`, so a matter with no costs yet still offers "Cost" and does not tell a reader it can
+  never have one.
+- **Six of the fourteen sources now name their own rows** — documents, notes, time, costs, events,
+  deadlines — each through one bounded read of its own subsystem's listing, joined on the row
+  identity the timeline already carries. The remaining sources keep the platform's sentence, and
+  adding one is a single loader.
+- The What column's width claim is capped at 72 characters. The grid fits a column to its longest
+  text, and one paragraph-long note would otherwise push Who off the screen for every other row; the
+  cell truncates and the full text stays in its title, so the cap is on the column, never the record.
 
 ### 2026-09-02 — the Custodian register, second round
 
@@ -535,6 +981,29 @@ What generalizes, and is promoted above:
 - A placeholder's content centres in the frame, not in the table.
 - Controls sitting in one band wear one chrome.
 
+### 2026-09-01 — the matter Notes section, first review round
+
+The owner opened the Notes section on a real matter and reported that it never stopped loading, then
+issued four corrections and, after the first pass, a fifth. Everything generalizable is promoted
+above. What is local to this surface:
+
+- The primary action reads **"+ New Note"**. It names the thing being made.
+- Writing, reading, editing and deleting a note all happen in the shared record window, opened from
+  the list. The list keeps the search and one row per note, and a row opens the note.
+- The occurrence field is labelled **Date**, with **Time** on the same line beside it. The zone the
+  wall-clock time is read in is stated beside them, and only once a time has been entered.
+- A note's Attachments tab offers the matter's own documents and nothing else. Notes have no upload
+  path, so the shared tab's dropzone is withheld rather than rendered inert.
+
+**On the loading report, honestly:** it did not reproduce. The Notes section was driven end to end
+against a real Worker — sign-in, an empty matter, a matter with notes, writing one through the
+window, attaching a document — and the list settled every time
+(`apps/web/e2e/matter-notes.spec.ts`), as does the route's empty-page envelope
+(`apps/api-worker/test/notes-routes.test.ts`). What the rebuild changed is the shape that made a
+permanent skeleton possible at all: the notes read is now an effect of its own, so nothing else the
+screen wants can abort it before the read is asked for, and a failed read settles the list and
+offers Retry instead of leaving the skeleton standing.
+
 ### 2026-09-01 — the matter status window
 
 Six corrections against the window behind the matter's status seal, all from the owner. What is
@@ -559,6 +1028,21 @@ local to this surface:
   the loudest copy on a window whose point is to be short. Recorded here rather than promoted: the
   standing Soon rule still holds for a CONTROL, where the sentence is the only thing that explains a
   disabled affordance.
+
+### 2026-09-02 — the calendar
+
+The first slice of the calendar interface shipped with the week starting on Sunday and the plan
+naming "the week-starts-on preference" as a later, personal setting. The owner's ruling: the day the
+week begins on is set by the FIRM. The generalizable rule is promoted above; what is local:
+
+- **The setting lives at Settings › Practice › Calendar**, the first settings page with a server
+  behind it (`GET`/`PATCH /api/v1/calendar/settings`), staged and saved through the same row and
+  footer as every other draft page but never through local storage. A member without the calendar
+  manage right sees the firm's answer engraved as a fact.
+- **The page shows no history.** The other draft pages render a per-browser ledger; for a firm-wide
+  fact that ledger would be one browser's recollection, silent about every change a colleague made.
+  The record is the audit row the server writes with the change; the page shows history once a
+  per-record audit read exists.
 
 ### 2026-09-01 — the matter screens, chrome-removal round
 
@@ -855,3 +1339,20 @@ decided was general, and is promoted above. The remainder that is specific to th
 
 The mockup's `data-mc` annotations name their targets; when a mockup and this file disagree about a
 detail on that surface, the mockup wins and this file gets the correction.
+
+### 2026-09-03 — the fee arrangement lives behind the status seal
+
+The owner, on the fee-arrangement window: "truthfully I don't like the fee arrangement window", then
+"move this into the matter status, which can be reached from the matter status badge", and "remove
+from fee screen".
+
+- **The fee arrangement is a fact of the engagement, not of the ledger.** It is set when the matter
+  opens, rarely read again, and rests on the intake agreement the client signed. It lives in the
+  matter status window behind the seal, in an Engagement section beside the status, with its
+  history folded away and Amend seated beside it the way the lifecycle step is seated beside the
+  status.
+- **The Fees screen states nothing about the arrangement.** No strip, no View, no Amend, no
+  summary in the details panel. Fees are recorded against whatever the status window says.
+- **An arrangement version names the signed agreement as a file**, picked from the matter's own
+  files — the conflicts waiver's precedent — never as a sentence. Optional, because the paper may
+  follow the deal.

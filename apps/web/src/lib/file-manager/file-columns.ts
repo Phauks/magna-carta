@@ -47,7 +47,9 @@ export type FileColumnIdentifier =
  * being graded a Warning; a clean file with no document type is the Info band; and a clean, typed
  * file carries the bare mark and no word at all.
  */
-export function safetyKeyOf(file: MatterFile): SafetyKey {
+export function safetyKeyOf(
+  file: Pick<MatterFile, "status" | "scanVerdict" | "currentVersionId" | "documentTypeId">,
+): SafetyKey {
   if (file.status === "quarantined" || file.scanVerdict === "flagged") return "error";
   if (file.status === "pending" || file.currentVersionId === null) return "warning";
   if (file.scanVerdict === null || file.scanVerdict === "unscanned") return "not-scanned";

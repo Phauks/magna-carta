@@ -190,26 +190,32 @@ const connectRoute = defineOpenAPIRoute(writeMeta("shipping.connect"), {
   },
 });
 
-const disconnectCarrierRoute = defineOpenAPIRoute(writeMeta("shipping.disconnectCarrier"), {
-  method: "delete",
-  path: "/api/v1/integrations/shipping/connection",
-  description:
-    "Disconnects the firm's EasyPost postage account. Shipping operations stop until the account is connected again.",
-  request: { headers: idempotencyKeyHeader },
-  responses: {
-    200: {
-      description: "Disconnected",
-      content: { "application/json": { schema: DisconnectAck } },
-    },
-    400: errorResponses[400],
-    401: errorResponses[401],
-    403: errorResponses[403],
-    404: errorResponses[404],
-    409: errorResponses[409],
-    422: errorResponses[422],
-    429: errorResponses[429],
+const disconnectCarrierRoute = defineOpenAPIRoute(
+  {
+    ...writeMeta("shipping.disconnectCarrier"),
+    reversal: { kind: "inverse", by: "shipping.connect" },
   },
-});
+  {
+    method: "delete",
+    path: "/api/v1/integrations/shipping/connection",
+    description:
+      "Disconnects the firm's EasyPost postage account. Shipping operations stop until the account is connected again.",
+    request: { headers: idempotencyKeyHeader },
+    responses: {
+      200: {
+        description: "Disconnected",
+        content: { "application/json": { schema: DisconnectAck } },
+      },
+      400: errorResponses[400],
+      401: errorResponses[401],
+      403: errorResponses[403],
+      404: errorResponses[404],
+      409: errorResponses[409],
+      422: errorResponses[422],
+      429: errorResponses[429],
+    },
+  },
+);
 
 const createShipmentRoute = defineOpenAPIRoute(writeMeta("shipping.createShipment"), {
   method: "post",

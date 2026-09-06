@@ -11,7 +11,7 @@
 
 What this document is for now: **the account-side actions that no session can perform** — Cloudflare dashboard steps, DNS, R2 lifecycle rules, secrets, account entitlements, repository settings, and the GitHub Actions billing block. Every one of them is a step the repository cannot take on its own no matter what merges. Kept current by the orchestration stream.
 
-**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and the gate of record is still blocked account-side (the first entry below), so that verification is the scoped local gate plus whatever tests the change carries. **The billing step is now the single most consequential item on this list**, not the housekeeping item it was when a deliberate push stood between a merge and production.
+**The move raised the stakes on everything below.** While a deploy was a separate gesture, a mistake had two chances to be caught: the merge and the push. Now a migration, a contract change or a binding change reaches real users on the strength of whatever verification ran before it landed — and for the month the gate of record was blocked account-side (2026-08-05 to 2026-09-01) that verification was the scoped local gate plus whatever tests the change carries. The gate executes again; what stands between a merge and production now is the pull-request tier alone; the first entry below records why there is no second run on the exact tree that lands.
 
 _Position, 2026-08-29: `main` is production for the app Worker and the SPA. Everything else about the account is read live, not recorded here — including which projects are connected, what branch each builds from, and what is deployed on any of them. The 2026-08-24 API pass that this file used to treat as its "evidentiary floor" is exactly the thing that stopped being one: it was accurate on the day and had decayed within the week, and a floor that decays silently is worse than no floor. Read the account instead._
 
@@ -29,37 +29,49 @@ refusal, and the improvement it argues for are recorded once, in
 [`operations.md`](conventions/operations.md) under_ Control-plane database migrations _— read that
 before diagnosing any "the code creates this table and production does not have it" report._
 
-## GitHub Actions is blocked account-side — one billing step, and it gates all CI
+## No merge queue on `main` — GitHub does not offer one to this repository, and the owner declined the move (2026-09-03)
 
-**Nothing in the repository can fix this and no session can perform it.** Since 2026-08-05 GitHub has
-refused to start any billable job for `Phauks/magna-carta`, so the gate of record has not executed a
-single step in that time. The diagnosis and its evidence are in
-[`operations.md`](conventions/operations.md) under _Quality gates_; this entry is only the step.
+**Why it was wanted.** On 2026-09-02, the first day the gate ran a full battery in a month, every
+failure it found was the same defect: two branches that merged minutes apart, each green against the
+`main` it had seen, never tested together. A permission list that did not know a key another merge
+added; a story still clicking a button another merge removed; a lint rule and the screen that trips
+it landing the same afternoon. The pull-request tier cannot see this by construction. A merge queue
+can: it builds the exact tree that will land and runs the gate on that, so the interleaving is caught
+before the deploy rather than by the next branch to run. The workflow side was wired for it in #488:
+`gate.yml` carries the `merge_group` trigger, resolves its diff base from the queue's payload, and
+defers the fan-out sinks on that tier for as long as the austerity holds.
 
-**What to click.** GitHub → **Settings** → **Billing and licensing** → **Budgets and alerts** (and the
-**Payment information** tab beside it). Check, in this order:
+**Why it cannot be clicked.** GitHub offers merge queues in public repositories owned by an
+organization, and in private repositories owned by organizations on Enterprise Cloud. This repository
+is private and owned by a user account, so **Require merge queue** does not appear in its rulesets or
+its branch protection, and no plan change on a user account adds it. The routes that would: transfer
+the repository to an organization and make it public, or transfer it and pay for Enterprise Cloud.
+Either re-binds Workers Builds, the GitHub App installs and the connector access to the new owner.
 
-1. **A valid payment method is on file and no recent charge has failed.** A failed payment blocks
-   Actions on its own, and settling it is what unblocks it — raising a limit will not.
-2. **The Actions spending limit is greater than $0.** The account is on the Free plan, which includes
-   2,000 Actions minutes a month for private repositories; `magna-carta` is private, so every gate
-   minute is billed against that allotment. Once it is spent, a $0 limit is a hard stop, and GitHub's
-   documented behaviour with no valid payment method is that "usage is blocked once you use up your
-   quota."
-3. **Whether the monthly allotment has simply reset.** The block began 2026-08-05. If the billing
-   month has since rolled over and jobs still do not start, the cause is item 1 or 2, not the quota.
+**Decision, 2026-09-03.** The owner declined the transfer: it eats time the project does not have,
+and the failures it would prevent are dealt with as they come. Nothing in the repository changes —
+the `merge_group` trigger, its base resolution and its sink deferral stay wired, so the tier is ready
+the day the ownership changes. What stands in is a habit: **merge one pull request at a time, and
+sync the next branch onto the `main` the last merge produced before it lands.** The ruleset option
+_Require branches to be up to date before merging_ would enforce that habit, and is deliberately left
+off: with two or three streams open it forces a full battery per stream per merge, which is the
+budget pressure the austerity exists to avoid, and it still cannot stop two branches updated from the
+same `main` from landing back to back. If interleaved-merge failures recur at the 2026-09-02 rate,
+the number to decide against is the runner-minutes that option would spend against the minutes those
+fixes cost.
 
-**How to confirm it worked**, without guessing: re-run any gate workflow and look at a job's
-`runner_id`. A job that GitHub refused to start reports `runner_id: 0` with an empty `runner_name` and
-has no logs to fetch; a job that genuinely ran reports a real runner id. That check is the subject of
-the recognition rule in `operations.md`, and it is the only way to tell this outage from a red build.
+**Two things written for the queue that stay.** The docs-assembly workflow enables auto-merge with
+`gh pr merge --auto --rebase`; without a queue that is plain auto-merge, landing on the gate's green.
+And the values a queue would take — squash; build concurrency 1; group size 1 to 5 with a five-minute
+wait; a 60-minute check timeout; `gate` as the one required check; up-to-date-before-merge off — are
+in this file's history at #488, should the transfer ever happen.
 
-**Last confirmed still blocked: 2026-08-30**, by running exactly that check. Run 33282129484 was
-re-run on pull request #414; attempt 2 reproduced attempt 1 exactly — `changes` and `governance`
-completed in two seconds, no job reported a runner, and no log was fetchable on either attempt. The
-block also shows in the shape of the whole history rather than one run: every gate run on every
-branch back through `docs-sync/2026-08-24` finishes inside twenty seconds. Re-confirming costs one
-re-run, so date the observation here rather than repeating it per branch.
+**History.** This entry replaces the one that stood here from 2026-08-05 to 2026-09-01: GitHub had
+refused to start any billable job for the repository, so the gate executed nothing for a month. The
+billing step cleared it (jobs with real runner ids from 2026-09-01). The recognition rule for that
+state — a red aggregate over a field of `skipped`, `runner_id: 0`, no log to fetch — stays in
+[`operations.md`](conventions/operations.md) under _Quality gates_, because it is the only way to
+tell that outage from a red build if it recurs.
 
 **What it is costing, and it went up on 2026-08-29.** Every merge since 2026-08-05 has landed on the
 strength of local verification alone. Since the branch move, every merge also **deploys** on the
@@ -692,6 +704,12 @@ RasterEngineContainer` and `LIBREOFFICE_ENGINE -> LibreOfficeEngineContainer` at
    seven days and an incomplete-multipart abort at seven days. Until the owner adds a
    `conversions/` expiry, conversion outputs accumulate. Same class of dashboard step as the
    `templates/staging/` rule at the bottom of this queue.
+
+   **Narrowed, 2026-09-01.** This is now a step for the SHARED platform bucket only. Per-firm buckets
+   get `bundles/` (7 d), `conversions/` (24 h) and an abandoned-multipart abort (24 h) applied at
+   provisioning by `apps/api-worker/src/firm-resource-provider.ts`, so a firm provisioned from here on
+   needs no dashboard visit. The platform bucket predates that code and is not provisioned by it.
+
 2. **Verify readiness honestly.** This container's `/ready` answers 503 until a
    worker has finished suite initialisation (tens of seconds), so a freshly
    deployed instance reporting not-ready for half a minute is correct behaviour,

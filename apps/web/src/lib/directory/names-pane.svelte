@@ -21,14 +21,17 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Dialog from "@magna-carta/design-system/dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import FieldRow from "@magna-carta/design-system/field-row";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import PenLine from "@lucide/svelte/icons/pen-line";
   import Plus from "@lucide/svelte/icons/plus";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -68,6 +71,44 @@
   let names = $state<readonly DirectoryNameEntry[] | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
+
+  /**
+   * The shape the rail takes while the record's names are being read: the current name and one
+   * former name, in the same rows the real rail renders, over sample words. Not anybody the firm
+   * holds.
+   */
+  const NAME_FIXTURE: readonly DirectoryNameEntry[] = [
+    {
+      id: "fixture-1",
+      nameRole: "current",
+      isCurrent: true,
+      prefix: null,
+      given: "Eleanor",
+      middle: null,
+      family: "Whitcombe",
+      suffix: null,
+      displayName: "Eleanor Whitcombe",
+      normalizedDisplay: "eleanor whitcombe",
+      validFrom: "2018-06-14",
+      validTo: null,
+      recordedAt: "",
+    },
+    {
+      id: "fixture-2",
+      nameRole: "former",
+      isCurrent: false,
+      prefix: null,
+      given: "Eleanor",
+      middle: null,
+      family: "Marsh",
+      suffix: null,
+      displayName: "Eleanor Marsh",
+      normalizedDisplay: "eleanor marsh",
+      validFrom: null,
+      validTo: "2018-06-14",
+      recordedAt: "",
+    },
+  ];
 
   $effect(() => {
     const id = entityId;
@@ -119,12 +160,24 @@
   let family = $state("");
   let suffix = $state("");
   let legalName = $state("");
-  let submitting = $state(false);
   let failure = $state<StatedFailure | null>(null);
 
   const ready = $derived(
     kind === "person" ? given.trim() !== "" && family.trim() !== "" : legalName.trim() !== "",
   );
+
+  const refusal = $derived.by((): string | undefined => {
+    if (ready) return undefined;
+    return kind === "person" ? "A given name and a family name are required." : "A name is required.";
+  });
+
+  /*
+   * What the fields hold, as one string, so the guard can ask only when something has changed: the
+   * add dialog against empty fields, the change dialog against the name it was seeded with.
+   */
+  const draft = $derived([prefix, given, middle, family, suffix, legalName].join("\u0000"));
+  const EMPTY_DRAFT = ["", "", "", "", "", ""].join("\u0000");
+  let seededDraft = $state(EMPTY_DRAFT);
 
   function reset(): void {
     role = kind === "person" ? "former" : "dba";
@@ -150,6 +203,7 @@
     } else {
       legalName = entity.organization.legalName ?? "";
     }
+    seededDraft = [prefix, given, middle, family, suffix, legalName].join("\u0000");
   }
 
   function personFields() {
@@ -162,9 +216,8 @@
     };
   }
 
-  async function submitAdd(): Promise<void> {
-    if (!ready || submitting) return;
-    submitting = true;
+  async function submitAdd(): Promise<ActionOutcome> {
+    if (!ready) return "refused";
     failure = null;
     const outcome = await addDirectoryName(
       fetch,
@@ -174,27 +227,24 @@
         : { nameRole: role, legalName: legalName.trim() },
       crypto.randomUUID(),
     );
-    submitting = false;
     if (outcome.kind === "ok") {
-      reset();
-      addOpen = false;
       recorded();
-      return;
+      return "committed";
     }
     failure = stated(
       outcome.failure,
       "The name could not be recorded.",
       "The name was not recorded.",
     );
+    return "refused";
   }
 
   // ---- changing the name on the record ---------------------------------------------------------
 
   let changeOpen = $state(false);
 
-  async function submitChange(): Promise<void> {
-    if (!ready || submitting) return;
-    submitting = true;
+  async function submitChange(): Promise<ActionOutcome> {
+    if (!ready) return "refused";
     failure = null;
     const outcome = await changeDirectoryName(
       fetch,
@@ -202,44 +252,67 @@
       kind === "person" ? personFields() : { legalName: legalName.trim() },
       crypto.randomUUID(),
     );
-    submitting = false;
     if (outcome.kind === "ok") {
-      reset();
-      changeOpen = false;
       recorded();
-      return;
+      return "committed";
     }
     failure = stated(
       outcome.failure,
       "The name could not be changed.",
       "The name on the record is unchanged.",
     );
+    return "refused";
   }
 </script>
 
-{#snippet personNameFields(idPrefix: string)}
-  <div class="grid grid-cols-2 gap-16">
-    <div class="flex flex-col gap-8">
-      <Label for="{idPrefix}-prefix">Prefix</Label>
-      <Input id="{idPrefix}-prefix" bind:value={prefix} placeholder={placeholderOf("Prefix")} />
-    </div>
-    <div class="flex flex-col gap-8">
-      <Label for="{idPrefix}-suffix">Suffix</Label>
-      <Input id="{idPrefix}-suffix" bind:value={suffix} placeholder={placeholderOf("Suffix")} />
-    </div>
-    <div class="flex flex-col gap-8">
-      <Label for="{idPrefix}-given">Given name</Label>
-      <Input id="{idPrefix}-given" bind:value={given} placeholder={placeholderOf("Given name")} />
-    </div>
-    <div class="flex flex-col gap-8">
-      <Label for="{idPrefix}-middle">Middle name</Label>
-      <Input id="{idPrefix}-middle" bind:value={middle} placeholder={placeholderOf("Middle name")} />
-    </div>
-    <div class="col-span-2 flex flex-col gap-8">
-      <Label for="{idPrefix}-family">Family name</Label>
-      <Input id="{idPrefix}-family" bind:value={family} placeholder={placeholderOf("Family name")} />
-    </div>
-  </div>
+{#snippet nameFields(busy: boolean)}
+  {#if kind === "person"}
+    <FieldRow>
+      <LabelledField label="Prefix">
+        {#snippet children({ props })}
+          <Input {...props} disabled={busy} bind:value={prefix} placeholder={placeholderOf("Prefix")} />
+        {/snippet}
+      </LabelledField>
+      <LabelledField label="Suffix">
+        {#snippet children({ props })}
+          <Input {...props} disabled={busy} bind:value={suffix} placeholder={placeholderOf("Suffix")} />
+        {/snippet}
+      </LabelledField>
+    </FieldRow>
+    <FieldRow>
+      <LabelledField label="Given name">
+        {#snippet children({ props })}
+          <Input
+            {...props}
+            disabled={busy}
+            bind:value={given}
+            placeholder={placeholderOf("Given name")}
+          />
+        {/snippet}
+      </LabelledField>
+      <LabelledField label="Middle name">
+        {#snippet children({ props })}
+          <Input
+            {...props}
+            disabled={busy}
+            bind:value={middle}
+            placeholder={placeholderOf("Middle name")}
+          />
+        {/snippet}
+      </LabelledField>
+    </FieldRow>
+    <LabelledField label="Family name">
+      {#snippet children({ props })}
+        <Input {...props} disabled={busy} bind:value={family} placeholder={placeholderOf("Family name")} />
+      {/snippet}
+    </LabelledField>
+  {:else}
+    <LabelledField label="Name">
+      {#snippet children({ props })}
+        <Input {...props} disabled={busy} bind:value={legalName} placeholder={placeholderOf("Name")} />
+      {/snippet}
+    </LabelledField>
+  {/if}
 {/snippet}
 
 <section class="flex flex-col gap-16">
@@ -281,152 +354,127 @@
       fallback={readFailure.fallback}
       whenSilent={readFailure.whenSilent}
     />
-  {:else if names === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading the names on this record">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else if names.length === 0}
-    <EmptyState title="No Names On This Record">
-      Every record carries at least the name it was created under, so an empty list here means the
-      record's name rows could not be found.
-    </EmptyState>
   {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">The names this record carries</DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          <DataTable.Head>Name</DataTable.Head>
-          <DataTable.Head>Role</DataTable.Head>
-          <DataTable.Head>In use</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each names as entry (entry.id)}
-          <DataTable.Row>
-            <DataTable.Cell>{nameText(entry)}</DataTable.Cell>
-            <DataTable.Cell>
-              <Badge variant={entry.isCurrent ? "accent" : "neutral"}>
-                {nameRoleLabel(entry.nameRole)}
-              </Badge>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <span class="text-text-muted">{period(entry)}</span>
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
+    <LoadingRegion
+      loading={names === null}
+      label="Reading the names on this record"
+      class="flex flex-col gap-8"
+    >
+      {#snippet fixture()}
+        {@render nameTable(NAME_FIXTURE)}
+      {/snippet}
+      {@const shown = names ?? []}
+      {#if shown.length === 0}
+        <EmptyState title="No Names On This Record">
+          Every record carries at least the name it was created under, so an empty list here means
+          the record's name rows could not be found.
+        </EmptyState>
+      {:else}
+        {@render nameTable(shown)}
+      {/if}
+    </LoadingRegion>
   {/if}
 </section>
 
-<Dialog.Root bind:open={changeOpen}>
-  <Dialog.Content class="max-w-xl">
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <Dialog.Title>Change The Name On The Record</Dialog.Title>
-        <Dialog.Description>
-          {currentName} will answer to the new name from now on. The name on file is not erased — it
-          is kept as a former name, stamped with today's date, and still finds this record in a
-          search or a conflicts check.
-        </Dialog.Description>
-      </div>
+<!-- One table for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet nameTable(rows: readonly DirectoryNameEntry[])}
+  <DataTable.Root>
+    <DataTable.Caption class="sr-only">The names this record carries</DataTable.Caption>
+    <DataTable.Header>
+      <DataTable.Row>
+        <DataTable.Head>Name</DataTable.Head>
+        <DataTable.Head>Role</DataTable.Head>
+        <DataTable.Head>In use</DataTable.Head>
+      </DataTable.Row>
+    </DataTable.Header>
+    <DataTable.Body>
+      {#each rows as entry (entry.id)}
+        <DataTable.Row>
+          <DataTable.Cell>{nameText(entry)}</DataTable.Cell>
+          <DataTable.Cell>
+            <Badge variant={entry.isCurrent ? "accent" : "neutral"}>
+              {nameRoleLabel(entry.nameRole)}
+            </Badge>
+          </DataTable.Cell>
+          <DataTable.Cell>
+            <span class="text-text-muted">{period(entry)}</span>
+          </DataTable.Cell>
+        </DataTable.Row>
+      {/each}
+    </DataTable.Body>
+  </DataTable.Root>
+{/snippet}
 
-      {#if kind === "person"}
-        {@render personNameFields("change-name")}
-      {:else}
-        <div class="flex flex-col gap-8">
-          <Label for="change-name-legal-name">Name</Label>
-          <Input
-            id="change-name-legal-name"
-            bind:value={legalName}
-            placeholder={placeholderOf("Name")}
-          />
-        </div>
-      {/if}
+<ActionDialog
+  bind:open={changeOpen}
+  kind="form"
+  heading="Change The Name On The Record"
+  subtitle={`${currentName} will answer to the new name from now on. The name on file is not erased — it is kept as a former name, stamped with today's date, and still finds this record in a search or a conflicts check.`}
+  commitLabel="Change Name"
+  commitBusyLabel="Changing"
+  commitRefusal={refusal}
+  unsavedChanges={draft !== seededDraft}
+  onCommit={submitChange}
+>
+  {#snippet fields({ busy })}
+    {@render nameFields(busy)}
+  {/snippet}
 
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="The Name Was Not Recorded"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="The Name Was Not Recorded"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>
 
-      <div class="flex justify-end gap-8">
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button variant="primary" disabled={!ready || submitting} onclick={submitChange}>
-          {submitting ? "Changing" : "Change Name"}
-        </Button>
-      </div>
+<ActionDialog
+  bind:open={addOpen}
+  kind="form"
+  heading="Record Another Name"
+  subtitle={`This adds a name ${currentName} also answers to. It does not replace the name currently on the record.`}
+  commitLabel="Record Name"
+  commitBusyLabel="Recording"
+  commitRefusal={refusal}
+  unsavedChanges={draft !== EMPTY_DRAFT}
+  onCommit={submitAdd}
+>
+  {#snippet fields({ busy })}
+    <div class="flex flex-col gap-8">
+      <Label id="add-name-role-label">Role</Label>
+      <Select.Root
+        type="single"
+        items={roleItems}
+        bind:value={role}
+        allowDeselect={false}
+        disabled={busy}
+      >
+        <Select.Trigger class="min-w-64" aria-labelledby="add-name-role-label">
+          <Select.Value />
+        </Select.Trigger>
+        <Select.Content>
+          {#each roleItems as item (item.value)}
+            <Select.Item value={item.value} label={item.label} />
+          {/each}
+        </Select.Content>
+      </Select.Root>
     </div>
-  </Dialog.Content>
-</Dialog.Root>
 
-<Dialog.Root bind:open={addOpen}>
-  <Dialog.Content class="max-w-xl">
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <Dialog.Title>Record Another Name</Dialog.Title>
-        <Dialog.Description>
-          This adds a name {currentName} also answers to. It does not replace the name currently on
-          the record.
-        </Dialog.Description>
-      </div>
+    {@render nameFields(busy)}
+  {/snippet}
 
-      <div class="flex flex-col gap-8">
-        <Label id="add-name-role-label">Role</Label>
-        <Select.Root type="single" items={roleItems} bind:value={role} allowDeselect={false}>
-          <Select.Trigger class="min-w-64" aria-labelledby="add-name-role-label">
-            <Select.Value />
-          </Select.Trigger>
-          <Select.Content>
-            {#each roleItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      {#if kind === "person"}
-        {@render personNameFields("add-name")}
-      {:else}
-        <div class="flex flex-col gap-8">
-          <Label for="add-name-legal-name">Name</Label>
-          <Input
-            id="add-name-legal-name"
-            bind:value={legalName}
-            placeholder={placeholderOf("Name")}
-          />
-        </div>
-      {/if}
-
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="The Name Was Not Recorded"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex justify-end gap-8">
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button variant="primary" disabled={!ready || submitting} onclick={submitAdd}>
-          {submitting ? "Recording" : "Record Name"}
-        </Button>
-      </div>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+  {#snippet notice()}
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        title="The Name Was Not Recorded"
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>

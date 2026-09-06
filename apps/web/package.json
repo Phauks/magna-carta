@@ -19,11 +19,13 @@
     "@magna-carta/conversion": "workspace:*",
     "@magna-carta/design-system": "workspace:*",
     "@magna-carta/design-tokens": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
     "@magna-carta/file-type": "workspace:*",
     "@magna-carta/merge-field-catalog-contract": "workspace:*",
     "@magna-carta/tools": "workspace:*",
     "better-auth": "catalog:",
     "client-zip": "catalog:",
+    "libphonenumber-js": "^1.13.7",
     "write-excel-file": "4.1.1"
   },
   "devDependencies": {
@@ -33,6 +35,7 @@
     "@sveltejs/vite-plugin-svelte": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
+    "happy-dom": "catalog:",
     "svelte": "catalog:",
     "svelte-check": "catalog:",
     "tailwindcss": "catalog:"

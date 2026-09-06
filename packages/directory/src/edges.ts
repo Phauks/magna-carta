@@ -1,3 +1,4 @@
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   appendCursorPredicate,
   assemblePage,
@@ -5,7 +6,7 @@ import {
   DEFAULT_PAGE_SIZE,
   type Page,
 } from "@magna-carta/data-access/cursor-pagination";
-import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   DirectoryEdgeId,
@@ -73,25 +74,28 @@ export interface DirectoryEdge {
 //
 // The function does not enforce directionality semantics (e.g. corporate_parent implies a
 // direction); callers are responsible for passing endpoints in the intended order.
-export async function createEdge(
+/** What one edge contributes to a batch: the id it will have, its rows, its announcement. */
+export interface ComposedEdgeCreate {
+  readonly edgeId: DirectoryEdgeId;
+  readonly statements: SqlStatement[];
+  readonly outboxMessages: EffectWrite["outboxMessages"];
+}
+
+// Composes the edge's rows without committing and without checking either endpoint: the caller
+// either checked them or is creating one of them in the same batch (person-record.ts). The type is
+// still checked here, because no caller may write an edge of a type the catalog does not name.
+export function composeCreateEdge(
   database: BatchDatabase,
   input: CreateEdgeInput,
   options: DirectoryWriteOptions,
-): Promise<DirectoryEdgeId> {
-  // Validate the edge type against the application-level catalog before hitting the DB.
+): ComposedEdgeCreate {
   if (!(EDGE_TYPES as readonly string[]).includes(input.edgeType)) {
     throw new InvalidEdgeTypeError(input.edgeType);
   }
-
-  // Verify both endpoints exist and are not soft-deleted. The check is eager so a
-  // bad caller gets a clear error before any write is attempted.
-  await assertEntityExists(database, input.from);
-  await assertEntityExists(database, input.to);
-
   const edgeId = newIdentifier("directoryEdge", options.randomSource);
   const now = options.clock.now();
-
-  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+  return {
+    edgeId,
     statements: [
       database
         .prepare(
@@ -125,9 +129,31 @@ export async function createEdge(
         },
       },
     ],
+  };
+}
+
+// Creates a directed edge between two directory entities within an atomic batch that also
+// writes the domain audit row. Validates the edge type against the catalog and that both
+// endpoints exist and are not soft-deleted (UnknownEntityError, code "unknown-entity", for the
+// first missing one). Directionality semantics (corporate_parent implies a direction) are the
+// caller's: endpoints are written in the order passed.
+export async function createEdge(
+  database: BatchDatabase,
+  input: CreateEdgeInput,
+  options: DirectoryWriteOptions,
+): Promise<DirectoryEdgeId> {
+  const composed = composeCreateEdge(database, input, options);
+  // Verify both endpoints exist and are not soft-deleted. The check is eager so a
+  // bad caller gets a clear error before any write is attempted.
+  await assertEntityExists(database, input.from);
+  await assertEntityExists(database, input.to);
+
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: composed.statements,
+    outboxMessages: composed.outboxMessages,
     responseCode: 201,
-    responseBody: { id: edgeId },
-    value: edgeId,
+    responseBody: { id: composed.edgeId },
+    value: composed.edgeId,
     fromBody: (body) => (body as { id: DirectoryEdgeId }).id,
   }));
 }

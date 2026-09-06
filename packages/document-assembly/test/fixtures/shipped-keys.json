@@ -40,14 +40,6 @@
     "sensitivity": "ordinary"
   },
   {
-    "key": "client.dateOfBirth",
-    "valueType": "text",
-    "source": "protectedIdentifier",
-    "defaultFormat": "plain",
-    "absence": "placeholder",
-    "sensitivity": "protected"
-  },
-  {
     "key": "client.displayName",
     "valueType": "name",
     "source": "party",

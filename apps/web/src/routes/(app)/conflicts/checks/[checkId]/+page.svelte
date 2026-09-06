@@ -21,10 +21,11 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Button from "@magna-carta/design-system/button";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import Separator from "@magna-carta/design-system/separator";
-  import Skeleton from "@magna-carta/design-system/skeleton";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import Printer from "@lucide/svelte/icons/printer";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -40,6 +41,7 @@
     scopeOfCheck,
     type CheckWithHits,
     type HitDetail,
+    type ScopeInForceRecord,
   } from "$lib/conflicts/conflicts-api.ts";
   import { readDirectoryEntity } from "$lib/directory/directory-api.ts";
   import { directoryEntityName } from "$lib/directory/entity-presentation.ts";
@@ -59,6 +61,26 @@
   let printOpen = $state(false);
   let entityNames = $state<ReadonlyMap<string, string>>(new Map());
   let unnameable = $state<ReadonlySet<string>>(new Set());
+
+  /*
+   * The shape the page takes while the check is read: its own sections, over an invented search.
+   * Inert and hidden from assistive technology while it stands, so none of it can be quoted as
+   * what a search did.
+   */
+  const STATEMENT_FIXTURE: readonly string[] = [
+    "Searched the Directory for 4 subject parties under balanced matching, comparing surnames, given names and dates of birth.",
+    "Walked relationships to a depth of 2 and reached 31 entities; the walk completed.",
+    "Prior firm history could not be searched: no corpus is registered for it.",
+  ];
+  const SCOPE_FIXTURE: ScopeInForceRecord = {
+    sources: { party: "searched", graph: "searched", imputation: "unavailable", content: "searched" },
+    strictness: "balanced",
+    depth: 2,
+    floorRaised: false,
+    matching: null,
+    traversal: null,
+    candidates: null,
+  };
 
   async function read(): Promise<void> {
     loading = true;
@@ -105,10 +127,9 @@
   );
   const signedInName = $derived(session?.user.name ?? null);
   const check = $derived(result?.check ?? null);
-  const openPartyName = $derived(
-    openHit === null ? null : (entityNames.get(openHit.entityId) ?? null),
-  );
-  const openPartyFailed = $derived(openHit !== null && unnameable.has(openHit.entityId));
+  // The matched party arrives ON THE HIT — the check read resolves every hit's entity in one query
+  // — so opening one costs no read at all. It used to cost one per hit opened, cached for the visit.
+  const openPartyName = $derived(openHit?.party?.displayName ?? null);
   // A waiver names the entity that consented, which is often not the entity that matched. It costs
   // the same one read, on the same cache, for the same reason: the log answers handles.
   const openConsentingPartyName = $derived.by((): string | null => {
@@ -116,7 +137,7 @@
     return consentingPartyId === null ? null : (entityNames.get(consentingPartyId) ?? null);
   });
 
-  /** One read, for the one entity a reviewer opened. What it learns is kept for the rest of the visit. */
+  /** One read, for a waiver's consenting party. What it learns is kept for the rest of the visit. */
   async function nameEntity(entityId: string): Promise<void> {
     if (entityNames.has(entityId) || unnameable.has(entityId)) return;
     const outcome = await readDirectoryEntity(fetch, entityId);
@@ -130,7 +151,9 @@
   function openOne(hit: HitDetail): void {
     openHit = hit;
     windowOpen = true;
-    void nameEntity(hit.entityId);
+    // Only the CONSENTING party still needs a read: a waiver names the entity that consented, which
+    // is often not the entity that matched, and the disposition carries it as a handle. The matched
+    // party came with the hit.
     const consentingPartyId = hit.disposition?.waiver?.givenByEntityId ?? null;
     if (consentingPartyId !== null) void nameEntity(consentingPartyId);
   }
@@ -146,11 +169,8 @@
   <title>Conflicts Check · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Eyebrow>Conflicts</Masthead.Eyebrow>
-    <Masthead.Title>The Check</Masthead.Title>
-    <Masthead.Meta>
+<ScreenHeader title="The Check" back="conflicts" class="mb-24">
+  {#snippet meta()}
       {#if check !== null}
         <span>{formatInstant(check.createdAt)}</span>
         <Masthead.MetaSeparator />
@@ -166,9 +186,8 @@
               })}
         </span>
       {/if}
-    </Masthead.Meta>
-  </Masthead.Heading>
-  <Masthead.Actions>
+  {/snippet}
+  {#snippet actions()}
     {#if check !== null && check.matterId !== null}
       <Button variant="secondary" href="/conflicts/matters/{check.matterId}">
         <ScrollText class="size-16" aria-hidden="true" />
@@ -179,8 +198,8 @@
       <Printer class="size-16" aria-hidden="true" />
       The report
     </Button>
-  </Masthead.Actions>
-</Masthead.Root>
+  {/snippet}
+</ScreenHeader>
 
 {#if failure !== null}
   <FailureNotice
@@ -190,44 +209,64 @@
     whenSilent={failure.whenSilent}
     onRetry={() => void read()}
   />
-{:else if loading && result === null}
-  <div class="flex flex-col gap-8">
-    <Skeleton class="h-16 w-full" />
-    <Skeleton class="h-16 w-5/6" />
-    <Skeleton class="h-16 w-2/3" />
-    <Skeleton class="h-16 w-1/2" />
-  </div>
-{:else if result !== null && check !== null}
-  <div class="flex flex-col gap-24">
-    <section class="flex flex-col gap-8">
-      <h2 class="text-base font-semibold">What The Search Did</h2>
-      <!-- The engine's own sentences, in the order it wrote them. Nothing here rewrites or
-           summarizes them: the sentence's whole value is that the machine that ran the search
-           produced it, and a firm defending its procedure quotes this. -->
-      <ol class="flex flex-col gap-8 text-sm">
-        {#each result.statement as line, index (`${String(index)}-${line}`)}
-          <li>{line}</li>
-        {/each}
-      </ol>
-    </section>
+{:else}
+  <LoadingRegion
+    loading={loading && result === null}
+    label="Reading the check"
+    class="flex flex-col gap-24"
+  >
+    {#snippet fixture()}
+      <section class="flex flex-col gap-8">
+        <h2 class="text-base font-semibold" data-loading-keep>What The Search Did</h2>
+        <ol class="flex flex-col gap-8 text-sm">
+          {#each STATEMENT_FIXTURE as line (line)}
+            <li>{line}</li>
+          {/each}
+        </ol>
+      </section>
 
-    <Separator />
+      <Separator />
 
-    <section class="flex flex-col gap-16">
-      <h2 class="text-base font-semibold">Scope In Force</h2>
-      <ScopeInForce scope={scopeOfCheck(check)} />
-    </section>
+      <section class="flex flex-col gap-16">
+        <h2 class="text-base font-semibold" data-loading-keep>Scope In Force</h2>
+        <ScopeInForce scope={SCOPE_FIXTURE} />
+      </section>
 
-    <Separator />
+      <Separator />
 
-    <HitList hits={result.hits} loading={loading} onOpen={openOne} />
-  </div>
+      <HitList hits={null} loading onOpen={() => undefined} />
+    {/snippet}
+    {#if result !== null && check !== null}
+      <section class="flex flex-col gap-8">
+        <h2 class="text-base font-semibold">What The Search Did</h2>
+        <!-- The engine's own sentences, in the order it wrote them. Nothing here rewrites or
+             summarizes them: the sentence's whole value is that the machine that ran the search
+             produced it, and a firm defending its procedure quotes this. -->
+        <ol class="flex flex-col gap-8 text-sm">
+          {#each result.statement as line, index (`${String(index)}-${line}`)}
+            <li>{line}</li>
+          {/each}
+        </ol>
+      </section>
 
+      <Separator />
+
+      <section class="flex flex-col gap-16">
+        <h2 class="text-base font-semibold">Scope In Force</h2>
+        <ScopeInForce scope={scopeOfCheck(check)} />
+      </section>
+
+      <Separator />
+
+      <HitList hits={result.hits} loading={loading} onOpen={openOne} />
+    {/if}
+  </LoadingRegion>
+{/if}
+
+{#if failure === null && result !== null && check !== null}
   <HitWindow
     bind:open={windowOpen}
     hit={openHit}
-    partyName={openPartyName}
-    partyNameFailed={openPartyFailed}
     consentingPartyName={openConsentingPartyName}
     {reviewerName}
     checkInstant={check.createdAt}

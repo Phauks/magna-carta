@@ -5,11 +5,11 @@
  * says whether it landed. That makes the store the one place where "the surface works" is decided,
  * and it had no coverage at all — which is how every write except the first came to be answered 400
  * without a single failing test. So these assert the REQUESTS the store makes, over the exact path
- * a person walks: create a row, type into it again, strike it.
+ * a person walks: create a row, type into it again, void it.
  *
  * The other half is the undo stack telling the truth. A step is only offered where the store can
- * genuinely put the thing back, and these pin both directions of that: a strike offers no step,
- * and a snapshot older than a strike does not resurrect the struck entry.
+ * genuinely put the thing back, and these pin both directions of that: a void offers no step,
+ * and a snapshot older than a void does not resurrect the voided entry.
  *
  * The third half, added when the sheet became firm-wide, is the MATTER. A row may be captured
  * without one and is then not sent at all, because capture takes a matter; setting one is what puts
@@ -191,7 +191,7 @@ describe("a row captured before anybody knew where it belonged", () => {
 
 describe("the matter of an entry the firm already holds", () => {
   /*
-   * A misfiled entry MOVES rather than being struck and re-typed: it keeps its number, its memo,
+   * A misfiled entry MOVES rather than being voided and re-typed: it keeps its number, its memo,
    * its codes, its files and its history. The move is its own route, not the debounced cell save,
    * because it is a cross-matter write with its own refusals.
    */
@@ -261,7 +261,7 @@ describe("striking an entry", () => {
     expect(sent.headers[IDEMPOTENCY_HEADER]).toBeDefined();
   });
 
-  it("offers no undo step, because nothing un-strikes an entry", async () => {
+  it("offers no undo step, because a void is a status change this stack cannot rewrite", async () => {
     const { store } = sheetOver([entry()]);
 
     await store.voidRow("entry-1");
@@ -270,12 +270,16 @@ describe("striking an entry", () => {
     expect(store.history.undoLabels).toEqual([]);
   });
 
-  it("says at the time that undo does not reach it", async () => {
+  it("says at the time that undo does not reach it, and where the repair actually is", async () => {
     const { announcements, store } = sheetOver([entry()]);
 
     await store.voidRow("entry-1");
 
-    expect(announcements.join(" ")).toContain("Undo does not reach it");
+    // Both halves. Saying only the first would leave a reader believing the void is permanent,
+    // which it stopped being when the entry gained a way back to draft.
+    const said = announcements.join(" ");
+    expect(said).toContain("Undo does not reach it");
+    expect(said).toContain("restore it from the ledger or the record window");
   });
 
   it("does offer a step for a row nothing was ever written for, and puts it back", async () => {
@@ -286,7 +290,7 @@ describe("striking an entry", () => {
     await store.voidRow(row.key);
     expect(store.rows.some((other) => other.key === row.key)).toBe(false);
 
-    store.history.undo();
+    await store.history.undo();
     expect(store.rowByKey(row.key)?.description).toBe("Drafted the motion");
   });
 });
@@ -301,27 +305,30 @@ describe("adding a row", () => {
   });
 });
 
-describe("an undo reaching back past a strike", () => {
-  it("does not put the struck entry back on the sheet as a workable draft", async () => {
+describe("an undo reaching back past a void", () => {
+  it("does not put the voided entry back on the sheet as a workable draft", async () => {
     const { store } = sheetOver([entry()]);
     store.setDescription("entry-1", "Reviewed the responses");
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
 
     await store.voidRow("entry-1");
-    store.history.undo();
+    const outcome = await store.history.undo();
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
 
     expect(store.rowByKey("entry-1")?.status).toBe("void");
+    // And it says so rather than reporting a step it did not take.
+    expect(outcome.moved).toBe(0);
+    expect(outcome.failure?.label).toBe("the description on this entry");
   });
 
-  it("writes nothing to an entry that has since been struck", async () => {
+  it("writes nothing to an entry that has since been voided", async () => {
     const { store, recorder } = sheetOver([entry()]);
     store.setDescription("entry-1", "Reviewed the responses");
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
     await store.voidRow("entry-1");
 
     const before = recorder.writes.length;
-    store.history.undo();
+    await store.history.undo();
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
 
     expect(recorder.writes.slice(before)).toEqual([]);
@@ -335,8 +342,7 @@ describe("an undo of a field change", () => {
     await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
 
     const before = recorder.writes.length;
-    store.history.undo();
-    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+    await store.history.undo();
 
     expect(store.rowByKey("entry-1")?.description).toBe("Reviewed the discovery responses");
     const written = recorder.writes.slice(before);
@@ -345,5 +351,44 @@ describe("an undo of a field change", () => {
       expect(call.headers[IDEMPOTENCY_HEADER]).toBeDefined();
       expect(call.body).toMatchObject({ narrative: "Reviewed the discovery responses" });
     }
+  });
+
+  /*
+   * The reason a step is a pair of writes rather than a picture of the sheet. A snapshot cannot say
+   * which field moved, so putting one back meant writing EVERY row — over rows the step never
+   * touched, and over whatever somebody had changed in another window meanwhile.
+   */
+  it("writes the row the step changed, and no other row on the sheet", async () => {
+    const { store, recorder } = sheetOver([
+      entry({ id: "entry-1", narrative: "Reviewed the discovery responses" }),
+      entry({ id: "entry-2", narrative: "Called the client" }),
+    ]);
+    store.setDescription("entry-1", "Reviewed the responses and the exhibits");
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
+    const before = recorder.writes.length;
+    await store.history.undo();
+
+    const written = recorder.writes.slice(before);
+    expect(written).not.toEqual([]);
+    for (const call of written) expect(call.path).toContain("entry-1");
+  });
+
+  /*
+   * The announcement follows the write. A stack that answered on the pop told the reader the entry
+   * went back while the write was still in the air — and said nothing when it then refused.
+   */
+  it("answers only once the write has answered", async () => {
+    const { store, recorder } = sheetOver([entry()]);
+    store.setDescription("entry-1", "Reviewed the responses and the exhibits");
+    await vi.advanceTimersByTimeAsync(PAST_THE_SETTLE);
+
+    const before = recorder.writes.length;
+    const outcome = await store.history.undo();
+
+    expect(recorder.writes.length).toBeGreaterThan(before);
+    expect(outcome.moved).toBe(1);
+    expect(outcome.label).toBe("the description on this entry");
+    expect(outcome.failure).toBeNull();
   });
 });

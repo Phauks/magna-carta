@@ -22,4 +22,16 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // model has no state that could hold one, and copying its body would restore withdrawn text to
   // every surface. The reasoning is written out in the migration's own `-- contract:` header.
   "20260901T120000_matter-notes-edit-and-delete",
+  // `tasks` joins the notification category vocabulary and `matterTask` its subject kinds, which are
+  // CHECK constraints on `notification_event` and `notification_in_app_suppression` and so cannot be
+  // widened in place. Audited: both copies are column-for-column over the whole table — eleven
+  // columns and six respectively, in the order each replacement declares them, with no WHERE and no
+  // expression between source and target — so every row carries across unchanged. Neither CHECK can
+  // reject a copied row, because both changes only ADD values to a set: every category and subject
+  // kind that was legal before is still legal. `notification_recipient.event_id` does carry a
+  // foreign key into the rebuilt table, which is why the file brackets the swap in
+  // PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the replacement
+  // takes the original name, so every referencing row resolves to the row it resolved to before and
+  // nothing is re-keyed. The reasoning is written out in the migration's own `-- contract:` header.
+  "20260901T150000_tasks",
 ]);

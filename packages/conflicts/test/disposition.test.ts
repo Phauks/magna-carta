@@ -5,7 +5,12 @@ import { seededRandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
 import { expect, test } from "vitest";
 import type { ConflictsWriteOptions } from "../src/audit.ts";
-import { readCurrentDisposition, recordDisposition } from "../src/disposition.ts";
+import {
+  readCurrentDisposition,
+  readDispositionTrail,
+  readPriorConclusions,
+  recordDisposition,
+} from "../src/disposition.ts";
 import { DISPOSITION_KINDS } from "../src/types.ts";
 import { waiverShortfalls } from "../src/waiver.ts";
 
@@ -92,6 +97,180 @@ test("a reversal appends a second row and becomes the current disposition", asyn
     .all();
   // A COUNT(*) always returns exactly one row, which is what makes this indexed read safe.
   expect(results[0]!.count).toBe(2); // the cleared row survives — the audit trail is the point
+});
+
+test("the trail keeps a reversed answer standing, oldest first", async () => {
+  /*
+   * The reason the table is append-only, read back. A reviewer clears a hit and later reverses; the
+   * CURRENT word is the reversal, and the clearance is still an act the firm performed and can be
+   * asked about. A trail that returned only the surviving answer would destroy on the read exactly
+   * what the triggers refuse to destroy on the write.
+   */
+  const { ctx, options, hitId } = await hitFixture("trail");
+  await recordDisposition(
+    ctx.database,
+    { hitId, kind: "cleared", rationale: "former client, unrelated matter", reviewerUserId: ACTOR },
+    options,
+  );
+  await recordDisposition(
+    ctx.database,
+    {
+      hitId,
+      kind: "representation_declined",
+      rationale: "on review, the parent is a current client",
+      reviewerUserId: ACTOR,
+    },
+    { ...options, clock: { now: () => "2026-07-09T01:00:00.000Z" } },
+  );
+
+  const trail = await readDispositionTrail(ctx.database, hitId);
+  expect(trail).toHaveLength(2);
+  // Oldest first, which is the OPPOSITE of readCurrentDisposition's ordering: a reversal only makes
+  // sense read after the thing it reverses.
+  expect(trail.map((entry) => entry.kind)).toEqual(["cleared", "representation_declined"]);
+  expect(trail[0]?.rationale).toBe("former client, unrelated matter");
+  expect(trail[1]?.createdAt).toBe("2026-07-09T01:00:00.000Z");
+
+  // And the two reads agree about which one is current.
+  const current = await readCurrentDisposition(ctx.database, hitId);
+  expect(current?.id).toBe(trail[1]?.id);
+});
+
+test("a hit nobody has answered has an empty trail rather than an error", async () => {
+  // Distinct from a hit that does not exist, which the route answers 404. An empty trail is a fact
+  // about the hit: no reviewer has spoken to it. It says nothing about whether an interest is adverse.
+  const { ctx, hitId } = await hitFixture("untouched");
+  expect(await readDispositionTrail(ctx.database, hitId)).toEqual([]);
+});
+
+test("the trail carries each answer's own waiver record rather than the latest one's", async () => {
+  // A waiver recorded and then superseded must keep its own record on the trail: a reader asking how
+  // a decision was reached needs what the reviewer had in front of them at the time.
+  const { ctx, options, hitId } = await hitFixture("waiver-trail");
+  await recordDisposition(
+    ctx.database,
+    {
+      hitId,
+      kind: "waiver_obtained",
+      rationale: "client consented by telephone",
+      reviewerUserId: ACTOR,
+      waiver: { ...WAIVER, givenOn: "2026-07-01" },
+    },
+    options,
+  );
+  await recordDisposition(
+    ctx.database,
+    { hitId, kind: "wall_erected", rationale: "wall put up as well", reviewerUserId: ACTOR },
+    { ...options, clock: { now: () => "2026-07-09T02:00:00.000Z" } },
+  );
+
+  const trail = await readDispositionTrail(ctx.database, hitId);
+  expect(trail[0]?.waiver?.givenOn).toBe("2026-07-01");
+  // The later act carries none, because only waiver_obtained does — not because the record was lost.
+  expect(trail[1]?.waiver).toBeNull();
+});
+
+test("an earlier answer about the same party is found, and is not this hit's answer", async () => {
+  /*
+   * The Coastal Holdings case, which is what settled the owner's ruling. In March the firm clears
+   * the company as a FORMER client under Rule 1.9. In September it re-surfaces on a different check
+   * — through the graph, as the subsidiary of a CURRENT client — which is a Rule 1.7 question on a
+   * higher bar. Same entity, different question.
+   *
+   * So the read FINDS the March answer (matched on the entity alone), and the September hit stays
+   * unanswered. Anything that turned this into the hit's disposition would carry a judgment across
+   * two conflicts that are not the same conflict.
+   */
+  const { ctx, options, hitId } = await hitFixture("prior-march");
+  await recordDisposition(
+    ctx.database,
+    {
+      hitId,
+      kind: "cleared",
+      rationale: "former client, unrelated commercial lease",
+      reviewerUserId: ACTOR,
+    },
+    options,
+  );
+
+  const marchCheckId = (
+    await ctx.database
+      .prepare("SELECT check_id FROM conflicts_hit WHERE id = ?1")
+      .bind(hitId)
+      .all<{ check_id: string }>()
+  ).results[0]!.check_id;
+  const entityId = (
+    await ctx.database
+      .prepare("SELECT entity_id FROM conflicts_hit WHERE id = ?1")
+      .bind(hitId)
+      .all<{ entity_id: string }>()
+  ).results[0]!.entity_id;
+
+  // Asked from a DIFFERENT check, which is the September one.
+  const found = await readPriorConclusions(ctx.database, [entityId], "conflictsCheck_september");
+  expect(found.get(entityId)?.kind).toBe("cleared");
+  expect(found.get(entityId)?.checkId).toBe(marchCheckId);
+  expect(found.get(entityId)?.reviewerUserId).toBe(ACTOR);
+});
+
+test("the check in hand is excluded, so a hit never cites its own answer as an earlier one", async () => {
+  // Without this a reviewer who answered a hit would see their own answer presented back as
+  // something an earlier check concluded, which is a fabricated history of one act.
+  const { ctx, options, hitId } = await hitFixture("prior-self");
+  await recordDisposition(
+    ctx.database,
+    { hitId, kind: "cleared", rationale: "unrelated", reviewerUserId: ACTOR },
+    options,
+  );
+  const row = (
+    await ctx.database
+      .prepare("SELECT check_id, entity_id FROM conflicts_hit WHERE id = ?1")
+      .bind(hitId)
+      .all<{ check_id: string; entity_id: string }>()
+  ).results[0]!;
+
+  expect(await readPriorConclusions(ctx.database, [row.entity_id], row.check_id)).toEqual(
+    new Map(),
+  );
+});
+
+test("a party nobody has ever answered has no earlier conclusion", async () => {
+  const { ctx } = await hitFixture("prior-none");
+  const found = await readPriorConclusions(
+    ctx.database,
+    ["directoryPerson_neverSeen"],
+    "conflictsCheck_any",
+  );
+  expect(found.size).toBe(0);
+});
+
+test("the MOST RECENT earlier answer wins, because that is what the firm last said", async () => {
+  const { ctx, options, hitId } = await hitFixture("prior-latest");
+  await recordDisposition(
+    ctx.database,
+    { hitId, kind: "cleared", rationale: "looked unrelated", reviewerUserId: ACTOR },
+    options,
+  );
+  await recordDisposition(
+    ctx.database,
+    {
+      hitId,
+      kind: "representation_declined",
+      rationale: "on review, adverse",
+      reviewerUserId: ACTOR,
+    },
+    { ...options, clock: { now: () => "2026-07-09T05:00:00.000Z" } },
+  );
+  const entityId = (
+    await ctx.database
+      .prepare("SELECT entity_id FROM conflicts_hit WHERE id = ?1")
+      .bind(hitId)
+      .all<{ entity_id: string }>()
+  ).results[0]!.entity_id;
+
+  const found = await readPriorConclusions(ctx.database, [entityId], "conflictsCheck_other");
+  // The reversal, not the clearance it replaced. The trail read still carries both.
+  expect(found.get(entityId)?.kind).toBe("representation_declined");
 });
 
 test("same-millisecond dispositions resolve to the genuinely-latest by insertion order, not by id", async () => {

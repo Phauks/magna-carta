@@ -21,11 +21,17 @@ properties; off-token values are machine-rejected.
   animation constants; `floatingContentClasses()` is the canonical Tier 3/4 content-class builder
 - `src/lib/internal/close-guard.svelte.ts` + `discard-question.svelte` — the unsaved-work guard and
   the question BOTH modal shells run every exit through; owned here, never re-implemented in a shell
+- `src/lib/components/calendar-grid/` — `CalendarGrid` (Month, Week, Agenda): the domain-free
+  month, week and agenda presentation on the EventRail division — entries with a civil day, a label,
+  a caller-formatted time and a tone come in, and it never learns what a hearing is. The calendar's
+  own arithmetic, reads and vocabulary live with its one consumer, `apps/web/src/lib/calendar/`
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
   the timing, the focus rules, and the one-hover-menu-at-a-time arbitration, shared from Root to
   Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only)
+- `src/lib/components/loading-region/` — `LoadingRegion`, the ONE loading state: real markup over a
+  fixture, greyed by the `mc-loading` recipe (imported last in `components.css`, on purpose)
 - `src/lib/styles/components.css` — the semantic component-class layer (`mc-*` recipes)
 - `src/stories/**.stories.svelte` — the catalog; stories triple as browser-mode behavior tests and
   per-story axe checks
@@ -41,8 +47,8 @@ properties; off-token values are machine-rejected.
 `AlertDialog.Content` / `Sheet.Content` into a panel of its own — `lint:one-ui`'s
 `hand-composed-modal` rule fails it, and the homes allowed to compose one are DECLARED in
 `tooling/lint-one-ui/registry.json` (`modalShells`), not hardcoded in the rule. Being a registered
-component is not enough on its own: `RecordAttachments` is registered and still carries an allowance
-because the confirmation inside it should be an `ActionDialog`.
+component is not enough on its own: `RecordAttachments` is registered and its detach confirmation
+is still an `ActionDialog` inside it, not a panel of its own.
 
 - **What `ActionDialog` owns, it owns by having no prop for it**: the footer's geometry and the
   order of its two controls, the dismissal's word, the busy state, whether the corner dismiss shows,
@@ -76,12 +82,21 @@ because the confirmation inside it should be an `ActionDialog`.
   beside it and the dependency as its accessible description. The commit is ONE snippet rendered
   one of two ways so the bar holds exactly one `<Button` carrying the commit marker in this file's
   source — that is what keeps `footer-set` true; do not duplicate the control to add a branch.
+- **`restoreFocus={false}` is the one focus seam, for a trigger revealed on focus.** Bits returns
+  focus to the trigger on close; a per-row control that reveals on focus then stays latched open
+  after the panel has gone (owner-reported twice on the settings rows). The default is true and
+  right for every other trigger; do not reach for it to tidy focus elsewhere.
 - **The `notice` slot is the layering seam.** The design system cannot know what a failure reads
   like, so the shell reserves the PLACE and the app puts `FailureNotice` in it. Never import an app
   module here to close that gap.
-- **The commit owns the close.** `onCommit` reports an outcome; the shell closes on `"committed"`
-  and stands its ground on `"refused"`. A caller never writes `open` on the way out — that is what
-  keeps the close to one path, and a one-entrance close path is the only kind a guard can cover.
+- **The commit owns the close.** `onCommit` reports an outcome; the shell closes on `"committed"`,
+  stands its ground on `"refused"`, and on `"done"` stays open as a panel with nothing left to ask:
+  the commit leaves the bar, the dismissal reads Close, the guard stands down, and `fields` /
+  `context` are handed `done` so one snippet shows what the act came to (a reference, a batch
+  still landing). A caller never writes `open` on the way out — that is what keeps the close to
+  one path, and a one-entrance close path is the only kind a guard can cover. A host MAY close a
+  done panel itself by writing the bound `open` (the upload panel's host does, once the last file
+  lands); that is a prop changing, not a gesture, and runs no guard.
 - **Both shells stamp `data-modal-shell`** on their panel, and `ActionDialog`'s two footer controls
   carry `data-action-dialog-action`. These are the hooks a scan and a rendered-DOM check read;
   `footer-set` asserts the bar against the shell's source the way `header-set` asserts the record
@@ -97,6 +112,43 @@ because the confirmation inside it should be an `ActionDialog`.
   and do not give `ActionDialog` a `class` prop to reach past them. A form that needs something
   beside its fields hands `ActionDialog` a `context` snippet; a context pane implies the record
   width, whatever `width` said.
+- **The frame owns expand, and each shell keeps its own control.** `internal/frame-expansion.svelte.ts`
+  holds the state, the per-shell session memory (`recordWindowExpansion`, `actionDialogExpansion`
+  — never persisted, never shared between the shells), the two control names, and the expanded
+  geometry (`EXPANDED_FRAME_CLASSES`, utilities, since only a utility can replace the panel's own
+  cap). The corner control's markup stays in each shell's source because `header-set` asserts the
+  record window's set at the source. `ActionDialog` offers expand on the kinds with something to
+  gain — `form` and `reading`, the Dialog kinds; `expandable` in the trait table — and never on a
+  question. Both shells take a bindable `expanded`, which is also how a panel OPENS expanded by
+  design; the caller's binding wins over the memory.
+- **Where a modal panel sits on the screen is one module, in four named parts, and no panel
+  touches the screen's edges.** _(owner ruling 2026-09-03)_ A panel's LOOK is its own recipe
+  (`dialog.css`, `alert-dialog.css`); what it is MADE OF is the frame's; WHERE it sits is this:
+  - `styles/recipes/modal-stage.css` — every placement rule. `mc-modal-stage` is the viewport pulled
+    in by `size.modal-gutter` (32px) on every side, centring its panel with flex; flex is also the
+    height cap, because a column flex item with `min-block-size: 0` shrinks to its container — fit
+    first, then cap, in keywords alone, where `calc(100dvh - …)` fails the purity gate and
+    `stretch` reaches only Chromium. `mc-modal-panel` is what makes any panel its well-behaved
+    child (positioned, content-height, free to shrink, taking pointer events), and the panel
+    recipes never restate a placement declaration (`test/modal-stage.test.ts` refuses one). The
+    stage drops its gutter when its direct child says `data-expanded="true"`.
+  - `internal/modal-stage.svelte` — the stage's one piece of markup, rendered by `Dialog.Content`
+    and `AlertDialog.Content` around Bits' Content. It carries the modal z-layer (a fixed box is a
+    stacking context, so a z-index on the panel alone leaves it beneath the scrim) and
+    `data-modal-stage`, which the sweep, the story tests and the print sheet find it by.
+  - `internal/modal-placement.ts` — the closed placement axis, `centered | anchored`, stamped on
+    every panel as `data-modal-placement`. `Dialog.Content` takes it as `placement`; `AlertDialog`
+    is always centred. `anchored` is the command palette, positioned against the viewport by its
+    own insets; a new placement is a member here, a rule in the recipe, and a row in the sweep.
+  - `modal-geometry/` — the diagnostic: a Playwright sweep over the Storybook dev server that
+    loads every specimen in `src/stories/modal-geometry.stories.svelte` (each shell, already open,
+    one story per way a panel can meet the screen; no trigger, no play function, so a measurement
+    never races a story) at every screen size in its `matrix.ts`, prints the panel's size and
+    edges, screenshots it, and fails an edge nearer than the gutter (or, expanded, an edge not
+    touched). `pnpm --filter @magna-carta/design-system run modal-geometry`; its README says how to
+    read a failure and how to add a screen or a panel. The arithmetic is `geometry.ts`, unit tested.
+    So the panels carry NO `max-h-*` utility any more (the stage caps them; a `max-h-screen` would
+    reach past it), only their `max-w-*`, and no app code knows how the stage works.
 - **The frame is imported after `dialog.css` and `alert-dialog.css` and before `record-window.css`**
   in `styles/components.css`, because it overrides the panels' padding, gap and overflow at equal
   specificity and the record window's tab strip overrides Tabs at equal specificity. Moving the
@@ -110,6 +162,99 @@ because the confirmation inside it should be an `ActionDialog`.
   from the repo root only the top-level fallback is used, so a plugin on the project alone passes
   locally and fails in `pnpm test`. The package still has no `vite.config.ts`; that note is about
   the Storybook pipeline's plugin ORDER, which this does not touch.
+
+## The directory-linking family: one mark, one field, one tab
+
+**Every surface that names, picks or links a person or an organization goes through
+`EntityIdentity`, `EntityPicker` and `RecordParties`** (`src/lib/components/entity-identity`,
+`entity-picker`, `record-parties`). Three app surfaces had each hand-built a combobox over the
+directory search before these existed; the one-implementation registry now refuses a fourth.
+
+- **The picker never fetches.** It takes `search: EntitySearch` and owns the settle, the floor, the
+  abort of a superseded question and the three states (`picker-search.ts`, tested on its own). The
+  app supplies the directory — `apps/web/src/lib/directory/directory-picker-source.ts` is the one
+  adapter. Same layering as `ActionDialog`'s `notice` slot: the design system knows how a search
+  behaves, never what is searched.
+- **A failed search is stated, never rendered as no matches.** The two are the same picture and not
+  the same fact. A capped answer says so and is never re-sorted: the order is the server's.
+- **An association carries its own identity apart from the entity's** (`RecordParty.identifier` vs
+  `entityIdentifier`), which is what lets one person be on a record twice in two roles and never
+  twice in one (`linkable-entities.ts`), and what lets removing a link leave the person in the
+  directory. The remove control is the `unlink` glyph, never a waste bin, never the danger colour.
+- **The tab's confirmation is an `ActionDialog`**, from the first commit — the attachments tab
+  carries an allowance for its hand-composed one; this family does not.
+- **`PARTIES_TAB_KEY`** is the agreement every record window imports, the twin of
+  `ATTACHMENTS_TAB_KEY`.
+
+## The table's own controls: three components, not a snippet per surface
+
+**`DataTable.ClearFilters`, `DataTable.GridFigures` and `DataTable.LoadMore`** are the controls a
+table's control row and counts strip are made of. Each was hand-built on several surfaces first —
+the clear control seven times in three shapes, the figures strip five times with one already in the
+opposite reading order, load-more three times in two places — and the drift is why they moved here.
+
+- **What a surface varies is WHERE it puts them, never what they look like.** The owner's 2026-09-03
+  placement: the clear control goes in the control row above the table, where the filters were set;
+  the undo and redo pair goes in the footer. `docs/conventions/design-corrections.md` carries it.
+- **`ClearFilters` is two acts and says which.** Column filters alone read "Clear Filters"; a
+  surface whose own search or scope is also holding rows back passes `narrowing` and the control
+  reads "Show Everything", because clearing a search under a button labelled Clear Filters is a lie
+  about what the press will do. Neither is configured — both are derived. Its `grid` is optional:
+  a surface can be narrowed before its grid exists.
+- **It renders NOTHING when nothing is in play**, and so does `LoadMore` at the end of a list. That
+  is the standing rule for a control that undoes a state — absence is the answer, never a disabled
+  control.
+- **`GridFigures` takes TEXT.** Money, durations and counts each format through their own home; a
+  strip that took minor units and a currency would have to learn all three and still be wrong for
+  the fourth. What it owns is the arrangement: label first, figure second, tabular, `·` between,
+  and the "In view:" prefix under a filter — a total that silently changed meaning when a column was
+  filtered is the most quietly wrong thing a footer can do.
+- **The footer's inline "Show all" stays.** It is part of the tally sentence ("x of y · filtered on
+  Status, Matter"), not a control in a control row, and the two are different things.
+
+## The history family: one stack, one pair of controls, one set of keys
+
+**`src/lib/components/history/` is the one home of undo and redo.** `HistoryStack` holds the steps,
+`UndoRedoControls` is the split-control pair, and `historyShortcuts` is the keyboard handler. All
+three are in `lint:one-ui`'s one-implementation registry: a second undo stack anywhere is the defect
+the entry exists to prevent, and there were two before this landed
+(`apps/web/src/lib/time/time-sheet-history.svelte.ts` and
+`apps/web/src/lib/file-manager/move-history.ts`); both are gone, and both surfaces now render this
+control over this stack. Design: [`docs/specs/2026-09-03-undo-redo-and-reversal-design.md`](../../docs/specs/2026-09-03-undo-redo-and-reversal-design.md).
+
+- **A step is a command with an inverse, never a snapshot.** A snapshot restores a screen; an
+  inverse restores the record. The snapshot model is why the Time Sheet writes back every row on
+  every undo — it cannot know which fields moved — and why a snapshot taken before a re-read is
+  unsafe. `HistoryStep` is `{ label, undo, redo }` and the surface decides what those do.
+- **A step is pushed only where its inverse is real.** What is refused is refused out loud:
+  `irreversibleAnnouncement` is the sentence, and it names where the repair lives, because "undo
+  does not reach this" is only half an answer when the other half exists.
+- **The outcome follows the inverse, never the pop.** `undo`/`redo` answer once the writes have
+  answered; a failure leaves the step on the stack, still offered, with the failing label named. The
+  control hands the outcome back through `onOutcome` and says nothing itself — the live region
+  belongs to the surface, and a control that spoke would be a second voice on the same strip.
+- **A walk in flight refuses the next one** rather than interleaving two sequences of inverses, so
+  both halves disable while one runs. Only `push` grows the stack (bounded at `STEPS_KEPT`); a walk
+  moves a step between the two sides, which is why neither side trims and walking back and forth
+  cannot drop the far end.
+- **`historyShortcuts` is a handler, not a window listener** — the surface attaches it to its own
+  element, so two surfaces with stacks cannot receive each other's keys. It REACHES INSIDE TEXT
+  FIELDS by default, which is what both existing surfaces do and is right on a rapid-entry grid: a
+  reader who has typed into six cells and presses Ctrl+Z means the sheet, not the caret.
+  `insideTextFields: "yield"` is the seam for a surface that is one long text field.
+- **The one thing a surface varies is the register** — `variant: "ghost" | "secondary"` — because
+  that is a fact about the chrome the pair sits in (a quiet counts footer, a toolbar of secondary
+  buttons), not about undo. Closed set, no `class` prop to reach past it, and the bordered register
+  also drops the caret's leading edge so the seam is not a double rule.
+- **A module with no Svelte in it imports from the leaf paths**, `@magna-carta/design-system/history-stack`
+  and `/history-shortcuts`, never the `./history` barrel: the barrel carries the CONTROL, and a
+  plain module that pulls its component tree in stops loading anywhere a Svelte transform is not in
+  play (it fails as `Unknown file extension ".svelte"` deep inside bits-ui, which reads like
+  anything but the import that caused it). `.svelte` consumers take the barrel.
+- **`DropdownMenu.GroupHeading` must sit inside a `DropdownMenu.Group`.** Without it bits throws
+  `Context "Menu.Group | Menu.RadioGroup" not found` when the menu OPENS — not on render — so it is
+  invisible until somebody presses the caret. Both hand-built copies of this control shipped without
+  the group; this one has it, and the story that opens the menu is what pins it.
 
 ## The maturity family, and the field primitives
 
@@ -279,9 +424,9 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
     - **AI components** (new domain family, later — more complex): streaming-response surfaces + status indicators (token streaming, tool-call status, stop/regenerate). A richer composite; design separately when AI features land, likely its own catalog category.
   - **Status surfaces use the gated solid pairing:** an Alert is a solid `status.<v>` panel with `status.<v>-foreground` (the AA-gated pair); a status colour as **text on a light surface is ungated and can fail AA** — do not use it until `status.*-subtle` tokens exist.
   - **Animations pulse between token colours, not opacity** (no opacity token; opacity literals are banned) and carry a `prefers-reduced-motion` guard (Skeleton).
-    - **Future evaluation — auto-generated skeletons** (owner-flagged 2026-06-13): the in-house Skeleton is hand-placed, so its shape can drift from the real component. [phantom-ui](https://github.com/Aejkatappaja/phantom-ui) auto-generates shimmer placeholders by measuring the real DOM at runtime (a framework-agnostic Lit web component). Appealing for drift, but a poor foundation fit as-is — it injects non-token styling (vs golden rule 2), is a brand-new single-author dep bundling Lit (bus-factor), and adds runtime measuring + a CSP surface to vet. If skeleton drift becomes real pain across many components, spike it properly (adopt, or borrow the measuring-wrapper idea in-house with token-driven shimmer). Not for 0·7a.
+    - **The component is its own skeleton (owner ruling 2026-09-05, closing the 2026-06-13 evaluation).** `LoadingRegion` (`src/lib/components/loading-region/`) is the ONE loading state: a region renders its real markup over a `fixture` snippet under the `mc-loading` recipe, which greys every text leaf (any element with no element children and some text), media and controls, and keeps furniture (`th`, `label`, `legend`, `caption`, `dt`, `.mc-label`, `.mc-field-label`, `[data-loading-keep]`; `[data-loading-block]` makes a container one bone). Text is hidden with `-webkit-text-fill-color`, not `color`, because a utility in the utilities layer beats any `color` set here; the recipe is imported LAST in `styles/components.css` so it wins at equal specificity — keep it there. The region is `inert` and `aria-busy` while loading and a visually-hidden sentence precedes it; it has no colour or pulse props. `Skeleton` is no longer exported: it is the internal box of the six components that render placeholder rows of their own shape (`DataTable.Grid` — count prop `placeholderCount` — `EventRail`, `RecordParties`, `RecordAttachments`, `CalendarGrid`, `FolderTree`), which are the `loadingHomes` declared in `tooling/lint-one-ui/registry.json`; `hand-placed-loading` fails the Skeleton, `mc-skeleton`, `aria-busy`, `animate-pulse` and loader-glyph signals everywhere else, on both sides of the line. phantom-ui and boneyard-js were evaluated and declined (`docs/research/2026-09-05-skeleton-loading-framework.md`): every measuring approach needs a fixture anyway, and once it exists the measuring is the part worth dropping.
 - **Catalog model (owner-settled): one story per variant/instance; autodocs is the review surface.**
-  - **Catalog taxonomy (owner-settled 2026-06-13): semantic categories as the story-title prefix, NOT a flat `Components/*`.** A story's `title` is `<Category>/<Component>`. Categories: **Inputs** (Input, Textarea, FileInput, Label, Checkbox, Switch, RadioGroup, + future Select/Slider), **Compound Inputs** (composed/specialized data entry — the dedicated-components list above), **Actions** (Button), **Data Display** (Badge, Card, Keyboard, Avatar), **Feedback** (Alert, Skeleton, Progress, Tooltip), **Layout** (Separator, Tabs, Accordion), **Overlays** (future — Dialog, Popover, DropdownMenu, ContextMenu), **Foundations** (the Design Tokens board). Established while the catalog was small and no VRT baselines were committed (re-titling changes story IDs, so it's cheapest before baselines exist). New components pick the matching category.
+  - **Catalog taxonomy (owner-settled 2026-06-13): semantic categories as the story-title prefix, NOT a flat `Components/*`.** A story's `title` is `<Category>/<Component>`. Categories: **Inputs** (Input, Textarea, FileInput, Label, Checkbox, Switch, RadioGroup, + future Select/Slider), **Compound Inputs** (composed/specialized data entry — the dedicated-components list above), **Actions** (Button), **Data Display** (Badge, Card, Keyboard, Avatar), **Feedback** (Alert, LoadingRegion, Skeleton, Progress, Tooltip), **Layout** (Separator, Tabs, Accordion), **Overlays** (future — Dialog, Popover, DropdownMenu, ContextMenu), **Foundations** (the Design Tokens board). Established while the catalog was small and no VRT baselines were committed (re-titling changes story IDs, so it's cheapest before baselines exist). New components pick the matching category.
     - **Inputs vs Actions — the delineation** (owner question 2026-06-13): an **Input holds a VALUE** the user sets and a form reads (checked/selected/typed) — Checkbox/Switch/RadioGroup/Input/Select/Slider, even though they're "interactive", are Inputs because their job is state. An **Action triggers a one-shot operation** and holds no value — Button (and menu items). Test: "does it carry a value, or fire a command?" Menus (DropdownMenu/ContextMenu) are overlays OF actions → **Overlays**.
   - **One story per the component's main "variant" axis** (Button per variant; Alert/Badge per variant; Separator per orientation); a component with no variant axis is ONE story (Textarea, FileInput, Card, Label, Skeleton, Keyboard). **Every OTHER prop is a Control, not a story** — `size`, `disabled`, `href`, `placeholder` are toggled in the Controls panel, never enumerated as stories.
   - **Input is the deliberate exception — one story per `type`** (owner-settled 2026-06-13): the text-like types are not interchangeable, each carrying its own validation rules, mobile input-mode/keyboard, and autofill semantics (so `text`/`email`/`tel`/`url` differ even though their resting box looks alike). Each type's story sets the attributes that make it meaningful (e.g. `number` min/max/step, `tel` inputmode, email/url showing constraint validation), and `type` stays a `control: "select"` so any type is still toggleable. This is the one place `type` is enumerated rather than left a Control.
@@ -298,6 +443,12 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   - **Every `play` wraps its assertions in named `step()` calls** (the play context's `step`, no import) — one step per beat (`"Starts unchecked"` → `"Clicking checks it"`). The play functions ARE the behaviour tests, but a bare list of `expect(...)` lines reads as noise in the Interactions panel; `step()` turns each into a labelled, collapsible checklist that doubles as living documentation of what the component guarantees. Keep element lookups above the steps; put each interaction + its assertions inside the step it proves. (Owner-directed 2026-06-13 — the panel must read as a checklist, not a wall of assertions.)
   - **Never two stories rendering the SAME thing** (duplicates stack on the Docs page — the owner saw "two cards on top of each other").
   - **Visual-tests addon** (`@chromatic-com/storybook`) is installed but **inert** until a Chromatic token is set; the recorded primary VRT is the self-hosted Playwright harness (Argos the named upgrade) — revisit which SaaS before relying on Chromatic.
+- **`ContextMenu.GroupHeading` outside a `ContextMenu.Group` stops the menu OPENING, silently.** No
+  console error, no failed render, no thrown exception a caller can see — the right-click simply does
+  nothing, which reads as "context menus do not work here" and sends you looking at the trigger. A
+  heading that names no group has no group to name: either wrap the items in `ContextMenu.Group`, or
+  use the plain heading element the other menus use (`<p class="mc-table-filter-heading">`), which is
+  what the grid's column filter menus do. Found the hard way, 2026-09-02.
 - **`#NNNN` issue references in `src/` comments trip the raw-hex gate** (four hex digits) — cite
   issues in full URL form or use a justified `fitness-allow`.
 - **No-emoji gate (golden rule 2)** is the fifth off-token scanner (`test/fitness/off-token.test.ts`):

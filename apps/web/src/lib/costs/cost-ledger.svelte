@@ -12,6 +12,12 @@
    * the totals row, the filtered-empty state and the counts strip are all the product's one grid;
    * this file declares cells and verbs, and decides none of that behaviour.
    *
+   * THE FRAME IS THE MONEY SURFACE'S (apps/web/src/lib/money/). The toolbar under the section strip,
+   * the acts row with the way out of a filter, the counts strip and the pane toggle are drawn once
+   * there, for every money section; this file declares its columns, its cells, its figures, its
+   * verbs and its panel, and hands them over. Review, where the firm runs review, is the one act
+   * this ledger adds to that row.
+   *
    * THE REVIEW VOCABULARY IS ABSENT, NOT DISABLED. Whether a firm runs review is a firm setting and
    * it is not served, so the lifecycle reads draft to billed, nothing solicits a submission, and no
    * Review control appears. A disabled "Submit" would be soliciting a workflow this firm has not
@@ -22,6 +28,7 @@
    * has got to, and the firm's own decision to absorb some of it kept visible. It states figures
    * and nothing else: the link from a cost to its bill belongs on the cost.
    */
+  import type { Snippet } from "svelte";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -33,12 +40,9 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import ListChecks from "@lucide/svelte/icons/list-checks";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
+  import { MoneySurface, type MoneySurfaceDensity } from "$lib/money/index.ts";
   import {
-    LedgerPanes,
     RecordMenu,
     type RecordMenuAction,
     type RecordMenuModel,
@@ -67,6 +71,7 @@
   import { costRecordMenu, type CostMenuRecord } from "./cost-record-menu.ts";
   import {
     approveCost,
+    readCostLedgerEntry,
     submitCost,
     writeKey,
     type CostAcknowledgement,
@@ -87,7 +92,9 @@
     matterNumber = null,
     permissions = null,
     loading = false,
+    openCostId = null,
     onChanged,
+    beneath = undefined,
   }: {
     /** Every cost on the matter, in every status: that is what a matter's cost record is. */
     costs: readonly CostLedgerEntry[];
@@ -97,8 +104,12 @@
     /** What this account may do, from the session bootstrap. Null while it has not been read. */
     permissions?: readonly string[] | null;
     loading?: boolean;
+    /** A cost to open on arrival — what a deep link into this section names. */
+    openCostId?: string | null;
     /** Something was written; the matter's costs want re-reading. */
     onChanged: () => void;
+    /** What the page puts directly above the counts strip: its Load more control. */
+    beneath?: Snippet;
   } = $props();
 
   /** The permission the approve and kick-back routes are gated on. */
@@ -172,7 +183,32 @@
     windowOpen = true;
   }
 
-  function openRecordACost(): void {
+  /*
+   * The cost this ledger was asked to open, opened the way any cost opens: from the loaded page
+   * where it is on it, else read by its id — a cost older than the first page opens all the same.
+   * Once per id.
+   */
+  let honouredCostId = $state<string | null>(null);
+  $effect(() => {
+    const wanted = openCostId;
+    if (wanted === null || loading || honouredCostId === wanted) return;
+    honouredCostId = wanted;
+    const loaded = costs.find((cost) => cost.id === wanted);
+    if (loaded !== undefined) {
+      openRecord(loaded, false);
+      return;
+    }
+    void readCostLedgerEntry(fetch, wanted).then((outcome) => {
+      if (outcome.kind === "ok") openRecord(outcome.value, false);
+    });
+  });
+
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowEntry = null;
     windowEditing = true;
     windowOpen = true;
@@ -289,7 +325,7 @@
         // Duplicating starts a new draft from this cost's fields. Until a duplicate route exists,
         // the window opens on a blank draft rather than one silently pre-filled from a record the
         // server was never asked to copy.
-        openRecordACost();
+        openNew();
         return;
       case "submit":
         submitCosts(targets.filter((cost) => cost.status === "draft"));
@@ -348,6 +384,24 @@
       ? "Nothing is waiting for review"
       : `Go through the ${waitingForReview} submitted ${waitingForReview === 1 ? "cost" : "costs"} one by one: approve, kick back, or skip`,
   );
+
+  /* The surface draws the notices band only while there is something to put in it. */
+  const hasNotices = $derived(
+    actionFailure !== null || actionNotice !== null || expenseCodes.refused,
+  );
+
+  /*
+   * The domain figures as the shared strip reads them: the money is turned into text HERE, in the
+   * matter's own currency, because the strip owns the arrangement and never the formatting.
+   */
+  const footerReading = $derived(
+    figures.map((figure) => ({
+      identifier: figure.identifier,
+      label: figure.label,
+      value: money(figure.amountMinor),
+      caption: figure.caption,
+    })),
+  );
 </script>
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<CostLedgerEntry>)}
@@ -400,78 +454,29 @@
 {#snippet emptyLedger()}
   <EmptyState title="No Costs Recorded Yet">
     Filing fees, service, transcripts, experts: every cost paid or consumed for this matter lands
-    here.
-    {#snippet actions()}
-      <Button onclick={openRecordACost}>
-        <Plus class="size-16" aria-hidden="true" />
-        Record a Cost
-      </Button>
-    {/snippet}
+    here. New Cost, at the top of the matter, records the first.
   </EmptyState>
 {/snippet}
 
-{#snippet footerEnd()}
-  {#if grid.isFiltered}
-    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
-  {/if}
-  {#each figures as figure, index (figure.identifier)}
-    {#if index > 0}<span aria-hidden="true">·</span>{/if}
-    <span class="inline-flex items-baseline gap-4" title={figure.caption}>
-      <span class="text-text-subtle">{figure.label}</span>
-      <span class="font-semibold tabular-nums">{money(figure.amountMinor)}</span>
-    </span>
-  {/each}
+{#snippet ledgerFigures()}
+  <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
-<!-- The list region takes the remaining height and keeps it, so the screen does not reflow as
-     rows arrive, as a filter narrows them, or as an empty state replaces them. -->
-<section class="flex min-h-0 flex-1 flex-col gap-12">
-  <div class="flex flex-wrap items-center justify-end gap-8">
-    {#if grid.isFiltered}
-      <Button
-        variant="secondary"
-        size="sm"
-        title="Clear all filters and show all {grid.totalRowCount} costs"
-        onclick={() => grid.clearAllFilters()}
-      >
-        <FunnelX class="size-16" aria-hidden="true" />
-        Clear Filters
-      </Button>
-    {/if}
-    {#if REVIEW_GATE_ENABLED}
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={waitingForReview === 0}
-        title={reviewTitle}
-        onclick={openReview}
-      >
-        <ListChecks class="size-16" aria-hidden="true" />
-        {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
-      </Button>
-    {/if}
-    <Button
-      size="sm"
-      title="Record a cost paid or consumed on this matter. It saves as a draft."
-      onclick={openRecordACost}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Record a Cost
-    </Button>
-    <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
-         border of its own, and last in the row on every ledger. -->
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-pressed={panelOpen}
-      title="Show or hide the details panel"
-      aria-label="Show or hide the details panel"
-      onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-    >
-      <PanelRight class="size-16" aria-hidden="true" />
-    </Button>
-  </div>
+<!-- Review is the one act this ledger adds to the surface's row, where the firm runs review. -->
+{#snippet acts()}
+  <Button
+    variant="secondary"
+    size="sm"
+    disabled={waitingForReview === 0}
+    title={reviewTitle}
+    onclick={openReview}
+  >
+    <ListChecks class="size-16" aria-hidden="true" />
+    {waitingForReview === 0 ? "Review" : `Review (${waitingForReview})`}
+  </Button>
+{/snippet}
 
+{#snippet notices()}
   {#if actionFailure !== null}
     <FailureNotice failure={actionFailure.failure} title="Nothing Changed" fallback={actionFailure.fallback}>
       {#if actionFailure.failure.problem?.status === 409}
@@ -494,50 +499,64 @@
       a permission this account does not hold.
     </p>
   {/if}
+{/snippet}
 
-  <LedgerPanes autoSaveId="matter-costs-panes" {panelOpen}>
-    {#snippet list()}
-      <RecordMenu
-        class="flex min-h-0 flex-1 flex-col"
-        {menu}
-        onAction={runMenuAction}
-        onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
-      >
-        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-             product uses everywhere is still the thing that opens. The role is presentational:
-             this element adds no semantics of its own, it only notices where the pointer was. -->
-        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
-          <!-- The list takes the height it is given and scrolls inside itself, so a long ledger
-               never grows the page and never pushes its own counts strip out of reach. -->
-          <DataTable.Grid
-            {grid}
-            {cell}
-            class="min-h-0 flex-1"
-            caption="Costs recorded on this matter"
-            empty={emptyLedger}
-            {loading}
-          />
-        </div>
-      </RecordMenu>
-    {/snippet}
-    {#snippet panel()}
-      <CostDetailsPanel
-        {costs}
-        selected={selectedCosts}
-        {currency}
-        expenseCodeLabels={expenseCodes.labelFor}
-        {canApprove}
-        onOpen={(cost) => openRecord(cost, canWorkDraft(cost).allowed)}
-        onPrint={print}
-        onSubmit={submitCosts}
-        onApprove={approveCosts}
-        onLetGo={() => grid.clearSelection()}
+{#snippet list({ density, tableClass }: { density: MoneySurfaceDensity; tableClass: string })}
+  <RecordMenu
+    class="flex min-h-0 flex-1 flex-col"
+    {menu}
+    onAction={runMenuAction}
+    onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
+  >
+    <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+         product uses everywhere is still the thing that opens. The role is presentational:
+         this element adds no semantics of its own, it only notices where the pointer was. -->
+    <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+      <!-- The list takes the height it is given and scrolls inside itself, so a long ledger
+           never grows the page and never pushes its own counts strip out of reach. The class
+           and the density are the surface's: flush, it takes the grid's frame away. -->
+      <DataTable.Grid
+        {grid}
+        {cell}
+        class={tableClass}
+        {density}
+        caption="Costs recorded on this matter"
+        empty={emptyLedger}
+        {loading}
       />
-    {/snippet}
-  </LedgerPanes>
+    </div>
+  </RecordMenu>
+{/snippet}
 
-  <DataTable.GridFooter {grid} end={footerEnd} />
-</section>
+{#snippet panel()}
+  <CostDetailsPanel
+    {costs}
+    selected={selectedCosts}
+    {currency}
+    expenseCodeLabels={expenseCodes.labelFor}
+    {canApprove}
+    onOpen={(cost) => openRecord(cost, canWorkDraft(cost).allowed)}
+    onPrint={print}
+    onSubmit={submitCosts}
+    onApprove={approveCosts}
+    onLetGo={() => grid.clearSelection()}
+  />
+{/snippet}
+
+<MoneySurface
+  {matterId}
+  section="costs"
+  {grid}
+  autoSaveId="matter-costs-panes"
+  {panelOpen}
+  onTogglePanel={(open) => panelPreference.set(open ? "open" : "closed")}
+  acts={REVIEW_GATE_ENABLED ? acts : undefined}
+  notices={hasNotices ? notices : undefined}
+  {list}
+  {panel}
+  figures={ledgerFigures}
+  {beneath}
+/>
 
 <CostRecordWindow
   bind:open={windowOpen}

@@ -1,11 +1,14 @@
 <script lang="ts">
   /*
-   * The details panel beside the fee ledger: the SMALLER details.
+   * The fee ledger's details panel: what its three faces say, over the shared panel shell.
    *
-   * THREE FACES, ONE PANEL. Nothing selected, it speaks for the matter's fee position and the
-   * arrangement in force. One fee selected, it shows that fee — its identity, its standing, its few
-   * figures, and the two verbs that belong to a list rather than to a record. Several selected, it
-   * counts them and offers nothing.
+   * The shell ($lib/details-panel) carries the frame, the header grammar and the ruled runs of
+   * facts. What stays here is what only Fees knows: that a fee is named by its entry number with
+   * its description underneath, that an incomplete fee says what it is missing, and that a fee
+   * already on a finalized bill is evidence rather than something to correct in place.
+   *
+   * SEVERAL SELECTED OFFERS NOTHING, deliberately. No verb here acts on more than one fee, and a
+   * face that implied otherwise would be lying; the row menu is where a selection is acted on.
    *
    * THE PANEL OPENS A RECORD; IT DOES NOT EDIT ONE. Edit lives in the record window's header, where
    * a reader who has learned it once finds it on every kind of record. Print stays here, because
@@ -18,7 +21,7 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Printer from "@lucide/svelte/icons/printer";
-  import X from "@lucide/svelte/icons/x";
+  import * as DetailsPanel from "$lib/details-panel/index.ts";
   import { gapCellTitle } from "./fee-gaps.ts";
   import {
     billingSentence,
@@ -30,27 +33,21 @@
     type FeeRecord,
   } from "./fee-record.ts";
   import { timekeeperText } from "./fee-columns.ts";
-  import { arrangementTerms, ARRANGEMENT_KIND_LABELS } from "./fee-agreement.ts";
-  import type { ArrangementRecord } from "./billing-api.ts";
 
   let {
     fees,
     selected,
-    arrangement,
     money,
     onOpen,
     onPrint,
-    onViewArrangement,
     onLetGo,
   }: {
     /** Every fee on the matter, for the face the panel shows with nothing selected. */
     fees: readonly FeeRecord[];
     selected: readonly FeeRecord[];
-    arrangement: ArrangementRecord | null;
     money: (amountMinor: number) => string;
     onOpen: (fee: FeeRecord) => void;
     onPrint: (fee: FeeRecord) => void;
-    onViewArrangement: () => void;
     onLetGo: () => void;
   } = $props();
 
@@ -58,7 +55,6 @@
   const position = $derived(feePosition(fees));
   const live = $derived(fees.filter(countsInTotals));
   const voided = $derived(fees.length - live.length);
-  const inForce = $derived(arrangement?.inForce ?? null);
 
   const heading = $derived.by((): string => {
     const fee = sole;
@@ -67,37 +63,20 @@
   });
 </script>
 
-{#snippet fact(label: string, value: string, title?: string)}
-  <div class="flex items-baseline justify-between gap-16">
-    <dt class="text-text-muted">{label}</dt>
-    <dd class="text-right tabular-nums" {title}>{value}</dd>
-  </div>
-{/snippet}
-
-<aside
-  class="flex h-full w-full flex-col border-l border-border-default bg-surface-default"
-  aria-label="Fee details"
->
+<DetailsPanel.Root label="Fee details">
   {#if sole !== null}
-    <header class="flex items-start gap-8 border-b border-border-default p-12">
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base leading-tight font-semibold" title={entryNumberTitle(sole)}>
-          {heading}
-        </h2>
-        <p class="text-xs text-text-muted">{sole.description}</p>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Let go of this fee and show the matter's position"
-        aria-label="Let go of this fee and show the matter's position"
-        onclick={onLetGo}
-      >
-        <X class="size-16" aria-hidden="true" />
-      </Button>
-    </header>
+    <DetailsPanel.Header>
+      <DetailsPanel.Title title={entryNumberTitle(sole)}>{heading}</DetailsPanel.Title>
+      <DetailsPanel.Subtitle>{sole.description}</DetailsPanel.Subtitle>
+      {#snippet actions()}
+        <DetailsPanel.Close
+          label="Let go of this fee and show the matter's position"
+          onclick={onLetGo}
+        />
+      {/snippet}
+    </DetailsPanel.Header>
 
-    <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
+    <DetailsPanel.Body>
       <div class="flex flex-wrap gap-8">
         <Button variant="secondary" size="sm" onclick={() => onOpen(sole)}>
           <FolderOpen class="size-16" aria-hidden="true" />
@@ -109,24 +88,25 @@
         </Button>
       </div>
 
-      <dl class="flex flex-col gap-4 border-t border-border-default pt-12 text-sm">
-        <div class="flex items-baseline justify-between gap-16">
-          <dt class="text-text-muted">Status</dt>
-          <dd>
-            <Badge {...statusBadgeAttributes(feeStatusKey(sole.status))}>
-              {statusEntry(feeStatusKey(sole.status)).label}
-            </Badge>
-          </dd>
-        </div>
-        {@render fact("Date", formatDate(sole.feeDate))}
-        {@render fact("Timekeeper", timekeeperText(sole))}
-        {@render fact(
-          "Amount",
-          sole.amountMinor === null ? "Not recorded" : money(sole.amountMinor),
-        )}
-        {@render fact("Billing", sole.billable ? "Billable" : "Non-billable", billingSentence(sole.billable))}
-        {@render fact("Attachments", "—", gapCellTitle("attachments"))}
-      </dl>
+      <DetailsPanel.Facts ruled>
+        <DetailsPanel.Fact label="Status">
+          <Badge {...statusBadgeAttributes(feeStatusKey(sole.status))}>
+            {statusEntry(feeStatusKey(sole.status)).label}
+          </Badge>
+        </DetailsPanel.Fact>
+        <DetailsPanel.Fact label="Date" value={formatDate(sole.feeDate)} />
+        <DetailsPanel.Fact label="Timekeeper" value={timekeeperText(sole)} />
+        <DetailsPanel.Fact
+          label="Amount"
+          value={sole.amountMinor === null ? "Not recorded" : money(sole.amountMinor)}
+        />
+        <DetailsPanel.Fact
+          label="Billing"
+          value={sole.billable ? "Billable" : "Non-billable"}
+          title={billingSentence(sole.billable)}
+        />
+        <DetailsPanel.Fact label="Attachments" value="—" title={gapCellTitle("attachments")} />
+      </DetailsPanel.Facts>
 
       {#if sole.incomplete}
         <p class="text-xs text-status-warning-subtle-foreground">{incompleteNote(sole)}</p>
@@ -137,69 +117,47 @@
           bill is evidence; the correction is a credit note beside it.
         </p>
       {/if}
-    </div>
+    </DetailsPanel.Body>
   {:else if selected.length > 1}
-    <header class="flex items-start gap-8 border-b border-border-default p-12">
-      <div class="min-w-0 flex-1">
-        <h2 class="text-base leading-tight font-semibold">{selected.length} Fees Selected</h2>
-        <p class="text-xs text-text-muted">Nothing here acts on more than one</p>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Let go of all {selected.length} selected fees"
-        aria-label="Let go of all {selected.length} selected fees"
-        onclick={onLetGo}
-      >
-        <X class="size-16" aria-hidden="true" />
-      </Button>
-    </header>
-    <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
+    <DetailsPanel.Header>
+      <DetailsPanel.Title>{selected.length} Fees Selected</DetailsPanel.Title>
+      <DetailsPanel.Subtitle>Nothing here acts on more than one</DetailsPanel.Subtitle>
+      {#snippet actions()}
+        <DetailsPanel.Close
+          label="Let go of all {selected.length} selected fees"
+          onclick={onLetGo}
+        />
+      {/snippet}
+    </DetailsPanel.Header>
+    <DetailsPanel.Body>
       <p class="text-sm text-text-muted">
         Select one fee for its details. The row menu is where a verb acts on a whole selection.
       </p>
-    </div>
+    </DetailsPanel.Body>
   {:else}
-    <header class="border-b border-border-default p-12">
-      <h2 class="text-base leading-tight font-semibold">This Matter&rsquo;s Fees</h2>
-      <p class="text-xs text-text-muted">Select a fee for its details</p>
-    </header>
-    <div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
-      <dl class="flex flex-col gap-4 text-sm">
-        {@render fact(
-          "Fees",
-          voided === 0 ? String(live.length) : `${String(live.length)} (${String(voided)} void)`,
-        )}
-        {@render fact(
-          "Unbilled",
-          money(position.unbilledMinor),
-          "Billable fees no finalized invoice has taken up. A draft bill claims them on the Billing tab.",
-        )}
-        {@render fact(
-          "Billed",
-          money(position.billedMinor),
-          "Fees a finalized invoice has taken up.",
-        )}
-      </dl>
-      {#if inForce !== null}
-        <div class="flex flex-col gap-4 border-t border-border-default pt-12">
-          <div class="flex items-baseline justify-between gap-16 text-sm">
-            <span class="text-text-muted">Arrangement</span>
-            <span class="tabular-nums">
-              v{inForce.version} since {formatDate(inForce.validFrom)}
-            </span>
-          </div>
-          <p class="text-xs text-text-muted">{arrangementTerms(inForce, money)}</p>
-          <Button variant="ghost" size="sm" class="self-start" onclick={onViewArrangement}>
-            View
-          </Button>
-        </div>
-      {:else}
-        <p class="border-t border-border-default pt-12 text-xs text-text-muted">
-          No arrangement was recorded, and a matter with none is billed
-          {ARRANGEMENT_KIND_LABELS.hourly.toLowerCase()}.
-        </p>
-      {/if}
-    </div>
+    <DetailsPanel.Header>
+      <DetailsPanel.Title>This Matter&rsquo;s Fees</DetailsPanel.Title>
+      <DetailsPanel.Subtitle>Select a fee for its details</DetailsPanel.Subtitle>
+    </DetailsPanel.Header>
+    <DetailsPanel.Body>
+      <DetailsPanel.Facts>
+        <DetailsPanel.Fact
+          label="Fees"
+          value={voided === 0
+            ? String(live.length)
+            : `${String(live.length)} (${String(voided)} void)`}
+        />
+        <DetailsPanel.Fact
+          label="Unbilled"
+          value={money(position.unbilledMinor)}
+          title="Billable fees no finalized invoice has taken up. A draft bill claims them on the Billing tab."
+        />
+        <DetailsPanel.Fact
+          label="Billed"
+          value={money(position.billedMinor)}
+          title="Fees a finalized invoice has taken up."
+        />
+      </DetailsPanel.Facts>
+    </DetailsPanel.Body>
   {/if}
-</aside>
+</DetailsPanel.Root>

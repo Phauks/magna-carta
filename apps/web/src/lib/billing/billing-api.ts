@@ -112,6 +112,10 @@ export interface ArrangementVersion {
   currency: string;
   validFrom: string;
   validTo: string | null;
+  /** The signed agreement behind this version, as a matter file; null where none was recorded. */
+  agreementFileId: string | null;
+  /** What that file is called, or null where it has since been deleted. */
+  agreementFileName: string | null;
 }
 
 export interface ArrangementRecord {
@@ -128,6 +132,7 @@ export interface ArrangementRequest {
   retainerTargetMinor?: number;
   retainerThresholdMinor?: number;
   advanceDepositDestination?: AdvanceDepositDestination | null;
+  agreementFileId?: string | null;
   currency: "USD";
   validFrom: string;
 }

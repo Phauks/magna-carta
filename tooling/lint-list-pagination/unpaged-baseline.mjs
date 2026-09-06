@@ -22,6 +22,24 @@ export const UNPAGED_LIST_OPERATIONS = [];
  * "it is probably small".
  */
 export const BOUNDED_BY_CONSTRUCTION = {
+  // --- The bookings ONE event holds --------------------------------------------------------------
+  "calendar.listEventBookings":
+    "The live bookings one matter event holds: a room, a car, a projector. Read through " +
+    "selectBookingsForEventStatement in packages/calendar/src/booking-statements.ts, whose " +
+    "EVENT_BOOKINGS_LIMIT (200) is a backstop on a read whose natural size is a handful, not a " +
+    "page; every booking hangs off exactly one event and is made one at a time from that " +
+    "event's window, behind calendar:manage.",
+  "calendar.listEventLinks":
+    "Every link touching ONE matter event: its continuance (at most one each way, held by the " +
+    "schema's partial uniques) and the settings a person related it to by hand. Read through " +
+    "selectLinksTouchingEventStatement in packages/calendar/src/link-statements.ts, whose LIMIT " +
+    "(200) is a backstop on a read whose natural size is a handful.",
+  "calendar.listFirmEventLinks":
+    "The same read for a firm event, through the same statement and the same backstop " +
+    "(packages/calendar/src/link-statements.ts).",
+  "calendar.listFirmEventBookings":
+    "The same read for a firm event, through the same statement and the same backstop " +
+    "(packages/calendar/src/booking-statements.ts, EVENT_BOOKINGS_LIMIT).",
   // --- The firm's own configured vocabularies -------------------------------------------------
   //
   // Six tables with the same shape and the same argument, so the claim is the same one six times:
@@ -31,6 +49,36 @@ export const BOUNDED_BY_CONSTRUCTION = {
   // import, or the ingest pipeline — which is what separates a vocabulary from a record. A
   // vocabulary grows with the firm's decisions and stops; a record grows with the firm's activity
   // and does not.
+  // A matter plan is the same species as the six vocabularies below, with the same claim: a row
+  // appears when a PERSON authors a plan through a route behind tasks:managePlans
+  // (apps/api-worker/src/routes/matter-plans.ts, createPlan), and by no other path. There is exactly
+  // one insert statement in the workspace — insertPlanTemplateStatement in
+  // packages/tasks/src/plan-statements.ts — and it is unreachable from a queue consumer, a cron
+  // sweep, an import or the ingest pipeline. The platform seeds none, so the table starts empty and
+  // grows only with a firm's own decisions about how it practises.
+  //
+  // Both reads additionally carry MAX_PLAN_TEMPLATE_PAGE_SIZE as a backstop in SQL. That is a guard
+  // against a pathological firm rather than the bound being claimed here; the bound is the insert
+  // path.
+  "matterPlans.listPlans":
+    "The firm's matter plans. Rows come only from the createPlan route behind tasks:managePlans " +
+    "(apps/api-worker/src/routes/matter-plans.ts), whose one insert is " +
+    "insertPlanTemplateStatement in packages/tasks/src/plan-statements.ts; no queue, sweep or " +
+    "import reaches the table, and the platform seeds nothing into it.",
+  "matterPlans.listOffered":
+    "The plans offered on one matter — a filter over matterPlans.listPlans above (active, and " +
+    "bound to this matter's type or to no type), so it is bounded by the same insert path and is " +
+    "strictly smaller than it.",
+  // The intake procedure is the same species again: a row appears when a PERSON authors a procedure
+  // through a route behind intake:manageProcedures (apps/api-worker/src/routes/intake.ts,
+  // createProcedure), whose one insert is insertProcedureStatement in
+  // packages/intake/src/procedure-statements.ts; no queue, sweep or import reaches the table, and
+  // the platform seeds nothing into it. The read carries MAX_PROCEDURE_PAGE_SIZE as a backstop.
+  "intake.listProcedures":
+    "The firm's intake procedures. Rows come only from the createProcedure route behind " +
+    "intake:manageProcedures (apps/api-worker/src/routes/intake.ts), whose one insert is " +
+    "insertProcedureStatement in packages/intake/src/procedure-statements.ts; no queue, sweep or " +
+    "import reaches the table, and the platform seeds nothing into it.",
   "matterTypes.list":
     "The firm's matter-type vocabulary. Rows come only from the create route of the shared " +
     "classification-type factory (apps/api-worker/src/routes/classification-type-routes.ts), " +

@@ -29,6 +29,8 @@ export interface MatterSummary {
   locationId: string | null;
   responsibleMemberId: string;
   clientDisplayName: string | null;
+  /** The directory entity linked as the client, or null on a matter that predates the link. */
+  clientEntityId: string | null;
   /** Null until open draws it; frozen thereafter. A consultation has none until it is opened. */
   matterNumber: string | null;
   /**
@@ -187,6 +189,11 @@ export interface CreateMatterRequest {
   responsibleMemberId: string;
   clientDisplayName?: string | null;
   clientCode?: string | null;
+  /**
+   * The directory entity the firm acts for. The server writes the client's party link in the same
+   * batch as the matter, so the matter is never readable without its client.
+   */
+  clientEntityId?: string | null;
 }
 
 /** What the server answers: the matter, and the number it drew if the matter was opened. */
@@ -380,6 +387,26 @@ export interface MatterCloseReadiness {
  * never a promise — a balance can move a second later, which is why the close re-asserts every rule
  * inside its own batch — so a screen states what it says and still lets the close have the last word.
  */
+/** Whether a consultation would open right now, and what stands in the way if it would not. */
+export interface MatterOpenReadiness {
+  matterId: string;
+  status: MatterStatus;
+  openable: boolean;
+  blockers: MatterCloseBlocker[];
+}
+
+/**
+ * Ask whether the consultation would open, without opening it. The open rules are reads, so the
+ * server runs them read-only; today they are the required steps of the firm's intake procedure that
+ * have no satisfying answer, each in the words of whoever should answer it.
+ */
+export function readMatterOpenReadiness(
+  fetchImpl: typeof fetch,
+  matterId: string,
+): Promise<ApiOutcome<MatterOpenReadiness>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}/open-readiness`);
+}
+
 export function readMatterCloseReadiness(
   fetchImpl: typeof fetch,
   matterId: string,

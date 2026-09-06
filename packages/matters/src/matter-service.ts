@@ -1,5 +1,6 @@
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   selectIdempotencyRecordStatement,
   type SqlDatabase,
@@ -32,6 +33,12 @@ import {
   type ClosePrecondition,
 } from "./close-preconditions.ts";
 import {
+  OpenPreconditionError,
+  openPreconditionGuardStatements,
+  runOpenPreconditions,
+  type OpenPrecondition,
+} from "./open-preconditions.ts";
+import {
   collectCloseAdvisories,
   type CloseAdvisory,
   type CloseAdvisoryNotice,
@@ -56,6 +63,8 @@ import {
   DEFAULT_CONSULTATION_SCHEME,
 } from "./numbering/consultation-scheme.ts";
 import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
+import { insertMatterPartyStatement } from "@magna-carta/directory/statements";
+import { MATTER_PARTY_CLIENT_ROLE } from "./matter-party.ts";
 import {
   allocateCounterValueStatement,
   ensureCounterRowStatement,
@@ -123,6 +132,11 @@ export interface MatterServiceOptions {
   // shell's own registry, which is empty: this package never imports the subsystems whose money or
   // property a close has to answer for.
   readonly closePreconditions?: readonly ClosePrecondition[];
+  // The opening rules other subsystems own — what a consultation must clear before the firm acts —
+  // supplied by the composition root. Absent = the matter shell's own registry, which is empty: this
+  // package never imports the conflicts engine or the intake procedure to find out whether a matter
+  // may open.
+  readonly openPreconditions?: readonly OpenPrecondition[];
   // The informational notices other subsystems want a person to see when they close a matter,
   // supplied by the composition root. Absent = the matter shell's own registry, which is empty. An
   // advisory never blocks a close and has no path by which it could: `collectCloseAdvisories` returns
@@ -405,6 +419,44 @@ export interface CreateMatterInput extends MatterFieldsInput {
   readonly responsibleMemberId: UserId;
   readonly status: "prospective" | "open";
   readonly numberContext?: NumberContext;
+  /**
+   * The directory entity the firm acts for on this matter. Given, the client's party link is
+   * written in the same batch as the matter, so no matter is ever readable without its client — a
+   * prospective matter's conflict check needs a person, and billing and trust derive the client
+   * from that link rather than from the display name. Absent only for the callers that predate the
+   * directory link (fixtures, imports, the backfill that supplies the link afterwards).
+   */
+  readonly clientEntityId?: string | null;
+}
+
+/*
+ * The client's own party row, alongside the matter it belongs to. The role is the one every reader
+ * of matter_party derives the client from, and the row is written by the directory's own statement
+ * so its shape cannot drift from the party the Parties page would link by hand.
+ */
+function clientPartyStatements(
+  database: BatchDatabase,
+  options: MatterServiceOptions,
+  matterId: MatterId,
+  clientEntityId: string | null | undefined,
+  now: string,
+): SqlStatement[] {
+  if (clientEntityId === undefined || clientEntityId === null) return [];
+  const matterPartyId = newIdentifier("matterParty", options.randomSource);
+  return [
+    insertMatterPartyStatement(database, {
+      id: matterPartyId,
+      matterId,
+      entityId: clientEntityId,
+      role: MATTER_PARTY_CLIENT_ROLE,
+      capacity: null,
+      createdAt: now,
+    }),
+    auditStatement(database, options, "matter.client_linked", matterId, {
+      matterPartyId,
+      entityId: clientEntityId,
+    }),
+  ];
 }
 
 export interface CreatedMatter {
@@ -447,6 +499,7 @@ export async function createMatter(
             createdAt: now,
           }),
           auditStatement(database, options, "matter.created", matterId),
+          ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
         ],
         outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
         value: { matterId, matterNumber: null, consultationNumber },
@@ -477,6 +530,7 @@ export async function createMatter(
           createdAt: now,
         }),
         auditStatement(database, options, "matter.created", matterId),
+        ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
       ],
       outboxMessages: [
         { topic: MATTER_CREATED_TOPIC, payload: { matterId } },
@@ -514,6 +568,25 @@ export async function openMatter(
       `matter ${matterId} is ${matter.status}, not prospective`,
     );
   }
+  // The opening rules, run before the draw and skipped on the same idempotent retry the lifecycle
+  // check above skips: the mutation this key names already opened the matter, and a rule refusing
+  // now would 409 the caller on its own completed work. Everything a rule reads is read here, before
+  // the batch is composed — D1 has no interactive transaction — and the guards a rule supplies ride
+  // the batch itself.
+  const openContext = { matterId, database };
+  const openPreconditions = options.openPreconditions;
+  if (
+    matter.status === "prospective" &&
+    openPreconditions !== undefined &&
+    openPreconditions.length > 0
+  ) {
+    const failures = await runOpenPreconditions(openContext, openPreconditions);
+    if (failures.length > 0) throw new OpenPreconditionError(failures);
+  }
+  const guards =
+    openPreconditions === undefined
+      ? []
+      : openPreconditionGuardStatements(openContext, openPreconditions);
   // The consultation number the matter already carries is untouched here: opening ADDS the permanent
   // number, it does not rewrite the tentative one, so a document filed under the tentative number
   // still resolves after the matter opens.
@@ -525,6 +598,7 @@ export async function openMatter(
     input.numberContext ?? {},
     (number, now) => ({
       statements: [
+        ...guards,
         openMatterStatement(database, matterId, number, now),
         auditStatement(database, options, "matter.opened", matterId),
       ],

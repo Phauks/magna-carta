@@ -11,6 +11,8 @@ import {
   insertTimeEntryStatement,
   refileStatement,
   selectMatterEBillingStatement,
+  selectTaskMatterStatement,
+  selectTimeEntryMatterStatement,
   selectTimeEntryStatusStatement,
   setKickBackReasonStatement,
   transitionStatusStatement,
@@ -82,6 +84,9 @@ export interface CaptureTimeEntryInput {
   readonly utbmsTaskCodeId?: string;
   readonly utbmsActivityCodeId?: string;
   readonly liveRunId?: string;
+  // The task this time was worked on, when the timekeeper named one. Must be a task on this same
+  // matter; assertTaskOnMatter refuses anything else.
+  readonly taskId?: string;
   // The firm-internal memo. Optional at capture; the text never rides an audit row.
   readonly memo?: string;
   // The matter-scoped entry number the route drew for this capture (see entry-numbering.ts).
@@ -104,6 +109,43 @@ function audit(
     clock: options.clock,
     randomSource: options.randomSource,
   });
+}
+
+// THE ONE RULE THE SCHEMA CANNOT HOLD. A time entry names at most one task, and that task must be on
+// the entry's own matter.
+//
+// Two ways to get it wrong, and they fail for different reasons. A task on ANOTHER matter would let
+// one matter's time point at work another matter is paying for — the kind of link that survives into
+// a bill and is discovered by a client. A task on NO matter is the firm's own work (renewing the
+// policy, interviewing a candidate), and no client matter can be the thing that pays for it; a null
+// matter here is a refusal, never a wildcard that matches everything.
+//
+// SQLite cannot express either check without a trigger, so this is the enforcement and its tests are
+// what keep it honest.
+async function assertTaskOnMatter(
+  database: SqlDatabase,
+  taskId: string,
+  matterId: string,
+): Promise<void> {
+  const { results } = await selectTaskMatterStatement(database, taskId).all<{
+    matter_id: string | null;
+  }>();
+  if (results.length === 0) {
+    throw new TimeEntryValidationError("task-not-on-matter", `no such task: ${taskId}`);
+  }
+  const taskMatterId = results[0]?.matter_id ?? null;
+  if (taskMatterId === null) {
+    throw new TimeEntryValidationError(
+      "task-not-on-matter",
+      `task ${taskId} is on no matter, so no matter's time can be worked on it`,
+    );
+  }
+  if (taskMatterId !== matterId) {
+    throw new TimeEntryValidationError(
+      "task-not-on-matter",
+      `task ${taskId} is on matter ${taskMatterId}, not ${matterId}`,
+    );
+  }
 }
 
 async function isEBillingMatter(database: SqlDatabase, matterId: string): Promise<boolean> {
@@ -176,6 +218,19 @@ export async function updateDraftTimeEntry(
       "draft-only",
       `time entry ${timeEntryId} is ${status}, not draft`,
     );
+  }
+  // Only when the patch NAMES a task: null unlinks and needs no matter, and an absent key is not an
+  // edit at all. The entry's matter is read here rather than carried on the status pre-read, so an
+  // ordinary narrative edit still costs one read.
+  if (typeof patch.taskId === "string") {
+    const { results } = await selectTimeEntryMatterStatement(database, timeEntryId).all<{
+      matter_id: string;
+    }>();
+    const matterId = results[0]?.matter_id;
+    if (matterId === undefined) {
+      throw new TimeEntryValidationError("not-found", `no such time entry: ${timeEntryId}`);
+    }
+    await assertTaskOnMatter(database, patch.taskId, matterId);
   }
   const updatedAt = options.clock.now();
   return {
@@ -389,6 +444,68 @@ export async function voidTimeEntry(
   };
 }
 
+/*
+ * RETURNING A VOIDED ENTRY TO DRAFT.
+ *
+ * Voiding is how a mistaken entry is retired, and it has always been one-way: the row stays for
+ * audit, carrying no value. That is right for the act and wrong for the accident. People void the
+ * wrong row, void on a colleague's say-so that turns out to be mistaken, and void an afternoon's
+ * work when they meant to void one line of it — and until now the only repair was to type the whole
+ * entry again, which loses its number, its memo, its codes, its attached documents and its history,
+ * exactly as re-typing a misfiled entry did before it could be moved.
+ *
+ * IT IS NOT A LIFECYCLE TRANSITION, DELIBERATELY. `canTransition` says nothing leaves a terminal
+ * state, and that stays true: the forward chain must not learn a backward move, because every other
+ * record kind in the product reads the same table and none of them has been designed for one. This
+ * is its own guarded act with its own refusals, the way refiling is its own statement rather than a
+ * field on the patch. What it restores is the state the entry was in before somebody voided it,
+ * which is a draft — never submitted, never approved: those were somebody's judgement about an
+ * entry that has since been withdrawn, and they have to be given again.
+ *
+ * THE ONE VOID THAT MUST STAY A VOID is the entry converted into a cost. That conversion moves the
+ * entry's value onto a cost record and voids the time so the firm cannot count it twice; restoring
+ * the time without touching the cost would do precisely what the conversion existed to prevent. The
+ * conversion is recorded as an audit event on the entry and nowhere else, so that is what is asked,
+ * and the caller reads it — this service takes the answer rather than the database, because the
+ * question is the route's to ask alongside the reads it already makes.
+ */
+export async function unvoidTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  facts: {
+    /** Whether this entry was voided by being converted into a cost entry. */
+    readonly convertedToCost: boolean;
+  },
+  options: TimekeepingServiceOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  const from = await loadStatus(database, timeEntryId);
+  if (from !== "void") {
+    throw new TimeEntryValidationError(
+      "not-void",
+      `time entry ${timeEntryId} is ${from}, not void — there is nothing to restore`,
+    );
+  }
+  if (facts.convertedToCost) {
+    throw new TimeEntryValidationError(
+      "converted-to-cost",
+      `time entry ${timeEntryId} was voided by conversion to a cost entry; restoring it would charge the same work twice`,
+    );
+  }
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId,
+    effect: {
+      statements: [
+        // Guarded on the void status, so two callers racing produce one restore: the second one
+        // matches no row and the service's own read has already refused it anyway.
+        transitionStatusStatement(database, timeEntryId, "void", "draft", updatedAt),
+        audit(database, options, "time_entry.unvoided", timeEntryId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
 // The single WIP-store writer. The route has already resolved the rate (precedence + effective date)
 // and rounded the duration, then folded both into `input.rate` — this composes the insert + audit into
 // one EffectWrite. A null rate ("non-billable internal time") stores null rate columns; the table's
@@ -409,6 +526,10 @@ export async function captureTimeEntry(
       "utbms-required",
       "an electronic-billing matter requires a UTBMS task code on a billable entry",
     );
+  }
+
+  if (input.taskId !== undefined) {
+    await assertTaskOnMatter(database, input.taskId, input.matterId);
   }
 
   const timeEntryId = input.id ?? newIdentifier("timeEntry", options.randomSource);
@@ -438,6 +559,7 @@ export async function captureTimeEntry(
           utbmsActivityCodeId: input.utbmsActivityCodeId ?? null,
           source: input.source,
           liveRunId: input.liveRunId ?? null,
+          taskId: input.taskId ?? null,
           memo: input.memo ?? null,
           entryNumber: input.entryNumber ?? null,
           createdAt,

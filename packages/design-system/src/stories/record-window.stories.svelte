@@ -230,12 +230,23 @@
     await step("The expand control says what pressing it will do, and flips", async () => {
       const expand = body.getByRole("button", { name: "Fill the screen" });
       await expect(expand).toHaveAttribute("aria-pressed", "false");
+      // Rounded at window size: the panel is a sheet lying on top of the application.
+      await expect(getComputedStyle(dialog).borderTopLeftRadius).not.toBe("0px");
+
       await userEvent.click(expand);
       const shrink = await body.findByRole("button", { name: "Shrink back to a window" });
       await expect(shrink).toHaveAttribute("aria-pressed", "true");
+
+      // SQUARE at full screen. There is nothing underneath for it to lie on any more, so a curve
+      // reads as four notches of desktop showing through the corners of the application.
+      await expect(dialog).toHaveAttribute("data-expanded", "true");
+      await expect(getComputedStyle(dialog).borderTopLeftRadius).toBe("0px");
+      await expect(getComputedStyle(dialog).borderBottomRightRadius).toBe("0px");
+
       // Put it back: the choice is remembered for the session, so leaving it on would follow the
       // next story into its own assertions.
       await userEvent.click(shrink);
+      await expect(getComputedStyle(dialog).borderTopLeftRadius).not.toBe("0px");
     });
 
     await step("The first tab opens, and its panel is the one showing", async () => {
@@ -512,9 +523,18 @@
     const header = partOf(dialog, "header");
     const bar = partOf(dialog, "actions");
 
-    await step("A record that cannot fit caps at the viewport", async () => {
+    await step("A record that cannot fit caps at the screen less its gutter", async () => {
+      // The stage the panel is centred in is the viewport pulled in by size.modal-gutter on every
+      // side; a panel taller than that box shrinks to it, and never to the screen's own edges.
+      const stage = dialog.closest<HTMLElement>("[data-modal-stage]")!;
+      const gutter = Number.parseFloat(getComputedStyle(stage).insetBlockStart);
+      await expect(gutter).toBeGreaterThan(0);
       const panel = boxOf(dialog);
-      await expect(Math.abs(panel.height - window.innerHeight)).toBeLessThanOrEqual(1);
+      await expect(Math.abs(panel.height - (window.innerHeight - gutter * 2))).toBeLessThanOrEqual(1);
+      // Measured once the entrance scale has settled; a rect taken mid-animation is a few pixels in.
+      await waitFor(() =>
+        expect(Math.abs(dialog.getBoundingClientRect().top - gutter)).toBeLessThanOrEqual(1),
+      );
       // The panel itself still does not scroll — it clips, and the body does the moving.
       await expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight);
     });

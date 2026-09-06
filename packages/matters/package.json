@@ -25,6 +25,7 @@
     "./queries": "./src/queries.ts",
     "./settings": "./src/settings.ts",
     "./close-preconditions": "./src/close-preconditions.ts",
+    "./open-preconditions": "./src/open-preconditions.ts",
     "./close-advisories": "./src/close-advisories.ts",
     "./audit": "./src/audit.ts",
     "./validation": "./src/validation.ts"
@@ -35,6 +36,7 @@
   "dependencies": {
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/sequence-numbering": "workspace:*",
     "zod": "catalog:"

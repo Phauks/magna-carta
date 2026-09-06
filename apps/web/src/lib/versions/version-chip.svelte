@@ -34,8 +34,27 @@
    * publishing now; when a newer bundle is live the chip carries a warning dot and a Reload control
    * appears in the panel header, beside Refresh, where the panel's other gesture already is.
    *
+   * THE PANEL HAS TWO SUBJECTS, AND THE SECOND IS THIS FIRM'S OWN DATA. "What is running" and
+   * "can I reach my firm's records" are different questions with different remedies, and a member
+   * whose screens are refusing needs the second one answered: a newly created firm whose member
+   * record has not finished being written reads, on every other screen, as a permission somebody
+   * forgot to grant. So the Database section asks GET /api/v1/meta/database-health and lays the
+   * causes out separately — the connection, the schema, this account's standing in the firm, and
+   * any provisioning still in flight. Every word of that reading lives in database-health-model.ts.
+   *
+   * BOTH SECTIONS FOLD, AND EACH REMEMBERS ITS OWN FOLD. Deployment and Database are the panel's
+   * two subjects and each sits behind a caret; the fleet list keeps its own fold inside Deployment.
+   * A shut heading still carries what folding it hides — the count of Workers without a version,
+   * the worst reading among the health rows — so folding a section never turns it into a claim of
+   * health.
+   *
+   * NEITHER READ HAPPENS UNTIL THE PANEL IS OPENED. The chip is on every screen in the app, and a
+   * standing health poll behind it would be a request on every page load to answer a question
+   * nobody has asked yet. The update poll is the one exception, and it is an asset read of this
+   * bundle's own origin.
+   *
    * TWO SCOPES, ONE COMPONENT. Inside a session (`scope="app"`) the panel reports the whole
-   * deployment. On the signed-out surfaces (`scope="public"` — sign in, password reset, the
+   * deployment and its firm's database. On the signed-out surfaces (`scope="public"` — sign in, password reset, the
    * joining screens) it reports the page's own build only: that identifier is already inside the
    * bundle the visitor downloaded, so showing it discloses nothing new, while the aggregate is an
    * authenticated read that a signed-out page must not attempt. The update poll still runs there —
@@ -56,7 +75,8 @@
   import Button from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
   import Separator from "@magna-carta/design-system/separator";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
@@ -64,7 +84,25 @@
   import { updated } from "$app/state";
   import { requestJson, type Problem } from "$lib/api/request.ts";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
-  import { fleetSectionPreference } from "$lib/versions/version-panel-preferences.svelte.ts";
+  import {
+    collapsedHealthBadge,
+    copyLineForDatabaseHealth,
+    databaseHealthRows,
+    describeProvisioningBacklog,
+    healthBadgeVariant,
+    overallHealthReading,
+    DATABASE_SECTION_LABEL,
+    DEPLOYMENT_SECTION_LABEL,
+    HEALTH_READ_IN_FLIGHT_NOTICE,
+    SIGNED_OUT_DATABASE_NOTICE,
+    type DatabaseHealthValue,
+    type HealthReading,
+  } from "$lib/versions/database-health-model.ts";
+  import {
+    databaseSectionPreference,
+    deploymentSectionPreference,
+    fleetSectionPreference,
+  } from "$lib/versions/version-panel-preferences.svelte.ts";
   import {
     apiWebSyncState,
     copyLineForPart,
@@ -109,7 +147,23 @@
   let copiedRow = $state<string | null>(null);
   let nowEpochMilliseconds = $state(Date.now());
 
+  // The Database section's own read, kept in its own state beside the version read rather than
+  // merged with it. They are two requests to two endpoints, and either can fail while the other
+  // answers — a shared failure flag would let a dead health read blank the deployment list, which
+  // is the opposite of what a panel opened during an outage is for.
+  let healthValue = $state<DatabaseHealthValue | null>(null);
+  let healthFailure = $state<{ kind: "problem"; problem: Problem } | { kind: "transport" } | null>(
+    null,
+  );
+  let healthLoading = $state(false);
+  let copiedHealth = $state(false);
+
   const chipLabel = versionChipLabel(BUILD_IDENTITY.commit);
+  // Sample words for the loading fixtures: an invented commit and its two timestamps, so a
+  // fixture row's detail line is the width a real one is.
+  const FIXTURE_COMMIT = "0f3a9c1";
+  const FIXTURE_COMMIT_TIME = "2026-09-04T15:02:00Z";
+  const FIXTURE_BUILD_TIME = "2026-09-04T15:09:00Z";
   const webCommitLabel = isRealCommit(BUILD_IDENTITY.commit) ? BUILD_IDENTITY.commit : "dev";
 
   // True once the version poll has seen a bundle newer than the one this tab is running.
@@ -145,11 +199,36 @@
     }
   }
 
-  // Every open re-reads (the API's brief cache absorbs the cost), and while the panel is open a
-  // slow tick keeps the observation-age line moving instead of freezing at its first render.
+  async function refreshHealth(): Promise<void> {
+    // Same scope guard as the aggregate, and for the same reason: the health read is authenticated
+    // and firm-scoped, so a signed-out panel has no path to it at all.
+    if (!readsAggregate) return;
+    healthLoading = true;
+    const outcome = await requestJson<DatabaseHealthValue>(
+      fetch,
+      "/api/v1/meta/database-health",
+    );
+    healthLoading = false;
+    if (outcome.kind === "ok") {
+      healthValue = outcome.value;
+      healthFailure = null;
+    } else if (outcome.kind === "problem") {
+      // The previous rows stay, on the same terms the deployment rows do — the last thing that was
+      // true beats nothing at all — and the failure block below says the read did not land.
+      healthFailure = { kind: "problem", problem: outcome.problem };
+    } else {
+      healthFailure = { kind: "transport" };
+    }
+  }
+
+  // Every open re-reads (the API's brief cache absorbs the cost of the aggregate; the health read
+  // is never cached, because its whole subject is a state that changes while somebody watches it),
+  // and while the panel is open a slow tick keeps the observation-age line moving instead of
+  // freezing at its first render.
   $effect(() => {
     if (!open || !readsAggregate) return;
     void refresh();
+    void refreshHealth();
     const ticker = setInterval(() => {
       nowEpochMilliseconds = Date.now();
     }, 5000);
@@ -177,6 +256,36 @@
   // Whether magna-carta-web is running the same build as magna-carta, and if not, which side is
   // behind — the colour-coded read of the pair the front rows show, in place of a fixed sentence.
   const syncState = $derived(value === null ? null : apiWebSyncState(value.api, webWorkerRow));
+
+  // What a shut Database heading has to keep saying. Computed from the whole section — every row
+  // plus the provisioning line — so folding the section away can hide rows and never a fault.
+  const healthReading = $derived<HealthReading | null>(
+    healthValue === null ? null : overallHealthReading(healthValue),
+  );
+  const healthRows = $derived(healthValue === null ? [] : databaseHealthRows(healthValue));
+  const provisioningBacklog = $derived(
+    healthValue === null ? null : describeProvisioningBacklog(healthValue),
+  );
+  // The same fact for the Deployment heading: every Worker in the read, not just the folded ones,
+  // because collapsing Deployment hides the leading pair as well as the fleet beneath it.
+  const silentDeploymentWorkers = $derived(
+    value === null ? null : summarizeSilentWorkers(value.services),
+  );
+
+  async function copyHealth(): Promise<void> {
+    if (healthValue === null) return;
+    // Same rule as the per-row copy: the confirmation appears only when the clipboard actually took
+    // the text, and a denied permission is silent rather than a page error.
+    try {
+      await navigator.clipboard.writeText(copyLineForDatabaseHealth(healthValue));
+    } catch {
+      return;
+    }
+    copiedHealth = true;
+    setTimeout(() => {
+      copiedHealth = false;
+    }, 1000);
+  }
 
   async function copyPart(
     rowKey: string,
@@ -213,6 +322,57 @@
     return segments.length === 0 ? null : segments.join(" · ");
   }
 </script>
+
+{#snippet sectionToggle(section: {
+  label: string;
+  collapsed: boolean;
+  toggle: () => void;
+  badge: string | null;
+  badgeVariant: "neutral" | "success" | "warning" | "danger";
+})}
+  <!-- One folding heading, shared by all three sections. Its own visible label is its accessible
+       name, aria-expanded carries the state, and a badge rides beside it ONLY while it is shut:
+       what folding hides has to keep speaking, and a heading that carries the same badge open and
+       closed is saying it twice. -->
+  <Button
+    variant="ghost"
+    size="sm"
+    class="w-full justify-between gap-8"
+    aria-expanded={!section.collapsed}
+    onclick={section.toggle}
+  >
+    <span class="flex items-center gap-8">
+      <FieldLabel as="span">{section.label}</FieldLabel>
+      {#if section.collapsed && section.badge !== null}
+        <Badge variant={section.badgeVariant}>{section.badge}</Badge>
+      {/if}
+    </span>
+    <ChevronRight
+      class="size-16 shrink-0 text-text-muted transition-transform duration-fast ease-standard motion-reduce:transition-none {section.collapsed
+        ? ''
+        : 'rotate-90'}"
+      aria-hidden="true"
+    />
+  </Button>
+{/snippet}
+
+{#snippet healthRow(row: {
+  name: string;
+  reading: HealthReading;
+  status: string;
+  detail: string;
+})}
+  <!-- The same two-part shape the deployment rows use: the thing on the left, its state on the
+       right, and the sentence beneath the name saying what that state means. A health row is prose
+       about this firm rather than a dashboard identity, so no monospace. -->
+  <div class="flex items-start justify-between gap-8 py-4">
+    <div class="flex min-w-0 flex-col">
+      <span class="text-sm text-text-default">{row.name}</span>
+      <span class="text-xs text-text-muted">{row.detail}</span>
+    </div>
+    <Badge class="shrink-0" variant={healthBadgeVariant(row.reading)}>{row.status}</Badge>
+  </div>
+{/snippet}
 
 {#snippet partRow(part: {
   rowKey: string;
@@ -322,10 +482,13 @@
               variant="ghost"
               size="icon"
               class="shrink-0"
-              aria-label="Refresh the version read"
-              aria-busy={loading}
-              disabled={loading}
-              onclick={() => refresh({ fresh: true })}
+              aria-label="Refresh the panel"
+              aria-busy={loading || healthLoading}
+              disabled={loading || healthLoading}
+              onclick={() => {
+                void refresh({ fresh: true });
+                void refreshHealth();
+              }}
             >
               <RefreshCw class="size-16" aria-hidden="true" />
             </Button>
@@ -344,6 +507,8 @@
         <p class="text-xs text-text-muted">
           {#if loading}
             {READ_IN_FLIGHT_NOTICE}
+          {:else if healthLoading}
+            {HEALTH_READ_IN_FLIGHT_NOTICE}
           {:else if observationAge !== null}
             Services {observationAge}
           {:else}
@@ -410,81 +575,58 @@
     {#if readsAggregate}
       {#if value !== null || loading}
         <Separator />
-        <p
-          class="text-xs text-text-muted uppercase"
-          style="letter-spacing: var(--mc-tracking-caps)"
-        >
-          Deployment
-        </p>
-        {#if value !== null}
-          {@render partRow({
-            rowKey: "api",
-            name: API_WORKER_UNIT_NAME,
-            isWorkerName: true,
-            state: "reported",
-            commit: isRealCommit(value.api.commit) ? value.api.commit : "dev",
-            commitTime: value.api.commitTime,
-            buildTime: value.api.buildTime,
-          })}
-          {#if value.services.length === 0}
-            <p class="text-xs text-text-muted">{NO_SERVICES_NOTICE}</p>
-          {:else}
-            {@const deploymentRows = partitionDeploymentRows(value.services)}
-            <!-- The two Workers that serve the app's address lead the list, with the topology
-                 line that explains them; the rest of the fleet sits beneath the fold. -->
-            <div class="flex flex-col">
-              {#each deploymentRows.front as service (service.id)}
-                {@render partRow({
-                  rowKey: service.id,
-                  name: service.service,
-                  isWorkerName: true,
-                  state: service.state,
-                  commit: service.commit,
-                  commitTime: service.commitTime,
-                  buildTime: service.buildTime,
-                })}
-              {/each}
-            </div>
-            {#if syncState !== null}
-              <!-- The pair's sync read, colour-coded: success once magna-carta-web matches the
-                   API it serves, warning only when the web build is the one behind (the
-                   actionable case), neutral for any other difference — the two Workers deploy
-                   separately, so differing is a normal state, not a fault. -->
-              <div class="flex items-center gap-8">
-                <Badge variant={syncStateBadgeVariant(syncState)}>{syncStateLabel(syncState)}</Badge>
+        <!-- Deployment folds like the fleet inside it. Shut, it wears the count of Workers without
+             a version across the WHOLE read, not just the fleet — collapsing this heading takes the
+             leading pair down with it, and a fault in the pair is the one most worth seeing. -->
+        {@render sectionToggle({
+          label: DEPLOYMENT_SECTION_LABEL,
+          collapsed: deploymentSectionPreference.collapsed,
+          toggle: () => deploymentSectionPreference.toggle(),
+          badge: silentDeploymentWorkers,
+          badgeVariant: "warning",
+        })}
+        {#if deploymentSectionPreference.collapsed}
+          <!-- Nothing: the heading above carries what the fold hides. -->
+        {:else}
+          <LoadingRegion
+            loading={value === null}
+            label="Reading what the deployment is running"
+            class="flex flex-col gap-8"
+          >
+            {#snippet fixture()}
+              <!-- Three Worker rows over sample identifiers: the list's own shape, greyed. -->
+              <div class="flex flex-col">
+                {#each [API_WORKER_UNIT_NAME, "magna-carta-web", "magna-carta-scan"] as workerName (workerName)}
+                  {@render partRow({
+                    rowKey: `fixture-${workerName}`,
+                    name: workerName,
+                    isWorkerName: true,
+                    state: "reported",
+                    commit: FIXTURE_COMMIT,
+                    commitTime: FIXTURE_COMMIT_TIME,
+                    buildTime: FIXTURE_BUILD_TIME,
+                  })}
+                {/each}
               </div>
-            {/if}
-            {#if deploymentRows.rest.length > 0}
-              {@const silentWorkers = summarizeSilentWorkers(deploymentRows.rest)}
-              <Separator />
-              <!-- The fold. Its own visible label is its accessible name, aria-expanded carries
-                   the state, and when it is shut the count of Workers that came back without a
-                   version rides beside it, so folding the list away never folds a fault away. -->
-              <Button
-                variant="ghost"
-                size="sm"
-                class="w-full justify-between gap-8"
-                aria-expanded={!fleetSectionPreference.collapsed}
-                onclick={() => fleetSectionPreference.toggle()}
-              >
-                <span class="flex items-center gap-8">
-                  <span class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-                    {FLEET_SECTION_LABEL}
-                  </span>
-                  {#if fleetSectionPreference.collapsed && silentWorkers !== null}
-                    <Badge variant="warning">{silentWorkers}</Badge>
-                  {/if}
-                </span>
-                <ChevronRight
-                  class="size-16 shrink-0 text-text-muted transition-transform duration-fast ease-standard motion-reduce:transition-none {fleetSectionPreference.collapsed
-                    ? ''
-                    : 'rotate-90'}"
-                  aria-hidden="true"
-                />
-              </Button>
-              {#if !fleetSectionPreference.collapsed}
+            {/snippet}
+            {#if value !== null}
+              {@render partRow({
+                rowKey: "api",
+                name: API_WORKER_UNIT_NAME,
+                isWorkerName: true,
+                state: "reported",
+                commit: isRealCommit(value.api.commit) ? value.api.commit : "dev",
+                commitTime: value.api.commitTime,
+                buildTime: value.api.buildTime,
+              })}
+              {#if value.services.length === 0}
+                <p class="text-xs text-text-muted">{NO_SERVICES_NOTICE}</p>
+              {:else}
+                {@const deploymentRows = partitionDeploymentRows(value.services)}
+                <!-- The two Workers that serve the app's address lead the list, with the topology
+                     line that explains them; the rest of the fleet sits beneath the fold. -->
                 <div class="flex flex-col">
-                  {#each deploymentRows.rest as service (service.id)}
+                  {#each deploymentRows.front as service (service.id)}
                     {@render partRow({
                       rowKey: service.id,
                       name: service.service,
@@ -496,23 +638,149 @@
                     })}
                   {/each}
                 </div>
+                {#if syncState !== null}
+                  <!-- The pair's sync read, colour-coded: success once magna-carta-web matches the
+                       API it serves, warning only when the web build is the one behind (the
+                       actionable case), neutral for any other difference — the two Workers deploy
+                       separately, so differing is a normal state, not a fault. -->
+                  <div class="flex items-center gap-8">
+                    <Badge variant={syncStateBadgeVariant(syncState)}>{syncStateLabel(syncState)}</Badge>
+                  </div>
+                {/if}
+                {#if deploymentRows.rest.length > 0}
+                  <Separator />
+                  <!-- The fleet's own fold, inside Deployment's. Shut, it counts only the Workers IT
+                       hides — the pair above it is still on screen and speaks for itself. -->
+                  {@render sectionToggle({
+                    label: FLEET_SECTION_LABEL,
+                    collapsed: fleetSectionPreference.collapsed,
+                    toggle: () => fleetSectionPreference.toggle(),
+                    badge: summarizeSilentWorkers(deploymentRows.rest),
+                    badgeVariant: "warning",
+                  })}
+                  {#if !fleetSectionPreference.collapsed}
+                    <div class="flex flex-col">
+                      {#each deploymentRows.rest as service (service.id)}
+                        {@render partRow({
+                          rowKey: service.id,
+                          name: service.service,
+                          isWorkerName: true,
+                          state: service.state,
+                          commit: service.commit,
+                          commitTime: service.commitTime,
+                          buildTime: service.buildTime,
+                        })}
+                      {/each}
+                    </div>
+                  {/if}
+                {/if}
               {/if}
             {/if}
-          {/if}
-        {:else}
-          <div class="flex flex-col gap-8" aria-busy="true">
-            <Skeleton class="h-16 w-full" />
-            <Skeleton class="h-16 w-full" />
-            <Skeleton class="h-16 w-full" />
+          </LoadingRegion>
+        {/if}
+      {/if}
+      <Separator />
+      <!-- The panel's second subject: whether this session can reach and use its firm's own data.
+           It folds on the same terms Deployment does, and a shut heading wears the worst reading in
+           the section, so the one state this whole section exists to surface — a membership that
+           has not landed, and every screen refusing because of it — survives being folded away. -->
+      {@render sectionToggle({
+        label: DATABASE_SECTION_LABEL,
+        collapsed: databaseSectionPreference.collapsed,
+        toggle: () => databaseSectionPreference.toggle(),
+        badge: healthReading === null ? null : collapsedHealthBadge(healthReading),
+        badgeVariant: healthReading === null ? "neutral" : healthBadgeVariant(healthReading),
+      })}
+      {#if !databaseSectionPreference.collapsed}
+        {#if healthFailure !== null}
+          <div class="flex flex-col gap-4">
+            <p class="text-sm text-text-default">
+              {healthFailure.kind === "problem"
+                ? "The database health read failed."
+                : "The API could not be reached."}
+            </p>
+            {#if healthFailure.kind === "problem"}
+              <p class="text-xs text-text-muted">
+                Error ID: {healthFailure.problem.errorId ?? "not yet assigned"} · status {healthFailure
+                  .problem.status}
+              </p>
+            {/if}
+            <div>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={healthLoading}
+                onclick={() => refreshHealth()}
+              >
+                Retry
+              </Button>
+            </div>
           </div>
+        {/if}
+        {#if healthValue !== null || healthLoading}
+          <LoadingRegion
+            loading={healthValue === null}
+            label="Reading whether this firm's database can be reached"
+            class="flex flex-col gap-8"
+          >
+            {#snippet fixture()}
+              <!-- Two health rows over sample readings: the section's own shape, greyed. -->
+              <div class="flex flex-col">
+                {@render healthRow({
+                  name: "Firm database",
+                  reading: "healthy",
+                  status: "Reachable",
+                  detail: "The firm's own database answered.",
+                })}
+                {@render healthRow({
+                  name: "Your membership",
+                  reading: "healthy",
+                  status: "Recorded",
+                  detail: "This account is a member of the firm.",
+                })}
+              </div>
+            {/snippet}
+            {#if healthValue !== null}
+              <div class="flex flex-col">
+                {#each healthRows as row (row.id)}
+                  {@render healthRow(row)}
+                {/each}
+              </div>
+              {#if provisioningBacklog !== null}
+                <!-- The membership row's explanation, said only when there is one. A firm whose mirrors
+                     have all landed carries nothing here: "0 pending" is an info line with nothing
+                     behind it, and this line exists to turn an unexplained refusal into a wait. -->
+                <div class="flex items-center gap-8">
+                  <Badge variant={healthBadgeVariant(provisioningBacklog.reading)}>Provisioning</Badge>
+                  <p class="text-xs text-text-muted">{provisioningBacklog.sentence}</p>
+                </div>
+              {/if}
+              <div>
+                <!-- The whole section on the clipboard in one line: what a member pastes into a bug
+                     report instead of describing four rows from memory. Confirmation is the control
+                     filling for a moment, never a glyph that changes its width. -->
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class={copiedHealth ? "bg-action-secondary-hover" : ""}
+                  aria-label="Copy the database health read"
+                  onclick={() => copyHealth()}
+                >
+                  Copy diagnosis
+                </Button>
+              </div>
+            {/if}
+          </LoadingRegion>
         {/if}
       {/if}
     {:else}
       <!-- The signed-out panel stops at the page's own build. Saying so is the point: an absent
            deployment list with no sentence beside it reads as an outage, and this is a session
-           boundary. -->
+           boundary — and the same is true of the firm's database, which a visitor has not named
+           yet. -->
       <Separator />
       <p class="text-xs text-text-muted">{SIGNED_OUT_ESTATE_NOTICE}</p>
+      <p class="text-xs text-text-muted">{SIGNED_OUT_DATABASE_NOTICE}</p>
     {/if}
   </Popover.Content>
 </Popover.Root>

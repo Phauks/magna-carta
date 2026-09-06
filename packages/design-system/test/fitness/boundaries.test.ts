@@ -386,6 +386,14 @@ export function findOffTokenValueParts(value: string): string[] {
     });
 }
 
+const LOGICAL_INSET_PROPERTIES = new Set([
+  "inset-block-start",
+  "inset-block-end",
+  "inset-inline-start",
+  "inset-inline-end",
+]);
+const PERCENTAGE_ONLY_PATTERN = /^-?\d+(?:\.\d+)?%$/u;
+
 export function findComponentsCssViolations(filePath: string, css: string): string[] {
   return extractCssDeclarations(css).flatMap(({ property, value, line }) => {
     // Deliberate widening (reviewed 2026-07-02): an EMPTY-string `content` is the structural
@@ -393,6 +401,15 @@ export function findComponentsCssViolations(filePath: string, css: string): stri
     // design value. Only the exact form `content: ""` is admitted — any non-empty string (real
     // content smuggled into CSS) still violates.
     if (property === "content" && value === '""') return [];
+    /*
+     * Deliberate widening (reviewed 2026-09-02): a percentage INSET means "this element's own
+     * extent", which styles/animations.css already establishes is not tokenizable — you cannot
+     * write a token for how big a thing happens to be. It is admitted only on the four logical
+     * inset properties and only as a bare percentage, so a length, a colour or a spacing value
+     * still violates wherever it appears. ScreenSearch's downward panel is the first user: its root
+     * is a centred flex row, so a panel with no block inset sits centred on the field.
+     */
+    if (LOGICAL_INSET_PROPERTIES.has(property) && PERCENTAGE_ONLY_PATTERN.test(value)) return [];
     return findOffTokenValueParts(value).map(
       (part) =>
         `${filePath}:${line} [components-css-token-purity] ${property}: ${value} — "${part}" ` +

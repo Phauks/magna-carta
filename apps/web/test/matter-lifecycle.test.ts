@@ -13,8 +13,12 @@
 import { describe, expect, it } from "vitest";
 import {
   matterCanClose,
+  matterCanOpen,
   matterCloseRefusals,
   matterCloseRequirements,
+  matterOpenRefusals,
+  matterOpenRequirements,
+  OPEN_REFUSED_PROBLEM_TYPE,
   matterLifecycleBlock,
   matterLifecycleStep,
   CLOSE_REFUSED_PROBLEM_TYPE,
@@ -219,5 +223,58 @@ describe("matterLifecycleBlock", () => {
     expect(
       matterLifecycleBlock({ step, isSample: false, sessionSettled: true, permissions: null }),
     ).toBeNull();
+  });
+});
+
+describe("what opening requires", () => {
+  const blockers = [
+    {
+      code: "intake-step-outstanding",
+      message: 'the intake step "Run the conflicts check" is outstanding',
+    },
+    {
+      code: "intake-step-outstanding",
+      message: 'the intake step "Verify identity" is outstanding',
+    },
+  ];
+
+  it("is exactly the refusals the rules returned, each capitalised, and nothing while unanswered", () => {
+    expect(matterOpenRequirements(null)).toEqual([]);
+    expect(matterOpenRequirements(null, true)).toEqual([]);
+    const rows = matterOpenRequirements({
+      matterId: "matter_a",
+      status: "prospective",
+      openable: false,
+      blockers,
+    });
+    expect(rows.map((row) => [row.state, row.label])).toEqual([
+      ["unmet", 'The intake step "Run the conflicts check" is outstanding'],
+      ["unmet", 'The intake step "Verify identity" is outstanding'],
+    ]);
+    // Two refusals under one code still get two distinct keys.
+    expect(new Set(rows.map((row) => row.key)).size).toBe(2);
+  });
+
+  it("answers whether the consultation would open only once the rules have", () => {
+    expect(matterCanOpen(null)).toBeNull();
+    expect(
+      matterCanOpen({ matterId: "matter_a", status: "prospective", openable: true, blockers: [] }),
+    ).toBe(true);
+  });
+
+  it("reads a refused open in the shape the requirements are already in", () => {
+    expect(
+      matterOpenRefusals({
+        type: OPEN_REFUSED_PROBLEM_TYPE,
+        title: "Matter cannot be opened yet",
+        status: 409,
+        errors: blockers.map((blocker) => ({
+          path: "$",
+          code: blocker.code,
+          detail: blocker.message,
+        })),
+      }),
+    ).toEqual(blockers);
+    expect(matterOpenRefusals({ type: "conflict", title: "Conflict", status: 409 })).toEqual([]);
   });
 });

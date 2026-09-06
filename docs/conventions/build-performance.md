@@ -378,7 +378,7 @@ exist. It runs locally on demand and in CI as the gate's `test-collection` job.
 **What it proves stops at collection.** `vp test list` resolves configs and globs files; it never
 executes one, so this lint answers "which files would run", not "which files ran". The step between
 them holds — measured directly at 949 registered files: test-node collects 656 and executes
-`Test Files 656 passed (656)` unsharded, 328 + 328 across the two shards with nothing overlapping and
+`Test Files 656 passed (656)` unsharded, 328 + 328 across the two shards of the day (four since 2026-09-03) with nothing overlapping and
 nothing dropped; test-worker collects 238 and executes `238 passed (238)`.
 
 **Reading a run's file count: take the number in parentheses, not the one before it.** The summary
@@ -608,12 +608,37 @@ times: on its pull request, on the push that merges it, and again on the nightly
 identical full battery each time buys nothing — the second and third runs re-derive a result the first
 already produced. So each trigger runs the pass that **only it** can run:
 
-| Trigger        | Type-aware lint                          | Test battery | What it is for                                                                                                    |
-| -------------- | ---------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `pull_request` | full closure **minus the fan-out sinks** | full         | The tier a human waits on — optimized for latency.                                                                |
-| `push` to main | full closure **including the sinks**     | skipped      | The whole-repo type-check plus the sink lint: exactly what the pull request deliberately did not do.              |
-| `schedule`     | **whole repo**, unscoped, cold           | full         | Nightly backstop for anything the per-change tiers could miss. It now lands **after** the deploy, not before one. |
-| `merge_group`  | full closure including the sinks         | full         | Full proof of a queued merge's real post-merge tree, if a merge queue is enabled.                                 |
+| Trigger        | Type-aware lint                          | Test battery                      | What it is for                                                                                                                                                                                          |
+| -------------- | ---------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pull_request` | full closure **minus the fan-out sinks** | **on the `run-tests` label only** | The tier a human waits on — optimized for latency. The battery is asked for, never assumed (below).                                                                                                     |
+| `push` to main | full closure **including the sinks**     | skipped                           | The whole-repo type-check plus the sink lint: exactly what the pull request deliberately did not do.                                                                                                    |
+| `schedule`     | **whole repo**, unscoped, cold           | full                              | Nightly backstop for anything the per-change tiers could miss. It now lands **after** the deploy, not before one.                                                                                       |
+| `merge_group`  | full closure including the sinks         | full                              | Wired and never fires: GitHub offers merge queues only to organization-owned repositories, and this one is user-owned (owner decision 2026-09-03, on the deploy queue). Ready for the day that changes. |
+
+### The test battery runs only when asked for (owner ruling, 2026-09-03)
+
+The three test jobs — the node shards, the Miniflare Workers shards and the Chromium story suite —
+are the bulk of the Actions bill and the whole of a pull request's wall-clock (the node shards alone
+outgrew the 1-vCPU runner's fifteen-minute cap twice on 2026-09-03), so a pull request no longer runs
+them by default. They run when the run **asks** for them, and nothing else changes:
+
+- a pull request asks with the **`run-tests` label** — attaching it re-runs the gate with the battery,
+  removing it re-runs without (`labeled` and `unlabeled` are on the trigger's type list for that);
+- a manual dispatch asks with its **`test_battery`** input;
+- a queued merge (`merge_group`) always asks, because the tree it builds is the tree that deploys —
+  wired for the day the repository can have a queue (the row above says why it cannot today).
+
+The checks that stay on every pull request are the ones that are cheap and structural: format, the
+scoped type-aware lint, the type-check, the contract-drift checks, governance, and the container and
+Rust gates where the diff reaches them. `test-collection` also stays, because it proves the shape of the
+partition rather than running it.
+
+**What this moves onto the branch.** The merge bar during the austerity window (below) already asked
+for a full local `pnpm test` before a merge; that is now the standing bar rather than a window's. A
+pull request states the result of its local `pnpm test` in its description, and reaches for the label
+when it wants the runner's word as well — a migration, a contract change, a shard split, anything
+where a local run on one machine is not the evidence the change deserves. Since a merge to `main` is
+a deploy, this is the trade the ruling makes: minutes for judgement, with the label one click away.
 
 ### TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset
 
@@ -622,19 +647,23 @@ reduced until they reset (owner decision, 2026-08-05). Every suspension carries 
 `TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset` in the file it touches, so
 finding all of them is one `grep -r "TEMPORARY CI AUSTERITY"`.
 
-> **The austerity was not enough, and "still running" below is aspirational, not observed.** On the
-> same day this posture was written the account stopped being able to start **any** billable job, so
-> the pull-request tier described as "still running" has in fact run nothing since 2026-08-05. Every
-> merge since has rested on local verification alone. This is not something the workflow can fix and
-> not something that reverting the austerity would fix: it clears when the owner completes the billing
-> step on the [deploy queue](../deploy-queue.md). How to recognise the state — and why it is not a
-> runner-label problem — is in [`operations.md`](operations.md) under _Quality gates_.
+> **What happened between 2026-08-05 and 2026-09-01.** On the day this posture was written the
+> account stopped being able to start **any** billable job, so the pull-request tier ran nothing for
+> the rest of August and every merge in that window rested on local verification alone. The billing
+> step on the [deploy queue](../deploy-queue.md) cleared it, and the gate has executed since
+> 2026-09-01 (jobs with real runner ids). The first full battery, on 2026-09-02, found a month of
+> checks that merges had outrun — every one of them two branches merged minutes apart and never tested
+> together — and fixed them the same day. How to recognise the blocked state if it recurs is in
+> [`operations.md`](operations.md) under _Quality gates_.
 >
-> **Two consequences for the revert below.** The trigger for step 1 is not "the minutes reset" on its
-> own; it is **a gate run that demonstrably executed** (a job reporting a real `runner_id`). And the
-> austerity's own premise should be re-examined when it does: the suspended tiers were suspended to
-> conserve an allotment that has been exhausted for the whole period regardless, so restoring them
-> costs whatever they cost and the saving they bought was never realised.
+> **What that changes about the revert below.** Step 0 is met. Steps 1 to 4 are now a budget
+> decision rather than a blocked one: the substrate gating and the seeded WASM cache
+> (2026-09-02) cut the per-pull-request bill, but the suspended tiers cost what they cost, and a full
+> month's spend under the new gate is the number to decide against. The merge queue would have been
+> the exception — the structural fix for the class of failure the first battery found, with its
+> workflow side ready — but GitHub offers it only to organization-owned repositories, and the owner
+> declined the transfer on 2026-09-03; the [deploy queue](../deploy-queue.md) records the decision
+> and the serial-merge habit that stands in for it.
 
 **Suspended** (in [`gate.yml`](../../.github/workflows/gate.yml)):
 
@@ -646,12 +675,16 @@ finding all of them is one `grep -r "TEMPORARY CI AUSTERITY"`.
 - The **whole-repo lint tier** — the `ALL` branch of the `lint` job's scope switch, roughly 45 minutes
   of runner time on one job. Made a no-op.
 
-**Still running:** the `pull_request` tier — the whole battery (format, type-check, rust, the test
-suite, governance, contracts, containers) with the type-aware lint scoped to the changed packages and
-their full dependent closure minus the fan-out sinks, and the Workers and Chromium test substrates
-skipped when that closure proves the change cannot reach them (_Test substrates follow the dependent
+**Still running:** the `pull_request` tier — the checks (format, type-check, rust, governance,
+contracts, containers) with the type-aware lint scoped to the changed packages and their full
+dependent closure minus the fan-out sinks; the test battery on the `run-tests` label (_The test
+battery runs only when asked for_ above), with the Workers and Chromium test substrates skipped even
+then when that closure proves the change cannot reach them (_Test substrates follow the dependent
 closure_ above; added 2026-09-02, when the gate's first month of real runs showed those two jobs to be
-most of the bill); `merge_group`, if a merge queue is ever enabled; `workflow_dispatch`;
+most of the bill); `merge_group`, wired but unreachable (GitHub offers merge queues only to organization-owned
+repositories; the trigger stays, with its sinks deferred exactly as on the pull request, so the tier
+is ready the day the ownership changes);
+`workflow_dispatch`;
 [`seed-caches.yml`](../../.github/workflows/seed-caches.yml) on every push to `main` (under a minute,
 and what keeps every branch's first run off the cold WASM build); and
 [`assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) on every push to `main` (a
@@ -661,9 +694,10 @@ and what keeps every branch's first run off the cold WASM build); and
 scope only as a dependent, the whole-repo lint that a global input (the lint ruleset, the lockfile, the
 shared compiler options) or a lintable file outside every package would otherwise force, and the
 nightly backstop for two branches that merge in quick succession and interact semantically without
-touching the same files. Type-checking, tests, and the contract checks are unaffected — they were never
-scoped, and they still run whole-repo on every pull request. The first of those is covered by the merge
-bar below: a full local `pnpm check` lints the whole repository, sinks included.
+touching the same files. Type-checking and the contract checks are unaffected — they were never scoped,
+and they still run whole-repo on every pull request; the tests run whole-repo on every labelled one.
+The first of those is covered by the merge bar below: a full local `pnpm check` lints the whole
+repository, sinks included.
 
 **The merge bar during the window.** Because the post-merge tiers no longer run, verification moves
 forward to the branch: an agent runs **full local verification** on its branch before the merge (the
@@ -693,19 +727,23 @@ The rest of this section describes the standing design, which resumes unchanged 
 up-to-date-before-merge: a branch that must be current with `main` in order to merge has already run the
 full battery against exactly the tree that lands, so re-running it re-proves a proof. The gap it leaves
 is narrow and specific — two branches that merge in quick succession and interact _semantically_ without
-touching the same files, which no path filter can see. That gap is closed at its source by enabling a
-merge queue (the `merge_group` trigger is already wired for it) and caught after the fact by the nightly
-sweep. **The clause that used to close this argument is now false and must not be reused:** it read
+touching the same files, which no path filter can see. That gap would be closed at its source by a merge
+queue, which GitHub does not offer to a user-owned repository, so it is narrowed by habit — one merge
+at a time, the next branch synced onto the `main` the last one produced — and caught after the fact by
+the nightly sweep. **The clause that used to close this argument is now false and must not be reused:** it read
 "never a release risk, because `main` is not the deploy branch and the nightly full run always
 intervenes first." Since 2026-08-29 `main` **is** the deploy branch, so the nightly sweep intervenes
 after production has already shipped the tree, and the two-branches-in-quick-succession gap is a
 production gap for however long it takes the sweep to run. The pull-request tier is what stands
-between a defect and real users; the merge queue is the fix that restores the old argument's force,
-and it is not enabled.
+between a defect and real users; a merge queue is the fix that would restore the old argument's
+force, and it is not available here: GitHub gates it to organization-owned repositories, and the
+owner declined to move the repository on 2026-09-03 (the [deploy queue](../deploy-queue.md) records
+why). The `merge_group` tier stays wired for the day that changes; until then the discipline is
+serial merges, each branch synced onto the `main` the previous merge produced before it lands.
 
 **Why deferring the fan-out sinks is sound.** Which tier pays for a package's dependent re-lint is a
 cost dial, not a correctness one, because the _undeferred_ closure still runs before anything can ship
-— on the merge push, on the nightly sweep, and on a merge-queue build. A type flip that a change
+— on the merge push and on the nightly sweep. A type flip that a change
 propagates into a sink is therefore caught at merge or overnight rather than on the pull request, and
 the blast radius of that delay is one type-aware lint rule: type-checking, tests and the contract
 checks are never scoped and run whole-repo on every pull request. Two properties keep it a move rather
@@ -850,8 +888,8 @@ other trigger passes no such flag and lints them. A sink the change itself touch
 
 **Why that is a move and not a hole.** Type-aware findings in a sink can only flip through what the
 sink imports, so deferring them delays a class of finding, it does not discard it: the undeferred
-closure runs on the merge push, on the nightly sweep, and on a merge-queue build. **Two of those three
-now run after the deploy rather than before it** — the merge push and the deploy are the same event
+closure runs on the merge push and on the nightly sweep (a merge-queue build would run it too, and
+this repository cannot have one). **Both now run after the deploy rather than before it** — the merge push and the deploy are the same event
 since 2026-08-29 — so the delay this defers a finding by is a delay in production, not in a staging
 window. It is still a move rather than a hole, because the finding is a type-aware lint result in a
 package the change did not touch, not a test failure; but the old phrasing, which leaned on a

@@ -5,7 +5,9 @@
    * section at the same level as Time and Costs; a fee reaches a bill the same way a cost does —
    * a draft invoice claims it.
    *
-   * THE PAGE IS THE READ AND THE STATE SET; the surfaces below it are the screens. A SAMPLE matter
+   * THE PAGE IS THE READ AND THE STATE SET; the surfaces below it are the screens. The register
+   * renders inside the money surface, which takes the rest of the screen and keeps it; the page
+   * hands it the rows, the client, and the one line about bills not read here. A SAMPLE matter
    * (the in-repo fixtures the chrome's lifecycle states are reviewed against) has no firm behind it
    * and therefore no bills to read: it says so rather than showing an empty register, because "no
    * bills yet" and "not a real matter" are different facts.
@@ -16,8 +18,8 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import { readSession } from "$lib/matters/matters-api.ts";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import BillRegister from "$lib/billing/bill-register.svelte";
-  import FullHeightSection from "$lib/components/full-height-section.svelte";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import { MatterBilling } from "$lib/billing/matter-billing.svelte.ts";
@@ -36,6 +38,25 @@
   let reportOpen = $state(false);
   /* Bumped after a write, so the section re-reads what the server now holds rather than guessing. */
   let reloadToken = $state(0);
+
+  /*
+   * The matter header's create control is this section's only create button: it answers the
+   * press by opening the ledger's own record window (create-action.svelte.ts). The ledger is off
+   * screen while a read has failed or on a sample matter, and the control says so instead of
+   * pressing into nothing.
+   */
+  let ledger = $state<ReturnType<typeof BillRegister> | null>(null);
+  claimMatterCreate("billing", () => ({
+    title: "Open a draft bill for this matter's client. Nothing is asserted to anybody until it is finalized.",
+    refusal: isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : rows !== null && billing.clientEntityId === null
+        ? "This matter's party record names no client, so there is nobody to bill."
+      : ledger === null
+        ? "The ledger is not on screen, so nothing can be recorded from it."
+        : undefined,
+    run: () => ledger?.openNew(),
+  }));
 
   $effect(() => {
     void (async () => {
@@ -73,6 +94,16 @@
   <title>Billing · {matter.title} · Magna Carta</title>
 </svelte:head>
 
+<!-- Passed only while there is a further page, so the surface never draws an empty ruled line
+     above the counts strip on a register that is complete. -->
+{#snippet beneath()}
+  <p class="text-xs text-text-muted">
+    This client has more bills than are read here: the register is showing the {(rows ?? []).length}
+    most recent, and the figures beneath it cover only those. Reading the whole history is a
+    further page this section does not ask for yet.
+  </p>
+{/snippet}
+
 {#if failure !== null}
   <FailureScreen
     failure={failure.failure}
@@ -101,41 +132,24 @@
     </Alert.Root>
   </section>
 {:else}
-  <FullHeightSection class="gap-12">
-    {#if billing.clientEntityId === null && rows !== null}
-      <Alert.Root variant="warning">
-        <Alert.Title>This Matter Names No Client</Alert.Title>
-        <Alert.Description>
-          A bill belongs to a client, and this matter's party record does not name one yet. The
-          agreement can still be recorded; nothing can be billed until a party wearing the client
-          role is linked on the Parties tab.
-        </Alert.Description>
-      </Alert.Root>
-    {/if}
-
-    <BillRegister
-      rows={rows ?? []}
-      loading={rows === null}
-      matterId={matter.id}
-      matterTitle={matter.title}
-      matterNumber={matter.matterNumber}
-      clientEntityId={billing.clientEntityId}
-      {clientName}
-      {currency}
-      unbilled={billing.unbilled}
-      unbilledTime={billing.unbilledTime}
-      unbilledCosts={billing.unbilledCosts}
-      clientCredits={billing.clientCredits}
-      {permissions}
-      onChanged={() => (reloadToken += 1)}
-    />
-
-    {#if billing.nextCursor !== null}
-      <p class="flex-none pb-24 text-xs text-text-muted">
-        This client has more bills than are read here: the register is showing the {(rows ?? []).length}
-        most recent, and the figures beneath it cover only those. Reading the whole history is a
-        further page this section does not ask for yet.
-      </p>
-    {/if}
-  </FullHeightSection>
+  <!-- The register warns about a matter that names no client itself, first in its notices band;
+       the page's part is the read and the line beneath the list about bills not read here. -->
+  <BillRegister
+    bind:this={ledger}
+    rows={rows ?? []}
+    loading={rows === null}
+    matterId={matter.id}
+    matterTitle={matter.title}
+    matterNumber={matter.matterNumber}
+    clientEntityId={billing.clientEntityId}
+    {clientName}
+    {currency}
+    unbilled={billing.unbilled}
+    unbilledTime={billing.unbilledTime}
+    unbilledCosts={billing.unbilledCosts}
+    clientCredits={billing.clientCredits}
+    {permissions}
+    onChanged={() => (reloadToken += 1)}
+    beneath={billing.nextCursor !== null ? beneath : undefined}
+  />
 {/if}

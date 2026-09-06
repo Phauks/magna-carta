@@ -9,9 +9,11 @@
    * consolidated from them.
    *
    * THE SAME SURFACE AS TIME AND COSTS. One table machinery, one status register, one details
-   * panel, one record window, one footer grammar. What this file contributes is the columns, the
-   * words and the arrangement strip; every behaviour a reader has learned on the other two ledgers
-   * is the behaviour they get here.
+   * panel, one record window, one footer grammar. The frame, the acts row, the counts strip and
+   * the pane toggle are the money surface's (apps/web/src/lib/money/), the same on every money
+   * section; what this file contributes is the columns, the cells, the figures, the verbs and the
+   * panel beside the list. Every behaviour a reader has learned on the other ledgers is the
+   * behaviour they get here.
    *
    * THREE ALTITUDES, AND THEY STAY IN THEIR PLACES. The LIST is what a person came for. The PANEL
    * beside it is the smaller details, and it opens from its own control alone — clicking a row
@@ -26,20 +28,16 @@
    * fee IS, the list stands empty and says why, and every write renders where the design puts it,
    * refused, naming what it waits on.
    */
+  import type { Snippet } from "svelte";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import Eye from "@lucide/svelte/icons/eye";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import PanelRight from "@lucide/svelte/icons/panel-right";
-  import Plus from "@lucide/svelte/icons/plus";
-  import SquarePen from "@lucide/svelte/icons/square-pen";
-  import { LedgerPanes, RecordMenu } from "$lib/records/index.ts";
+  import { MoneySurface, type MoneySurfaceDensity } from "$lib/money/index.ts";
+  import { RecordMenu } from "$lib/records/index.ts";
   import { ledgerRecordMenu } from "$lib/records/ledger-record-menu.ts";
   import type { LedgerRecord } from "$lib/records/ledger-record-menu.ts";
   import type { RecordMenuAction, RecordMenuModel } from "$lib/records/record-menu-model.ts";
@@ -48,9 +46,6 @@
   import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import { createPersistedPreference } from "$lib/preferences/persisted-preference.svelte.ts";
   import { stringUnionPreference } from "$lib/preferences/persisted-preference.ts";
-  import { BILLING_PERMISSIONS, type ArrangementRecord } from "./billing-api.ts";
-  import AmendAgreementDialog from "./amend-agreement-dialog.svelte";
-  import ArrangementDialog from "./arrangement-dialog.svelte";
   import FeeDetailsPanel from "./fee-details-panel.svelte";
   import FeeRecordWindow from "./fee-record-window.svelte";
   import {
@@ -76,25 +71,24 @@
 
   let {
     fees,
-    arrangement,
     loading = false,
     matterId,
     matterTitle,
     matterNumber,
     currency,
     permissions,
-    onAmended,
+    beneath = undefined,
   }: {
     /** Every fee on the matter, in every status: that is what a matter's fee record is. */
     fees: readonly FeeRecord[];
-    arrangement: ArrangementRecord | null;
     loading?: boolean;
     matterId: string;
     matterTitle: string;
     matterNumber: string | null;
     currency: string;
     permissions: readonly string[] | null;
-    onAmended: (record: ArrangementRecord) => void;
+    /** Rendered by the surface directly above the counts strip. */
+    beneath?: Snippet;
   } = $props();
 
   const money = (amountMinor: number): string => formatMoney(amountMinor / 100, { currency });
@@ -111,8 +105,6 @@
   let windowFee = $state<FeeRecord | null>(null);
   let printFee = $state<FeeRecord | null>(null);
   let printOpen = $state(false);
-  let amendOpen = $state(false);
-  let arrangementOpen = $state(false);
   let reclassifyFee = $state<FeeRecord | null>(null);
   let reclassifyOpen = $state(false);
 
@@ -133,13 +125,7 @@
     },
   });
 
-  const inForce = $derived(arrangement?.inForce ?? null);
   const position = $derived(feePosition(grid.isFiltered ? grid.rowsInView : fees));
-
-  const mayConfigure = $derived(
-    permissions === null || permissions.includes(BILLING_PERMISSIONS.configure),
-  );
-  const amendRefusal = `Amending the fee arrangement needs the ${BILLING_PERMISSIONS.configure} capability, which this account does not hold.`;
 
   /**
    * Whose draft this is to work.
@@ -160,7 +146,12 @@
     windowOpen = true;
   }
 
-  function openNewFee(): void {
+  /*
+   * The one create action this surface has, exported for the section page: the matter header's
+   * create control is the only button that opens a blank record here (create-action.svelte.ts),
+   * so the ledger keeps no button of its own and answers the header's press instead.
+   */
+  export function openNew(): void {
     windowFee = null;
     windowEditing = true;
     windowOpen = true;
@@ -229,7 +220,7 @@
       case "duplicate":
         // Duplicating starts a new draft from this fee's fields. Until a fee store exists, the
         // window opens on a blank draft rather than one pre-filled from a record nothing can copy.
-        openNewFee();
+        openNew();
         return;
       case "reclassify":
         reclassifyFee = first;
@@ -268,6 +259,27 @@
           printedAt: formatInstant(new Date()),
         }),
   );
+
+  /*
+   * The two figures this ledger ends with, as the shared strip reads them. The captions are the
+   * whole reason the pair is not a bare total: "unbilled" and "billed" are positions in a process,
+   * and a reader hovering either needs to know which.
+   */
+  const footerReading = $derived([
+    {
+      identifier: "unbilled",
+      label: "unbilled",
+      value: money(position.unbilledMinor),
+      caption:
+        "Billable fees no finalized invoice has taken up. A draft bill claims them on the Bills tab.",
+    },
+    {
+      identifier: "billed",
+      label: "billed",
+      value: money(position.billedMinor),
+      caption: "Fees a finalized invoice has taken up.",
+    },
+  ]);
 </script>
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<FeeRecord>)}
@@ -311,157 +323,78 @@
 {#snippet emptyLedger()}
   <EmptyState title="No Fees Recorded Yet">
     Flat charges for professional services land here &mdash; recorded by hand, and billed like any
-    other work in progress. A fee is never computed from time entries.
-    {#snippet actions()}
-      <Button onclick={openNewFee}>
-        <Plus class="size-16" aria-hidden="true" />
-        New Fee
-      </Button>
-    {/snippet}
+    other work in progress. A fee is never computed from time entries. New Fee, at the top of the
+    matter, records the first.
   </EmptyState>
 {/snippet}
 
-{#snippet footerEnd()}
-  {#if grid.isFiltered}
-    <span class="text-text-link" title="Figures over the rows in view only">In view:</span>
-  {/if}
-  <span
-    class="inline-flex items-baseline gap-4"
-    title="Billable fees no finalized invoice has taken up. A draft bill claims them on the Bills tab."
-  >
-    <span class="text-text-subtle">unbilled</span>
-    <span class="font-semibold tabular-nums">{money(position.unbilledMinor)}</span>
-  </span>
-  <span aria-hidden="true">·</span>
-  <span
-    class="inline-flex items-baseline gap-4"
-    title="Fees a finalized invoice has taken up."
-  >
-    <span class="text-text-subtle">billed</span>
-    <span class="font-semibold tabular-nums">{money(position.billedMinor)}</span>
-  </span>
+<!-- The counts strip's trailing figures. The surface seats the pane toggle after them. -->
+{#snippet figures()}
+  <DataTable.GridFigures {grid} figures={footerReading} />
 {/snippet}
 
-<section class="flex min-h-0 flex-1 flex-col gap-12">
-  <!--
-    ONE ROW. The arrangement's facts lead and every verb this screen has trails them: View and Amend
-    read and change the arrangement, New Fee records against it, and the pane toggle ends the row as
-    it does on every ledger. Two rows split one set of controls across two lines and spent a row of
-    the screen saying nothing — the arrangement is a strip of facts, not a section with a toolbar
-    of its own.
-  -->
-  <div class="flex flex-wrap items-center gap-8 text-sm">
-    {#if inForce === null}
-      <span class="text-text-muted">
-        No arrangement recorded &mdash; this matter is billed hourly.
-      </span>
-    {:else}
-      <span>Arrangement <span class="font-semibold tabular-nums">v{inForce.version}</span></span>
-      <span aria-hidden="true" class="text-text-subtle">·</span>
-      <span class="text-text-muted">
-        in force since <span class="tabular-nums">{formatDate(inForce.validFrom)}</span>
-      </span>
-    {/if}
-    <span class="flex flex-1 flex-wrap items-center justify-end gap-8">
-      {#if grid.isFiltered}
-        <Button
-          variant="secondary"
-          size="sm"
-          title="Clear all filters and show all {grid.totalRowCount} fees"
-          onclick={() => grid.clearAllFilters()}
-        >
-          <FunnelX class="size-16" aria-hidden="true" />
-          Clear Filters
-        </Button>
-      {/if}
-      <Button
-        variant="secondary"
-        size="sm"
-        title="The arrangement in force: what it is billed as, its terms, and every prior version"
-        onclick={() => (arrangementOpen = true)}
-      >
-        <Eye class="size-16" aria-hidden="true" />
-        View
-      </Button>
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={!mayConfigure}
-        title={mayConfigure
-          ? "Record an amendment as a new version. The version in force stays on the record with the dates it governed."
-          : amendRefusal}
-        onclick={() => (amendOpen = true)}
-      >
-        <SquarePen class="size-16" aria-hidden="true" />
-        Amend
-      </Button>
-      <Button
-        size="sm"
-        title="Record a flat charge for professional services on this matter. It saves as a draft."
-        onclick={openNewFee}
-      >
-        <Plus class="size-16" aria-hidden="true" />
-        New Fee
-      </Button>
-      <!-- The pane toggle is the file manager's, to the glyph: a quiet chrome affordance with no
-           border of its own, and last in the row on every ledger. -->
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-pressed={panelOpen}
-        title="Show or hide the details panel"
-        aria-label="Show or hide the details panel"
-        onclick={() => panelPreference.set(panelOpen ? "closed" : "open")}
-      >
-        <PanelRight class="size-16" aria-hidden="true" />
-      </Button>
-    </span>
-  </div>
-
-  <!-- The one honest line about why this ledger stands empty: the record it lists is not served. -->
+<!--
+  The notices band holds one standing line: the honest word about why this ledger stands empty,
+  because the record it lists is not served. It is always on, so the band is always passed. No
+  strip of facts joins it: the fee arrangement used to lead a row here and now lives in the
+  matter's status window, behind the seal in the masthead, because it is a fact of the engagement
+  rather than of the ledger and is rarely read. Recording a fee is the matter header's New Fee,
+  not a button here (create-action.svelte.ts).
+-->
+{#snippet notices()}
   <p class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
     <MaturityBadge stage="soon" />
     {soonDependencySentence(gapReason("store"))}
   </p>
+{/snippet}
 
-  <LedgerPanes autoSaveId="matter-fees-panes" {panelOpen}>
-    {#snippet list()}
-      <RecordMenu
-        class="flex min-h-0 flex-1 flex-col"
-        {menu}
-        onAction={runMenuAction}
-        onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
-      >
-        <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
-             product uses everywhere is still the thing that opens. -->
-        <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
-          <DataTable.Grid
-            {grid}
-            {cell}
-            class="min-h-0 flex-1"
-            caption="Fees recorded on this matter"
-            empty={emptyLedger}
-            {loading}
-          />
-        </div>
-      </RecordMenu>
-    {/snippet}
-    {#snippet panel()}
-      <FeeDetailsPanel
-        {fees}
-        selected={selectedFees}
-        {arrangement}
-        {money}
-        onOpen={(fee) => openRecord(fee, canWorkDraft(fee).allowed)}
-        onPrint={print}
-        onViewArrangement={() => (arrangementOpen = true)}
-        onLetGo={() => grid.clearSelection()}
+{#snippet list({ density, tableClass }: { density: MoneySurfaceDensity; tableClass: string })}
+  <RecordMenu
+    class="flex min-h-0 flex-1 flex-col"
+    {menu}
+    onAction={runMenuAction}
+    onChoice={(_flyout, choice) => copyMenuValue(choice.identifier)}
+  >
+    <!-- The re-target runs on the way up and does NOT swallow the event, so the menu the
+         product uses everywhere is still the thing that opens. -->
+    <div class="flex min-h-0 flex-1 flex-col" role="presentation" oncontextmenu={retargetSelection}>
+      <DataTable.Grid
+        {grid}
+        {cell}
+        class={tableClass}
+        {density}
+        caption="Fees recorded on this matter"
+        empty={emptyLedger}
+        {loading}
       />
-    {/snippet}
-  </LedgerPanes>
+    </div>
+  </RecordMenu>
+{/snippet}
 
-  <DataTable.GridFooter {grid} end={footerEnd} />
-</section>
+{#snippet panel()}
+  <FeeDetailsPanel
+    {fees}
+    selected={selectedFees}
+    {money}
+    onOpen={(fee) => openRecord(fee, canWorkDraft(fee).allowed)}
+    onPrint={print}
+    onLetGo={() => grid.clearSelection()}
+  />
+{/snippet}
+
+<MoneySurface
+  {matterId}
+  section="fees"
+  {grid}
+  autoSaveId="matter-fees-panes"
+  {panelOpen}
+  onTogglePanel={(open) => panelPreference.set(open ? "open" : "closed")}
+  {notices}
+  {list}
+  {panel}
+  {figures}
+  {beneath}
+/>
 
 <FeeRecordWindow
   bind:open={windowOpen}
@@ -484,22 +417,6 @@
     moveDependency={gapReason("reclassify")}
   />
 {/if}
-
-<ArrangementDialog
-  bind:open={arrangementOpen}
-  {arrangement}
-  {matterTitle}
-  {matterNumber}
-  {money}
-  canAmend={mayConfigure}
-  {amendRefusal}
-  onAmend={() => {
-    arrangementOpen = false;
-    amendOpen = true;
-  }}
-/>
-
-<AmendAgreementDialog bind:open={amendOpen} {arrangement} {matterId} onRecorded={onAmended} />
 
 {#if sheet !== null}
   <PrintSheet bind:open={printOpen} {sheet} />

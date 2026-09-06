@@ -314,7 +314,8 @@
 <div bind:this={ref} class={mergeClasses("mc-folder-tree", className)} {...restProps}>
   <div class="mc-folder-tree-scroll mc-scrollbar">
     {#if loading}
-      <div class="mc-folder-tree-loading" aria-busy="true">
+      <p class="sr-only">Reading the folders</p>
+      <div class="mc-folder-tree-loading" aria-busy="true" aria-hidden="true">
         {#each LOADING_ROWS as row (row)}
           <Skeleton class="mc-folder-tree-loading-row" />
         {/each}

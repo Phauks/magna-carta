@@ -912,7 +912,14 @@ const fieldMappingsRoute = defineOpenAPIRoute(manageMeta("fieldMappings", false,
 });
 
 const deleteFieldMappingRoute = defineOpenAPIRoute(
-  manageMeta("deleteFieldMapping", true, "optional"),
+  {
+    ...manageMeta("deleteFieldMapping", true, "optional"),
+    reversal: {
+      kind: "none",
+      reason:
+        "A mapping is a statement the firm made about its own documents, withdrawn outright rather than archived. It is made again the next time a template registration meets the field, which is a new statement rather than this one restored.",
+    },
+  },
   {
     method: "delete",
     path: "/api/v1/merge-field-mappings/{mappingId}",

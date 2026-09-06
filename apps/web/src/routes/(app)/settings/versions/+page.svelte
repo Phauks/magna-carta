@@ -14,6 +14,10 @@
    *   engine) fall through to the honest em-dash seam — never a faked number. When the
    *   aggregated endpoint ships, this page swaps the fetch and the seam rows light up.
    *
+   * While that read is out the Platform services list is a LoadingRegion over the same list with
+   * sample versions in the scan engine's three rows; the seam rows stay real inside the fixture,
+   * because a dash is an honest answer and must never read as a value on its way.
+   *
    * The masthead carries no History trigger: this page has no ledger section — versions are
    * reported facts, not user changes, and an always-empty trail would state something untrue
    * about where their history lives (it is the platform's deploy log, not this device). The
@@ -24,7 +28,9 @@
    * rows are definition-list semantics, not setting rows — same rules, same voice, different
    * element; settings-plate.svelte is the reference for the recipe.
    */
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import FieldLabel from "@magna-carta/design-system/field-label";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
@@ -48,6 +54,13 @@
     | { status: "unreported" };
 
   let scanEngine = $state<ScanEngineState>({ status: "loading" });
+
+  /** Sample words for the loading fixture: plausible shapes for the three scan engine rows. */
+  const SCAN_ENGINE_FIXTURE: ScanEngineParts = {
+    engineCode: "3.7.1",
+    yaraRuleset: "2026-09-01",
+    malwareDefinitions: "27544",
+  };
 
   /**
    * Splits the scan container's composite version string back into its three separable
@@ -114,18 +127,18 @@
      identical width. Full canvas width (owner-directed): the table uses the space. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
-  {#snippet row(component: string, version: string | null, asOf: string | null)}
+  <!-- `keep` marks a row that stays real inside a loading fixture: a seam row's dash is an
+       answer, not a value on its way. -->
+  {#snippet row(component: string, version: string | null, asOf: string | null, keep: boolean)}
     <!-- The shared table grid: the (empty) marker gutter, the flexible label, and the value at
          the fixed control-column measure — so diagnostic values share the settings rows'
          vertical edge. -->
-    <div class="flex items-baseline gap-16 py-12">
+    <div class="flex items-baseline gap-16 py-12" data-loading-keep={keep ? "" : undefined}>
       <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
-      <dt
-        class="min-w-0 grow text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
+      <FieldLabel as="dt" class="min-w-0 grow"
       >
         {component}
-      </dt>
+      </FieldLabel>
       <dd
         class="flex shrink-0 flex-col items-end gap-4 text-end"
         style="inline-size: var(--mc-size-popover)"
@@ -133,8 +146,7 @@
         {#if version !== null && changelogHref !== null}
           <a
             href={changelogHref}
-            target="_blank"
-            rel="noreferrer noopener"
+            {...opensBeside("external")}
             class="text-sm text-text-default tabular-nums underline decoration-border-default underline-offset-4 hover:decoration-current"
           >
             {version}
@@ -149,66 +161,52 @@
     </div>
   {/snippet}
 
-  {#snippet loadingRow(component: string)}
-    <div class="flex items-baseline gap-16 py-12">
-      <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
-      <dt
-        class="min-w-0 grow text-xs text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
-      >
-        {component}
-      </dt>
-      <dd class="flex shrink-0 justify-end" style="inline-size: var(--mc-size-popover)">
-        <Skeleton class="h-16 w-96" />
-      </dd>
-    </div>
+  <!-- The platform services list, drawn once for the fixture (over the sample parts, seams kept
+       real) and once for the read's answer. -->
+  {#snippet platformServicesList(scan: ScanEngineParts | null, keepSeams: boolean)}
+    <dl class="flex flex-col divide-y divide-border-default border-b border-border-strong">
+      {@render row("Scan Engine · Code", scan?.engineCode ?? null, null, false)}
+      {@render row("Scan Engine · YARA Ruleset", scan?.yaraRuleset ?? null, null, false)}
+      {@render row("Scan Engine · Malware Definitions", scan?.malwareDefinitions ?? null, null, false)}
+      {@render row("Document Editing Container", null, null, keepSeams)}
+      {@render row("Conversion Engines", null, null, keepSeams)}
+      {@render row("PDF Engine", null, null, keepSeams)}
+    </dl>
   {/snippet}
 
   <section class="flex flex-col">
-    <h3
-      class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
+    <FieldLabel as="h3" class="border-b border-border-strong pb-8"
     >
       Application
-    </h3>
+    </FieldLabel>
     <dl class="flex flex-col divide-y divide-border-default border-b border-border-strong">
       {@render row(
         "Application Build",
         `${BUILD_IDENTITY.commit} · ${BUILD_IDENTITY.mode}`,
         builtAt,
+        false,
       )}
     </dl>
   </section>
 
   <section class="flex flex-col">
-    <h3
-      class="border-b border-border-strong pb-8 text-xs text-text-muted uppercase"
-      style="letter-spacing: var(--mc-tracking-caps)"
+    <FieldLabel as="h3" class="border-b border-border-strong pb-8"
     >
       Platform services
-    </h3>
-    <dl
-      class="flex flex-col divide-y divide-border-default border-b border-border-strong"
-      aria-busy={scanEngine.status === "loading"}
+    </FieldLabel>
+    <LoadingRegion
+      loading={scanEngine.status === "loading"}
+      label="Reading the scan engine's versions"
+      class="flex flex-col"
     >
-      {#if scanEngine.status === "loading"}
-        {@render loadingRow("Scan Engine · Code")}
-        {@render loadingRow("Scan Engine · YARA Ruleset")}
-        {@render loadingRow("Scan Engine · Malware Definitions")}
-      {:else if scanEngine.status === "reported"}
-        {@render row("Scan Engine · Code", scanEngine.parts.engineCode, null)}
-        {@render row("Scan Engine · YARA Ruleset", scanEngine.parts.yaraRuleset, null)}
-        {@render row("Scan Engine · Malware Definitions", scanEngine.parts.malwareDefinitions, null)}
-      {:else}
-        {@render row("Scan Engine · Code", null, null)}
-        {@render row("Scan Engine · YARA Ruleset", null, null)}
-        {@render row("Scan Engine · Malware Definitions", null, null)}
-      {/if}
-
-      {@render row("Document Editing Container", null, null)}
-      {@render row("Conversion Engines", null, null)}
-      {@render row("PDF Engine", null, null)}
-    </dl>
+      {#snippet fixture()}
+        {@render platformServicesList(SCAN_ENGINE_FIXTURE, true)}
+      {/snippet}
+      {@render platformServicesList(
+        scanEngine.status === "reported" ? scanEngine.parts : null,
+        false,
+      )}
+    </LoadingRegion>
   </section>
 
   <p class="text-sm text-text-muted">

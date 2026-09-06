@@ -465,6 +465,51 @@ round builds it.
   keeps the entry on the one it was captured under; the TIER within that card is what the
   destination re-answers.
 
+## R11 — round eleven: the fields stop apologising, and a void stops being permanent
+
+The owner walked the record window, the sheet and the cost window together. The theme of what came
+back is fields explaining themselves instead of working: two paragraphs saying the firm has no codes
+turned on, a badge repeating the word already in the label, a rate that could be read and not set,
+and one duration field where a firm thinks in three.
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| L5a | **Every code field carries a `(None)` row, for every firm.** A firm that does not code its time is the commonest configuration in the product, and it was getting two sentences of apology and no working field. `(None)` is also the field's RESTING reading rather than a blank: an empty box says nobody has filled this in, and `(None)` says the entry carries no code. The explanatory line survives only for a genuine inability — this account may not read the catalogue, or the read failed.                                | settled |
+| L5b | **The internal memo sits under the description, and wears no badge.** They are one act of writing that differs only in who reads it; down by the arithmetic the memo was a stranded field a reader met after they had finished with the entry. The "Internal" chip said in a second voice what the word Internal in the label had already said.                                                                                                                                                                                       | settled |
+| L5c | **The rate is a FIELD on a draft, and the snapshot rule is untouched.** The chain has always ranked a per-entry override above every stored tier and capture has always accepted one; what was missing was a way to say it, and a way to say it on an entry the firm already holds. The snapshot rule forbids a rate card edited LATER re-rating a standing entry, which still holds — this is somebody's deliberate answer for one entry, not a card's answer for all of them. Emptying the field hands the entry back to the chain. | settled |
+| L5d | **A duration can be stated in hours, in units, or as a span between two clock times.** Units are the firm's OWN increment — a firm on quarters and a firm on tenths mean different work by "two units" — so the increment is served rather than assumed. All three are live at once and each is a view of the same minutes.                                                                                                                                                                                                           | settled |
+| L5e | **Which of the three are on screen is the reader's setting, and the last one cannot be turned off.** A capability nobody can see is a capability nobody has, so all three show by default and the reader puts away what they do not use. A window with no way to state how long the work took cannot record time, so clearing the last mode is refused rather than obeyed.                                                                                                                                                            | settled |
+| L5f | **A void can be undone, and the repair keeps the record.** `POST /time-entries/{id}/unvoid`. People void the wrong row, void on a say-so that turns out to be mistaken, and void an afternoon where they meant one line; re-typing loses the number, the memo, the codes, the documents and the history — the same argument that made a misfiled entry move rather than be re-typed (L4b).                                                                                                                                            | settled |
+| L5g | **It restores to DRAFT, never to submitted or approved.** Those were somebody's judgement about an entry that has since been withdrawn, and they have to be given again.                                                                                                                                                                                                                                                                                                                                                              | settled |
+| L5h | **The one void that must stay one is an entry converted into a cost.** That conversion moved the entry's value onto a cost record and voided the time so the firm could not count it twice; restoring the time would undo the half of the act that was protecting the client.                                                                                                                                                                                                                                                         | settled |
+| L5i | **Void, never strike.** One word for the act across the history rail, the sheet, the ledger and the record window.                                                                                                                                                                                                                                                                                                                                                                                                                    | settled |
+| L5j | **There is no fourth billing disposition.** "No charge, on the bill at nothing" is non-billable under a longer name: both mean the client is charged nothing and the entry carries no value, and the only difference anybody could name is whether the line prints, which is a question about a bill and not about this entry.                                                                                                                                                                                                        | settled |
+| L5k | **A document can be attached before the entry exists.** "Save the entry first" is a true statement about the route and a wrong one about the work — the person has the document open in front of them. The picks are held and applied the moment the entry is written; a failure to attach is reported as its own fact, because the entry is saved and correct.                                                                                                                                                                       | settled |
+| L5l | **The cost window writes the same pair in the same shape, and commits with the same words.** Description then Internal Memo, stacked and full width; "Save & Close". A cost and a time entry are recorded minutes apart by the same person, and the fields they share must not move between them.                                                                                                                                                                                                                                     | settled |
+
+**Notes recorded this round:**
+
+- **A defect found while building L5c, and fixed with it:** changing an entry's time worked wrote
+  `raw_duration_minutes` and left the billed duration and the amount where they stood, so an entry
+  corrected from one hour to two was still billed at one. The route now re-derives both money
+  columns whenever any of their three inputs moves — the work date, the rate, or the worked
+  duration. It could not be left: a settable rate whose amount is computed against a stale duration
+  is a worse field than no field.
+- **A second defect in the same place:** correcting the work date of an entry somebody had
+  deliberately priced re-asked the chain WITHOUT the override and put the card's answer back, so a
+  correction to one field quietly changed what the client is charged. A standing override now
+  carries through an unrelated edit.
+- Recorded judgement: unvoid is NOT a lifecycle transition. `canTransition` still says nothing
+  leaves a terminal state, because every other record kind reads that same table and none of them
+  has been designed for a backward move. It is its own guarded act, the way refiling is its own
+  statement rather than a field on the patch.
+- Recorded judgement: the conversion link that L5h turns on lives in the audit trail and nowhere
+  else — no column on either row names the other — so the audit trail is what the route asks. If a
+  `source_time_entry_id` column ever lands on `cost_entry`, this guard should read that instead.
+- Recorded judgement: the Time Sheet's undo stack still offers no step for a void. It rewrites
+  FIELDS through the update route and a void is a status change on another route; what changed is
+  the announcement, which now names where the repair actually is.
+
 ## API gaps the mockup is honest about
 
 > **Re-asked against the contract, 2026-09-02 (R9).** Eight of the entries below had been CLOSED by
@@ -473,8 +518,17 @@ round builds it.
 > relation and the per-entry event history. They are struck through in place rather than deleted, so
 > the register keeps its history and the shape of the mistake stays visible: **a gap register is
 > only honest while somebody re-asks it against the contract.** The app's own list lives in
-> `apps/web/src/lib/time/time-gaps.ts` and is now down to eight entries; check it and the served
-> summary in `apps/web/src/lib/matters/time-api.ts` before adding to either.
+> `apps/web/src/lib/time/time-gaps.ts`; check it and the served summary in
+> `apps/web/src/lib/matters/time-api.ts` before adding to either.
+>
+> **Re-asked again, 2026-09-03 (R11).** The rounding increment stopped being a gap and became a
+> route: `GET /time-entries/rounding-policy` resolves it through the same scope chain the capture
+> uses, so the record window can state what an entry will actually be billed at and can count units
+> in the firm's own increment. What remains of that entry is narrower and still true — the Time
+> Sheet spans matters, the increment is a per-matter setting, and one read cannot answer for a
+> mixed list, so a row nobody has written yet still cannot say. A written row never needed it: the
+> server sends its billed figure with the entry, and the sheet was refusing a field it already had
+> the value for.
 
 Consolidated across rounds, in rough priority order. The per-matter listing and capture contracts
 need:
@@ -566,3 +620,11 @@ need:
     sets, each as identifier, code and label); a billable-side category vocabulary and column; the
     non-billable category on the listing; billing disposition beyond the boolean (TD2); ~~an
     internal memo column (TD10)~~ **CLOSED** (see 20); a permission on the rate override (TP4).
+
+## Round eight — the surface's controls become the platform's
+
+| #    | Ruling                                                                                                                                                                                                                                                                                                                                                                        | Status  |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| TB2c | **The clear-filters control is `DataTable.ClearFilters`** — one shape on every table, with the words rather than a bare glyph. It stays in the tabs row where TT2 put it, which is also where the owner's 2026-09-03 platform ruling puts it: the control row above the table, where the filters were set. TB2b's presence-only rule is unchanged and is now the component's. | settled |
+| TS9  | **Undo and redo move from the Time Sheet's toolbar into its footer**, as `UndoRedoControls` — the owner's 2026-09-03 ruling that the pair lives in the counts strip on every surface that has a stack. It joins the worked / billed / value figures there. TT2's tabs-row inventory loses the pair and keeps the rest.                                                        | settled |
+| TS10 | **The worked / billed / value figures are `DataTable.GridFigures`** — the label leads and the figure follows, which is the platform's one reading order for a labelled figure. The sheet keeps its own scope sentence and its incomplete-row count beside the strip; both are this surface's facts, not figures.                                                              | settled |

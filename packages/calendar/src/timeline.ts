@@ -1,6 +1,9 @@
+import type { Permission } from "@magna-carta/access-control/registry";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { mergeTimelinePages, type MergedPage } from "./merge.ts";
 import {
+  type DescribedRawRow,
+  type RowDescription,
   type TimelineCursor,
   type TimelineEntry,
   type TimelineRawRow,
@@ -35,6 +38,15 @@ export interface TimelineReadOptions {
   readonly cursor?: TimelineCursor;
   readonly pageSize?: number;
   readonly ascending?: boolean;
+  // Ask each source present on the page to NAME its rows, for the one matter in scope. Honoured
+  // only when the scope names a matter: a firm-wide read is never described, whatever it asks.
+  // The permissions are the member's, resolved by the chokepoint; a source whose `permission` the
+  // member does not hold is not asked, and its rows keep the sentence.
+  readonly describe?: TimelineDescribeOptions;
+}
+
+export interface TimelineDescribeOptions {
+  readonly permissions: ReadonlySet<Permission>;
 }
 
 export interface TimelineReadResult extends MergedPage {
@@ -42,6 +54,9 @@ export interface TimelineReadResult extends MergedPage {
   readonly statementCount: number;
   readonly rowsRead: number;
   readonly sourcesRead: readonly string[];
+  // The describe statements issued after the merge: at most one per source present on the page,
+  // so this too scales with the registry and never with the rows.
+  readonly describeStatementCount: number;
 }
 
 function resolvePageSize(requested: number | undefined): number {
@@ -143,11 +158,92 @@ export async function readTimelinePage(options: TimelineReadOptions): Promise<Ti
   }
 
   const merged = mergeTimelinePages(perSourceEntries, pageSize, ascending);
+  const described =
+    options.describe !== undefined && options.scope.matterId !== undefined
+      ? await describeEntries(options, options.scope.matterId, options.describe, merged.entries)
+      : { entries: merged.entries, statementCount: 0 };
   return {
-    entries: merged.entries,
+    entries: described.entries,
     nextCursor: merged.nextCursor,
     statementCount: plans.reduce((total, plan) => total + plan.statements.length, 0),
     rowsRead,
     sourcesRead: plans.map((plan) => plan.source.key),
+    describeStatementCount: described.statementCount,
   };
+}
+
+// The description pass: AFTER the merge, over the page that will actually be shown, one statement
+// per source present on it. Bounded by the registry (a source describes its own rows in one
+// statement over the page's ids) and gated per source by the member's permissions. A source that
+// declares no `describe`, or whose permission the member lacks, is simply not asked — its rows
+// keep the sentence, which is the state every entry is designed to render in.
+async function describeEntries(
+  options: TimelineReadOptions,
+  matterId: string,
+  describe: TimelineDescribeOptions,
+  entries: readonly TimelineEntry[],
+): Promise<{ entries: readonly TimelineEntry[]; statementCount: number }> {
+  const rowIdsBySource = new Map<string, string[]>();
+  for (const entry of entries) {
+    const rowIds = rowIdsBySource.get(entry.sourceKey) ?? [];
+    if (!rowIds.includes(entry.rowId)) rowIds.push(entry.rowId);
+    rowIdsBySource.set(entry.sourceKey, rowIds);
+  }
+
+  const plans: { source: TimelineSource; statements: readonly SqlStatement[] }[] = [];
+  for (const [sourceKey, rowIds] of rowIdsBySource) {
+    const source = options.registry.get(sourceKey);
+    if (source?.describe === undefined) continue;
+    if (source.permission !== null && !describe.permissions.has(source.permission)) continue;
+    const statements = source.describe({
+      database: options.database,
+      matterId,
+      rowIds,
+      visibility: options.visibility,
+    });
+    if (statements.length > 0) plans.push({ source, statements });
+  }
+  if (plans.length === 0) return { entries, statementCount: 0 };
+
+  const results = await Promise.all(
+    plans.flatMap((plan) => plan.statements.map((statement) => statement.all<DescribedRawRow>())),
+  );
+
+  const descriptions = new Map<string, RowDescription>();
+  let resultIndex = 0;
+  for (const plan of plans) {
+    for (let index = 0; index < plan.statements.length; index += 1) {
+      const rows = results[resultIndex]?.results ?? [];
+      resultIndex += 1;
+      for (const row of rows) {
+        descriptions.set(`${plan.source.key}:${row.row_id}`, {
+          title: row.title,
+          typeText: row.type_text,
+          facts: parseFacts(row.facts_json),
+        });
+      }
+    }
+  }
+
+  return {
+    entries: entries.map((entry) => {
+      const description = descriptions.get(`${entry.sourceKey}:${entry.rowId}`);
+      return description === undefined ? entry : { ...entry, ...description };
+    }),
+    statementCount: plans.reduce((total, plan) => total + plan.statements.length, 0),
+  };
+}
+
+// The facts column is whatever json_object the source wrote. A row whose JSON does not parse, or
+// is not an object, carries no facts rather than failing the page: the description is an extra
+// over the entry, never a condition of it.
+function parseFacts(factsJson: string | null): Readonly<Record<string, unknown>> | null {
+  if (factsJson === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(factsJson);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return parsed as Readonly<Record<string, unknown>>;
+  } catch {
+    return null;
+  }
 }

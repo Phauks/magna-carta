@@ -143,6 +143,29 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     // Discovery is its own namespace, and that is the access rule: holding matters:* or files:* on
     // a matter reaches no review set on it. Billing and Read-only carry none of the five keys —
     // material produced by another party may be attorney's-eyes-only under a protective order.
+    // Intake: reading a checklist and recording a step reach every working seat, Billing included
+    // (the retainer arriving is a clerk's own fact to record); waiving a required step and authoring
+    // the procedure stop at Owner/Admin and Attorney; Read-only carries none.
+    for (const key of ["intake:read", "intake:record"]) {
+      expect(grantsFor("Owner/Admin")).toContain(key);
+      expect(grantsFor("Attorney")).toContain(key);
+      expect(grantsFor("Paralegal")).toContain(key);
+      expect(grantsFor("Billing")).toContain(key);
+      expect(grantsFor("Read-only")).not.toContain(key);
+    }
+    for (const key of ["intake:waive", "intake:manageProcedures"]) {
+      expect(
+        grants
+          .filter((grant) => grant.permission === key)
+          .map((grant) => grant.role_id)
+          .toSorted(),
+      ).toEqual(
+        [
+          roles.find((row) => row.name === "Owner/Admin")?.id,
+          roles.find((row) => row.name === "Attorney")?.id,
+        ].toSorted(),
+      );
+    }
     expect(grantsFor("Attorney")).toContain("discovery:load");
     expect(grantsFor("Attorney")).toContain("discovery:review");
     expect(grantsFor("Attorney")).toContain("discovery:produce");
@@ -206,6 +229,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
+        "intake:read",
+        "intake:record",
         // The assistant reaches the seats that do legal work. Seeding the key turns nothing on:
         // both firm-level consent settings default closed and every route reads them first.
         // magnus:readAllConversations is Owner/Admin only, so it is absent here.
@@ -230,6 +255,14 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // statement is built, so a seat without notes:read gets no note back from it.
         "search:matter",
         "support:request",
+        // All three task keys reach the practitioner set. tasks:assign is separate from tasks:write
+        // so a firm CAN reserve who puts work in other people's names, but it is seeded here because
+        // paralegals and attorneys delegate to each other constantly and a default that made them
+        // ask an administrator would be routed around on the first day. Billing carries read and
+        // write but not assign; Read-only carries none.
+        "tasks:assign",
+        "tasks:read",
+        "tasks:write",
         "tools:aiTextDetection",
         "tools:decryption",
         "tools:emailInspector",
@@ -281,9 +314,16 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
+        "intake:read",
+        "intake:record",
         "notifications:read",
         "search:matter",
         "support:request",
+        // Billing carries read and write but NOT assign. "Chase the Henderson retainer
+        // replenishment" is a billing clerk's own work and a task list that cannot hold it sends
+        // them to a spreadsheet; putting work in a lawyer's name is the act the third key reserves.
+        "tasks:read",
+        "tasks:write",
         "trust:manage",
         "trust:read",
         "tools:aiTextDetection",

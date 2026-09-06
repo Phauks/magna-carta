@@ -37,6 +37,18 @@ let firmId: FirmId;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   firmId = newIdentifier("firm");
+  // The consumer resolves the firm's bucket from the control-plane row before it reads a byte, so the
+  // firm has to exist there — a queue message names a firm, not a bucket.
+  await env.DB_CONTROL.prepare(
+    "INSERT INTO firm (id, name, bucket_name, status, created_at) VALUES (?1, ?2, ?3, 'active', ?4)",
+  )
+    .bind(
+      firmId,
+      `Search Index Firm ${firmId}`,
+      `magna-carta-test-${firmId}`,
+      new Date().toISOString(),
+    )
+    .run();
 });
 
 function makeBatch(message: SearchIndexMessage) {

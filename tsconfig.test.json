@@ -140,6 +140,9 @@
       "path": "packages/inference/tsconfig.test.json"
     },
     {
+      "path": "packages/intake/tsconfig.test.json"
+    },
+    {
       "path": "packages/integrations/tsconfig.test.json"
     },
     {
@@ -207,6 +210,9 @@
     },
     {
       "path": "packages/status/tsconfig.test.json"
+    },
+    {
+      "path": "packages/tasks/tsconfig.test.json"
     },
     {
       "path": "packages/telemetry/tsconfig.test.json"

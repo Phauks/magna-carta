@@ -190,6 +190,40 @@ export const PERMISSIONS = [
   // resource: "matter" — a note IS one matter's record and cannot exist without one.
   "notes:read", // read a matter's notes and the files linked to them
   "notes:write", // write a note, edit one, delete one, and link or unlink the matter's files
+  // Tasks — one piece of work with somebody's name on it. Three keys rather than the usual pair,
+  // because assigning work to another member is a different act from recording your own: a task with
+  // somebody else's name on it is an obligation placed on a colleague, and a firm may reasonably let
+  // everyone keep their own list while reserving who may put work on other people. tasks:write covers
+  // creating, editing, completing, reopening, cancelling and deleting one's own or an unassigned
+  // task, plus linking the matter's files; tasks:assign is the one that names another member.
+  //
+  // Both bind resource: "firm" and NOT "matter", which is the difference from notes:* and the reason
+  // to read this comment before copying that pattern. A task's matter is nullable — renewing the
+  // malpractice policy is real firm work on no client file — so a matter cannot be the tenancy root
+  // for a record that need not have one. The matter-scoped reads still compose the visible-matter
+  // predicate; the binding is about which root the chokepoint resolves, not about what a read
+  // returns.
+  "tasks:read", // read tasks on a matter, one's own task list, and the files linked to them
+  "tasks:write", // create, edit, complete, reopen, cancel and delete a task; link and unlink the matter's files
+  "tasks:assign", // put a task in another member's name, or move one out of theirs
+  // Authoring a matter plan is a different act from doing the work it describes. A plan is the firm's
+  // statement of how a kind of matter is run — closer to the matter-type catalog than to a task — and
+  // a wrong step in one propagates to every matter opened under it, so it is a fourth key rather than
+  // riding tasks:write. Accepting a proposed plan needs no key of its own: it creates tasks, which is
+  // what tasks:write and tasks:assign already govern. Binds resource: "firm" like the rest.
+  "tasks:managePlans", // author, edit and deactivate the firm's matter plans and the tasks they propose
+  // Intake — what a kind of matter must clear before it opens. Four keys, on the tasks split: reading
+  // where a consultation stands and recording that a step was done reach every seat that does firm
+  // work, Billing included, because the retainer arriving and the fee being agreed are a billing
+  // clerk's own facts to record. Waiving a REQUIRED step is a different act — it is the recorded
+  // override of an opening gate, under a named member's rationale — so it is its own key and stops at
+  // Owner/Admin and Attorney. Authoring the procedure is the firm's statement of how it takes work on,
+  // the matter plan's argument, and stops at the same two seats. Authoring binds resource: "firm";
+  // the three matter-side keys bind resource: "matter", because a record IS one matter's record.
+  "intake:read", // read a matter's intake checklist: the steps its procedure requires and where each stands
+  "intake:record", // record that a step was completed on a matter, or reopen one
+  "intake:waive", // waive a required step on a matter, with a rationale, so the matter may open without it
+  "intake:manageProcedures", // author, edit and deactivate the firm's intake procedures and their steps
   // Matter assets — the register of what a client or an estate owns, kept on a matter. Two keys,
   // because the register concentrates a matter's financially sensitive facts (what the estate owns,
   // what it is worth, account suffixes, home addresses) in one surface: a firm that gives a

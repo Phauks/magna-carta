@@ -15,6 +15,8 @@
   import Badge from "@magna-carta/design-system/badge";
   import type { BadgeVariant } from "@magna-carta/design-system/badge";
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import { DEVELOPER_CONSOLE_BACK } from "$lib/screen/screen-header.ts";
   import {
     createDataTableGrid,
     type DataTableGridOptions,
@@ -194,13 +196,7 @@
 {#if import.meta.env.DEV}
   <div class="flex min-h-screen flex-col gap-32 bg-surface-default p-24 text-text-default">
     <header class="flex max-w-prose flex-col gap-8">
-      <p
-        class="text-xs font-semibold text-text-muted uppercase"
-        style="letter-spacing: var(--mc-tracking-caps)"
-      >
-        Developer console
-      </p>
-      <h1 class="text-2xl font-semibold">Table states</h1>
+      <ScreenHeader title="Table states" back={DEVELOPER_CONSOLE_BACK} />
       <p class="text-sm text-text-muted">
         The platform's one table (DataTable.Grid) in every state, rendered from the real design
         system over a litigation fixture. Use this instead of a standalone mockup: a mockup is

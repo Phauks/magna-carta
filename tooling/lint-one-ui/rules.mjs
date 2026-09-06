@@ -35,6 +35,12 @@
  *   imperative-dom  — no `getElementById`, no `innerHTML`, and no `querySelector` outside a
  *                     measuring `$effect`, in the ported surfaces. The mockups reached into the
  *                     document by hand; the ported screens are declarative Svelte.
+ *   raw-table       — no `<table>`, none of its parts, and no table ARIA role outside the data-table
+ *                     home. Every tabular surface is `DataTable.Grid`; a plain grid of facts is the
+ *                     design system's primitives, which carry the recipe a raw element does not.
+ *   table-machinery — nothing outside that home writes what the Grid already carries: a sortable
+ *                     header, the headless engine composed by hand, or the adapter's own parts. A
+ *                     second sort is the behaviour gap the one-table ruling calls a defect.
  *   allowance       — every recorded allowance still describes a real violation. An allowance that
  *                     has outlived its violation is a failure, on the same discipline the registry's
  *                     `pending` mark uses: a list nobody re-reads is how a gate goes quiet.
@@ -357,7 +363,7 @@ export function findDomainLeaks(filePath, source) {
         "the caller supplies",
     });
   }
-  return problems.toSorted((first, second) => first.line - second.line);
+  return problems.toSorted((first, second) => first.at - second.at);
 }
 
 // --- rule: the one-implementation registry ---------------------------------------------------
@@ -669,6 +675,130 @@ export function findHandDrawnGlyphs(filePath, source) {
   }));
 }
 
+// --- rule: no raw table, and no table machinery beside the one table ------------------------
+
+/** The home of the platform's one table — the only place table markup, or its machinery, is written. */
+export const DATA_TABLE_HOME = "packages/design-system/src/lib/components/data-table";
+
+const insideDataTableHome = (filePath) => filePath.startsWith(`${DATA_TABLE_HOME}/`);
+
+/**
+ * Table markup written out by hand: the browser's elements, and the ARIA roles a `<div>` wears to
+ * be a table without saying so.
+ *
+ * Lowercase only, as with `<select`: `<Table` is the design system's primitive and `<table` is the
+ * browser's element, and the case is the whole difference. The word boundary is what keeps `<tr`
+ * off `<track`, `<th` off `<thead` (its own alternative) and `<td` off nothing at all — and every
+ * component name is PascalCase, so no component starts with a lowercase `<t`.
+ */
+const TABLE_MARKUP =
+  /<(?:table|thead|tbody|tfoot|tr|th|td)\b|\brole\s*=\s*["'](?:table|grid|treegrid|rowgroup|row|rowheader|columnheader|gridcell|cell)["']/g;
+
+/**
+ * A table written as elements rather than taken from the design system.
+ *
+ * One problem per file, at the first line, because a raw table arrives as six or seven elements
+ * and a reader who opens the file at the first one is looking at the rest. The design system's
+ * data-table home is the one place `<table>` is written: `DataTable.Grid` is the platform's one
+ * table, and the presentational primitives (`DataTable.Root`, `Header`, `Body`, `Row`, `Head`,
+ * `Cell`) are what a plain grid of facts composes. A raw element carries the recipe of neither, so
+ * the first correction to the table's look — its header voice, its density, its scrollbar — misses
+ * it, and two tables start disagreeing about something a reader was told was settled.
+ */
+export function findRawTables(filePath, source) {
+  if (insideDataTableHome(filePath)) return [];
+  const text = stripComments(source);
+  const matches = [...text.matchAll(TABLE_MARKUP)];
+  if (matches.length === 0) return [];
+  const [first] = matches;
+  const more = matches.length - 1;
+  return [
+    {
+      rule: "raw-table",
+      file: filePath,
+      line: lineOf(text, first.index),
+      detail:
+        `writes table markup by hand (\`${first[0]}\`${more === 0 ? "" : `, and ${more} more below`}). ` +
+        "Every tabular surface is `DataTable.Grid` — the platform's one table, where sorting, the " +
+        "per-column filters, column show/hide, reorder, pinning, resizing, selection and the totals " +
+        "row are settled once — and a plain grid of facts with none of that machinery composes the " +
+        "design system's `DataTable.Root`/`Header`/`Body`/`Row`/`Head`/`Cell`, which carry the " +
+        "`mc-table` recipe. A raw element carries neither",
+    },
+  ];
+}
+
+/**
+ * The machinery `DataTable.Grid` carries, spotted being written a second time.
+ *
+ * Each signal is a shape this repository has actually reached for, and none has a legitimate home
+ * outside the one table's own directory: the sort affordance (its ARIA state and the recipe class
+ * that styles it), the headless engine composed at a call site (`createSvelteTable`, or the
+ * `@tanstack/table-core` import that composition needs), and the adapter's own toolbar parts. The
+ * design system exports those last two for the Grid to be built from, not for a screen to build a
+ * second Grid with.
+ */
+const TABLE_MACHINERY = [
+  { signal: "aria-sort", pattern: /\baria-sort\s*=/, what: "a sortable header" },
+  { signal: "mc-table-sort", pattern: /\bmc-table-sort\b/, what: "the sort affordance's recipe" },
+  {
+    signal: "createSvelteTable",
+    pattern: /\bcreateSvelteTable\s*\(/,
+    what: "the headless engine composed by hand",
+  },
+  {
+    signal: "@tanstack/table-core",
+    pattern: /["']@tanstack\/table-core["']/,
+    what: "the table engine imported directly",
+  },
+  {
+    signal: "the adapter's parts",
+    pattern:
+      /<DataTable\.(?:ViewMenu|ColumnFilter|Search|FlexRender)\b|<Table(?:ViewMenu|ColumnFilter|Search)\b|<FlexRender\b/,
+    what: "the adapter's toolbar parts outside the Grid",
+  },
+];
+
+/**
+ * A surface that has written, beside the presentational primitives, what the Grid already does.
+ *
+ * This is the half a scan for `<table>` cannot see, and it is the expensive half: a screen composes
+ * `DataTable.Root` and `DataTable.Head` correctly, adds a `sortBy` of its own and an `aria-sort` on
+ * the header, and ships. It passes typecheck, it passes lint, and it uses the recipe, so it reads
+ * fine in review. What it does not do is answer "what does clicking a header do" the way every other
+ * table on the product answers it — empties last, a stable sort, the type-aware comparator, the
+ * menu on right-click — which is precisely the behaviour gap the one-table ruling calls a defect
+ * by definition. One problem per file, naming every signal found, so the reader sees the whole
+ * shape and not one symptom of it.
+ */
+export function findTableMachinery(filePath, source) {
+  if (insideDataTableHome(filePath)) return [];
+  const text = stripComments(source);
+  const found = [];
+  for (const { signal, pattern, what } of TABLE_MACHINERY) {
+    const match = pattern.exec(text);
+    if (match === null) continue;
+    found.push({ signal, what, line: lineOf(text, match.index) });
+  }
+  if (found.length === 0) return [];
+  const inOrder = found.toSorted((first, second) => first.line - second.line);
+  return [
+    {
+      rule: "table-machinery",
+      file: filePath,
+      line: inOrder[0].line,
+      detail:
+        "carries table machinery of its own: " +
+        inOrder.map((one) => `${one.what} (\`${one.signal}\`, line ${one.line})`).join(", ") +
+        ". Sorting, the per-column filters, column show/hide, reorder, pinning, resizing, " +
+        "selection and the totals row are settled once in `DataTable.Grid`, and a sort written " +
+        "locally answers 'what does clicking a header do' a second time — the behaviour gap the " +
+        "one-table ruling calls a defect by definition. Give the surface a column model and " +
+        "`createDataTableGrid`, and let the Grid render it",
+    },
+  ];
+}
+
 // --- rule: one status register ----------------------------------------------------------------
 
 /** How a file says it is using the register, in either the package or the relative spelling. */
@@ -934,4 +1064,210 @@ export function applyAllowances(problems, allowances) {
   }
 
   return { problems: remaining, excused };
+}
+// --- rule: one caps register ------------------------------------------------------------------
+
+/** The design system's own recipes, which ARE the caps register and so may spell it out. */
+export const CAPS_REGISTER_HOMES = [
+  "packages/design-system/src/lib/components",
+  "packages/design-system/src/lib/styles",
+];
+
+/**
+ * The letterspaced small-caps voice, written out by hand.
+ *
+ * Two shapes, and the second is the reason this rule exists at all. The first is a class list that
+ * builds the voice from utilities — `text-xs` + `uppercase` + a `text-text-*` tone. The second is an
+ * inline `letter-spacing: var(--mc-tracking-caps)`, which is what a surface reaches for once it
+ * notices the utilities alone give uppercase WITHOUT the tracking: Tailwind has no utility for the
+ * tracking token, so the only way to finish the voice by hand is raw CSS in a codebase that forbids
+ * it. 77 sites had done exactly that.
+ *
+ * The remedy is FieldLabel, or the `caps` option on the component being dressed (Badge has one).
+ */
+const CAPS_BY_UTILITIES =
+  /class\s*=\s*"(?=[^"]*\btext-xs\b)(?=[^"]*\buppercase\b)(?=[^"]*\btext-text-[a-z-]+\b)[^"]*"/g;
+const CAPS_BY_INLINE_STYLE = /style\s*=\s*"[^"]*letter-spacing\s*:[^"]*"/g;
+
+export function findHandWrittenCapsRegister(filePath, source) {
+  if (CAPS_REGISTER_HOMES.some((home) => filePath.startsWith(`${home}/`))) return [];
+  const text = stripComments(source);
+  const problems = [];
+  for (const match of text.matchAll(CAPS_BY_UTILITIES)) {
+    problems.push({
+      rule: "caps-register",
+      file: filePath,
+      line: lineOf(text, match.index),
+      detail:
+        "builds the letterspaced small-caps label out of utilities. That voice is one component — " +
+        "`FieldLabel` (@magna-carta/design-system/field-label), which renders whichever element the " +
+        "surrounding document structure needs. Built by hand it drifts a tone at a time, and it " +
+        "arrives without the caps tracking every recipe in the package carries",
+    });
+  }
+  for (const match of text.matchAll(CAPS_BY_INLINE_STYLE)) {
+    problems.push({
+      rule: "caps-register",
+      file: filePath,
+      line: lineOf(text, match.index),
+      detail:
+        "sets letter-spacing in an inline style, which is raw CSS. If this is the caps voice, it is " +
+        "`FieldLabel`, or the `caps` option on the component being dressed; if it is a component " +
+        "that ought to wear the voice itself, give its recipe the register rather than every caller",
+    });
+  }
+  return problems;
+}
+
+// --- rule: one money presenter -----------------------------------------------------------------
+
+/**
+ * The two files allowed to turn an amount into a string.
+ *
+ * `packages/money` owns what an amount IS and prints it exactly from its own decimal; the design
+ * system's formatter prints the major-unit numbers a surface hands it. A third would be a third
+ * answer to "how much", and the first correction to any of them would leave the others behind.
+ */
+export const MONEY_PRESENTATION_HOMES = [
+  "packages/money/src/format.ts",
+  "packages/design-system/src/lib/formatters/money.ts",
+];
+
+const CURRENCY_FORMATTING = /style\s*:\s*"currency"/g;
+
+export function findMoneyPresentation(filePath, source) {
+  if (MONEY_PRESENTATION_HOMES.includes(filePath)) return [];
+  const text = stripComments(source);
+  return [...text.matchAll(CURRENCY_FORMATTING)].map((match) => ({
+    rule: "money-presentation",
+    file: filePath,
+    line: lineOf(text, match.index),
+    detail:
+      "formats currency here. Money reads the same in a cell, a details panel and a printed sheet " +
+      "only if one function prints it: `formatMoney` from @magna-carta/design-system/formatters " +
+      "for a major-unit number, or `format` from @magna-carta/money for an exact Money",
+  }));
+}
+
+// --- rule: one refusal sentence ----------------------------------------------------------------
+
+/** Where the sentence a refused control carries is written. */
+export const REFUSAL_HOME = "apps/web/src/lib/access/refusal.ts";
+
+/*
+ * Both wordings the sentence ever had, and NEITHER of them loosely.
+ *
+ * "does not hold" on its own is ordinary English — a dev-console note about somebody who "does not
+ * hold the address" is not a refusal — so both alternatives require the word the sentence is
+ * actually about. That is the difference between a rule people keep and a rule people switch off.
+ */
+const REFUSAL_PROSE =
+  /needs the [^"`\n]{0,80}?(?:permission|capability)|does not hold the [^"`\n]{0,80}?(?:permission|capability)/g;
+
+export function findHandWrittenRefusals(filePath, source) {
+  if (filePath === REFUSAL_HOME) return [];
+  const text = stripComments(source);
+  return [...text.matchAll(REFUSAL_PROSE)].map((match) => ({
+    rule: "permission-refusal",
+    file: filePath,
+    line: lineOf(text, match.index),
+    detail:
+      "writes the refusal sentence out. It had two wordings before it had one, and the shorter of " +
+      "them lost the half a reader can act on: use `permissionRefusal(act, permission)` from " +
+      "$lib/access/refusal.ts",
+  }));
+}
+
+// --- rule: one details panel -------------------------------------------------------------------
+
+/** The shell every ledger's smaller altitude is composed from. */
+export const DETAILS_PANEL_HOME = "apps/web/src/lib/details-panel";
+
+/**
+ * The panel's frame and its scrolling body, written out rather than composed.
+ *
+ * Both are matched as the exact utility runs the four copies shared, because that is what a fifth
+ * copy is made of: somebody opens one of the four, reads its aside, and writes the same one. A
+ * panel assembled from different utilities that happens to look the same is not caught here, and
+ * review is the answer to that one.
+ */
+const PANEL_FRAME =
+  /flex h-full w-full flex-col border-l border-border-default bg-surface-default/g;
+const PANEL_BODY = /flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16/g;
+
+export function findHandComposedDetailsPanels(filePath, source) {
+  if (filePath.startsWith(`${DETAILS_PANEL_HOME}/`)) return [];
+  const text = stripComments(source);
+  const problems = [];
+  for (const [pattern, part] of [
+    [PANEL_FRAME, "frame"],
+    [PANEL_BODY, "scrolling body"],
+  ]) {
+    for (const match of text.matchAll(pattern)) {
+      problems.push({
+        rule: "details-panel",
+        file: filePath,
+        line: lineOf(text, match.index),
+        detail:
+          `writes the details panel's ${part} out. Four ledgers each had their own copy of this ` +
+          "shape and a correction to it was four edits: compose `$lib/details-panel` " +
+          "(DetailsPanel.Root / Header / Body / Section / Facts / Fact) instead",
+      });
+    }
+  }
+  return problems;
+}
+
+// --- rule: one loading state ------------------------------------------------------------------
+
+/**
+ * The signals of a loading state drawn by hand rather than rendered through LoadingRegion.
+ *
+ * The rule has two sides, like the modal rule. In the app, NONE of these may appear: a loading
+ * region is `<LoadingRegion loading label>` around real markup, so an app file has no reason to
+ * import the Skeleton box, paint its class, write `aria-busy` itself, pulse a utility, or reach
+ * for a spinner glyph (the archetype state set names skeleton rows, never a spinner-only screen).
+ * Inside the design system, the same signals are allowed only in the homes the registry declares
+ * as owning a loading state — the region itself, the box it is built from, and the few components
+ * that render placeholder rows of their own shape — so a second loading mechanism inside the
+ * package is caught as readily as one outside it.
+ *
+ * Each signal is named in the problem so the fix is obvious from the line alone.
+ */
+const LOADING_SIGNALS = [
+  {
+    pattern: /@magna-carta\/design-system\/skeleton\b|<Skeleton\b/g,
+    what: "places the Skeleton box by hand",
+  },
+  { pattern: /\bmc-skeleton\b/g, what: "paints the Skeleton recipe class by hand" },
+  { pattern: /\baria-busy\b/g, what: "writes aria-busy itself" },
+  { pattern: /\banimate-pulse\b/g, what: "pulses a utility class as a placeholder" },
+  {
+    pattern: /@lucide\/svelte\/icons\/(?:loader-circle|loader-pinwheel|loader)\b/g,
+    what: "reaches for a spinner glyph",
+  },
+];
+
+export function findHandPlacedLoading(filePath, source, loadingHomes) {
+  if (loadingHomes.some((home) => filePath.startsWith(`${home}/`))) return [];
+  const text = stripComments(source);
+  const problems = [];
+  for (const { pattern, what } of LOADING_SIGNALS) {
+    for (const match of text.matchAll(pattern)) {
+      problems.push({
+        rule: "hand-placed-loading",
+        file: filePath,
+        line: lineOf(text, match.index),
+        at: match.index,
+        text: match[0],
+        detail:
+          `${what} (\`${match[0]}\`). A region whose data has not arrived is ` +
+          "`<LoadingRegion loading label>` around its real markup, with a `fixture` snippet where " +
+          "the markup cannot render on null data; the recipe turns the leaves into bones and the " +
+          "region announces the state once. Nothing else draws a placeholder, and nothing shows " +
+          "a spinner where a shape belongs",
+      });
+    }
+  }
+  return problems.toSorted((first, second) => first.at - second.at);
 }

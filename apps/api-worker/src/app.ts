@@ -43,6 +43,9 @@ import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerCalendarRoutes } from "./routes/calendar.ts";
 import { registerMatterSearchRoutes } from "./routes/matter-search.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
+import { registerTasksRoutes } from "./routes/tasks.ts";
+import { registerMatterPlanRoutes } from "./routes/matter-plans.ts";
+import { registerIntakeRoutes } from "./routes/intake.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerCustodyRoutes } from "./routes/custody.ts";
 import { registerMatterAssetRoutes } from "./routes/matter-assets.ts";
@@ -107,6 +110,7 @@ import { registerDevR2UploadRoute } from "./routes/dev-r2-upload.ts";
 import { registerDevSeedRoute } from "./routes/dev-seed.ts";
 import { devControlPlaneMigrationMiddleware } from "./dev-control-plane-bootstrap.ts";
 import { registerMeRoute } from "./routes/me.ts";
+import { registerMetaDatabaseHealthRoute } from "./routes/meta-database-health.ts";
 import { registerMetaVersionsRoute } from "./routes/meta-versions.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerInvitationRoutes } from "./routes/invitations.ts";
@@ -622,6 +626,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
   registerMetaVersionsRoute(app, chokepoint);
+  registerMetaDatabaseHealthRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
   registerReportExportRoutes(app, chokepoint);
   registerDownloadRegisterRoutes(app, chokepoint);
@@ -782,6 +787,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // because there is no delete path anywhere in the subsystem.
   registerNotesRoutes(app, chokepoint);
   registerMatterSearchRoutes(app, chokepoint);
+  registerTasksRoutes(app, chokepoint);
+  registerMatterPlanRoutes(app, chokepoint);
+  registerIntakeRoutes(app, chokepoint);
   // Custodian — the register of physical client originals the firm holds in safekeeping: the
   // container tree, packets and their items, Directory ownership, the append-only movement ledger,
   // holds, and scanned copies bound over ordinary File Manager files.

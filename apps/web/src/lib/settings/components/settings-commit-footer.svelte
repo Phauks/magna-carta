@@ -23,10 +23,11 @@
    * remains a future escalation seam above this baseline (stronger ceremony — step-up
    * re-authentication — when auth ships).
    */
-  import * as AlertDialog from "@magna-carta/design-system/alert-dialog";
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Popover from "@magna-carta/design-system/popover";
   import { badgeClasses } from "@magna-carta/design-system/badge";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import { settingValueLabel } from "$lib/settings/settings-definitions.ts";
   import type { SettingsDraft } from "$lib/settings/settings-draft.svelte.ts";
 
@@ -42,10 +43,9 @@
     confirmOpen = true;
   }
 
-  function confirmSave(): void {
+  async function confirmSave(): Promise<ActionOutcome> {
     draft.save();
-    // Bits' AlertDialog.Action does not self-close; the confirm work decides when to close.
-    confirmOpen = false;
+    return "committed";
   }
 
   // The popover's entries jump to their rows — settings-row.svelte gives every row the stable
@@ -122,12 +122,16 @@
   </div>
 </div>
 
-<AlertDialog.Root bind:open={confirmOpen}>
-  <AlertDialog.Content>
-    <AlertDialog.Title>Confirm these changes</AlertDialog.Title>
-    <AlertDialog.Description>
-      Saving applies every staged change below at once.
-    </AlertDialog.Description>
+<ActionDialog
+  bind:open={confirmOpen}
+  kind="confirm"
+  heading="Confirm These Changes"
+  subtitle="Saving applies every staged change below at once."
+  commitLabel="Save Changes"
+  unsavedChanges={false}
+  onCommit={confirmSave}
+>
+  {#snippet fields()}
     <ul class="flex flex-col gap-8">
       {#each draft.stagedEntries as entry (entry.definition.id)}
         <li class="text-sm">
@@ -141,16 +145,5 @@
         </li>
       {/each}
     </ul>
-    <div class="flex justify-end gap-8">
-      <AlertDialog.Cancel class={buttonClasses({ variant: "ghost", size: "default" })}>
-        Cancel
-      </AlertDialog.Cancel>
-      <AlertDialog.Action
-        class={buttonClasses({ variant: "primary", size: "default" })}
-        onclick={confirmSave}
-      >
-        Confirm
-      </AlertDialog.Action>
-    </div>
-  </AlertDialog.Content>
-</AlertDialog.Root>
+  {/snippet}
+</ActionDialog>

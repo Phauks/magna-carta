@@ -23,10 +23,11 @@
    * (packages/custodian/src/close-advisory.ts) rather than as a standing paragraph here.
    */
   import * as Alert from "@magna-carta/design-system/alert";
-  import Button from "@magna-carta/design-system/button";
-  import Plus from "@lucide/svelte/icons/plus";
+  import FieldLabel from "@magna-carta/design-system/field-label";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import { matterSections } from "$lib/matters/sections.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+  import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
   import {
     listCustodyLocations,
@@ -36,6 +37,7 @@
   import NewPacketDialog from "$lib/custodian/new-packet-dialog.svelte";
   import PacketRegister from "$lib/custodian/packet-register.svelte";
   import PacketWindow from "$lib/custodian/packet-window.svelte";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
@@ -75,7 +77,7 @@
   const createRefusal = $derived.by((): string | undefined => {
     if (session === null) return "Reading your session.";
     if (!session.permissions.includes(MANAGE_CUSTODY_PERMISSION)) {
-      return "Logging a packet needs the custody:manage permission, which this account does not hold.";
+      return permissionRefusal("Logging a packet", "custody:manage");
     }
     if (locations.length > 0 && !locations.some((location) => location.status === "active")) {
       return "A packet is logged into a container, and the firm has no open one to put it in.";
@@ -83,37 +85,41 @@
     return undefined;
   });
 
+  /*
+   * The matter header's New Packet opens the register's own dialog with the matter pre-answered;
+   * the section keeps no button for it. The refusal is the register's, stated on the control.
+   */
+  claimMatterCreate("custodian", () => ({
+    title: "Log a packet into custody, linked to this matter.",
+    refusal: isSample ? SAMPLE_MATTER_REFUSAL : createRefusal,
+    run: () => (dialogOpen = true),
+  }));
+
   function openPacket(packetId: string): void {
     openPacketId = packetId;
     windowOpen = true;
   }
+
+  // The packet this address names — what an Activity row hands this section — opened once per
+  // address, the way any packet opens.
+  let honouredEntry = $state<string | null>(null);
+  $effect(() => {
+    const entry = entryFromUrl();
+    if (entry === null || isSample || honouredEntry === entry) return;
+    honouredEntry = entry;
+    openPacket(entry);
+  });
 </script>
 
 <svelte:head>
   <title>{section.label} · {matter.title} · Magna Carta</title>
 </svelte:head>
 
-{#snippet newPacketButton()}
-  <Button
-    variant="primary"
-    disabled={createRefusal !== undefined}
-    title={createRefusal}
-    onclick={() => (dialogOpen = true)}
-  >
-    <Plus class="size-16" aria-hidden="true" />
-    New
-  </Button>
-{/snippet}
-
 <section class="flex h-full flex-col gap-16">
-  <div class="flex items-center justify-between gap-16 border-b border-border-strong pb-8">
-    <h2 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-      {section.label}
-    </h2>
-    {#if !isSample}
-      {@render newPacketButton()}
-    {/if}
-  </div>
+  <FieldLabel as="h2" class="border-b border-border-strong pb-8"
+  >
+    {section.label}
+  </FieldLabel>
 
   {#if isSample}
     <Alert.Root variant="info">
@@ -135,9 +141,6 @@
       {#snippet emptyBody()}
         A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
         wallet. Nothing has been taken into safekeeping on this matter yet.
-      {/snippet}
-      {#snippet emptyActions()}
-        {@render newPacketButton()}
       {/snippet}
     </PacketRegister>
   {/if}

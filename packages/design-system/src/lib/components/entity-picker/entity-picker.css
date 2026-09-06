@@ -1,0 +1,112 @@
+@layer components {
+  /*
+   * EntityPicker — the field a person or an organization is chosen in.
+   *
+   * A WORK SURFACE: it stands in forms and in the panes beside a record, so nothing here carries
+   * identity. The field is the Combobox input, unchanged; the list is the Combobox listbox,
+   * unchanged; the rows are EntityIdentity marks; the picks are EntityIdentity chips. What is
+   * dressed here is only the arrangement of those, and the few sentences the list says when it has
+   * no rows to show.
+   */
+  .mc-entity-picker {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-default);
+  }
+  /* The picks in multiple mode, above the field, wrapping as they need to. */
+  .mc-entity-picker-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mc-space-4);
+  }
+  /* The field's row: the input takes the room, and the single-mode chip stands beside it. */
+  .mc-entity-picker-field {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+  }
+  .mc-entity-picker-input {
+    flex: auto;
+    min-inline-size: var(--mc-space-0);
+  }
+  /* A row is a mark: two lines at most, so the check aligns with the first of them. */
+  .mc-entity-picker-item {
+    align-items: flex-start;
+  }
+  .mc-entity-picker-item .mc-select-item-indicator {
+    margin-block-start: var(--mc-space-4);
+  }
+  /*
+   * What the list says when it has no rows: the floor, that it is searching, that nothing matched,
+   * that more matched than are shown. One quiet register for all four, in the row's own inset.
+   */
+  .mc-entity-picker-note {
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  /* A note is a row nobody can pick; it reads as a sentence, not as a refused option. */
+  .mc-entity-picker-note[data-disabled] {
+    cursor: default;
+    color: var(--mc-text-muted);
+  }
+  /*
+   * A failed search offers the act that answers it as a row of its own, in the default ink: it is
+   * a fact about the search and never a shade of "nothing matched", and a row is what a keyboard
+   * whose focus stays in the field can reach.
+   */
+  .mc-entity-picker-retry {
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-medium);
+  }
+  /*
+   * Letting a selection go. The field names what it holds, so the one thing beside it is this: a
+   * quiet icon control that lifts to the default ink under the pointer and stays, refused, when the
+   * field is.
+   */
+  .mc-entity-picker-clear {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--mc-density-control-sm);
+    min-block-size: var(--mc-density-control-sm);
+    padding: var(--mc-space-4);
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-entity-picker-clear:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-entity-picker-clear:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  /* After the hover rule, so a refused control reads muted at REST and not only under the pointer. */
+  .mc-entity-picker-clear:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-entity-picker-clear-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+}

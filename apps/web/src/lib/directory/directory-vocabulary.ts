@@ -59,47 +59,19 @@ export function appendableNameRoles(kind: DirectoryEntityKind): readonly NameRol
 }
 
 // ---- identifier types ------------------------------------------------------------------------
+//
+// The catalog lives with the shape checks in the directory package, so the screen and the API
+// refuse the same values for the same reasons. Re-exported here so every directory screen keeps one
+// import for its vocabulary.
 
-export interface IdentifierTypeEntry {
-  type: DirectoryIdentifierType;
-  label: string;
-  appliesTo: DirectoryEntityKind | "both";
-  /**
-   * Whether the firm can match this identifier without decrypting it. An indexed type is what makes
-   * a conflicts hit near-certain; an unindexed one is held for the record and compared only against
-   * a candidate set a name already narrowed.
-   */
-  indexed: boolean;
-}
-
-export const IDENTIFIER_TYPES: readonly IdentifierTypeEntry[] = [
-  { type: "ssn", label: "Social security number", appliesTo: "person", indexed: true },
-  {
-    type: "ssn_last_four",
-    label: "Social security last four",
-    appliesTo: "person",
-    indexed: false,
-  },
-  {
-    type: "ein",
-    label: "Employer identification number",
-    appliesTo: "organization",
-    indexed: true,
-  },
-  { type: "drivers_license", label: "Driver's license", appliesTo: "person", indexed: true },
-  { type: "dob", label: "Date of birth", appliesTo: "person", indexed: false },
-  { type: "bar_number", label: "Bar number", appliesTo: "person", indexed: false },
-  { type: "account", label: "Account number", appliesTo: "both", indexed: true },
-];
-
-export function identifierTypeLabel(type: string): string {
-  return IDENTIFIER_TYPES.find((entry) => entry.type === type)?.label ?? type;
-}
-
-/** The identifier types this side of the directory can hold. Nothing else is ever offered. */
-export function identifierTypesFor(kind: DirectoryEntityKind): readonly IdentifierTypeEntry[] {
-  return IDENTIFIER_TYPES.filter((entry) => entry.appliesTo === "both" || entry.appliesTo === kind);
-}
+export {
+  IDENTIFIER_SHAPES,
+  identifierShape,
+  identifierShapesFor,
+  identifierTypeLabel,
+  type IdentifierField,
+  type IdentifierShape,
+} from "@magna-carta/directory/identifier-shape";
 
 // ---- edge types ------------------------------------------------------------------------------
 
@@ -108,6 +80,13 @@ export interface EdgeTypeEntry {
   label: string;
   /** How the edge reads from its origin toward its target ("is a principal of"). */
   reading: string;
+  /**
+   * Which kinds may stand at each end, origin then target. What the record screen offers depends on
+   * it: a person is an officer OF an organization, never the other way round.
+   */
+  ends: { from: DirectoryEntityKind | "both"; to: DirectoryEntityKind | "both" };
+  /** Whether the screen still offers this type for a NEW edge. A retired type keeps its label. */
+  offered: boolean;
 }
 
 /**
@@ -116,18 +95,180 @@ export interface EdgeTypeEntry {
  * sentence a report can print.
  */
 export const EDGE_TYPES: readonly EdgeTypeEntry[] = [
-  { edgeType: "affiliation", label: "Affiliation", reading: "is affiliated with" },
-  { edgeType: "relationship", label: "Personal relationship", reading: "is related to" },
-  { edgeType: "corporate_parent", label: "Corporate parent", reading: "is the parent of" },
-  { edgeType: "corporate_subsidiary", label: "Subsidiary", reading: "is a subsidiary of" },
-  { edgeType: "corporate_successor", label: "Successor", reading: "is the successor to" },
-  { edgeType: "representation", label: "Representation", reading: "represents" },
-  { edgeType: "role_assignment", label: "Role", reading: "holds a role with" },
+  // The legacy, unclassified membership: kept for the rows already recorded, no longer offered.
+  {
+    edgeType: "affiliation",
+    label: "Affiliation",
+    reading: "is affiliated with",
+    ends: { from: "person", to: "organization" },
+    offered: false,
+  },
+  {
+    edgeType: "relationship",
+    label: "Personal relationship",
+    reading: "is related to",
+    ends: { from: "person", to: "person" },
+    offered: true,
+  },
+  {
+    edgeType: "corporate_parent",
+    label: "Corporate parent",
+    reading: "is the parent of",
+    ends: { from: "organization", to: "organization" },
+    offered: true,
+  },
+  {
+    edgeType: "corporate_subsidiary",
+    label: "Subsidiary",
+    reading: "is a subsidiary of",
+    ends: { from: "organization", to: "organization" },
+    offered: true,
+  },
+  {
+    edgeType: "corporate_successor",
+    label: "Successor",
+    reading: "is the successor to",
+    ends: { from: "organization", to: "organization" },
+    offered: true,
+  },
+  {
+    edgeType: "representation",
+    label: "Representation",
+    reading: "represents",
+    ends: { from: "both", to: "both" },
+    offered: true,
+  },
+  {
+    edgeType: "role_assignment",
+    label: "Role",
+    reading: "holds a role with",
+    ends: { from: "both", to: "both" },
+    offered: true,
+  },
+  {
+    edgeType: "officer_of",
+    label: "Officer",
+    reading: "is an officer of",
+    ends: { from: "person", to: "organization" },
+    offered: true,
+  },
+  {
+    edgeType: "director_of",
+    label: "Director",
+    reading: "is a director of",
+    ends: { from: "person", to: "organization" },
+    offered: true,
+  },
+  {
+    edgeType: "partner_of",
+    label: "Partner",
+    reading: "is a partner of",
+    ends: { from: "person", to: "organization" },
+    offered: true,
+  },
+  {
+    edgeType: "trustee_of",
+    label: "Trustee",
+    reading: "is a trustee of",
+    ends: { from: "both", to: "both" },
+    offered: true,
+  },
+  {
+    edgeType: "personal_representative_of",
+    label: "Personal representative",
+    reading: "is the personal representative of",
+    ends: { from: "person", to: "both" },
+    offered: true,
+  },
+  {
+    edgeType: "agent_of",
+    label: "Agent",
+    reading: "is an agent of",
+    ends: { from: "both", to: "both" },
+    offered: true,
+  },
+  {
+    edgeType: "employment",
+    label: "Employee",
+    reading: "is employed by",
+    ends: { from: "person", to: "organization" },
+    offered: true,
+  },
+  {
+    edgeType: "member_of",
+    label: "Member",
+    reading: "is a member of",
+    ends: { from: "person", to: "organization" },
+    offered: true,
+  },
+  {
+    edgeType: "shareholder_of",
+    label: "Shareholder",
+    reading: "is a shareholder of",
+    ends: { from: "both", to: "organization" },
+    offered: true,
+  },
+  {
+    edgeType: "beneficiary_of",
+    label: "Beneficiary",
+    reading: "is a beneficiary of",
+    ends: { from: "both", to: "both" },
+    offered: true,
+  },
+  {
+    edgeType: "guardian_of",
+    label: "Guardian",
+    reading: "is the guardian of",
+    ends: { from: "person", to: "person" },
+    offered: true,
+  },
+  {
+    edgeType: "point_of_contact_for",
+    label: "Point of contact",
+    reading: "is the point of contact for",
+    ends: { from: "person", to: "organization" },
+    offered: true,
+  },
 ];
 
 export function edgeTypeLabel(edgeType: string): string {
   return EDGE_TYPES.find((entry) => entry.edgeType === edgeType)?.label ?? edgeType;
 }
+
+/**
+ * The types a NEW edge may be given, from an entity of this kind at its origin. What is offered is
+ * what the origin's kind can honestly stand at the near end of; the far end is narrowed by the
+ * type once one is chosen (`edgeTargetKinds`).
+ */
+export function offeredEdgeTypesFrom(kind: DirectoryEntityKind): readonly EdgeTypeEntry[] {
+  return EDGE_TYPES.filter(
+    (entry) => entry.offered && (entry.ends.from === "both" || entry.ends.from === kind),
+  );
+}
+
+/** Which kinds may stand at the far end of an edge of this type. */
+export function edgeTargetKinds(edgeType: DirectoryEdgeType): readonly DirectoryEntityKind[] {
+  const to = EDGE_TYPES.find((entry) => entry.edgeType === edgeType)?.ends.to ?? "both";
+  return to === "both" ? ["person", "organization"] : [to];
+}
+
+/**
+ * The membership family: the edge types that put a person INSIDE an organization, which is what the
+ * organization's People pane and the person's Organizations pane list. The legacy `affiliation`
+ * belongs here so the rows recorded before the family existed are still shown as what they are.
+ */
+export const MEMBERSHIP_EDGE_TYPES: readonly DirectoryEdgeType[] = [
+  "affiliation",
+  "officer_of",
+  "director_of",
+  "partner_of",
+  "trustee_of",
+  "agent_of",
+  "employment",
+  "member_of",
+  "shareholder_of",
+  "point_of_contact_for",
+];
 
 // ---- pronouns --------------------------------------------------------------------------------
 

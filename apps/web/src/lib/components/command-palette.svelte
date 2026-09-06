@@ -11,9 +11,10 @@
    * search can never lag the app. A surface that is in no registry is by definition not
    * discoverable; if a new kind of surface has no registry yet, create one and add a provider
    * group here — do NOT hardcode an item (a hardcoded item is invisible to the registry's
-   * owners and silently rots). Matters/contacts/actions join as their registries ship.
+   * owners and silently rots). Matters/directory/actions join as their registries ship.
    */
   import { goto } from "$app/navigation";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
   import * as Command from "@magna-carta/design-system/command";
   import * as Dialog from "@magna-carta/design-system/dialog";
   import Keyboard from "@magna-carta/design-system/keyboard";
@@ -53,9 +54,11 @@
   // surfaces as a disabled "— soon" row, exactly as an announced destination does.
   const tools = toolDestinations();
 
-  // The dialog recipe centers via `inset: 0; margin: auto`; starting the inset past the rail
-  // centers the palette over the WORK CANVAS, not the screen (owner review 2026-07-02). This is
-  // the FALLBACK position, used only when the top-bar trigger cannot be measured.
+  // An anchored panel (placement="anchored", below) positions itself against the viewport with
+  // its own insets; centring it the way a centred panel is, `inset: 0; margin: auto`, and starting
+  // the inset past the rail centers the palette over the WORK CANVAS, not the screen (owner review
+  // 2026-07-02). This is the FALLBACK position, used only when the top-bar trigger cannot be
+  // measured.
   const insetStart = $derived(
     sidebarCollapsed ? "var(--mc-size-sidebar-rail)" : "var(--mc-size-sidebar)",
   );
@@ -77,10 +80,10 @@
         .querySelector(".mc-top-bar-search")
         ?.getBoundingClientRect();
       if (triggerRect) {
-        // Explicit start insets + auto end insets defeat the recipe's `inset: 0; margin: auto`
-        // centering: the panel pins to the trigger's own box and grows DOWNWARD (fit-content
-        // block size). max-inline-size: none releases the wrapper's max-w clamp so the measured
-        // width always wins; the prose token caps the list so it never runs off the viewport.
+        // Explicit start insets + auto end insets pin the (fixed) panel to the trigger's own box,
+        // and it grows DOWNWARD (fit-content block size). max-inline-size: none releases the
+        // wrapper's max-w clamp so the measured width always wins; the prose token caps the list
+        // so it never runs off the viewport.
         lastAnchoredStyle =
           `inset-block-start: ${triggerRect.top}px; ` +
           `inset-inline-start: ${triggerRect.left}px; ` +
@@ -90,7 +93,10 @@
         return lastAnchoredStyle;
       }
     }
-    return lastAnchoredStyle ?? `inset-inline-start: ${insetStart}`;
+    return (
+      lastAnchoredStyle ??
+      `inset: var(--mc-space-0); margin: auto; inset-inline-start: ${insetStart};`
+    );
   });
 
   // Entrance-animation TRIAL HARNESS: in development builds a developer-console preference
@@ -135,11 +141,13 @@
 
   function openEcosystemSite(href: string): void {
     open = false;
-    window.open(href, "_blank", "noopener,noreferrer");
+    openBeside(href, "external");
   }
 </script>
 
-<!-- rounded-md: the container's radius must match the trigger's (.mc-top-bar-search,
+<!-- placement="anchored": the palette opens ON its trigger, not in the centre of the dialog's
+     stage, so it positions itself against the viewport with the insets in contentStyle.
+     rounded-md: the container's radius must match the trigger's (.mc-top-bar-search,
      radius-md) so the anchored open reads as the same shape awake — geometry only; the panel
      keeps its own light overlay surface. The pairing is documented in the two recipes
      (design-system: top-bar/top-bar.css and command/command.css). -->
@@ -147,6 +155,7 @@
   <Dialog.Content
     showClose={false}
     {presence}
+    placement="anchored"
     class="overflow-hidden rounded-md p-0"
     style={contentStyle}
   >

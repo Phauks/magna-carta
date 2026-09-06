@@ -4,6 +4,7 @@ import {
   locationHintForRegion,
   type DataRegion,
 } from "@magna-carta/database/data-region";
+import { browserUploadCorsRules } from "./files/browser-upload-cors.ts";
 
 // The provisioning port: how the firm provisioner obtains a firm's physical resources. The
 // per-firm database needs none — it is the firmId-addressed FirmDatabase Durable Object, which
@@ -17,6 +18,18 @@ export interface FirmResourceProvider {
   // bucket step, so a run that created the bucket but crashed before this still configures on retry.
   // The region must match what createBucket used — the notification PUTs target the SAME bucket.
   configureBucketNotifications(firmId: FirmId, region: DataRegion): Promise<void>;
+  // Apply the firm bucket's object-expiry rules. The transient prefixes are regenerable caches, and
+  // nothing else expires them: `bundles/` is rebuilt on demand from its manifest, `conversions/` is
+  // re-derivable from the source document. Without these rules every artifact a firm has ever
+  // downloaded or converted accumulates in its bucket forever, metered and paid for. Idempotent (a
+  // PUT of the whole rule set), and re-runnable for the same reason notifications are.
+  configureBucketLifecycle(firmId: FirmId, region: DataRegion): Promise<void>;
+  // Apply the firm bucket's CORS policy. The file-manager upload PUTs bytes from the browser straight
+  // to a presigned URL on the bucket — a cross-origin request — and a bucket with no policy refuses
+  // the preflight before a byte moves, leaving the app able to say only that nothing answered. The
+  // rules are files/browser-upload-cors.ts plus the origins the deployment names.
+  // Idempotent (a PUT of the whole rule set) and re-runnable, like the two above.
+  configureBucketCors(firmId: FirmId, region: DataRegion): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +55,18 @@ export function createDevFirmResourceProvider(): FirmResourceProvider {
     configureBucketNotifications(_firmId: FirmId, _region: DataRegion): Promise<void> {
       return Promise.resolve();
     },
+
+    // Miniflare has no lifecycle engine either, and every local firm shares the bound bucket whose
+    // rules are not this provider's to set. A no-op marks the step complete.
+    configureBucketLifecycle(_firmId: FirmId, _region: DataRegion): Promise<void> {
+      return Promise.resolve();
+    },
+
+    // Local uploads go same-origin through the development R2 route, so no browser ever preflights
+    // against the bound bucket and there is nothing to configure. A no-op marks the step complete.
+    configureBucketCors(_firmId: FirmId, _region: DataRegion): Promise<void> {
+      return Promise.resolve();
+    },
   };
 }
 
@@ -62,6 +87,10 @@ export interface CloudflareRestFirmResourceProviderOptions {
   // for the bulk/ prefix. The lane benefit is queue topology and max_concurrency settings; bulk
   // objects still meter under the files/ dimension. Absent → only the interactive lane is configured.
   readonly bulkEventNotificationQueueId?: string;
+  // Origins a browser uploads from beyond the ones files/browser-upload-cors.ts names — the deployment's own
+  // APP_BASE_URL, so a deployment serving at an address the artifact does not list still takes
+  // uploads. Duplicates of the artifact's origins are folded away.
+  readonly browserOrigins?: readonly string[];
   readonly fetchImplementation?: typeof fetch;
 }
 
@@ -70,6 +99,22 @@ export interface CloudflareRestFirmResourceProviderOptions {
 const FILES_NOTIFICATION_PREFIX = "files/";
 // The R2 key prefix for bulk-uploaded objects — the notification rule targets the bulk-ingest queue.
 const BULK_NOTIFICATION_PREFIX = "bulk/";
+
+// The transient prefixes and how long an object under each may live. Both hold REGENERABLE artifacts:
+// a bundle is rebuilt from its manifest hash on the next request, and a conversion result is
+// re-derived from the source document. Expiry therefore costs a rebuild and never a document — which
+// is exactly why these prefixes can carry a rule and the firm's own files cannot.
+const LIFECYCLE_RULES = [
+  // A download bundle: the shelf hands out short-TTL signed URLs against it, so a week outlives every
+  // link ever minted for it.
+  { id: "expire-download-bundles", prefix: "bundles/", maxAgeSeconds: 7 * 24 * 60 * 60 },
+  // A conversion result: handed back as one presigned GET and never referenced again.
+  { id: "expire-conversion-results", prefix: "conversions/", maxAgeSeconds: 24 * 60 * 60 },
+] as const;
+
+// An upload the client began and never completed. R2 keeps its parts, and they are metered, so they
+// are reclaimed a day after the last one was written.
+const ABANDONED_MULTIPART_MAX_AGE_SECONDS = 24 * 60 * 60;
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 
@@ -260,6 +305,60 @@ export function createCloudflareRestFirmResourceProvider(
             configuredBulk.envelope,
           );
         }
+      }
+    },
+
+    // PUT the whole rule set onto the firm's bucket. The API replaces what is there, so this is
+    // idempotent and a resumed provisioning re-applies the same rules rather than accumulating them.
+    // The jurisdiction header rides this call for the same reason it rides the others.
+    async configureBucketLifecycle(firmId: FirmId, region: DataRegion): Promise<void> {
+      const bucketName = await firmResourceName(firmId);
+      const jurisdiction = jurisdictionForRegion(region);
+      const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
+      const configured = await callApi<unknown>(
+        "configureBucketLifecycle",
+        "PUT",
+        `${accountBase}/r2/buckets/${bucketName}/lifecycle`,
+        {
+          rules: LIFECYCLE_RULES.map((rule) => ({
+            id: rule.id,
+            enabled: true,
+            conditions: { prefix: rule.prefix },
+            deleteObjectsTransition: {
+              condition: { type: "Age", maxAge: rule.maxAgeSeconds },
+            },
+            // A multipart upload the client abandoned holds its parts, and its parts are metered.
+            // Nothing else reclaims them, so every prefix that can be written by multipart carries
+            // the abort rule beside its expiry.
+            abortMultipartUploadsTransition: {
+              condition: { type: "Age", maxAge: ABANDONED_MULTIPART_MAX_AGE_SECONDS },
+            },
+          })),
+        },
+        extraHeaders,
+      );
+      if (!configured.envelope.success) {
+        throw describeFailure("configureBucketLifecycle", configured.status, configured.envelope);
+      }
+    },
+
+    // PUT the whole CORS rule set onto the firm's bucket — the same rules the runbook has the owner
+    // paste onto the shared bucket, in the API's shape. The API replaces what is there, so a resume
+    // re-applies rather than accumulates, and the jurisdiction header rides for the same reason it
+    // rides the others.
+    async configureBucketCors(firmId: FirmId, region: DataRegion): Promise<void> {
+      const bucketName = await firmResourceName(firmId);
+      const jurisdiction = jurisdictionForRegion(region);
+      const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
+      const configured = await callApi<unknown>(
+        "configureBucketCors",
+        "PUT",
+        `${accountBase}/r2/buckets/${bucketName}/cors`,
+        { rules: browserUploadCorsRules(options.browserOrigins ?? []) },
+        extraHeaders,
+      );
+      if (!configured.envelope.success) {
+        throw describeFailure("configureBucketCors", configured.status, configured.envelope);
       }
     },
   };

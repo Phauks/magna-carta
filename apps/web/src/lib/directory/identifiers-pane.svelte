@@ -1,45 +1,22 @@
 <script lang="ts">
   /*
-   * The sealed identifiers the firm holds for an entity.
+   * The sealed identifiers a record holds, and the reveal that is the privileged act.
    *
-   * These are the values a directory is trusted with and a firm is sued over: a social security
-   * number, a tax number, a licence, an account. None of them is stored in the clear. What the firm
-   * keeps is the sealed value and, for the types whose entropy allows it, an exact-match index that
-   * lets a conflicts check say "these are the same person" without ever decrypting anything.
-   *
-   * WHAT IS HELD AND WHAT IT IS ARE TWO DIFFERENT QUESTIONS, and this pane asks only the first one
-   * to draw itself. The enumeration says which types the record carries, when each was recorded and
-   * how long it is valid for, and it decrypts nothing — no permission, no audit row, because it
-   * reveals nothing a member with the record open did not already have. Reading a VALUE is the
-   * separate act: refused without the permission, and written to the firm's audit log before any
-   * plaintext exists. A record that had to decrypt merely to draw its list of headings would put a
-   * plaintext social security number into that log every time somebody opened a page.
-   *
-   * A type the record does not carry is simply not a row. The pane never lists the seven types a
-   * record COULD hold as though each were an absence waiting to be filled — an empty record says so
-   * once.
-   *
-   * WHERE A TYPE IS HELD MORE THAN ONCE, the count says so and the reveal shows the most recently
-   * recorded one. Silently showing one of two account numbers as though it were the only one is the
-   * failure this count exists to prevent.
+   * The list and the type-first add row are the identifiers section, the same component the New
+   * Person screen seals with; what only this pane knows is which record, who may change it, who may
+   * reveal, and that a reveal is recorded against the reader's name. Values are sealed under the
+   * firm's key on the way in and never stored in the clear; the list names what is held without
+   * decrypting anything, and revealing one is a separate, audited read.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
-  import { guidanceFor } from "$lib/diagnostics/guidance.ts";
-  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import * as Select from "@magna-carta/design-system/select";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
-  import Input from "@magna-carta/design-system/input";
-  import Label from "@magna-carta/design-system/label";
+  import Button from "@magna-carta/design-system/button";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { maskedIdentifier } from "@magna-carta/directory/identifier-shape";
   import Eye from "@lucide/svelte/icons/eye";
   import EyeOff from "@lucide/svelte/icons/eye-off";
-  import Plus from "@lucide/svelte/icons/plus";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import EmptyState from "@magna-carta/design-system/empty-state";
-  import Skeleton from "@magna-carta/design-system/skeleton";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import { guidanceFor } from "$lib/diagnostics/guidance.ts";
   import {
     addDirectoryIdentifier,
     readDirectoryIdentifier,
@@ -48,7 +25,13 @@
     type DirectoryIdentifierRecord,
     type DirectoryIdentifierType,
   } from "./directory-api.ts";
-  import { identifierTypeLabel, identifierTypesFor } from "./directory-vocabulary.ts";
+  import {
+    identifierRequestFrom,
+    identifierRowsFrom,
+    type IdentifierDraft,
+    type IdentifierRow,
+  } from "./identifier-draft.ts";
+  import IdentifiersSection from "./sections/identifiers-section.svelte";
 
   let {
     entityId,
@@ -66,8 +49,6 @@
     revealDisabledReason?: string;
   } = $props();
 
-  const types = $derived(identifierTypesFor(kind));
-
   // ---- what is held ---------------------------------------------------------------------------
 
   let held = $state<readonly DirectoryIdentifierRecord[] | null>(null);
@@ -80,6 +61,7 @@
     let cancelled = false;
     held = null;
     readFailure = null;
+    reveals = {};
     void (async () => {
       const outcome = await readDirectoryIdentifierRecords(fetch, id);
       if (cancelled) return;
@@ -95,37 +77,36 @@
     };
   });
 
-  /** One row per TYPE held, carrying how many of that type the record holds and the newest instant. */
-  interface HeldType {
-    type: DirectoryIdentifierType;
-    label: string;
-    count: number;
-    recordedAt: string;
-    validTo: string | null;
-  }
+  const rows = $derived(identifierRowsFrom(held ?? []));
 
-  const heldTypes = $derived.by((): readonly HeldType[] => {
-    const grouped = new Map<DirectoryIdentifierType, HeldType>();
-    for (const record of held ?? []) {
-      const existing = grouped.get(record.type);
-      if (existing === undefined) {
-        grouped.set(record.type, {
-          type: record.type,
-          label: identifierTypeLabel(record.type),
-          count: 1,
-          recordedAt: record.recordedAt,
-          validTo: record.validTo,
-        });
-        continue;
-      }
-      // The enumeration is ordered newest-first within a type, so the first one seen is the one a
-      // reveal would return — the rest only raise the count.
-      grouped.set(record.type, { ...existing, count: existing.count + 1 });
-    }
-    return [...grouped.values()];
-  });
+  /**
+   * The shape the section takes while what the record holds is being read: two sealed lines in
+   * the same section, masked the way a real one is. Nothing here was ever a value.
+   */
+  const IDENTIFIER_FIXTURE: readonly IdentifierRow[] = [
+    {
+      id: "fixture-1",
+      type: "ssn",
+      typeLabel: "Social security number",
+      label: null,
+      masked: maskedIdentifier("ssn", null),
+      recordedAt: null,
+    },
+    {
+      id: "fixture-2",
+      type: "drivers_license",
+      typeLabel: "Driver's license",
+      label: "Nevada",
+      masked: maskedIdentifier("drivers_license", null),
+      recordedAt: null,
+    },
+  ];
 
-  /** What has been asked for, per type. Nothing is asked until somebody asks. */
+  // ---- the reveal, per type -------------------------------------------------------------------
+  //
+  // A reveal reads the most recent value of a TYPE (the route is by type), so its state is kept by
+  // type; every row of that type shows the same answer.
+
   type RevealState =
     | { phase: "sealed" }
     | { phase: "reading" }
@@ -135,24 +116,31 @@
     | { phase: "refused"; message: string };
 
   let reveals = $state<Record<string, RevealState>>({});
-  let shownFor = $state<string | null>(null);
-
-  // A different entity's values are a different entity's business: nothing carries across.
-  $effect(() => {
-    if (shownFor === entityId) return;
-    shownFor = entityId;
-    reveals = {};
-  });
 
   function stateOf(type: DirectoryIdentifierType): RevealState {
     return reveals[type] ?? { phase: "sealed" };
+  }
+
+  function shownValue(row: IdentifierRow): string | null {
+    const revealed = stateOf(row.type);
+    switch (revealed.phase) {
+      case "shown":
+        return revealed.value;
+      case "reading":
+        return "Reading";
+      case "none":
+        return "None held";
+      case "refused":
+        return revealed.message;
+      default:
+        return null;
+    }
   }
 
   async function reveal(type: DirectoryIdentifierType): Promise<void> {
     const current = stateOf(type);
     if (current.phase === "reading") return;
     if (current.phase === "shown") {
-      // Hiding again is a screen act, not a second read: the one recorded read already happened.
       reveals = { ...reveals, [type]: { phase: "hidden", value: current.value } };
       return;
     }
@@ -163,92 +151,63 @@
     reveals = { ...reveals, [type]: { phase: "reading" } };
     const outcome = await readDirectoryIdentifier(fetch, entityId, type);
     if (outcome.kind === "ok") {
+      const { value, username, secret } = outcome.value;
+      // An account reveals its three parts together, on the one line.
+      const shown =
+        value === null
+          ? null
+          : [value, username ? `user ${username}` : null, secret ? `secret ${secret}` : null]
+              .filter((part): part is string => part !== null)
+              .join(" · ");
       reveals = {
         ...reveals,
-        [type]:
-          outcome.value.value === null
-            ? { phase: "none" }
-            : { phase: "shown", value: outcome.value.value },
+        [type]: shown === null ? { phase: "none" } : { phase: "shown", value: shown },
       };
       return;
     }
     reveals = {
       ...reveals,
-      [type]: {
-        phase: "refused",
-        // One row's reveal, refused. It renders as a line in the cell rather than as a failure
-        // surface, so it takes the presenter's sentence and not the whole record: there is nowhere
-        // in a table cell to put a handle and a remedy, and a band per row would bury the table.
-        message: guidanceFor(outcome.failure, "The value").message,
-      },
+      [type]: { phase: "refused", message: guidanceFor(outcome.failure, "The value").message },
     };
   }
 
-  // ---- recording a value --------------------------------------------------------------------
+  // ---- sealing another --------------------------------------------------------------------------
 
-  let open = $state(false);
-  // Defaulted to a type BOTH kinds can hold, so the initial value never references the
-  // kind-filtered list and never has to be corrected after the fact.
-  let newType = $state<DirectoryIdentifierType>("account");
-  let newValue = $state("");
-  let submitting = $state(false);
-  let failure = $state<StatedFailure | null>(null);
+  let writeFailure = $state<StatedFailure | null>(null);
 
-  const typeItems = $derived(
-    types.map((entry) => ({ value: entry.type, label: entry.label })),
-  );
-
-  async function submit(): Promise<void> {
-    if (newValue.trim() === "" || submitting) return;
-    submitting = true;
-    failure = null;
+  async function seal(draft: IdentifierDraft): Promise<void> {
+    writeFailure = null;
     const outcome = await addDirectoryIdentifier(
       fetch,
       entityId,
-      { type: newType, value: newValue.trim() },
+      identifierRequestFrom(draft),
       crypto.randomUUID(),
     );
-    submitting = false;
     if (outcome.kind === "ok") {
-      // The stored value is sealed on arrival, so what was typed is discarded here too: the pane
-      // never keeps a plaintext copy of something it just sealed.
-      newValue = "";
-      reveals = { ...reveals, [newType]: { phase: "sealed" } };
-      open = false;
+      reveals = { ...reveals, [draft.type]: { phase: "sealed" } };
       reloadToken += 1;
       return;
     }
-    failure = stated(
-      outcome.failure,
-      "The identifier could not be recorded.",
-      "Nothing was sealed.",
-    );
+    writeFailure = stated(outcome.failure, "The identifier could not be sealed.", "Nothing was sealed.");
   }
 </script>
 
 <section class="flex flex-col gap-16">
-  <div class="flex items-center justify-between gap-16">
-    <h3 class="text-sm font-semibold">Identifiers</h3>
-    <Button
-      variant="secondary"
-      disabled={!mayEdit}
-      title={editDisabledReason}
-      onclick={() => {
-        failure = null;
-        open = true;
-      }}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Record an identifier
-    </Button>
-  </div>
-
   <!-- Said once, above the controls, because it governs every one of them and a person has to know
        it BEFORE they press: reading a sealed value is recorded against their name. -->
   <p class="flex items-center gap-8 text-xs text-text-muted">
     <ShieldCheck class="size-16" aria-hidden="true" />
-    Values are sealed under the firm's key. Revealing one is recorded in the firm's audit log.
+    Revealing a value is recorded in the firm's audit log.
   </p>
+
+  {#if writeFailure !== null}
+    <FailureNotice
+      failure={writeFailure.failure}
+      title="The Identifier Was Not Sealed"
+      fallback={writeFailure.fallback}
+      whenSilent={writeFailure.whenSilent}
+    />
+  {/if}
 
   {#if readFailure !== null}
     <FailureNotice
@@ -257,148 +216,49 @@
       fallback={readFailure.fallback}
       whenSilent={readFailure.whenSilent}
     />
-  {:else if held === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading what this record holds">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else if heldTypes.length === 0}
-    <EmptyState title="Nothing Sealed Against This Record">
-      The firm holds no sealed identifier for this record. Recording one seals it under the firm's
-      key as it arrives; nothing here is ever stored in the clear.
-    </EmptyState>
   {:else}
-    <DataTable.Root>
-      <DataTable.Caption class="sr-only">The sealed identifiers this record holds</DataTable.Caption>
-      <DataTable.Header>
-        <DataTable.Row>
-          <DataTable.Head>Type</DataTable.Head>
-          <DataTable.Head>Value</DataTable.Head>
-          <DataTable.Head>Recorded</DataTable.Head>
-          <DataTable.Head data-align="end">Reveal</DataTable.Head>
-        </DataTable.Row>
-      </DataTable.Header>
-      <DataTable.Body>
-        {#each heldTypes as entry (entry.type)}
-          {@const revealed = stateOf(entry.type)}
-          <DataTable.Row>
-            <DataTable.Cell>
-              <span class="flex flex-wrap items-center gap-8">
-                {entry.label}
-                {#if entry.count > 1}
-                  <span class="text-xs text-text-muted">
-                    {entry.count} held — the most recent is revealed
-                  </span>
-                {/if}
-              </span>
-            </DataTable.Cell>
-            <DataTable.Cell>
-              {#if revealed.phase === "shown"}
-                <span class="tabular-nums">{revealed.value}</span>
-              {:else if revealed.phase === "reading"}
-                <span class="text-text-muted">Reading</span>
-              {:else if revealed.phase === "none"}
-                <span class="text-text-muted">None held</span>
-              {:else if revealed.phase === "refused"}
-                <span class="text-text-muted">{revealed.message}</span>
-              {:else}
-                <span class="text-text-muted">Sealed</span>
-              {/if}
-            </DataTable.Cell>
-            <DataTable.Cell>
-              <span class="text-text-muted tabular-nums">{entry.recordedAt.slice(0, 10)}</span>
-            </DataTable.Cell>
-            <DataTable.Cell data-align="end">
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={!mayReveal}
-                title={revealDisabledReason}
-                aria-label={revealed.phase === "shown"
-                  ? `Hide the ${entry.label.toLowerCase()}`
-                  : `Reveal the ${entry.label.toLowerCase()}`}
-                onclick={() => void reveal(entry.type)}
-              >
-                {#if revealed.phase === "shown"}
-                  <EyeOff class="size-16" aria-hidden="true" />
-                {:else}
-                  <Eye class="size-16" aria-hidden="true" />
-                {/if}
-              </Button>
-            </DataTable.Cell>
-          </DataTable.Row>
-        {/each}
-      </DataTable.Body>
-    </DataTable.Root>
+    <LoadingRegion
+      loading={held === null}
+      label="Reading what this record holds"
+      class="flex flex-col gap-8"
+    >
+      {#snippet fixture()}
+        {@render identifiersSection(IDENTIFIER_FIXTURE)}
+      {/snippet}
+      {@render identifiersSection(rows)}
+    </LoadingRegion>
   {/if}
 </section>
 
-<Dialog.Root bind:open>
-  <Dialog.Content class="max-w-xl">
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <Dialog.Title>Record An Identifier</Dialog.Title>
-        <Dialog.Description>
-          The value is sealed under the firm's key as it arrives. Nothing stores it in the clear, and
-          reading it back later is recorded.
-        </Dialog.Description>
-      </div>
+<!-- One section for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet identifiersSection(listed: readonly IdentifierRow[])}
+  <IdentifiersSection
+    rows={listed}
+    {kind}
+    canEdit={mayEdit}
+    {editDisabledReason}
+    onAdd={(draft) => void seal(draft)}
+    {shownValue}
+    rowEnd={revealControl}
+  />
+{/snippet}
 
-      <div class="flex flex-col gap-8">
-        <Label id="new-identifier-type-label">Type</Label>
-        <Select.Root
-          type="single"
-          items={typeItems}
-          bind:value={
-            () => newType, (chosen) => (newType = chosen as DirectoryIdentifierType)
-          }
-          allowDeselect={false}
-        >
-          <Select.Trigger class="min-w-64" aria-labelledby="new-identifier-type-label">
-            <Select.Value />
-          </Select.Trigger>
-          <Select.Content>
-            {#each typeItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      <div class="flex flex-col gap-8">
-        <Label for="new-identifier-value">Value</Label>
-        <Input
-          id="new-identifier-value"
-          bind:value={newValue}
-          autocomplete="off"
-          placeholder={placeholderOf("Value")}
-        />
-      </div>
-
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="The Identifier Was Not Recorded"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex justify-end gap-8">
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button
-          variant="primary"
-          disabled={newValue.trim() === "" || submitting}
-          onclick={submit}
-        >
-          {submitting ? "Sealing" : "Seal And Record"}
-        </Button>
-      </div>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+{#snippet revealControl(row: IdentifierRow)}
+  {@const revealed = stateOf(row.type)}
+  <Button
+    variant="ghost"
+    size="icon"
+    disabled={!mayReveal}
+    title={revealDisabledReason}
+    aria-label={revealed.phase === "shown"
+      ? `Hide the ${row.typeLabel.toLowerCase()}`
+      : `Reveal the ${row.typeLabel.toLowerCase()}`}
+    onclick={() => void reveal(row.type)}
+  >
+    {#if revealed.phase === "shown"}
+      <EyeOff class="size-16" aria-hidden="true" />
+    {:else}
+      <Eye class="size-16" aria-hidden="true" />
+    {/if}
+  </Button>
+{/snippet}

@@ -51,7 +51,9 @@
    * header and the action bar stay put. The reasoning lives with the recipe (record-window.css),
    * which is where the two rules are expressed.
    *
-   * Expanding it to the full viewport is remembered for the session (record-window-session.svelte.ts).
+   * Expanding it to the full viewport is the frame's capability, shared with the action dialog and
+   * remembered for the session (../../internal/frame-expansion.svelte.ts); the control is this
+   * window's own, because the header set is asserted at the source.
    */
   import type { Snippet } from "svelte";
   import EllipsisVertical from "@lucide/svelte/icons/ellipsis-vertical";
@@ -67,7 +69,7 @@
   import { CloseGuard } from "../../internal/close-guard.svelte.ts";
   import DiscardQuestion from "../../internal/discard-question.svelte";
   import RecordWindowContext from "./record-window-context.svelte";
-  import { recordWindowSession } from "./record-window-session.svelte.ts";
+  import { FrameExpansion, recordWindowExpansion } from "../../internal/frame-expansion.svelte.ts";
   import type { RecordWindowTab } from "./types.ts";
 
   let {
@@ -183,7 +185,13 @@
     style?: string;
   } = $props();
 
-  const isExpanded = $derived(expanded ?? recordWindowSession.expanded);
+  const expansion = new FrameExpansion(recordWindowExpansion, {
+    read: () => expanded,
+    write: (next) => {
+      expanded = next;
+    },
+  });
+  const isExpanded = $derived(expansion.expanded);
 
   /*
    * Why Edit is refused, if it is. Two refusals answer here rather than one: the account may not
@@ -267,9 +275,7 @@
   }
 
   function toggleExpanded(): void {
-    const next = !isExpanded;
-    recordWindowSession.expanded = next;
-    expanded = next;
+    expansion.toggle();
   }
 </script>
 
@@ -292,10 +298,11 @@
     data-editing={editing ? "true" : "false"}
     class={mergeClasses(
       "mc-modal-frame mc-record-window",
-      // Width and height are utilities, never the recipe: the dialog panel underneath arrives
-      // wearing its own default cap as a utility, and only another utility can replace it.
-      // Expanded drops the cap entirely, because filling the screen IS the gesture.
-      isExpanded ? "h-screen w-screen max-w-none" : "max-h-screen w-full max-w-record-window",
+      // Width is a utility, never the recipe: the dialog panel underneath arrives wearing its own
+      // default cap as a utility, and only another utility can replace it. Height needs no
+      // utility: the stage the panel sits in caps it at the screen less its gutter. Expanded drops
+      // the cap entirely, because filling the screen IS the gesture.
+      expansion.panelClasses("w-full max-w-record-window"),
       className,
     )}
     style={isExpanded ? undefined : style}
@@ -352,8 +359,8 @@
           data-record-window-action="expand"
           class="mc-modal-frame-header-action mc-record-window-header-action"
           aria-pressed={isExpanded}
-          title={isExpanded ? "Shrink back to a window" : "Fill the screen"}
-          aria-label={isExpanded ? "Shrink back to a window" : "Fill the screen"}
+          title={expansion.label}
+          aria-label={expansion.label}
           onclick={toggleExpanded}
         >
           {#if isExpanded}

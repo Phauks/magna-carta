@@ -151,7 +151,6 @@ export type DirectoryNameRole = "current" | "former" | "alias" | "aka" | "maiden
 export type DirectoryIdentifierType =
   | "ssn"
   | "ein"
-  | "dob"
   | "account"
   | "drivers_license"
   | "ssn_last_four"
@@ -165,7 +164,19 @@ export type DirectoryEdgeType =
   | "corporate_subsidiary"
   | "corporate_successor"
   | "representation"
-  | "role_assignment";
+  | "role_assignment"
+  | "officer_of"
+  | "director_of"
+  | "partner_of"
+  | "trustee_of"
+  | "personal_representative_of"
+  | "agent_of"
+  | "employment"
+  | "member_of"
+  | "shareholder_of"
+  | "beneficiary_of"
+  | "guardian_of"
+  | "point_of_contact_for";
 
 /** One entity the firm may already hold under another spelling. */
 export interface DuplicateCandidate {
@@ -255,6 +266,8 @@ export interface DirectoryCategory {
 export interface DirectoryIdentifierRecord {
   id: string;
   type: DirectoryIdentifierType;
+  /** The plaintext part: the issuing region, the jurisdiction, who an account is held with. */
+  label: string | null;
   validFrom: string | null;
   validTo: string | null;
   recordedAt: string;
@@ -449,11 +462,18 @@ export async function readDirectoryEntity(
  * asked, for which entity, and when, before any plaintext exists. A null value means the entity
  * holds none of that type — asking for one it does not hold reveals nothing and records nothing.
  */
+export interface DirectoryIdentifierValue {
+  /** The decrypted value — for an account, its number. */
+  value: string | null;
+  username?: string | null;
+  secret?: string | null;
+}
+
 export function readDirectoryIdentifier(
   fetchImpl: typeof fetch,
   entityId: string,
   type: DirectoryIdentifierType,
-): Promise<ApiOutcome<{ value: string | null }>> {
+): Promise<ApiOutcome<DirectoryIdentifierValue>> {
   return requestJson(
     fetchImpl,
     `/api/v1/directory/entities/${encodeURIComponent(entityId)}/identifiers/${encodeURIComponent(type)}`,
@@ -537,6 +557,53 @@ export function readDirectoryEdges(
 }
 
 /** The matters this entity is a party to — the mirror of the read that answers for one matter. */
+/** What a new edge records: the two ends, the type, and the facts about the link itself. */
+export interface CreateDirectoryEdgeRequest {
+  from: string;
+  to: string;
+  edgeType: DirectoryEdgeType;
+  role?: string | null;
+  note?: string | null;
+  validFrom?: string | null;
+  validTo?: string | null;
+}
+
+/**
+ * Records a relationship between two entities. The direction is the type's: an officer is an
+ * officer OF an organization, so `from` is the person and `to` the organization whichever record
+ * the edge was recorded from. The idempotency key is the caller's, so a retried press records once.
+ */
+export function createDirectoryEdge(
+  fetchImpl: typeof fetch,
+  request: CreateDirectoryEdgeRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, "/api/v1/directory/edges", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
+/** What a new category takes: its name and which side of the directory it files. */
+export interface CreateDirectoryCategoryRequest {
+  name: string;
+  appliesTo: DirectoryEntityKind | "both";
+}
+
+/** Creates one of the firm's own categories. The idempotency key is the caller's. */
+export function createDirectoryCategory(
+  fetchImpl: typeof fetch,
+  request: CreateDirectoryCategoryRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, "/api/v1/directory/categories", {
+    method: "POST",
+    body: request,
+    idempotencyKey,
+  });
+}
+
 export function readDirectoryEntityMatterParties(
   fetchImpl: typeof fetch,
   entityId: string,
@@ -617,15 +684,77 @@ export function changeDirectoryName(
   });
 }
 
+/** One further name a person has held, recorded with the person. */
+export interface DirectoryOtherNameRequest {
+  given: string;
+  family: string;
+  nameRole: DirectoryNameRole;
+  prefix?: string | null;
+  middle?: string | null;
+  suffix?: string | null;
+}
+
+/** One organization the person belongs to, and which end of the edge the person is. */
+export interface DirectoryPersonOrganizationRequest {
+  organizationId: string;
+  edgeType: DirectoryEdgeType;
+  personIs: "from" | "to";
+  role?: string | null;
+  note?: string | null;
+}
+
+/**
+ * The whole person, recorded in one request and one batch: nothing lands unless all of it does.
+ * Every nested shape is the one its own route takes, so the panes and the create agree.
+ */
+export interface CreateDirectoryPersonRequest {
+  given: string;
+  family: string;
+  prefix?: string | null;
+  middle?: string | null;
+  suffix?: string | null;
+  otherNames?: DirectoryOtherNameRequest[];
+  pronouns?: PronounSet | null;
+  dateOfBirth?: string | null;
+  dateOfDeath?: string | null;
+  emails?: {
+    address: string;
+    contactUse?: DirectoryContactUse | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+  }[];
+  phones?: {
+    number: string;
+    contactSystem?: DirectoryContactSystem;
+    contactUse?: DirectoryContactUse | null;
+    extension?: string | null;
+    countryRegionCode?: string | null;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+  }[];
+  addresses?: {
+    recipient?: string | null;
+    organizationName?: string | null;
+    street?: string | null;
+    streetTwo?: string | null;
+    dependentLocality?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    sortingCode?: string | null;
+    country?: string | null;
+    addressUse?: DirectoryAddressUse | null;
+    addressType?: DirectoryAddressType;
+    isPrimary?: boolean;
+    preference?: DirectoryContactPreference;
+  }[];
+  identifiers?: DirectoryIdentifierRequest[];
+  organizations?: DirectoryPersonOrganizationRequest[];
+}
+
 export function createDirectoryPerson(
   fetchImpl: typeof fetch,
-  request: {
-    given: string;
-    family: string;
-    prefix?: string | null;
-    middle?: string | null;
-    suffix?: string | null;
-  },
+  request: CreateDirectoryPersonRequest,
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ id: string }>> {
   return requestJson(fetchImpl, "/api/v1/directory/persons", {
@@ -718,10 +847,19 @@ export function assignDirectoryCategory(
 }
 
 /** Seals a typed identifier under the firm key. Only the ciphertext and its index are ever stored. */
+/** What a person typed for one identifier; the type decides which parts the API reads. */
+export interface DirectoryIdentifierRequest {
+  type: DirectoryIdentifierType;
+  label?: string | null;
+  number: string;
+  username?: string | null;
+  secret?: string | null;
+}
+
 export function addDirectoryIdentifier(
   fetchImpl: typeof fetch,
   entityId: string,
-  request: { type: DirectoryIdentifierType; value: string },
+  request: DirectoryIdentifierRequest,
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ ok: boolean }>> {
   return requestJson(

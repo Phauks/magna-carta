@@ -33,13 +33,12 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
-  import Plus from "@lucide/svelte/icons/plus";
+  import CreateControl from "@magna-carta/design-system/create-control";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import { goto } from "$app/navigation";
@@ -68,6 +67,7 @@
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
   import NewMatterDialog from "$lib/matters/new-matter-dialog.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
 
   // ---- what the screen is asking for ----------------------------------------------------------
 
@@ -146,7 +146,7 @@
       ? "Reading your session."
       : mayCreate
         ? undefined
-        : "Opening a matter needs the matters:create permission, which this account does not hold.",
+        : permissionRefusal("Opening a matter", "matters:create"),
   );
 
   // ---- the docket ------------------------------------------------------------------------------
@@ -243,21 +243,8 @@
 {/snippet}
 
 <div class="flex h-full flex-col gap-16">
-  <Masthead.Root>
-    <Masthead.Heading>
-      <Masthead.Title>Matters</Masthead.Title>
-    </Masthead.Heading>
-    <Masthead.Actions>
-      <Button
-        variant="primary"
-        disabled={!mayCreate}
-        title={createDisabledReason}
-        onclick={() => (dialogOpen = true)}
-      >
-        <Plus class="size-16" aria-hidden="true" />
-        New matter
-      </Button>
-
+  <ScreenHeader title="Matters">
+    {#snippet actions()}
       {#if searchOpen}
         <Input
           bind:ref={searchField}
@@ -280,22 +267,22 @@
         <Search class="size-16" aria-hidden="true" />
       </Button>
 
-      {#if narrowed}
-        <!-- The control exists only while something is narrowing the view: its absence says
-             nothing is, which is a thing a reader can see without reading anything. -->
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Show every matter: {narrowingSummary}"
-          title={narrowingSummary}
-          class="text-accent-default"
-          onclick={clearNarrowing}
-        >
-          <FunnelX class="size-16" aria-hidden="true" />
-        </Button>
-      {/if}
-    </Masthead.Actions>
-  </Masthead.Root>
+      <DataTable.ClearFilters
+        {grid}
+        narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }}
+      />
+
+      <!-- The one create control (the design system's), LAST on the row: the search grows toward
+           the inline start as it opens, so the control after it is the one place that growth cannot
+           reach — the same order as the matter header and the custody register. -->
+      <CreateControl
+        noun="Matter"
+        title="Open a new matter or take a consultation."
+        refusal={mayCreate ? undefined : createDisabledReason}
+        onpress={() => (dialogOpen = true)}
+      />
+    {/snippet}
+  </ScreenHeader>
 
   {#if lastCreated !== null}
     <!-- The heading follows the outcome, never the intent: a consultation was not opened. -->
@@ -348,18 +335,8 @@
           </EmptyState>
         {:else}
           <EmptyState title="No Matters Yet">
-            {#snippet actions()}
-              <Button
-                variant="primary"
-                disabled={!mayCreate}
-                title={createDisabledReason}
-                onclick={() => (dialogOpen = true)}
-              >
-                <Plus class="size-16" aria-hidden="true" />
-                New matter
-              </Button>
-            {/snippet}
-            Numbering, documents, time and trust all hang from a matter.
+            Numbering, documents, time and trust all hang from a matter. New Matter, at the top of
+            the screen, opens the first.
           </EmptyState>
         {/if}
       {/snippet}
@@ -369,11 +346,12 @@
          one-click way back to all of it. One line at a fixed height, so it never reflows. -->
     <DataTable.GridFooter {grid}>
       {#snippet end()}
-        {#if list.nextCursor !== null}
-          <Button variant="secondary" size="sm" onclick={loadMore} disabled={list.loadingMore}>
-            {list.loadingMore ? "Loading" : "Load more matters"}
-          </Button>
-        {/if}
+        <DataTable.LoadMore
+          noun="matters"
+          more={list.nextCursor !== null}
+          loading={list.loadingMore}
+          onLoad={loadMore}
+        />
       {/snippet}
     </DataTable.GridFooter>
   {/if}

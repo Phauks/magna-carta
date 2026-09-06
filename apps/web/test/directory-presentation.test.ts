@@ -11,6 +11,7 @@ import {
   directoryOrganizationName,
   directoryPersonName,
   entityKindLabel,
+  entityRecordFromAddress,
   entityRecordHref,
   organizationLegalNameAside,
   pronounShortForm,
@@ -32,7 +33,7 @@ import {
   appendableNameRoles,
   edgeTypeLabel,
   identifierTypeLabel,
-  identifierTypesFor,
+  identifierShapesFor,
   nameRoleLabel,
 } from "../src/lib/directory/directory-vocabulary.ts";
 
@@ -141,8 +142,13 @@ describe("the entity handle", () => {
     expect(entityKindFromIdentifier("")).toBeNull();
   });
 
-  it("addresses a record one way", () => {
-    expect(entityRecordHref("directoryPerson_abc")).toBe("/contacts/directoryPerson_abc");
+  it("addresses a record one way: the directory, carrying which record's window to open", () => {
+    expect(entityRecordHref("directoryPerson_abc")).toBe("/directory?record=directoryPerson_abc");
+    expect(
+      entityRecordFromAddress(new URL("https://firm.example/directory?record=directoryPerson_abc")),
+    ).toBe("directoryPerson_abc");
+    expect(entityRecordFromAddress(new URL("https://firm.example/directory"))).toBeNull();
+    expect(entityRecordFromAddress(new URL("https://firm.example/directory?record="))).toBeNull();
   });
 
   it("labels both kinds, and passes an unrecognized one through as it came", () => {
@@ -183,10 +189,10 @@ describe("the vocabularies", () => {
   });
 
   it("offers each kind only the identifier types that kind can hold", () => {
-    const personTypes = identifierTypesFor("person").map((entry) => entry.type);
+    const personTypes = identifierShapesFor("person").map((entry) => entry.type);
     expect(personTypes).toContain("ssn");
     expect(personTypes).not.toContain("ein");
-    const organizationTypes = identifierTypesFor("organization").map((entry) => entry.type);
+    const organizationTypes = identifierShapesFor("organization").map((entry) => entry.type);
     expect(organizationTypes).toContain("ein");
     expect(organizationTypes).not.toContain("ssn");
   });

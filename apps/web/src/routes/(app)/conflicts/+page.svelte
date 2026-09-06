@@ -18,16 +18,26 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Combobox from "@magna-carta/design-system/combobox";
-  import * as Masthead from "@magna-carta/design-system/masthead";
+  import ScreenHeader from "$lib/screen/screen-header.svelte";
   import Button from "@magna-carta/design-system/button";
   import Label from "@magna-carta/design-system/label";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Separator from "@magna-carta/design-system/separator";
   import ScrollText from "@lucide/svelte/icons/scroll-text";
   import { goto } from "$app/navigation";
   import CheckRunner from "$lib/conflicts/check-runner.svelte";
-  import { gapReason } from "$lib/conflicts/conflicts-gaps.ts";
-  import { RUN_CHECK_PERMISSION } from "$lib/conflicts/conflicts-api.ts";
-  import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
+  import Badge from "@magna-carta/design-system/badge";
+  import { formatInstant, personName } from "@magna-carta/design-system/formatters";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import {
+    listConflictsChecks,
+    RUN_CHECK_PERMISSION,
+    type ConflictsCheckSummary,
+  } from "$lib/conflicts/conflicts-api.ts";
+  import { triggerVocabulary } from "$lib/conflicts/conflicts-vocabulary.ts";
+  import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
   import {
     listMatters,
     readSession,
@@ -42,8 +52,62 @@
   let chosenMatter = $state<MatterSummary | null>(null);
   let bootstrapped = $state(false);
 
-  const historyDescription = "conflicts-earlier-checks";
-  const soonHistory = soonControlProperties(gapReason("checkHistory"), historyDescription);
+  /*
+   * The checks this firm has run. One page, newest first — the block used to keep its place saying
+   * the platform knew the question and could not answer it.
+   */
+  let history = $state<ConflictsCheckSummary[] | null>(null);
+  let historyHasMore = $state(false);
+  let historyFailure = $state<StatedFailure | null>(null);
+
+  /*
+   * The shape the list takes while it is read: its own rows, over invented checks. Inert and hidden
+   * from assistive technology while it stands, so no row in it reads as a check the firm ran.
+   */
+  const HISTORY_FIXTURE = [
+    {
+      id: "fixture-1",
+      when: "12 Feb 2026, 09:14",
+      trigger: triggerVocabulary("comprehensive").label,
+      actor: "Rosalind Chase",
+      count: "3 candidates",
+    },
+    {
+      id: "fixture-2",
+      when: "4 Feb 2026, 16:40",
+      trigger: triggerVocabulary("new_party").label,
+      actor: "Run automatically",
+      count: "0 candidates",
+    },
+    {
+      id: "fixture-3",
+      when: "28 Jan 2026, 11:02",
+      trigger: triggerVocabulary("periodic_rescan").label,
+      actor: "Run automatically",
+      count: "1 candidate",
+    },
+  ] as const;
+
+  // The shared roster, so a manual run names the member who asked rather than printing a handle.
+  const memberNames = $derived(
+    new Map((firmRoster.members ?? []).map((member) => [member.userId, member.displayName])),
+  );
+
+  $effect(() => {
+    void firmRoster.load(fetch);
+  });
+
+  $effect(() => {
+    void (async () => {
+      const outcome = await listConflictsChecks(fetch);
+      if (outcome.kind !== "ok") {
+        historyFailure = stated(outcome.failure, "The checks this firm has run could not be read.");
+        return;
+      }
+      history = outcome.value.data;
+      historyHasMore = outcome.value.nextCursor !== null;
+    })();
+  });
 
   $effect(() => {
     if (bootstrapped) return;
@@ -99,21 +163,21 @@
   <title>Conflicts Check · Magna Carta</title>
 </svelte:head>
 
-<Masthead.Root class="mb-24">
-  <Masthead.Heading>
-    <Masthead.Title>Conflicts Check</Masthead.Title>
-    <Masthead.Meta>
-      <span>Search the firm's record, and keep what the search did</span>
-    </Masthead.Meta>
-  </Masthead.Heading>
-</Masthead.Root>
+<ScreenHeader
+  title="Conflicts Check"
+  class="mb-24"
+>
+  {#snippet meta()}
+    <span>Search the firm's record, and keep what the search did</span>
+  {/snippet}
+</ScreenHeader>
 
 {#if session !== null && !mayRun}
   <Alert.Root variant="info" class="mb-16">
     <Alert.Title>Running A Check Is Not Available To This Account</Alert.Title>
     <Alert.Description>
-      Running a check needs the conflicts:run permission, which this account does not hold. Reading a
-      matter's standing is a separate permission.
+      {permissionRefusal("Running a check", "conflicts:run")} Reading a matter's standing is a
+      separate permission.
     </Alert.Description>
   </Alert.Root>
 {/if}
@@ -171,12 +235,76 @@
   <Separator />
 
   <section class="flex flex-col gap-8">
-    <div class="flex items-center gap-8">
-      <h2 class="text-base font-semibold">Earlier Checks</h2>
-      <MaturityBadge stage="soon" />
-    </div>
-    <!-- The block keeps its place rather than being dropped: a firm looking for the checks it has
-         run should see that the platform knows the question and cannot answer it yet. -->
-    <p id={historyDescription} class="text-sm text-text-muted">{soonHistory.title}</p>
+    <h2 class="text-base font-semibold">Earlier Checks</h2>
+    {#if historyFailure !== null}
+      <FailureNotice
+        failure={historyFailure.failure}
+        subject="The checks this firm has run"
+        fallback={historyFailure.fallback}
+      />
+    {:else}
+      <LoadingRegion
+        loading={history === null}
+        label="Reading the checks this firm has run"
+        class="flex flex-col gap-8"
+      >
+        {#snippet fixture()}
+          <ul class="flex flex-col divide-y divide-border-default">
+            {#each HISTORY_FIXTURE as row (row.id)}
+              <li class="flex flex-wrap items-baseline gap-x-12 gap-y-4 py-8">
+                <span class="text-sm underline underline-offset-2">{row.when}</span>
+                <span class="text-sm text-text-muted">{row.trigger}</span>
+                <span class="text-xs text-text-subtle">{row.actor}</span>
+                <span class="ms-auto text-sm tabular-nums text-text-muted">{row.count}</span>
+              </li>
+            {/each}
+          </ul>
+        {/snippet}
+        {@const shown = history ?? []}
+        {#if shown.length === 0}
+        <p class="text-sm text-text-muted">
+          This firm has run no conflicts checks yet. That is a fact about the record, and says nothing
+          about any matter.
+        </p>
+        {:else}
+        <ul class="flex flex-col divide-y divide-border-default">
+          {#each shown as check (check.id)}
+            <li class="flex flex-wrap items-baseline gap-x-12 gap-y-4 py-8">
+              <a class="text-sm underline underline-offset-2" href="/conflicts/checks/{check.id}">
+                {formatInstant(check.createdAt)}
+              </a>
+              <span class="text-sm text-text-muted">{triggerVocabulary(check.trigger).label}</span>
+              <!-- What set it going, and who asked where anybody did. An automated run is nobody's
+                   act, and saying so is different from leaving the actor blank. -->
+              <span class="text-xs text-text-subtle">
+                {check.triggerSource === "manual"
+                  ? personName(memberNames.get(check.actorUserId ?? "") ?? null, {
+                      whenUnrecorded: check.actorUserId ?? "a member",
+                    })
+                  : check.triggerSource === null
+                    ? "The row does not say what started it"
+                    : "Run automatically"}
+              </span>
+              {#if check.floorRaised}
+                <!-- It searched WIDER than asked. Worth the row, because it explains a result set
+                     larger than the requester expected. -->
+                <Badge variant="neutral">Raised to the firm floor</Badge>
+              {/if}
+              <span class="ms-auto text-sm tabular-nums text-text-muted">
+                {check.hitCount}
+                {check.hitCount === 1 ? "candidate" : "candidates"}
+              </span>
+            </li>
+          {/each}
+        </ul>
+        {#if historyHasMore}
+          <p class="text-xs text-text-subtle">
+            The most recent {shown.length} checks. Older ones are on the record and are not shown
+            here.
+          </p>
+        {/if}
+        {/if}
+      </LoadingRegion>
+    {/if}
   </section>
 </div>

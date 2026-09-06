@@ -806,10 +806,13 @@ A gate that claims more than it delivers is worse than none, so:
   happens) are the mockups' actual idiom. `outerHTML`, `insertAdjacentHTML`, `document.write` and
   the rest are not listed, because a rule that enumerates everything is a rule that fires on
   ordinary code and gets switched off.
-- **Rules 1 and 2 are specified above and NOT built.** The screens they govern mostly do not exist
-  yet, and rule 2's structural form is heuristic by the plan's own account. `pnpm run lint:one-ui`
-  therefore does not check for a `<table>` in an app screen or for a second record window, and its
-  own "Not caught" line says so on every run. They belong in the tool when Phase B and C land.
+- **Rule 1 is built (2026-09-03), as two rules; rule 2 is not.** `raw-table` is rule 1 as specified
+  — the elements and the table roles, on both sides of the line, with the data-table home the one
+  exemption — and `table-machinery` is the half a scan for `<table>` cannot see: a sort, the
+  headless engine or its toolbar parts written beside the presentational primitives, which passes
+  rule 1 and is exactly the behaviour gap TB2 names. Rule 2's structural form is heuristic by the
+  plan's own account, so `pnpm run lint:one-ui` still does not check for a second record window,
+  and its own "Not caught" line says so on every run. It belongs in the tool when Phase C lands.
 
 ---
 

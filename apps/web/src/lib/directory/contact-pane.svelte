@@ -1,51 +1,29 @@
 <script lang="ts">
   /*
    * How the firm can reach this record — email addresses, telephone and fax numbers, and postal
-   * addresses.
+   * addresses — read from and written to the firm's own record.
    *
-   * THIS PANE IS THE CAPABILITY. The three tables behind it have been in the schema since the
-   * beginning with nothing able to write to them, so until this existed a firm could not record a
-   * client's telephone number.
+   * The pane is thin on purpose: the list, the kind-first add row and every shape check are the
+   * contact section, the same component the New Person screen drafts with, so a way to reach
+   * someone reads and is entered the same way whether the record exists yet or not. What is left
+   * here is what only this pane knows: which record, who may change it, and how each change is
+   * persisted one at a time.
    *
-   * CAN AND SHOULD ARE TWO DIFFERENT FACTS, and the pane keeps them apart because a firm acts on
-   * them differently. A contact point can be PERMITTED — may the firm use it at all — and one
-   * contact point across all three channels can be PREFERRED, the route the person asked to be
-   * reached by. A person can be reachable at a number they would rather nobody rang, and can ask to
-   * be reached by post while their email address stays perfectly usable. Withdrawing the permission
-   * is what the pane offers instead of deleting: deleting the number loses the instruction along
-   * with the value, and the next member types it back in and rings it.
-   *
-   * A FAILED CONFIRMATION IS SHOWN AND GATES NOTHING. Returned mail and a bounced message are the
-   * facts a firm most needs recorded, and they are also frequently wrong about the future. So the
-   * row says so, in the calm status register, and nothing anywhere refuses to send.
-   *
-   * WHAT WAS ENTERED IS WHAT IS SHOWN. A telephone number is rendered exactly as it was typed; the
-   * split into country code and national number is storage, for a dialler, and a screen that
-   * reformatted a client's number would be arguing with the person who wrote it down.
+   * Two facts a screen must not merge: `permitted` (may the firm use this) and `preferred` (the one
+   * way the person asked to be reached). A person can be reachable at a number they would rather
+   * the firm did not ring, and prefer post while their email stays perfectly usable. Withdrawing the
+   * permission is recorded, never deleted: a number that came back "do not call" is a fact about
+   * the record, and the next person must not ring it again.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Dialog from "@magna-carta/design-system/dialog";
-  import * as Select from "@magna-carta/design-system/select";
-  import Badge from "@magna-carta/design-system/badge";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
-  import Checkbox from "@magna-carta/design-system/checkbox";
-  import EmptyState from "@magna-carta/design-system/empty-state";
-  import Input from "@magna-carta/design-system/input";
-  import Label from "@magna-carta/design-system/label";
-  import Skeleton from "@magna-carta/design-system/skeleton";
-  import Textarea from "@magna-carta/design-system/textarea";
-  import AtSign from "@lucide/svelte/icons/at-sign";
-  import Ban from "@lucide/svelte/icons/ban";
-  import MapPin from "@lucide/svelte/icons/map-pin";
-  import Phone from "@lucide/svelte/icons/phone";
-  import Plus from "@lucide/svelte/icons/plus";
-  import Star from "@lucide/svelte/icons/star";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
-  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import {
+    contactRequestsFrom,
+    contactRowsFrom,
+    type ContactDraft,
+    type ContactRow,
+  } from "./contact-draft.ts";
   import {
     addDirectoryAddress,
     addDirectoryEmail,
@@ -53,23 +31,9 @@
     readDirectoryContactPoints,
     removeDirectoryContactPoint,
     updateDirectoryContactPoint,
-    type DirectoryAddressType,
-    type DirectoryAddressUse,
-    type DirectoryContactPointState,
     type DirectoryContactPoints,
-    type DirectoryContactUse,
   } from "./directory-api.ts";
-  import {
-    ADDRESS_TYPES,
-    ADDRESS_USES,
-    EMAIL_USES,
-    PHONE_KINDS,
-    addressLines,
-    addressTypeLabel,
-    addressUseLabel,
-    contactUseLabel,
-    phoneKindLabel,
-  } from "./directory-vocabulary.ts";
+  import ContactSection from "./sections/contact-section.svelte";
 
   let {
     entityId,
@@ -81,8 +45,6 @@
     editDisabledReason?: string;
   } = $props();
 
-  // ---- what the firm holds ----------------------------------------------------------------------
-
   let points = $state<DirectoryContactPoints | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
   let reloadToken = $state(0);
@@ -91,7 +53,6 @@
     const id = entityId;
     void reloadToken;
     let cancelled = false;
-    points = null;
     readFailure = null;
     void (async () => {
       const outcome = await readDirectoryContactPoints(fetch, id);
@@ -101,313 +62,154 @@
         return;
       }
       points = { emails: [], phones: [], addresses: [] };
-      readFailure = stated(outcome.failure, "How to reach this record could not be read.");
+      readFailure = stated(outcome.failure, "This record's contact details could not be read.");
     })();
     return () => {
       cancelled = true;
     };
   });
 
-  const total = $derived(
-    points === null
-      ? 0
-      : points.emails.length + points.phones.length + points.addresses.length,
-  );
+  const rows = $derived(points === null ? [] : contactRowsFrom(points));
 
-  // ---- recording one -----------------------------------------------------------------------------
+  /**
+   * The shape the section takes while the record's contact details are being read: three lines of
+   * the kinds it lists, in the same section, over sample words. The domain and the number are the
+   * reserved ones, so they are nobody's.
+   */
+  const CONTACT_FIXTURE: readonly ContactRow[] = [
+    {
+      id: "fixture-1",
+      kind: "email",
+      value: "eleanor.whitcombe@example.com",
+      use: "Work",
+      state: {
+        permitted: true,
+        preferred: true,
+        note: null,
+        verificationStatus: "unverified",
+        verifiedAt: null,
+        verificationDetail: null,
+      },
+      isPrimary: true,
+    },
+    {
+      id: "fixture-2",
+      kind: "telephone",
+      value: "(702) 555-0142",
+      use: "Mobile",
+      state: {
+        permitted: true,
+        preferred: false,
+        note: null,
+        verificationStatus: "unverified",
+        verifiedAt: null,
+        verificationDetail: null,
+      },
+      isPrimary: false,
+    },
+    {
+      id: "fixture-3",
+      kind: "address",
+      value: "1400 Meridian Way, Suite 300, Reno, NV 89501",
+      use: "Office",
+      state: {
+        permitted: true,
+        preferred: false,
+        note: null,
+        verificationStatus: "unverified",
+        verifiedAt: null,
+        verificationDetail: null,
+      },
+      isPrimary: false,
+    },
+  ];
 
   type Channel = "emails" | "phones" | "addresses";
 
-  let open = $state(false);
-  let channel = $state<Channel>("phones");
-  let submitting = $state(false);
-  let failure = $state<StatedFailure | null>(null);
-
-  let emailAddress = $state("");
-  let emailUse = $state<DirectoryContactUse>("work");
-
-  let phoneNumber = $state("");
-  let phoneKind = $state("mobile");
-  let phoneExtension = $state("");
-
-  let addressStreet = $state("");
-  let addressStreetTwo = $state("");
-  let addressDependentLocality = $state("");
-  let addressCity = $state("");
-  let addressRegion = $state("");
-  let addressPostal = $state("");
-  let addressSortingCode = $state("");
-  let addressCountry = $state("");
-  let addressUse = $state<DirectoryAddressUse>("business");
-  let addressType = $state<DirectoryAddressType>("physical");
-
-  let makePrimary = $state(false);
-  let makePreferred = $state(false);
-  let permitted = $state(true);
-  let preferenceNote = $state("");
-
-  const channelItems = [
-    { value: "phones", label: "Telephone or fax" },
-    { value: "emails", label: "Email" },
-    { value: "addresses", label: "Postal address" },
-  ];
-
-  function resetDraft(startingChannel: Channel): void {
-    channel = startingChannel;
-    failure = null;
-    emailAddress = "";
-    emailUse = "work";
-    phoneNumber = "";
-    phoneKind = "mobile";
-    phoneExtension = "";
-    addressStreet = "";
-    addressStreetTwo = "";
-    addressDependentLocality = "";
-    addressCity = "";
-    addressRegion = "";
-    addressPostal = "";
-    addressSortingCode = "";
-    addressCountry = "";
-    addressUse = "business";
-    addressType = "physical";
-    makePrimary = false;
-    makePreferred = false;
-    permitted = true;
-    preferenceNote = "";
+  function channelOf(row: ContactRow): Channel {
+    return row.kind === "email" ? "emails" : row.kind === "address" ? "addresses" : "phones";
   }
 
-  const addressHasSomething = $derived(
-    [
-      addressStreet,
-      addressStreetTwo,
-      addressDependentLocality,
-      addressCity,
-      addressRegion,
-      addressPostal,
-      addressSortingCode,
-      addressCountry,
-    ].some((part) => part.trim() !== ""),
-  );
+  // ---- writes, one at a time --------------------------------------------------------------------
 
-  const readyToRecord = $derived(
-    channel === "emails"
-      ? emailAddress.trim() !== ""
-      : channel === "phones"
-        ? phoneNumber.trim() !== ""
-        : addressHasSomething,
-  );
+  let busyId = $state<string | null>(null);
+  let writeFailure = $state<StatedFailure | null>(null);
 
-  function preferenceForDraft() {
-    return {
-      permitted,
-      preferred: makePreferred,
-      note: preferenceNote.trim() === "" ? null : preferenceNote.trim(),
-    };
-  }
-
-  async function record(): Promise<void> {
-    if (!readyToRecord || submitting) return;
-    submitting = true;
-    failure = null;
+  async function add(draft: ContactDraft): Promise<void> {
+    writeFailure = null;
+    busyId = "adding";
+    const requests = contactRequestsFrom([draft]);
     const key = crypto.randomUUID();
-    const preference = preferenceForDraft();
-
     const outcome =
-      channel === "emails"
-        ? await addDirectoryEmail(
-            fetch,
-            entityId,
-            {
-              address: emailAddress.trim(),
-              contactUse: emailUse,
-              isPrimary: makePrimary,
-              preference,
-            },
-            key,
-          )
-        : channel === "phones"
-          ? await addDirectoryPhone(
-              fetch,
-              entityId,
-              {
-                number: phoneNumber.trim(),
-                contactSystem: PHONE_KINDS.find((entry) => entry.value === phoneKind)?.system,
-                contactUse: PHONE_KINDS.find((entry) => entry.value === phoneKind)?.use ?? null,
-                extension: phoneExtension.trim() === "" ? null : phoneExtension.trim(),
-                isPrimary: makePrimary,
-                preference,
-              },
-              key,
-            )
-          : await addDirectoryAddress(
-              fetch,
-              entityId,
-              {
-                street: addressStreet.trim() === "" ? null : addressStreet.trim(),
-                streetTwo: addressStreetTwo.trim() === "" ? null : addressStreetTwo.trim(),
-                dependentLocality:
-                  addressDependentLocality.trim() === "" ? null : addressDependentLocality.trim(),
-                city: addressCity.trim() === "" ? null : addressCity.trim(),
-                region: addressRegion.trim() === "" ? null : addressRegion.trim(),
-                postal: addressPostal.trim() === "" ? null : addressPostal.trim(),
-                sortingCode: addressSortingCode.trim() === "" ? null : addressSortingCode.trim(),
-                country:
-                  addressCountry.trim() === "" ? null : addressCountry.trim().toUpperCase(),
-                addressUse,
-                addressType,
-                isPrimary: makePrimary,
-                preference,
-              },
-              key,
-            );
-
-    submitting = false;
+      requests.emails[0] !== undefined
+        ? await addDirectoryEmail(fetch, entityId, requests.emails[0], key)
+        : requests.phones[0] !== undefined
+          ? await addDirectoryPhone(fetch, entityId, requests.phones[0], key)
+          : requests.addresses[0] !== undefined
+            ? await addDirectoryAddress(fetch, entityId, requests.addresses[0], key)
+            : null;
+    busyId = null;
+    if (outcome === null) return;
     if (outcome.kind === "ok") {
-      open = false;
       reloadToken += 1;
       return;
     }
-    failure = stated(
+    writeFailure = stated(
       outcome.failure,
-      "This could not be recorded.",
-      "Nothing was recorded.",
+      "That could not be recorded.",
+      "Nothing was recorded; the record's contact details are as they were.",
     );
   }
 
-  // ---- changing one ------------------------------------------------------------------------------
-
-  let busyContactPointId = $state<string | null>(null);
-  let actionFailure = $state<StatedFailure | null>(null);
-
-  async function setPermission(
-    forChannel: Channel,
-    contactPointId: string,
-    nextPermitted: boolean,
+  async function change(
+    row: ContactRow,
+    preference: { preferred?: boolean; permitted?: boolean },
+    whenSilent: string,
   ): Promise<void> {
-    busyContactPointId = contactPointId;
-    actionFailure = null;
+    writeFailure = null;
+    busyId = row.id;
     const outcome = await updateDirectoryContactPoint(
       fetch,
-      forChannel,
-      contactPointId,
-      { preference: { permitted: nextPermitted } },
+      channelOf(row),
+      row.id,
+      { preference },
       crypto.randomUUID(),
     );
-    busyContactPointId = null;
+    busyId = null;
     if (outcome.kind === "ok") {
       reloadToken += 1;
       return;
     }
-    actionFailure = stated(
-      outcome.failure,
-      "That could not be changed.",
-      "Nothing changed.",
-    );
+    writeFailure = stated(outcome.failure, "That could not be changed.", whenSilent);
   }
 
-  async function remove(forChannel: Channel, contactPointId: string): Promise<void> {
-    busyContactPointId = contactPointId;
-    actionFailure = null;
+  async function remove(row: ContactRow): Promise<void> {
+    writeFailure = null;
+    busyId = row.id;
     const outcome = await removeDirectoryContactPoint(
       fetch,
-      forChannel,
-      contactPointId,
+      channelOf(row),
+      row.id,
       crypto.randomUUID(),
     );
-    busyContactPointId = null;
+    busyId = null;
     if (outcome.kind === "ok") {
       reloadToken += 1;
       return;
     }
-    actionFailure = stated(
-      outcome.failure,
-      "That could not be removed.",
-      "Nothing was removed.",
-    );
+    writeFailure = stated(outcome.failure, "That could not be removed.", "Nothing was removed.");
   }
 </script>
 
-{#snippet marks(state: DirectoryContactPointState, isPrimary: boolean)}
-  <span class="flex flex-wrap items-center gap-8">
-    {#if state.preferred}
-      <!-- The subtle register: a preference is a fact about the record, not an interruption. -->
-      <Badge variant="accent">
-        <Star class="size-12" aria-hidden="true" />
-        Preferred
-      </Badge>
-    {/if}
-    {#if isPrimary}
-      <Badge variant="neutral">Default</Badge>
-    {/if}
-    {#if !state.permitted}
-      <Badge variant="warning">
-        <Ban class="size-12" aria-hidden="true" />
-        Do not use
-      </Badge>
-    {/if}
-    {#if state.verificationStatus === "failed"}
-      <Badge variant="danger">
-        <TriangleAlert class="size-12" aria-hidden="true" />
-        Did not reach
-      </Badge>
-    {:else if state.verificationStatus === "verified"}
-      <Badge variant="success">Confirmed</Badge>
-    {/if}
-  </span>
-{/snippet}
-
-{#snippet aside(state: DirectoryContactPointState)}
-  {#if state.note !== null || state.verificationDetail !== null}
-    <span class="block text-xs text-text-muted">
-      {state.note ?? state.verificationDetail}
-    </span>
-  {/if}
-{/snippet}
-
-{#snippet rowActions(forChannel: Channel, contactPointId: string, isPermitted: boolean)}
-  <span class="flex items-center justify-end gap-4">
-    <Button
-      variant="ghost"
-      size="icon"
-      disabled={!mayEdit || busyContactPointId === contactPointId}
-      title={editDisabledReason ??
-        (isPermitted
-          ? "Record that the firm should not use this"
-          : "Record that the firm may use this again")}
-      aria-label={isPermitted ? "Record do not use" : "Record may be used"}
-      onclick={() => void setPermission(forChannel, contactPointId, !isPermitted)}
-    >
-      <Ban class="size-16" aria-hidden="true" />
-    </Button>
-    <Button
-      variant="ghost"
-      size="icon"
-      disabled={!mayEdit || busyContactPointId === contactPointId}
-      title={editDisabledReason ?? "Remove this from the record"}
-      aria-label="Remove"
-      onclick={() => void remove(forChannel, contactPointId)}
-    >
-      <Trash2 class="size-16" aria-hidden="true" />
-    </Button>
-  </span>
-{/snippet}
-
 <section class="flex flex-col gap-16">
-  <div class="flex items-center justify-between gap-16">
-    <h3 class="text-sm font-semibold">Contact</h3>
-    <Button
-      variant="secondary"
-      disabled={!mayEdit}
-      title={editDisabledReason}
-      onclick={() => {
-        resetDraft("phones");
-        open = true;
-      }}
-    >
-      <Plus class="size-16" aria-hidden="true" />
-      Record a way to reach them
-    </Button>
-  </div>
+  {#if writeFailure !== null}
+    <FailureNotice
+      failure={writeFailure.failure}
+      title="The Contact Details Were Not Changed"
+      fallback={writeFailure.fallback}
+      whenSilent={writeFailure.whenSilent}
+    />
+  {/if}
 
   {#if readFailure !== null}
     <FailureNotice
@@ -416,407 +218,30 @@
       fallback={readFailure.fallback}
       whenSilent={readFailure.whenSilent}
     />
-  {:else if points === null}
-    <div class="flex flex-col gap-8" aria-busy="true" aria-label="Reading how to reach this record">
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-      <Skeleton class="h-32 w-full" />
-    </div>
-  {:else if total === 0}
-    <EmptyState title="No Way To Reach This Record">
-      The firm holds no email address, telephone number or postal address for this record. Recording
-      one keeps the firm's own instruction with it: a number can be held and marked not to be used.
-    </EmptyState>
   {:else}
-    {#if actionFailure !== null}
-      <FailureNotice
-        failure={actionFailure.failure}
-        title="That Could Not Be Changed"
-        fallback={actionFailure.fallback}
-        whenSilent={actionFailure.whenSilent}
-      />
-    {/if}
-
-    {#if points.phones.length > 0}
-      <DataTable.Root>
-        <DataTable.Caption class="sr-only">
-          The telephone and fax numbers this record holds
-        </DataTable.Caption>
-        <DataTable.Header>
-          <DataTable.Row>
-            <DataTable.Head>Telephone</DataTable.Head>
-            <DataTable.Head>Kind</DataTable.Head>
-            <DataTable.Head>Standing</DataTable.Head>
-            <DataTable.Head data-align="end">Change</DataTable.Head>
-          </DataTable.Row>
-        </DataTable.Header>
-        <DataTable.Body>
-          {#each points.phones as entry (entry.id)}
-            <DataTable.Row>
-              <DataTable.Cell>
-                <span class="flex items-center gap-8">
-                  <Phone class="size-16 text-text-muted" aria-hidden="true" />
-                  <span class="tabular-nums">{entry.number}</span>
-                  {#if entry.extension !== null}
-                    <span class="text-xs text-text-muted">extension {entry.extension}</span>
-                  {/if}
-                </span>
-                {@render aside(entry.state)}
-              </DataTable.Cell>
-              <DataTable.Cell>{phoneKindLabel(entry.contactSystem, entry.contactUse)}</DataTable.Cell>
-              <DataTable.Cell>{@render marks(entry.state, entry.isPrimary)}</DataTable.Cell>
-              <DataTable.Cell data-align="end">
-                {@render rowActions("phones", entry.id, entry.state.permitted)}
-              </DataTable.Cell>
-            </DataTable.Row>
-          {/each}
-        </DataTable.Body>
-      </DataTable.Root>
-    {/if}
-
-    {#if points.emails.length > 0}
-      <DataTable.Root>
-        <DataTable.Caption class="sr-only">The email addresses this record holds</DataTable.Caption>
-        <DataTable.Header>
-          <DataTable.Row>
-            <DataTable.Head>Email</DataTable.Head>
-            <DataTable.Head>Kind</DataTable.Head>
-            <DataTable.Head>Standing</DataTable.Head>
-            <DataTable.Head data-align="end">Change</DataTable.Head>
-          </DataTable.Row>
-        </DataTable.Header>
-        <DataTable.Body>
-          {#each points.emails as entry (entry.id)}
-            <DataTable.Row>
-              <DataTable.Cell>
-                <span class="flex items-center gap-8">
-                  <AtSign class="size-16 text-text-muted" aria-hidden="true" />
-                  {entry.address}
-                </span>
-                {@render aside(entry.state)}
-              </DataTable.Cell>
-              <DataTable.Cell>
-                {entry.contactUse === null ? "" : contactUseLabel(entry.contactUse)}
-              </DataTable.Cell>
-              <DataTable.Cell>{@render marks(entry.state, entry.isPrimary)}</DataTable.Cell>
-              <DataTable.Cell data-align="end">
-                {@render rowActions("emails", entry.id, entry.state.permitted)}
-              </DataTable.Cell>
-            </DataTable.Row>
-          {/each}
-        </DataTable.Body>
-      </DataTable.Root>
-    {/if}
-
-    {#if points.addresses.length > 0}
-      <DataTable.Root>
-        <DataTable.Caption class="sr-only">The postal addresses this record holds</DataTable.Caption>
-        <DataTable.Header>
-          <DataTable.Row>
-            <DataTable.Head>Address</DataTable.Head>
-            <DataTable.Head>Kind</DataTable.Head>
-            <DataTable.Head>Standing</DataTable.Head>
-            <DataTable.Head data-align="end">Change</DataTable.Head>
-          </DataTable.Row>
-        </DataTable.Header>
-        <DataTable.Body>
-          {#each points.addresses as entry (entry.id)}
-            <DataTable.Row>
-              <DataTable.Cell>
-                <span class="flex items-start gap-8">
-                  <MapPin class="size-16 text-text-muted" aria-hidden="true" />
-                  <span class="flex flex-col">
-                    {#each addressLines(entry) as line (line)}
-                      <span>{line}</span>
-                    {/each}
-                  </span>
-                </span>
-                {@render aside(entry.state)}
-              </DataTable.Cell>
-              <DataTable.Cell>
-                <span class="flex flex-col">
-                  <span>{entry.addressUse === null ? "" : addressUseLabel(entry.addressUse)}</span>
-                  <span class="text-xs text-text-muted">{addressTypeLabel(entry.addressType)}</span>
-                </span>
-              </DataTable.Cell>
-              <DataTable.Cell>{@render marks(entry.state, entry.isPrimary)}</DataTable.Cell>
-              <DataTable.Cell data-align="end">
-                {@render rowActions("addresses", entry.id, entry.state.permitted)}
-              </DataTable.Cell>
-            </DataTable.Row>
-          {/each}
-        </DataTable.Body>
-      </DataTable.Root>
-    {/if}
+    <LoadingRegion
+      loading={points === null}
+      label="Reading this record's contact details"
+      class="flex flex-col gap-8"
+    >
+      {#snippet fixture()}
+        {@render contactSection(CONTACT_FIXTURE)}
+      {/snippet}
+      {@render contactSection(rows)}
+    </LoadingRegion>
   {/if}
 </section>
 
-<Dialog.Root bind:open>
-  <Dialog.Content class="max-w-2xl">
-    <div class="flex flex-col gap-16">
-      <div class="flex flex-col gap-8">
-        <Dialog.Title>Record A Way To Reach Them</Dialog.Title>
-        <Dialog.Description>
-          A number is stored exactly as it is written here. Nothing is reformatted, and a number this
-          system cannot take apart is still kept and still shown.
-        </Dialog.Description>
-      </div>
-
-      <div class="flex flex-col gap-8">
-        <Label id="contact-channel-label">What is being recorded</Label>
-        <Select.Root
-          type="single"
-          items={channelItems}
-          bind:value={() => channel, (chosen) => (channel = chosen as Channel)}
-          allowDeselect={false}
-        >
-          <Select.Trigger class="min-w-64" aria-labelledby="contact-channel-label">
-            <Select.Value />
-          </Select.Trigger>
-          <Select.Content>
-            {#each channelItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      {#if channel === "phones"}
-        <div class="grid grid-cols-2 gap-16">
-          <div class="flex flex-col gap-8">
-            <Label for="contact-phone-number">Number</Label>
-            <Input
-              id="contact-phone-number"
-              bind:value={phoneNumber}
-              autocomplete="off"
-              placeholder={placeholderOf("Number")}
-            />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-phone-extension">Extension</Label>
-            <Input
-              id="contact-phone-extension"
-              bind:value={phoneExtension}
-              autocomplete="off"
-              placeholder={placeholderOf("Extension")}
-            />
-          </div>
-        </div>
-        <div class="flex flex-col gap-8">
-          <Label id="contact-phone-kind-label">Kind</Label>
-          <Select.Root
-            type="single"
-            items={PHONE_KINDS.map((entry) => ({ value: entry.value, label: entry.label }))}
-            bind:value={() => phoneKind, (chosen) => (phoneKind = chosen)}
-            allowDeselect={false}
-          >
-            <Select.Trigger class="min-w-64" aria-labelledby="contact-phone-kind-label">
-              <Select.Value />
-            </Select.Trigger>
-            <Select.Content>
-              {#each PHONE_KINDS as entry (entry.value)}
-                <Select.Item value={entry.value} label={entry.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      {:else if channel === "emails"}
-        <div class="flex flex-col gap-8">
-          <Label for="contact-email-address">Address</Label>
-          <Input
-            id="contact-email-address"
-            type="email"
-            bind:value={emailAddress}
-            autocomplete="off"
-            placeholder={placeholderOf("Address")}
-          />
-        </div>
-        <div class="flex flex-col gap-8">
-          <Label id="contact-email-use-label">Kind</Label>
-          <Select.Root
-            type="single"
-            items={EMAIL_USES.map((entry) => ({ value: entry.value, label: entry.label }))}
-            bind:value={() => emailUse, (chosen) => (emailUse = chosen as DirectoryContactUse)}
-            allowDeselect={false}
-          >
-            <Select.Trigger class="min-w-64" aria-labelledby="contact-email-use-label">
-              <Select.Value />
-            </Select.Trigger>
-            <Select.Content>
-              {#each EMAIL_USES as entry (entry.value)}
-                <Select.Item value={entry.value} label={entry.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      {:else}
-        <!-- No field is required and none is assumed. Which fields a country's addresses use, what
-             they are called and what order they read in are properties of the country, so a
-             half-held address is stored as a half-held address rather than refused. -->
-        <div class="grid grid-cols-2 gap-16">
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-street">Address line</Label>
-            <Input
-              id="contact-address-street"
-              bind:value={addressStreet}
-              autocomplete="off"
-              placeholder={placeholderOf("Address line")}
-            />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-street-two">Second address line</Label>
-            <Input
-              id="contact-address-street-two"
-              bind:value={addressStreetTwo}
-              autocomplete="off"
-              placeholder={placeholderOf("Second address line")}
-            />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-dependent-locality">District or neighbourhood</Label>
-            <Input
-              id="contact-address-dependent-locality"
-              bind:value={addressDependentLocality}
-              autocomplete="off"
-              placeholder={placeholderOf("District or neighbourhood")}
-            />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-city">Town or city</Label>
-            <Input
-              id="contact-address-city"
-              bind:value={addressCity}
-              autocomplete="off"
-              placeholder={placeholderOf("Town or city")}
-            />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-region">State, province or region</Label>
-            <Input
-              id="contact-address-region"
-              bind:value={addressRegion}
-              autocomplete="off"
-              placeholder={placeholderOf("State, province or region")}
-            />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-postal">Postal code</Label>
-            <Input
-              id="contact-address-postal"
-              bind:value={addressPostal}
-              autocomplete="off"
-              placeholder={placeholderOf("Postal code")}
-            />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-sorting-code">Sorting code</Label>
-            <Input
-              id="contact-address-sorting-code"
-              bind:value={addressSortingCode}
-              autocomplete="off"
-              placeholder={placeholderOf("Sorting code")}
-            />
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label for="contact-address-country">Country</Label>
-            <Input
-              id="contact-address-country"
-              bind:value={addressCountry}
-              autocomplete="off"
-              maxlength={2}
-              placeholder={placeholderOf("Country")}
-            />
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-16">
-          <div class="flex flex-col gap-8">
-            <Label id="contact-address-use-label">Kind</Label>
-            <Select.Root
-              type="single"
-              items={ADDRESS_USES.map((entry) => ({ value: entry.value, label: entry.label }))}
-              bind:value={
-                () => addressUse, (chosen) => (addressUse = chosen as DirectoryAddressUse)
-              }
-              allowDeselect={false}
-            >
-              <Select.Trigger class="min-w-64" aria-labelledby="contact-address-use-label">
-                <Select.Value />
-              </Select.Trigger>
-              <Select.Content>
-                {#each ADDRESS_USES as entry (entry.value)}
-                  <Select.Item value={entry.value} label={entry.label} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-          <div class="flex flex-col gap-8">
-            <Label id="contact-address-type-label">Whether it can be served</Label>
-            <Select.Root
-              type="single"
-              items={ADDRESS_TYPES.map((entry) => ({ value: entry.value, label: entry.label }))}
-              bind:value={
-                () => addressType, (chosen) => (addressType = chosen as DirectoryAddressType)
-              }
-              allowDeselect={false}
-            >
-              <Select.Trigger class="min-w-64" aria-labelledby="contact-address-type-label">
-                <Select.Value />
-              </Select.Trigger>
-              <Select.Content>
-                {#each ADDRESS_TYPES as entry (entry.value)}
-                  <Select.Item value={entry.value} label={entry.label} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-        </div>
-      {/if}
-
-      <div class="flex flex-col gap-8">
-        <Label class="flex items-center gap-8" for="contact-permitted">
-          <Checkbox id="contact-permitted" bind:checked={permitted} />
-          The firm may use this
-        </Label>
-        <Label class="flex items-center gap-8" for="contact-preferred">
-          <Checkbox id="contact-preferred" bind:checked={makePreferred} />
-          This is how they asked to be reached
-        </Label>
-        <Label class="flex items-center gap-8" for="contact-primary">
-          <Checkbox id="contact-primary" bind:checked={makePrimary} />
-          Use this one by default
-        </Label>
-      </div>
-
-      <div class="flex flex-col gap-8">
-        <Label for="contact-note">Note</Label>
-        <Textarea
-          id="contact-note"
-          bind:value={preferenceNote}
-          rows={2}
-          placeholder={placeholderOf("Note")}
-        />
-      </div>
-
-      {#if failure !== null}
-        <FailureNotice
-          failure={failure.failure}
-          title="Nothing Was Recorded"
-          fallback={failure.fallback}
-          whenSilent={failure.whenSilent}
-        />
-      {/if}
-
-      <div class="flex justify-end gap-8">
-        <Dialog.Close
-          class={buttonClasses({ variant: "secondary", size: "default" })}
-          disabled={submitting}
-        >
-          Cancel
-        </Dialog.Close>
-        <Button variant="primary" disabled={!readyToRecord || submitting} onclick={record}>
-          {submitting ? "Recording" : "Record"}
-        </Button>
-      </div>
-    </div>
-  </Dialog.Content>
-</Dialog.Root>
+<!-- One section for the rows and for the shape they take while they are read, so the two cannot drift. -->
+{#snippet contactSection(listed: readonly ContactRow[])}
+  <ContactSection
+    rows={listed}
+    canEdit={mayEdit}
+    {editDisabledReason}
+    {busyId}
+    onAdd={(draft) => void add(draft)}
+    onPreferred={(row) => void change(row, { preferred: true }, "The preference is as it was.")}
+    onPermitted={(row, permitted) => void change(row, { permitted }, "The permission is as it was.")}
+    onRemove={(row) => void remove(row)}
+  />
+{/snippet}

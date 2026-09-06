@@ -1568,23 +1568,34 @@ const createItemTypeRoute = defineOpenAPIRoute(writeMeta("createItemType", "opti
   },
 });
 
-const deactivateItemTypeRoute = defineOpenAPIRoute(writeMeta("deactivateItemType", "optional"), {
-  method: "delete",
-  path: "/api/v1/custody/item-types/{itemTypeId}",
-  description: "Deactivates a custody item type. The type is kept; new items can no longer use it.",
-  request: {
-    params: z.object({ itemTypeId: identifierPathParam("custodyItemType", "itemTypeId") }),
+const deactivateItemTypeRoute = defineOpenAPIRoute(
+  {
+    ...writeMeta("deactivateItemType", "optional"),
+    reversal: {
+      kind: "none",
+      reason:
+        "The type is kept so every item classified under it keeps its meaning, but no route makes a deactivated type offerable again.",
+    },
   },
-  responses: {
-    200: { description: "Deactivated", content: { "application/json": { schema: Ack } } },
-    401: authErrors[401],
-    403: authErrors[403],
-    404: authErrors[404],
-    409: authErrors[409],
-    422: authErrors[422],
-    429: authErrors[429],
+  {
+    method: "delete",
+    path: "/api/v1/custody/item-types/{itemTypeId}",
+    description:
+      "Deactivates a custody item type. The type is kept; new items can no longer use it.",
+    request: {
+      params: z.object({ itemTypeId: identifierPathParam("custodyItemType", "itemTypeId") }),
+    },
+    responses: {
+      200: { description: "Deactivated", content: { "application/json": { schema: Ack } } },
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
   },
-});
+);
 
 const listOverdueRoute = defineOpenAPIRoute(readMeta("listOverdue"), {
   method: "get",

@@ -2,15 +2,19 @@
   "comment": [
     "The one-implementation registry: every shared component the product has agreed to build once,",
     "and the single directory it lives in. An entry here is a promise that no second file exports a",
-    "symbol of that name, and the check enforces both halves \u2014 the home exists, and nothing else",
+    "symbol of that name, and the check enforces both halves — the home exists, and nothing else",
     "claims the name. Add a component here the moment its contract is agreed, not once it is built:",
     "the whole value is that the name is taken before somebody else takes it.",
     "",
     "`pending` marks a home that is being written right now. Its absence is a notice rather than a",
-    "failure, and the mark must come off the moment the home lands \u2014 an entry excused forever is an",
+    "failure, and the mark must come off the moment the home lands — an entry excused forever is an",
     "entry nobody re-reads."
   ],
   "components": [
+    {
+      "name": "CreateControl",
+      "home": "packages/design-system/src/lib/components/create-control"
+    },
     {
       "name": "ActionDialog",
       "home": "packages/design-system/src/lib/components/action-dialog"
@@ -54,16 +58,88 @@
     {
       "name": "ScreenSearch",
       "home": "packages/design-system/src/lib/components/screen-search"
+    },
+    {
+      "name": "CalendarGrid",
+      "home": "packages/design-system/src/lib/components/calendar-grid"
+    },
+    {
+      "name": "CalendarView",
+      "home": "apps/web/src/lib/calendar"
+    },
+    {
+      "name": "MoneySurface",
+      "home": "apps/web/src/lib/money"
+    },
+    {
+      "name": "EntityIdentity",
+      "home": "packages/design-system/src/lib/components/entity-identity"
+    },
+    {
+      "name": "EntityPicker",
+      "home": "packages/design-system/src/lib/components/entity-picker"
+    },
+    {
+      "name": "RecordParties",
+      "home": "packages/design-system/src/lib/components/record-parties"
+    },
+    {
+      "name": "HistoryStack",
+      "home": "packages/design-system/src/lib/components/history"
+    },
+    {
+      "name": "UndoRedoControls",
+      "home": "packages/design-system/src/lib/components/history"
+    },
+    {
+      "name": "DataTable",
+      "home": "packages/design-system/src/lib/components/data-table"
+    },
+    {
+      "name": "DetailsPanel",
+      "home": "apps/web/src/lib/details-panel"
+    },
+    {
+      "name": "Masthead",
+      "home": "packages/design-system/src/lib/components/masthead"
+    },
+    {
+      "name": "TopBar",
+      "home": "packages/design-system/src/lib/components/top-bar"
+    },
+    {
+      "name": "EmptyState",
+      "home": "packages/design-system/src/lib/components/empty-state"
+    },
+    {
+      "name": "LabelledField",
+      "home": "packages/design-system/src/lib/components/labelled-field"
+    },
+    {
+      "name": "FieldLabel",
+      "home": "packages/design-system/src/lib/components/field-label"
+    },
+    {
+      "name": "FieldRow",
+      "home": "packages/design-system/src/lib/components/field-row"
+    },
+    {
+      "name": "StatusMark",
+      "home": "packages/design-system/src/lib/components/status-mark"
+    },
+    {
+      "name": "LoadingRegion",
+      "home": "packages/design-system/src/lib/components/loading-region"
     }
   ],
   "modalShellsComment": [
     "The homes allowed to compose a modal panel out of the Dialog / AlertDialog / Sheet parts.",
-    "Everywhere else, a modal surface is one of the shells \u2014 RecordWindow for reading and changing a",
-    "record, ActionDialog for an act asked of a reader \u2014 and the `hand-composed-modal` rule says so.",
+    "Everywhere else, a modal surface is one of the shells — RecordWindow for reading and changing a",
+    "record, ActionDialog for an act asked of a reader — and the `hand-composed-modal` rule says so.",
     "",
     "This list is deliberately NOT 'every registered component'. Being registered means a component",
     "is built once; it does not mean anything inside it is exempt. A registered component can hold a",
-    "confirmation that should be an ActionDialog, and RecordAttachments does \u2014 which is why it",
+    "confirmation that should be an ActionDialog, and RecordAttachments does — which is why it",
     "carries an allowance below rather than an entry here.",
     "",
     "Adding a home here is the reviewed act of declaring a NEW modal surface. Do not add one to make",
@@ -87,11 +163,55 @@
       "reason": "the shared unsaved-work question both shells ask, which is an AlertDialog by construction."
     }
   ],
+  "loadingHomesComment": [
+    "The homes allowed to hold a loading state's machinery: the Skeleton box, its recipe class,",
+    "aria-busy. Everywhere else a region whose data has not arrived is LoadingRegion around its",
+    "real markup, and the `hand-placed-loading` rule says so — in the app without exception, and",
+    "inside the design system outside these homes.",
+    "",
+    "Adding a home here is the reviewed act of declaring a component that renders placeholder",
+    "rows of its OWN shape, which it can only do from inside. Do not add one to make a screen",
+    "pass; a screen has a shape, and the region renders it."
+  ],
+  "loadingHomes": [
+    {
+      "home": "packages/design-system/src/lib/components/loading-region",
+      "reason": "the region itself: the one place aria-busy is written for a loading state."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/skeleton",
+      "reason": "the box the region's recipe and the homes below are built from; never exported to the app."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/data-table",
+      "reason": "the Grid renders placeholder rows of its own columns while `loading`, because its rows are its own shape."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/event-rail",
+      "reason": "renders placeholder entries of its own division while `loading`."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/record-parties",
+      "reason": "renders placeholder party rows of its own shape while `loading`."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/record-attachments",
+      "reason": "renders placeholder attachment rows of its own shape while `loading`."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/calendar-grid",
+      "reason": "renders placeholder entries in its own day cells while `loading`."
+    },
+    {
+      "home": "packages/design-system/src/lib/components/folder-tree",
+      "reason": "renders placeholder folder rows of its own shape while `loading`."
+    }
+  ],
   "allowancesComment": [
     "Pre-existing debt, declared out loud. Every entry here is a REAL violation that predates the",
     "rule catching it: the status register and the placeholder ruling both landed after the code",
     "below was written, and the files belong to slices that are open right now. An allowance is not",
-    "a way to make a rule quiet \u2014 it is a way to let the rule bite on new work while the debt stays",
+    "a way to make a rule quiet — it is a way to let the rule bite on new work while the debt stays",
     "on screen, printed on every run.",
     "",
     "Two things keep the list honest, and they are checked: every entry carries a reason, and an",
@@ -101,114 +221,24 @@
     "An entry matches on rule + file + text (line numbers move; the violation does not). For a",
     "placeholder the `text` is the ghost text itself, so changing the wording re-arms the rule.",
     "The alternative escape, for a NEW placeholder that is genuinely right, is the repository's",
-    "inline `fitness-allow: <justification>` comment on the line above \u2014 a reviewed edit in the",
+    "inline `fitness-allow: <justification>` comment on the line above — a reviewed edit in the",
     "file itself, which is where an argument about one field's wording belongs."
   ],
   "allowances": [
     {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/apply-trust-funds-dialog.svelte",
-      "reason": "NOT read-only, and not debt: an act whose commit is not served yet. Its control is wrapped in SoonAffordance \u2014 the product's own primitive for a designed-but-unbuilt capability (disabled control, Soon badge, the dependency as the accessible description) \u2014 and that primitive lives in the app, so the design-system shell cannot carry it. It becomes a plain ActionDialog the day a route hands out a trust account."
+      "rule": "raw-table",
+      "file": "packages/design-system/src/lib/components/calendar-grid/calendar-grid-month.svelte",
+      "reason": "A calendar grid is a table of DAYS, not of records: its columns are weekdays, its cells are days holding entries, and its recipe (calendar-grid.css) sizes rows by the week rather than by a row of facts. The <table> is there for its semantics, a screen reader announcing the weekday column over each day, and none of DataTable's machinery (sorting, filters, selection, totals) applies; the mc-table recipe's cell padding, hover tint and row rule would fight the day cell. It is the design system's own presentation, registered above as CalendarGrid, and the one place a raw table stands."
     },
     {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/billing/arrangement-dialog.svelte",
-      "reason": "Belongs to the OTHER shell. It reads a record \u2014 the fee arrangement in force, its terms, and its version history \u2014 and its one act (Amend) opens a different panel. That is RecordWindow's shape: a record pane, a history tab, and an action bar. Migrating it to ActionDialog would be the wrong shell, and a read-only ActionDialog kind would be a second answer to 'read a thing'."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/components/bug-report-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
+      "rule": "raw-table",
+      "file": "packages/design-system/src/lib/components/calendar-grid/calendar-grid-week.svelte",
+      "reason": "A calendar grid is a table of DAYS, not of records: its columns are weekdays, its cells are days holding entries, and its recipe (calendar-grid.css) sizes rows by the week rather than by a row of facts. The <table> is there for its semantics, a screen reader announcing the weekday column over each day, and none of DataTable's machinery (sorting, filters, selection, totals) applies; the mc-table recipe's cell padding, hover tint and row rule would fight the day cell. It is the design system's own presentation, registered above as CalendarGrid, and the one place a raw table stands."
     },
     {
       "rule": "hand-composed-modal",
       "file": "apps/web/src/lib/components/command-palette.svelte",
-      "reason": "not an act asked of a reader \u2014 a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/conflicts/disposition-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/costs/cost-review-window.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader. It belongs to the full-screen presentation question, which is a separate design and deliberately not folded into this one."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/diagnostics/report-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog, and takes its failure as a bare string today so it gains the notice slot in the same pass."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/categories-pane.svelte",
-      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/contact-pane.svelte",
-      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/identifiers-pane.svelte",
-      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/merge-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the directory family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/names-pane.svelte",
-      "reason": "a pane inside the directory surface rather than a modal of its own. Excluded by design; the allowance records the decision."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/directory/new-entity-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the directory family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/documents/new-document-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/file-manager/folder-delete-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog, and takes its failure as a bare string today so it gains the notice slot in the same pass."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/file-manager/restore-file-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the file-manager family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/file-manager/upload-destination-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog with the file-manager family."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/matters/note-delete-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog as kind=destructive."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/records/reclassify-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/settings/components/request-change-dialog.svelte",
-      "reason": "predates ActionDialog; migrates to ActionDialog."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/settings/components/settings-commit-footer.svelte",
-      "reason": "predates ActionDialog; the commit confirmation migrates to ActionDialog as kind=confirm."
+      "reason": "not an act asked of a reader — a launcher, and the documented Command-in-a-Dialog pattern this package prescribes. It stays as it is; the allowance records that the decision was made rather than missed."
     },
     {
       "rule": "hand-composed-modal",
@@ -216,24 +246,14 @@
       "reason": "a Sheet, and an edge panel holding a change history is context rather than an act. It stays; the allowance records that a Sheet was considered and left alone."
     },
     {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/time/time-sheet.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader \u2014 same full-screen family as cost-review-window, same separate design."
+      "rule": "table-machinery",
+      "file": "apps/web/src/lib/tools/firm-usage/by-location-table.svelte",
+      "reason": "predates the rule; a sort written locally over the presentational primitives, with the remainder, offsite and totals rows held outside it by hand. It should be a DataTable.Grid — the Grid's row groups and scope-honest totals row already model the three rows this table keeps outside its sort — and that port is a design round on the firm-usage surface, reviewed on the deployed site, not a lint fix."
     },
     {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/lib/tools/safe-browse/website-shell.svelte",
-      "reason": "a screen presented over the app rather than an act asked of a reader \u2014 same full-screen family, same separate design."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "apps/web/src/routes/(app)/matters/[id]/parties/+page.svelte",
-      "reason": "predates ActionDialog; the party-removal confirmation migrates to ActionDialog as kind=destructive."
-    },
-    {
-      "rule": "hand-composed-modal",
-      "file": "packages/design-system/src/lib/components/record-attachments/record-attachments.svelte",
-      "reason": "predates ActionDialog. Being a registered component does not exempt what is inside it: the detach confirmation is an act asked of a reader and becomes an ActionDialog with kind=destructive. It is listed here rather than in modalShells for exactly that reason."
+      "rule": "permission-refusal",
+      "file": "apps/web/src/lib/matters/practice-area-picker.svelte",
+      "reason": "A Combobox group heading is a LABEL, and the shared sentence is a sentence: \"Adding a practice area needs the matters:manageTypes permission, which this account does not hold.\" is about ninety characters in a slot whose other branch reads \"Add to the Firm's Practice Areas\", and it would wrap or truncate. The heading keeps the first clause of the shared wording verbatim, so the two cannot say different things about the same permission, and drops only the trailing \"which this account does not hold\" that the reader can see for themselves from the disabled row beneath it. If the group heading ever gains room for a full sentence, this becomes a call to permissionRefusal and this entry goes."
     },
     {
       "rule": "status-tone",
@@ -243,7 +263,7 @@
     {
       "rule": "placeholder",
       "file": "apps/web/src/lib/components/recipient-picker.svelte",
-      "text": "Search colleagues\u2026",
+      "text": "Search colleagues…",
       "reason": "predates the placeholder ruling; the field's name is Colleague."
     },
     {
@@ -297,7 +317,7 @@
     {
       "rule": "placeholder",
       "file": "apps/web/src/lib/settings/components/request-change-dialog.svelte",
-      "text": "Search colleagues\u2026",
+      "text": "Search colleagues…",
       "reason": "predates the placeholder ruling; the field's name is Colleague."
     },
     {
@@ -309,13 +329,13 @@
     {
       "rule": "placeholder",
       "file": "packages/design-system/src/lib/components/data-table/data-table-column-filter.svelte",
-      "text": "Contains\u2026",
+      "text": "Contains…",
       "reason": "predates the placeholder ruling; the trailing ellipsis is what fails it, and the field's name is Contains."
     },
     {
       "rule": "placeholder",
       "file": "packages/design-system/src/lib/components/data-table/data-table-column-filter.svelte",
-      "text": "Search values\u2026",
+      "text": "Search values…",
       "reason": "predates the placeholder ruling; the field's name is Value."
     },
     {
@@ -323,6 +343,30 @@
       "file": "packages/design-system/src/lib/components/merge-field-picker/merge-field-picker.svelte",
       "text": "Choose a merge field",
       "reason": "predates the placeholder ruling; the field's name is Merge field."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "packages/design-system/src/lib/components/screen-search/screen-search.svelte",
+      "text": "aria-busy",
+      "reason": "a search field marking its own query in flight, not a region whose data has not arrived: there is no shape to render because the answer is the list the field will open, and the field's value must stay live and editable while the question is asked. The busy mark is the field's own semantics, and the region's inert fixture would be wrong here."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "apps/web/src/lib/directory/duplicate-gate.svelte",
+      "text": "aria-busy",
+      "reason": "a live check, not a placeholder: the gate re-asks the directory as a name is typed, keeps the previous candidates in view while it does, and narrates the act on its own \"Checking the directory\" status line. There is no absent data for a fixture to stand in for, and a region would grey out real candidates somebody is reading."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "apps/web/src/routes/(app)/tools/safe-website-viewer/+page.svelte",
+      "text": "aria-busy",
+      "reason": "a capture narrating its own real stages in the shell's viewport (owner ruling 2026-08-31: the loading viewport says what is happening, never a generic spinner), not a region whose data has not arrived. The tabs beside it are regions; the mark on the frame is the act's own semantics."
+    },
+    {
+      "rule": "hand-placed-loading",
+      "file": "apps/web/src/lib/versions/version-chip.svelte",
+      "text": "aria-busy",
+      "reason": "the Refresh control marking itself busy while it re-asks, with the two sections it refreshes already regions of their own. A control's busy state is its own semantics, and there is no shape to render on a button."
     }
   ]
 }

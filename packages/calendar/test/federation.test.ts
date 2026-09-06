@@ -143,6 +143,30 @@ describe("the matter timeline federates what already exists", () => {
     expect(serialized).not.toContain("Smith deeds");
   });
 
+  it("says a setting was called off as its own kind, and keeps it on the calendar", async () => {
+    const { database, raw } = migratedDatabase();
+    seedCorpus(raw);
+    const at = "2026-08-06T10:00:00.000Z";
+    raw.exec(`
+      INSERT INTO matter_event (id, matter_id, title, status, status_reason, starts_on, time_zone, recorded_at, created_at, updated_at)
+        VALUES ('matterEvent_vacated0000000000000', '${MATTER}', 'Vacated hearing', 'cancelled', 'Continued by the court', '2026-09-14', 'America/Los_Angeles', '${at}', '${at}', '${at}');
+    `);
+    const page = await readTimelinePage({
+      ...readOptions(raw, database),
+      scope: { matterId: MATTER },
+      sourceKeys: ["matterEvent"],
+      pageSize: 50,
+    });
+    const kinds = new Map(page.entries.map((entry) => [entry.rowId, entry.kind]));
+    expect(kinds.get("matterEvent_vacated0000000000000")).toBe("cancelledEvent");
+    expect(kinds.get("matterEvent_hearing00000000000000")).toBe("event");
+    // The status is a closed word; the reason a person typed stays off the read.
+    const vacated = page.entries.find(
+      (entry) => entry.rowId === "matterEvent_vacated0000000000000",
+    );
+    expect(JSON.stringify(vacated)).not.toContain("Continued by the court");
+  });
+
   it("narrows the REGISTRY before building a statement when a kind is filtered", async () => {
     const { database, raw } = migratedDatabase();
     seedCorpus(raw);

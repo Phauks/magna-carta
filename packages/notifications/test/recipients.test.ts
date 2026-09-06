@@ -76,6 +76,8 @@ function resolveTeam(database: Database, matterId: string | null = MATTER) {
     matterId,
     actorUserId: null,
     now: () => NOW,
+    // This helper drives a `capability-holders` type, which names no recipient of its own.
+    namedRecipientUserId: null,
     policy: createNotificationPolicyReader(database),
   });
 }

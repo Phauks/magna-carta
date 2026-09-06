@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Bindings } from "../app.ts";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import {
   isWebSocketUpgrade,
   JobProgressSockets,
@@ -31,7 +32,11 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
   private progress(): JobProgressSockets<Awaited<ReturnType<typeof resolveBundleProgress>>> {
     return new JobProgressSockets(this.ctx, {
       stateFor: async (attachment: JobProgressAttachment) =>
-        resolveBundleProgress(this.env, attachment.bucketName, await this.status()),
+        resolveBundleProgress(
+          this.env,
+          resolveFirmBucket(this.env, attachment.bucketName),
+          await this.status(),
+        ),
       isTerminal: isBundleProgressTerminal,
     });
   }
@@ -70,7 +75,10 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
     if (
       existing !== null &&
       existing.status === "ready" &&
-      (await this.artifactsPresent(existing))
+      (await this.artifactsPresent(
+        existing,
+        resolveFirmBucket(this.env, message.bucketName).bucket,
+      ))
     ) {
       return existing;
     }
@@ -94,15 +102,15 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
   // container lane records N volumes (a 7z split is unusable if any single volume is gone), the plain
   // client-zip lane records one key. A `ready` state recording neither is nothing the client can be
   // handed, so it counts as missing and rebuilds.
-  private async artifactsPresent(state: BundleJobState): Promise<boolean> {
+  private async artifactsPresent(state: BundleJobState, bucket: R2Bucket): Promise<boolean> {
     if (state.volumes !== undefined) {
       if (state.volumes.length === 0) return false;
       // One round trip for the whole set, not one per volume in series — a split bundle can carry many.
-      const heads = await Promise.all(state.volumes.map((volume) => this.env.R2.head(volume.key)));
+      const heads = await Promise.all(state.volumes.map((volume) => bucket.head(volume.key)));
       return heads.every((head) => head !== null);
     }
     if (state.r2Key === null) return false;
-    return (await this.env.R2.head(state.r2Key)) !== null;
+    return (await bucket.head(state.r2Key)) !== null;
   }
 
   async markReady(r2Key: string): Promise<void> {

@@ -16,10 +16,11 @@
    *   1. A panel that FITS does not scroll. The frame sizes to its content (`block-size:
    *      fit-content`), so a short panel opens short: no scrollbar, no band of empty space, nothing
    *      to move. This is the preferred outcome and most panels reach it.
-   *   2. A panel that genuinely does NOT fit caps at the viewport, and then the PANES ALONE move.
-   *      The header and the action bar are `flex: none`, so they never shrink and never scroll
-   *      away — a long form can no more push its own close control off the screen than it can
-   *      hide the commit.
+   *   2. A panel that genuinely does NOT fit caps at the screen less its gutter (the modal stage
+   *      it is centred in, styles/recipes/modal-stage.css, is what caps it), and then the PANES
+   *      ALONE move. The header and the action bar are `flex: none`, so they never shrink and
+   *      never scroll away — a long form can no more push its own close control off the screen
+   *      than it can hide the commit.
    *
    * Both are true; the first is preferred and the second is what happens when the first is
    * impossible. Nothing here should be changed to make the panel always full height or always
@@ -55,6 +56,21 @@
     /* Stated here rather than inherited from the dialog, because rule 1 above depends on it: a
        panel whose height came from anywhere but its content would scroll a form that fits. */
     block-size: fit-content;
+  }
+
+  /*
+   * EXPANDED, THE PANEL IS THE SCREEN, AND A SCREEN HAS SQUARE CORNERS. A radius says "this is a
+   * sheet lying on top of something"; at full size there is nothing underneath to lie on, and the
+   * curve reads as four notches of desktop showing through at the corners of the application. So
+   * the corners square the moment the panel takes the viewport.
+   *
+   * It belongs on the FRAME rather than in either shell, because both shells expand and a rule
+   * either one wrote would be a rule the other has to remember to write. The selector carries an
+   * attribute, so it wins over the dialog panel's own radius without needing to be more specific
+   * than the thing it corrects.
+   */
+  .mc-modal-frame[data-expanded="true"] {
+    border-radius: var(--mc-radius-none);
   }
 
   /* --- the header band ------------------------------------------------------------------- */

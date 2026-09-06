@@ -1,0 +1,26 @@
+@layer components {
+  /*
+   * CreateControl — the one create button, held at one width on every screen. The width is the
+   * token (size.create-control), never the label: a control that fits its label moves whatever
+   * sits beside it when the label changes, and the label changes with every screen. The glyph and
+   * the chevron keep their size; the label is what gives, and the noun budget in create-label.ts
+   * keeps it from ever having to.
+   */
+  .mc-create-control {
+    flex: none;
+    inline-size: var(--mc-size-create-control);
+    justify-content: flex-start;
+  }
+  .mc-create-control-glyph,
+  .mc-create-control-chevron {
+    flex: none;
+  }
+  .mc-create-control-label {
+    flex: auto;
+    min-inline-size: var(--mc-space-0);
+    overflow: hidden;
+    text-align: start;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

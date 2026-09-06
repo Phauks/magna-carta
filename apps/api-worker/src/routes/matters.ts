@@ -17,9 +17,21 @@ import {
   type ClosePrecondition,
 } from "@magna-carta/matters/close-preconditions";
 import type { CloseAdvisory } from "@magna-carta/matters/close-advisories";
+import {
+  OpenPreconditionError,
+  runOpenPreconditions,
+  type OpenPrecondition,
+} from "@magna-carta/matters/open-preconditions";
+import { matterIntakeOpenPrecondition } from "@magna-carta/intake/open-precondition";
+import { INTAKE_STEP_READERS } from "./intake.ts";
 import { matterCustodyCloseAdvisory } from "@magna-carta/custodian/close-advisory";
+import { matterTasksCloseAdvisory } from "@magna-carta/tasks/close-advisory";
 import { NumberingRenderError } from "@magna-carta/matters/numbering/render";
 import { listConsultations, listMatters } from "@magna-carta/matters/queries";
+import {
+  readMatterClientEntityId,
+  readMatterClientEntityIds,
+} from "@magna-carta/matters/matter-party";
 import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
 import { MatterValidationError } from "@magna-carta/matters/validation";
 import {
@@ -56,6 +68,10 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 
 const matterStatus = z.enum(["prospective", "open", "closed"]);
 
+// The shape of a directory handle, as the directory's own routes state it (routes/directory.ts):
+// a person or an organization, and nothing else can be a client.
+const directoryEntityIdPattern = /^(directoryPerson|directoryOrganization)_[A-Za-z0-9_-]+$/;
+
 const CreateMatterRequest = z
   .object({
     title: z.string().min(1),
@@ -66,6 +82,18 @@ const CreateMatterRequest = z
     responsibleMemberId: identifierField("user"),
     clientDisplayName: z.string().nullable().optional(),
     clientCode: z.string().nullable().optional(),
+    clientEntityId: z
+      .string()
+      .regex(directoryEntityIdPattern)
+      .nullable()
+      .optional()
+      .openapi({
+        description:
+          "The directory entity the firm acts for. Given, the client's party link is written in " +
+          "the same batch as the matter, so billing, trust and the conflicts check find the client " +
+          "from the day the matter exists. The display name still travels beside it as the " +
+          "denormalized caption.",
+      }),
   })
   .openapi("CreateMatterRequest");
 
@@ -73,6 +101,9 @@ const MatterSummary = z
   .object({
     id: z.string(),
     title: z.string(),
+    // The directory entity linked as the matter's client, or null where the matter carries only a
+    // display name (a matter that predates the link and has not been backfilled).
+    clientEntityId: z.string().nullable(),
     status: matterStatus,
     matterTypeId: z.string().nullable(),
     locationId: z.string().nullable(),
@@ -117,6 +148,7 @@ const MatterDetail = z
     responsibleMemberId: z.string(),
     clientDisplayName: z.string().nullable(),
     clientCode: z.string().nullable(),
+    clientEntityId: z.string().nullable(),
     matterNumber: z.string().nullable(),
     consultationNumber: z.string().nullable(),
     eBilling: z.boolean(),
@@ -195,6 +227,18 @@ const CloseReadiness = z
   })
   .openapi("MatterCloseReadiness");
 
+// The open side's mirror: whether the consultation would open right now, read from the same rules
+// the open runs. `openable` means "nothing stands in the way right now", never "this open will
+// succeed" — the number draw and the guards have the last word.
+const OpenReadiness = z
+  .object({
+    matterId: z.string(),
+    status: matterStatus,
+    openable: z.boolean(),
+    blockers: z.array(z.object({ code: z.string(), message: z.string() })),
+  })
+  .openapi("MatterOpenReadiness");
+
 const RenumberRequest = z
   .object({ matterNumber: z.string().min(1) })
   .openapi("RenumberMatterRequest");
@@ -214,12 +258,24 @@ const CLOSE_PRECONDITIONS: readonly ClosePrecondition[] = [
   matterClientCreditClosePrecondition,
 ];
 
+// The OPENING rules, registered the same way on the other side of the lifecycle. One today: the
+// intake procedure, which refuses a consultation while a required step of the procedure binding its
+// kind is outstanding. A firm with no procedure has no opening rule, on purpose — the platform seeds
+// no procedure, and a gate a firm did not write is a rule it cannot answer for. The readers are the
+// same registry the checklist route answers with, so the gate and the screen never disagree.
+const OPEN_PRECONDITIONS: readonly OpenPrecondition[] = [
+  matterIntakeOpenPrecondition(INTAKE_STEP_READERS),
+];
+
 // The close NOTICES, registered the same way and kept deliberately separate from the rules above.
 // Custody is the first: closing a matter surfaces the physical originals the firm still holds against
 // it and never blocks on them. A firm holds a client's will for decades after the last matter for
 // that client closed — that is the steady state of a safe-custody register, and a block here would
 // only teach people to unlink packets from matters before closing them.
-const CLOSE_ADVISORIES: readonly CloseAdvisory[] = [matterCustodyCloseAdvisory];
+const CLOSE_ADVISORIES: readonly CloseAdvisory[] = [
+  matterCustodyCloseAdvisory,
+  matterTasksCloseAdvisory,
+];
 
 // ---- shared helpers ----
 
@@ -401,6 +457,19 @@ const getMatterCloseReadinessMeta: RouteMeta = {
   rateLimit: "default",
 };
 
+// The same permission the open itself names: whoever may draw the number is whoever reads what
+// stands in the way of drawing it.
+const getMatterOpenReadinessMeta: RouteMeta = {
+  operationId: "matters.openReadiness",
+  surface: "app",
+  authenticated: true,
+  permission: "matters:open",
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
 const patchMatterMeta: RouteMeta = {
   operationId: "matters.update",
   surface: "app",
@@ -560,6 +629,28 @@ const getMatterRoute = defineOpenAPIRoute(getMatterMeta, {
   },
 });
 
+const getMatterOpenReadinessRoute = defineOpenAPIRoute(getMatterOpenReadinessMeta, {
+  method: "get",
+  path: "/api/v1/matters/{id}/open-readiness",
+  description:
+    "Answers whether this consultation would open right now, without opening it. Runs the same " +
+    "opening rules the open runs and reports each one that stands in the way in the words of the " +
+    "subsystem that owns it: today, each required step of the firm's intake procedure that has no " +
+    "satisfying answer. A matter that is not prospective is reported as not openable, with that as " +
+    "its blocker. A reading of the present, never a guarantee: the open re-runs every rule.",
+  request: { params: matterParam },
+  responses: {
+    200: {
+      description: "Whether the consultation can open, and what stands in the way",
+      content: { "application/json": { schema: OpenReadiness } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
 const getMatterCloseReadinessRoute = defineOpenAPIRoute(getMatterCloseReadinessMeta, {
   method: "get",
   path: "/api/v1/matters/{id}/close-readiness",
@@ -614,7 +705,8 @@ const openMatterRoute = defineOpenAPIRoute(openMatterMeta, {
   path: "/api/v1/matters/{id}/open",
   description:
     "Opens a Prospective matter: draws the firm's next matter number atomically and transitions it to " +
-    "open. Refuses a matter that is not Prospective.",
+    "open. Runs the opening rules first: a consultation with a required intake step outstanding is " +
+    "refused with each step named and what answers it. Refuses a matter that is not Prospective.",
   request: { headers: idempotencyKeyHeader, params: matterParam },
   responses: {
     200: {
@@ -625,7 +717,11 @@ const openMatterRoute = defineOpenAPIRoute(openMatterMeta, {
     401: authErrors[401],
     403: authErrors[403],
     404: authErrors[404],
-    409: idempotencyErrors[409],
+    409: {
+      description:
+        "An opening rule refused the consultation, or a request with this Idempotency-Key is still in progress",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     422: idempotencyErrors[422],
     429: authErrors[429],
   },
@@ -746,6 +842,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
             responsibleMemberId: request.responsibleMemberId,
             clientDisplayName: request.clientDisplayName ?? null,
             clientCode: request.clientCode ?? null,
+            clientEntityId: request.clientEntityId ?? null,
             numberContext,
           },
           { clock: serviceClock(), actorUserId: userId, idempotency },
@@ -788,7 +885,16 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
         cursor: query.cursor,
         pageSize: query.pageSize,
       });
-      return c.json(page as unknown as z.infer<typeof MatterListResponse>, 200);
+      // One batched read for the page's clients, never one per row.
+      const clientByMatter = await readMatterClientEntityIds(
+        firm.firmDatabase,
+        page.data.map((item) => item.id),
+      );
+      const data = page.data.map((item) => ({
+        ...item,
+        clientEntityId: clientByMatter.get(item.id) ?? null,
+      }));
+      return c.json({ ...page, data } as unknown as z.infer<typeof MatterListResponse>, 200);
     },
   );
 
@@ -866,6 +972,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           responsibleMemberId: row.responsible_member_id,
           clientDisplayName: row.client_display_name,
           clientCode: row.client_code,
+          clientEntityId: await readMatterClientEntityId(firm.firmDatabase, row.id as MatterId),
           matterNumber: row.matter_number,
           consultationNumber: row.consultation_number,
           eBilling: row.e_billing !== 0,
@@ -876,6 +983,51 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           locationName: row.location_name,
           responsibleMemberName: row.responsible_member_name,
         } as z.infer<typeof MatterDetail>,
+        200,
+      );
+    },
+  );
+
+  // GET /api/v1/matters/{id}/open-readiness — would this open, if asked?
+  app.openapi(
+    {
+      ...getMatterOpenReadinessRoute,
+      middleware: chokepointMiddleware(chokepoint, getMatterOpenReadinessRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const { results } = await selectMatterDetailStatement(firm.firmDatabase, id).all<{
+        status: "prospective" | "open" | "closed";
+      }>();
+      const row = results[0];
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such matter in this firm.",
+        });
+      }
+      const blockers =
+        row.status !== "prospective"
+          ? [
+              {
+                code: "matter-not-prospective",
+                message: `matter ${id} is ${row.status}, not a consultation; only a consultation opens`,
+              },
+            ]
+          : await runOpenPreconditions(
+              { matterId: id, database: firm.firmDatabase },
+              OPEN_PRECONDITIONS,
+            );
+      return c.json(
+        {
+          matterId: id,
+          status: row.status,
+          openable: blockers.length === 0,
+          blockers: blockers.map((blocker) => ({ code: blocker.code, message: blocker.message })),
+        } as z.infer<typeof OpenReadiness>,
         200,
       );
     },
@@ -974,7 +1126,12 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           firm.firmDatabase,
           id,
           { numberContext },
-          { clock: serviceClock(), actorUserId: userId, idempotency },
+          {
+            clock: serviceClock(),
+            actorUserId: userId,
+            idempotency,
+            openPreconditions: OPEN_PRECONDITIONS,
+          },
         );
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json(
@@ -985,6 +1142,19 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           200,
         );
       } catch (caught) {
+        if (caught instanceof OpenPreconditionError) {
+          return problemJson(c, {
+            type: "matter-open-refused",
+            title: "Matter cannot be opened yet",
+            status: 409,
+            detail: "One or more opening rules refused this consultation.",
+            errors: caught.failures.map((failure) => ({
+              path: "$",
+              code: failure.code,
+              detail: failure.message,
+            })),
+          });
+        }
         return mapMutationError(c, caught);
       }
     },

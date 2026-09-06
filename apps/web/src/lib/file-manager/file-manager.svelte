@@ -20,6 +20,8 @@
    * reader changed view.
    */
   import * as ContextMenu from "@magna-carta/design-system/context-menu";
+  import { openBeside } from "$lib/navigation/open-beside.ts";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Resizable from "@magna-carta/design-system/resizable";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -33,6 +35,11 @@
   import Checkbox from "@magna-carta/design-system/checkbox";
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import {
+    historyAnnouncement,
+    historyShortcuts,
+    type HistoryOutcome,
+  } from "@magna-carta/design-system/history";
   import { statusEntry } from "@magna-carta/design-system/status-register";
   import type {
     FolderColorName,
@@ -48,11 +55,9 @@
   import FileSearch from "@lucide/svelte/icons/file-search";
   import History from "@lucide/svelte/icons/history";
   import X from "@lucide/svelte/icons/x";
-  import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import Upload from "@lucide/svelte/icons/upload";
   import { problemGuidance } from "$lib/documents/document-presentation.ts";
   import {
     createFolder,
@@ -137,13 +142,57 @@
   import FileInspector from "./file-inspector.svelte";
   import FolderDeleteDialog from "./folder-delete-dialog.svelte";
   import RestoreFileDialog from "./restore-file-dialog.svelte";
-  import UploadDestinationDialog from "./upload-destination-dialog.svelte";
+  import UploadDialog from "./upload-dialog.svelte";
+  import {
+    entriesFromDataTransfer,
+    folderPathOf,
+    type DroppedEntry,
+  } from "@magna-carta/design-system/dropzone";
   import SafetyMark from "./safety-mark.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
 
-  let { matterId, matterTitle }: { matterId: string; matterTitle: string } = $props();
+  let {
+    matterId,
+    matterTitle,
+    revealFileId = null,
+  }: {
+    matterId: string;
+    matterTitle: string;
+    /**
+     * A file to reveal on arrival — what a deep link into this section names. The manager opens its
+     * folder, selects it and shows it in the inspector, exactly as a click on the row would.
+     */
+    revealFileId?: string | null;
+  } = $props();
 
   const manager = new FileManagerState();
+
+  // --- the create actions, answered from the matter header ---------------------------------------
+  //
+  // The header's New File control (create-action.svelte.ts) is the one create button on this
+  // surface; the toolbar carries none. These are what its menu offers, exported so the Files page
+  // can put them behind it. Creating needs a current folder, and the views that show rows from
+  // many folders have none — the refusal is read by the page inside its claim, so the control
+  // follows the view.
+
+  /** Why nothing can be created into the view being shown, or undefined in a browse view. */
+  export function createRefusal(): string | undefined {
+    return manager.view === "browse"
+      ? undefined
+      : "This view has no current folder to create into. Open a folder first.";
+  }
+
+  export function newDocument(): void {
+    openUpload([]);
+  }
+
+  export function newFolder(): void {
+    void makeFolder();
+  }
+
+  export function upload(): void {
+    openUpload([]);
+  }
 
   // --- the matter's files and folders ------------------------------------------------------------
 
@@ -297,6 +346,24 @@
     onActivate: (row) => activate(row),
   });
 
+  /*
+   * The file this surface was asked to reveal, once the record is in and once per id: its folder
+   * opens, the row is selected through the grid's own click path so the inspector follows, and the
+   * panel shows. A file the record does not hold reveals nothing — the address named something the
+   * member cannot see, and the list is the honest answer.
+   */
+  let revealedFileId = $state<string | null>(null);
+  $effect(() => {
+    const wanted = revealFileId;
+    if (wanted === null || files === null || revealedFileId === wanted) return;
+    revealedFileId = wanted;
+    const file = files.find((candidate) => candidate.id === wanted);
+    if (file === undefined) return;
+    manager.openFolder(file.folderId);
+    grid.rowClick(fileKey(file.id));
+    manager.setPanelOpen(true);
+  });
+
   const selectedRows = $derived(rows.filter((row) => manager.selectedKeys.includes(row.key)));
   const inspectedRow = $derived(
     rows.find((row) => row.key === manager.inspectorKey) ??
@@ -408,7 +475,9 @@
   let newFolderPending = $state(false);
 
   async function makeFolder(): Promise<void> {
-    if (manager.view !== "browse") return;
+    // One folder per press: the header's New File menu can be pressed again before the first
+    // create has answered, and that would be two "New Folder"s, not one.
+    if (manager.view !== "browse" || newFolderPending) return;
     newFolderPending = true;
     // A new name cannot collide: creation disambiguates in the copy convention rather than
     // refusing, because nobody typed this name and nobody should be asked to fix it.
@@ -537,10 +606,41 @@
       actionFailure = "Some of those could not be moved. Nothing else changed.";
     }
     if (origins.size > 0) {
-      manager.moves.record({ description, keys: [...origins.keys()], origins, destinationFolderId });
-      manager.moveRevision += 1;
+      manager.history.push({
+        label: description,
+        undo: () => moveEachBack(origins),
+        redo: () => moveEachTo([...origins.keys()], destinationFolderId),
+      });
     }
     reload();
+  }
+
+  /*
+   * The two inverses of a recorded move, and the whole reason the stack holds commands rather than a
+   * snapshot: each key goes back to where IT came from, which a snapshot of the surface could not
+   * say. A write that refuses THROWS rather than returning, so the stack keeps the step and the
+   * reader gets another attempt at the same move instead of the one beneath it.
+   */
+  async function moveEachBack(origins: ReadonlyMap<string, string | null>): Promise<void> {
+    for (const [key, origin] of origins) await moveOne(key, origin);
+    reload();
+  }
+
+  async function moveEachTo(keys: readonly string[], folderId: string | null): Promise<void> {
+    for (const key of keys) await moveOne(key, folderId);
+    reload();
+  }
+
+  async function moveOne(key: string, folderId: string | null): Promise<void> {
+    const row = findRowAnywhere(key);
+    // A row the surface can no longer see is not a failure: it was deleted, or it is in a part of
+    // the tree this view has not read. The rest of the step still goes back.
+    if (row === null) return;
+    const outcome =
+      row.kind === "folder"
+        ? await patchFolder(fetch, row.folder.id, { parentFolderId: folderId }, writeKey())
+        : await patchFile(fetch, row.file.id, { folderId }, writeKey());
+    if (outcome.kind !== "ok") throw new Error("the move was refused");
   }
 
   function findRowAnywhere(key: string): FileManagerRow | null {
@@ -551,54 +651,19 @@
     return null;
   }
 
-  async function undoMove(): Promise<void> {
-    const move = manager.moves.takeUndo();
-    manager.moveRevision += 1;
-    if (move === null) return;
-    for (const [key, origin] of move.origins) {
-      const row = findRowAnywhere(key);
-      if (row === null) continue;
-      if (row.kind === "folder") await patchFolder(fetch, row.folder.id, { parentFolderId: origin }, writeKey());
-      else await patchFile(fetch, row.file.id, { folderId: origin }, writeKey());
-    }
-    reload();
-  }
-
-  /** Walk back through several recorded moves at once, from the stack. */
-  async function undoMoves(steps: number): Promise<void> {
-    for (let taken = 0; taken < steps; taken += 1) await undoMove();
-  }
-
-  async function redoMoves(steps: number): Promise<void> {
-    for (let taken = 0; taken < steps; taken += 1) await redoMove();
-  }
-
-  async function redoMove(): Promise<void> {
-    const move = manager.moves.takeRedo();
-    manager.moveRevision += 1;
-    if (move === null) return;
-    for (const key of move.keys) {
-      const row = findRowAnywhere(key);
-      if (row === null) continue;
-      if (row.kind === "folder") {
-        await patchFolder(
-          fetch,
-          row.folder.id,
-          { parentFolderId: move.destinationFolderId },
-          writeKey(),
-        );
-      } else {
-        await patchFile(fetch, row.file.id, { folderId: move.destinationFolderId }, writeKey());
-      }
-    }
-    reload();
+  /*
+   * What a walk came to. Only a REFUSAL is spoken here: the rows moving back is the surface saying
+   * it did, and this view has never announced a successful move either. A refusal has nowhere to
+   * show itself, so it goes to the same band every other refused act on this surface uses.
+   */
+  function historyOutcome(outcome: HistoryOutcome): void {
+    if (outcome.failure !== null) actionFailure = historyAnnouncement(outcome);
   }
 
   // --- deleting ------------------------------------------------------------------------------------
 
   let folderToDelete = $state<FolderSummary | null>(null);
   let folderDeleteOpen = $state(false);
-  let folderDeleteRunning = $state(false);
   let folderDeleteFailure = $state<string | null>(null);
 
   async function deleteRows(targets: readonly FileManagerRow[]): Promise<void> {
@@ -640,10 +705,9 @@
   async function confirmFolderDelete(choice: {
     keepContents: boolean;
     destinationFolderId: string | null;
-  }): Promise<void> {
+  }): Promise<ActionOutcome> {
     const target = folderToDelete;
-    if (target === null) return;
-    folderDeleteRunning = true;
+    if (target === null) return "refused";
     folderDeleteFailure = null;
 
     const descendants = index.descendantFolderIds(target.id);
@@ -688,16 +752,16 @@
       if (outcome.kind !== "ok") trouble = true;
     }
 
-    folderDeleteRunning = false;
     if (trouble) {
       folderDeleteFailure =
         "Part of that did not go through, so the folder was left in place. Nothing was lost.";
       reload();
-      return;
+      return "refused";
     }
-    folderDeleteOpen = false;
-    folderToDelete = null;
+    // The panel closes itself on a committed act; the folder it named stays until the next open,
+    // so the heading does not blank while the panel is still leaving.
     reload();
+    return "committed";
   }
 
   // --- downloading ---------------------------------------------------------------------------------
@@ -725,39 +789,31 @@
     // call yet, so asking for several opens several rather than pretending to zip them here.
     for (const row of fileRows) {
       if (row.kind !== "file") continue;
-      globalThis.open(fileDownloadUrl(row.file.id), "_blank", "noopener");
+      openBeside(fileDownloadUrl(row.file.id), "file");
     }
   }
 
   // --- uploading -----------------------------------------------------------------------------------
 
   /*
-   * The bytes never wait on the destination question. The batch starts uploading the moment it is
-   * picked — into the folder the reader is standing in — while the Upload dialog shows each file's
-   * own progress and asks where the batch belongs. Confirming a different folder re-files each
-   * file as it lands (a move is one metadata write); closing the dialog abandons nothing.
+   * NOTHING IS SENT UNTIL UPLOAD IS PRESSED. The Upload dialog opens first — from the toolbar, from
+   * a drop onto the list, from the empty folder's button — and holds the file, files or whole
+   * folder the reader chooses beside the one question a pick cannot answer: which folder. Only the
+   * dialog's commit starts the transfer; cancelling before it sends nothing, so there is never a
+   * landed byte to worry about. A dropped or picked folder is recreated under the destination,
+   * level by level, and its files land inside it.
    */
   let filePicker = $state<HTMLInputElement | null>(null);
   let uploadOpen = $state(false);
+  let uploadPreselected = $state<readonly DroppedEntry[]>([]);
   let uploadItems = $state<readonly UploadProgressItem[]>([]);
   let uploadBaseFolderId = $state<string | null>(null);
-  let uploadConfirmed = $state(false);
-  let uploadChosenFolderId = $state<string | null>(null);
-  /** The committed file ids, by batch position, for the re-file on confirm. */
-  let uploadLandedFileIds: (string | null)[] = [];
-  /** Guards a superseded batch: its late updates must not touch a newer dialog. */
-  let uploadBatchToken = 0;
 
-  function offerUpload(chosen: readonly File[]): void {
-    if (chosen.length === 0) return;
+  function openUpload(preselected: readonly DroppedEntry[]): void {
     uploadBaseFolderId = manager.view === "browse" ? manager.currentFolderId : null;
-    uploadItems = chosen.map((file) => ({ name: file.name, stage: "reserving" as const }));
-    uploadConfirmed = false;
-    uploadChosenFolderId = null;
-    uploadLandedFileIds = chosen.map(() => null);
+    uploadPreselected = preselected;
+    uploadItems = [];
     uploadOpen = true;
-    uploadBatchToken += 1;
-    void runUploadBatch(chosen, uploadBaseFolderId, uploadBatchToken);
   }
 
   function setUploadItem(at: number, next: UploadProgressItem): void {
@@ -776,82 +832,115 @@
     );
   }
 
+  /** What an entry is called in the progress list: its path when it came from a folder. */
+  function uploadItemName(entry: DroppedEntry): string {
+    return entry.relativePath === "" ? entry.file.name : entry.relativePath;
+  }
+
+  /**
+   * The folder an entry lands in, made if it does not exist yet. Folders are matched by name under
+   * their parent — a second upload of the same folder lands in the one already there rather than
+   * beside it — and each level is made once per batch, however many files sit inside it. Undefined
+   * means a level could not be made, and the entry does not go.
+   */
+  async function ensureUploadFolder(
+    folderPath: string,
+    destinationFolderId: string | null,
+    made: Map<string, string>,
+  ): Promise<{ id: string | null } | undefined> {
+    if (folderPath === "") return { id: destinationFolderId };
+    const known = made.get(folderPath);
+    if (known !== undefined) return { id: known };
+    const cut = folderPath.lastIndexOf("/");
+    const parent = await ensureUploadFolder(
+      cut === -1 ? "" : folderPath.slice(0, cut),
+      destinationFolderId,
+      made,
+    );
+    if (parent === undefined) return undefined;
+    const name = cut === -1 ? folderPath : folderPath.slice(cut + 1);
+    const existing = index.childrenOf(parent.id).find((folder) => folder.name === name);
+    let id = existing?.id;
+    if (id === undefined) {
+      const result = await createFolder(
+        fetch,
+        { matterId, parentFolderId: parent.id, name },
+        crypto.randomUUID(),
+      );
+      if (result.kind !== "ok") return undefined;
+      id = result.value.folderId;
+    }
+    made.set(folderPath, id);
+    return { id };
+  }
+
+  /** The transfer itself, one file after another, reporting each into the dialog's list. */
   async function runUploadBatch(
-    chosen: readonly File[],
-    baseFolderId: string | null,
-    batch: number,
-  ): Promise<void> {
-    const taken = index
-      .filesIn(baseFolderId)
-      .map((file) => ({ key: fileKey(file.id), name: file.name }));
+    chosen: readonly DroppedEntry[],
+    destinationFolderId: string | null,
+  ): Promise<{ failed: number }> {
+    uploadItems = chosen.map((entry) => ({ name: uploadItemName(entry), stage: "reserving" as const }));
+    const made = new Map<string, string>();
+    // The names already taken in each landing folder, so a collision disambiguates in the copy
+    // convention: the reader asked for this file to be here, and refusing it would be the worse answer.
+    const takenIn = new Map<string | null, { key: string; name: string }[]>();
+    let failed = 0;
 
     for (let at = 0; at < chosen.length; at += 1) {
-      const file = chosen[at];
-      if (file === undefined) continue;
-      // An upload that lands on a name already taken disambiguates in the copy convention: the
-      // reader asked for this file to be here, and refusing it would be the worse answer.
-      const name = disambiguated(file.name, taken);
+      const entry = chosen[at];
+      if (entry === undefined) continue;
+      const name = uploadItemName(entry);
+      const landing = await ensureUploadFolder(folderPathOf(entry), destinationFolderId, made);
+      if (landing === undefined) {
+        failed += 1;
+        setUploadItem(at, {
+          name,
+          stage: "failed",
+          reason: `The folder ${folderPathOf(entry)} could not be made, so this file was not sent.`,
+        });
+        continue;
+      }
+      let taken = takenIn.get(landing.id);
+      if (taken === undefined) {
+        taken = index.filesIn(landing.id).map((file) => ({ key: fileKey(file.id), name: file.name }));
+        takenIn.set(landing.id, taken);
+      }
+      const filedAs = disambiguated(entry.file.name, taken);
       const outcome = await uploadIntoFolder({
         fetchImpl: fetch,
         matterId,
-        folderId: baseFolderId,
-        file,
-        name,
-        onStage: (stage) => {
-          if (batch === uploadBatchToken) setUploadItem(at, { name: file.name, stage });
-        },
+        folderId: landing.id,
+        file: entry.file,
+        name: filedAs,
+        onStage: (stage) => setUploadItem(at, { name, stage }),
       });
-      taken.push({ key: `pending:${name}`, name });
-      if (batch !== uploadBatchToken) return;
+      taken.push({ key: `pending:${filedAs}`, name: filedAs });
       if (outcome.kind === "problem") {
-        setUploadItem(at, { name: file.name, stage: "failed", reason: uploadFailureReason(outcome) });
+        failed += 1;
+        setUploadItem(at, { name, stage: "failed", reason: uploadFailureReason(outcome) });
       } else if (outcome.kind === "transport") {
+        failed += 1;
         setUploadItem(at, {
-          name: file.name,
+          name,
           stage: "failed",
           reason:
             "Nothing answered while " + UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase() + ".",
         });
       } else {
-        uploadLandedFileIds[at] = outcome.fileId;
-        // A destination confirmed while this file was still in flight applies to it now.
-        if (uploadConfirmed && uploadChosenFolderId !== baseFolderId) {
-          await patchFile(fetch, outcome.fileId, { folderId: uploadChosenFolderId }, writeKey());
-        }
-        setUploadItem(at, { name: file.name, stage: "settled" });
-        reload();
+        setUploadItem(at, { name, stage: "settled" });
       }
     }
-    finishUploadIfDone();
-  }
 
-  async function confirmUploadDestination(destinationFolderId: string | null): Promise<void> {
-    uploadConfirmed = true;
-    uploadChosenFolderId = destinationFolderId;
-    if (destinationFolderId !== uploadBaseFolderId) {
-      for (const landedFileId of uploadLandedFileIds) {
-        if (landedFileId !== null) {
-          await patchFile(fetch, landedFileId, { folderId: destinationFolderId }, writeKey());
-        }
-      }
-      reload();
-    }
-    finishUploadIfDone();
-  }
-
-  function finishUploadIfDone(): void {
-    const allSettled =
-      uploadItems.length > 0 &&
-      uploadItems.every((item) => item.stage === "settled" || item.stage === "failed");
-    const anyFailed = uploadItems.some((item) => item.stage === "failed");
-    if (!uploadConfirmed || !allSettled || anyFailed) return;
-    uploadOpen = false;
-    const destination = uploadChosenFolderId;
-    // The batch landed where it was asked to land, so show that folder.
-    if (manager.view === "browse" && destination !== manager.currentFolderId) {
-      manager.openFolder(destination);
-    }
     reload();
+    // The batch landed where it was asked to land, so show that folder.
+    if (
+      failed === 0 &&
+      manager.view === "browse" &&
+      destinationFolderId !== manager.currentFolderId
+    ) {
+      manager.openFolder(destinationFolderId);
+    }
+    return { failed };
   }
 
   // --- the details panel's own reads ----------------------------------------------------------------
@@ -1043,7 +1132,7 @@
         return;
       case "newDocument":
       case "upload":
-        filePicker?.click();
+        openUpload([]);
         return;
       case "selectAll":
         grid.selectAll();
@@ -1089,7 +1178,7 @@
     const target = saveVersionFor;
     saveVersionFor = null;
     if (target === null) {
-      offerUpload(chosen);
+      openUpload(chosen.map((file) => ({ file, relativePath: "" })));
       return;
     }
     // Saving a new version asks nothing: its destination is the file it was asked on.
@@ -1201,16 +1290,15 @@
       void runCommand("paste");
       return;
     }
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
-      event.preventDefault();
-      void (event.shiftKey ? redoMove() : undoMove());
-      return;
-    }
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") {
-      event.preventDefault();
-      void redoMove();
-    }
+    historyKeys(event);
   }
+
+  /*
+   * Ctrl+Z, Ctrl+Y and Shift+Ctrl+Z, from the design system rather than spelled out here. It is
+   * attached to this surface's own element, so a second surface with a stack of its own never
+   * receives these presses.
+   */
+  const historyKeys = historyShortcuts(manager.history, { onOutcome: historyOutcome });
 
   // --- dropping files onto the list -------------------------------------------------------------------
 
@@ -1357,7 +1445,6 @@
 
   let restoreTarget = $state<DeletedFileSummary | null>(null);
   let restoreOpen = $state(false);
-  let restoreRunning = $state(false);
   let restoreFailure = $state<string | null>(null);
 
   function beginRestore(row: DeletedFileSummary): void {
@@ -1366,24 +1453,23 @@
     restoreOpen = true;
   }
 
-  async function confirmRestore(destination: { folderId?: string | null }): Promise<void> {
+  async function confirmRestore(destination: {
+    folderId?: string | null;
+  }): Promise<ActionOutcome> {
     const target = restoreTarget;
-    if (target === null) return;
-    restoreRunning = true;
+    if (target === null) return "refused";
     restoreFailure = null;
     const outcome = await restoreFile(fetch, target.id, destination, crypto.randomUUID());
-    restoreRunning = false;
     if (outcome.kind !== "ok") {
       restoreFailure =
         outcome.kind === "problem"
           ? problemGuidance(outcome.problem).message
           : "Nothing answered. The file stays deleted, and nothing else changed.";
-      return;
+      return "refused";
     }
-    restoreOpen = false;
-    restoreTarget = null;
     deletedFiles = deletedFiles.filter((row) => row.id !== target.id);
     reload();
+    return "committed";
   }
 
   // --- browsing inside an archive -------------------------------------------------------------------
@@ -1626,19 +1712,19 @@
               if (!carriesFiles(event)) return;
               event.preventDefault();
               dragDepth = 0;
-              const dropped = event.dataTransfer?.files;
-              if (dropped && dropped.length > 0) offerUpload([...dropped]);
+              const transfer = event.dataTransfer;
+              if (transfer === null || transfer.files.length === 0) return;
+              // A dropped folder is walked to its files; the dialog opens holding them, sending
+              // nothing until Upload is pressed.
+              void entriesFromDataTransfer(transfer).then((entries) => {
+                if (entries.length > 0) openUpload(entries);
+              });
             }}
           >
             <FileManagerToolbar
               {manager}
               {trail}
               viewTitle={VIEW_TITLES[manager.view]}
-              onToggleRail={toggleRail}
-              onTogglePanel={togglePanel}
-              onNewFolder={() => void makeFolder()}
-              onNewDocument={() => filePicker?.click()}
-              onUpload={() => filePicker?.click()}
               onSearch={runSearch}
             />
 
@@ -1687,10 +1773,9 @@
               <FileManagerFooter
                 {manager}
                 grid={archiveGrid}
-                onUndo={() => void undoMove()}
-                onRedo={() => void redoMove()}
-                onUndoSteps={(steps) => void undoMoves(steps)}
-                onRedoSteps={(steps) => void redoMoves(steps)}
+                onHistoryOutcome={historyOutcome}
+                onToggleRail={toggleRail}
+                onTogglePanel={togglePanel}
               />
             {:else}
 
@@ -1850,19 +1935,17 @@
               <FileManagerFooter
                 {manager}
                 grid={deletedGrid}
-                onUndo={() => void undoMove()}
-                onRedo={() => void redoMove()}
-                onUndoSteps={(steps) => void undoMoves(steps)}
-                onRedoSteps={(steps) => void redoMoves(steps)}
+                onHistoryOutcome={historyOutcome}
+                onToggleRail={toggleRail}
+                onTogglePanel={togglePanel}
               />
             {:else if manager.view === "history"}
               <FileManagerFooter
                 {manager}
                 grid={historyGrid}
-                onUndo={() => void undoMove()}
-                onRedo={() => void redoMove()}
-                onUndoSteps={(steps) => void undoMoves(steps)}
-                onRedoSteps={(steps) => void redoMoves(steps)}
+                onHistoryOutcome={historyOutcome}
+                onToggleRail={toggleRail}
+                onTogglePanel={togglePanel}
               />
             {:else}
               <FileManagerFooter
@@ -1870,10 +1953,9 @@
                 {grid}
                 tally={footerTally}
                 extras={manager.view === "analysis" ? analysisExtras : undefined}
-                onUndo={() => void undoMove()}
-                onRedo={() => void redoMove()}
-                onUndoSteps={(steps) => void undoMoves(steps)}
-                onRedoSteps={(steps) => void redoMoves(steps)}
+                onHistoryOutcome={historyOutcome}
+                onToggleRail={toggleRail}
+                onTogglePanel={togglePanel}
               />
             {/if}
 
@@ -1918,7 +2000,7 @@
               onVerifyIntegrity={() => void runIntegrityCheck()}
               onOpenVersion={(version) => {
                 if (inspectedRow?.kind === "file") {
-                  globalThis.open(fileDownloadUrl(inspectedRow.file.id), "_blank", "noopener");
+                  openBeside(fileDownloadUrl(inspectedRow.file.id), "file");
                 }
                 void version;
               }}
@@ -1935,8 +2017,8 @@
   {/if}
 </div>
 
-<!-- The real file picker, opened by every path that adds a file: the picker comes first, and the
-     destination question follows it. -->
+<!-- The native file picker, kept for Save New Version alone: that act asks nothing, because its
+     destination is the file it was asked on. Every other upload goes through the Upload dialog. -->
 <input
   bind:this={filePicker}
   type="file"
@@ -1951,29 +2033,24 @@
   }}
 />
 
-<UploadDestinationDialog
+<UploadDialog
   bind:open={uploadOpen}
   {index}
   baseFolderId={uploadBaseFolderId}
   {matterTitle}
+  preselected={uploadPreselected}
   items={uploadItems}
-  confirmed={uploadConfirmed}
-  onConfirm={(destinationFolderId) => void confirmUploadDestination(destinationFolderId)}
-  onClose={() => {
-    uploadOpen = false;
-    reload();
-  }}
+  onUpload={runUploadBatch}
+  onDismiss={reload}
 />
 
 <RestoreFileDialog
   bind:open={restoreOpen}
   {index}
   file={restoreTarget}
-  running={restoreRunning}
   failure={restoreFailure}
-  onConfirm={(destination) => void confirmRestore(destination)}
-  onCancel={() => {
-    restoreOpen = false;
+  onConfirm={confirmRestore}
+  onDismiss={() => {
     restoreTarget = null;
   }}
 />
@@ -1982,11 +2059,9 @@
   bind:open={folderDeleteOpen}
   {index}
   folder={folderToDelete}
-  running={folderDeleteRunning}
   failure={folderDeleteFailure}
-  onConfirm={(choice) => void confirmFolderDelete(choice)}
-  onCancel={() => {
-    folderDeleteOpen = false;
+  onConfirm={confirmFolderDelete}
+  onDismiss={() => {
     folderToDelete = null;
   }}
 />
@@ -2215,17 +2290,8 @@
 {#snippet emptyFolder()}
   <EmptyState title="Nothing in This Folder">
     Files put here appear in this list. Everything on the matter is still reachable from Home,
-    whichever folder it sits in.
-    {#snippet actions()}
-      <Button onclick={() => filePicker?.click()}>
-        <Upload class="size-16" aria-hidden="true" />
-        Upload a File
-      </Button>
-      <Button variant="secondary" disabled={newFolderPending} onclick={() => void makeFolder()}>
-        <Plus class="size-16" aria-hidden="true" />
-        New Folder
-      </Button>
-    {/snippet}
+    whichever folder it sits in. New File, at the top of the matter, adds the first; dropping files
+    here does too.
   </EmptyState>
 {/snippet}
 

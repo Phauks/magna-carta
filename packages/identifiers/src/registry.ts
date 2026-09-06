@@ -263,6 +263,34 @@ export const ENTITY_PREFIXES = {
   // its own identity: detaching it leaves the document exactly where it lives.
   matterNote: "matterNote",
   matterNoteDocument: "matterNoteDocument",
+  // The task: one piece of work with somebody's name on it and a state that says whether it is
+  // still owed. A `matterTask` is named for the matter it usually sits on, and its matter is
+  // nullable because plenty of a firm's work belongs to no client file — renewing the malpractice
+  // policy, interviewing a candidate. A `matterTaskDocument` links one of the matter's files to one
+  // task, on the note attachment's model: an association with its own identity, whose removal
+  // leaves the document where it lives.
+  matterTask: "matterTask",
+  matterTaskDocument: "matterTaskDocument",
+  // A task's identity in a system that is not this one. The platform ships no such system and never
+  // will — this is the seam an ADDON writes through, so the `system` it names is open text rather
+  // than an enum and adding a second one is not a migration. A `matterTaskDeletion` is the tombstone
+  // a hard delete leaves behind: a row that is gone cannot be enumerated afterwards, and a mirror
+  // that never learns of the deletion keeps the work alive somewhere the firm stopped looking.
+  matterTaskExternalLink: "matterTaskExternalLink",
+  matterTaskDeletion: "matterTaskDeletion",
+  // The matter plan: a firm's own statement of the work a kind of matter takes. A
+  // `matterPlanTemplate` is the plan; a `matterPlanTaskTemplate` is one task it PROPOSES, carrying a
+  // due-date anchor rather than a date and a role rather than a member, because both alternatives are
+  // wrong the moment the template is used twice.
+  matterPlanTemplate: "matterPlanTemplate",
+  matterPlanTaskTemplate: "matterPlanTaskTemplate",
+  // The intake procedure: what a kind of matter must clear before it opens. An `intakeProcedure` is
+  // the firm's list for one matter type (or every type); an `intakeProcedureStep` is one thing on it,
+  // answered by the subsystem its kind names or by a member; a `matterIntakeStepRecord` is a
+  // member's answer to one step on one matter, append-and-flip.
+  intakeProcedure: "intakeProcedure",
+  intakeProcedureStep: "intakeProcedureStep",
+  matterIntakeStepRecord: "matterIntakeStepRecord",
   // The firm's own calendar scope. A `firmEvent` is something the firm schedules for itself — a
   // meeting, an office closure, training, a firm holiday — which belongs to no matter and so gets
   // its own table rather than a null where a case should be; a `firmEventParticipant` is one person

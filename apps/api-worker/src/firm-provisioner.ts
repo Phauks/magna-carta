@@ -13,6 +13,7 @@ import { insertCredentialAccountStatement } from "./joining-credentials.ts";
 //
 //   1. find-or-insert the firm row, status 'provisioning'   guard: row existence (UNIQUE name)
 //   2. resourceProvider.createBucket + record               guard: bucket_name IS NULL
+//   2b. notifications, expiry rules and CORS on the bucket   unconditional (idempotent PUTs)
 //   3. owner user + firm.provisioned audit + member.provision outbox + status='active'
 //                                                           guard: status (commits as ONE batch)
 //
@@ -188,6 +189,17 @@ export async function provisionFirm(
   // before this would otherwise never configure notifications on resume. Idempotent (PUT), so the
   // re-run on a resume is harmless.
   await dependencies.resourceProvider.configureBucketNotifications(firmId, firmRow.data_region);
+
+  // Step 2b(ii) — apply the bucket's expiry rules, unconditionally and for the same reason: a run
+  // that created the bucket and crashed before this would otherwise leave a firm whose transient
+  // artifacts never expire, which nothing downstream would ever notice.
+  await dependencies.resourceProvider.configureBucketLifecycle(firmId, firmRow.data_region);
+
+  // Step 2b(iii) — apply the bucket's CORS policy, unconditionally for the same reason. The
+  // file-manager upload PUTs bytes from the browser straight to a presigned URL on this bucket, and
+  // a bucket with no policy refuses the preflight — so without this step a firm cannot upload a
+  // single file, and the only thing the app can say is that nothing answered.
+  await dependencies.resourceProvider.configureBucketCors(firmId, firmRow.data_region);
 
   // Step 2c — mint the firm's data key. Guarded by wrapped_firm_key IS NULL so a resume mints
   // nothing, AND by the firm never having been shredded (a firm.key_shredded audit row): a shredded

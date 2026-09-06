@@ -34,6 +34,7 @@
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
+import FieldLabel from "@magna-carta/design-system/field-label";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -434,9 +435,7 @@
         <!-- The contents: what is inside, and the copies filed with it. -->
         <div class="flex flex-col gap-16">
           <div class="flex flex-col gap-8">
-            <h3 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-              What is inside
-            </h3>
+            <FieldLabel as="h3">What is inside</FieldLabel>
 
             {#if draft.items.length > 0}
               <ul class="flex flex-col gap-8">
@@ -535,9 +534,7 @@
           <Separator />
 
           <div class="flex flex-col gap-8">
-            <h3 class="text-xs text-text-muted uppercase" style="letter-spacing: var(--mc-tracking-caps)">
-              Copies filed with it
-            </h3>
+            <FieldLabel as="h3">Copies filed with it</FieldLabel>
             {#if attachments.length > 0}
               <ul class="flex flex-col gap-8">
                 {#each attachments as attachment (attachment.fileId)}

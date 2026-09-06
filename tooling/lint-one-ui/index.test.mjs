@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { readsAsFieldName } from "../../packages/design-system/src/lib/formatters/placeholder.ts";
 import { STATUS_REGISTER } from "../../packages/design-system/src/lib/status-register/status-register.ts";
 import {
+  DATA_TABLE_HOME,
   applyAllowances,
   effectRegions,
   exportsName,
@@ -18,13 +19,20 @@ import {
   findHandBuiltDialogs,
   findFooterSetProblems,
   findHandComposedModals,
+  findHandComposedDetailsPanels,
+  findHandPlacedLoading,
   findHandDrawnGlyphs,
   findHandRolledSelects,
+  findHandWrittenCapsRegister,
+  findHandWrittenRefusals,
+  findMoneyPresentation,
   findHeaderSetProblems,
   findImperativeDomUse,
   findInventedStatusTones,
   findPlaceholderProblems,
+  findRawTables,
   findRegistryProblems,
+  findTableMachinery,
   identifierParts,
   kebabCase,
   stripComments,
@@ -303,6 +311,111 @@ describe("no hand-rolled select", () => {
   it("does NOT read a comment that names the element it is warning about", () => {
     const source = "<!-- Never a bare <select> here; use Combobox. -->\n<Combobox.Root />";
     expect(findHandRolledSelects("screen.svelte", source)).toEqual([]);
+  });
+});
+
+describe("no raw table outside the one table's home", () => {
+  it("bites on a raw table in an app screen, once, at its first element", () => {
+    const source = `<details>
+  <table class="w-full">
+    <thead><tr><th scope="col">Sample</th></tr></thead>
+    <tbody><tr><td>1</td></tr></tbody>
+  </table>
+</details>`;
+    const problems = findRawTables("apps/web/src/lib/tools/speed-test/sparkline.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toBe("raw-table");
+    expect(problems[0].line).toBe(2);
+    expect(problems[0].detail).toContain("`<table`");
+    expect(problems[0].detail).toContain("6 more below");
+    expect(problems[0].detail).toContain("DataTable.Grid");
+  });
+
+  it("bites on a div wearing a table's role", () => {
+    const source = `<div role="grid">
+  <div role="row"><div role="columnheader">Name</div></div>
+</div>`;
+    const problems = findRawTables("screen.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].line).toBe(1);
+    expect(problems[0].detail).toContain('role="grid"');
+  });
+
+  it("does NOT cry wolf on the design system's primitives, which are the answer", () => {
+    const source = `<DataTable.Root>
+  <DataTable.Header><DataTable.Row><DataTable.Head>Name</DataTable.Head></DataTable.Row></DataTable.Header>
+  <DataTable.Body><DataTable.Row><DataTable.Cell>One</DataTable.Cell></DataTable.Row></DataTable.Body>
+</DataTable.Root>
+<Table><TableRow><TableCell>Two</TableCell></TableRow></Table>
+<DataTable.Grid {grid} caption="Matters" />`;
+    expect(findRawTables("screen.svelte", source)).toEqual([]);
+  });
+
+  it("does NOT cry wolf on elements that merely start the same way, or on a comment", () => {
+    const source = `<!-- a raw <table> used to live here -->
+<textarea></textarea>
+<track kind="captions" />
+<time datetime="2026-09-03">today</time>
+<p>The table view is below.</p>`;
+    expect(findRawTables("screen.svelte", source)).toEqual([]);
+  });
+
+  it("leaves the one table's own home alone, where the element has to be written", () => {
+    const home = `${DATA_TABLE_HOME}/table.svelte`;
+    expect(findRawTables(home, "<table><tbody><tr><td></td></tr></tbody></table>")).toEqual([]);
+  });
+});
+
+describe("no table machinery beside the one table", () => {
+  it("bites on a sortable header rolled by hand, naming every signal it found", () => {
+    const source = `<DataTable.Head aria-sort={sortKey === "name" ? direction : "none"}>
+  <button type="button" class="mc-table-sort" onclick={() => sortBy("name")}>Name</button>
+</DataTable.Head>`;
+    const problems = findTableMachinery("screen.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toBe("table-machinery");
+    expect(problems[0].line).toBe(1);
+    expect(problems[0].detail).toContain("`aria-sort`, line 1");
+    expect(problems[0].detail).toContain("`mc-table-sort`, line 2");
+    expect(problems[0].detail).toContain("createDataTableGrid");
+  });
+
+  it("bites on the headless engine composed in a screen or a module, and on its parts", () => {
+    expect(
+      findTableMachinery("state.svelte.ts", "export const table = createSvelteTable(options);"),
+    ).toHaveLength(1);
+    expect(
+      findTableMachinery(
+        "screen.svelte",
+        'import { getCoreRowModel } from "@tanstack/table-core";',
+      ),
+    ).toHaveLength(1);
+    expect(findTableMachinery("screen.svelte", "<DataTable.Search {table} />")).toHaveLength(1);
+    expect(findTableMachinery("screen.svelte", "<TableViewMenu {table} />")).toHaveLength(1);
+    expect(findTableMachinery("screen.svelte", "<FlexRender content={cell} />")).toHaveLength(1);
+  });
+
+  it("does NOT cry wolf on the Grid, on a Lucide Search icon, or on a sort that is the Grid's", () => {
+    const source = `<script lang="ts">
+  import Search from "@lucide/svelte/icons/search";
+  import * as DataTable from "@magna-carta/design-system/data-table";
+  const grid = DataTable.createDataTableGrid({ columns, rowKey: (row) => row.id });
+  const sorted = rows.toSorted((first, second) => first.name.localeCompare(second.name));
+</script>
+<Search />
+<DataTable.Grid {grid} caption="Matters" />`;
+    expect(findTableMachinery("screen.svelte", source)).toEqual([]);
+  });
+
+  it("does NOT read a comment that names the signal it is warning about", () => {
+    const source =
+      "<!-- never a hand-rolled aria-sort here -->\n// createSvelteTable( is the Grid's\n<DataTable.Grid />";
+    expect(findTableMachinery("screen.svelte", source)).toEqual([]);
+  });
+
+  it("leaves the one table's own home alone, where the machinery has to be written", () => {
+    const home = `${DATA_TABLE_HOME}/data-table-grid.svelte`;
+    expect(findTableMachinery(home, '<th aria-sort="none" class="mc-table-sort">')).toEqual([]);
   });
 });
 
@@ -779,11 +892,243 @@ describe("the registry's own allowances", () => {
       "status-tone",
       "placeholder",
       "imperative-dom",
+      "raw-table",
+      "table-machinery",
+      "caps-register",
+      "money-presentation",
+      "permission-refusal",
+      "details-panel",
+      "hand-placed-loading",
       "sweep",
     ]);
     for (const allowance of registry.allowances ?? []) {
       expect(known, `allowance for an unknown rule: ${allowance.rule}`).toContain(allowance.rule);
       expect(String(allowance.reason ?? "").trim()).not.toBe("");
     }
+  });
+});
+
+describe("one caps register", () => {
+  it("passes on a surface that reaches for the component", () => {
+    expect(
+      findHandWrittenCapsRegister(
+        "apps/web/src/lib/x.svelte",
+        '<FieldLabel as="h3">Standing</FieldLabel>',
+      ),
+    ).toEqual([]);
+  });
+
+  it("bites on the voice built out of utilities", () => {
+    const problems = findHandWrittenCapsRegister(
+      "apps/web/src/lib/x.svelte",
+      '<p class="text-xs text-text-muted uppercase">Standing</p>',
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toEqual("caps-register");
+  });
+
+  it("bites on the inline letter-spacing that finishes the voice by hand", () => {
+    const problems = findHandWrittenCapsRegister(
+      "apps/web/src/lib/x.svelte",
+      '<span class="uppercase" style="letter-spacing: var(--mc-tracking-caps)">Fleet</span>',
+    );
+    expect(problems).toHaveLength(1);
+  });
+
+  it("does NOT bite inside the design system's own recipes, which ARE the register", () => {
+    expect(
+      findHandWrittenCapsRegister(
+        "packages/design-system/src/lib/components/field-label/field-label.css",
+        ".mc-field-label { letter-spacing: var(--mc-tracking-caps); }",
+      ),
+    ).toEqual([]);
+  });
+
+  it("does NOT read a comment as a violation", () => {
+    expect(
+      findHandWrittenCapsRegister(
+        "apps/web/src/lib/x.svelte",
+        '<!-- was class="text-xs text-text-muted uppercase" before FieldLabel -->',
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("one money presenter", () => {
+  it("passes on a surface that reaches for the shared formatter", () => {
+    expect(
+      findMoneyPresentation("apps/web/src/lib/x.svelte", "formatMoney(amount, { currency })"),
+    ).toEqual([]);
+  });
+
+  it("bites on a second currency formatter", () => {
+    const problems = findMoneyPresentation(
+      "apps/web/src/lib/x.ts",
+      'new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })',
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toEqual("money-presentation");
+  });
+
+  it("does NOT bite in either of the two homes allowed to print money", () => {
+    const source = 'new Intl.NumberFormat(locale, { style: "currency", currency: code })';
+    expect(findMoneyPresentation("packages/money/src/format.ts", source)).toEqual([]);
+    expect(
+      findMoneyPresentation("packages/design-system/src/lib/formatters/money.ts", source),
+    ).toEqual([]);
+  });
+});
+
+describe("one refusal sentence", () => {
+  it("passes on a surface that reaches for the helper", () => {
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/x.svelte",
+        'permissionRefusal("Opening a matter", "matters:create")',
+      ),
+    ).toEqual([]);
+  });
+
+  it("bites on either wording, because both existed", () => {
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/x.svelte",
+        '"Opening a matter needs the matters:create permission, which this account does not hold."',
+      ),
+    ).toHaveLength(1);
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/x.ts",
+        '"This account does not hold the billing:credit capability."',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("does NOT cry wolf on ordinary English about holding something else", () => {
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/x.svelte",
+        'note="somebody who guessed all three facts but does not hold the address still gets nothing"',
+      ),
+    ).toEqual([]);
+  });
+
+  it("does NOT bite in the home the sentence lives in", () => {
+    expect(
+      findHandWrittenRefusals(
+        "apps/web/src/lib/access/refusal.ts",
+        "return `${act} needs the ${permission} permission, which this account does not hold.`;",
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("one details panel", () => {
+  it("passes on a surface that composes the shell", () => {
+    expect(
+      findHandComposedDetailsPanels(
+        "apps/web/src/lib/time/time-details-panel.svelte",
+        '<DetailsPanel.Root label="Entry details">',
+      ),
+    ).toEqual([]);
+  });
+
+  it("bites on the frame written out", () => {
+    const problems = findHandComposedDetailsPanels(
+      "apps/web/src/lib/x/x-details-panel.svelte",
+      '<aside class="flex h-full w-full flex-col border-l border-border-default bg-surface-default">',
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].rule).toEqual("details-panel");
+  });
+
+  it("bites on the scrolling body written out", () => {
+    expect(
+      findHandComposedDetailsPanels(
+        "apps/web/src/lib/x/x-details-panel.svelte",
+        '<div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("does NOT bite inside the shell, which is where the frame belongs", () => {
+    expect(
+      findHandComposedDetailsPanels(
+        "apps/web/src/lib/details-panel/details-panel.svelte",
+        '<aside class="flex h-full w-full flex-col border-l border-border-default bg-surface-default">',
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("one loading state", () => {
+  const HOMES = [
+    "packages/design-system/src/lib/components/loading-region",
+    "packages/design-system/src/lib/components/data-table",
+  ];
+  const findIn = (path, source) => findHandPlacedLoading(path, source, HOMES);
+
+  it("bites on the Skeleton box placed by hand in an app screen, naming the signal", () => {
+    const source = `<script>
+  import Skeleton from "@magna-carta/design-system/skeleton";
+</script>
+{#if names === null}
+  <div class="flex flex-col gap-8" aria-busy="true"><Skeleton class="h-32 w-full" /></div>
+{/if}`;
+    const problems = findIn("apps/web/src/lib/directory/names-pane.svelte", source);
+    expect(problems.map((problem) => problem.text)).toEqual([
+      "@magna-carta/design-system/skeleton",
+      "aria-busy",
+      "<Skeleton",
+    ]);
+    expect(problems.every((problem) => problem.rule === "hand-placed-loading")).toBe(true);
+    expect(details(problems)).toContain("LoadingRegion");
+  });
+
+  it("bites on the recipe class, a pulsing utility and a spinner glyph", () => {
+    const source = `<script>
+  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+</script>
+<div class="mc-skeleton"></div>
+<div class="animate-pulse"></div>`;
+    const problems = findIn("apps/web/src/routes/(app)/home/+page.svelte", source);
+    expect(problems.map((problem) => problem.text)).toEqual([
+      "@lucide/svelte/icons/loader-circle",
+      "mc-skeleton",
+      "animate-pulse",
+    ]);
+  });
+
+  it("does NOT cry wolf on the region used as intended", () => {
+    const source = `<script>
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+</script>
+<LoadingRegion loading={names === null} label="Reading the names on this record">
+  {#snippet fixture()}<NameRows names={FIXTURE_NAMES} />{/snippet}
+  <NameRows {names} />
+</LoadingRegion>`;
+    expect(findIn("apps/web/src/lib/directory/names-pane.svelte", source)).toEqual([]);
+  });
+
+  it("does NOT read a comment that names the signal it is warning about", () => {
+    const source = `<!-- the region writes aria-busy; a screen never does -->
+<script>
+  // no <Skeleton here, and no mc-skeleton either
+</script>`;
+    expect(findIn("apps/web/src/lib/x.svelte", source)).toEqual([]);
+  });
+
+  it("leaves the declared loading homes alone, where the machinery has to be written", () => {
+    const source = `<div aria-busy="true"><Skeleton class="mc-table-skeleton" /></div>`;
+    expect(
+      findIn("packages/design-system/src/lib/components/data-table/data-table-grid.svelte", source),
+    ).toEqual([]);
+  });
+
+  it("bites inside the design system outside those homes", () => {
+    const source = `<div aria-busy="true"></div>`;
+    const problems = findIn("packages/design-system/src/lib/components/card/card.svelte", source);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].text).toBe("aria-busy");
   });
 });

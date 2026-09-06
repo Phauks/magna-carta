@@ -2,7 +2,7 @@
 // seed (new archetype, changed faker call order, …) — it participates in snapshot identity, so a
 // stale cached artifact can never be measured against silently. Profile parameter changes bump
 // the profile's own `version` instead.
-export const GENERATOR_VERSION = 11;
+export const GENERATOR_VERSION = 12;
 
 // Transaction archetypes, weighted (faker.helpers.weightedArrayElement). The settlement archetype
 // is the multi-line tail; the rest are two-line entries. Weights are profile PARAMETERS, never
@@ -450,6 +450,49 @@ export interface CalendarVolume {
   readonly continuanceChainLength: number;
 }
 
+// The task volume laid over the practice book: what the firm still owes on its matters, plus the
+// firm's own work on no matter at all. Every count is a PARAMETER here, never a generator constant.
+//
+// What this volume is really shaping is the THREE-TERM ORDER every task read shares — undated last,
+// then by date, then by priority rank, then by identifier — and the ONE visibility fragment every
+// read composes, whose nullable-matter branch only exists because some tasks have no matter. A
+// corpus where every task were dated, or every task on a matter, would measure neither.
+export interface TaskVolume {
+  // Tasks recorded per matter across the firm's caseload. Most matters stay shallow; the probe
+  // matter below is the tail.
+  readonly tasksPerMatter: { readonly min: number; readonly max: number };
+  // Tasks on the probe matter — the deep list the page-1-versus-page-20 comparison walks.
+  readonly probeMatterTaskCount: number;
+  // Tasks on NO matter: the firm's own work, renewing the policy and interviewing candidates. This
+  // is the population the visibility fragment's nullable branch exists for, and a corpus without it
+  // would measure that branch doing nothing.
+  readonly matterlessTaskCount: number;
+  // How the corpus splits across the three states. Open is what the default list shows, so the rest
+  // is what makes that filter selective rather than a no-op. Cancelled takes the remainder.
+  readonly openFraction: number;
+  readonly doneFraction: number;
+  // Fraction of tasks in somebody's name. The unassigned rest are real — a task nobody has picked up
+  // is a state rather than a defect — and they are what the member-filtered read has to skip past.
+  readonly assignedFraction: number;
+  // Fraction carrying a due date. The order puts the undated LAST, so a corpus that is all dated or
+  // all undated would never exercise the branch the sort key turns on.
+  readonly datedFraction: number;
+  // Of the dated ones, the fraction already past due. Overdue is a comparison made at read time and
+  // never a stored fact, so this exists to make that comparison return a mix.
+  readonly overdueFraction: number;
+  // Fraction waiting on another task. The link renders and sorts and gates nothing, so its cost is
+  // the resolution, not a traversal.
+  readonly blockedFraction: number;
+  // Fraction of tasks that time has been logged against, and the entries per such task. This is what
+  // the grouped time read fans over — the read that must stay ONE statement per page of tasks rather
+  // than one per task.
+  readonly timeLinkedFraction: number;
+  readonly timeEntriesPerLinkedTask: { readonly min: number; readonly max: number };
+  // Days the due dates spread over, centred on the fixed clock so both halves of the overdue
+  // comparison have subjects.
+  readonly spanDays: number;
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -494,6 +537,9 @@ export interface LedgerVolumeProfile {
   // The calendar volume laid over everything else (matter events and participants, deadlines, the
   // firm's own events, resources and bookings, and one continued hearing).
   readonly calendar: CalendarVolume;
+  // The task volume laid over the practice book (what the firm still owes on its matters, its own
+  // work on no matter, and the time logged against some of it).
+  readonly tasks: TaskVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -501,7 +547,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 15,
+  version: 16,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -687,6 +733,26 @@ export const ledgerVolume: LedgerVolumeProfile = {
     bookingCount: 400,
     overlappingBookingFraction: 0.15,
     continuanceChainLength: 5,
+  },
+  tasks: {
+    // What a working caseload still owes: most matters carry a handful of open items, one carries
+    // four hundred, and the firm's own work — the policy renewal, the candidate interviews, the
+    // conflict-check backlog — sits on no matter at all. Two thirds are still open, because the
+    // default list shows open and the rest is what makes that filter selective. Half are dated:
+    // the order puts the undated last, so a corpus that were all one or all the other would never
+    // exercise the branch the sort key turns on. A fifth carry time.
+    tasksPerMatter: { min: 0, max: 9 },
+    probeMatterTaskCount: 400,
+    matterlessTaskCount: 120,
+    openFraction: 0.65,
+    doneFraction: 0.3,
+    assignedFraction: 0.8,
+    datedFraction: 0.5,
+    overdueFraction: 0.2,
+    blockedFraction: 0.15,
+    timeLinkedFraction: 0.2,
+    timeEntriesPerLinkedTask: { min: 1, max: 6 },
+    spanDays: 730,
   },
 };
 
@@ -876,6 +942,24 @@ export function scaleProfile(
       // cost is bounded by chain length rather than by the firm's event count, and a chain scaled to
       // two nodes at the smoke multiplier would prove that vacuously.
       continuanceChainLength: profile.calendar.continuanceChainLength,
+    },
+    tasks: {
+      ...profile.tasks,
+      // Floors keep a probe matter deep enough for a second page to exist, a handful of matterless
+      // tasks so the visibility fragment's nullable branch has a population at the smoke multiplier,
+      // and a span wide enough for the overdue comparison to find rows on both sides. The fractions
+      // are not scaled — they are shape, not size.
+      probeMatterTaskCount: scaleCount(profile.tasks.probeMatterTaskCount, 60),
+      matterlessTaskCount: scaleCount(profile.tasks.matterlessTaskCount, 6),
+      spanDays: scaleCount(profile.tasks.spanDays, 60),
+      tasksPerMatter: {
+        min: Math.max(0, Math.round(profile.tasks.tasksPerMatter.min * multiplier)),
+        max: Math.max(2, Math.round(profile.tasks.tasksPerMatter.max * multiplier)),
+      },
+      timeEntriesPerLinkedTask: {
+        min: Math.max(1, Math.round(profile.tasks.timeEntriesPerLinkedTask.min * multiplier)),
+        max: Math.max(1, Math.round(profile.tasks.timeEntriesPerLinkedTask.max * multiplier)),
+      },
     },
   };
 }

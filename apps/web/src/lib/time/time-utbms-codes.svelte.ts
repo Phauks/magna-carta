@@ -50,9 +50,19 @@ class CodeSet {
     if (this.failure !== null) {
       return this.failure.failure.problem?.detail ?? this.failure.fallback;
     }
-    if (this.codes !== null && this.available.length === 0) {
-      return "The firm has no codes of this kind turned on. An entry saves without one.";
-    }
+    /*
+     * A FIRM WITH NO CODES TURNED ON IS NOT A REFUSAL, AND IT USED TO READ AS ONE. There was a
+     * third branch here that returned "The firm has no codes of this kind turned on"; on the
+     * record window that printed a paragraph under Category and the same paragraph again under
+     * Activity Code, so the commonest configuration in the product — a firm that does not code its
+     * time — got two sentences of apology and no working field.
+     *
+     * Nothing was wrong. The field's answer in that case is (None), and the picker offers (None)
+     * unconditionally, so there is a real choice to make and it is already correct. What remains
+     * here are the two states that ARE inabilities: this account may not read the catalogue, and
+     * the read failed. Neither is a fact about the firm's codes, and both leave a reader unable to
+     * pick — which is worth a sentence.
+     */
     return null;
   }
 }

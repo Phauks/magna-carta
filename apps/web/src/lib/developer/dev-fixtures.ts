@@ -43,6 +43,26 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
     ],
   },
   {
+    title: "Design reviews",
+    pages: [
+      {
+        label: "Pane toggle placements",
+        href: "/developer-console/pane-toggle-placements",
+        note: "Where the show/hide-a-pane control could live",
+      },
+      {
+        label: "Table states",
+        href: "/developer-console/table-states",
+        note: "The one table, in every state",
+      },
+      {
+        label: "Loading states",
+        href: "/developer-console/loading-states",
+        note: "The one loading region, over every shape",
+      },
+    ],
+  },
+  {
     title: "Document automation",
     pages: [
       {

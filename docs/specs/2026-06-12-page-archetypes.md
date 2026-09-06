@@ -95,7 +95,7 @@ Matters, Contacts, the trust ledger, billing, the intake queue — the workhorse
 
 ### 3.2 Record Detail
 
-A matter, a contact — the header + tabs + content pattern.
+A matter — the header + tabs + content pattern. A directory record is **not** this archetype: the owner's ruling of 2026-09-05 ([`2026-09-02-directory-linking-design.md`](2026-09-02-directory-linking-design.md), the rulings section) is that a person or an organization has one surface, the entity window, which opens over whatever the reader was doing — the directory's list, a matter's parties, a conflicts hit — in the New Person screen's shape, and closes back to it. A record opened in place needs no way back, which is why it left the archetype.
 
 - **Header:** breadcrumb, title, **status chip**, key metadata (number · type · responsible), and any contextual actions the record offers (_Add time_ · `New`), each named on the row. No overflow (⋯) menu: the owner's 2026-09-01 ruling ([`design-corrections.md`](../conventions/design-corrections.md)) is that a menu earns its glyph from what opening it offers, so one action goes on the row and no action draws no trigger.
 - **Tabs:** the horizontal set (§2), gold-underlined active tab. A record with more sections than a row can hold GROUPS them into named menus on the row (the matter's Money · Record) rather than letting a measured overflow decide which half is visible — grouping only what a member can afford to reach through a menu, so a destination checked daily stays on the row; the More… overflow survives underneath as a backstop for a canvas narrower than the arrangement, and a group that reaches it keeps its name as a menu heading. See [`design-corrections.md`](../conventions/design-corrections.md).

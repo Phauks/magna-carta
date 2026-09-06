@@ -31,28 +31,33 @@
   import Separator from "@magna-carta/design-system/separator";
   import { formatInstant, personName } from "@magna-carta/design-system/formatters";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
+  import FieldLabel from "@magna-carta/design-system/field-label";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import Gavel from "@lucide/svelte/icons/gavel";
-  import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
-  import { gapCellTitle, gapReason } from "./conflicts-gaps.ts";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { hitSheet } from "./conflicts-report.ts";
-  import type { HitDetail } from "./conflicts-api.ts";
+  import {
+    readConflictsDispositionTrail,
+    type DispositionTrailEntry,
+    type HitDetail,
+  } from "./conflicts-api.ts";
   import {
     adjudicationSummary,
+    dispositionVocabulary,
     edgeTypeLabel,
     evidenceTier,
     pathSummary,
     sourceVocabulary,
     waiverShortfallText,
   } from "./conflicts-vocabulary.ts";
-  import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
-  import { entityKindText, surfacedAgainstText } from "./hit-columns.ts";
+  import EntityWindow from "$lib/directory/entity-window.svelte";
+  import { entityKindText, partyCellTitle, partyText, surfacedAgainstText } from "./hit-columns.ts";
 
   let {
     open = $bindable(false),
     hit,
-    partyName = null,
-    partyNameFailed = false,
     consentingPartyName = null,
     reviewerName = null,
     checkInstant,
@@ -60,10 +65,6 @@
   }: {
     open?: boolean;
     hit: HitDetail | null;
-    /** The matched party's name, once one read has answered it. */
-    partyName?: string | null;
-    /** True when the read ran and could not name the entity, which is not the same as not asked. */
-    partyNameFailed?: boolean;
     /**
      * The name of the entity that gave the waiver, once one read has answered it. Null where the
      * disposition names none, or where the read has not returned — the handle prints either way, so
@@ -78,21 +79,87 @@
     onAnswer: () => void;
   } = $props();
 
-  const trailDescription = $props.id();
-  const soonTrail = soonControlProperties(gapReason("adjudicationTrail"), trailDescription);
-
   const EDIT_REFUSAL =
     "The conflicts log is append-only. A hit is never edited; answering it records a new row.";
 
-  const heading = $derived(
-    partyName ?? (partyNameFailed ? "Party could not be named" : "Reading the party"),
-  );
+  // The matched party comes ON the hit — the check read resolves every hit's entity — so this window
+  // takes no name of its own to be told. It used to, and a caller could hand it one that disagreed
+  // with the hit it was showing.
+  const partyName = $derived(hit?.party?.displayName ?? null);
 
-  /**
-   * The history this window can honestly show: the check that surfaced the hit, and the reviewer's
-   * latest word on it. Every earlier answer is on the record and nothing reads it back yet, which
-   * is stated beneath the rail rather than left as an absence.
+  // The party's directory record, opened over this window rather than in the directory's place:
+  // a reviewer reads what the firm holds about the entity and comes back to the hit they were on.
+  let entityOpen = $state(false);
+  let openEntityId = $state("");
+
+  function openParty(): void {
+    if (hit === null) return;
+    openEntityId = hit.entityId;
+    entityOpen = true;
+  }
+  const heading = $derived(partyName ?? (hit === null ? "" : partyText(hit)));
+
+  /*
+   * The whole adjudication trail, read when the window opens.
+   *
+   * This used to be the check that surfaced the hit plus the reviewer's LATEST word, with a line
+   * underneath saying the earlier answers were on the record and unreadable. They are readable now,
+   * and that matters more here than anywhere else on the surface: the log is append-only precisely
+   * so that a reviewer who cleared a hit and later reversed leaves both acts standing, and a rail
+   * showing only the surviving one would hide the history the table refuses to destroy.
    */
+  let trail = $state<DispositionTrailEntry[]>([]);
+  let trailFailure = $state<StatedFailure | null>(null);
+  let trailLoading = $state(false);
+
+  $effect(() => {
+    const hitId = hit?.id ?? null;
+    if (!open || hitId === null) return;
+    trail = [];
+    trailFailure = null;
+    trailLoading = true;
+    void (async () => {
+      const outcome = await readConflictsDispositionTrail(fetch, hitId);
+      // A hit the reviewer has already moved past says nothing about this window.
+      if ((hit?.id ?? null) !== hitId) return;
+      trailLoading = false;
+      if (outcome.kind === "ok") {
+        trail = outcome.value.dispositions;
+        return;
+      }
+      trailFailure = stated(outcome.failure, "This hit's answers could not be read.");
+    })();
+  });
+
+  /*
+   * The shape the trail takes while it is being read: the same rail, over invented answers. It is
+   * inert and hidden from assistive technology while it stands, so nothing in it can be mistaken
+   * for a real hit's record.
+   */
+  const TRAIL_FIXTURE: readonly EventRailEvent[] = [
+    {
+      id: "fixture-surfaced",
+      action: "Surfaced by the check",
+      at: "2026-02-09T14:05:00Z",
+      source: "The conflicts engine",
+      detail: "Surname and given name matched; date of birth matched",
+    },
+    {
+      id: "fixture-cleared",
+      action: "Cleared: no adverse interest",
+      at: "2026-02-10T09:41:00Z",
+      source: "Rosalind Chase",
+      detail: "The earlier representation ended in 2019 and concerned an unrelated lease.",
+    },
+    {
+      id: "fixture-waiver",
+      action: "Waiver obtained, confirmed in writing",
+      at: "2026-02-12T16:12:00Z",
+      source: "Rosalind Chase",
+      detail: "Consent given after independent advice; the letter is filed on the matter.",
+    },
+  ];
+
   const events = $derived.by((): EventRailEvent[] => {
     if (hit === null) return [];
     const rail: EventRailEvent[] = [
@@ -104,15 +171,18 @@
         detail: hit.matchedFields.join("; "),
       },
     ];
-    if (hit.disposition !== null) {
+    for (const entry of trail) {
       rail.push({
-        id: hit.disposition.id,
+        id: entry.id,
         // The summary rather than the bare kind: on the trail as everywhere else, an answer whose
         // record the platform cannot produce must not read as one it can.
-        action: adjudicationSummary(hit.disposition).label,
-        at: hit.disposition.createdAt,
-        source: personName(reviewerName),
-        detail: hit.disposition.rationale,
+        action: adjudicationSummary(entry).label,
+        at: entry.createdAt,
+        // Only the LATEST answer's reviewer is resolved to a name by the caller; an earlier one
+        // prints the handle rather than borrowing a name that belongs to a different act.
+        source:
+          entry.id === hit.disposition?.id ? personName(reviewerName) : entry.reviewerUserId,
+        detail: entry.rationale,
       });
     }
     return rail;
@@ -163,18 +233,45 @@
           <dt class="text-text-muted">Party</dt>
           <dd class="text-right">
             {#if partyName === null}
-              <span title={gapCellTitle("matchedPartyName")}>
-                {partyNameFailed ? "Not named" : "Reading"}
-              </span>
+              <span title={partyCellTitle(hit)}>{partyText(hit)}</span>
             {:else}
               <!-- The entity's own record, so a reviewer can read what the firm holds about it
                    rather than taking the hit's word for who it is. -->
-              <a class="underline underline-offset-2" href={entityRecordHref(hit.entityId)}>
+              <button type="button" class="underline underline-offset-2" onclick={openParty}>
                 {partyName}
-              </a>
+              </button>
             {/if}
           </dd>
         </div>
+        {#if hit.previouslyAnswered !== null}
+          <!--
+            CONTEXT, and never this hit's answer. The firm has said something about this party
+            before; whether it answers THIS question is the reviewer's judgment, not the machine's.
+            The case that decides it: a company cleared as a FORMER client can re-surface as the
+            subsidiary of a CURRENT one — same party, a different question, on a higher bar. So the
+            hit stays unanswered, nothing is pre-filled, and the earlier check is linked so a
+            reviewer can read it rather than take this line's word for it.
+          -->
+          <div class="flex items-baseline justify-between gap-16">
+            <dt class="text-text-muted">Answered Before</dt>
+            <dd class="flex flex-wrap justify-end gap-x-8 text-right">
+              <span>
+                {dispositionVocabulary(hit.previouslyAnswered.kind).label} on
+                {formatInstant(hit.previouslyAnswered.createdAt)}
+              </span>
+              <a
+                class="underline underline-offset-2"
+                href="/conflicts/checks/{hit.previouslyAnswered.checkId}"
+              >
+                Open that check
+              </a>
+            </dd>
+          </div>
+          <p class="text-xs text-text-subtle">
+            About the same party, on an earlier check. Whether it answers this one is yours to
+            decide — this hit is unanswered until you answer it.
+          </p>
+        {/if}
         {@render fact("Kind", entityKindText(hit.entityId))}
         {@render fact("Tier", evidenceTier(hit.evidenceTier).label, evidenceTier(hit.evidenceTier).meaning)}
         {@render fact(
@@ -190,7 +287,7 @@
       {#if hit.disposition !== null}
         <Separator />
         <div class="flex flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">Latest Answer</h3>
+          <FieldLabel as="h3">Latest Answer</FieldLabel>
           <p class="text-sm">{hit.disposition.rationale}</p>
           <p class="text-xs text-text-muted">
             {personName(reviewerName)} &middot; {formatInstant(hit.disposition.createdAt)}
@@ -206,7 +303,7 @@
              is missing, because "no document filed" and "consent never confirmed in writing" send a
              lawyer to do two different things. -->
         <div class="flex flex-col gap-8">
-          <h3 class="text-xs text-text-subtle uppercase">The Waiver</h3>
+          <FieldLabel as="h3">The Waiver</FieldLabel>
           <dl class="flex flex-col gap-4 text-sm">
             {@render fact(
               "Given By",
@@ -248,7 +345,7 @@
   {#if hit !== null}
     <div class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
-        <h3 class="text-xs text-text-subtle uppercase">Every Channel That Fired</h3>
+        <FieldLabel as="h3">Every Channel That Fired</FieldLabel>
         <!-- Verbatim, and every one of them: the engine records each comparison that matched rather
              than only the one that set the tier, because that is what a reviewer adjudicates on and
              what an auditor reads years later. -->
@@ -305,29 +402,66 @@
   {/if}
 {/snippet}
 
+{#snippet trailRail()}
+  <EventRail
+    {events}
+    label="This hit's adjudication"
+    emptyMessage="Nothing has been recorded against this hit yet."
+  />
+  {#if hit?.disposition != null && hit.disposition.shortfalls.length > 0}
+    <!-- Beneath the trail, because it is not an event: it is what the latest answer's record is
+         still short of, and it stays true until a second disposition supplies it. -->
+    <div class="flex flex-col gap-4 text-xs text-text-muted">
+      {#each hit.disposition.shortfalls as shortfall (shortfall)}
+        <p class="flex items-start gap-8">
+          <CircleAlert class="size-12 shrink-0" aria-hidden="true" />
+          <span>{waiverShortfallText(shortfall)}</span>
+        </p>
+      {/each}
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet adjudicationTab()}
   <div class="flex h-full min-h-0 flex-col gap-8">
-    <EventRail
-      {events}
-      label="This hit's adjudication"
-      emptyMessage="Nothing has been recorded against this hit yet."
-    />
-    {#if hit?.disposition != null && hit.disposition.shortfalls.length > 0}
-      <!-- Beneath the trail, because it is not an event: it is what the latest answer's record is
-           still short of, and it stays true until a second disposition supplies it. -->
-      <div class="flex flex-col gap-4 text-xs text-text-muted">
-        {#each hit.disposition.shortfalls as shortfall (shortfall)}
-          <p class="flex items-start gap-8">
-            <CircleAlert class="size-12 shrink-0" aria-hidden="true" />
-            <span>{waiverShortfallText(shortfall)}</span>
+    {#if trailFailure !== null}
+      <!-- A trail that could not be read says so, under the rail's one certain event. An
+           append-only record that silently showed fewer acts than it holds would be the one
+           failure this whole surface exists to prevent. -->
+      {@render trailRail()}
+      <FailureNotice
+        failure={trailFailure.failure}
+        subject="This hit's answers"
+        fallback={trailFailure.fallback}
+      />
+    {:else}
+      <LoadingRegion
+        loading={trailLoading}
+        label="Reading every answer on this hit"
+        class="flex min-h-0 flex-1 flex-col gap-8"
+      >
+        {#snippet fixture()}
+          <EventRail events={TRAIL_FIXTURE} label="This hit's adjudication" />
+          <p class="text-xs text-text-muted">
+            2 answers, oldest first. An answer is never edited — a reviewer who changes their mind
+            records another, and both stay on the log.
           </p>
-        {/each}
-      </div>
+        {/snippet}
+        {@render trailRail()}
+        {#if trail.length === 0}
+          <p class="text-xs text-text-muted">
+            No reviewer has answered this hit. That is a fact about the hit, not about whether an
+            interest is adverse.
+          </p>
+        {:else if trail.length > 1}
+          <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
+          <p class="text-xs text-text-muted">
+            {trail.length} answers, oldest first. An answer is never edited — a reviewer who changes
+            their mind records another, and both stay on the log.
+          </p>
+        {/if}
+      </LoadingRegion>
     {/if}
-    <div class="flex items-center gap-8">
-      <MaturityBadge stage="soon" />
-      <p id={trailDescription} class="text-xs text-text-muted">{soonTrail.title}</p>
-    </div>
   </div>
 {/snippet}
 
@@ -363,3 +497,5 @@
 {#if sheet !== null}
   <PrintSheet bind:open={printOpen} {sheet} />
 {/if}
+
+<EntityWindow bind:open={entityOpen} bind:entityId={openEntityId} />
