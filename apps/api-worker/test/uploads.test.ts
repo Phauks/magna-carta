@@ -118,7 +118,27 @@ describe("POST /api/v1/uploads — initiate", () => {
     // Worker itself so `wrangler dev` and the test pool run the identical ceremony against a
     // resolvable, same-origin target — the development R2 upload route (routes/dev-r2-upload.ts).
     expect(body["url"] as string).toContain("/api/__dev/r2/object");
-    expect(body["headers"]).toMatchObject({ "Content-Type": "application/pdf" });
+    expect(body["headers"]).toMatchObject({ "content-type": "application/pdf" });
+  });
+
+  it("answers ONE spelling of each signed header, so the browser sends the value that was signed", async () => {
+    // The production defect: the response carried both "Content-Type" and "content-type". A record
+    // with two spellings of one header is merged by the browser's Headers into one doubled value
+    // ("application/pdf, application/pdf"), which is not the value the signature covers, so R2
+    // refused every PUT. Asserted through Headers itself, because that merge is the failure.
+    const response = await postUpload(smallPut(), {
+      cookie: ownerCookie,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as { headers: Record<string, string> };
+    const names = Object.keys(body.headers).map((name) => name.toLowerCase());
+    expect(new Set(names).size).toBe(names.length);
+    const sent = new Headers(body.headers);
+    expect(sent.get("content-type")).toBe("application/pdf");
+    // The scope stamp is signed too, so it must be in the set the client is told to send.
+    expect(sent.get("x-amz-meta-object_class")).toBe("working-document");
+    expect(sent.get("x-amz-meta-matter")).toBe(matterId);
   });
 
   it("opens a multipart session for a file above the mode threshold", async () => {

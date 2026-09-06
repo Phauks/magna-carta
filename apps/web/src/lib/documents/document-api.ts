@@ -233,10 +233,38 @@ export async function putUploadBytes(
   const line = "PUT (presigned object storage)";
   let response: Response;
   try {
-    response = await fetchImpl(url, { method: "PUT", headers, body });
+    response = await fetchImpl(url, { method: "PUT", headers: signedHeaders(headers), body });
   } catch {
     return transportOutcome(line);
   }
   if (!response.ok) return problemOutcome({ status: response.status }, line);
   return { kind: "ok", value: null };
+}
+
+/**
+ * The header set as one name per header. HTTP header names are case-insensitive and a record is
+ * not, so a record carrying "Content-Type" and "content-type" is two entries that the browser's
+ * Headers merges into one doubled value — and a doubled value is not the value the storage
+ * signature covers, so the write is refused. The host now answers one spelling; this collapses any
+ * that slip through, keeping the later spelling the way Headers would have kept the later value.
+ */
+export function signedHeaders(headers: Record<string, string>): Record<string, string> {
+  const byName: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) byName[name.toLowerCase()] = value;
+  return byName;
+}
+
+/**
+ * Give a reservation back. The version it reserved is abandoned and its session closed, so a file
+ * whose bytes never landed does not survive as a row with nothing behind it. Idempotent from the
+ * caller's side: a session already closed answers a conflict, and that is not a failure to report.
+ */
+export function abortUpload(
+  fetchImpl: typeof fetch,
+  uploadId: string,
+): Promise<ApiOutcome<{ status: "aborted" }>> {
+  return requestJson(fetchImpl, `/api/v1/uploads/${encodeURIComponent(uploadId)}/abort`, {
+    method: "POST",
+    body: {},
+  });
 }

@@ -63,6 +63,12 @@ const InitiateUploadRequest = z
     // Absent or "interactive" = the file lands in the interactive ingest lane (files/ key prefix);
     // "bulk" = the file lands in the bulk ingest lane (bulk/ key prefix, lower queue concurrency).
     uploadKind: z.enum(["interactive", "bulk"]).optional(),
+    // The last-modified instant the reader's device reported for the source file. Recorded on the
+    // version whichever way the file is dated; the browser's File.lastModified, as an ISO-8601 instant.
+    sourceModifiedAt: z.string().datetime({ offset: true }).nullable().optional(),
+    // How a NEW file is dated: "upload" (default) at this reservation, "source" at the source file's
+    // own last-modified instant, clamped to now. Ignored for a new version of an existing file.
+    createdAtBasis: z.enum(["upload", "source"]).optional(),
   })
   .openapi("InitiateUploadRequest");
 
@@ -438,6 +444,8 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
                 fileId: request.fileId,
                 expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
                 uploadKind: request.uploadKind,
+                sourceModifiedAt: request.sourceModifiedAt ?? null,
+                createdAtBasis: request.createdAtBasis,
               },
               { clock: { now }, actorUserId: userId },
             );
@@ -461,7 +469,14 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
                 key: initiated.r2Key,
                 method: "PUT",
                 url: presigned.url,
-                headers: { "Content-Type": contentType, ...presigned.headers },
+                // EXACTLY the signed set, and nothing beside it. This used to spread a
+                // "Content-Type" of its own over a set that already carried "content-type": two
+                // spellings of one header, which the browser's Headers merges into a single doubled
+                // value ("application/pdf, application/pdf"). That value is not what was signed, so
+                // R2 refused every production PUT with a signature mismatch while the same-origin
+                // development route, which never checks the signature, passed. The presigner is the
+                // one place that knows what it signed, so the presigner's set is the whole answer.
+                headers: presigned.headers,
               };
             } else {
               // Defer the R2 multipart create until the batch commits (see above).

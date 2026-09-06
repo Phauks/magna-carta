@@ -965,6 +965,12 @@ export const fileVersion = sqliteTable(
       .references((): AnySQLiteColumn => documentCheckout.id),
     createdAt: text("created_at").notNull(),
     committedAt: text("committed_at"),
+    // The last-modified instant the uploading device reported for the file this version came from,
+    // as the reader's browser saw it (File.lastModified). A fact about the SOURCE, recorded on every
+    // version whether or not the reader chose to date the file by it — so a later question about
+    // where a document's date came from has an answer. Null for a version that arrived some other
+    // way (a live-edit save, an assembled document, a version older than the column).
+    sourceModifiedAt: text("source_modified_at"),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),

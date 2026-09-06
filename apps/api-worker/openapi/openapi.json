@@ -3876,6 +3876,20 @@
               "interactive",
               "bulk"
             ]
+          },
+          "sourceModifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAtBasis": {
+            "type": "string",
+            "enum": [
+              "upload",
+              "source"
+            ]
           }
         },
         "required": [
@@ -6334,6 +6348,12 @@
               "string",
               "null"
             ]
+          },
+          "sourceModifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -6350,7 +6370,8 @@
           "sniffedContentType",
           "scanVerdict",
           "status",
-          "quarantineReason"
+          "quarantineReason",
+          "sourceModifiedAt"
         ]
       },
       "FileVersionsResponse": {

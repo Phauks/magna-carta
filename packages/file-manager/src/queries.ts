@@ -65,6 +65,9 @@ export interface FileListItem {
   // The human-readable reason a version was quarantined (the scan detail), present only when status is
   // "quarantined"; null otherwise.
   readonly quarantineReason: string | null;
+  // The last-modified instant the uploading device reported for the display version's source file, or
+  // null where none was recorded. A fact about where the bytes came from, beside the record's own dates.
+  readonly sourceModifiedAt: string | null;
 }
 
 interface FileSummaryRowRaw {
@@ -82,6 +85,7 @@ interface FileSummaryRowRaw {
   scan_verdict: "unscanned" | "clean" | "flagged" | null;
   version_status: "clean" | "pending" | "quarantined" | "abandoned";
   scan_detail: string | null;
+  source_modified_at: string | null;
 }
 
 function toFileListItem(row: FileSummaryRowRaw): FileListItem {
@@ -106,6 +110,7 @@ function toFileListItem(row: FileSummaryRowRaw): FileListItem {
     scanVerdict: row.scan_verdict,
     status,
     quarantineReason: status === "quarantined" ? row.scan_detail : null,
+    sourceModifiedAt: row.source_modified_at,
   };
 }
 
@@ -114,7 +119,7 @@ function toFileListItem(row: FileSummaryRowRaw): FileListItem {
 const FILE_SUMMARY_COLUMNS =
   "f.id, f.matter_id, f.folder_id, f.name, f.document_type_id, f.current_version_id, " +
   "f.created_at, f.updated_at, dv.version_number, dv.size_bytes, dv.sniffed_content_type, " +
-  "dv.scan_verdict, dv.status AS version_status, dv.scan_detail";
+  "dv.scan_verdict, dv.status AS version_status, dv.scan_detail, dv.source_modified_at";
 
 export function listFilesStatement(
   database: SqlDatabase,

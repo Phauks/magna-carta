@@ -16,8 +16,17 @@
  * Nothing here blocks a file. A suspected finding or a type mismatch never refuses the write: the
  * file is stored and committed, and the reader deals with it afterwards. Refusing to save is the
  * greater hazard.
+ *
+ * A RESERVATION WHOSE BYTES NEVER LANDED IS GIVEN BACK. The reservation mints the file row and a
+ * pending version before a byte moves, so a PUT that fails leaves a file on the matter with nothing
+ * behind it — the list showed it as a file with no size, and nothing on screen said it was the
+ * husk of a failed upload. Every failure after the reservation now aborts the session, which
+ * abandons the version and drops the row from every read; the abort is best-effort, because the
+ * failure being reported is the one the reader needs to hear about, and the stale-pending sweep
+ * catches whatever an abort could not reach.
  */
 import {
+  abortUpload,
   completeUpload,
   putUploadBytes,
   readUploadStatus,
@@ -67,6 +76,11 @@ export interface UploadRequest {
   readonly documentTypeId?: string | null;
   /** Present = a new version of a file already on the matter; absent = a new file. */
   readonly fileId?: string;
+  /**
+   * How a new file is dated: at the upload (the default), or at the source file's own last-modified
+   * instant. The source's instant is sent either way, as a fact about where the bytes came from.
+   */
+  readonly createdAtBasis?: "upload" | "source";
   readonly onStage?: (stage: UploadStage) => void;
   readonly sleep?: (milliseconds: number) => Promise<void>;
   readonly newIdempotencyKey?: () => string;
@@ -102,6 +116,7 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
     name = file.name,
     documentTypeId,
     fileId,
+    createdAtBasis,
     onStage,
     sleep = defaultSleep,
     newIdempotencyKey = () => crypto.randomUUID(),
@@ -122,6 +137,9 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
       declaredContentType: file.type === "" ? null : file.type,
       ...(documentTypeId == null ? {} : { documentTypeId }),
       ...(fileId === undefined ? {} : { fileId }),
+      // The device's own date for the file, always; and how the record should date a new file.
+      sourceModifiedAt: sourceInstantOf(file),
+      ...(createdAtBasis === undefined ? {} : { createdAtBasis }),
     },
     newIdempotencyKey(),
   );
@@ -131,7 +149,9 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
   if (reservation.mode !== "put" || reservation.url === undefined) {
     // A file over the firm's mode threshold reserves a resumable multipart session instead. That
     // ceremony signs and tracks every part, which this surface does not run — so it says so plainly
-    // rather than half-running it and leaving a pending version behind.
+    // rather than half-running it. The reservation it was handed is given back first: the session
+    // already minted a pending version, and "the matter is unchanged" has to be made true, not said.
+    await abortUpload(fetchImpl, reservation.uploadId);
     return {
       kind: "problem",
       stage: "reserving",
@@ -148,11 +168,17 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
   // The signed headers carry the object's dimensions and are passed through untouched: bytes
   // written without them land somewhere nothing can place.
   const put = await putUploadBytes(fetchImpl, reservation.url, reservation.headers ?? {}, file);
-  if (put.kind !== "ok") return at(put, "uploading");
+  if (put.kind !== "ok") {
+    await abortUpload(fetchImpl, reservation.uploadId);
+    return at(put, "uploading");
+  }
 
   onStage?.("committing");
   const completed = await completeUpload(fetchImpl, reservation.uploadId, newIdempotencyKey());
-  if (completed.kind !== "ok") return at(completed, "committing");
+  if (completed.kind !== "ok") {
+    await abortUpload(fetchImpl, reservation.uploadId);
+    return at(completed, "committing");
+  }
 
   onStage?.("scanning");
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
@@ -181,6 +207,17 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
   }
   onStage?.("settled");
   return { kind: "settling", fileId: reservation.fileId };
+}
+
+/**
+ * The instant the reader's device last modified the file, as an ISO-8601 instant, or null when the
+ * browser reported none. A zero is what some engines report for a file with no date, and it would
+ * read as 1970: it is treated as no date.
+ */
+export function sourceInstantOf(file: Pick<File, "lastModified">): string | null {
+  const milliseconds = file.lastModified;
+  if (!Number.isFinite(milliseconds) || milliseconds <= 0) return null;
+  return new Date(milliseconds).toISOString();
 }
 
 /**

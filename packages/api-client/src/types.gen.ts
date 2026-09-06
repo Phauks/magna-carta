@@ -927,6 +927,8 @@ export type InitiateUploadRequest = {
     documentTypeId?: string | null;
     fileId?: string;
     uploadKind?: 'interactive' | 'bulk';
+    sourceModifiedAt?: string | null;
+    createdAtBasis?: 'upload' | 'source';
 };
 
 export type UploadStatusResponse = {
@@ -1541,6 +1543,7 @@ export type FileSummary = {
     scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
     status: 'clean' | 'pending' | 'quarantined';
     quarantineReason: string | null;
+    sourceModifiedAt: string | null;
 };
 
 export type FileVersionsResponse = {

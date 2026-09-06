@@ -150,6 +150,15 @@ export interface InitiateUploadInput {
   // Absent or "interactive" = the file lands in the interactive ingest lane (files/ key prefix);
   // "bulk" = the file lands in the bulk ingest lane (bulk/ key prefix, lower queue concurrency).
   readonly uploadKind?: "interactive" | "bulk";
+  // The last-modified instant the reader's device reported for the source file, ISO-8601. Recorded on
+  // the version as a fact about where the bytes came from, whichever way the file is dated.
+  readonly sourceModifiedAt?: string | null;
+  // How a NEW file is dated. "upload" (the default) records the file as created at the instant of
+  // this reservation; "source" records it as created when the source file was last modified, so a
+  // document that carries a date of its own keeps it. Ignored for a new version of an existing file,
+  // whose creation is already a fact. Never later than now: a device clock running ahead cannot file
+  // a document in the future.
+  readonly createdAtBasis?: "upload" | "source";
 }
 
 export interface InitiatedUpload {
@@ -205,6 +214,9 @@ export async function initiateUpload(
   // history can place the upload without a read the trail cannot afford later. Known cheaply here:
   // the caller named it for a new file, and the loaded row carries it for a new version.
   let auditFolderId: FolderId | null;
+  const now = options.clock.now();
+  const sourceModifiedAt = validSourceInstant(input.sourceModifiedAt);
+  const fileCreatedAt = recordedCreationInstant(input.createdAtBasis, sourceModifiedAt, now);
   if (input.fileId !== undefined) {
     const existing = await requireLiveFile(database, input.fileId);
     auditFolderId = existing.folderId;
@@ -232,7 +244,7 @@ export async function initiateUpload(
         folderId: input.folderId ?? null,
         name: input.name,
         documentTypeId: input.documentTypeId ?? null,
-        createdAt: options.clock.now(),
+        createdAt: fileCreatedAt,
       }),
     );
   }
@@ -248,7 +260,8 @@ export async function initiateUpload(
       r2Key,
       declaredContentType: input.declaredContentType,
       uploadedBy: input.uploadedBy,
-      createdAt: options.clock.now(),
+      createdAt: now,
+      sourceModifiedAt,
     }),
     insertUploadSessionStatement(database, {
       id: uploadSessionId,
@@ -256,7 +269,7 @@ export async function initiateUpload(
       mode: input.mode,
       declaredSize: input.declaredSize,
       declaredContentType: input.declaredContentType,
-      createdAt: options.clock.now(),
+      createdAt: now,
       expiresAt: input.expiresAt ?? null,
     }),
     fileAuditStatement(database, options, "file.upload_initiated", versionId, {
@@ -275,6 +288,28 @@ export async function initiateUpload(
     }),
     effect: { statements, outboxMessages: [] },
   };
+}
+
+// The source instant as the record keeps it, or null when the client sent none or sent something that
+// is not an instant. Normalised to the platform's own ISO-8601 UTC spelling so it compares
+// lexicographically with every other timestamp in the firm's database.
+function validSourceInstant(value: string | null | undefined): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  const milliseconds = Date.parse(value);
+  if (Number.isNaN(milliseconds)) return null;
+  return new Date(milliseconds).toISOString();
+}
+
+// When a new file is recorded as created. The source date only when the caller asked for it AND the
+// device reported one; and never after now, because a document filed in the future sorts ahead of
+// everything the firm does today and reads as a record of something that has not happened.
+function recordedCreationInstant(
+  basis: "upload" | "source" | undefined,
+  sourceModifiedAt: string | null,
+  now: string,
+): string {
+  if (basis !== "source" || sourceModifiedAt === null) return now;
+  return sourceModifiedAt < now ? sourceModifiedAt : now;
 }
 
 export interface InitiateCheckinInput {
