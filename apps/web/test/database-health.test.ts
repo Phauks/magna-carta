@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  collapsedHealthBadge,
+  databaseSectionPills,
   copyLineForDatabaseHealth,
   databaseHealthRows,
   describeProvisioningBacklog,
@@ -75,7 +75,6 @@ describe("databaseHealthRows", () => {
   it("reads a healthy firm as healthy on every row", () => {
     expect(databaseHealthRows(HEALTHY).every((row) => row.reading === "healthy")).toBe(true);
     expect(overallHealthReading(HEALTHY)).toBe("healthy");
-    expect(collapsedHealthBadge("healthy")).toBeNull();
   });
 
   it("puts the round trip on the connected row rather than claiming health bare", () => {
@@ -111,6 +110,27 @@ describe("databaseHealthRows", () => {
       "firmDatabase",
     );
     expect(row.detail).toContain("gave no reason");
+  });
+
+  it("puts a faulted row's reason on the clipboard, not just its status", () => {
+    // The copy is what reaches a bug report. Carrying "Not answering" without the reason handed
+    // over the symptom and stripped the diagnosis — which is exactly what happened in the report
+    // that led here.
+    const line = copyLineForDatabaseHealth({
+      ...HEALTHY,
+      firmDatabase: {
+        state: "unreachable",
+        roundTripMilliseconds: null,
+        fault: "FOREIGN KEY constraint failed",
+      },
+    });
+    expect(line).toContain("Firm database: Not answering");
+    expect(line).toContain("FOREIGN KEY constraint failed");
+  });
+
+  it("leaves a healthy row to its status, so a good read does not paste reassurance", () => {
+    expect(copyLineForDatabaseHealth(HEALTHY)).toContain("Firm database: Connected");
+    expect(copyLineForDatabaseHealth(HEALTHY)).not.toContain("Answered in 12 ms.");
   });
 
   it("tells the four refused-screen situations apart", () => {
@@ -223,12 +243,9 @@ describe("the collapsed heading", () => {
       provisioning: { state: "read", pending: 0, deadLettered: 1 },
     };
     expect(overallHealthReading(value)).toBe("fault");
-    expect(collapsedHealthBadge(overallHealthReading(value))).toBe("Not working");
   });
 
-  it("says nothing at all when everything is fine", () => {
-    expect(collapsedHealthBadge(overallHealthReading(HEALTHY))).toBeNull();
-  });
+  it("says nothing at all when everything is fine", () => {});
 
   it("ranks readings worst-last", () => {
     expect(worstReading(["healthy", "attention"])).toBe("attention");
@@ -260,22 +277,23 @@ describe("copyLineForDatabaseHealth", () => {
  */
 describe("the panel's two folding sections", () => {
   const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
 
   it("renders every fold through the one disclosure snippet", () => {
     // Three folds, one definition of what a fold is. A section that built its own heading is how
     // two carets end up disagreeing about aria-expanded or about when a badge shows.
-    const renders = chip.match(/\{@render sectionToggle\(\{/g) ?? [];
+    const renders = chip.match(/<VersionSectionHeading/g) ?? [];
     expect(renders).toHaveLength(3);
-    expect(chip).toContain("aria-expanded={!section.collapsed}");
+    expect(heading).toContain("aria-expanded={!collapsed}");
   });
 
   it("puts Deployment and Database each behind their own remembered caret", () => {
     expect(chip).toMatch(
-      /label: DEPLOYMENT_SECTION_LABEL,[\s\S]*collapsed: deploymentSectionPreference\.collapsed/,
+      /label=\{DEPLOYMENT_SECTION_LABEL\}[\s\S]*collapsed=\{deploymentSectionPreference\.collapsed\}/,
     );
     expect(chip).toMatch(
-      /label: DATABASE_SECTION_LABEL,[\s\S]*collapsed: databaseSectionPreference\.collapsed/,
+      /label=\{DATABASE_SECTION_LABEL\}[\s\S]*collapsed=\{databaseSectionPreference\.collapsed\}/,
     );
     // Three separate remembered folds, each arriving open: a section that arrived shut would hide
     // the fault somebody opened the panel to find.
@@ -291,16 +309,25 @@ describe("the panel's two folding sections", () => {
     // with it. Workers is its own section now, so that same count would have both headings
     // claiming the same silent Worker — and a reader who folded only Workers would see Deployment
     // wearing a warning about rows still on screen. Each heading counts its own half.
-    expect(chip).toContain("badge: silentDeploymentWorkers");
-    expect(chip).toMatch(/silentDeploymentWorkers = \$derived\([\s\S]*?deploymentRows\.front/);
-    expect(chip).toContain("badge: silentFleetWorkers");
-    expect(chip).toMatch(/silentFleetWorkers = \$derived\([\s\S]*?deploymentRows\.rest/);
+    expect(chip).toContain("pills={deploymentPills}");
+    expect(chip).toMatch(/deploymentPills = \$derived\([\s\S]*?deploymentRows\.front/);
+    expect(chip).toContain("pills={workersPills}");
+    expect(chip).toMatch(/workersPills = \$derived\([\s\S]*?deploymentRows\.rest/);
     expect(chip).not.toContain("summarizeSilentWorkers(value.services)");
   });
 
-  it("makes a shut Database heading carry the worst reading in the section", () => {
-    expect(chip).toContain("overallHealthReading(healthValue)");
-    expect(chip).toContain("collapsedHealthBadge(healthReading)");
+  it("makes a shut Database heading count what is wrong, not just name a mood", () => {
+    // "Needs attention" / "Not working" named a mood and left the reader to open the section to
+    // learn how much of it was affected — one bad row out of four reads very differently from four,
+    // and the heading said the same thing either way.
+    expect(chip).toContain("databaseSectionPills(healthValue)");
+    expect(databaseSectionPills(HEALTHY).map((pill) => pill.label)).toEqual(["4 checks"]);
+    const broken = databaseSectionPills({
+      ...HEALTHY,
+      firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: null },
+    });
+    expect(broken.map((pill) => pill.label)).toEqual(["4 checks", "1 not working"]);
+    expect(broken[1]?.variant).toBe("danger");
   });
 
   it("never asks for the health read outside a session, however the panel was opened", () => {

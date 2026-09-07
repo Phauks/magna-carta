@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5daa1834-8e2e-4a7f-8a21-d95ed0ae0ef5",
+  "id": "f59eeb4a-16ae-4096-bc6f-f348cc9cb09e",
   "prevId": "616fc73f-72ac-4f05-9e13-e9340f430ee6",
   "tables": {
     "account_balance": {
@@ -814,6 +814,211 @@
         }
       }
     },
+    "communication": {
+      "name": "communication",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "direction": {
+          "name": "direction",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "counterparty_number": {
+          "name": "counterparty_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "counterparty_entity_id": {
+          "name": "counterparty_entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "duration_seconds": {
+          "name": "duration_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "producer": {
+          "name": "producer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "logged_by_user_id": {
+          "name": "logged_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "carrier_reference": {
+          "name": "carrier_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "communication_matter_occurred_at_id_index": {
+          "name": "communication_matter_occurred_at_id_index",
+          "columns": [
+            "matter_id",
+            "occurred_at",
+            "id"
+          ],
+          "isUnique": false
+        },
+        "communication_occurred_at_id_index": {
+          "name": "communication_occurred_at_id_index",
+          "columns": [
+            "occurred_at",
+            "id"
+          ],
+          "isUnique": false
+        },
+        "communication_counterparty_entity_id_index": {
+          "name": "communication_counterparty_entity_id_index",
+          "columns": [
+            "counterparty_entity_id"
+          ],
+          "isUnique": false
+        },
+        "communication_counterparty_number_index": {
+          "name": "communication_counterparty_number_index",
+          "columns": [
+            "counterparty_number"
+          ],
+          "isUnique": false
+        },
+        "communication_carrier_reference_unique_index": {
+          "name": "communication_carrier_reference_unique_index",
+          "columns": [
+            "carrier_reference"
+          ],
+          "isUnique": true,
+          "where": "\"communication\".\"carrier_reference\" IS NOT NULL"
+        }
+      },
+      "foreignKeys": {
+        "communication_matter_id_matter_id_fk": {
+          "name": "communication_matter_id_matter_id_fk",
+          "tableFrom": "communication",
+          "tableTo": "matter",
+          "columnsFrom": [
+            "matter_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "communication_counterparty_number_check": {
+          "name": "communication_counterparty_number_check",
+          "value": "length(\"communication\".\"counterparty_number\") > 0"
+        },
+        "communication_channel_check": {
+          "name": "communication_channel_check",
+          "value": "\"communication\".\"channel\" IN ('voice', 'sms', 'mms')"
+        },
+        "communication_direction_check": {
+          "name": "communication_direction_check",
+          "value": "\"communication\".\"direction\" IN ('inbound', 'outbound')"
+        },
+        "communication_producer_check": {
+          "name": "communication_producer_check",
+          "value": "\"communication\".\"producer\" IN ('member', 'carrier')"
+        },
+        "communication_duration_channel_check": {
+          "name": "communication_duration_channel_check",
+          "value": "\"communication\".\"duration_seconds\" IS NULL OR (\"communication\".\"channel\" = 'voice' AND \"communication\".\"duration_seconds\" >= 0)"
+        },
+        "communication_body_channel_check": {
+          "name": "communication_body_channel_check",
+          "value": "\"communication\".\"body\" IS NULL OR \"communication\".\"channel\" IN ('sms', 'mms')"
+        },
+        "communication_producer_shape_check": {
+          "name": "communication_producer_shape_check",
+          "value": "(\"communication\".\"producer\" = 'member') = (\"communication\".\"logged_by_user_id\" IS NOT NULL)\n        AND (\"communication\".\"producer\" = 'carrier' OR \"communication\".\"carrier_reference\" IS NULL)"
+        }
+      }
+    },
     "conflicts_check": {
       "name": "conflicts_check",
       "columns": {
@@ -1459,13 +1664,6 @@
           "name": "cost_entry_status_incurred_date_index",
           "columns": [
             "status",
-            "incurred_date"
-          ],
-          "isUnique": false
-        },
-        "cost_entry_incurred_date_index": {
-          "name": "cost_entry_incurred_date_index",
-          "columns": [
             "incurred_date"
           ],
           "isUnique": false

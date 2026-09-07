@@ -268,7 +268,7 @@
   {/if}
 {/snippet}
 
-<div class="flex h-full min-h-0 flex-col gap-16 p-24">
+<div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader title="Billing">
     {#snippet meta()}
       <span>

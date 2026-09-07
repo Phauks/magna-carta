@@ -116,6 +116,11 @@ const SQL_VOCABULARY = new Set([
   "else",
   "end",
   "delete",
+  // The visible-matter predicate aliases the table it selects from, so a caller's own `matter`
+  // cannot shadow it and neutralize the correlation (src/visibility.ts says why at length). The
+  // alias is a name in the SQL and not a column in the schema, so this scan has to know it — the
+  // alternative, letting the scan reject it, would push somebody toward removing the alias.
+  "visible_matter",
 ]);
 
 const identifiers = (sql: string) =>

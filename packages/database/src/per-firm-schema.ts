@@ -55,6 +55,7 @@ import type {
   DocumentCheckoutId,
   EmailAttachmentId,
   EmailAutoFileDecisionId,
+  CommunicationId,
   EmailAutoFileRuleId,
   EmailCaptureAddressId,
   EmailMatterLinkId,
@@ -3150,6 +3151,125 @@ export const emailAutoFileDecision = sqliteTable(
     check(
       "email_auto_file_decision_suppression_reason_outcome_check",
       sql`(${table.outcome} = 'suppressed') = (${table.suppressionReason} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Calls and texts — the log of what the firm said down a phone line, on every channel that is not
+// email.
+// ---------------------------------------------------------------------------------------------
+
+// One voice call or one SMS/MMS message. The LOG is the durable thing here, and the carrier is a
+// producer of rows into it rather than the feature: a member typing in a call they made from their
+// own mobile and a Telnyx webhook reporting the call it just carried write the same row, and
+// `producer` is what says which. That is deliberate and load-bearing — it is what lets this table,
+// and the two screens over it, exist before any carrier account does, since A2P 10DLC registration
+// is weeks of procurement.
+//
+// EMAIL IS NOT HERE, and its absence is a decision rather than an omission. Mail already lives in
+// the firm's own mailbox and is FILED onto a matter from there (`email_message` and its link table);
+// its verb is route-what-exists. A call leaves no trace at all unless the platform makes one, so the
+// verb here is cause-a-record-to-exist. One table for both would have to carry a threading model
+// serving neither.
+export const communication = sqliteTable(
+  "communication",
+  {
+    id: text("id").primaryKey().$type<CommunicationId>(), // communication_ handle
+    channel: text("channel", { enum: ["voice", "sms", "mms"] }).notNull(),
+    direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
+    // THE ANCHOR, and it is nullable for two different reasons worth keeping apart. An inbound text
+    // from a number the firm has never seen belongs to nobody until a person files it — that is the
+    // unrouted queue, and it is the whole reason the firm-wide screen exists. A member's own call
+    // that genuinely concerns no file is the other.
+    //
+    // What it points at need NOT be a numbered matter. `matter.matter_number` is null until the
+    // status reaches `open`, and an `intake` or a `consultation` is a real anchor a first contact
+    // usually lands on — a firm texts a prospect before the file exists. So every read and every
+    // picker over this column takes the matter's STATUS as the thing that must exist, never its
+    // number (owner ruling, docs/specs/2026-09-07-call-and-text-log-design.md).
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    // The other end of the conversation. The number as dialled, in E.164 where the carrier gave it
+    // to us; plus the Directory entity it resolves to, where it resolves to one. A plain entity id
+    // with no cross-domain foreign key, on the matter_party precedent: the entity may be a person or
+    // an organization, which are two tables.
+    counterpartyNumber: text("counterparty_number").notNull(),
+    counterpartyEntityId: text("counterparty_entity_id"),
+    // The firm's end. Null on an inbound call nobody answered, which is a real and common row: the
+    // call happened, the firm has a record of it, and no member was on it.
+    memberUserId: text("member_user_id").$type<UserId>(),
+    // WHEN IT HAPPENED, not when it was typed. A member logging Tuesday's call on Thursday records
+    // Tuesday here and Thursday in created_at. An instant rather than the calendar's civil-date pair
+    // because a call occupies a moment somebody can name, unlike a note about no particular time.
+    occurredAt: text("occurred_at").notNull(),
+    // Whole seconds, voice only. Null on a message, and null on a call whose length nobody recorded.
+    durationSeconds: integer("duration_seconds"),
+    // The message text for sms/mms. Null for voice, whose content is the recording and the
+    // transcript that arrive with the later rungs; a member's account of a call goes in `summary`.
+    body: text("body"),
+    // What a member wrote down about a call — the part that makes a hand-logged call worth anything.
+    // Kept apart from `body` so a read never has to ask whether the text it holds is what was sent
+    // or what somebody remembered.
+    summary: text("summary"),
+    // How the row came to exist, so a hand-logged call is never mistaken for an observed one. A
+    // member's recollection and a carrier's report of the same call carry different weight, and a
+    // reader who cannot tell them apart will trust the wrong one.
+    producer: text("producer", { enum: ["member", "carrier"] }).notNull(),
+    // Who typed it in, on a member-produced row. Null on a carrier row, which nobody authored.
+    loggedByUserId: text("logged_by_user_id").$type<UserId>(),
+    // The adapter's own id for the message or call. The idempotency key for a redelivered webhook —
+    // carriers retry, and a retried delivery must not become a second row. Null on every
+    // member-produced row, which is why the unique index below is partial.
+    carrierReference: text("carrier_reference"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The matter's own section reads (matter, occurred_at DESC, id DESC); SQLite walks an ASC index
+    // in reverse, so the ASC composite serves the sort from the index with no temporary B-tree.
+    index("communication_matter_occurred_at_id_index").on(
+      table.matterId,
+      table.occurredAt,
+      table.id,
+    ),
+    // The firm-wide screen's unfiltered read, and the same index the unrouted queue narrows within.
+    index("communication_occurred_at_id_index").on(table.occurredAt, table.id),
+    // "Everything we have ever said to this person", which is the Directory record's own read.
+    index("communication_counterparty_entity_id_index").on(table.counterpartyEntityId),
+    index("communication_counterparty_number_index").on(table.counterpartyNumber),
+    // One row per carrier message. Partial, so the member-produced rows that carry no reference are
+    // unconstrained — the same shape as matter.matter_number and for the same reason.
+    uniqueIndex("communication_carrier_reference_unique_index")
+      .on(table.carrierReference)
+      .where(sql`${table.carrierReference} IS NOT NULL`),
+    check("communication_counterparty_number_check", sql`length(${table.counterpartyNumber}) > 0`),
+    // The three closed vocabularies, held at the database and not only at the type checker: a value
+    // that reaches a write without appearing here fails in SQLite, so widening one costs a reviewed
+    // migration. `mms` is in the set from the start rather than added when picture messages arrive,
+    // because a channel a carrier can hand us is a channel the log has to be able to hold.
+    check("communication_channel_check", sql`${table.channel} IN ('voice', 'sms', 'mms')`),
+    check("communication_direction_check", sql`${table.direction} IN ('inbound', 'outbound')`),
+    check("communication_producer_check", sql`${table.producer} IN ('member', 'carrier')`),
+    // A duration belongs to a call. A message has no length in seconds, and a row claiming one is a
+    // row somebody wrote a voice value into by mistake.
+    check(
+      "communication_duration_channel_check",
+      sql`${table.durationSeconds} IS NULL OR (${table.channel} = 'voice' AND ${table.durationSeconds} >= 0)`,
+    ),
+    // Text belongs to a message. A voice row's account of itself is `summary`, so a body on a call
+    // means the two got crossed.
+    check(
+      "communication_body_channel_check",
+      sql`${table.body} IS NULL OR ${table.channel} IN ('sms', 'mms')`,
+    ),
+    // Both directions. A member-produced row names the member who typed it and carries no carrier
+    // id; a carrier-produced row carries the id and names no author.
+    check(
+      "communication_producer_shape_check",
+      sql`(${table.producer} = 'member') = (${table.loggedByUserId} IS NOT NULL)
+        AND (${table.producer} = 'carrier' OR ${table.carrierReference} IS NULL)`,
     ),
   ],
 );

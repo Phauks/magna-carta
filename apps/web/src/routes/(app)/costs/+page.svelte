@@ -328,7 +328,7 @@
   {/if}
 {/snippet}
 
-<div class="flex h-full min-h-0 flex-col gap-16 p-24">
+<div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader title="Costs">
     {#snippet meta()}
       <span>{billingLine} · {spanLabel(scope.from, scope.to)}</span>

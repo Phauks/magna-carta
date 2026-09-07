@@ -214,6 +214,39 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "a correspondent rule's match value is the sender's mailbox, and the rule is what explains every automatic filing it produced",
   },
+  // Calls and texts. A logged call or message is correspondence on the matter file, so the retention
+  // basis and the subject-side scrub are the email group's, one line above, for the same reasons. It
+  // keys on the frozen NUMBER as well as the resolved entity id, and that second key is the load-
+  // bearing one: an inbound text is logged the moment it arrives, from a number that has resolved to
+  // nobody yet and may never resolve, so keying only on the entity id would leave exactly the
+  // unrecognised people — the ones with no Directory record to scrub — invisible to erasure. The two
+  // member columns are the firm's own side of the conversation: who was on the call, and who typed it
+  // in afterwards. Both are provenance on a matter record rather than free-standing member data,
+  // which is the line email_matter_link.linked_by already sits on.
+  {
+    table: "communication",
+    subjectKey: "counterparty_entity_id",
+    action: "retain-under-matter",
+    note: "who the firm spoke to is part of the matter's correspondence record",
+  },
+  {
+    table: "communication",
+    subjectKey: "counterparty_number",
+    action: "retain-under-matter",
+    note: "the number as dialled is itself the record, and the only handle on a counterparty the Directory never matched; a message body and a call summary are content-level residue for the residue report",
+  },
+  {
+    table: "communication",
+    subjectKey: "member_user_id",
+    action: "retain-under-matter",
+    note: "which member was on the call is part of what the matter record says happened",
+  },
+  {
+    table: "communication",
+    subjectKey: "logged_by_user_id",
+    action: "retain-under-matter",
+    note: "who entered a hand-logged call, and when, is that entry's provenance — the reason a member-produced row can be weighed differently from a carrier-produced one",
+  },
   // Document automation — the assembly record is the provenance of a document on a matter file, so it
   // is retained on the same basis as the document itself. Its structured subject is the member who
   // requested the assembly; the absent-field key list it also carries names FIELDS, never values, and
