@@ -36,13 +36,7 @@
 
 <svelte:head><title>Tools · Magna Carta</title></svelte:head>
 
-<ScreenHeader
-  title="Tools"
-  class="mb-24"
->
-  {#snippet meta()}
-    <span>Runs outside any matter</span>
-  {/snippet}
+<ScreenHeader title="Tools" class="mb-24">
   {#snippet actions()}
     <ViewSwitch controller={shell} label="Choose a view" />
   {/snippet}

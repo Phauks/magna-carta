@@ -1,7 +1,8 @@
 # Tasks
 
 A task is one piece of work with somebody's name on it. Find them two ways: on a matter under
-**Tasks**, and all together under **My Work** in the sidebar.
+**Tasks**, which shows that matter's alone, and under **Tasks** in the sidebar, which gathers every
+one you can reach.
 
 ## What a Task Is, and What It Is Not
 
@@ -35,8 +36,8 @@ and then not working.
 ## Tasks That Belong to No Matter
 
 Not everything a firm does belongs to a client file. Renewing the malpractice policy, interviewing a
-candidate, getting the research contract reviewed — create those from **My Work** and they will
-carry no matter.
+candidate, getting the research contract reviewed — create those from **Tasks** in the sidebar and
+they will carry no matter.
 
 **A task with no matter is private to you and whoever you assign it to.** Nobody else in the firm
 sees it, including people who can see every matter. If work should be visible to the team, put it on
@@ -91,10 +92,11 @@ By default a list shows what is still open, which is what a task list is for. Ti
 **Cancelled** to bring the rest back. Whenever anything is narrowing the list, a **Clear** control
 appears; when it is not there, nothing is hidden.
 
-## My Work
+## Tasks in the Sidebar
 
-**My Work** in the sidebar is every task you can reach, in one place: across every matter you can
-see, plus your own work on no matter. Filter it by yourself to get just your list.
+**Tasks** in the sidebar is every task you can reach, in one place: across every matter you can
+see, plus your own work on no matter. Filter it by yourself to get just your list. A matter's own
+**Tasks** section is the same list narrowed to that one matter.
 
 Tasks on closed matters are left out. Closing a matter changes nothing about its tasks — they are
 not cancelled or completed — they simply stop cluttering the day-to-day list. Reopen the matter and

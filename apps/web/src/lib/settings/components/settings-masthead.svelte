@@ -7,8 +7,15 @@
    *
    * Title at the start; the UNIVERSAL group at the far right of the title row, the same order
    * on every page: the posture badge(s), the documentation seam, then the history trigger as
-   * the terminal anchor. The descriptor line runs the FULL content width beneath the title row
-   * (owner-directed) — the meta group lives in the row above, so nothing constrains it.
+   * the terminal anchor.
+   *
+   * NO DESCRIPTOR LIVES HERE. The band carries the page's NAME and the standing facts about it
+   * (how its settings land, where its documentation is, what has changed) — never a sentence
+   * explaining what the page governs. That sentence is real and worth keeping, so it moved into
+   * the page's own content, where it scrolls with the plates it describes
+   * (settings-description.svelte; owner's ruling, 2026-09-06). Every screen's header in this
+   * application is its name and nothing else — docs/conventions/design-corrections.md,
+   * "Screen headers".
    *
    * PINNED BY STRUCTURE, not by sticky: the settings content column is a flex stack (header /
    * scrolling middle / exit footer — see the settings +layout), so this band simply sits above
@@ -20,7 +27,6 @@
    * "Applies on save" / "Applies immediately" / "Managed by the firm" — so the rows carry no
    * separate caption.
    */
-  import * as Masthead from "@magna-carta/design-system/masthead";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { openBeside } from "$lib/navigation/open-beside.ts";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
@@ -36,7 +42,6 @@
   let {
     sectionId,
     title,
-    meta,
     posture,
     draft,
     badgeLabel,
@@ -47,8 +52,6 @@
     sectionId: string;
     /** The page title (Title Case, like every setting name). */
     title: string;
-    /** The one-line descriptor under the title row — full content width. */
-    meta: string;
     posture: "draft" | "instant" | "readOnly";
     /** Draft pages pass their page draft so history restores can stage through it. */
     draft?: SettingsDraft;
@@ -136,10 +139,4 @@
       {/if}
     {/snippet}
   </ScreenHeader>
-
-  <!-- The descriptor runs the FULL content width (owner-directed): the information group lives
-       in the title row above it, so nothing constrains this line. -->
-  <Masthead.Meta class="mt-4">
-    <span>{meta}</span>
-  </Masthead.Meta>
 </div>

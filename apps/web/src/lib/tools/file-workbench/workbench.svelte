@@ -25,7 +25,6 @@
    * them, each saying what it is missing.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Masthead from "@magna-carta/design-system/masthead";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import * as Resizable from "@magna-carta/design-system/resizable";
   import * as Tabs from "@magna-carta/design-system/tabs";
@@ -201,17 +200,7 @@
 {/snippet}
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <ScreenHeader
-    title="File Workbench"
-    back="tools"
-  >
-    {#snippet meta()}
-      <span>Runs outside any matter</span>
-      <Masthead.MetaSeparator />
-      <span>Nothing is filed</span>
-      <Masthead.MetaSeparator />
-      <span>Nothing leaves this browser, and closing this page clears it</span>
-    {/snippet}
+  <ScreenHeader title="File Workbench" back="tools">
     {#snippet actions()}
       <Button variant="secondary" size="sm" onclick={() => picker?.click()}>
         <Upload class="size-16" aria-hidden="true" />
@@ -263,6 +252,16 @@
       />
     {/snippet}
   </ScreenHeader>
+
+  <!-- What the workbench does and does not keep, stated once as page content rather than in the
+       header: the header carries the screen's name (docs/conventions/design-corrections.md,
+       "Screen headers"), and this is a consequence a reader wants before they add a file, not a
+       description of the screen. Full width, because the file rail beside it is too narrow to
+       hold a sentence without clipping it. -->
+  <p class="text-sm text-text-muted">
+    Files stay in this browser: nothing is filed to a matter, nothing is uploaded, and closing this
+    page clears the bench.
+  </p>
 
   <!-- The handles carry no grip. The edge between two panes is already the affordance, and a grip
        drawn on it is furniture on a work surface. -->

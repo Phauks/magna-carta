@@ -63,7 +63,7 @@
   <title>Uploads · Magna Carta</title>
 </svelte:head>
 
-<ScreenHeader title="Uploads" eyebrow="Uploads" class="mb-24">
+<ScreenHeader title="Uploads" class="mb-24">
   {#snippet actions()}
     {#if finishedCount > 0}
       <Button variant="ghost" onclick={dismissFinishedUploads}>

@@ -118,15 +118,7 @@
 
 <svelte:head><title>WHOIS Lookup · Magna Carta</title></svelte:head>
 
-<ScreenHeader
-  title="WHOIS Lookup"
-  back="tools"
-  class="mb-24"
->
-  {#snippet meta()}
-    <span>Registration records for a domain or IP address</span>
-  {/snippet}
-</ScreenHeader>
+<ScreenHeader title="WHOIS Lookup" back="tools" class="mb-24" />
 
 <form onsubmit={runLookup} class="mb-16 flex items-center gap-8">
   <Label for="whois-query" class="sr-only">Domain or IP address</Label>

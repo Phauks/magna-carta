@@ -197,7 +197,6 @@
   class="mb-24"
 >
   {#snippet meta()}
-    <span>Fill in what a template needs, and let the rest fill itself</span>
     <MaturityBadge stage="alpha" />
   {/snippet}
 </ScreenHeader>
