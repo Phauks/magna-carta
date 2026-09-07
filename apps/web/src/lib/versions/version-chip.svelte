@@ -81,6 +81,7 @@
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
+  import VersionSectionHeading from "./version-section-heading.svelte";
   import ClipboardCopy from "@lucide/svelte/icons/clipboard-copy";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
@@ -88,18 +89,17 @@
   import { requestJson, type Problem } from "$lib/api/request.ts";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import {
-    collapsedHealthBadge,
+    databaseSectionPills,
+    type HealthReading,
     copyLineForDatabaseHealth,
     databaseHealthRows,
     describeProvisioningBacklog,
     healthBadgeVariant,
-    overallHealthReading,
     DATABASE_SECTION_LABEL,
     DEPLOYMENT_SECTION_LABEL,
     HEALTH_READ_IN_FLIGHT_NOTICE,
     SIGNED_OUT_DATABASE_NOTICE,
     type DatabaseHealthValue,
-    type HealthReading,
   } from "$lib/versions/database-health-model.ts";
   import {
     databaseSectionPreference,
@@ -120,7 +120,8 @@
     serviceStateDescription,
     serviceStateLabel,
     showsPageBuildRow,
-    summarizeSilentWorkers,
+    deploymentSectionPills,
+    workersSectionPills,
     syncStateBadgeVariant,
     syncStateLabel,
     versionChipLabel,
@@ -265,11 +266,6 @@
   // behind — the colour-coded read of the pair the front rows show, in place of a fixed sentence.
   const syncState = $derived(value === null ? null : apiWebSyncState(value.api, webWorkerRow));
 
-  // What a shut Database heading has to keep saying. Computed from the whole section — every row
-  // plus the provisioning line — so folding the section away can hide rows and never a fault.
-  const healthReading = $derived<HealthReading | null>(
-    healthValue === null ? null : overallHealthReading(healthValue),
-  );
   const healthRows = $derived(healthValue === null ? [] : databaseHealthRows(healthValue));
   const provisioningBacklog = $derived(
     healthValue === null ? null : describeProvisioningBacklog(healthValue),
@@ -279,12 +275,23 @@
   // only the Workers ITS OWN fold hides — Workers is no longer nested inside Deployment, so one
   // count across the whole read would have both headings claiming the same silent Worker.
   const deploymentRows = $derived(value === null ? null : partitionDeploymentRows(value.services));
-  const silentDeploymentWorkers = $derived(
-    deploymentRows === null ? null : summarizeSilentWorkers(deploymentRows.front),
+  // What each shut heading says. One shape for all three (version-overlay-model.ts): a count of what
+  // the fold hides, always, and a status pill only where there is one. The count is what makes a
+  // quiet heading meaningful — "13 Workers" with nothing beside it is a section reporting health,
+  // where an empty heading was a section reporting nothing at all.
+  const deploymentPills = $derived(
+    deploymentRows === null
+      ? []
+      : deploymentSectionPills({
+          // The parts this section shows: the API, plus the pair that serves the app's address.
+          partCount: 1 + deploymentRows.front.length,
+          syncState,
+        }),
   );
-  const silentFleetWorkers = $derived(
-    deploymentRows === null ? null : summarizeSilentWorkers(deploymentRows.rest),
+  const workersPills = $derived(
+    deploymentRows === null ? [] : workersSectionPills(deploymentRows.rest),
   );
+  const databasePills = $derived(healthValue === null ? [] : databaseSectionPills(healthValue));
 
   // Everything the panel is showing, as one paste. Assembled from the same values the rows render
   // from, so a copy can never disagree with the screen it was taken from.
@@ -362,38 +369,6 @@
   }
 </script>
 
-{#snippet sectionToggle(section: {
-  label: string;
-  collapsed: boolean;
-  toggle: () => void;
-  badge: string | null;
-  badgeVariant: "neutral" | "success" | "warning" | "danger";
-})}
-  <!-- One folding heading, shared by all three sections. Its own visible label is its accessible
-       name, aria-expanded carries the state, and a badge rides beside it ONLY while it is shut:
-       what folding hides has to keep speaking, and a heading that carries the same badge open and
-       closed is saying it twice. -->
-  <Button
-    variant="ghost"
-    size="sm"
-    class="w-full justify-between gap-8"
-    aria-expanded={!section.collapsed}
-    onclick={section.toggle}
-  >
-    <span class="flex items-center gap-8">
-      <FieldLabel as="span">{section.label}</FieldLabel>
-      {#if section.collapsed && section.badge !== null}
-        <Badge variant={section.badgeVariant}>{section.badge}</Badge>
-      {/if}
-    </span>
-    <ChevronRight
-      class="size-16 shrink-0 text-text-muted transition-transform duration-fast ease-standard motion-reduce:transition-none {section.collapsed
-        ? ''
-        : 'rotate-90'}"
-      aria-hidden="true"
-    />
-  </Button>
-{/snippet}
 
 {#snippet healthRow(row: {
   name: string;
@@ -644,13 +619,12 @@
         <!-- Deployment folds like the fleet inside it. Shut, it wears the count of Workers without
              a version across the WHOLE read, not just the fleet — collapsing this heading takes the
              leading pair down with it, and a fault in the pair is the one most worth seeing. -->
-        {@render sectionToggle({
-          label: DEPLOYMENT_SECTION_LABEL,
-          collapsed: deploymentSectionPreference.collapsed,
-          toggle: () => deploymentSectionPreference.toggle(),
-          badge: silentDeploymentWorkers,
-          badgeVariant: "warning",
-        })}
+        <VersionSectionHeading
+            label={DEPLOYMENT_SECTION_LABEL}
+            collapsed={deploymentSectionPreference.collapsed}
+            toggle={() => deploymentSectionPreference.toggle()}
+            pills={deploymentPills}
+          />
         {#if deploymentSectionPreference.collapsed}
           <!-- Nothing: the heading above carries what the fold hides. -->
         {:else}
@@ -731,13 +705,12 @@
                about separately: "what build is live" and "is anything not answering" are different
                questions, and one of them was two folds deep. Shut, this heading counts only the
                Workers it hides; the pair above it is on screen and speaks for itself. -->
-          {@render sectionToggle({
-            label: FLEET_SECTION_LABEL,
-            collapsed: fleetSectionPreference.collapsed,
-            toggle: () => fleetSectionPreference.toggle(),
-            badge: silentFleetWorkers,
-            badgeVariant: "warning",
-          })}
+          <VersionSectionHeading
+            label={FLEET_SECTION_LABEL}
+            collapsed={fleetSectionPreference.collapsed}
+            toggle={() => fleetSectionPreference.toggle()}
+            pills={workersPills}
+          />
           {#if !fleetSectionPreference.collapsed}
             <LoadingRegion
               loading={value === null}
@@ -785,13 +758,12 @@
            It folds on the same terms Deployment does, and a shut heading wears the worst reading in
            the section, so the one state this whole section exists to surface — a membership that
            has not landed, and every screen refusing because of it — survives being folded away. -->
-      {@render sectionToggle({
-        label: DATABASE_SECTION_LABEL,
-        collapsed: databaseSectionPreference.collapsed,
-        toggle: () => databaseSectionPreference.toggle(),
-        badge: healthReading === null ? null : collapsedHealthBadge(healthReading),
-        badgeVariant: healthReading === null ? "neutral" : healthBadgeVariant(healthReading),
-      })}
+      <VersionSectionHeading
+            label={DATABASE_SECTION_LABEL}
+            collapsed={databaseSectionPreference.collapsed}
+            toggle={() => databaseSectionPreference.toggle()}
+            pills={databasePills}
+          />
       {#if !databaseSectionPreference.collapsed}
         {#if healthFailure !== null}
           <div class="flex flex-col gap-4">
