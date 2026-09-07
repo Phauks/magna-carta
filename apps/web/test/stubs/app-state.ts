@@ -28,7 +28,14 @@ export const page: {
   state: {},
 };
 
-export const navigating = { from: null, to: null, type: null, willUnload: null, delta: null, complete: null };
+export const navigating = {
+  from: null,
+  to: null,
+  type: null,
+  willUnload: null,
+  delta: null,
+  complete: null,
+};
 
 /** The version poll's answer: no newer bundle, ever, in a test. */
 export const updated = { current: false, check: async (): Promise<boolean> => false };

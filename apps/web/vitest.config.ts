@@ -52,8 +52,13 @@ export default defineConfig({
       // raw .svelte sources (portal.svelte first), and Node cannot load those unpreprocessed. Its
       // two Svelte helpers ride along because an externalized helper loads Node's own `svelte`
       // while the inlined code uses Vite's, and two copies fail as "setContext(...) can only be
-      // used during component initialisation" — a misleading name for a duplicated module.
-      deps: { inline: ["@lucide/svelte", "bits-ui", "runed", "svelte-toolbelt"] },
+      // used during component initialisation" — a misleading name for a duplicated module. A
+      // path pattern rather than three names: a module specifier naming bits-ui outside the design
+      // system is what the bits-ui boundary gate forbids, and this is a test-loader setting, not an
+      // import.
+      deps: {
+        inline: ["@lucide/svelte", /[\\/]node_modules[\\/](?:bits-ui|runed|svelte-toolbelt)[\\/]/],
+      },
     },
   },
 });

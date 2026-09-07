@@ -10,7 +10,7 @@
  * is testing something), that the same tooltip renders beneath the root layout, and that a page
  * whose render throws beneath the root layout becomes the failure screen with a client Error ID.
  */
-import { flushSync, mount, unmount, type Component } from "svelte";
+import { flushSync, mount, unmount, type Component, type MountOptions } from "svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { breadcrumbs, clearBreadcrumbs } from "$lib/diagnostics/breadcrumbs.ts";
 import { CRASH_MESSAGE } from "$lib/diagnostics/crash.ts";
@@ -23,13 +23,18 @@ import ThrowingPage from "./throwing-page.svelte";
 // a stub: the sign-in address, where the incident happened.
 page.url = new URL("https://magna-carta.test/login");
 
-function mountAndSettle(component: Component, props: Record<string, unknown> = {}): HTMLElement {
+function mountAndSettle<Props extends Record<string, unknown>>(
+  component: Component<Props>,
+  props: Props,
+): HTMLElement {
   const target = document.createElement("div");
   document.body.append(target);
-  const instance = mount(component, { target, props });
+  // The options type is conditional on whether the component takes props at all, which a generic
+  // cannot settle; both shapes carry the same two fields.
+  const instance = mount(component, { target, props } as MountOptions<Props>);
   flushSync();
   const rendered = target.cloneNode(true) as HTMLElement;
-  unmount(instance);
+  void unmount(instance);
   flushSync();
   target.remove();
   return rendered;
@@ -42,7 +47,7 @@ afterEach(() => {
 
 describe("the root layout provides the tooltip context", () => {
   it("throws for a tooltip mounted with nothing above it — the defect the layout prevents", () => {
-    expect(() => mountAndSettle(BareTooltip)).toThrow(/Tooltip\.Provider/u);
+    expect(() => mountAndSettle(BareTooltip, {})).toThrow(/Tooltip\.Provider/u);
   });
 
   it("renders the same tooltip beneath the root layout, outside any route group", () => {
