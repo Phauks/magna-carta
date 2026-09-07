@@ -16,6 +16,29 @@ const commitIdentity = runningInPackageDir
   ? resolveCommitIdentity()
   : { commit: null, commitTime: null };
 
+/*
+ * What the production bundle keeps of its source (owner ruling, 2026-09-07). Three things decide
+ * what a stack frame in a member's browser reads and what a stranger can learn from the assets:
+ *
+ * - `sourcemapExcludeSources`: the `.map` files carry mappings and paths, not the source text, so a
+ *   frame resolves to the Svelte file and line while the code and its comments — which in this
+ *   repository record design reasoning and what is not yet built — stay off the public internet.
+ * - `mangle: false`: identifiers keep their names. The minifier's map does not record the original
+ *   of a renamed identifier, so with renaming on a frame read `De.get (naXSyiPE.js:5:816)` even with
+ *   the map beside it; the sign-in crash of 2026-09 was diagnosed from exactly that line. Compression
+ *   and whitespace removal still apply, so the cost is the longer identifiers: measured on the
+ *   2026-09-07 build, 897 KB to 1.12 MB gzipped over the whole app, per chunk a fraction of that.
+ *   Keeping only module-level names (`mangle: { toplevel: false }`) costs 8% instead of 25% but
+ *   leaves some frames renamed, which is the surprise this exists to remove. Readable names in the
+ *   bundle are the point, not a leak: the logic was always recoverable.
+ *
+ * magna-carta-web is an assets-only Worker, so nothing here can be gated by a session.
+ */
+const PRODUCTION_OUTPUT = {
+  sourcemapExcludeSources: true,
+  minify: { mangle: false, compress: true, codegen: { removeWhitespace: true } },
+} as const;
+
 export default defineConfig({
   plugins: runningInPackageDir ? [tailwindcss(), sveltekit()] : [],
   define: {
@@ -26,19 +49,11 @@ export default defineConfig({
   // dev convenience: proxy /api to a running `wrangler dev`
   server: { proxy: { "/api": "http://localhost:8787" } },
   build: {
-    // Source maps ship with the production bundle, so a stack frame in a member's browser names
-    // the Svelte file, line and function rather than a hashed chunk and a minified identifier —
-    // the sign-in crash of 2026-09 was diagnosed from `De.get (naXSyiPE.js:5:816)`, which says
-    // nothing. magna-carta-web is an assets-only Worker, so the `.map` files are public assets;
-    // the maps therefore carry mappings, paths and original names but NOT the source text
-    // (owner ruling, 2026-09-07). A stack trace resolves in full; what a fetched map does not give
-    // away is the code and its comments, which in this repository record design reasoning and
-    // what is not yet built. The DevTools Sources panel on the deployed site shows the minified
-    // chunk, not the original file — the price of keeping the text off the public internet.
+    // Source maps ship with the production bundle (PRODUCTION_OUTPUT above says what they carry).
     sourcemap: true,
-    rollupOptions: { output: { sourcemapExcludeSources: true } },
+    rollupOptions: { output: PRODUCTION_OUTPUT },
   },
   // Web Workers (the upload hasher) bundle through their own Rollup pass, which does not inherit
   // the output options above; without this line their maps ship the source text.
-  worker: { rollupOptions: { output: { sourcemapExcludeSources: true } } },
+  worker: { rollupOptions: { output: PRODUCTION_OUTPUT } },
 });
