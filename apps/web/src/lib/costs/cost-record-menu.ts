@@ -13,6 +13,7 @@
  * a row gets is decided by where it stands.
  */
 import Paperclip from "@lucide/svelte/icons/paperclip";
+import Receipt from "@lucide/svelte/icons/receipt";
 import Printer from "@lucide/svelte/icons/printer";
 import Trash2 from "@lucide/svelte/icons/trash-2";
 
@@ -32,8 +33,16 @@ import { gapReason } from "./cost-gaps.ts";
 /** What this surface calls one of its records. */
 export const COST_NOUN: NounPair = { singular: "Cost", plural: "Costs" };
 
-/** One cost row the menu speaks for. A cost row carries no fact the shared catalogue lacks. */
-export type CostMenuRecord = LedgerRecord;
+/**
+ * One cost row the menu speaks for.
+ *
+ * Beyond what the shared catalogue needs, a cost row names the bill that took it up. That is the
+ * one fact a shared ledger record has no place for and the one the menu's own seam is built on.
+ */
+export interface CostMenuRecord extends LedgerRecord {
+  /** The invoice that billed this cost, or null while nothing has. */
+  readonly invoiceId?: string | null;
+}
 
 export interface CostMenuContext {
   /**
@@ -59,9 +68,39 @@ export function costRecordMenu(
     ...shared
       .filter((group) => group.identifier !== "destructive")
       .map((group) => ({ identifier: group.identifier, items: [...group.items] })),
-    { identifier: "costRecord", items: [attachVerb(), printVerb()] },
+    { identifier: "costRecord", items: [openBillVerb(), attachVerb(), printVerb()] },
     { identifier: "destructive", items: [...withdrawal, deleteDraftVerb()] },
   ]);
+
+  /*
+   * The bill this cost reached, for the one question a ledger cannot answer about a billed row:
+   * what was the client actually told?
+   *
+   * It is the seam back into Billing, and it renders on every cost rather than only on billed ones
+   * — a verb that appears and disappears with a row's state teaches a reader the menu has a mind of
+   * its own. A cost no invoice has taken up says so and stays put.
+   */
+  function openBillVerb(): RecordMenuAction {
+    const billed = target.status === "billed";
+    const invoiceId = target.invoiceId ?? null;
+    return {
+      kind: "action",
+      identifier: "openBill",
+      label: "Open The Bill",
+      icon: Receipt,
+      ...oneRecordGesture(count, "One cost's bill is opened at a time."),
+      ...(billed && invoiceId !== null
+        ? {}
+        : {
+            disabledReason: billed
+              ? // Billed, but the listing did not carry which invoice. The claim is the truth about
+                // who holds a cost and this is its mirror; a row that lost it is a read to fix,
+                // never a bill to guess at.
+                "This cost is billed, but the bill it reached was not read with it."
+              : "Nothing has billed this cost yet. A draft bill claims it from the Billing section.",
+          }),
+    };
+  }
 
   /*
    * The attachments. A receipt is the usual one, but a cost carries as many files as the spend

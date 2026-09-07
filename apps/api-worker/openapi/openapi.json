@@ -22548,6 +22548,12 @@
               "void"
             ]
           },
+          "invoiceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "vendorName": {
             "type": [
               "string",

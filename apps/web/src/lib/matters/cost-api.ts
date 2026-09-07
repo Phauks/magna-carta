@@ -38,6 +38,14 @@ export interface CostSummary {
    */
   matterNumber?: string | null;
   matterTitle?: string | null;
+  /**
+   * The invoice that took this cost up, or null while nothing has.
+   *
+   * It is what puts a billed cost one click from the bill that billed it — without it, a reader who
+   * wants to see what the client was actually charged has to go looking through the matter's whole
+   * billing register for the document that happens to carry this line.
+   */
+  invoiceId?: string | null;
 }
 
 /**

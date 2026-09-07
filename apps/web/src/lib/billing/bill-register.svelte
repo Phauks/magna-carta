@@ -22,6 +22,7 @@
    * the screen — the Total (all matters) column is where the document's own total still reads.
    */
   import type { Snippet } from "svelte";
+  import { page } from "$app/state";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -206,6 +207,24 @@
     windowRow = row;
     windowOpen = true;
   }
+
+  /*
+   * A bill named in the address opens itself once the register carries it.
+   *
+   * This is what makes a bill reachable from outside its own register: a billed cost's Open The
+   * Bill lands here with the invoice named, and a member who sends the address sends the document
+   * rather than a register and an instruction to go looking. It fires once per named bill, so
+   * closing the window does not immediately reopen it.
+   */
+  let addressOpened: string | null = null;
+  $effect(() => {
+    const named = page.url.searchParams.get("invoice");
+    if (named === null || named === addressOpened) return;
+    const row = rows.find((candidate) => candidate.summary.id === named);
+    if (row === undefined) return;
+    addressOpened = named;
+    openInvoice(row);
+  });
 
   const figures = $derived(
     billFigures(grid.isFiltered ? grid.rowsInView : rows, {

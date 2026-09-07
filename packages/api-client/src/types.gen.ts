@@ -5208,6 +5208,7 @@ export type CostSummary = {
     utbmsExpenseCodeId: string | null;
     description: string;
     status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    invoiceId?: string | null;
     vendorName?: string | null;
     matterNumber?: string | null;
     matterTitle?: string | null;

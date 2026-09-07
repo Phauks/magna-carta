@@ -29,6 +29,7 @@
    * and nothing else: the link from a cost to its bill belongs on the cost.
    */
   import type { Snippet } from "svelte";
+  import { goto } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -245,6 +246,7 @@
       entryNumber: null,
       description: cost.description,
       amount: money(cost.amountMinor),
+      invoiceId: cost.invoiceId ?? null,
     };
   }
 
@@ -343,6 +345,14 @@
         return;
       case "print":
         print(first);
+        return;
+      case "openBill":
+        // The bill lands on the matter's own Billing section with that bill open — the same place
+        // the register would have opened it, so a reader arrives where they would have navigated.
+        // The verb is refused where there is no bill, so reaching here means there is one.
+        if (first.invoiceId != null) {
+          void goto(`/matters/${matterId}/billing?invoice=${encodeURIComponent(first.invoiceId)}`);
+        }
         return;
       default:
         return;

@@ -261,7 +261,17 @@
            An honest blank, never the raw handle. -->
       <span class="text-text-subtle" title="This matter's name could not be read.">—</span>
     {:else}
-      <span class="block truncate" title={named}>{named}</span>
+      <!-- The seam back into the matter: a row read across the firm is one click from the record it
+           belongs to, on the section it belongs to. The row's own activation opens the cost, so this
+           stops the click reaching it. -->
+      <a
+        href="/matters/{row.matterId}/costs"
+        class="block truncate underline-offset-2 hover:underline"
+        title="Open {named} — this matter's own cost record"
+        onclick={(event) => event.stopPropagation()}
+      >
+        {named}
+      </a>
     {/if}
   {:else if column.id === COST_COLUMN_IDENTIFIERS.description}
     <span class="block truncate" title={row.description}>{row.description}</span>

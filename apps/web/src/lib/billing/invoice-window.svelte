@@ -36,6 +36,7 @@
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import Calendar from "@lucide/svelte/icons/calendar";
+  import ArrowUpRight from "@lucide/svelte/icons/arrow-up-right";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CreditCard from "@lucide/svelte/icons/credit-card";
   import FileMinus from "@lucide/svelte/icons/file-minus";
@@ -158,8 +159,14 @@
   const share = $derived(
     row === null || matterId === null ? null : matterShareMinor(row, matterId),
   );
-  /** How many matters the bill charges, from the record it carries — the firm register's answer. */
-  const matterCount = $derived(new Set(lines.map((line) => line.matterId)).size);
+  /**
+   * Which matters the bill charges, from the record it carries — the firm register's answer.
+   *
+   * The lines rather than the balances, because a DRAFT has lines and no balance row: balances are
+   * created at finalization, so reading the balances would say a draft charges nobody.
+   */
+  const chargedMatters = $derived([...new Set(lines.map((line) => line.matterId))]);
+  const matterCount = $derived(chargedMatters.length);
   const credited = $derived(row === null ? 0 : creditedMinor(row));
   const late = $derived(row === null ? 0 : overdueDays(row, today));
 
@@ -359,6 +366,40 @@
           "Who drew the number is on the firm's audit trail; the invoice read does not carry it.",
         )}
       </dl>
+
+      <!-- The way into the matter, from a bill met outside one. Standing in a matter there is
+           nowhere to go; standing across the firm this is where the acts on this bill live, and
+           where the work behind its lines is. -->
+      {#if matterId === null && chargedMatters.length > 0}
+        <section class="flex flex-col gap-8 border-t border-border-default pt-12">
+          <FieldLabel as="h3">
+            {chargedMatters.length === 1 ? "The Matter This Bills" : "The Matters This Bills"}
+          </FieldLabel>
+          {#if chargedMatters.length === 1 && chargedMatters[0] !== undefined}
+            {@const only = chargedMatters[0]}
+            <Button
+              variant="secondary"
+              size="sm"
+              class="self-start"
+              href="/matters/{only}/billing?invoice={row.summary.id}"
+              title="Open this bill on its matter's own Billing section, where the acts against it live."
+            >
+              <ArrowUpRight class="size-16" aria-hidden="true" />
+              Open In Its Matter
+            </Button>
+          {:else}
+            <!-- Deliberately not a list of links labelled by identifier: a handle names the matter
+                 to nobody, and offering several of them would ask a reader to pick between strings
+                 they cannot read. The invoice read carries matter identifiers and no names, which
+                 is the gap this waits on. -->
+            <p class="text-xs text-text-muted">
+              This bill charges {chargedMatters.length} of the client's matters. Opening it on one of
+              them waits on the invoice read naming its matters rather than carrying their
+              identifiers alone; until then, open the bill from the matter you are working on.
+            </p>
+          {/if}
+        </section>
+      {/if}
 
       {#if isFinal}
         <!-- The lines, each disclosing the work behind it. -->

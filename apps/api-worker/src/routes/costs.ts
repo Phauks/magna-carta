@@ -92,6 +92,12 @@ const CostSummary = z
     utbmsExpenseCodeId: z.string().nullable(),
     description: z.string(),
     status: z.enum(["draft", "submitted", "approved", "billed", "void"]),
+    // The invoice that took this cost up, or null while nothing has. It is what lets a surface put
+    // a billed cost one click from the bill that billed it: without it a reader who wants to see
+    // what the client was actually charged has to go looking through the matter's whole register.
+    // The CLAIM is the truth about who holds a cost; this mirror is set at finalization and is what
+    // a read can carry without joining.
+    invoiceId: z.string().nullable().optional(),
     // The vendor's name, resolved by the listing. Null both when no vendor was recorded and when
     // the directory entry behind one is gone -- vendorId tells those two apart, and a screen that
     // needs to can say which. Never the identifier standing in for a name.
@@ -544,6 +550,7 @@ interface CostEntryRow {
   status: "draft" | "submitted" | "approved" | "billed" | "void";
   source: "manual" | "grid" | "recovery";
   recovery_category: string | null;
+  invoice_id: string | null;
 }
 
 /*
@@ -560,7 +567,7 @@ const LIST_COLUMNS = `cost_entry.id, cost_entry.matter_id, cost_entry.vendor_id,
      cost_entry.incurred_date, cost_entry.amount_minor, cost_entry.currency,
      cost_entry.disbursement_class, cost_entry.billable, cost_entry.utbms_expense_code_id,
      cost_entry.description, cost_entry.status, cost_entry.source,
-     cost_entry.recovery_category,
+     cost_entry.recovery_category, cost_entry.invoice_id,
      COALESCE(directory_person.display_name, directory_organization.display_name,
               directory_organization.legal_name) AS vendor_name,
      matter.matter_number AS matter_number, matter.title AS matter_title`;
@@ -603,6 +610,7 @@ function rowToSummary(row: CostEntryRow) {
     status: row.status,
     source: row.source,
     recoveryCategory: row.recovery_category,
+    invoiceId: row.invoice_id,
   };
 }
 
@@ -873,7 +881,7 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
       const { id } = c.req.valid("param");
       const { results } = await firm.firmDatabase
         .prepare(
-          "SELECT id, matter_id, vendor_id, incurred_date, amount_minor, currency, disbursement_class, billable, utbms_expense_code_id, description, status, source, recovery_category FROM cost_entry WHERE id = ?1",
+          "SELECT id, matter_id, vendor_id, incurred_date, amount_minor, currency, disbursement_class, billable, utbms_expense_code_id, description, status, source, recovery_category, invoice_id FROM cost_entry WHERE id = ?1",
         )
         .bind(id)
         .all<CostEntryRow>();
