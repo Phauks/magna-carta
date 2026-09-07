@@ -28,6 +28,10 @@
       "home": "packages/design-system/src/lib/components/record-window"
     },
     {
+      "name": "Conversation",
+      "home": "packages/design-system/src/lib/components/conversation"
+    },
+    {
       "name": "EventRail",
       "home": "packages/design-system/src/lib/components/event-rail"
     },

@@ -193,17 +193,21 @@ const DESTINATION_LIST = [
     defaultStarred: true,
   },
   {
-    // Magnus — the Magna Carta assistant. It will converse inside a matter and around the
-    // app, but this is its always-reachable home: one sidebar entry, easy to find at all
-    // times (owner-directed). A stub only until the assistant ships.
+    // Magnus — the Magna Carta assistant. This is its always-reachable home: one sidebar entry,
+    // easy to find at all times (owner-directed). The member's own workspace for it — every
+    // conversation they have had, and the composer to start another. A matter's Magnus section is
+    // the same surface filtered to that matter's file; this one belongs to the member.
+    //
+    // It answers and nothing else: it cannot create, edit, file, send or delete, and it reads only
+    // what a member types into the conversation they are in.
     id: "magnus",
     label: "Magnus",
     href: "/magnus",
     icon: Sparkles,
     description: "The Magna Carta assistant — ask, draft, and navigate in plain language.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {

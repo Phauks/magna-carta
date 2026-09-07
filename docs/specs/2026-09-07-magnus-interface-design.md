@@ -34,15 +34,15 @@ of them should not exist.
 
 That is the whole distinction, and everything below follows from it.
 
-| | `/magnus` — the sidebar destination | `/matters/{id}/magnus` — the matter section |
-| --- | --- | --- |
-| What it is | The member's own workspace for the assistant | One matter's file of transcripts |
-| Whose it is | The member's. Their conversations, across everything | The matter's. Kept on its record, subject to its retention |
-| A new conversation | Starts on no matter, and can be attached to one | Starts on **this** matter; the link is not a choice the screen offers |
-| What it lists | Every conversation this member has, newest first, each citing the matter it belongs to when it has one | Only the conversations linked to this matter |
-| Its own chrome | A screen header, a conversation rail, a transcript | None. The matter's header and section strip are already the chrome |
-| Where it goes back to | Nowhere — it is a top-level destination | The matter, through the strip it sits on |
-| The question it answers | "What did I ask, and what do I want to ask now" | "What has been asked about this file" |
+|                         | `/magnus` — the sidebar destination                                                                    | `/matters/{id}/magnus` — the matter section                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| What it is              | The member's own workspace for the assistant                                                           | One matter's file of transcripts                                      |
+| Whose it is             | The member's. Their conversations, across everything                                                   | The matter's. Kept on its record, subject to its retention            |
+| A new conversation      | Starts on no matter, and can be attached to one                                                        | Starts on **this** matter; the link is not a choice the screen offers |
+| What it lists           | Every conversation this member has, newest first, each citing the matter it belongs to when it has one | Only the conversations linked to this matter                          |
+| Its own chrome          | A screen header, a conversation rail, a transcript                                                     | None. The matter's header and section strip are already the chrome    |
+| Where it goes back to   | Nowhere — it is a top-level destination                                                                | The matter, through the strip it sits on                              |
+| The question it answers | "What did I ask, and what do I want to ask now"                                                        | "What has been asked about this file"                                 |
 
 **Both compose one conversation surface.** The precedent is Tasks and it is exact: a task's list is one
 component read through two routes, so a task looks and behaves the same in the member's own work list

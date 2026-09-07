@@ -1,0 +1,165 @@
+@layer components {
+  /*
+   * Conversation — a transcript, presented as a record.
+   *
+   * The whole surface is a WORK SURFACE: it is read closely, at length, usually while the reader is
+   * deciding whether to rely on what it says. So identity recedes. No bubbles, no avatars, no fills
+   * behind the turns, no alignment carrying meaning; the only status colour in the component is the
+   * thin edge on a turn that failed and the subtle chip on the note that says why.
+   *
+   * The root is a column: the transcript takes the free height and scrolls inside it, the composer
+   * sits at the foot and does not move. The zero minimum on both is what lets a flex child shrink
+   * below its content — without it, a flex item's automatic minimum size is its content and the
+   * transcript would push the composer off the bottom of the surface.
+   */
+  .mc-conversation {
+    display: flex;
+    flex: auto;
+    flex-direction: column;
+    min-block-size: var(--mc-space-0);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-text-default);
+  }
+  .mc-conversation-transcript {
+    display: flex;
+    flex: auto;
+    flex-direction: column;
+    min-block-size: var(--mc-space-0);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-24);
+    overflow-x: hidden;
+    overflow-y: auto;
+    /* Prose that scrolls carries no focusable child, so the region itself has to be reachable by
+       keyboard and show the house focus shape when a keyboard brings it there. */
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-conversation-transcript:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  /*
+   * A turn. Every turn reserves the status rail on its leading edge — a hairline drawn transparent
+   * — so a turn that fails colours what is already there instead of gaining a border and shifting
+   * every word in the transcript sideways. The same reason the selection rail is reserved on a
+   * table row rather than added to the selected one.
+   */
+  .mc-conversation-turn {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    padding-block: var(--mc-space-16);
+    padding-inline-start: var(--mc-space-12);
+    border-inline-start-style: solid;
+    border-inline-start-width: var(--mc-border-width-default);
+    border-inline-start-color: transparent;
+    /* Long text wraps rather than widening the record, which would put the whole transcript on a
+       horizontal scrollbar. */
+    min-inline-size: var(--mc-space-0);
+    overflow-wrap: break-word;
+  }
+  /* The hairline between turns belongs to the turn that follows, so the record neither opens nor
+     closes on a rule. */
+  .mc-conversation-turn + .mc-conversation-turn {
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+  }
+  /*
+   * The speaker label, in the register a transcript names a speaker in: small, letterspaced,
+   * uppercase, over the body rather than beside it. The assistant's label is set at full strength
+   * and the member's a step back, because a reader scanning a record they wrote half of is looking
+   * for the answers.
+   */
+  .mc-conversation-turn-speaker {
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    letter-spacing: var(--mc-tracking-caps);
+    line-height: var(--mc-leading-normal);
+    text-transform: uppercase;
+  }
+  .mc-conversation-turn[data-speaker="magnus"] .mc-conversation-turn-speaker {
+    color: var(--mc-text-default);
+  }
+  /*
+   * The body. `pre-wrap` is load-bearing rather than cosmetic: it is what preserves the line breaks
+   * the author typed, so a question written over three lines is read as three lines.
+   */
+  .mc-conversation-turn-body {
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-regular);
+    line-height: var(--mc-leading-relaxed);
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+  /* The one weight distinction in the component: the member's question is short and stands a step
+     firmer, the way the heading of an exchange does; the answer is set for reading endurance. */
+  .mc-conversation-turn[data-speaker="member"] .mc-conversation-turn-body {
+    font-weight: var(--mc-weight-medium);
+  }
+  /*
+   * A turn whose body has not arrived. It is drawn quietly and nothing else happens: no shimmer, no
+   * pulse, no placeholder bones. A region whose data has not arrived is LoadingRegion, and a
+   * pending turn is not that region — it is a turn that is on the record with nothing in it yet.
+   */
+  .mc-conversation-turn[data-state="pending"] .mc-conversation-turn-speaker,
+  .mc-conversation-turn[data-state="pending"] .mc-conversation-turn-body {
+    color: var(--mc-text-subtle);
+  }
+  /* A turn that will never get its body: the reserved rail takes the status hue, at hairline weight
+     on a work surface. */
+  .mc-conversation-turn[data-state="failed"] {
+    border-inline-start-color: var(--mc-status-warning-subtle-border);
+  }
+  /* The meta line: quiet by default, and quieter than the body it annotates. */
+  .mc-conversation-turn-note {
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  /*
+   * The warning register: the subtle trio, as a calm same-hue chip sized to its own words rather
+   * than a band across the record. `align-self: start` is what keeps it to its words.
+   */
+  .mc-conversation-turn-note[data-tone="warning"] {
+    align-self: start;
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-status-warning-subtle-border);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-status-warning-subtle);
+    color: var(--mc-status-warning-subtle-foreground);
+  }
+  /*
+   * The composer. It never shrinks and never scrolls with the record: a hairline separates it from
+   * the transcript above, and it keeps the transcript's own gutters so the field lines up with the
+   * words it is answering.
+   */
+  .mc-conversation-composer {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-24);
+    border-block-start-style: solid;
+    border-block-start-width: var(--mc-border-width-default);
+    border-block-start-color: var(--mc-border-default);
+    background-color: var(--mc-surface-default);
+  }
+  .mc-conversation-composer-actions {
+    display: flex;
+    align-items: center;
+    justify-content: end;
+    gap: var(--mc-space-8);
+  }
+}

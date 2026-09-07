@@ -21,7 +21,7 @@ underneath it. It is one conversation read from two directions, not two copies.
 **Only what you type in that conversation.** This is the part worth reading twice.
 
 Magnus does not read your files, your calendar, your directory, or the matter you are standing in. A
-conversation attached to a matter is *filed* on that matter — that is a record-keeping fact about
+conversation attached to a matter is _filed_ on that matter — that is a record-keeping fact about
 where the transcript lives. It does not hand Magnus the matter. If you ask "what is the deadline on
 this", it has no way to know, and it will answer from nothing.
 

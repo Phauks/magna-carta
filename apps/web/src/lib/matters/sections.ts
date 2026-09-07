@@ -311,16 +311,18 @@ export const matterSections: readonly MatterSection[] = [
     slug: "magnus",
     timelineSources: [],
     label: "Magnus",
-    stage: "soon",
+    stage: "alpha",
     description:
-      "Ask Magnus about this matter. The assistant answers in plain language from what you " +
-      "attach to the conversation, and every exchange is kept on the matter record.",
+      "Ask Magnus about this matter. The assistant answers from what you type in the " +
+      "conversation, and every exchange is kept on the matter record.",
     searchSource: null,
-    // Magnus is a way to ASK about the matter, not a record the matter keeps. Even once it is
-    // built, what a conversation holds is the reader's own questions and the assistant's answers —
-    // a transcript search is its own feature with its own retention question, not a scope option
-    // that quietly makes past conversations findable alongside the firm's records.
-    searchWaitingOn: "The Magnus section itself is not built yet",
+    // A transcript is discoverable material, so any surface that searches across the firm's records
+    // has to let the firm say whether transcripts are in scope — an explicit include or exclude,
+    // never a default either way. That control does not exist yet, and it belongs to the search
+    // surface rather than to this section, so nothing here is reachable from the matter's search
+    // until it does. The section itself is built; this is the only thing still missing.
+    searchWaitingOn:
+      "A search that reaches transcripts needs a control saying whether they are in scope",
     createNoun: null,
     createWaitingOn: "Magnus is a way to ask about the matter, not a record it keeps",
   },
@@ -352,8 +354,9 @@ export type MatterStripEntry =
  * not one of the matter's records; it is the way to ask about them.
  *
  * The order is also the fold order — the backstop folds from the tail — so what folds first is what
- * a member can most afford to reach through a menu: Magnus (a stub), then the Record group (three
- * of its four are stubs), then the work owed, the dates and the people. Money stays on the row longest of the
+ * a member can most afford to reach through a menu: Magnus (asked once in a while, not read on
+ * every visit), then the Record group (three of its four are stubs), then the work owed, the dates
+ * and the people. Money stays on the row longest of the
  * folding candidates, because all five of its sections are live working surfaces.
  */
 const ARRANGEMENT: readonly (

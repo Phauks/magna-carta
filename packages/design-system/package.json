@@ -24,6 +24,7 @@
     "./create-label": "./src/lib/components/create-control/create-label.ts",
     "./command": "./src/lib/components/command/index.ts",
     "./context-menu": "./src/lib/components/context-menu/index.ts",
+    "./conversation": "./src/lib/components/conversation/index.ts",
     "./data-table": "./src/lib/components/data-table/index.ts",
     "./date-picker": "./src/lib/components/date-picker/index.ts",
     "./date-range-picker": "./src/lib/components/date-range-picker/index.ts",
