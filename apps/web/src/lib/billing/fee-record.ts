@@ -47,7 +47,7 @@ export interface FeeRecord {
   readonly id: string;
   readonly matterId: string;
   /** The date the charge is for. It anchors the ledger, exactly as a cost's incurred date does. */
-  readonly feeDate: string;
+  readonly serviceDate: string;
   /** The matter-scoped number, never reused. Null on a record that has not been given one. */
   readonly entryNumber: string | null;
   /** When it was written down, which is a different fact from the date it charges for. */

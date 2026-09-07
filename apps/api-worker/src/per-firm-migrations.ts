@@ -105,6 +105,8 @@ import communicationLogSql from "@magna-carta/database/drizzle/per-firm/20260907
 import seedReportPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/20260907T090000_seed-report-policy-permission.sql";
 import costEntryIncurredDateIndexSql from "@magna-carta/database/drizzle/per-firm/20260907T100000_cost-entry-incurred-date-index.sql";
 import conflictsConfigurePermissionSql from "@magna-carta/database/drizzle/per-firm/20260907T120000_conflicts-configure-permission.sql";
+import feeEntryWorkInProgressStoreSql from "@magna-carta/database/drizzle/per-firm/20260907T220747_fee-entry-work-in-progress-store.sql";
+import invoiceWipClaimAdmitsAFeeSql from "@magna-carta/database/drizzle/per-firm/20260907T221500_invoice-wip-claim-admits-a-fee.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -224,6 +226,8 @@ export function perFirmMigrations(): Migration[] {
     "20260907T090000_seed-report-policy-permission": seedReportPolicyPermissionSql,
     "20260907T100000_cost-entry-incurred-date-index": costEntryIncurredDateIndexSql,
     "20260907T120000_conflicts-configure-permission": conflictsConfigurePermissionSql,
+    "20260907T220747_fee-entry-work-in-progress-store": feeEntryWorkInProgressStoreSql,
+    "20260907T221500_invoice-wip-claim-admits-a-fee": invoiceWipClaimAdmitsAFeeSql,
   });
 }
 

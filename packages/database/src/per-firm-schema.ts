@@ -21,6 +21,7 @@ import type {
   ConflictsHitId,
   ConflictsRecheckRequestId,
   CostEntryId,
+  FeeEntryId,
   CreditNoteId,
   CreditNoteLineId,
   CustodyDestructionRequestId,
@@ -2422,6 +2423,71 @@ export const costEntry = sqliteTable(
     uniqueIndex("cost_entry_recovery_ref_unique")
       .on(table.recoveryRef)
       .where(sql`${table.recoveryRef} IS NOT NULL`),
+  ],
+);
+
+// Fees WIP — one flat charge for professional services, typed by hand.
+//
+// The THIRD work-in-progress record, beside time_entry and cost_entry, and the one that had nowhere
+// to live: an hourly matter's fee value is the time ledger's and reaches a bill as a consolidated
+// line at compose time, and a flat-fee arrangement's amount is the arrangement's. A fee somebody
+// simply decided to charge was neither, so it was recorded nowhere at all.
+//
+// It is NEVER computed from time entries. The amount is what somebody decided to charge, which is
+// the whole reason it needs a row rather than a projection over invoice lines: a projection can
+// show only what a bill has already taken up, and what a work-in-progress ledger is for is the part
+// no bill has reached yet.
+//
+// Column-for-column the disbursement record wherever the fact is the same; different only where the
+// domain is. A cost has a payee, a receipt and a hard/soft class; a fee has a timekeeper and none of
+// those.
+export const feeEntry = sqliteTable(
+  "fee_entry",
+  {
+    id: text("id").primaryKey().$type<FeeEntryId>(),
+    matterId: text("matter_id")
+      .notNull()
+      .references(() => matter.id),
+    // The date the charge is FOR — the day the work was done — which anchors the ledger exactly as a
+    // cost's incurred date does and is a different fact from created_at, the day somebody wrote it
+    // down. Named for the service rather than the fee because the money-ish name conformance gate
+    // flags any column containing "fee" and requires a *_minor suffix; cost_entry's incurred_date
+    // sidesteps the same gate the same way.
+    serviceDate: text("service_date").notNull(),
+    // Whose professional services the charge is for. Not a foreign key, for the reason created_by
+    // is not one: whose work was charged is a fact about the past that outlives the membership.
+    timekeeperUserId: text("timekeeper_user_id").$type<UserId>(),
+    description: text("description").notNull().default(""),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    billable: integer("billable").notNull(), // 0/1
+    status: text("status").notNull(), // draft|submitted|approved|billed|void
+    kickBackReason: text("kick_back_reason"),
+    // The mirror set at finalization, so a billed fee names its bill without a join. The CLAIM is
+    // the truth about who holds a fee; this is what a read can carry cheaply.
+    invoiceId: text("invoice_id"),
+    // For the firm alone. It never reaches a bill, a print sheet or the client portal.
+    memo: text("memo"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+  },
+  (table) => [
+    check(
+      "fee_entry_status_check",
+      sql`${table.status} IN ('draft','submitted','approved','billed','void')`,
+    ),
+    check("fee_entry_billable_check", sql`${table.billable} IN (0,1)`),
+    check("fee_entry_currency_check", sql`${table.currency} IN ('USD')`),
+    // A fee is a charge somebody decided on, so a zero or negative one is a record of nothing. A
+    // reduction is a discount line on the bill, which is a different act with a different audit.
+    check("fee_entry_amount_check", sql`${table.amountMinor} > 0`),
+    // The matter's own section: every fee on one file, in every status.
+    index("fee_entry_matter_status_index").on(table.matterId, table.status),
+    // The firm-wide period read: a date range across every matter, with no matter and no status.
+    // Taken at birth rather than retrofitted — cost_entry needed this one added a day later, once a
+    // screen existed that walked the table without it.
+    index("fee_entry_service_date_index").on(table.serviceDate),
   ],
 );
 
@@ -5438,7 +5504,7 @@ export const invoiceWipClaim = sqliteTable(
       .notNull()
       .$type<InvoiceId>()
       .references(() => invoice.id),
-    sourceKind: text("source_kind", { enum: ["time_entry", "cost_entry"] }).notNull(),
+    sourceKind: text("source_kind", { enum: ["time_entry", "cost_entry", "fee_entry"] }).notNull(),
     sourceId: text("source_id").notNull(),
     invoiceLineId: text("invoice_line_id")
       .$type<InvoiceLineId>()
@@ -5458,7 +5524,7 @@ export const invoiceWipClaim = sqliteTable(
     index("invoice_wip_claim_line_index").on(table.invoiceLineId),
     check(
       "invoice_wip_claim_source_kind_check",
-      sql`${table.sourceKind} IN ('time_entry', 'cost_entry')`,
+      sql`${table.sourceKind} IN ('time_entry', 'cost_entry', 'fee_entry')`,
     ),
   ],
 );

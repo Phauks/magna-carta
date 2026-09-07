@@ -94,7 +94,7 @@
             {statusEntry(feeStatusKey(sole.status)).label}
           </Badge>
         </DetailsPanel.Fact>
-        <DetailsPanel.Fact label="Date" value={formatDate(sole.feeDate)} />
+        <DetailsPanel.Fact label="Date" value={formatDate(sole.serviceDate)} />
         <DetailsPanel.Fact label="Timekeeper" value={timekeeperText(sole)} />
         <DetailsPanel.Fact
           label="Amount"

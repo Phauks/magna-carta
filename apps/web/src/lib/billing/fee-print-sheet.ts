@@ -50,7 +50,7 @@ export function feeEntrySheet(fee: FeeRecord, context: FeeSheetContext): PrintSh
         kind: "fields",
         fields: [
           { label: "Status", value: statusEntry(feeStatusKey(fee.status)).label },
-          { label: "Date", value: context.date(fee.feeDate) },
+          { label: "Date", value: context.date(fee.serviceDate) },
           {
             label: "Date Entered",
             value:

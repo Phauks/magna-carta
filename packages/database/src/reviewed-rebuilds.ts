@@ -66,4 +66,22 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // the two new ones; ids are preserved verbatim under PRAGMA foreign_keys=OFF/ON. The reasoning is
   // in the migration's own `-- contract:` header.
   "20260906T030014_matter-hold-status",
+  // invoice_wip_claim_source_kind_check gains `fee_entry`, so a draft invoice can claim the third
+  // work-in-progress record beside a time entry and a cost entry. Audited: the copy is
+  // column-for-column over the whole table — all eight columns, in the order the replacement
+  // declares them, with no WHERE and no expression between source and target — so every claim
+  // carries across unchanged, and the CHECK cannot reject a copied row because the change only ADDS
+  // a value to the set. The partial unique index that stops two drafts claiming one entry, and the
+  // invoice index, are recreated after the rename. This table references invoice and invoice_line,
+  // which is why the file brackets the swap in PRAGMA foreign_keys=OFF/ON; it is safe because ids
+  // are preserved verbatim and the replacement takes the original name, so every claim resolves to
+  // the invoice and the line it resolved to before.
+  //
+  // THE PART THAT WOULD HAVE BEEN LOST SILENTLY: the two triggers freezing a finalized invoice's
+  // claims are not in the Drizzle schema, so a generated rebuild would have recreated the table
+  // without them and left every billed entry's claim editable. They are recreated verbatim, and
+  // test/invoice-wip-claim-rebuild-migration.test.ts seeds a claim on a finalized invoice and
+  // asserts both still fire. The reasoning is written out in the migration's own `-- contract:`
+  // header.
+  "20260907T221500_invoice-wip-claim-admits-a-fee",
 ]);

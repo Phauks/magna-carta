@@ -37,7 +37,7 @@ function makeFee(overrides: Partial<FeeRecord> = {}): FeeRecord {
   return {
     id: "fee_one",
     matterId: "matter_pemberton",
-    feeDate: "2026-08-22",
+    serviceDate: "2026-08-22",
     entryNumber: "F-00014",
     enteredDate: "2026-08-22",
     enteredByName: "Adaeze Osei",
@@ -63,7 +63,7 @@ describe("the fee ledger's columns", () => {
 
   it("is exactly round seven's column set, in order", () => {
     expect(COLUMNS.map((column) => column.id)).toEqual([
-      FEE_COLUMN_IDENTIFIERS.feeDate,
+      FEE_COLUMN_IDENTIFIERS.serviceDate,
       FEE_COLUMN_IDENTIFIERS.entryNumber,
       FEE_COLUMN_IDENTIFIERS.dateEntered,
       FEE_COLUMN_IDENTIFIERS.timekeeper,
@@ -89,7 +89,7 @@ describe("the fee ledger's columns", () => {
   });
 
   it("anchors on the date the charge is for, newest first", () => {
-    expect(FEE_LEDGER_INITIAL_SORT.columnId).toBe(FEE_COLUMN_IDENTIFIERS.feeDate);
+    expect(FEE_LEDGER_INITIAL_SORT.columnId).toBe(FEE_COLUMN_IDENTIFIERS.serviceDate);
     expect(FEE_LEDGER_INITIAL_SORT.direction).toBe("descending");
     expect(COLUMNS[0]?.anchored).toBe(true);
   });

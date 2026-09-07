@@ -26,7 +26,7 @@ import { billingLabel, feeStatusKey, type FeeRecord } from "./fee-record.ts";
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const FEE_COLUMN_IDENTIFIERS = {
-  feeDate: "feeDate",
+  serviceDate: "serviceDate",
   entryNumber: "entryNumber",
   dateEntered: "dateEntered",
   timekeeper: "timekeeper",
@@ -39,7 +39,7 @@ export const FEE_COLUMN_IDENTIFIERS = {
 
 /** The ledger opens on the most recent charge, which is where the work is. */
 export const FEE_LEDGER_INITIAL_SORT = {
-  columnId: FEE_COLUMN_IDENTIFIERS.feeDate,
+  columnId: FEE_COLUMN_IDENTIFIERS.serviceDate,
   direction: "descending",
 } as const;
 
@@ -82,11 +82,11 @@ export function timekeeperText(fee: FeeRecord): string {
 export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecord>[] {
   return [
     {
-      id: FEE_COLUMN_IDENTIFIERS.feeDate,
+      id: FEE_COLUMN_IDENTIFIERS.serviceDate,
       label: "Date",
       type: "date",
       anchored: true,
-      value: (fee) => fee.feeDate,
+      value: (fee) => fee.serviceDate,
     },
     {
       id: FEE_COLUMN_IDENTIFIERS.entryNumber,

@@ -285,8 +285,8 @@
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<FeeRecord>)}
   {#if isUnservedFeeColumn(column.id) && column.id !== FEE_COLUMN_IDENTIFIERS.entryNumber}
     <span class="text-text-subtle" title={unservedFeeCellTitle(column.id)}>&mdash;</span>
-  {:else if column.id === FEE_COLUMN_IDENTIFIERS.feeDate}
-    <span class="whitespace-nowrap tabular-nums">{formatDate(row.feeDate)}</span>
+  {:else if column.id === FEE_COLUMN_IDENTIFIERS.serviceDate}
+    <span class="whitespace-nowrap tabular-nums">{formatDate(row.serviceDate)}</span>
   {:else if column.id === FEE_COLUMN_IDENTIFIERS.entryNumber}
     {#if row.entryNumber === null}
       <span class="text-text-subtle" title={gapCellTitle("entryNumber")}>&mdash;</span>

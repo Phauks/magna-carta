@@ -736,6 +736,20 @@
       "when": 1788782400000,
       "tag": "20260907T120000_conflicts-configure-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "6",
+      "when": 1788818867482,
+      "tag": "20260907T220747_fee-entry-work-in-progress-store",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "6",
+      "when": 1788819300482,
+      "tag": "20260907T221500_invoice-wip-claim-admits-a-fee",
+      "breakpoints": true
     }
   ]
 }

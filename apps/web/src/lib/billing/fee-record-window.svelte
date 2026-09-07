@@ -81,7 +81,7 @@
   const creating = $derived(fee === null);
   const fieldPrefix = $props.id();
 
-  let feeDateText = $state("");
+  let serviceDateText = $state("");
   let amountText = $state("");
   let descriptionText = $state("");
   let memoText = $state("");
@@ -93,7 +93,7 @@
    * honestly whether walking away would lose anything, and it is what abandoning puts back.
    */
   const seeded = $state({
-    feeDate: "",
+    serviceDate: "",
     amount: "",
     description: "",
     memo: "",
@@ -101,7 +101,7 @@
   });
 
   function rememberWhatIsInTheFields(): void {
-    seeded.feeDate = feeDateText;
+    seeded.serviceDate = serviceDateText;
     seeded.amount = amountText;
     seeded.description = descriptionText;
     seeded.memo = memoText;
@@ -121,7 +121,7 @@
     }
     if (seededFor === identity) return;
     seededFor = identity;
-    feeDateText = fee?.feeDate ?? new Date().toISOString().slice(0, 10);
+    serviceDateText = fee?.serviceDate ?? new Date().toISOString().slice(0, 10);
     amountText = fee === null || fee.amountMinor === null ? "" : (fee.amountMinor / 100).toFixed(2);
     descriptionText = fee?.description ?? "";
     memoText = fee?.memo ?? "";
@@ -130,7 +130,7 @@
   });
 
   const unsavedChanges = $derived(
-    feeDateText !== seeded.feeDate ||
+    serviceDateText !== seeded.serviceDate ||
       amountText !== seeded.amount ||
       descriptionText !== seeded.description ||
       memoText !== seeded.memo ||
@@ -138,7 +138,7 @@
   );
 
   function forgetChanges(): void {
-    feeDateText = seeded.feeDate;
+    serviceDateText = seeded.serviceDate;
     amountText = seeded.amount;
     descriptionText = seeded.description;
     memoText = seeded.memo;
@@ -256,7 +256,7 @@
     <div class="grid gap-12 sm:grid-cols-3">
       <div class="flex flex-col gap-4">
         <Label for="{fieldPrefix}-date">Date</Label>
-        <Input id="{fieldPrefix}-date" type="date" disabled={readOnly} bind:value={feeDateText} />
+        <Input id="{fieldPrefix}-date" type="date" disabled={readOnly} bind:value={serviceDateText} />
       </div>
 
       <div class="flex flex-col gap-4">
@@ -404,7 +404,7 @@
         </div>
         <div class="flex items-baseline justify-between gap-16">
           <dt class="text-text-muted">Date</dt>
-          <dd class="tabular-nums">{formatDate(fee.feeDate)}</dd>
+          <dd class="tabular-nums">{formatDate(fee.serviceDate)}</dd>
         </div>
       </dl>
       {#if fee.provenance !== null}
