@@ -1132,6 +1132,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "files.archiveEntries",
       "files.delete",
       "files.download",
+      "files.extractArchiveMembers",
       "files.get",
       "files.history",
       "files.list",

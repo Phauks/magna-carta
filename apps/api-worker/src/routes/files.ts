@@ -6,11 +6,14 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import {
   assignDocumentType,
+  completeUploadSession,
+  initiateUpload,
   moveFile,
   renameFile,
   restoreFile,
   softDeleteFile,
 } from "@magna-carta/file-manager/file-service";
+import { fileAuditStatement } from "@magna-carta/file-manager/audit";
 import { selectFileStatement } from "@magna-carta/file-manager/file-statements";
 import {
   getCurrentCleanVersion,
@@ -35,6 +38,7 @@ import {
   readZipCentralDirectory,
   ZipCentralDirectoryError,
 } from "@magna-carta/file-manager/zip-central-directory";
+import { extractZipMember } from "@magna-carta/file-manager/zip-member-extract";
 import { readArchiveCaps } from "@magna-carta/file-manager/upload-policy";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
 import {
@@ -50,6 +54,7 @@ import type {
   FileVersionId,
   FolderId,
   MatterId,
+  UploadSessionId,
 } from "@magna-carta/identifiers/types";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
@@ -70,6 +75,7 @@ import { Problem, problemJson, type ProblemResponse } from "../contracts/problem
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { maybeEnqueueRescanOnAccess } from "../files/access-rescan.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
+import { enqueueDevIngestEvent } from "../files/presign.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import {
   problemResponseForIdempotencyConflict,
@@ -84,6 +90,7 @@ import {
 
 const FILES_ORGANIZE = "files:organize" as const;
 const FILES_DELETE = "files:delete" as const;
+const FILES_UPLOAD = "files:upload" as const;
 // A short life for a download credential — long enough to start the GET, short enough that a leaked
 // URL expires quickly.
 const DOWNLOAD_TTL_SECONDS = 300;
@@ -269,6 +276,65 @@ const ArchiveEntriesResponse = z
   })
   .openapi("ArchiveEntriesResponse");
 
+// Why one requested member could not be taken out and filed. Every value is a fact about that
+// member — the archive's own structure, the firm's archive caps, or the firm's upload policy — never
+// a generic failure, because a caller that asked for ten members needs to know which one is
+// encrypted and which one the container lied about. The first eight mirror the extractor's own
+// refusals verbatim (packages/file-manager/src/zip-member-extract.ts); "not-in-archive" is this
+// route's own (a path the listing does not hold, or one past the firm's entry cap), and the two
+// policy reasons are the ingest gate's refusals, which are per-member facts and not request faults.
+const ArchiveExtractionRefusal = z.enum([
+  "archive-missing",
+  "directory",
+  "encrypted",
+  "unsupported-compression",
+  "malformed",
+  "too-large",
+  "expansion-ratio",
+  "corrupt",
+  "not-in-archive",
+  "policy-size",
+  "policy-type",
+]);
+
+const ExtractArchiveMembersRequest = z
+  .object({
+    // Archive-relative paths, exactly as the entry listing returned them. Capped per request because
+    // each one is inflated in this isolate: a hundred is a generous selection and a bounded cost.
+    paths: z.array(z.string().min(1)).min(1).max(100),
+    // Where the extracted members land, in the ARCHIVE'S OWN matter. Absent or null = the matter
+    // root. There is deliberately no matter in this request: an extraction files what was inside a
+    // matter's own zip back into that matter, and letting a caller name the destination matter would
+    // make this route a cross-matter copy wearing an extraction's clothes.
+    folderId: identifierField("folder").nullable().optional(),
+  })
+  .openapi("ExtractArchiveMembersRequest");
+
+const ExtractedArchiveMember = z
+  .object({
+    // The archive-relative path as requested, so a caller can join the result back to its selection.
+    path: z.string(),
+    fileId: z.string(),
+    versionId: z.string(),
+    // The filed file's name: the path's last segment, sanitized — never the whole path.
+    name: z.string(),
+  })
+  .openapi("ExtractedArchiveMember");
+
+const RefusedArchiveMember = z
+  .object({ path: z.string(), reason: ArchiveExtractionRefusal })
+  .openapi("RefusedArchiveMember");
+
+const ExtractArchiveMembersResponse = z
+  .object({
+    // Filed, in the order requested. Each version is PENDING until the ingest gate resolves it.
+    extracted: z.array(ExtractedArchiveMember),
+    // Not filed, and why. A partial result is the normal result: one encrypted member among ten does
+    // not stop the other nine, and reporting the refusals is how the caller learns that.
+    refused: z.array(RefusedArchiveMember),
+  })
+  .openapi("ExtractArchiveMembersResponse");
+
 const fileParam = z.object({ id: identifierPathParam("file", "id") });
 const matterParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
 
@@ -436,6 +502,22 @@ const archiveEntriesMeta: RouteMeta = {
   audited: false,
   idempotency: "optional",
   rateLimit: "default",
+};
+
+// Extract from a zip: the read posture above does not carry here, because this WRITES files into the
+// matter. It rides files:upload — the same capability a direct upload rides, since a member taken out
+// of an archive becomes an ordinary matter file by the ordinary gate — and it is audited, because
+// each filed member is a new document whose only provenance is the row this route writes.
+// rateLimit "expensive": every member is inflated and stored in this isolate.
+const extractArchiveMembersMeta: RouteMeta = {
+  operationId: "files.extractArchiveMembers",
+  surface: "app",
+  authenticated: true,
+  permission: FILES_UPLOAD,
+  resource: "matter",
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "expensive",
 };
 
 const fileHistoryMeta: RouteMeta = {
@@ -708,6 +790,59 @@ const archiveEntriesRoute = defineOpenAPIRoute(archiveEntriesMeta, {
   },
 });
 
+const extractArchiveMembersRoute = defineOpenAPIRoute(extractArchiveMembersMeta, {
+  method: "post",
+  path: "/api/v1/files/{id}/archive-extractions",
+  description:
+    "Takes named members out of a zip file and files each one as a real file on the archive's own " +
+    "matter, through the ordinary ingest gate — the same sniff, hash, scan and commit an upload " +
+    "gets, because the name inside an archive is the other party's claim about its contents and " +
+    "nothing has inspected these bytes before. Paths are archive-relative, exactly as the entry " +
+    "listing returns them; folderId names a destination folder in that matter (null or absent = the " +
+    "matter root). The destination matter is always the archive's own, and a soft-deleted archive is " +
+    "a valid source (the member is filed into the live matter; the archive stays deleted). Answers " +
+    "202 with what was filed and what was refused — a partial result is the normal result, and each " +
+    "filed version is pending until the ingest gate resolves it. 409 when the archive has no " +
+    "committed bytes; 422 when it is not a zip, or the request fails validation.",
+  request: {
+    params: fileParam,
+    body: {
+      content: { "application/json": { schema: ExtractArchiveMembersRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    202: {
+      description:
+        "Accepted: each extracted member's rows and audit were committed and its bytes were " +
+        "written. Every version is pending until the ingest gate commits or quarantines it. " +
+        "Members that could not be taken out are reported in refused, by reason.",
+      content: { "application/json": { schema: ExtractArchiveMembersResponse } },
+    },
+    400: {
+      description: "The request body is absent or is not JSON",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: {
+      description:
+        "No such file in this firm, its stored bytes are gone, or the destination folder is unknown",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    409: {
+      description: "The file has no committed version yet, so there are no bytes to extract from",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description:
+        "The file is not a zip archive, or the request names no paths (or more than the cap)",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: authErrors[429],
+  },
+});
+
 const fileHistoryRoute = defineOpenAPIRoute(fileHistoryMeta, {
   method: "get",
   path: "/api/v1/matters/{matterId}/file-history",
@@ -843,6 +978,112 @@ async function loadVisibleFile(
     deletedAt: row.deleted_at,
     createdAt: row.created_at,
   };
+}
+
+type FilesContext = Context<{ Bindings: Bindings; Variables: AppVariables }>;
+
+// The name an extracted member is filed under: the LAST SEGMENT of its archive path, never the path
+// itself. A path is where the member sat inside somebody else's container; a file name is what a
+// person will read in the matter, and joining directories into it would make every extraction from a
+// nested archive read as one long string. The rest is defence: separators collapse, control
+// characters go (a name that renders one way and sorts another is a name nobody can act on), leading
+// dots go so a member called "../etc" or ".hidden" cannot address anything or arrive invisible, and
+// a name that sanitizes down to nothing gets a positional stand-in rather than an empty file name.
+function extractedMemberName(archivePath: string, index: number): string {
+  const segments = archivePath.split("/");
+  const base = (segments[segments.length - 1] ?? archivePath)
+    .replace(/[/\\]/g, "_")
+    // eslint-disable-next-line no-control-regex -- stripping control characters is the point
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/^\.+/, "")
+    .trim();
+  return base.length > 0 ? base : `extracted-${index + 1}`;
+}
+
+// One member's bytes -> one file on the matter, riding the ordinary ingest gate: initiateUpload mints
+// the pending file + version + session exactly as a direct upload does, so the same async consumer
+// (sniff, hash, scan, commit-or-quarantine) governs these bytes. Nothing here copies a verdict from
+// anywhere: the archive's contents have never been inspected, and duplicating a version would inherit
+// a verdict that was never earned.
+//
+// THE ORDER IS THE CORRECTNESS RULE. The metadata batch — the pending rows AND this extraction's
+// audit row, one batch — commits BEFORE the bytes are written, so a verdict can never land on a
+// document the record does not know about and a failed commit leaves no orphan object behind for the
+// consumer to find. The session is completed and committed once the bytes are in, and the ingest
+// event is enqueued last of all.
+async function fileExtractedMember(
+  c: FilesContext,
+  member: {
+    readonly bytes: Uint8Array;
+    readonly name: string;
+    readonly matterId: MatterId;
+    readonly folderId: FolderId | null;
+    readonly sourceModifiedAt: string | null;
+    readonly archiveFileId: FileId;
+    readonly archivePath: string;
+  },
+): Promise<{ fileId: string; versionId: string }> {
+  const firm = requireChokepointFirmContext(c);
+  const userId = requireChokepointUserId(c);
+  // The one resolver every R2-touching path shares, so these bytes land in the bucket the ingest
+  // consumer reads them back from and the event names that same bucket.
+  const { bucket, bucketName } = resolveFirmBucket(c.env, firm.bucketName);
+  const now = () => new Date().toISOString();
+  const auditContext = { clock: { now }, actorUserId: userId };
+
+  const initiated = await initiateUpload(
+    firm.firmDatabase,
+    {
+      matterId: member.matterId,
+      folderId: member.folderId,
+      name: member.name,
+      declaredSize: member.bytes.byteLength,
+      // Deliberately not declared. The entry's name inside an archive is the other side's claim about
+      // what it is, and the gate sniffs the real bytes; declaring a type here would be feeding that
+      // claim into the check meant to test it.
+      declaredContentType: null,
+      uploadedBy: userId,
+      mode: "put",
+      uploadKind: "interactive",
+      // The instant the archive recorded for this member — a real fact about where the bytes came
+      // from, and the only date the member carries.
+      sourceModifiedAt: member.sourceModifiedAt,
+    },
+    auditContext,
+  );
+
+  await commitEffectBatch(
+    firm.firmDatabase,
+    {
+      statements: [
+        ...initiated.effect.statements,
+        // Rides the SAME batch as the rows it describes: a member filed with no record of the
+        // container it came out of is a document with no provenance, and the provenance is most of
+        // what an extracted member is worth. Ids and the in-archive path only — the path is where
+        // this document sat inside the container, which is the fact being recorded.
+        fileAuditStatement(firm.firmDatabase, auditContext, "file.extracted", initiated.versionId, {
+          archiveFileId: member.archiveFileId,
+          archivePath: member.archivePath,
+        }),
+      ],
+      outboxMessages: initiated.effect.outboxMessages,
+    },
+    { now },
+  );
+
+  await bucket.put(initiated.r2Key, member.bytes, { customMetadata: initiated.dimensions });
+
+  const completed = await completeUploadSession(
+    firm.firmDatabase,
+    initiated.uploadSessionId as UploadSessionId,
+    auditContext,
+  );
+  await commitEffectBatch(firm.firmDatabase, completed.effect, { now });
+
+  // The gate runs on these bytes exactly as it does for an upload. Enqueued last, after everything
+  // that names the version has committed.
+  await enqueueDevIngestEvent(c.env, bucketName, initiated.r2Key, member.bytes.byteLength);
+  return { fileId: initiated.fileId, versionId: initiated.versionId };
 }
 
 export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void {
@@ -1424,6 +1665,160 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         }
         throw caught;
       }
+    },
+  );
+
+  // POST /api/v1/files/{id}/archive-extractions — take named members out and file them on the matter
+  app.openapi(
+    {
+      ...extractArchiveMembersRoute,
+      middleware: chokepointMiddleware(chokepoint, extractArchiveMembersRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const body = c.req.valid("json");
+      // The SAME resolution the listing uses, and deliberately NOT loadVisibleFile: a soft-deleted
+      // zip is a valid source. Taking a member out of one files that member into the LIVE matter and
+      // leaves the archive deleted — what was deleted was the container, not the ability to produce
+      // what a person can show was inside it.
+      const file = await getFileWithArchiveVersion(firm.firmDatabase, id);
+      if (file === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such file in this firm.",
+        });
+      }
+      const archiveVersion = file.currentVersion;
+      if (archiveVersion === null) {
+        return problemJson(c, {
+          type: "conflict",
+          title: "File has no committed bytes",
+          status: 409,
+          detail:
+            "This file has no committed version yet, so there is nothing inside it to extract — " +
+            "try again once the upload finishes processing.",
+        });
+      }
+      // The sniffed type is what the bytes actually are; a file that was never sniffed falls back to
+      // its stored name's extension. Same decision the listing makes, for the same reason.
+      const sniffed = archiveVersion.sniffedContentType;
+      const looksLikeZip =
+        sniffed === null
+          ? file.name.toLowerCase().endsWith(".zip")
+          : (sniffed.toLowerCase().split(";")[0]?.trim() ?? "") === "application/zip";
+      if (!looksLikeZip) {
+        return problemJson(c, {
+          type: "not-an-archive",
+          title: "Not an archive",
+          status: 422,
+          detail: "This file is not a zip archive, so it has nothing to extract.",
+        });
+      }
+
+      const caps = await readArchiveCaps(firm.firmDatabase);
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      let listing;
+      try {
+        listing = await readZipCentralDirectory(bucket, archiveVersion.r2Key, {
+          maxEntries: caps.maxEntries,
+        });
+      } catch (caught) {
+        if (caught instanceof ZipCentralDirectoryError) {
+          return problemJson(c, {
+            type: "not-an-archive",
+            title: "Not an archive",
+            status: 422,
+            detail: "This file's content is not a readable zip archive.",
+          });
+        }
+        throw caught;
+      }
+      if (listing === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "The file's stored bytes are no longer available.",
+        });
+      }
+      // The listing is the ONLY source of what a requested path means: the entry it names carries the
+      // local-header offset, the method, the flags and the CRC the extractor works from. A path the
+      // listing does not hold is refused by name rather than searched for by hand.
+      const entriesByPath = new Map(listing.entries.map((entry) => [entry.path, entry]));
+
+      const extracted: z.infer<typeof ExtractedArchiveMember>[] = [];
+      const refused: z.infer<typeof RefusedArchiveMember>[] = [];
+      // A TOTAL budget across the request, not just the firm's per-member ceiling. A hundred members
+      // that each pass individually are still a hundred times that ceiling held in one isolate, so
+      // the running total is spent as members are taken; once the next one would carry it past the
+      // ceiling, that member and every one after it is refused rather than extracted. The request
+      // still answers 202 and says so — a refusal is a fact about the member, not a failed request.
+      let budgetRemaining = caps.maxUncompressedBytes;
+      let budgetSpent = false;
+      for (const [index, path] of body.paths.entries()) {
+        const entry = entriesByPath.get(path);
+        if (entry === undefined) {
+          refused.push({ path, reason: "not-in-archive" });
+          continue;
+        }
+        if (budgetSpent || entry.uncompressedSizeBytes > budgetRemaining) {
+          budgetSpent = true;
+          refused.push({ path, reason: "too-large" });
+          continue;
+        }
+        const taken = await extractZipMember(bucket, archiveVersion.r2Key, entry, {
+          maxUncompressedBytes: caps.maxUncompressedBytes,
+          maxExpansionRatio: caps.maxExpansionRatio,
+        });
+        if (taken.kind === "refused") {
+          refused.push({ path, reason: taken.reason });
+          continue;
+        }
+        budgetRemaining -= taken.bytes.byteLength;
+        const name = extractedMemberName(path, index);
+        try {
+          const filed = await fileExtractedMember(c, {
+            bytes: taken.bytes,
+            name,
+            // ALWAYS the archive's own matter, never a matter from the request.
+            matterId: file.matterId,
+            folderId: body.folderId ?? null,
+            sourceModifiedAt: entry.modifiedAt,
+            archiveFileId: id,
+            archivePath: path,
+          });
+          extracted.push({ path, name, ...filed });
+        } catch (caught) {
+          if (caught instanceof FileManagerValidationError) {
+            // The firm's upload policy refusing this member's size or its name is a fact about the
+            // member, exactly like an encrypted one — the other members still go through.
+            if (caught.code === "upload-policy-size") {
+              refused.push({ path, reason: "policy-size" });
+              continue;
+            }
+            if (caught.code === "upload-policy-type") {
+              refused.push({ path, reason: "policy-type" });
+              continue;
+            }
+            // The destination folder, by contrast, is a fact about the REQUEST: it is the same for
+            // every member, so it fails on the first one with nothing yet committed, and the honest
+            // answer is the reserved absence rather than a hundred identical refusals.
+            if (caught.code === "unknown-folder" || caught.code === "file-cross-matter") {
+              return problemJson(c, {
+                type: "not-found",
+                title: "Not found",
+                status: 404,
+                detail: "No such folder in this matter.",
+              });
+            }
+          }
+          throw caught;
+        }
+      }
+      return c.json({ extracted, refused }, 202);
     },
   );
 
