@@ -262,6 +262,13 @@ describe("end-to-end", () => {
         // Attorney, and Paralegal only (20260806T000000_case-calendar).
         "calendar:manage",
         "calendar:read",
+        // The three communications keys reach Owner/Admin. communications:read also reaches Billing,
+        // and communications:reviewUnrouted stops at Owner/Admin and Paralegal — working the queue of
+        // calls nobody has filed is reception's job, and its contents are unsorted by construction
+        // (20260907T030000_communication-log).
+        "communications:log",
+        "communications:read",
+        "communications:reviewUnrouted",
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
         // consultation); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
         "conflicts:dispose",

@@ -102,6 +102,7 @@ export type EmailAttachmentId = Identifier<"emailAttachment">;
 export type EmailCaptureAddressId = Identifier<"emailCaptureAddress">;
 export type EmailAutoFileRuleId = Identifier<"emailAutoFileRule">;
 export type EmailAutoFileDecisionId = Identifier<"emailAutoFileDecision">;
+export type CommunicationId = Identifier<"communication">;
 export type IndexSplitId = Identifier<"indexSplit">;
 export type DocumentTemplateId = Identifier<"documentTemplate">;
 export type DocumentTemplateVersionId = Identifier<"documentTemplateVersion">;

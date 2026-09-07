@@ -223,6 +223,11 @@ describe("a matter-scoped read names its rows through each owning source", () =>
     );
     expect(describing.toSorted()).toEqual(
       [
+        // A call or a text describes as the opening line of what was said — the member's own summary
+        // for a call, the message itself for a text. The counterparty's number is deliberately NOT
+        // in the description: the timeline spans a matter's whole record, and who was called belongs
+        // on the Messaging section behind the same key, where somebody went looking for it.
+        "communication",
         "costEntry",
         "documentFiled",
         "fileHistory",

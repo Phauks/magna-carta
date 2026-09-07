@@ -192,6 +192,12 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // keys; Billing and Read-only get calendar:read alone.
         "calendar:manage",
         "calendar:read",
+        // A paralegal records the firm's calls and texts and works the queue of ones nobody has
+        // filed — which is reception's job in most firms, and is why reviewUnrouted reaches this
+        // seat and not Attorney.
+        "communications:log",
+        "communications:read",
+        "communications:reviewUnrouted",
         "conflicts:read",
         "conflicts:run",
         "costs:track",
@@ -303,6 +309,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "billing:draft",
         "billing:read",
         "calendar:read",
+        // "Did anyone ever reach this client about the unpaid invoice" is a question a billing clerk
+        // has to answer, and the log's metadata answers it. Recording a call is not their job and
+        // the queue is not theirs to work, so neither of the other two keys is here.
+        "communications:read",
         "conflicts:read",
         "conflicts:run",
         "costs:approve",

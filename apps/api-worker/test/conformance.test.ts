@@ -140,7 +140,7 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
 // outbound-comms). Each such slice adds its operationId namespace here as it builds; the payments
 // and comms rows land with their slices.
-const MONEY_NAMESPACES = new Set<string>(["trust", "billing"]);
+const MONEY_NAMESPACES = new Set<string>(["trust", "billing", "communications"]);
 
 // x-mc-operationId is a string in every emitted operation; read it defensively (the value is typed
 // unknown off the document record) so the fitness functions never stringify a non-string.
@@ -271,6 +271,13 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // years ago is the steady state, not an edge case), so binding to "matter" would name a resource
   // half the rows do not have. Same reasoning as the firm catch-all exception in the emails:* row.
   custody: "firm",
+  // communications:* governs the log of calls and texts. It binds the FIRM rather than the matter,
+  // on the custody row's reasoning immediately above and for the identical structural reason: a
+  // communication's matter is nullable by construction — an inbound text from a number nobody
+  // recognises belongs to no matter until somebody files it — so binding to "matter" would name a
+  // resource the rows in the queue do not have. The matter-scoped read still composes the
+  // visible-matter predicate; the binding decides which root the chokepoint resolves.
+  communications: "firm",
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
@@ -902,6 +909,13 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "calendar.updateResource",
       "calendar.updateSettings",
       "calendar.vacateDeadline",
+      "communications.get",
+      "communications.list",
+      "communications.listForMatter",
+      "communications.log",
+      "communications.routeToMatter",
+      "communications.unrouteFromMatter",
+      "communications.unroutedCount",
       "conflicts.firmPolicy",
       "conflicts.getCheck",
       "conflicts.hitDispositions",
@@ -1387,8 +1401,10 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "trust.withdrawReconciliationMatch",
       "uploads.abort",
       "uploads.complete",
+      "uploads.duplicate",
       "uploads.get",
       "uploads.initiate",
+      "uploads.matches",
       "uploads.signPart",
       "utbmsCodes.disable",
       "utbmsCodes.enable",
