@@ -75,6 +75,7 @@
   import { sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import Button from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
+  import * as Tooltip from "@magna-carta/design-system/tooltip";
   import Separator from "@magna-carta/design-system/separator";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -473,22 +474,35 @@
 {/snippet}
 
 <Popover.Root bind:open>
-  <Popover.Trigger
-    class="mc-top-bar-icon-button gap-8 border text-xs tabular-nums"
-    style="border-color: var(--mc-chrome-border)"
-    aria-label="Build Versions: {chipLabel}{updateAvailable ? ' (update available)' : ''}"
-  >
-    <GitCommitHorizontal class="size-16" aria-hidden="true" />
-    <span class="font-mono">{chipLabel}</span>
-    {#if updateAvailable}
-      <!-- The quiet signal that a newer deployment is live; the panel carries the words. -->
-      <span
-        class="size-8 shrink-0 rounded-full"
-        style="background-color: var(--mc-status-warning)"
-        aria-hidden="true"
-      ></span>
-    {/if}
-  </Popover.Trigger>
+  <!-- The hover names the control — "Build Information", the same one-name answer the bell, the
+       Time Sheet's handle and the download tray give. The chip already shows the build; what the
+       hover has to say is what pressing it opens. The tooltip and the popover share ONE button
+       through the tooltip trigger's child snippet; the accessible name keeps the build itself,
+       which a reader who cannot see the chip has no other way to hear. -->
+  <Tooltip.Root>
+    <Tooltip.Trigger>
+      {#snippet child({ props })}
+        <Popover.Trigger
+          {...props}
+          class="mc-top-bar-icon-button gap-8 border text-xs tabular-nums"
+          style="border-color: var(--mc-chrome-border)"
+          aria-label="Build Information: {chipLabel}{updateAvailable ? ' (update available)' : ''}"
+        >
+          <GitCommitHorizontal class="size-16" aria-hidden="true" />
+          <span class="font-mono">{chipLabel}</span>
+          {#if updateAvailable}
+            <!-- The quiet signal that a newer deployment is live; the panel carries the words. -->
+            <span
+              class="size-8 shrink-0 rounded-full"
+              style="background-color: var(--mc-status-warning)"
+              aria-hidden="true"
+            ></span>
+          {/if}
+        </Popover.Trigger>
+      {/snippet}
+    </Tooltip.Trigger>
+    <Tooltip.Content>Build Information</Tooltip.Content>
+  </Tooltip.Root>
   <!-- Sizing rides inline style, not a recipe: the max-height ceiling is the Bits-provided
        available viewport height (the same pattern the select listbox uses), so a short window
        scrolls the panel instead of clipping the service rows off-screen. -->

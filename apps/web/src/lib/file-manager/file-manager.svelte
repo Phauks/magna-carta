@@ -94,12 +94,8 @@
     archivePathSegments,
     type ArchiveRow,
   } from "./archive-browse.ts";
-  import {
-    uploadIntoFolder,
-    UPLOAD_STAGE_NARRATION,
-    type UploadOutcome,
-    type UploadProgressItem,
-  } from "./file-upload.ts";
+  import { uploadIntoFolder } from "./file-upload.ts";
+  import { matterUploadRevision, startUploadBatch } from "./upload-queue.svelte.ts";
   import {
     MatterFileIndex,
     fileKey,
@@ -144,11 +140,7 @@
   import FolderDeleteDialog from "./folder-delete-dialog.svelte";
   import RestoreFileDialog from "./restore-file-dialog.svelte";
   import UploadDialog from "./upload-dialog.svelte";
-  import {
-    entriesFromDataTransfer,
-    folderPathOf,
-    type DroppedEntry,
-  } from "@magna-carta/design-system/dropzone";
+  import { entriesFromDataTransfer, type DroppedEntry } from "@magna-carta/design-system/dropzone";
   import SafetyMark from "./safety-mark.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
 
@@ -156,6 +148,8 @@
     matterId,
     matterTitle,
     revealFileId = null,
+    revealFolderId = null,
+    searchQuery = "",
   }: {
     matterId: string;
     matterTitle: string;
@@ -164,13 +158,24 @@
      * folder, selects it and shows it in the inspector, exactly as a click on the row would.
      */
     revealFileId?: string | null;
+    /**
+     * A folder to open on arrival — where the upload tray's "Open folder" lands. Opened once the
+     * folders are in, and only if the record still holds it; a folder that has gone opens nothing.
+     */
+    revealFolderId?: string | null;
+    /**
+     * What to search this matter's files for, read off the address by the page above. This surface
+     * has NO field of its own: one matter is searched from one place, the matter header's search,
+     * and what reaches this table is the query that search put in the address.
+     */
+    searchQuery?: string;
   } = $props();
 
   const manager = new FileManagerState();
 
   // --- the create actions, answered from the matter header ---------------------------------------
   //
-  // The header's New File control (create-action.svelte.ts) is the one create button on this
+  // The header's New control (create-action.svelte.ts) is the one create button on this
   // surface; the toolbar carries none. These are what its menu offers, exported so the Files page
   // can put them behind it. Creating needs a current folder, and the views that show rows from
   // many folders have none — the refusal is read by the page inside its claim, so the control
@@ -365,6 +370,14 @@
     manager.setPanelOpen(true);
   });
 
+  let revealedFolderId = $state<string | null>(null);
+  $effect(() => {
+    const wanted = revealFolderId;
+    if (wanted === null || files === null || revealedFolderId === wanted) return;
+    revealedFolderId = wanted;
+    if (index.folderById(wanted) !== undefined) manager.openFolder(wanted);
+  });
+
   const selectedRows = $derived(rows.filter((row) => manager.selectedKeys.includes(row.key)));
   const inspectedRow = $derived(
     rows.find((row) => row.key === manager.inspectorKey) ??
@@ -437,18 +450,19 @@
 
   // --- acts ------------------------------------------------------------------------------------
 
-  /**
-   * Searching from the toolbar.
-   *
-   * The field is one control on one surface, so typing into it is what OPENS the results view and
-   * emptying it is what leaves: a reader who clears the box has said they are done searching, and
-   * being left staring at an empty results table would make them find their own way back.
+  /*
+   * The query in the address is what opens the results view, and losing it is what leaves: a reader
+   * who has cleared the search has said they are done, and being left staring at an empty results
+   * table would make them find their own way back. Reading the address rather than a field of this
+   * surface's own is what keeps one matter searched from one place.
    */
-  function runSearch(query: string): void {
-    manager.searchQuery = query;
-    if (query.trim() !== "" && manager.view !== "results") manager.openView("results");
-    else if (query.trim() === "" && manager.view === "results") manager.openFolder(null);
-  }
+  $effect(() => {
+    const query = searchQuery.trim();
+    if (manager.searchQuery === searchQuery) return;
+    manager.searchQuery = searchQuery;
+    if (query !== "" && manager.view !== "results") manager.openView("results");
+    else if (query === "" && manager.view === "results") manager.openFolder(null);
+  });
 
   function activate(row: FileManagerRow): void {
     if (row.kind === "folder") {
@@ -476,7 +490,7 @@
   let newFolderPending = $state(false);
 
   async function makeFolder(): Promise<void> {
-    // One folder per press: the header's New File menu can be pressed again before the first
+    // One folder per press: the header's New menu can be pressed again before the first
     // create has answered, and that would be two "New Folder"s, not one.
     if (manager.view !== "browse" || newFolderPending) return;
     newFolderPending = true;
@@ -797,152 +811,40 @@
   // --- uploading -----------------------------------------------------------------------------------
 
   /*
-   * NOTHING IS SENT UNTIL UPLOAD IS PRESSED. The Upload dialog opens first — from the toolbar, from
-   * a drop onto the list, from the empty folder's button — and holds the file, files or whole
-   * folder the reader chooses beside the one question a pick cannot answer: which folder. Only the
-   * dialog's commit starts the transfer; cancelling before it sends nothing, so there is never a
-   * landed byte to worry about. A dropped or picked folder is recreated under the destination,
-   * level by level, and its files land inside it.
+   * NOTHING IS SENT UNTIL UPLOAD IS PRESSED. The Upload dialog opens first — from the matter
+   * header's New File menu, from a drop onto the list, from the empty folder's copy — and holds the
+   * files or whole folders the reader chooses beside the intake: which matter and folder, how the
+   * files are dated, what type they carry. Only the dialog's commit starts the transfer, and the
+   * transfer is the UPLOAD QUEUE's from then on (upload-queue.svelte.ts): it runs on after the
+   * dialog closes and reports into the top-bar tray, and this list re-reads when a batch on this
+   * matter finishes. The dialog itself owns the ceremony of choosing; this surface only opens it
+   * where the reader is standing and hands the decided batch to the queue.
    */
   let filePicker = $state<HTMLInputElement | null>(null);
   let uploadOpen = $state(false);
   let uploadPreselected = $state<readonly DroppedEntry[]>([]);
-  let uploadItems = $state<readonly UploadProgressItem[]>([]);
   let uploadBaseFolderId = $state<string | null>(null);
 
   function openUpload(preselected: readonly DroppedEntry[]): void {
     uploadBaseFolderId = manager.view === "browse" ? manager.currentFolderId : null;
     uploadPreselected = preselected;
-    uploadItems = [];
     uploadOpen = true;
   }
 
-  function setUploadItem(at: number, next: UploadProgressItem): void {
-    uploadItems = uploadItems.map((item, position) => (position === at ? next : item));
-  }
-
-  /** The failure line carries the stage and the Error ID: a report needs both, and a bare
-   * "unexpected error" was exactly the undiagnosable answer this replaces. */
-  function uploadFailureReason(outcome: UploadOutcome & { kind: "problem" }): string {
-    const where = UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase();
-    const errorId = outcome.problem.errorId;
-    return (
-      problemGuidance(outcome.problem).message +
-      ` (failed while ${where}` +
-      (errorId === undefined ? ")" : `; Error ID ${errorId})`)
-    );
-  }
-
-  /** What an entry is called in the progress list: its path when it came from a folder. */
-  function uploadItemName(entry: DroppedEntry): string {
-    return entry.relativePath === "" ? entry.file.name : entry.relativePath;
-  }
-
-  /**
-   * The folder an entry lands in, made if it does not exist yet. Folders are matched by name under
-   * their parent — a second upload of the same folder lands in the one already there rather than
-   * beside it — and each level is made once per batch, however many files sit inside it. Undefined
-   * means a level could not be made, and the entry does not go.
-   */
-  async function ensureUploadFolder(
-    folderPath: string,
-    destinationFolderId: string | null,
-    made: Map<string, string>,
-  ): Promise<{ id: string | null } | undefined> {
-    if (folderPath === "") return { id: destinationFolderId };
-    const known = made.get(folderPath);
-    if (known !== undefined) return { id: known };
-    const cut = folderPath.lastIndexOf("/");
-    const parent = await ensureUploadFolder(
-      cut === -1 ? "" : folderPath.slice(0, cut),
-      destinationFolderId,
-      made,
-    );
-    if (parent === undefined) return undefined;
-    const name = cut === -1 ? folderPath : folderPath.slice(cut + 1);
-    const existing = index.childrenOf(parent.id).find((folder) => folder.name === name);
-    let id = existing?.id;
-    if (id === undefined) {
-      const result = await createFolder(
-        fetch,
-        { matterId, parentFolderId: parent.id, name },
-        crypto.randomUUID(),
-      );
-      if (result.kind !== "ok") return undefined;
-      id = result.value.folderId;
+  // A batch landing on this matter — from this screen or from any other — is a change to the
+  // record this list shows, so the list re-reads. Keyed on the queue's per-matter revision rather
+  // than on the dialog, because a batch started elsewhere never touches the dialog here.
+  let seenUploadRevision: number | null = null;
+  $effect(() => {
+    const revision = matterUploadRevision(matterId);
+    // The first reading is the baseline, not a change: the list is loading its own record then.
+    if (seenUploadRevision === null || revision === seenUploadRevision) {
+      seenUploadRevision = revision;
+      return;
     }
-    made.set(folderPath, id);
-    return { id };
-  }
-
-  /** The transfer itself, one file after another, reporting each into the dialog's list. */
-  async function runUploadBatch(
-    chosen: readonly DroppedEntry[],
-    destinationFolderId: string | null,
-  ): Promise<{ failed: number }> {
-    uploadItems = chosen.map((entry) => ({ name: uploadItemName(entry), stage: "reserving" as const }));
-    const made = new Map<string, string>();
-    // The names already taken in each landing folder, so a collision disambiguates in the copy
-    // convention: the reader asked for this file to be here, and refusing it would be the worse answer.
-    const takenIn = new Map<string | null, { key: string; name: string }[]>();
-    let failed = 0;
-
-    for (let at = 0; at < chosen.length; at += 1) {
-      const entry = chosen[at];
-      if (entry === undefined) continue;
-      const name = uploadItemName(entry);
-      const landing = await ensureUploadFolder(folderPathOf(entry), destinationFolderId, made);
-      if (landing === undefined) {
-        failed += 1;
-        setUploadItem(at, {
-          name,
-          stage: "failed",
-          reason: `The folder ${folderPathOf(entry)} could not be made, so this file was not sent.`,
-        });
-        continue;
-      }
-      let taken = takenIn.get(landing.id);
-      if (taken === undefined) {
-        taken = index.filesIn(landing.id).map((file) => ({ key: fileKey(file.id), name: file.name }));
-        takenIn.set(landing.id, taken);
-      }
-      const filedAs = disambiguated(entry.file.name, taken);
-      const outcome = await uploadIntoFolder({
-        fetchImpl: fetch,
-        matterId,
-        folderId: landing.id,
-        file: entry.file,
-        name: filedAs,
-        onStage: (stage) => setUploadItem(at, { name, stage }),
-      });
-      taken.push({ key: `pending:${filedAs}`, name: filedAs });
-      if (outcome.kind === "problem") {
-        failed += 1;
-        setUploadItem(at, { name, stage: "failed", reason: uploadFailureReason(outcome) });
-      } else if (outcome.kind === "transport") {
-        failed += 1;
-        setUploadItem(at, {
-          name,
-          stage: "failed",
-          reason:
-            "Nothing answered while " + UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase() + ".",
-        });
-      } else {
-        setUploadItem(at, { name, stage: "settled" });
-      }
-    }
-
+    seenUploadRevision = revision;
     reload();
-    // The batch landed where it was asked to land, so show that folder.
-    if (
-      failed === 0 &&
-      manager.view === "browse" &&
-      destinationFolderId !== manager.currentFolderId
-    ) {
-      manager.openFolder(destinationFolderId);
-    }
-    return { failed };
-  }
+  });
 
   // --- the details panel's own reads ----------------------------------------------------------------
 
@@ -1680,7 +1582,6 @@
               showFileCounts={manager.showSidebarCounts}
               {loading}
               label="Matter folders"
-              emptyMessage="No folders yet. Everything on this matter sits at the top level until one is made."
               newFolderDisabledReason={manager.view === "browse"
                 ? undefined
                 : "This view has no current folder to make one in."}
@@ -1732,12 +1633,7 @@
               });
             }}
           >
-            <FileManagerToolbar
-              {manager}
-              {trail}
-              viewTitle={VIEW_TITLES[manager.view]}
-              onSearch={runSearch}
-            />
+            <FileManagerToolbar {manager} {trail} viewTitle={VIEW_TITLES[manager.view]} />
 
             {#if archiveBrowse !== null}
               <!-- Inside a zip, the archive stands in for the LIST and only the list: the toolbar
@@ -1790,11 +1686,12 @@
               />
             {:else}
 
-            {#if manager.view === "results"}
+            {#if manager.view === "results" && manager.searchQuery.trim() !== ""}
               <!-- What the results view still says for itself: how the search was scoped, how many
-                   rows matched it, and how far the index actually reaches. The FIELD is not here —
-                   it lives with the surface's other controls at the top, so the table's own titles
-                   start in the same place in this view as in every other. -->
+                   rows matched it, and how far the index actually reaches. The FIELD is not here at
+                   all — the matter header's search is the one field this matter is searched from,
+                   and its query reaches this table through the address. With no query there is
+                   nothing to scope, so the strip does not render either. -->
               <div
                 class="flex items-center gap-8 border-b border-border-default px-12 py-4 text-xs text-text-muted"
               >
@@ -1933,7 +1830,7 @@
                     {cell}
                     settings={displaySettings}
                     caption="This matter's files"
-                    empty={emptyFolder}
+                    empty={manager.view === "results" ? emptyResults : emptyFolder}
                     {loading}
                     density={manager.scalePercent < 100 ? "compact" : "comfortable"}
                     class="h-full rounded-none border-0"
@@ -2048,12 +1945,13 @@
 
 <UploadDialog
   bind:open={uploadOpen}
+  {matterId}
+  {matterTitle}
   {index}
   baseFolderId={uploadBaseFolderId}
-  {matterTitle}
+  {documentTypes}
   preselected={uploadPreselected}
-  items={uploadItems}
-  onUpload={runUploadBatch}
+  onStart={startUploadBatch}
   onDismiss={reload}
 />
 
@@ -2286,8 +2184,9 @@
 {/snippet}
 
 {#snippet displaySettings()}
-  <!-- The surface's own display settings ride the header menu's Columns submenu, in the same
-       family as the zebra setting and beside the columns they change. -->
+  <!-- The surface's own display settings ride the header menu's ROOT, beside the table's own row
+       shading. Not under Columns: Columns holds columns, and a setting filed under a trigger that
+       names something else is a setting nobody finds. -->
   <ContextMenu.CheckboxItem
     bind:checked={() => manager.hideExtensions, (next) => manager.setHideExtensions(next)}
   >
@@ -2300,10 +2199,17 @@
   </ContextMenu.CheckboxItem>
 {/snippet}
 
+{#snippet emptyResults()}
+  <EmptyState title="Nothing to Show Yet">
+    Search this matter from the field at the top of the screen; what it finds among the files lands
+    here, where the whole result set can be acted on at once.
+  </EmptyState>
+{/snippet}
+
 {#snippet emptyFolder()}
   <EmptyState title="Nothing in This Folder">
     Files put here appear in this list. Everything on the matter is still reachable from Home,
-    whichever folder it sits in. New File, at the top of the matter, adds the first; dropping files
+    whichever folder it sits in. New, at the top of the matter, adds the first; dropping files
     here does too.
   </EmptyState>
 {/snippet}

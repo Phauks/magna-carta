@@ -58,6 +58,11 @@ catalog:
   # otpauth is a devDependency that verifies TOTP codes in two-factor tests.
   better-auth: 1.6.22
   otpauth: 9.5.1
+  # Incremental SHA-256 for the browser (apps/web): the upload dialog streams a file through it to
+  # ask whether the firm already holds the bytes before sending any. WebCrypto has no incremental
+  # digest, so a whole-file buffer was the only native path; this is audited, pure TypeScript, and
+  # already in the graph under better-auth's utilities, so it is the same pin.
+  "@noble/hashes": 2.2.0
   # Money (packages/money). Bigint API: the consolidated `dinero.js/bigint` subpath bundles the
   # calculator + bigint currencies, so no separate (deprecated) @dinero.js/calculator-bigint is needed.
   "dinero.js": 2.0.2

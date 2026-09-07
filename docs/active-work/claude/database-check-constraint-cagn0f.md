@@ -2,7 +2,7 @@
 worktree: C:/dev/magna-carta-worktrees/claude/database-check-constraint-cagn0f
 area: The matter status rename's copy step, and the diagnostic reads that went dark behind it
 status: building
-touches: apps/api-worker/src/routes/meta-database-health.ts, apps/api-worker/openapi/openapi.json, packages/api-client, apps/web/src/lib/versions, apps/web/src/routes/(app)/matters, apps/web/test
+touches: packages/database/drizzle/per-firm, packages/database/src/reviewed-rebuilds.ts, packages/database/test, apps/api-worker/src/chokepoint, apps/api-worker/src/routes/meta-versions.ts, apps/api-worker/src/routes/meta-database-health.ts, apps/api-worker/openapi/openapi.json, packages/api-client, apps/web/src/lib/versions, apps/web/src/routes/(app)/matters, apps/web/test
 ---
 
 A deployed firm held a matter still spelled `prospective`, which the matter status rename's copy
@@ -16,4 +16,10 @@ The second half of the stream is why the fault was slow to find: the version and
 reads are the surfaces meant to report exactly this, and both are firm-scoped, so both died with the
 database they exist to describe. Anything touching the chokepoint's firm resolution is this stream's.
 
-Second round, after the fix deployed and the firm database was STILL not answering: the panel named the symptom and not the cause, because the health read caught the durable object's error in a bare `catch` and dropped it. It now carries that message, scrubbed and bounded. The docket screen's failure branch interpolated a failure RECORD and rendered `[object Object]`; it goes through the standard failure surface now. The version panel's own structure is next.
+Second round, after that shipped and the firm database was STILL not answering: the panel named the
+symptom and not the cause, because the health read caught the durable object's error in a bare
+`catch` and dropped it. It carries that message now, scrubbed and bounded. The docket's failure
+branch interpolated a failure RECORD and rendered `[object Object]`; it goes through the standard
+failure surface. The panel itself is this stream's too — copy takes the whole diagnosis from a
+control at the top, and Workers is a caret beside Deployment rather than a drawer inside it — which
+means `version-chip.svelte`, its two test files, and the panel's fold preferences are all owned here.

@@ -4,7 +4,8 @@
  *   1. Tailwind v4 (declares the theme/base/components/utilities cascade layers),
  *   2. token custom properties (per theme-and-mode, scoped by [data-theme] + .dark),
  *   3. the @theme mapping that turns semantic tokens into Tailwind utilities,
- *   4. the design system's motion keyframes, then its component recipes (which reference them).
+ *   4. the document base (colour scheme + the root ink every screen inherits),
+ *   5. the design system's motion keyframes, then its component recipes (which reference them).
  * The @source path reaches the design system's Svelte/TS sources through this app's
  * node_modules symlink (pnpm workspace link) so Tailwind emits utilities used there.
  * This import set MIRRORS packages/design-system/.storybook/preview.css — the catalog and the
@@ -14,6 +15,7 @@
 @import "tailwindcss";
 @import "@magna-carta/design-tokens/tokens.css";
 @import "@magna-carta/design-tokens/tailwind-theme.css";
+@import "@magna-carta/design-system/styles/base.css";
 @import "@magna-carta/design-system/styles/animations.css";
 @import "@magna-carta/design-system/styles/components.css";
 @source "../node_modules/@magna-carta/design-system/src";

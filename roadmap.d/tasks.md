@@ -10,7 +10,7 @@
   status: partial
   slices: 6-3-tasks
   spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
-  evidence: The task record, the matter plan, the time link and the integration seam all ship — packages/tasks, the matter_task, matter_task_document, matter_plan_template, matter_plan_task_template, matter_task_external_link and matter_task_deletion tables, a nullable task_id on time_entry, four permission keys, twenty-seven routes, the matterTask timeline source, a matter close advisory, the Tasks section, My Work at /tasks, plan authoring under Settings, and a task volume in the load-profile harness. What holds this node at partial is the rest of the workflow surface: the board and its firm-defined statuses, recurrence, watchers and comments.
+  evidence: The task record, the matter plan, the time link and the integration seam all ship — packages/tasks, the matter_task, matter_task_document, matter_plan_template, matter_plan_task_template, matter_task_external_link and matter_task_deletion tables, a nullable task_id on time_entry, four permission keys, twenty-seven routes, the matterTask timeline source, a matter close advisory, the Tasks section, the firm-wide Tasks list at /tasks, plan authoring under Settings, and a task volume in the load-profile harness. What holds this node at partial is the rest of the workflow surface: the board and its firm-defined statuses, recurrence, watchers and comments.
   audience: public
   public-name: Tasks and matter plans
   public-summary: Task lists on a matter, and a plan that lays them out for you when a matter of that kind is opened.
@@ -23,7 +23,7 @@
   slices: 6-3-tasks
   surface: screen
   spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
-  evidence: packages/tasks with matter_task and matter_task_document, matterTask and matterTaskDocument identifier types, tasks:read/write/assign, and eleven routes. matter_id is nullable so firm work with no client file lives here too, with the visibility branch confined to taskVisibilityFragment. No date is derived and no overdue column exists — both held by source and schema scans. Cancellation and deletion are both real and distinguished. Two screens: the matter's Tasks section and My Work.
+  evidence: packages/tasks with matter_task and matter_task_document, matterTask and matterTaskDocument identifier types, tasks:read/write/assign, and eleven routes. matter_id is nullable so firm work with no client file lives here too, with the visibility branch confined to taskVisibilityFragment. No date is derived and no overdue column exists — both held by source and schema scans. Cancellation and deletion are both real and distinguished. Two screens: the matter's Tasks section and the firm-wide Tasks list.
 
 - id: tasks.matter-plans
   name: Matter plans

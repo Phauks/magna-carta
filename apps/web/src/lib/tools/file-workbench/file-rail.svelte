@@ -117,8 +117,8 @@
 
 {#snippet emptyBench()}
   <!-- Short on purpose: this sits in a narrow pane, and a paragraph here would be clipped by the
-       column it lives in rather than read. What the workbench does and does not keep is said in the
-       masthead, where there is room for it. -->
+       column it lives in rather than read. What the workbench does and does not keep is said once,
+       full width, beneath the screen's header (workbench.svelte). -->
   <EmptyState title="Nothing on the Workbench">Drop a file here, or add one.</EmptyState>
 {/snippet}
 

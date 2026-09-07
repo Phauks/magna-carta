@@ -476,7 +476,10 @@ export function registerDocumentCheckoutRoutes(
           key: initiated.r2Key,
           method: "PUT" as const,
           url: presigned.url,
-          headers: { "Content-Type": CHECKIN_UPLOAD_CONTENT_TYPE, ...presigned.headers },
+          // The presigner's set exactly: it already carries the content type it signed, and a
+          // second spelling beside it is merged by the browser into one doubled value the
+          // signature does not cover (the defect routes/uploads.ts records).
+          headers: presigned.headers,
         },
         200,
       );

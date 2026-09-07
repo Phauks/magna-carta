@@ -23,6 +23,7 @@
     "@magna-carta/file-type": "workspace:*",
     "@magna-carta/merge-field-catalog-contract": "workspace:*",
     "@magna-carta/tools": "workspace:*",
+    "@noble/hashes": "catalog:",
     "better-auth": "catalog:",
     "client-zip": "catalog:",
     "libphonenumber-js": "^1.13.7",

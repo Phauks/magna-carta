@@ -12,6 +12,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
@@ -50,7 +51,6 @@
 <SettingsMasthead
   sectionId="users"
   title="Users"
-  meta="The firm's members and what their roles allow — managed by the firm, for the firm."
   posture={canEdit ? "draft" : "readOnly"}
   draft={canEdit ? draft : undefined}
 />
@@ -60,6 +60,8 @@
      identical width. Full canvas width (owner-directed): the table uses the space. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>The firm's members and what their roles allow — managed by the firm, for the firm.</SettingsDescription>
+
   <SettingsPlate heading="Membership">
     <SettingsRow definition={MEMBERS_DEFINITION}>
       {#snippet control()}

@@ -30,6 +30,7 @@ function file(over: Partial<MatterFile> & { id: string; name: string }): MatterF
     scanVerdict: null,
     status: "clean",
     quarantineReason: null,
+    sourceModifiedAt: null,
     ...over,
   };
 }

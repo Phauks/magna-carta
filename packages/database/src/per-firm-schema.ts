@@ -987,6 +987,12 @@ export const fileVersion = sqliteTable(
       .references((): AnySQLiteColumn => documentCheckout.id),
     createdAt: text("created_at").notNull(),
     committedAt: text("committed_at"),
+    // The last-modified instant the uploading device reported for the file this version came from,
+    // as the reader's browser saw it (File.lastModified). A fact about the SOURCE, recorded on every
+    // version whether or not the reader chose to date the file by it — so a later question about
+    // where a document's date came from has an answer. Null for a version that arrived some other
+    // way (a live-edit save, an assembled document, a version older than the column).
+    sourceModifiedAt: text("source_modified_at"),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),
@@ -995,6 +1001,8 @@ export const fileVersion = sqliteTable(
       table.versionNumber,
     ),
     index("file_version_status_index").on(table.status),
+    // The upload dialog's "does the firm already hold these bytes" lookup, by the committed hash.
+    index("file_version_content_sha256_index").on(table.contentSha256),
     // The tiering sweep's firm-wide candidate scan (storage_class='standard' + status='clean' +
     // committed_at < cutoff) seeks this composite instead of walking every clean version.
     index("file_version_tiering_index").on(table.storageClass, table.status, table.committedAt),
@@ -2270,6 +2278,12 @@ export const timeEntry = sqliteTable(
     index("time_entry_timekeeper_work_date_index").on(table.timekeeperUserId, table.workDate),
     index("time_entry_matter_status_index").on(table.matterId, table.status),
     index("time_entry_status_work_date_index").on(table.status, table.workDate),
+    // The firm-wide period read behind /time when it is asked for everybody's time: a date range
+    // with no timekeeper and no status. The (timekeeper_user_id, work_date) index above serves the
+    // same read narrowed to one person, and the (status, work_date) index serves it narrowed to one
+    // status; neither has work_date in its leading position, so the unnarrowed range had nothing to
+    // ride and walked the table.
+    index("time_entry_work_date_index").on(table.workDate),
     // The grouped read behind "how long did this task actually take". Partial, because the column
     // is null on nearly every row and an index over those nulls would be mostly dead weight.
     index("time_entry_task_index")

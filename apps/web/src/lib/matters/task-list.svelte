@@ -90,7 +90,12 @@
      * button and the page puts openNew() behind it (create-action.svelte.ts).
      */
     ownNewButton?: boolean;
-    heading: string;
+    /**
+     * The label leading the control row. A matter's Tasks section names itself here, because the
+     * matter's own masthead carries the MATTER's name and the section would otherwise be unnamed.
+     * Omitted where the screen's own header already states it, so the name is not said twice.
+     */
+    heading?: string;
     /** What to say when the record is genuinely empty, as opposed to filtered empty. */
     emptyTitle: string;
     emptyDescription: string;
@@ -427,9 +432,11 @@
 <section class="flex min-h-0 flex-1 flex-col gap-16">
   <div class="flex flex-wrap items-center justify-between gap-16 border-b border-border-strong pb-8">
     <div class="flex flex-wrap items-center gap-16">
-      <FieldLabel as="h2">
-        {heading}
-      </FieldLabel>
+      {#if heading !== undefined}
+        <FieldLabel as="h2">
+          {heading}
+        </FieldLabel>
+      {/if}
       <div class="flex items-center gap-4">
         <Search aria-hidden="true" class="size-16 text-text-muted" />
         <Input
@@ -476,7 +483,7 @@
     {#if composing}
       <Button variant="secondary" disabled={saving} onclick={resetComposer}>Cancel</Button>
     {:else if ownNewButton}
-      <!-- The one create control, the design system's, so My Work reads like every other screen. -->
+      <!-- The one create control, the design system's, so this list reads like every other screen. -->
       <CreateControl
         noun="Task"
         title="Add a task, with whose it is and when it is due."

@@ -1,9 +1,9 @@
 # A matter's documents
 
-_The documents screen is early. Adding, saving new versions, and the version history all work today.
-Editing in the browser opens a real editing session but needs the editor service running, so on some
-installations the editor panel stays blank; the screen tells you when that is the case. Folders,
-renaming, and downloading arrive next._
+_The documents screen is early. Uploading files and folders, saving new versions, folders, and the
+version history all work today. Editing in the browser opens a real editing session but needs the
+editor service running, so on some installations the editor panel stays blank; the screen tells you
+when that is the case._
 
 ## What it does
 
@@ -15,16 +15,81 @@ previous version stays exactly as it was, and the record shows both.
 
 ## Adding a document
 
-Press **Add a document**. There are two ways.
+Choose **New File** at the top of the matter and pick one of its three items. **Upload Files** is
+the way to bring files you already have; **New Document** builds one from a template; **New Folder**
+makes a place to put them.
 
-**From a file you have.** Drag the document onto the panel, or press the button to pick it. Then
-press **Add document**. It is sent to storage, checked, and appears in the list.
+### Uploading files and folders
 
-**From a template.** Choose **From a template**, pick one, choose whether to build it as a Word
-document or a PDF, and press **Build document**. Magna Carta fills in what the matter knows — its
-number, its client, the date — and files the finished document onto the matter. If your firm has not
-registered any templates yet the list says so; see
-[Document templates and assembly](document-templates-and-assembly.md) for how templates are made.
+The Upload panel has two sides.
+
+**On the right are your files.** Press **Add** and choose **Files**, or **A Folder, With Everything
+Inside It**; or drag files and folders from your computer and drop them anywhere on that side. A
+folder arrives with its contents, in the folders they came from, and you can add several folders
+before you send anything. Fold a folder to hide what is inside it. Filter the list from its column
+headers if there is a lot of it, and remove anything you did not mean to include with **Remove
+Selected**. Nothing is sent until you press **Upload**.
+
+**On the left is where they go and what they become.**
+
+- **Matter** — the matter you are on, unless you choose another. Start typing a matter's name or
+  number to find it.
+- **Folder** — the folder you were looking at, the matter's Home, or any folder you pick from the
+  tree. A folder you upload is recreated inside the one you choose.
+- **Date Created** — whether each file keeps the date it already carries, or takes the date of the
+  upload. Files keep their own date unless you say otherwise; that date is kept on the record either
+  way, and shows in the file's details as **File's Own Date**.
+- **Document Type** — a type to give every file in this upload, if your firm uses them.
+
+Press **Upload**. The list on the right shows each file's progress, with how much of it has been
+sent, and the bar above it measures the whole batch. You do not have to wait: close the panel and
+carry on, because the upload keeps going. If you try to leave the screen with files chosen but not
+yet sent, you are asked first, so a choice you spent time on is not lost by accident.
+
+**Cancel Upload** stops a batch that is running. Files that have already landed stay on the matter;
+the file being sent is given back; the rest read **Not sent**, and **Send the Rest** sends them
+later. A large file (over your firm's limit for a single send, 100 MB unless it was changed) goes in
+pieces behind the scenes; you see one upload, and a piece that stumbles is sent again on its own.
+
+### Files you already have
+
+Before a file is sent, Magna Carta reads it and asks whether your firm already holds exactly those
+bytes. If the matter already has the file, its row reads **Already here** and nothing is sent. If
+another of your firm's matters has it, the file is copied onto this matter without an upload, and
+reads **Uploaded** as usual. So if a batch fails part-way and you send the same folder again, only
+the files that did not land are sent. The read happens on your computer, a chunk at a time, with
+the row reading **Reading** and the share done, so a file of any size is asked about before a byte
+of it is sent.
+
+### Watching an upload
+
+The **upload button in the top bar**, beside the downloads button, marks itself while anything is
+uploading. Press it to see each upload: how many files have landed, how many failed, and, once it
+has finished, **Retry Failed** to send only the files that did not go, and **Open Folder** to see
+the files where they landed. While it runs, the line under each upload reads the speed and about
+how long is left. A running upload can be cancelled from here too. Clear finished uploads when you
+no longer need to see them.
+
+The **upload icon at the foot of the sidebar**, beside Settings and Downloads, shows every upload in
+full, with the same list of files the panel showed, and the same controls. Uploads live in the browser
+tab you started them in: the page shows this tab's uploads, and closing the tab ends them.
+
+If you close the browser tab while files are still uploading, the browser asks before it goes;
+files that had not finished would need to be uploaded again.
+
+### If a file does not upload
+
+Its row reads **Upload failed**, and pointing at it tells you why, with an Error ID you can quote to
+support. The file is not added to the matter — a failed upload leaves nothing behind — and the rest
+of the upload carries on.
+
+### From a template
+
+Choose **New Document**, pick a template, choose whether to build it as a Word document or a PDF,
+and press **Build document**. Magna Carta fills in what the matter knows — its number, its client,
+the date — and files the finished document onto the matter. If your firm has not registered any
+templates yet the list says so; see [Document templates and assembly](document-templates-and-assembly.md)
+for how templates are made.
 
 Build it as a **Word document** while it is still being worked on, and as a **PDF** when it is going
 out to be signed — a signature can only be applied to a PDF. A PDF is converted before it is filed, so

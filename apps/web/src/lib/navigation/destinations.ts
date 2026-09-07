@@ -29,6 +29,7 @@ import type { Component } from "svelte";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import House from "@lucide/svelte/icons/house";
 import Download from "@lucide/svelte/icons/download";
+import Upload from "@lucide/svelte/icons/upload";
 import Bell from "@lucide/svelte/icons/bell";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
 import CalendarDays from "@lucide/svelte/icons/calendar-days";
@@ -70,8 +71,9 @@ export interface Destination {
   readonly announced?: true;
   /**
    * Cannot be unstarred — Customize mode shows a lock instead of a star ("always in your
-   * sidebar"). Home and Settings also hold fixed positions (Home first; Settings in its pinned
-   * footer home); Matters is movable within its group but never hideable.
+   * sidebar"). Home and the footer fixtures also hold fixed positions (Home first; Downloads,
+   * Uploads and Settings in the pinned footer); Matters is movable within its group but never
+   * hideable.
    */
   readonly pinned?: true;
   /**
@@ -81,8 +83,13 @@ export interface Destination {
    */
   readonly defaultStarred: boolean;
   /**
-   * Lives in the sidebar's pinned footer, not the scrolling groups (Settings). The groups
-   * renderer skips it; the footer renders it from this entry so the row has one home.
+   * Lives in the sidebar's pinned footer utility tray, not the scrolling groups — Settings,
+   * Downloads and Uploads. The groups renderer (and Customize mode with it) skips it; the
+   * footer renders it from this entry so the row has one home. What earns a place here is
+   * meta about the app rather than a place in the firm's work: settings, and the two transfer
+   * registers that run alongside whatever you are doing (owner-directed, 2026-09-07). The
+   * top-bar trays stay what they are — summaries with quick actions; these are the full
+   * surfaces they open into.
    */
   readonly footerPinned?: true;
   /**
@@ -136,6 +143,11 @@ const DESTINATION_LIST = [
     // The download register: what the platform produced for this member, kept for a short window so
     // it can be taken again. Deliberately NOT the notification feed — that surface carries the
     // firm's work, and a generated file is platform mechanics (owner ruling, 2026-08-31).
+    //
+    // A FOOTER FIXTURE, not a workspace row (owner-directed, 2026-09-07): downloads and uploads run
+    // concurrently with the work rather than being part of it, so they sit with Settings and
+    // Customize at the rail's foot. The group is still `top` because the palette lists the whole
+    // registry flat and this is a workspace-register surface; only the sidebar placement moved.
     id: "downloads",
     label: "Downloads",
     href: "/downloads",
@@ -144,7 +156,26 @@ const DESTINATION_LIST = [
     group: "top",
     shipped: true,
     stage: "alpha",
+    pinned: true,
     defaultStarred: true,
+    footerPinned: true,
+  },
+  {
+    // The uploads this browser tab is running: every batch in full, with each file's standing, the
+    // rate and the time left. Live state rather than a register — an upload dies with the tab — so
+    // it is the download shelf's opposite number, not a second shelf. It shares the download
+    // register's footer home for the same reason.
+    id: "uploads",
+    label: "Uploads",
+    href: "/uploads",
+    icon: Upload,
+    description: "Files you are sending to matters, each one's progress, and what did not go.",
+    group: "top",
+    shipped: true,
+    stage: "alpha",
+    pinned: true,
+    defaultStarred: true,
+    footerPinned: true,
   },
   {
     // A shipped stub: the page exists (an honest empty state) so the top-bar bell has a home to
@@ -164,8 +195,11 @@ const DESTINATION_LIST = [
     // It sits in the workspace group beside Notifications rather than under a matter, because "what
     // is on my plate" is a question about the person and not about any one case — and a task list
     // somebody has to go looking for inside each matter is a task list nobody looks at.
-    id: "my-work",
-    label: "My Work",
+    //
+    // Named for the record it holds, not for whose it is: a matter's own section is Tasks, so a
+    // second name for the same noun made the sidebar and the matter disagree about one word.
+    id: "tasks",
+    label: "Tasks",
     href: "/tasks",
     icon: ListChecks,
     description: "Every task with your name on it, across your matters and the firm's own work.",
@@ -317,14 +351,18 @@ const DESTINATION_LIST = [
   },
   // Money (draft order: Time, Billing, Trust)
   {
+    // The period ledger: the firm's time over a span of days, across every matter. It is the read
+    // surface, distinct from the top bar's Time Sheet, which is capture and opens over whatever
+    // screen you are on. Alpha, not ready: the period reads, narrows and opens any entry, and the
+    // week grid that captures a missed week in one pass is still to come.
     id: "time",
     label: "Time",
     href: "/time",
     icon: Clock,
-    description: "Time capture and entries, ready for billing.",
+    description: "Every hour recorded, across matters and timekeepers, for the days you choose.",
     group: "money",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {

@@ -504,13 +504,16 @@ export function findUnitlessFlexMisuse(filePath: string, css: string): string[] 
 // deliberate exclusions are named below instead.
 //
 // Excluded on purpose, and each for a reason rather than because it was failing: components.css is
-// only the @import index (no declarations), animations.css holds the non-token keyframes, and
-// fonts.css is the self-hosted face imports. None of the three declares a recipe, so none has a
-// token to be pure about.
+// only the @import index (no declarations), animations.css holds the non-token keyframes, fonts.css
+// is the self-hosted face imports, and base.css is the DOCUMENT base — the colour scheme and the
+// root ink, which belong in the `base` layer precisely so a recipe and a utility both outrank them.
+// None of the four declares a recipe, so none is scanned as one; base.css's own contract (a scheme
+// per mode, a token for the root ink) is pinned by test/document-base.test.ts instead.
 const EXCLUDED_FROM_RECIPE_SCAN: ReadonlySet<string> = new Set([
   "packages/design-system/src/lib/styles/components.css",
   "packages/design-system/src/lib/styles/animations.css",
   "packages/design-system/src/lib/styles/fonts.css",
+  "packages/design-system/src/lib/styles/base.css",
 ]);
 
 const RECIPE_CSS_FILES: readonly string[] = collectSourceFiles(

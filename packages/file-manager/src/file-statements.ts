@@ -69,6 +69,9 @@ export interface InsertFileVersionRow {
   // Set only for the return leg of an offline checkout: the checkout this version came back through.
   // The ingest gate reads it to route a cleared check-in into divergence resolution. Null otherwise.
   readonly checkoutId?: DocumentCheckoutId | null;
+  // The last-modified instant the uploading device reported for the source file, when the client sent
+  // one. A fact about the source, kept on every version; the file's own dating is decided elsewhere.
+  readonly sourceModifiedAt?: string | null;
 }
 
 // A pending version: bytes are not yet ingested, so size/sniffed-type/hash/scan are null and status
@@ -81,9 +84,9 @@ export function insertFileVersionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${FILE_VERSION_TABLE} (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, status, uploaded_by, checkout_id, created_at, committed_at) ` +
+      `INSERT INTO ${FILE_VERSION_TABLE} (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, status, uploaded_by, checkout_id, created_at, committed_at, source_modified_at) ` +
         // the version-number subquery spans ALL statuses by design (numbers never reuse a slot) — fitness:allow-no-status
-        `VALUES (?1, ?2, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM ${FILE_VERSION_TABLE} WHERE file_id = ?2), ?3, NULL, ?4, NULL, NULL, NULL, NULL, 'pending', ?5, ?6, ?7, NULL)`,
+        `VALUES (?1, ?2, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM ${FILE_VERSION_TABLE} WHERE file_id = ?2), ?3, NULL, ?4, NULL, NULL, NULL, NULL, 'pending', ?5, ?6, ?7, NULL, ?8)`,
     )
     .bind(
       row.id,
@@ -93,6 +96,7 @@ export function insertFileVersionStatement(
       row.uploadedBy,
       row.checkoutId ?? null,
       row.createdAt,
+      row.sourceModifiedAt ?? null,
     );
 }
 
@@ -227,6 +231,39 @@ export function selectCleanVersionByIdStatement(
   return database
     .prepare(
       `SELECT id, file_id, r2_key, content_sha256, size_bytes FROM ${FILE_VERSION_TABLE} WHERE id = ?1 AND status = 'clean'`,
+    )
+    .bind(versionId);
+}
+
+// Every committed version in the firm whose bytes hash to this digest and are the CURRENT version of a
+// live file — what the upload dialog asks before sending bytes the firm already holds. Current-only,
+// so an archived version of a since-changed file is not offered as "already here"; the size rides
+// along so the caller can refuse a digest collision that a size disagrees with. Bounded: a firm that
+// holds the same bytes fifty times over has told the caller enough.
+export function selectCurrentCleanVersionsBySha256Statement(
+  database: SqlDatabase,
+  contentSha256: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id AS version_id, v.file_id, f.matter_id, f.folder_id, f.name, v.size_bytes ` +
+        `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
+        `WHERE v.content_sha256 = ?1 AND v.status = 'clean' AND f.current_version_id = v.id AND f.deleted_at IS NULL ` +
+        `ORDER BY v.committed_at DESC LIMIT 50`,
+    )
+    .bind(contentSha256);
+}
+
+// A committed version's whole set of facts — what a server-side duplicate carries across unchanged,
+// because the bytes are the same bytes and the verdict the gate reached on them still holds.
+export function selectCleanVersionFactsStatement(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, file_id, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, scan_detail ` +
+        `FROM ${FILE_VERSION_TABLE} WHERE id = ?1 AND status = 'clean'`,
     )
     .bind(versionId);
 }

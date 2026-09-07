@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 797 nodes of the feature ledger in
+is the complete register rather than a digest: all 798 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**797 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**798 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **657 that are units of work**, for the reason set out under [What a roll-up is
+count the **658 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -31,17 +31,17 @@ not](#what-a-roll-up-is-not).
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
 | Done | shipped | 292 | 45% |
-| Part-built | partial, in-build | 119 | 18% |
+| Part-built | partial, in-build | 120 | 18% |
 | Ahead | designed, planned, researching, not-started | 205 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **657** | **100%** |
+| **All units of work** | | **658** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 292 | 44% |
-| `partial` | 118 | 18% |
+| `partial` | 119 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 2% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 138 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 1% |
-| **All statuses** | **657** | **100%** |
+| **All statuses** | **658** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 797 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**140 of the 798 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 292 of 657 (44%). Shipped plus partial is 410 (62%).**
+**Shipped alone is 292 of 658 (44%). Shipped plus partial is 411 (62%).**
 
-The 118 units between those two numbers are work that is engineered and paid for and is not
+The 119 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**411 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**412 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 62 | 15% |
+| A person can open it today (`screen`) | 63 | 15% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 171 | 42% |
 | No user surface by nature (`internal`) | 178 | 43% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **411** | **100%** |
+| **Everything with something built** | **412** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -108,7 +108,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
-| Financial Core | 17 | 15 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 54 | 31% |
+| Financial Core | 17 | 16 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 55 | 31% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **292** | **118** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **657** | **44%** |
+| **All areas** | **292** | **119** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **658** | **44%** |
 
 ## Where we have been
 
@@ -796,7 +796,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.file-manager.bulk-download` · `shipped` · **Bulk download (zip)** — Streaming store-mode ZIP64 archive of selected files/folders/matter, version-pinned, RBAC-gated, audit-logged, memory-flat.
       - `documents.file-manager.bulk-download.async` · `shipped` · **Async bulk bundle** — Large bundles run as a tracked background job (Durable Object) building an R2 artifact fetched by signed URL.
     - `documents.file-manager.storage-metering` · `shipped` · **Storage metering** — Per-firm rollup of bytes and object counts by storage class and key prefix, exact in D1, reconciled against R2, feeding firm-usage diagnostics.
-  - `documents.upload` · `partial` · **Upload & ingest pipeline** — Uniform direct-to-R2 inbound upload with quarantine-gated ingest; bytes never transit the Worker. _Note: Upload UI rides the file-surface-web stream (Dropzone primitive shipped; dev upload route on main)._
+  - `documents.upload` · `partial` · **Upload & ingest pipeline** — Uniform direct-to-R2 inbound upload with quarantine-gated ingest; bytes never transit the Worker. _Note: The single-shot PUT is the built browser path; the resumable multipart client above the mode threshold is still unbuilt on the web surface, so a file over the threshold is refused with its reservation given back._
     - `documents.upload.direct-to-r2` · `shipped` · **Direct-to-R2 transfer** — Presigned single PUT for small files, resumable S3 multipart above a threshold; Worker only authorizes, mints URLs, records metadata.
     - `documents.upload.policy-gates` · `shipped` · **Pre-acceptance gates** — Per-firm size and content-type allow-list enforced at presign and re-verified against real bytes; magic-byte validation; filename sanitization.
     - `documents.upload.quarantine` · `shipped` · **Quarantine-on-arrival** — Bytes land at their final key not visible/servable/indexed until the async ingest consumer clears them (gates, SHA-256, scan port, version commit in one read).
@@ -917,7 +917,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 54 units of work, 31% shipped. 17 done, 15 part-built, 19 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 55 units of work, 31% shipped. 17 done, 16 part-built, 19 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -941,8 +941,9 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.time.rates` · `shipped` · **Effective-dated rate engine** — Resolution chain matter rate, client rate, timekeeper standard, role default; multiple rate cards; an entry keeps the rate in force on its date.
     - `financial.time.narrative` · `partial` · **Narrative ergonomics** — Snippet/abbreviation expansion, recent-narrative reuse, per-task-code templates. _Note: Template store shipped; expansion/reuse ergonomics are capture-UI behaviors, not built._
     - `financial.time.lifecycle` · `shipped` · **Draft-to-Billed lifecycle with optional review gate** — Draft (editable) to Billed (locked) by default; firm-configurable Submitted/Approved gate, off by default; post-bill corrections are new adjusting entries. _Note: The Billed transition is driven at invoice finalize by packages/billing/src/finalize.ts, which may move an entry into billed and never back out; the capture screens the gate would appear on are not built._
-    - `financial.time.wip` · `partial` · **Time is WIP, not a ledger posting** — Unbilled time lives in a work-in-progress store and never touches the ledger; billable time converts to an A/R receivable at invoicing. _Note: WIP store shipped, and the conversion it promised now happens at invoice finalize in packages/billing/src/finalize.ts; what keeps this partial is that no surface reads the store._
+    - `financial.time.wip` · `partial` · **Time is WIP, not a ledger posting** — Unbilled time lives in a work-in-progress store and never touches the ledger; billable time converts to an A/R receivable at invoicing. _Note: WIP store shipped, and the conversion it promised now happens at invoice finalize in packages/billing/src/finalize.ts. Two surfaces now read the store — the matter's Time tab and the period ledger at /time — so what keeps this partial is the capture half: the week grid and the My Day cockpit._
     - `financial.time.my-day` · `partial` · **My Day visibility** — Running billable/non-billable totals, missing-time detection, billable-hour targets (daily/monthly/annual), per-matter and calendar-overlay views. _Note: Backend shipped; the My Day view is UI, not built; calendar overlay is a deferred Calendar-subsystem seam._
+    - `financial.time.period-ledger` · `partial` · **The firm's time over a period** — One screen reading every entry in a span of work dates, across matters and timekeepers — the question neither the matter's Time tab nor the day view can answer. Span presets and a custom range, whose-time gated on time:viewFirm, the table's own column filters, hours-and-money totals over what is in view, and any row opening the shared entry record. _Note: The list view of the two the personal-timesheet design plans. The week grid — matters by days, typed into cell by cell, committing through the existing grid-batch route — is the other half and is not built; submission from this surface waits on the firm's review-gate setting being served._
     - `financial.time.utilization-reports` · `not-started` · **Utilization and realization roll-ups** — Utilization and realization rolled up into the reports library.
     - `financial.time.utbms` · `shipped` · **UTBMS codes** — UTBMS task/activity codes on entries; e-billing matters require and validate codes at capture.
     - `financial.time.passive-capture` · `deferred` · **Passive/automatic time capture** — Automatic activity capture feeding a draft-approve queue. _Note: Seam only; no capture code._

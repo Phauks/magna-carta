@@ -932,6 +932,46 @@ export type InitiateUploadRequest = {
     documentTypeId?: string | null;
     fileId?: string;
     uploadKind?: 'interactive' | 'bulk';
+    sourceModifiedAt?: string | null;
+    createdAtBasis?: 'upload' | 'source';
+};
+
+export type UploadMatchesResponse = {
+    onMatter: Array<{
+        fileId: string;
+        versionId: string;
+        folderId: string | null;
+        name: string;
+    }>;
+    elsewhere: Array<{
+        fileId: string;
+        versionId: string;
+        matterId: string;
+    }>;
+};
+
+export type UploadMatchesRequest = {
+    matterId: string;
+    /**
+     * SHA-256 of the file's bytes, lowercase hex.
+     */
+    sha256: string;
+    sizeBytes: number;
+};
+
+export type DuplicateUploadResponse = {
+    fileId: string;
+    versionId: string;
+};
+
+export type DuplicateUploadRequest = {
+    sourceVersionId: string;
+    matterId: string;
+    folderId?: string | null;
+    name: string;
+    documentTypeId?: string | null;
+    sourceModifiedAt?: string | null;
+    createdAtBasis?: 'upload' | 'source';
 };
 
 export type UploadStatusResponse = {
@@ -1567,6 +1607,7 @@ export type FileSummary = {
     scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
     status: 'clean' | 'pending' | 'quarantined';
     quarantineReason: string | null;
+    sourceModifiedAt: string | null;
 };
 
 export type FileVersionsResponse = {
@@ -10949,6 +10990,91 @@ export type UploadsInitiateResponses = {
 };
 
 export type UploadsInitiateResponse = UploadsInitiateResponses[keyof UploadsInitiateResponses];
+
+export type UploadsMatchesData = {
+    body: UploadMatchesRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/uploads/matches';
+};
+
+export type UploadsMatchesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsMatchesError = UploadsMatchesErrors[keyof UploadsMatchesErrors];
+
+export type UploadsMatchesResponses = {
+    /**
+     * The files that hold these bytes, on the matter and elsewhere in the firm
+     */
+    200: UploadMatchesResponse;
+};
+
+export type UploadsMatchesResponse = UploadsMatchesResponses[keyof UploadsMatchesResponses];
+
+export type UploadsDuplicateData = {
+    body: DuplicateUploadRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/uploads/duplicates';
+};
+
+export type UploadsDuplicateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * No committed version by that id in this firm, or no such folder on the matter
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsDuplicateError = UploadsDuplicateErrors[keyof UploadsDuplicateErrors];
+
+export type UploadsDuplicateResponses = {
+    /**
+     * The file was made from the held bytes
+     */
+    201: DuplicateUploadResponse;
+};
+
+export type UploadsDuplicateResponse = UploadsDuplicateResponses[keyof UploadsDuplicateResponses];
 
 export type UploadsGetData = {
     body?: never;
@@ -30700,7 +30826,15 @@ export type TimeEntriesListData = {
         matterId?: string;
         workDate?: string;
         /**
-         * Narrows a per-matter listing to one status. Omitted, the listing answers with every status the matter carries, which is what a matter's time record is.
+         * The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability.
+         */
+        from?: string;
+        /**
+         * The last work date of a period listing, inclusive. Required alongside `from`.
+         */
+        to?: string;
+        /**
+         * Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.
          */
         status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
         cursor?: string;
@@ -30721,6 +30855,10 @@ export type TimeEntriesListErrors = {
      * The firm is unreachable, the member is deactivated, or the entry is unknown
      */
     404: Problem;
+    /**
+     * The period's first date is after its last
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */
