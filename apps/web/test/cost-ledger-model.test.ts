@@ -16,8 +16,10 @@ import {
   COST_COLUMN_IDENTIFIERS,
   UNSERVED_COST_COLUMNS,
   costLedgerColumns,
+  costMatterText,
   expenseCodeFromIdentifier,
   expenseCodeText,
+  firmCostColumns,
   isUnservedColumn,
   unservedCellTitle,
 } from "../src/lib/costs/cost-columns.ts";
@@ -82,6 +84,7 @@ describe("the ledger's columns", () => {
   it("keeps every column the design names, including the ones nothing fills yet", () => {
     expect(columns.map((column) => column.label)).toEqual([
       "Date",
+      "Matter",
       "Entry Number",
       "Date Entered",
       "Entered By",
@@ -93,6 +96,30 @@ describe("the ledger's columns", () => {
       "Billing",
       "Status",
     ]);
+  });
+
+  it("hides the Matter column inside a matter and brings it forward across the firm", () => {
+    // One declaration, two arrangements: inside a matter every row is on the same one and the
+    // column would be one repeated phrase, so it arrives hidden; the firm's own period screen is
+    // where a reader picks a row out by its matter.
+    const inMatter = columns.find((column) => column.id === COST_COLUMN_IDENTIFIERS.matter);
+    expect(inMatter?.hidden).toBe(true);
+    const firm = firmCostColumns({ currency: "USD", expenseCodeLabels: noLabels });
+    expect(firm.find((column) => column.id === COST_COLUMN_IDENTIFIERS.matter)?.hidden).toBe(false);
+    // Nothing else moves, so a column means the same thing on both screens.
+    expect(firm.map((column) => column.id)).toEqual(columns.map((column) => column.id));
+  });
+
+  it("names a row's matter from the row itself, and stays blank rather than printing a handle", () => {
+    expect(
+      costMatterText(cost({ matterNumber: "CP-0007", matterTitle: "Harlow Acquisition" })),
+    ).toBe("CP-0007 — Harlow Acquisition");
+    // A matter with no number reads as its title alone rather than as a dangling dash.
+    expect(costMatterText(cost({ matterNumber: null, matterTitle: "Harlow Acquisition" }))).toBe(
+      "Harlow Acquisition",
+    );
+    // The listing resolved nothing, so the cell has its own blank to render — never the identifier.
+    expect(costMatterText(cost({}))).toBe("");
   });
 
   it("carries no hard/soft class column: the distinction does not exist on the record", () => {

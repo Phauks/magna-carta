@@ -43,6 +43,38 @@ export function listMatterCostLedger(
   return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
 }
 
+/** How a period listing is narrowed beyond its span. */
+export interface CostPeriodScope {
+  /** The first incurred date, inclusive. */
+  readonly from: string;
+  /** The last incurred date, inclusive. */
+  readonly to: string;
+  readonly matterId?: string;
+  readonly status?: CostSummary["status"];
+  /** True for the billable costs, false for the firm's own; omitted, the listing answers both. */
+  readonly billable?: boolean;
+  readonly cursor?: string;
+}
+
+/**
+ * The firm's costs over a span of incurred dates, across every matter.
+ *
+ * The listing's second shape, and the one the firm's Costs screen is built on: the per-matter read
+ * above cannot answer "what did the firm advance this month" without walking every matter first.
+ * Each row names its own matter, resolved by the listing, so this screen never looks one up.
+ */
+export function listCostLedgerInPeriod(
+  fetchImpl: typeof fetch,
+  scope: CostPeriodScope,
+): Promise<ApiOutcome<Page<CostLedgerEntry>>> {
+  const query = new URLSearchParams({ from: scope.from, to: scope.to });
+  if (scope.matterId !== undefined) query.set("matterId", scope.matterId);
+  if (scope.status !== undefined) query.set("status", scope.status);
+  if (scope.billable !== undefined) query.set("billable", scope.billable ? "true" : "false");
+  if (scope.cursor !== undefined) query.set("cursor", scope.cursor);
+  return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
+}
+
 /** One cost by its id — what a deep link hands the ledger when the row is not on the loaded page. */
 export function readCostLedgerEntry(
   fetchImpl: typeof fetch,

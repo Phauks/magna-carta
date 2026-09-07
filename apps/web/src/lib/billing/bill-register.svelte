@@ -177,7 +177,9 @@
   });
 
   const grid = DataTable.createDataTableGrid<InvoiceRow>({
-    columns: () => billColumns({ matterId, clientName, currency }),
+    // This register always stands inside a matter — the firm's own register is its own screen
+    // (routes/(app)/billing), built on the same columns with the firm scope.
+    columns: () => billColumns({ scope: { kind: "matter", matterId, clientName }, currency }),
     rows: () => rows,
     rowKey: (row) => row.summary.id,
     initialSort: BILL_REGISTER_INITIAL_SORT,

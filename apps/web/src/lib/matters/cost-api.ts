@@ -29,6 +29,15 @@ export interface CostSummary {
   status: CostStatus;
   /** Resolved by the listing; null when no vendor was recorded or its directory entry is gone. */
   vendorName?: string | null;
+  /**
+   * The matter's own name and number, resolved by the listing for the same reason the vendor's is.
+   *
+   * A firm-wide period listing prints the matter on every row, and resolving it a row at a time
+   * would be a lookup per disbursement to fill one column. Absent from a per-entry detail read,
+   * where the caller already stands on the matter.
+   */
+  matterNumber?: string | null;
+  matterTitle?: string | null;
 }
 
 /**

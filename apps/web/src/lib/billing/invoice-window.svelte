@@ -90,8 +90,16 @@
     open?: boolean;
     /** The bill the window is showing, or null while nothing is open. */
     row: InvoiceRow | null;
-    matterId: string;
-    matterTitle: string;
+    /**
+     * The matter the reader is standing in, or null on the firm's own register.
+     *
+     * With one, the window states this matter's share of the bill and marks the lines that belong
+     * to it. Without one it states the document's own figures and nothing else — a bill may charge
+     * several matters, and naming one of them because a reader happened to arrive from the firm's
+     * register would be inventing a fact.
+     */
+    matterId: string | null;
+    matterTitle: string | null;
     matterNumber: string | null;
     clientName: string;
     currency: string;
@@ -147,7 +155,11 @@
   const openedCredits = $derived(
     clientCredits.filter((credit) => creditNotes.some((note) => note.id === credit.creditNoteId)),
   );
-  const share = $derived(row === null ? null : matterShareMinor(row, matterId));
+  const share = $derived(
+    row === null || matterId === null ? null : matterShareMinor(row, matterId),
+  );
+  /** How many matters the bill charges, from the record it carries — the firm register's answer. */
+  const matterCount = $derived(new Set(lines.map((line) => line.matterId)).size);
   const credited = $derived(row === null ? 0 : creditedMinor(row));
   const late = $derived(row === null ? 0 : overdueDays(row, today));
 
@@ -287,10 +299,20 @@
 
       <dl class="flex flex-col gap-4 text-sm">
         {@render fact("Client", clientName)}
-        {@render fact(
-          "Matter",
-          matterNumber === null ? matterTitle : `${matterNumber} — ${matterTitle}`,
-        )}
+        {#if matterTitle !== null}
+          {@render fact(
+            "Matter",
+            matterNumber === null ? matterTitle : `${matterNumber} — ${matterTitle}`,
+          )}
+        {:else if matterCount > 0}
+          <!-- Across the firm the bill answers for itself: how many matters it charges, from its
+               own lines. One is stated as one so a reader is never left to wonder. -->
+          {@render fact(
+            "Matters",
+            matterCount === 1 ? "One matter" : `${matterCount} matters`,
+            "A bill belongs to a client and may charge several of that client's matters; the lines below say which.",
+          )}
+        {/if}
         {#if share !== null}
           {@render fact(
             "This Matter",
@@ -320,13 +342,15 @@
               </dd>
             </div>
           {/if}
-          {@render fact(
-            "Unpaid, this matter",
-            (() => {
-              const owed = matterUnpaidMinor(row, matterId);
-              return owed === null ? "—" : money(owed);
-            })(),
-          )}
+          {#if matterId !== null}
+            {@render fact(
+              "Unpaid, this matter",
+              (() => {
+                const owed = matterUnpaidMinor(row, matterId);
+                return owed === null ? "—" : money(owed);
+              })(),
+            )}
+          {/if}
         {/if}
         {@render fact("Created", formatDate(row.summary.createdAt))}
         {@render fact(
@@ -411,8 +435,11 @@
                 >
                   <span class="min-w-0 flex-1">
                     {line.description}
+                    <!-- The marker says which lines are NOT the reader's matter, which is only a
+                         question when a reader is standing in one. Across the firm every line is
+                         the bill's own and the note would be on all of them or none. -->
                     <span class="block text-xs text-text-subtle">
-                      {line.kind}{line.matterId === matterId
+                      {line.kind}{matterId === null || line.matterId === matterId
                         ? ""
                         : " · another matter of this client"}
                     </span>

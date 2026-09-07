@@ -28,6 +28,7 @@ import { billingLabel, costAmount, payeeText } from "./cost-vocabulary.ts";
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const COST_COLUMN_IDENTIFIERS = {
   incurredDate: "incurredDate",
+  matter: "matter",
   entryNumber: "entryNumber",
   dateEntered: "dateEntered",
   enteredBy: "enteredBy",
@@ -105,6 +106,20 @@ export function expenseCodeText(cost: CostSummary, labels: ExpenseCodeLabels): s
 }
 
 /**
+ * How a row names its matter: the number and the title, as the firm's own screens name it.
+ *
+ * The listing resolves both, so nothing here looks a matter up. Empty where the row carries
+ * neither, which the cell renders as its own blank — never a raw handle, which names the matter to
+ * nobody, and never a stand-in, which names the wrong thing.
+ */
+export function costMatterText(cost: CostSummary): string {
+  const title = cost.matterTitle ?? null;
+  if (title === null) return "";
+  const number = cost.matterNumber ?? null;
+  return number === null ? title : `${number} — ${title}`;
+}
+
+/**
  * The ledger's columns, in the order the design puts them.
  *
  * `currency` follows the rows rather than being assumed: a matter's costs are written in the
@@ -122,6 +137,17 @@ export function costLedgerColumns(options: {
       type: "date",
       anchored: true,
       value: (cost) => cost.incurredDate,
+    },
+    {
+      // Hidden inside a matter, where every row is on the same one and the column would be one
+      // repeated phrase; the firm's own screen brings it forward (firmCostColumns below).
+      id: COST_COLUMN_IDENTIFIERS.matter,
+      label: "Matter",
+      type: "text",
+      filter: "set",
+      hidden: true,
+      fitExtra: 30,
+      value: (cost) => costMatterText(cost),
     },
     {
       id: COST_COLUMN_IDENTIFIERS.entryNumber,
@@ -206,4 +232,21 @@ export function costLedgerColumns(options: {
       value: (cost) => statusEntry(costStatusKey(cost.status)).label,
     },
   ];
+}
+
+/**
+ * The same declaration, arranged for the firm's own cost record.
+ *
+ * The matter is what a reader picks a row out by when the rows come from every matter at once, so
+ * it stands second — immediately after the date the cost was incurred, which is what the period is
+ * read by. Nothing else moves: one declaration, two arrangements, so a column means the same thing
+ * and carries the same words on both screens.
+ */
+export function firmCostColumns(options: {
+  readonly currency: string;
+  readonly expenseCodeLabels: ExpenseCodeLabels;
+}): readonly GridColumn<CostSummary>[] {
+  return costLedgerColumns(options).map((column) =>
+    column.id === COST_COLUMN_IDENTIFIERS.matter ? { ...column, hidden: false } : column,
+  );
 }
