@@ -59,7 +59,8 @@ const FIRM = "firm_test0000000000000" as FirmId;
 const USER = "user_test0000000000000" as UserId;
 const FIRM_CONTEXT = {
   firmDatabase: {} as FirmContext["firmDatabase"],
-  migrationState: () => Promise.resolve({ fault: null, appliedCount: 0, appliedHead: null }),
+  migrationState: () =>
+    Promise.resolve({ fault: null, appliedCount: 0, appliedHead: null, restorePoint: null }),
   readFirmName: () => Promise.resolve("Test Firm"),
   bucketName: "test-firm-bucket",
 } satisfies FirmContext;

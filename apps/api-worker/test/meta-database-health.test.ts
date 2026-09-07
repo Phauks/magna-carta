@@ -96,6 +96,7 @@ function collect(options: {
         fault: null,
         appliedCount: tags.length,
         appliedHead: tags.at(-1)?.tag ?? null,
+        restorePoint: null,
       });
     },
     readFirmName: () => Promise.resolve("Test Firm"),
