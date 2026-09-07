@@ -41,6 +41,11 @@ export const PROBLEM_TYPES = {
   // the bytes carry no readable zip end structures. DISTINCT from `validation` (request-shape) —
   // the request is well-formed; the file's content is not a browsable archive.
   "not-an-archive": "not-an-archive",
+  // An archive-browse of a container this application RECOGNISES and has no reader for yet (HTTP
+  // 422). DISTINCT from `not-an-archive`, and the distinction is the whole reason it exists: one
+  // says the file is not an archive, which for a 7z or a rar would be false and would send the
+  // reader looking for a fault in their own file. This one says the shortfall is ours.
+  "archive-format-unsupported": "archive-format-unsupported",
   // The firm's object storage is unprovisioned, or is recorded against a bucket this deployment
   // does not read through (HTTP 503, retryable once an operator has configured it). DISTINCT from
   // `internal` — the condition is known and named, so the reader is told what is misconfigured
