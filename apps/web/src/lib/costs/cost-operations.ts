@@ -3,16 +3,17 @@
  *
  * The design gives this ledger a fuller verb set than the calls below: attach a file from the
  * matter's own documents, return a submitted cost to draft, delete a draft that never entered
- * review, write an internal memo, open the invoice a billed cost rides. Attaching has a route and
- * no picker to feed it a file identifier; the rest have no route at all. None of them is called from here — they are rendered where the
- * design puts them, disabled, saying what they wait on, so the difference between "designed" and
- * "working" is a difference a reader of this file can see.
+ * review, write an internal memo. Attaching has a route and no picker to feed it a file
+ * identifier; the rest have no route at all. None of them is called from here — they are rendered
+ * where the design puts them, disabled, saying what they wait on, so the difference between
+ * "designed" and "working" is a difference a reader of this file can see.
  *
  * Every call goes through the one transport seam, so a dead network is an outcome rather than a
  * thrown error, and the surface can say something true about it.
  */
+import { statusEntry } from "@magna-carta/design-system/status-register";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
-import type { CostSummary } from "$lib/matters/cost-api.ts";
+import { costStatusKey, type CostSummary } from "$lib/matters/cost-api.ts";
 import type { CostCaptureSource } from "./cost-vocabulary.ts";
 
 /**
@@ -40,6 +41,38 @@ export function listMatterCostLedger(
   cursor?: string,
 ): Promise<ApiOutcome<Page<CostLedgerEntry>>> {
   const query = new URLSearchParams({ matterId, ...(cursor === undefined ? {} : { cursor }) });
+  return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
+}
+
+/** How a period listing is narrowed beyond its span. */
+export interface CostPeriodScope {
+  /** The first incurred date, inclusive. */
+  readonly from: string;
+  /** The last incurred date, inclusive. */
+  readonly to: string;
+  readonly matterId?: string;
+  readonly status?: CostSummary["status"];
+  /** True for the billable costs, false for the firm's own; omitted, the listing answers both. */
+  readonly billable?: boolean;
+  readonly cursor?: string;
+}
+
+/**
+ * The firm's costs over a span of incurred dates, across every matter.
+ *
+ * The listing's second shape, and the one the firm's Costs screen is built on: the per-matter read
+ * above cannot answer "what did the firm advance this month" without walking every matter first.
+ * Each row names its own matter, resolved by the listing, so this screen never looks one up.
+ */
+export function listCostLedgerInPeriod(
+  fetchImpl: typeof fetch,
+  scope: CostPeriodScope,
+): Promise<ApiOutcome<Page<CostLedgerEntry>>> {
+  const query = new URLSearchParams({ from: scope.from, to: scope.to });
+  if (scope.matterId !== undefined) query.set("matterId", scope.matterId);
+  if (scope.status !== undefined) query.set("status", scope.status);
+  if (scope.billable !== undefined) query.set("billable", scope.billable ? "true" : "false");
+  if (scope.cursor !== undefined) query.set("cursor", scope.cursor);
   return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
 }
 
@@ -214,6 +247,27 @@ export function parseAmountMinor(text: string): number | null {
   if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) return null;
   const minor = Math.round(Number(trimmed) * 100);
   return minor > 0 ? minor : null;
+}
+
+/**
+ * Whether a cost is this reader's to change, and the sentence that says why either way.
+ *
+ * ONE RULE, BOTH SCOPES. The matter's own Costs section and the firm's period screen ask the same
+ * question of the same record, so they ask it of one function; two copies of it were two chances
+ * for a matter and the firm to disagree about whether the cost in front of a reader is editable.
+ *
+ * THE RULE IS THE CHAIN, NOT THE RECORDER, AND THAT IS SETTLED RATHER THAN PROVISIONAL. A cost
+ * belongs to the MATTER it was advanced for, not to whoever typed it, so a `costs:track` holder
+ * works any matter's costs and no read or write is scoped per person — which is the deliberate
+ * difference from time, where an entry is somebody's own hours. So the recorder now being on the
+ * record changes nothing here: it is who to ask about a figure that looks wrong, never a gate.
+ * What decides is where the cost stands — a draft is editable, and everything past it is evidence.
+ */
+export function canWorkDraft(cost: CostSummary): { allowed: boolean; reason: string } {
+  if (cost.status !== "draft") {
+    return { allowed: false, reason: statusEntry(costStatusKey(cost.status)).meaning };
+  }
+  return { allowed: true, reason: "Change any part of this draft." };
 }
 
 /**

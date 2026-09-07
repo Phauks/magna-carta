@@ -13,6 +13,7 @@ export {
   MONEY_SURFACE_DENSITY_KEY,
   MONEY_SURFACE_LAYOUTS,
   MONEY_SURFACE_LAYOUT_KEY,
+  billHref,
   isMoneySectionSlug,
   moneySectionHref,
   moneySections,

@@ -32,6 +32,12 @@ function cost(overrides: Partial<CostLedgerEntry> = {}): CostLedgerEntry {
     vendorName: "Battle Born Court Reporters",
     source: "manual",
     recoveryCategory: null,
+    // Written down nine days after the money went out, deliberately: the two dates on a cost are
+    // different facts, and a fixture where they agree cannot tell whether the sheet confused them.
+    createdAt: "2026-08-14T16:20:00.000Z",
+    createdByUserId: "user_paralegal",
+    createdByName: "Imogen Vance",
+    kickBackReason: null,
     ...overrides,
   };
 }
@@ -41,6 +47,7 @@ const context: CostSheetContext = {
   matterNumber: "2026-0147",
   money: (amount) => `$${amount.toFixed(2)}`,
   date: (isoDate) => isoDate,
+  instant: (isoInstant) => isoInstant,
   printedAt: "Aug 24, 2026, 2:02 PM",
   expenseCodeLabels: () => "Deposition Transcripts",
   source: "manual",
@@ -92,17 +99,36 @@ describe("one cost's printed sheet", () => {
     );
   });
 
-  it("names a fact the listing cannot serve rather than printing a shorter record", () => {
+  it("prints the entered date and the recorder as themselves, not as the incurred date", () => {
     const sheet = costEntrySheet(cost(), context);
-    expect(fieldValue(sheet, "Date Entered")).toContain(COST_LEDGER_GAPS.dateEntered.waitsOn);
-    expect(fieldValue(sheet, "Entered By")).toContain(COST_LEDGER_GAPS.enteredBy.waitsOn);
+    expect(fieldValue(sheet, "Date Incurred")).toBe("2026-08-05");
+    expect(fieldValue(sheet, "Date Entered")).toBe("2026-08-14T16:20:00.000Z");
+    expect(fieldValue(sheet, "Entered By")).toBe("Imogen Vance");
+  });
+
+  it("says a recorder has left rather than printing an identifier at somebody", () => {
+    const departed = cost({ createdByName: null });
+    expect(fieldValue(costEntrySheet(departed, context), "Entered By")).toBe(
+      "No longer at the firm",
+    );
+    const unrecorded = cost({ createdByUserId: null, createdByName: null });
+    expect(fieldValue(costEntrySheet(unrecorded, context), "Entered By")).toBe("Not recorded");
   });
 
   it("names the invoice only on a cost a bill has taken up", () => {
     expect(fieldValue(costEntrySheet(cost(), context), "Invoice")).toBe("—");
-    expect(fieldValue(costEntrySheet(cost({ status: "billed" }), context), "Invoice")).toContain(
-      COST_LEDGER_GAPS.invoice.waitsOn,
-    );
+    expect(
+      fieldValue(
+        costEntrySheet(cost({ status: "billed", invoiceId: "invoice_9" }), context),
+        "Invoice",
+      ),
+    ).toBe("invoice_9");
+  });
+
+  it("does not pretend a cost billed before the reference existed has one", () => {
+    expect(
+      fieldValue(costEntrySheet(cost({ status: "billed", invoiceId: null }), context), "Invoice"),
+    ).toContain("not recorded");
   });
 
   it("carries the Description the client reads, whole", () => {

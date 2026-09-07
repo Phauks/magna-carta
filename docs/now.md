@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 799 nodes of the feature ledger in
+is the complete register rather than a digest: all 804 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,27 +21,27 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**799 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**804 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **659 that are units of work**, for the reason set out under [What a roll-up is
+count the **664 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 294 | 45% |
-| Part-built | partial, in-build | 121 | 18% |
+| Done | shipped | 297 | 45% |
+| Part-built | partial, in-build | 123 | 18% |
 | Ahead | designed, planned, researching, not-started | 203 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **659** | **100%** |
+| **All units of work** | | **664** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 294 | 45% |
-| `partial` | 120 | 18% |
+| `shipped` | 297 | 45% |
+| `partial` | 122 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 137 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **659** | **100%** |
+| **All statuses** | **664** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 799 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 804 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 294 of 659 (45%). Shipped plus partial is 414 (63%).**
+**Shipped alone is 297 of 664 (45%). Shipped plus partial is 419 (63%).**
 
-The 120 units between those two numbers are work that is engineered and paid for and is not
+The 122 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**415 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**420 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 70 | 17% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 167 | 40% |
-| No user surface by nature (`internal`) | 178 | 43% |
+| A person can open it today (`screen`) | 76 | 18% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 166 | 40% |
+| No user surface by nature (`internal`) | 178 | 42% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **415** | **100%** |
+| **Everything with something built** | **420** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -106,9 +106,9 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 63 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 97 | 65% |
+| Documents | 64 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 98 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
-| Financial Core | 17 | 16 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 55 | 31% |
+| Financial Core | 19 | 18 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 59 | 32% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **294** | **120** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **659** | **45%** |
+| **All areas** | **297** | **122** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **664** | **45%** |
 
 ## Where we have been
 
@@ -733,7 +733,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 97 units of work, 65% shipped. 63 done, 11 part-built, 19 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 98 units of work, 65% shipped. 64 done, 11 part-built, 19 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -781,6 +781,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.preview.sandbox-origin` · `shipped` · **Safe-delivery sandbox** — Untrusted bytes served from a separate cookieless files._ origin with attachment disposition, correct Content-Type, nosniff, restrictive CSP, iframe sandbox.
     - `documents.preview.inline-playable` · `shipped` · **inlinePlayable verdict** — Cheap container/codec sniff recorded per version at ingest; preview policy serves inline only on a playable verdict. _Note: Firm-wide Reports rollup of the verdict awaits the Reports subsystem._
     - `documents.preview.safe-rendition` · `partial` · **Derived safe renditions** — Active formats previewed only via a derived rasterized/transcoded rendition (artifact_role derived version), never the raw file. _Note: Rasterize/transcode engine wires in with the player UI._
+    - `documents.preview.pdf-reader` · `shipped` · **Portable-document reader** — A read-only in-app reader that rasterizes a PDF's pages locally through the pure-Rust engine in a Web Worker, rather than serving the file to the browser. _Note: Independent of the cookieless streaming path: only pixels reach the page, so it needs no rendition engine and no deploy activation. Pages are drawn as they come into view, and the resolution is capped._
     - `documents.preview.player` · `designed` · **Video player UI** — Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
     - `documents.preview.transcoding` · `deferred` · **Preview transcoding** — Self-hosted FFmpeg (Queues + Container) MP4 renditions for non-web formats; clip/annotation, transcript sync, adaptive bitrate.
   - `documents.conversion` · `partial` · **In-app file conversion** — In-house any-format to any-format converter; bytes stay in-tenant (R2 to our compute to R2); original never mutated.
@@ -867,7 +868,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 55 units of work, 31% shipped. 17 done, 16 part-built, 19 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 59 units of work, 32% shipped. 19 done, 18 part-built, 19 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -908,7 +909,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.trust.multi-jurisdiction-accounts` · `partial` · **Multiple active jurisdictions per firm** — Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location. _Note: The binding and its refusals ship; what does not is the per-account profile actually resolving - no trust surface reads a requirement through the port in packages/trust/src/jurisdiction.ts yet - and matter trust activity defaulting to the matter's home location, which callers still name an account for._
     - `financial.trust.reconciliation` · `partial` · **Interactive three-way reconciliation** — Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account. _Note: No screen: the matter trust section is still the stub at apps/web/src/routes/(app)/matters/[id]/trust/+page.svelte, so matching, the outstanding lists and the proof are API-only. Import is the guided CSV path; a banking-plugin import still depends on an unbuilt banking integration._
     - `financial.trust.close-rule` · `shipped` · **Zero-balance close precondition** — Registers "all bills paid, no remaining balance" on the matter close-precondition hook. _Note: Backend only, and nothing more is promised - the capability is a refusal carried by the matter close route, not a screen. The "all bills paid" half of the scope is deliberately not registered: an uncollectable receivable's lawful exit is a write-off, and the money the firm owes back is covered instead by matterClientCreditClosePrecondition in packages/billing/src/close-precondition.ts._
-  - `financial.billing` · `partial` · **Billing and invoicing** — Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle. _Note: The slice map serializes this after time and costs, which are both on main._
+  - `financial.billing` · `partial` · **Billing and invoicing** — Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle. _Note: The slice map serializes this after time and costs, which are both on main. Two registers now read it — the matter's own Billing section and the firm's whole register — and the acts against a bill live on the first of them._
     - `financial.billing.fee-models` · `shipped` · **Fee models** — The four billing arrangements — hourly, flat/fixed, contingency, retainer/evergreen _Note: Built all at once per the owner's docket override of the staged default._
       - `financial.billing.fee-models.hourly` · `shipped` · **Hourly billing** — Hourly bills from billable WIP time at resolved rates.
       - `financial.billing.fee-models.flat-fee` · `shipped` · **Flat/fixed fee** — Flat and fixed-fee billing.
@@ -917,6 +918,8 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.billing.corrections` · `shipped` · **Corrections after finalization** — Credit notes and their lines, the client credit a correction opens when it outruns the unpaid balance, write-offs, and the reversal of a mistaken application. _Note: Two of the three ways to discharge a client credit — a refund from operating and a return to the client's trust ledger — move real money through the operating-disbursement path and stay deferred; setting a credit against a later bill of the same client is built. Credit notes carry no number pending an owner decision._
       - `financial.billing.corrections.contingency-residual` · `shipped` · **Contingency shrunk-basis residual** — Reporting a contingency fee billed beyond what the surviving recovery entitles the firm to, and letting the credit note that resolves it clear the finding. _Note: The platform reports and never issues — what a firm owes back after a settlement collapses is a decision with a client in it._
     - `financial.billing.invoice-composition` · `partial` · **Invoice composition** — Bills combine time/fees plus costs plus taxes. _Note: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen._
+    - `financial.billing.firm-register` · `partial` · **The firm's billing register** — Every bill the firm has raised, narrowable by state, with the receivables aging over it. _Note: Partial because it reads and does not act — every verb that writes is refused here by name and says where it lives, and batch and recurring runs belong to the billing-automations slice. The aging is read from the server over every finalized bill rather than summed from the page on screen, so the figure never grows as a reader scrolls. A bill met here finds its matters: the detail names them beside every line and every balance, so the window offers one link per matter rather than a list of handles._
+    - `financial.billing.matter-register` · `shipped` · **A matter's bill register** — The bills that charge one matter, drafts included, each carrying that matter's own share. _Note: The register read the CLIENT's whole billing history and then read every one of those bills' details to work out this matter's share, which stated the client's account under the matter's heading at a request per bill. Closes gaps 1 and 6 of the matter Billing tab's screen design; the client's display name is resolved in the listing and the detail, so neither register prints an identifier._
     - `financial.billing.delivery` · `partial` · **Invoice delivery record** — An append-only row per attempt at giving a client a bill — channel, recipient reference, date, external reference, outcome, and who recorded it — plus the delivery-state read the apply-funds surface shows. _Note: Partial because it is a record and not a transmission - the platform renders no invoice and carries nothing to a client, so every row is a delivery the firm made and is reporting. Backend only, no screen. The client_portal channel is enumerated with nothing able to produce it until the portal lands._
     - `financial.billing.location-letterhead` · `not-started` · **Location letterhead and remit-to on invoices** — Invoices carry the home Location's letterhead and remit-to when the matter is location-assigned, snapshotted at finalize.
     - `financial.billing.wip-to-ar` · `shipped` · **WIP to A/R posting at finalize** — At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock. _Note: Backend only, no screen._
@@ -930,7 +933,9 @@ to change a line here, edit the node in its area file and re-run the build.
       - `financial.billing.automations.reminders` · `designed` · **Payment reminders** — A comparison over unpaid finalized invoices past their due date, recorded as a durable billing decision and surfaced through the notifications subsystem. _Note: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member and the client portal is not started. The delivery record it needed is now built (financial.billing.delivery), so a reminder can state whether the bill was ever recorded as given to the client; it still cannot deliver one._
       - `financial.billing.automations.payment-plans` · `designed` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied. _Note: The record half is buildable now; charging is unreachable on three independent grounds — no payment rail, no stored method, and no principal an unattended charge could be checked against._
       - `financial.billing.automations.replenishment` · `designed` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
-  - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice._
+  - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Two registers read it — the matter's own Costs section and the firm's period across every matter; cost-to-A/R conversion and LEDES belong to the billing slice._
+    - `financial.costs.firm-period` · `partial` · **The firm's cost record over a period** — What the firm advanced across every matter over a span of incurred dates, and what is still waiting on a bill. _Note: Partial because it does not yet approve a submitted cost across matters. It reads, opens a cost, and records one — the record window takes the firm's matters and leads with an unfilled matter picker, on the arrangement the Time Sheet already has. The listing answered one matter entire and returned an empty list for anything else, which is why Costs was absent from the sidebar's Money group while the matter carried it — the two disagreed about what Money holds for a structural reason rather than an oversight._
+    - `financial.costs.billed-record-to-bill` · `shipped` · **A billed record names its bill** — The invoice that took a cost or a time entry up, on its own listing row and reachable from it. _Note: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently — and Fees declares no opensTheBill, because an unbilled fee record has no table behind it yet._
     - `financial.costs.entry-model` · `partial` · **Cost entry anatomy** — Per-matter entries with type, Directory-linked vendor, date, hard/soft, billable flag, optional UTBMS expense (E-) code with e-billing validation. _Note: Backend shipped; entry UI not built._
     - `financial.costs.hard` · `partial` · **Hard costs as client receivable** — Firm-advanced third-party costs (filing, recording, service, experts, postage/shipping) advanced as a client receivable and billed back. _Note: Capture shipped, and the receivable posting is shipped with it — packages/billing/src/finalize.ts credits client costs advanced for a hard cost, keeping it an asset the firm is repaid rather than income. The cost entry screens are not built._
     - `financial.costs.soft` · `partial` · **Soft/in-house costs** — In-house costs (printing, copies) tracked separately from hard costs. _Note: Backend shipped; UI not built._

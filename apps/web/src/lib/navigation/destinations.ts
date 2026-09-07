@@ -38,6 +38,7 @@ import FileText from "@lucide/svelte/icons/file-text";
 import ClipboardPenLine from "@lucide/svelte/icons/clipboard-pen-line";
 import Inbox from "@lucide/svelte/icons/inbox";
 import Clock from "@lucide/svelte/icons/clock";
+import Coins from "@lucide/svelte/icons/coins";
 import Landmark from "@lucide/svelte/icons/landmark";
 import ReceiptText from "@lucide/svelte/icons/receipt-text";
 import FileSearch from "@lucide/svelte/icons/file-search";
@@ -380,14 +381,43 @@ const DESTINATION_LIST = [
     defaultStarred: true,
   },
   {
+    // The firm's cost record over a period, across every matter — what was advanced, what is still
+    // waiting on a bill, and what the firm decided to absorb. Costs was absent from this group
+    // entirely while the matter's own Money group carried it, so the sidebar and the matter
+    // disagreed about what Money holds; the reason was structural rather than an oversight, and
+    // the listing's from/to span is what closed it.
+    //
+    // It sits between Time and Billing because that is the order the money moves: hours and
+    // disbursements accrue, then a bill claims them. The matter's own Money group reads the same
+    // way, with its Fees section between them.
+    id: "costs",
+    label: "Costs",
+    href: "/costs",
+    icon: Coins,
+    description: "What the firm advanced for its matters, and what is still waiting on a bill.",
+    group: "money",
+    shipped: true,
+    // The period reads, narrows and opens any cost in the shared record window. Approving a
+    // submitted cost across matters, and the recorder each row is missing, are still to come.
+    stage: "alpha",
+    defaultStarred: true,
+  },
+  {
+    // The firm's own billing register: every bill for every client, newest first, with the
+    // receivables aging over it. It is the read a matter's Billing section cannot give — a matter
+    // knows its own account and no amount of visiting matters adds up to what the firm is owed.
+    //
+    // Alpha, not ready: the register reads, narrows by state, and opens any bill in the same window
+    // the matter opens it in. The acts that move ONE matter's money are refused here by design and
+    // say where they live; batch and recurring runs belong to the billing-automations slice.
     id: "billing",
     label: "Billing",
     href: "/billing",
     icon: ReceiptText,
     description: "Invoices, rates, and what the firm is owed.",
     group: "money",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {

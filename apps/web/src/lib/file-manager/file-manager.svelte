@@ -481,14 +481,15 @@
       });
       return;
     }
-    // One "Open". A word-processing or plain-text document with clean, committed bytes opens its
-    // editor beside this list — a working session with a life of its own, kept open while the
-    // reader comes back here. Every other file opens its preview in the panel; a file without
-    // bytes, or one whose bytes are withheld, opens the panel anyway, on the tab that says why
-    // there is nothing to see. What decides between the two is the file, never a second menu item
-    // (editable-documents.ts holds the rule).
+    // One "Open". A document with clean, committed bytes that this application can work on opens
+    // beside this list — a word-processing or text document in its editor, a portable document in
+    // its reader — as a session with a life of its own, kept open while the reader comes back here.
+    // Every other file opens its preview in the panel; a file without bytes, or one whose bytes are
+    // withheld, opens the panel anyway, on the tab that says why there is nothing to see. What
+    // decides between them is the file, never a second menu item (editable-documents.ts holds the
+    // rule).
     const destination = openDestinationOf(row.file);
-    if (destination.kind === "editor") {
+    if (destination.kind === "editor" || destination.kind === "viewer") {
       openBeside(destination.href, "session");
       return;
     }

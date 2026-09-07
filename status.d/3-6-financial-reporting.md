@@ -9,8 +9,8 @@ built: in-progress by="Opus 5"
 ui: in-progress
 load-profile: done by="Opus 5"
 tested: in-progress by="Opus 5"
-branch: claude/main-report-generation-screen-ynuxnr
-active-work: docs/active-work/claude/main-report-generation-screen-ynuxnr.md
+branch: main
+active-work:
 next: Owner answers on the nine flagged questions of the reporting design; then sub-slice 3·6·2 — the financial reports, each one registry entry and a presenter
 link-spec: docs/specs/2026-08-13-financial-reporting-design.md
 link-plan: docs/specs/2026-08-13-financial-reporting-implementation-plan.md
