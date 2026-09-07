@@ -26,6 +26,8 @@
  */
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { OUTBOX_TABLE } from "@magna-carta/data-access/outbox-statements";
+import { MESSAGE_HEAD_LENGTH } from "@magna-carta/telemetry/operation";
+import { scrubText } from "@magna-carta/telemetry/scrub";
 import type { UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
 import {
@@ -40,6 +42,20 @@ import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { perFirmHeadSchemaVersion } from "../per-firm-migrations.ts";
 import { loadEffectivePermissions } from "../session-context.ts";
+
+/**
+ * An unreachable database's own words, made safe to show.
+ *
+ * Bounded to the same MESSAGE_HEAD_LENGTH the error pipeline logs, and put through the same scrub
+ * pass, so this cannot become the one surface that prints a value the logs are careful never to.
+ * A non-Error throw yields null rather than "[object Object]": a reader is better served by a
+ * missing line than by one that says nothing while looking like it says something.
+ */
+export function faultOf(error: unknown): string | null {
+  if (!(error instanceof Error)) return null;
+  const head = error.message.slice(0, MESSAGE_HEAD_LENGTH).trim();
+  return head.length === 0 ? null : scrubText(head).text;
+}
 
 /** The topic whose backlog explains a member who is in the firm but not yet in its database. */
 export const MEMBER_PROVISION_TOPIC = "member.provision";
@@ -62,6 +78,18 @@ const FirmDatabaseCheck = z
     // The round trip to the firm's Durable Object, in whole milliseconds — the number that says
     // "connected, and this is what it cost". Null when the round trip never completed.
     roundTripMilliseconds: z.number().int().nullable(),
+    // WHY it is not answering, in the database's own words, or null while it is.
+    //
+    // "Not answering" names the symptom and stops, which is the one thing a reader already knows by
+    // the time they open this panel. The cause was in hand the whole time — the durable object
+    // throws a specific error and this read was discarding it in a bare `catch` — and recovering it
+    // turned a database outage into a message that names the failing constraint outright.
+    //
+    // Scrubbed and bounded like any other message head, because an error string is the one place a
+    // stray value can ride out of the database: a constraint failure names the constraint, but a
+    // UNIQUE violation can carry the offending value with it. Same treatment as the error pipeline
+    // gives the `messageHead` it logs (docs/conventions/error-logging.md), for the same reason.
+    fault: z.string().nullable(),
   })
   .openapi("DatabaseHealthFirmDatabase");
 
@@ -258,9 +286,14 @@ export async function collectDatabaseHealth(input: {
     firmDatabaseCheck = {
       state: "reachable",
       roundTripMilliseconds: Math.max(0, Math.round(now() - startedAt)),
+      fault: null,
     };
-  } catch {
-    firmDatabaseCheck = { state: "unreachable", roundTripMilliseconds: null };
+  } catch (error) {
+    firmDatabaseCheck = {
+      state: "unreachable",
+      roundTripMilliseconds: null,
+      fault: faultOf(error),
+    };
   }
 
   // The control-plane leg. The firm's row is already proven to exist — the chokepoint read it to
