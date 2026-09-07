@@ -18,6 +18,7 @@ import Clock from "@lucide/svelte/icons/clock";
 import ReceiptText from "@lucide/svelte/icons/receipt-text";
 import CalendarDays from "@lucide/svelte/icons/calendar-days";
 import FileSpreadsheet from "@lucide/svelte/icons/file-spreadsheet";
+import Phone from "@lucide/svelte/icons/phone";
 
 export interface SourcePresentation {
   /** The group heading, in the reader's vocabulary — matching the section tab's own label. */
@@ -37,6 +38,11 @@ const PRESENTATION: Readonly<Record<string, SourcePresentation>> = {
   // the words. That is why titleKind exists at all rather than every source rendering a string.
   notes: { heading: "Notes", icon: NotebookPen, titleKind: "instant" },
   custody: { heading: "Custodian", icon: Vault, titleKind: "text" },
+  // A call has no name either, and the same reasoning as a note applies twice over: what a reader
+  // recognizes it by is when it happened, and the snippet carries what was said. The heading is the
+  // SECTION's word rather than the source's — the source is named for the record it holds, the tab
+  // for what a person calls it.
+  communications: { heading: "Messaging", icon: Phone, titleKind: "instant" },
   // A time entry has no name either — what a reader recognizes it by is the day the work was done,
   // and the narrative is the excerpt beneath it.
   time: { heading: "Time", icon: Clock, titleKind: "instant" },

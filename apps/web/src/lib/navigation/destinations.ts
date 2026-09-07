@@ -270,15 +270,21 @@ const DESTINATION_LIST = [
     defaultStarred: true,
   },
   {
-    // Client and portal communications.
+    // Calls and texts — the two channels a conversation only exists in if the platform records it.
+    // Email is deliberately NOT here: mail already lives in the firm's own mailbox and is FILED onto
+    // a matter from there, so a second reader for it would compete with the client a member already
+    // has open. The id stays "communications" because a member's sidebar stars are stored under it.
     id: "communications",
     label: "Messaging",
     href: "/communications",
     icon: MessageSquare,
-    description: "Client and portal messages, kept with their matters.",
+    description: "Calls and texts with clients, logged against their matters.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The log reads and records what a member writes down. Nothing is sent or received yet: the
+    // carrier adapter that writes these same rows by itself, and the recording and transcript that
+    // hang off a call, are the rungs after this one.
+    stage: "alpha",
     defaultStarred: true,
   },
   {
