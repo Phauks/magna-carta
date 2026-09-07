@@ -51,6 +51,22 @@ export interface RouteMeta {
   // a caller observes is already in the document: the reserved 404 every one of these routes
   // declares.
   firmlessSession?: "reject" | "allow" | "only";
+  // What this route does when the session's firm DATABASE cannot be reached at all — distinct from
+  // the firm being absent, which is already the reserved 404. The per-firm lineage is applied in the
+  // FirmDatabase durable object's constructor, ahead of any read or write it serves, so a migration
+  // that cannot complete does not degrade one screen: it makes the firm's whole database unreachable
+  // and the chokepoint's own member-active check throw.
+  // Defaults to "reject", so every route that has not thought about it fails CLOSED.
+  //   "reject"   — the throw propagates and the route answers 500. Every route that serves firm
+  //                data: membership could not be verified, so nothing may be served on it.
+  //   "tolerate" — admitted with the context the control plane alone could build, and no
+  //                permissions. Legal ONLY with permission: null and only for a route that reads no
+  //                firm data, which is why registration refuses any other combination. This exists
+  //                for the DIAGNOSTIC reads. They were firm-scoped like everything else, so an
+  //                unreachable firm database took down the two surfaces whose entire job is to say
+  //                that the firm database is unreachable — the one question an operator has at that
+  //                moment, answered by a blank panel.
+  firmDatabaseOutage?: "reject" | "tolerate";
   tags?: string[]; // default: [operationId namespace] — applied when absent OR empty
   deprecated?: boolean;
   /**
