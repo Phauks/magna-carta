@@ -25,4 +25,15 @@ export default defineConfig({
   },
   // dev convenience: proxy /api to a running `wrangler dev`
   server: { proxy: { "/api": "http://localhost:8787" } },
+  build: {
+    // Source maps ship with the production bundle, so a stack frame in a member's browser names
+    // the Svelte file and line rather than a hashed chunk and a minified identifier — the sign-in
+    // crash of 2026-09 was diagnosed from `De.get (naXSyiPE.js:5:816)`, which says nothing. The
+    // trade is explicit (owner ruling, 2026-09-07): magna-carta-web is an assets-only Worker, so
+    // the `.map` files are public assets and anyone who fetches one can read this app's source,
+    // comments included. That is disclosure of code, not of credentials — a browser bundle carries
+    // no secret, and everything privileged sits behind the API — and readable production stack
+    // frames were judged worth it.
+    sourcemap: true,
+  },
 });
