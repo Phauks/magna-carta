@@ -301,6 +301,12 @@ describe("readZipCentralDirectory", () => {
         compressedSizeBytes: 0,
         uncompressedSizeBytes: 0,
         modifiedAt: null,
+        // The four fields the listing does not use and extraction cannot work without. The helper
+        // writes zeros for all of them, so they read back as zeros.
+        compressionMethod: 0,
+        generalPurposeFlags: 0,
+        crc32: 0,
+        localHeaderOffset: 0,
       },
     ]);
   });
@@ -356,6 +362,12 @@ describe("readZipCentralDirectory", () => {
         compressedSizeBytes: 4_999_999_999,
         uncompressedSizeBytes: 5_000_000_000,
         modifiedAt: null,
+        compressionMethod: 0,
+        generalPurposeFlags: 0,
+        crc32: 0,
+        // This fixture's 32-bit offset is not saturated, so the ZIP64 extra carries only the two
+        // sizes and the offset is read from the central header as it stands.
+        localHeaderOffset: 0,
       },
     ]);
   });
