@@ -48,6 +48,7 @@ import {
   type ArchiveFormat,
 } from "@magna-carta/file-manager/archive-format";
 import { readTarListing } from "@magna-carta/file-manager/tar-listing";
+import { readRarListing } from "@magna-carta/file-manager/rar-listing";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
 import {
   readFlaggedTreatment,
@@ -543,8 +544,9 @@ async function readArchiveListing(
 } | null> {
   if (format === "tar") return readTarListing(bucket, key, limits);
   if (format === "zip") return readZipCentralDirectory(bucket, key, limits);
-  // 7z and rar have readers in build; until they land, the honest answer names the format rather
-  // than claiming the file is not an archive.
+  if (format === "rar") return readRarListing(bucket, key, limits);
+  // 7z's reader is in build; until it lands, the honest answer names the format rather than
+  // claiming the file is not an archive.
   throw new UnreadableArchiveFormatError(format);
 }
 
@@ -1683,7 +1685,8 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           type: "not-an-archive",
           title: "Not an archive",
           status: 422,
-          detail: "This file is not an archive this application can read, so it has nothing to browse.",
+          detail:
+            "This file is not an archive this application can read, so it has nothing to browse.",
         });
       }
       try {
