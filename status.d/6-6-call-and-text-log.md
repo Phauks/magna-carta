@@ -10,7 +10,7 @@ ui: done
 load-profile: todo
 tested: done
 branch: claude/messaging-sidebar-ui-setup-6xs8ah
-active-work: docs/active-work/claude/messaging-sidebar-ui-setup-6xs8ah.md
+active-work:
 next: the messaging port and the Telnyx adapter, gated on A2P 10DLC registration, which is the long procurement pole; the telephony port for call metadata; recording, behind the jurisdiction consent gate; transcription on Workers AI; resolving an inbound number against the Directory; a Directory contact's own cross-channel communications tab, which is where email, calls and texts actually converge; a load-profile volume for the firm-wide read
 link-spec: docs/specs/2026-09-07-call-and-text-log-design.md
 link-plan:
