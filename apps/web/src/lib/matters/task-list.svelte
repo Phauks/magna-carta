@@ -31,14 +31,16 @@
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import CreateControl from "@magna-carta/design-system/create-control";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import PencilLine from "@lucide/svelte/icons/pencil-line";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Ban from "@lucide/svelte/icons/ban";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Paperclip from "@lucide/svelte/icons/paperclip";
-  import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
+  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import {
     describeTimeLogged,
     externalSystemLabel,
@@ -130,9 +132,10 @@
   // what is owed starts by showing what is owed.
   let showDone = $state(false);
   let showCancelled = $state(false);
-  let searchTerm = $state("");
+  // ScreenSearch owns the field and the pause before a query leaves the machine; this holds only
+  // what the last pause actually sent, which is what the read is filtered by.
+  let searchText = $state("");
   let appliedSearch = $state("");
-  let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
   const states = $derived<readonly TaskState[]>(
     ["open", ...(showDone ? (["done"] as const) : []), ...(showCancelled ? (["cancelled"] as const) : [])],
@@ -140,6 +143,14 @@
   // Anything narrowing the view. Its truth is what draws the clear control, so the control's absence
   // is itself the answer to "is anything hidden".
   const narrowed = $derived(appliedSearch !== "" || showDone || showCancelled);
+  // What the clear control says it will undo, so pressing it is never a guess.
+  const narrowingSummary = $derived(
+    [
+      ...(appliedSearch === "" ? [] : [`searching "${appliedSearch}"`]),
+      ...(showDone ? ["showing done"] : []),
+      ...(showCancelled ? ["showing cancelled"] : []),
+    ].join(", "),
+  );
 
   const filters = $derived<TaskListFilters>({
     states,
@@ -197,7 +208,7 @@
     editingTaskId = null;
     cancelling = null;
     attachingTaskId = null;
-    searchTerm = "";
+    searchText = "";
     appliedSearch = "";
     writeFailure = null;
     matterFiles = null;
@@ -253,21 +264,17 @@
     reload();
   }
 
-  // Debounced, so a term typed a character at a time is one read rather than eight.
-  function onSearchInput(): void {
-    clearTimeout(searchTimer);
-    const term = searchTerm;
-    searchTimer = setTimeout(() => {
-      if (term.trim() !== appliedSearch) {
-        appliedSearch = term.trim();
-        reload();
-      }
-    }, 250);
+  // What the control hands over once typing has stopped. Re-reading on a query that did not change
+  // would spend a request to redraw the rows already on screen.
+  function applySearch(query: string): void {
+    const term = query.trim();
+    if (term === appliedSearch) return;
+    appliedSearch = term;
+    reload();
   }
 
   function clearNarrowing(): void {
-    clearTimeout(searchTimer);
-    searchTerm = "";
+    searchText = "";
     appliedSearch = "";
     showDone = false;
     showCancelled = false;
@@ -437,16 +444,6 @@
           {heading}
         </FieldLabel>
       {/if}
-      <div class="flex items-center gap-4">
-        <Search aria-hidden="true" class="size-16 text-text-muted" />
-        <Input
-          bind:value={searchTerm}
-          oninput={onSearchInput}
-          disabled={isSample}
-          aria-label="Search tasks"
-          class="w-192"
-        />
-      </div>
       <div class="flex items-center gap-12 text-xs">
         <label class="flex items-center gap-4">
           <Checkbox
@@ -471,30 +468,51 @@
           Cancelled
         </label>
       </div>
+    </div>
+    <div class="flex flex-wrap items-center gap-8">
+      <!-- The search, then the create control, then the clear: the same three, in the same order,
+           as the docket and the custody register. The search grows toward the inline start as it
+           opens, so what follows it never moves. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search tasks"
+        placeholder={placeholderOf("Search tasks")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        disabled={isSample}
+        onsearch={applySearch}
+      />
+      {#if composing}
+        <Button variant="secondary" disabled={saving} onclick={resetComposer}>Cancel</Button>
+      {:else if ownNewButton}
+        <!-- The one create control, the design system's, so this list reads like every other
+             screen. -->
+        <CreateControl
+          noun="Task"
+          title="Add a task, with whose it is and when it is due."
+          refusal={isSample
+            ? "This is a sample matter. There is no firm record behind it, so nothing can be recorded against it."
+            : canWrite
+              ? undefined
+              : permissionRefusal("Adding a task", "tasks:write")}
+          onpress={openNew}
+        />
+      {/if}
       <!-- Present only while something is narrowing the list, so its absence answers "is anything
            hidden". -->
       {#if narrowed}
-        <Button variant="ghost" onclick={clearNarrowing} title="Show everything again">
-          <X aria-hidden="true" />
-          Clear
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Show every task: {narrowingSummary}"
+          title={narrowingSummary}
+          class="text-accent-default"
+          onclick={clearNarrowing}
+        >
+          <FunnelX class="size-16" aria-hidden="true" />
         </Button>
       {/if}
     </div>
-    {#if composing}
-      <Button variant="secondary" disabled={saving} onclick={resetComposer}>Cancel</Button>
-    {:else if ownNewButton}
-      <!-- The one create control, the design system's, so this list reads like every other screen. -->
-      <CreateControl
-        noun="Task"
-        title="Add a task, with whose it is and when it is due."
-        refusal={isSample
-          ? "This is a sample matter. There is no firm record behind it, so nothing can be recorded against it."
-          : canWrite
-            ? undefined
-            : permissionRefusal("Adding a task", "tasks:write")}
-        onpress={openNew}
-      />
-    {/if}
   </div>
 
   {#if writeFailure !== null}

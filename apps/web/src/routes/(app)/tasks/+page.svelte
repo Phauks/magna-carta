@@ -19,7 +19,7 @@
   <title>Tasks · Magna Carta</title>
 </svelte:head>
 
-<div class="flex min-h-0 flex-1 flex-col gap-16 p-24">
+<div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader title="Tasks" />
 
   <TaskList
