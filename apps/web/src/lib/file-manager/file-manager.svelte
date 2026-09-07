@@ -60,6 +60,7 @@
   import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { problemGuidance } from "$lib/documents/document-presentation.ts";
+  import { openDestinationOf } from "$lib/documents/editable-documents.ts";
   import {
     createFolder,
     deleteFolder as deleteFolderRequest,
@@ -472,8 +473,17 @@
       });
       return;
     }
-    // One "Open". A file with bytes opens its preview in the panel; a file without any opens the
-    // panel anyway, on the tab that says why there is nothing to see.
+    // One "Open". A word-processing or plain-text document with clean, committed bytes opens its
+    // editor beside this list — a working session with a life of its own, kept open while the
+    // reader comes back here. Every other file opens its preview in the panel; a file without
+    // bytes, or one whose bytes are withheld, opens the panel anyway, on the tab that says why
+    // there is nothing to see. What decides between the two is the file, never a second menu item
+    // (editable-documents.ts holds the rule).
+    const destination = openDestinationOf(row.file);
+    if (destination.kind === "editor") {
+      openBeside(destination.href, "session");
+      return;
+    }
     manager.setPanelOpen(true);
     manager.inspectorKey = row.key;
     manager.inspectorTab = "preview";
