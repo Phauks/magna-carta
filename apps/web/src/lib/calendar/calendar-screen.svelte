@@ -5,8 +5,15 @@
    * `/calendar` opens on the month and `/calendar/firm-events` on the agenda; the latter is the
    * deep link the federated read emits for a firm event, and it is the same screen with the same
    * scope rather than a second one. The header reads the screen's name and nothing under it; its
-   * inline-end half carries ONE primary action, Record, as a menu over the three kinds of record —
-   * one action with a menu rather than a button per kind (docs/conventions/design-corrections.md).
+   * inline-end half carries ONE primary action, the design system's CreateControl, as a menu over
+   * the three kinds of record — one action with a menu rather than a button per kind
+   * (docs/conventions/design-corrections.md).
+   *
+   * IT READS THE BARE "NEW", and its menu names the kinds. The control offers three things, so a
+   * label naming one of them would be wrong about the other two; the noun goes on the menu items,
+   * which is the grammar CreateControl already speaks. It was a hand-built dropdown reading
+   * "Record" until 2026-09-06 — the create verb this product uses is New, and the one control that
+   * says it is the design system's, never a button a screen assembles for itself.
    *
    * `back` is the caller's, because only the route knows whether it is the calendar or a screen
    * under it: /calendar is a main screen and names nothing, /calendar/firm-events names the
@@ -22,11 +29,11 @@
    */
   import { untrack } from "svelte";
   import { page } from "$app/state";
-  import { buttonClasses } from "@magna-carta/design-system/button";
-  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
+  import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import Plus from "@lucide/svelte/icons/plus";
+  import Building2 from "@lucide/svelte/icons/building-2";
+  import CalendarClock from "@lucide/svelte/icons/calendar-clock";
+  import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { BackTarget } from "$lib/screen/screen-header.ts";
   import { calendarContext } from "./calendar-context.svelte.ts";
@@ -71,7 +78,7 @@
   });
 
   /*
-   * Why Record refuses, if it does. A member without the permission is refused server-side
+   * Why the control refuses, if it does. A member without the permission is refused server-side
    * whatever this screen does; the control says so where it stands rather than disappearing.
    */
   const recordRefusal = $derived(calendarManageRefusal("Recording on the calendar", context));
@@ -90,24 +97,17 @@
 <div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader {title} {back}>
     {#snippet actions()}
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger
-          class={buttonClasses({ variant: "primary", size: "default" })}
-          disabled={recordRefusal !== undefined}
-          title={recordRefusal}
-        >
-          <Plus class="size-16" aria-hidden="true" />
-          Record
-          <ChevronDown class="size-16" aria-hidden="true" />
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-          <DropdownMenu.Item onSelect={() => (eventOpen = true)}>Event on a Matter</DropdownMenu.Item>
-          <DropdownMenu.Item onSelect={() => (deadlineOpen = true)}>
-            Deadline on a Matter
-          </DropdownMenu.Item>
-          <DropdownMenu.Item onSelect={() => (firmEventOpen = true)}>Firm Event</DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+      <!-- The glyphs are the ones each kind already wears wherever it is named
+           (calendar-activity-contribution.ts): one kind, one glyph, across the product. -->
+      <CreateControl
+        title="Record an event, a deadline or a firm event."
+        refusal={recordRefusal}
+        choices={[
+          { label: "New Event", icon: CalendarDays, onselect: () => (eventOpen = true) },
+          { label: "New Deadline", icon: CalendarClock, onselect: () => (deadlineOpen = true) },
+          { label: "New Firm Event", icon: Building2, onselect: () => (firmEventOpen = true) },
+        ]}
+      />
     {/snippet}
   </ScreenHeader>
 

@@ -8,8 +8,9 @@ menu and the report appears in your Downloads, ready. That way you can run sever
 morning and take them all at once, instead of a file landing in your downloads folder each time.
 
 There are two ways in. The **download button in the top bar**, beside the timer, marks itself when
-something new arrives; clicking it shows what you have made recently and links to the full list.
-**Downloads** in the sidebar opens that full list directly.
+something new arrives; clicking it shows what you have made recently and links to the full list. The
+**download icon at the far end of the row at the foot of the sidebar**, beside Uploads, opens that
+full list directly.
 
 Each item is held for **seven days** and then clears itself. The list shows what it is, where it came
 from, which formats you have already taken, when you made it, and the day it stops being available.

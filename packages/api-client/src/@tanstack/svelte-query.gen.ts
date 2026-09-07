@@ -7030,7 +7030,7 @@ export const magnusAcknowledgeMutation = (options?: Partial<Options<MagnusAcknow
 export const magnusListConversationsQueryKey = (options?: Options<MagnusListConversationsData>) => createQueryKey('magnusListConversations', options);
 
 /**
- * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited.
+ * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited. The optional matter filter narrows the page to the conversations kept on one matter's file, which is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about what any of those conversations was built from.
  */
 export const magnusListConversationsOptions = (options?: Options<MagnusListConversationsData>) => queryOptions<MagnusListConversationsResponse, MagnusListConversationsError, MagnusListConversationsResponse, ReturnType<typeof magnusListConversationsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -7048,7 +7048,7 @@ export const magnusListConversationsOptions = (options?: Options<MagnusListConve
 export const magnusListConversationsInfiniteQueryKey = (options?: Options<MagnusListConversationsData>): QueryKey<Options<MagnusListConversationsData>> => createQueryKey('magnusListConversations', options, true);
 
 /**
- * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited.
+ * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited. The optional matter filter narrows the page to the conversations kept on one matter's file, which is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about what any of those conversations was built from.
  */
 export const magnusListConversationsInfiniteOptions = (options?: Options<MagnusListConversationsData>) => infiniteQueryOptions<MagnusListConversationsResponse, MagnusListConversationsError, InfiniteData<MagnusListConversationsResponse>, QueryKey<Options<MagnusListConversationsData>>, string | Pick<QueryKey<Options<MagnusListConversationsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore

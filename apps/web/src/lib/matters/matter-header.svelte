@@ -10,8 +10,9 @@
    *
    * THE BAND CARRIES ONE ACTION, AND IT IS THE CREATE CONTROL. The search is a way IN to the
    * matter; the create control beside it (owner's placement, 2026-09-03) is the one way something
-   * new is made on it — "New Fee" on Fees, "New File" on Files, its label answered by the section
-   * registry and its behaviour claimed by the section's page (create-action.svelte.ts). It is one
+   * new is made on it — "New Fee" on Fees, the bare "New" where the section makes several kinds
+   * (Files, Calendar) and its menu names them — its label answered by the section registry and its
+   * behaviour claimed by the section's page (create-action.svelte.ts). It is one
    * width on every section, so the search it sits beside never moves. It replaces the create
    * button each section used to carry in its own action row, which sat a different distance down
    * the screen on every tab. The band's earlier overflow (...) control, whose only item was the

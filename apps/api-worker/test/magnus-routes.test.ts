@@ -382,6 +382,37 @@ describe("an opted-in firm", () => {
     expect(allowed.status).toBe(200);
   });
 
+  it("the matter filter narrows the list to one matter's file and leaves the rest out", async () => {
+    const matterId = newIdentifier("matter");
+    const otherMatterId = newIdentifier("matter");
+    const onTheMatter = await post(
+      "/api/v1/magnus/conversations",
+      { title: "On the matter", matterId },
+      ownerCookie,
+    );
+    expect(onTheMatter.status).toBe(201);
+    const onAnother = await post(
+      "/api/v1/magnus/conversations",
+      { title: "On another", matterId: otherMatterId },
+      ownerCookie,
+    );
+    expect(onAnother.status).toBe(201);
+    const onNoMatter = await startConversation(ownerCookie);
+
+    const filtered = await get(`/api/v1/magnus/conversations?matterId=${matterId}`, ownerCookie);
+    expect(filtered.status).toBe(200);
+    const page = await readJson<{ data: Array<{ id: string; matterId: string | null }> }>(filtered);
+    expect(page.data.map((row) => row.id)).toEqual([
+      (await readJson<{ id: string }>(onTheMatter.clone())).id,
+    ]);
+    expect(page.data.every((row) => row.matterId === matterId)).toBe(true);
+
+    // The unfiltered read is unchanged: the filter narrows, it does not become a default.
+    const unfiltered = await get("/api/v1/magnus/conversations", ownerCookie);
+    const all = await readJson<{ data: Array<{ id: string }> }>(unfiltered);
+    expect(all.data.map((row) => row.id)).toContain(onNoMatter);
+  });
+
   it("the events route refuses a non-upgrade request with 426 rather than hanging", async () => {
     const conversationId = await startConversation();
     const response = await get(`/api/v1/magnus/conversations/${conversationId}/events`);

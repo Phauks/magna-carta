@@ -92,6 +92,7 @@ export type DatabaseHealthControlPlane = {
 export type DatabaseHealthFirmDatabase = {
     state: 'reachable' | 'unreachable';
     roundTripMilliseconds: number | null;
+    fault: string | null;
 };
 
 export type DatabaseHealthSchema = {
@@ -23943,6 +23944,7 @@ export type MagnusListConversationsData = {
     query?: {
         cursor?: string;
         scope?: 'own' | 'firm';
+        matterId?: string;
     };
     url: '/api/v1/magnus/conversations';
 };

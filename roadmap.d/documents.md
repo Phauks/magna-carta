@@ -252,10 +252,11 @@
 
 - id: documents.editing.editor-ui
   name: Editor UI
-  scope: In-app surface that opens a document in the Collabora frame.
-  status: planned
-  evidence: Slice 2-2 fragment: "Stage-2 doc-open verify + editor UI pending"; no editor surface in apps/web.
-  notes: Gated on the app-shell / file-surface streams.
+  scope: In-app surface that opens a document in the Collabora frame, and the in-app plain-text editor beside it.
+  status: partial
+  surface: screen
+  evidence: apps/web/src/routes/(app)/documents/[id]/edit + apps/web/src/lib/documents/office-document-editor.svelte (the WOPI token form-posted into the frame) and text-document-editor.svelte; the file manager's Open opens it in a new tab.
+  notes: The office frame fills only where magna-carta-edit is deployed; the text editor saves a new version everywhere. Spreadsheets and presentations still open their preview.
 
 - id: documents.editing.native-editor
   name: Native CRDT editor

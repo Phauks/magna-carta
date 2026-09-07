@@ -35,14 +35,26 @@
  *
  * EVERY SECTION ALSO ANSWERS FOR CREATE, the same way. The matter header carries ONE create control
  * beside the search, and its label is this registry's answer for the section the reader is on —
- * "New Fee" on Fees, "New File" on Files — so the label is settled by the address before the
- * section has even mounted, and the control never changes width or flickers between sections. A
- * section declares the noun it creates, or `null` with the line saying why nothing is created
- * there; the behaviour behind the label is claimed by the section's own page through
- * create-action.svelte.ts, and only the page standing on that section may claim it.
+ * "New Fee" on Fees, the bare "New" where a section makes several kinds — so the label is settled
+ * by the address before the section has even mounted, and the control never changes width or
+ * flickers between sections. A section declares the noun it creates, or `CREATE_SEVERAL_KINDS`
+ * where its menu names the kinds, or `null` with the line saying why nothing is created there; the
+ * behaviour behind the label is claimed by the section's own page through create-action.svelte.ts,
+ * and only the page standing on that section may claim it.
  */
 import { assertCreateNoun } from "@magna-carta/design-system/create-label";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
+
+/**
+ * What a section declares instead of a noun when its create control opens a MENU. The control then
+ * reads the bare "New" and the menu items name the kinds — a label naming one of three things
+ * would be wrong about the other two, and the noun belongs where the choice is actually made.
+ *
+ * It is deliberately not a noun and not null: null already means "nothing is created here" and
+ * carries `createWaitingOn`, which is a different fact. The space in the value is what keeps it out
+ * of the noun grammar (`assertCreateNoun` takes one capitalised word), so the two can never collide.
+ */
+export const CREATE_SEVERAL_KINDS = "several kinds";
 
 export interface MatterSection {
   /** Route segment under matters/[id]/. */
@@ -68,8 +80,9 @@ export interface MatterSection {
    */
   timelineSources: readonly string[];
   /**
-   * The noun the header's one create control offers on this section — "Fee" renders as New Fee —
-   * or null when nothing is created from it. One capitalised word within the design system's
+   * What the header's one create control offers on this section: the noun it makes — "Fee" renders
+   * as New Fee — or `CREATE_SEVERAL_KINDS` where it opens a menu and reads the bare "New", or null
+   * when nothing is created from it. A noun is one capitalised word within the design system's
    * noun budget (create-label.ts in the CreateControl home), so every label fits the control's
    * fixed width; the module refuses anything else at load, and
    * `pnpm run lint:matter-create-control` refuses a section that declares neither a noun nor a
@@ -156,7 +169,9 @@ export const matterSections: readonly MatterSection[] = [
       "The matter's versioned file record — every document the firm holds for this matter, " +
       "organized in folders, each version kept and each byte's integrity hash recorded.",
     searchSource: "files",
-    createNoun: "File",
+    // A document, a folder and an upload are three kinds, so the control reads "New" and the menu
+    // names them. It read "New File" over that menu, which was wrong about two of the three.
+    createNoun: CREATE_SEVERAL_KINDS,
   },
   {
     slug: "time",
@@ -305,22 +320,25 @@ export const matterSections: readonly MatterSection[] = [
       "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
       "person, read in its own time zone, and reports when it has passed.",
     searchSource: "calendar",
-    createNoun: "Event",
+    // An event and a deadline are two kinds, so the control reads "New" and the menu names them.
+    createNoun: CREATE_SEVERAL_KINDS,
   },
   {
     slug: "magnus",
     timelineSources: [],
     label: "Magnus",
-    stage: "soon",
+    stage: "alpha",
     description:
-      "Ask Magnus about this matter. The assistant answers in plain language from what you " +
-      "attach to the conversation, and every exchange is kept on the matter record.",
+      "Ask Magnus about this matter. The assistant answers from what you type in the " +
+      "conversation, and every exchange is kept on the matter record.",
     searchSource: null,
-    // Magnus is a way to ASK about the matter, not a record the matter keeps. Even once it is
-    // built, what a conversation holds is the reader's own questions and the assistant's answers —
-    // a transcript search is its own feature with its own retention question, not a scope option
-    // that quietly makes past conversations findable alongside the firm's records.
-    searchWaitingOn: "The Magnus section itself is not built yet",
+    // A transcript is discoverable material, so any surface that searches across the firm's records
+    // has to let the firm say whether transcripts are in scope — an explicit include or exclude,
+    // never a default either way. That control does not exist yet, and it belongs to the search
+    // surface rather than to this section, so nothing here is reachable from the matter's search
+    // until it does. The section itself is built; this is the only thing still missing.
+    searchWaitingOn:
+      "A search that reaches transcripts needs a control saying whether they are in scope",
     createNoun: null,
     createWaitingOn: "Magnus is a way to ask about the matter, not a record it keeps",
   },
@@ -352,8 +370,9 @@ export type MatterStripEntry =
  * not one of the matter's records; it is the way to ask about them.
  *
  * The order is also the fold order — the backstop folds from the tail — so what folds first is what
- * a member can most afford to reach through a menu: Magnus (a stub), then the Record group (three
- * of its four are stubs), then the work owed, the dates and the people. Money stays on the row longest of the
+ * a member can most afford to reach through a menu: Magnus (asked once in a while, not read on
+ * every visit), then the Record group (three of its four are stubs), then the work owed, the dates
+ * and the people. Money stays on the row longest of the
  * folding candidates, because all five of its sections are live working surfaces.
  */
 const ARRANGEMENT: readonly (
@@ -424,6 +443,7 @@ export function sectionOwningTimelineSource(sourceKey: string): MatterSection | 
  * rules over the source before anything is built.
  */
 for (const section of matterSections) {
+  if (section.createNoun === CREATE_SEVERAL_KINDS) continue;
   if (section.createNoun === null) {
     if (section.createWaitingOn === undefined || section.createWaitingOn.trim() === "") {
       throw new Error(

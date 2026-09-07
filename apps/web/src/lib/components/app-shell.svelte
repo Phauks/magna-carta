@@ -13,9 +13,15 @@
    * back). A destination newly arrived in the sidebar carries a one-time gilt-draw highlight so
    * the eye catches where reconciliation seated it.
    *
-   * Collapse and Customize are RAIL CONTROLS, not destinations: they live as a compact icon
-   * cluster at the rail's foot (tooltips carry their labels), set apart from Settings — which
-   * stays a normal labelled destination row, because it is a place you navigate to.
+   * THE FOOT OF THE RAIL IS THE UTILITY TRAY — a compact icon cluster of the things that are
+   * ABOUT the app rather than places in the firm's work. It has two ends (owner-directed): the
+   * rail's own controls at the inline start (Settings, then Customize), and the two transfer
+   * registers (Downloads and Uploads) leaning to the inline end. Downloads and Uploads live here
+   * rather than in the Workspace group because they run alongside whatever is on screen, often
+   * both at once; they lean away from the rail's controls because they are the two things in the
+   * tray you actually navigate to. The top-bar trays keep their own job — a summary with quick
+   * actions; these open the full surfaces. Collapse and Customize remain RAIL CONTROLS, not
+   * destinations.
    *
    * Top-bar seams stay seams: +New renders nothing until its slice ships — the Actions region
    * reserves its geometry; the shell never fakes function. The notification bell IS a real (if
@@ -113,7 +119,6 @@
   const groups = $derived(sidebarGroups());
   const editingGroups = $derived(sidebarEditingGroups());
   const hoverExpand = $derived(expandSidebarOnHover());
-  const settingsActive = $derived(page.url.pathname.startsWith("/settings"));
 
   // "Expand on hover" makes the rail REST collapsed and float open on hover, so whenever the
   // preference is on (and we are not customizing, which needs the rail expanded to arrange) the
@@ -124,11 +129,19 @@
     if (hoverExpand && !customizing) collapsed = true;
   });
 
-  // The Settings footer fixture from the registry, so the row has one home.
-  const settingsDestination = DESTINATIONS.find(
-    (destination) => destination.footerPinned === true,
-  ) as Destination;
-  const SettingsIcon = settingsDestination.icon;
+  /*
+   * The footer utility tray's two ends, read from the registry's footer fixtures so each row has
+   * one home. The membership of each end is stated here rather than derived, because it is a fact
+   * about the tray and not about the registry: SETTINGS LEADS the row (it is the one icon the
+   * collapsed rail keeps — sidebar.css hides the rest at rail width) and the transfer registers
+   * lean to the far end.
+   */
+  function footerFixture(id: string): Destination {
+    return DESTINATIONS.find((destination) => destination.id === id) as Destination;
+  }
+  const footerLeading = footerFixture("settings");
+  const footerTrailing = ["downloads", "uploads"].map((id) => footerFixture(id));
+  const LeadingIcon = footerLeading.icon;
 
   // The notification bell is the top-bar entry to the Notifications destination, so its maturity
   // dot reads the same stage as that destination's sidebar row.
@@ -213,349 +226,380 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<Tooltip.Provider>
-  <div class="flex h-screen overflow-hidden bg-surface-default">
-    <Sidebar.Root
-      bind:collapsed
-      bind:peeking
-      editing={customizing}
-      expandOnHover={hoverExpand}
-      aria-label="Primary"
-    >
-      <Sidebar.Header>
-        <!-- The universal convention: the mark goes home. Chrome identity, not a menu row, so
-             the treatment stays quiet — the pointer cursor and focus ring say "link", nothing
-             louder. The collapsed rail keeps the mark alone clickable (the wordmark hides by
-             color inside BrandMark; the anchor's box remains). -->
-        <a href="/home" aria-label="Magna Carta — Home" class="rounded-md">
-          <BrandMark />
-        </a>
-      </Sidebar.Header>
-      <Sidebar.Content>
-        {#if customizing}
-          {#each editingGroups as group (group.id)}
-            <Sidebar.Group>
-              <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
-              <Sidebar.Menu>
-                <!-- Tier one: what is in your sidebar now — draggable to reorder, with a live
-                     reflow preview (the other rows shift to open the gap at the projected drop).
-                     Pinned rows show a lock; the rest a filled gold star that removes them. -->
-                {#each group.starred as destination (destination.id)}
-                  {@const Icon = destination.icon}
-                  {@const dragging = drag.draggingId === destination.id}
-                  {@const shift = dragging ? drag.offsetY : drag.rowShift(destination.id)}
-                  <Sidebar.MenuItem>
-                    <div
-                      class="mc-sidebar-edit-row flex items-center gap-8 rounded-md {dragging
-                        ? 'relative z-sticky bg-chrome-surface shadow-elevation-2'
-                        : 'transition-transform duration-fast ease-standard motion-reduce:transition-none'}"
-                      style="transform: translateY({shift}px)"
+<div class="flex h-screen overflow-hidden bg-surface-default">
+  <Sidebar.Root
+    bind:collapsed
+    bind:peeking
+    editing={customizing}
+    expandOnHover={hoverExpand}
+    aria-label="Primary"
+  >
+    <Sidebar.Header>
+      <!-- The universal convention: the mark goes home. Chrome identity, not a menu row, so
+           the treatment stays quiet — the pointer cursor and focus ring say "link", nothing
+           louder. The collapsed rail keeps the mark alone clickable (the wordmark hides by
+           color inside BrandMark; the anchor's box remains). -->
+      <a href="/home" aria-label="Magna Carta — Home" class="rounded-md">
+        <BrandMark />
+      </a>
+    </Sidebar.Header>
+    <Sidebar.Content>
+      {#if customizing}
+        {#each editingGroups as group (group.id)}
+          <Sidebar.Group>
+            <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
+            <Sidebar.Menu>
+              <!-- Tier one: what is in your sidebar now — draggable to reorder, with a live
+                   reflow preview (the other rows shift to open the gap at the projected drop).
+                   Pinned rows show a lock; the rest a filled gold star that removes them. -->
+              {#each group.starred as destination (destination.id)}
+                {@const Icon = destination.icon}
+                {@const dragging = drag.draggingId === destination.id}
+                {@const shift = dragging ? drag.offsetY : drag.rowShift(destination.id)}
+                <Sidebar.MenuItem>
+                  <div
+                    class="mc-sidebar-edit-row flex items-center gap-8 rounded-md {dragging
+                      ? 'relative z-sticky bg-chrome-surface shadow-elevation-2'
+                      : 'transition-transform duration-fast ease-standard motion-reduce:transition-none'}"
+                    style="transform: translateY({shift}px)"
+                  >
+                    <Sidebar.MenuButton
+                      class="touch-none select-none {destination.id === 'home'
+                        ? 'cursor-not-allowed'
+                        : 'cursor-grab'}"
+                      aria-roledescription="Reorderable sidebar destination"
+                      aria-label="{destination.label} — Alt plus Arrow Up or Arrow Down moves it"
+                      aria-disabled={destination.id === "home" ? "true" : undefined}
+                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
+                      onpointerdown={(event) => beginDrag(event, group, destination)}
+                      onkeydown={(event) => onEditKeydown(event, group, destination)}
                     >
-                      <Sidebar.MenuButton
-                        class="touch-none select-none {destination.id === 'home'
-                          ? 'cursor-not-allowed'
-                          : 'cursor-grab'}"
-                        aria-roledescription="Reorderable sidebar destination"
-                        aria-label="{destination.label} — Alt plus Arrow Up or Arrow Down moves it"
-                        aria-disabled={destination.id === "home" ? "true" : undefined}
-                        data-arrived={isNewArrival(destination.id) ? "true" : undefined}
-                        onpointerdown={(event) => beginDrag(event, group, destination)}
-                        onkeydown={(event) => onEditKeydown(event, group, destination)}
+                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                      {destination.label}
+                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                    </Sidebar.MenuButton>
+                    {#if destination.pinned === true}
+                      <span
+                        class="mc-sidebar-row-control"
+                        data-locked="true"
+                        title="Always in your sidebar"
                       >
-                        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                        {destination.label}
-                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                      </Sidebar.MenuButton>
-                      {#if destination.pinned === true}
-                        <span
-                          class="mc-sidebar-row-control"
-                          data-locked="true"
-                          title="Always in your sidebar"
-                        >
-                          <Lock class="size-16" aria-hidden="true" />
-                          <span class="sr-only">{destination.label} is always in your sidebar</span>
-                        </span>
-                      {:else}
-                        <button
-                          type="button"
-                          class="mc-sidebar-row-control"
-                          data-starred="true"
-                          aria-pressed="true"
-                          aria-label="Remove {destination.label} from your sidebar"
-                          onclick={() => setStarred(destination.id, false)}
-                        >
-                          <Star class="size-16 fill-current" aria-hidden="true" />
-                        </button>
-                      {/if}
-                    </div>
-                  </Sidebar.MenuItem>
-                {/each}
-                {#if group.starred.length > 0 && group.unstarred.length > 0}
-                  <li class="mc-sidebar-edit-divider" role="presentation"></li>
-                {/if}
-                <!-- Tier two: hidden destinations — a click (row or hollow star) adds them back,
-                     where they rise to the starred tier at their canonical position. -->
-                {#each group.unstarred as destination (destination.id)}
-                  {@const Icon = destination.icon}
-                  <Sidebar.MenuItem>
-                    <div class="mc-sidebar-edit-row flex items-center gap-8 rounded-md">
-                      <Sidebar.MenuButton
-                        class="cursor-pointer"
-                        aria-label="Add {destination.label} to your sidebar"
-                        onclick={() => setStarred(destination.id, true)}
-                      >
-                        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                        {destination.label}
-                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                      </Sidebar.MenuButton>
+                        <Lock class="size-16" aria-hidden="true" />
+                        <span class="sr-only">{destination.label} is always in your sidebar</span>
+                      </span>
+                    {:else}
                       <button
                         type="button"
                         class="mc-sidebar-row-control"
-                        data-starred="false"
-                        aria-pressed="false"
-                        aria-label="Add {destination.label} to your sidebar"
-                        onclick={() => setStarred(destination.id, true)}
+                        data-starred="true"
+                        aria-pressed="true"
+                        aria-label="Remove {destination.label} from your sidebar"
+                        onclick={() => setStarred(destination.id, false)}
                       >
-                        <Star class="size-16" aria-hidden="true" />
+                        <Star class="size-16 fill-current" aria-hidden="true" />
                       </button>
-                    </div>
-                  </Sidebar.MenuItem>
-                {/each}
-              </Sidebar.Menu>
-            </Sidebar.Group>
-          {/each}
-        {:else}
-          {#each groups as group (group.id)}
-            <Sidebar.Group>
-              <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
-              <Sidebar.Menu>
-                {#each group.destinations as destination (destination.id)}
-                  {@const Icon = destination.icon}
-                  {@const current = isCurrentDestination(destination, page.url.pathname)}
-                  <Sidebar.MenuItem>
-                    {#if destination.shipped}
-                      <Sidebar.MenuButton
-                        href={destination.href}
-                        tooltip={destination.label}
-                        isActive={current}
-                        class="relative"
-                        aria-current={current ? "page" : undefined}
-                        data-arrived={isNewArrival(destination.id) ? "true" : undefined}
-                      >
-                        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                        {destination.label}
-                        <!-- Expanded: the labelled badge. Collapsed icon rail: the badge's label is
-                             hidden, so a dot of the same colour carries the stage over the icon. -->
-                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                        {#if collapsed && !peeking}
-                          <MaturityDot
-                            stage={destinationStage(destination)}
-                            class="absolute end-4 top-4"
-                          />
-                        {/if}
-                      </Sidebar.MenuButton>
-                    {:else}
-                      <!-- An announced Soon row: no destination yet, so no href and disabled —
-                           honest about not existing. The badge rides the label (both hide in the
-                           collapsed rail, where the tooltip carries the truth instead and the
-                           un-navigable muted icon is the Soon treatment). -->
-                      <Sidebar.MenuButton
-                        disabled
-                        tooltip="{destination.label} — coming soon"
-                        class="relative cursor-default"
-                        data-arrived={isNewArrival(destination.id) ? "true" : undefined}
-                      >
-                        {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
-                        {destination.label}
-                        <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
-                        {#if collapsed && !peeking}
-                          <MaturityDot
-                            stage={destinationStage(destination)}
-                            class="absolute end-4 top-4"
-                          />
-                        {/if}
-                      </Sidebar.MenuButton>
                     {/if}
-                  </Sidebar.MenuItem>
-                {/each}
-              </Sidebar.Menu>
-            </Sidebar.Group>
-          {/each}
-        {/if}
-      </Sidebar.Content>
-      <Sidebar.Footer>
-        <!-- Keyboard reorders narrate here (polite: never steals focus from the row). -->
-        <span class="sr-only" role="status">{moveAnnouncement}</span>
-        <!-- The utility tray: small icon activities. Settings LEADS (a real link, so it stays the
-             one visible icon when the rail collapses), Customize sits beside it, and the row has
-             room for more small utilities of the same register later. -->
-        <div class="mc-sidebar-controls">
-          <a
-            href={settingsDestination.href}
-            class="mc-sidebar-control-button relative"
-            title={settingsDestination.label}
-            aria-label={settingsDestination.label}
-            aria-current={settingsActive ? "page" : undefined}
-            data-active={settingsActive ? "true" : undefined}
-          >
-            <SettingsIcon class="mc-sidebar-icon" aria-hidden="true" />
-            <MaturityDot
-              stage={destinationStage(settingsDestination)}
-              class="absolute end-4 top-4"
-            />
-          </a>
-          <Tooltip.Root>
-            <Tooltip.Trigger
-              class="mc-sidebar-control-button relative"
-              aria-pressed={customizing}
-              aria-label={customizing ? "Done customizing sidebar" : "Customize sidebar"}
-              onclick={toggleCustomize}
-            >
-              {#if customizing}
-                <Check class="mc-sidebar-icon" aria-hidden="true" />
-              {:else}
-                <SlidersHorizontal class="mc-sidebar-icon" aria-hidden="true" />
+                  </div>
+                </Sidebar.MenuItem>
+              {/each}
+              {#if group.starred.length > 0 && group.unstarred.length > 0}
+                <li class="mc-sidebar-edit-divider" role="presentation"></li>
               {/if}
-              <!-- The adjustment cluster is itself still maturing; a dot marks it where a label
-                   won't fit. -->
-              <MaturityDot stage="alpha" class="absolute end-4 top-4" />
-            </Tooltip.Trigger>
-            <Tooltip.Content side="top">{customizing ? "Done" : "Customize"}</Tooltip.Content>
-          </Tooltip.Root>
-        </div>
-        <!-- Collapse is a primary behaviour, so it keeps a large, full-width labelled control at
-             the foot of the rail. When "expand on hover" governs the rail it is redundant (hover
-             opens, leaving collapses) and hides. -->
-        {#if !hoverExpand}
-          <Sidebar.Trigger />
-        {/if}
-      </Sidebar.Footer>
-    </Sidebar.Root>
-
-    <!-- Named so the work canvas resizes as its own view-transition group when the rail
-         collapses. It paints the CHROME surface, continuous with the top bar above it and the
-         sidebar beside it — one unbroken ink band with no hairline (the surface contrast is the
-         edge; see sidebar.css). The light work surface and the rounded top-inline-start corner
-         live on <main> below, which tucks under this chrome; what shows in the corner's arc is
-         this chrome. This div stays RECTANGULAR and full-bleed on purpose: rounding it would make
-         the mc-app-canvas snapshot non-rectangular, and animations.css records that clipping the
-         canvas pair once exposed a one-device-pixel column where the root's light page background
-         showed through the dark header, flashing a white line on every collapse/expand/peek. It
-         also paints its OWN opaque surface: the collapse animation layers the old and new canvas
-         snapshots without a crossfade, so a transparent-background snapshot would let the outgoing
-         text show through the incoming one (the owner caught the double-exposure). -->
-    <div
-      class="flex grow flex-col overflow-hidden bg-chrome-surface"
-      style="view-transition-name: mc-app-canvas"
-    >
-      <TopBar.Root>
-        <!-- Rest state reads just "Search…" (owner-directed): the keyboard hints moved INTO the
-             open palette's input row, shown only while the query is empty. The search rides the
-             canvas, so it tracks the rail's edge on collapse AND on the hover peek (which expands
-             the rail for real) with no extra wiring. -->
-        <TopBar.Search class="max-w-md grow" onclick={() => (paletteOpen = true)}>
-          {SEARCH_PLACEHOLDER}
-        </TopBar.Search>
-        <TopBar.Actions>
-          <!-- The version chip — always-visible build identity (the owner's "what version am I
-               on" answer). The chip is this build's own commit, baked in at build time, so it
-               renders even when the API is down; its overlay reads the aggregate version
-               endpoint and reports every part honestly.
-
-               IT LEADS THE ACTIONS CLUSTER, to the inline-start of the bell, the timer and the
-               profile menu (owner correction, 2026-08-29: "put build versions to the left of
-               those buttons"). The signed-out frame ($lib/auth/auth-frame.svelte) seats it by the
-               same rule, so the chip does not move when a visitor signs in. -->
-          <VersionChip />
-          <!-- The notification bell — a real surface with an honest empty state (no fake items,
-               no count badge). Its popover states the truth and offers the center; live alerts
-               arrive with the notifications machinery. -->
-          <Popover.Root bind:open={notificationsOpen}>
-            <Popover.Trigger class="mc-top-bar-icon-button relative" aria-label="Notifications">
-              <Bell class="size-16" aria-hidden="true" />
-              <MaturityDot
-                stage={destinationStage(notificationsDestination)}
-                class="absolute end-4 top-4"
-              />
-            </Popover.Trigger>
-            <Popover.Content
-              align="end"
-              class="flex flex-col gap-8"
-              style="inline-size: var(--mc-size-popover)"
+              <!-- Tier two: hidden destinations — a click (row or hollow star) adds them back,
+                   where they rise to the starred tier at their canonical position. -->
+              {#each group.unstarred as destination (destination.id)}
+                {@const Icon = destination.icon}
+                <Sidebar.MenuItem>
+                  <div class="mc-sidebar-edit-row flex items-center gap-8 rounded-md">
+                    <Sidebar.MenuButton
+                      class="cursor-pointer"
+                      aria-label="Add {destination.label} to your sidebar"
+                      onclick={() => setStarred(destination.id, true)}
+                    >
+                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                      {destination.label}
+                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                    </Sidebar.MenuButton>
+                    <button
+                      type="button"
+                      class="mc-sidebar-row-control"
+                      data-starred="false"
+                      aria-pressed="false"
+                      aria-label="Add {destination.label} to your sidebar"
+                      onclick={() => setStarred(destination.id, true)}
+                    >
+                      <Star class="size-16" aria-hidden="true" />
+                    </button>
+                  </div>
+                </Sidebar.MenuItem>
+              {/each}
+            </Sidebar.Menu>
+          </Sidebar.Group>
+        {/each}
+      {:else}
+        {#each groups as group (group.id)}
+          <Sidebar.Group>
+            <Sidebar.GroupLabel>{group.label}</Sidebar.GroupLabel>
+            <Sidebar.Menu>
+              {#each group.destinations as destination (destination.id)}
+                {@const Icon = destination.icon}
+                {@const current = isCurrentDestination(destination, page.url.pathname)}
+                <Sidebar.MenuItem>
+                  {#if destination.shipped}
+                    <Sidebar.MenuButton
+                      href={destination.href}
+                      tooltip={destination.label}
+                      isActive={current}
+                      class="relative"
+                      aria-current={current ? "page" : undefined}
+                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
+                    >
+                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                      {destination.label}
+                      <!-- Expanded: the labelled badge. Collapsed icon rail: the badge's label is
+                           hidden, so a dot of the same colour carries the stage over the icon. -->
+                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                      {#if collapsed && !peeking}
+                        <MaturityDot
+                          stage={destinationStage(destination)}
+                          class="absolute end-4 top-4"
+                        />
+                      {/if}
+                    </Sidebar.MenuButton>
+                  {:else}
+                    <!-- An announced Soon row: no destination yet, so no href and disabled —
+                         honest about not existing. The badge rides the label (both hide in the
+                         collapsed rail, where the tooltip carries the truth instead and the
+                         un-navigable muted icon is the Soon treatment). -->
+                    <Sidebar.MenuButton
+                      disabled
+                      tooltip="{destination.label} — coming soon"
+                      class="relative cursor-default"
+                      data-arrived={isNewArrival(destination.id) ? "true" : undefined}
+                    >
+                      {#snippet icon()}<Icon class="mc-sidebar-icon" aria-hidden="true" />{/snippet}
+                      {destination.label}
+                      <MaturityBadge stage={destinationStage(destination)} class="ms-8" />
+                      {#if collapsed && !peeking}
+                        <MaturityDot
+                          stage={destinationStage(destination)}
+                          class="absolute end-4 top-4"
+                        />
+                      {/if}
+                    </Sidebar.MenuButton>
+                  {/if}
+                </Sidebar.MenuItem>
+              {/each}
+            </Sidebar.Menu>
+          </Sidebar.Group>
+        {/each}
+      {/if}
+    </Sidebar.Content>
+    <Sidebar.Footer>
+      <!-- Keyboard reorders narrate here (polite: never steals focus from the row). -->
+      <span class="sr-only" role="status">{moveAnnouncement}</span>
+      <!-- The utility tray, in two ends (owner-directed). The rail's own controls lead:
+           Settings first — a real link, so it stays the one visible icon when the rail
+           collapses — then Customize. The two transfer registers lean to the far end, away
+           from the controls, because they are the things in this row you navigate to. -->
+      <div class="mc-sidebar-controls">
+        <a
+          href={footerLeading.href}
+          class="mc-sidebar-control-button relative"
+          title={footerLeading.label}
+          aria-label={footerLeading.label}
+          aria-current={isCurrentDestination(footerLeading, page.url.pathname) ? "page" : undefined}
+          data-active={isCurrentDestination(footerLeading, page.url.pathname) ? "true" : undefined}
+        >
+          <LeadingIcon class="mc-sidebar-icon" aria-hidden="true" />
+          <MaturityDot stage={destinationStage(footerLeading)} class="absolute end-4 top-4" />
+        </a>
+        <Tooltip.Root>
+          <Tooltip.Trigger
+            class="mc-sidebar-control-button relative"
+            aria-pressed={customizing}
+            aria-label={customizing ? "Done customizing sidebar" : "Customize sidebar"}
+            onclick={toggleCustomize}
+          >
+            {#if customizing}
+              <Check class="mc-sidebar-icon" aria-hidden="true" />
+            {:else}
+              <SlidersHorizontal class="mc-sidebar-icon" aria-hidden="true" />
+            {/if}
+            <!-- The adjustment cluster is itself still maturing; a dot marks it where a label
+                 won't fit. -->
+            <MaturityDot stage="alpha" class="absolute end-4 top-4" />
+          </Tooltip.Trigger>
+          <Tooltip.Content side="top">{customizing ? "Done" : "Customize"}</Tooltip.Content>
+        </Tooltip.Root>
+        <!-- One element, so the collapsed rail's "everything past the first icon goes" rule
+             takes the pair away and brings it back whole. -->
+        <div class="mc-sidebar-controls-trailing">
+          {#each footerTrailing as destination (destination.id)}
+            {@const Icon = destination.icon}
+            {@const active = isCurrentDestination(destination, page.url.pathname)}
+            <a
+              href={destination.href}
+              class="mc-sidebar-control-button relative"
+              title={destination.label}
+              aria-label={destination.label}
+              aria-current={active ? "page" : undefined}
+              data-active={active ? "true" : undefined}
             >
-              <p class="text-sm font-medium">Notifications</p>
-              <p class="text-sm text-text-muted">You're all caught up.</p>
-              <p class="text-xs text-text-muted">
-                Live notifications arrive with the notifications machinery.
-              </p>
-              <a
-                href="/notifications"
-                class="text-sm font-medium"
-                style="color: var(--mc-accent-default)"
-                onclick={() => (notificationsOpen = false)}
-              >
-                Open notification center
-              </a>
-            </Popover.Content>
-          </Popover.Root>
-          <!-- The Time Sheet's handle: a tabular elapsed readout that reads the firm's timer, and
-               opens the sheet over whatever is on screen, firm-wide, because capture must never
-               cost a person the place they were working. It wears the same quiet chrome as the
-               tray and the bell beside it — no border of its own — because three controls sitting
-               in one band and one of them boxed reads as a control of a different kind. Its
-               anatomy and every read it makes belong to the Time surface
-               ($lib/time/time-keeper-chip.svelte); the shell seats it and does nothing else with it. -->
-          <TimeKeeperChip />
-          <!-- The upload tray: what this member is SENDING, seated ahead of what the platform made
-               for them. A transfer outlives the panel that started it (the upload queue,
-               $lib/file-manager/upload-queue.svelte.ts), so this is where it shows its progress, its
-               failures and the way to the folder it landed in while the reader works elsewhere. Its
-               anatomy belongs to the file surface ($lib/file-manager/upload-tray.svelte); the
-               shell seats it and does nothing else with it. -->
-          <UploadTray />
-          <!-- The download tray, seated beside the Time Sheet's handle on the owner's direction: what the
-               platform has made for this member, reachable from the top of the app rather than only
-               from the sidebar row. Clicking it gives the overview and offers the full register at
-               the bottom. Deliberately NOT a transfer manager — bytes move over a presigned URL the
-               browser's own download manager drives, so there is no progress here to show. Its
-               anatomy and every read it makes belong to the export surface
-               ($lib/export/download-tray.svelte); the shell seats it and does nothing else with it. -->
-          <DownloadTray />
-          {#if import.meta.env.DEV && developerPreferences.developerSettingsEnabled && developerPreferences.developerToolkitInHeader}
-            <!-- The developer console (modular tooling; motion tuning first). The dynamic import
-                 inside a DEV-gated branch keeps every byte of it out of production bundles.
-                 The preference gates (Settings · Developer) are live: switching them off
-                 removes the console without a reload. -->
-            {#await import("$lib/developer/developer-console.svelte") then developerConsoleModule}
-              {@const DeveloperConsole = developerConsoleModule.default}
-              <DeveloperConsole />
-            {/await}
-          {/if}
-          <ProfileMenu />
-        </TopBar.Actions>
-      </TopBar.Root>
+              <Icon class="mc-sidebar-icon" aria-hidden="true" />
+              <MaturityDot stage={destinationStage(destination)} class="absolute end-4 top-4" />
+            </a>
+          {/each}
+        </div>
+      </div>
+      <!-- Collapse is a primary behaviour, so it keeps a large, full-width labelled control at
+           the foot of the rail. When "expand on hover" governs the rail it is redundant (hover
+           opens, leaving collapses) and hides. -->
+      {#if !hoverExpand}
+        <Sidebar.Trigger />
+      {/if}
+    </Sidebar.Footer>
+  </Sidebar.Root>
 
-      <!-- The work canvas — the single scroll region every page renders into. It scrolls
-           vertically; it never scrolls horizontally, so no page can grow a phantom sideways
-           scrollbar. Content wider than the canvas (data tables, wide diagrams) carries its own
-           overflow-x container and scrolls within itself (e.g. the design-system table's
-           mc-table-scroll wrapper) — the page body stays put. scrollbar-gutter: stable always
-           reserves the vertical scrollbar's track, so a short (no-scroll) page and a long
-           (scrolling) page frame their content at the exact same width — no reflow on navigation.
-           `relative` makes the canvas the containing block for absolutely positioned descendants:
-           without it a screen-reader-only element (Tailwind's sr-only is position: absolute) deep
-           in a tall page resolves against the document instead, lands at its table's document-y
-           coordinate past the shell's height, and stretches the WINDOW scrollable — a second
-           scrollbar outside the canvas with bare page background beneath the shell. -->
-      <main
-        bind:this={canvas}
-        class="mc-scrollbar relative grow overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
-      >
-        {@render children()}
-      </main>
-    </div>
+  <!-- Named so the work canvas resizes as its own view-transition group when the rail
+       collapses. It paints the CHROME surface, continuous with the top bar above it and the
+       sidebar beside it — one unbroken ink band with no hairline (the surface contrast is the
+       edge; see sidebar.css). The light work surface and the rounded top-inline-start corner
+       live on <main> below, which tucks under this chrome; what shows in the corner's arc is
+       this chrome. This div stays RECTANGULAR and full-bleed on purpose: rounding it would make
+       the mc-app-canvas snapshot non-rectangular, and animations.css records that clipping the
+       canvas pair once exposed a one-device-pixel column where the root's light page background
+       showed through the dark header, flashing a white line on every collapse/expand/peek. It
+       also paints its OWN opaque surface: the collapse animation layers the old and new canvas
+       snapshots without a crossfade, so a transparent-background snapshot would let the outgoing
+       text show through the incoming one (the owner caught the double-exposure). -->
+  <div
+    class="flex grow flex-col overflow-hidden bg-chrome-surface"
+    style="view-transition-name: mc-app-canvas"
+  >
+    <TopBar.Root>
+      <!-- Rest state reads just "Search…" (owner-directed): the keyboard hints moved INTO the
+           open palette's input row, shown only while the query is empty. The search rides the
+           canvas, so it tracks the rail's edge on collapse AND on the hover peek (which expands
+           the rail for real) with no extra wiring. -->
+      <TopBar.Search class="max-w-md grow" onclick={() => (paletteOpen = true)}>
+        {SEARCH_PLACEHOLDER}
+      </TopBar.Search>
+      <TopBar.Actions>
+        <!-- The version chip — always-visible build identity (the owner's "what version am I
+             on" answer). The chip is this build's own commit, baked in at build time, so it
+             renders even when the API is down; its overlay reads the aggregate version
+             endpoint and reports every part honestly.
+
+             IT LEADS THE ACTIONS CLUSTER, to the inline-start of the bell, the timer and the
+             profile menu (owner correction, 2026-08-29: "put build versions to the left of
+             those buttons"). The signed-out frame ($lib/auth/auth-frame.svelte) seats it by the
+             same rule, so the chip does not move when a visitor signs in. -->
+        <VersionChip />
+        <!-- The notification bell — a real surface with an honest empty state (no fake items,
+             no count badge). Its popover states the truth and offers the center; live alerts
+             arrive with the notifications machinery. -->
+        <Popover.Root bind:open={notificationsOpen}>
+          <!-- The hover names the control and nothing else. Every control in this band answers
+               the same question the same way — what is this? — so the four tooltips are four
+               names: Notifications, Time Sheet, Downloads, Build Information. The tooltip and
+               the popover share ONE button through the tooltip trigger's child snippet; two
+               elements would be two controls. -->
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <Popover.Trigger
+                  {...props}
+                  class="mc-top-bar-icon-button relative"
+                  aria-label="Notifications"
+                >
+                  <Bell class="size-16" aria-hidden="true" />
+                  <MaturityDot
+                    stage={destinationStage(notificationsDestination)}
+                    class="absolute end-4 top-4"
+                  />
+                </Popover.Trigger>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content>Notifications</Tooltip.Content>
+          </Tooltip.Root>
+          <Popover.Content
+            align="end"
+            class="flex flex-col gap-8"
+            style="inline-size: var(--mc-size-popover)"
+          >
+            <p class="text-sm font-medium">Notifications</p>
+            <p class="text-sm text-text-muted">You're all caught up.</p>
+            <p class="text-xs text-text-muted">
+              Live notifications arrive with the notifications machinery.
+            </p>
+            <a
+              href="/notifications"
+              class="text-sm font-medium"
+              style="color: var(--mc-accent-default)"
+              onclick={() => (notificationsOpen = false)}
+            >
+              Open notification center
+            </a>
+          </Popover.Content>
+        </Popover.Root>
+        <!-- The Time Sheet's handle: a tabular elapsed readout that reads the firm's timer, and
+             opens the sheet over whatever is on screen, firm-wide, because capture must never
+             cost a person the place they were working. It wears the same quiet chrome as the
+             tray and the bell beside it — no border of its own — because three controls sitting
+             in one band and one of them boxed reads as a control of a different kind. Its
+             anatomy and every read it makes belong to the Time surface
+             ($lib/time/time-keeper-chip.svelte); the shell seats it and does nothing else with it. -->
+        <TimeKeeperChip />
+        <!-- The upload tray: what this member is SENDING, seated ahead of what the platform made
+             for them. A transfer outlives the panel that started it (the upload queue,
+             $lib/file-manager/upload-queue.svelte.ts), so this is where it shows its progress, its
+             failures and the way to the folder it landed in while the reader works elsewhere. Its
+             anatomy belongs to the file surface ($lib/file-manager/upload-tray.svelte); the
+             shell seats it and does nothing else with it. -->
+        <UploadTray />
+        <!-- The download tray, seated beside the Time Sheet's handle on the owner's direction: what the
+             platform has made for this member, reachable from the top of the app rather than only
+             from the sidebar row. Clicking it gives the overview and offers the full register at
+             the bottom. Deliberately NOT a transfer manager — bytes move over a presigned URL the
+             browser's own download manager drives, so there is no progress here to show. Its
+             anatomy and every read it makes belong to the export surface
+             ($lib/export/download-tray.svelte); the shell seats it and does nothing else with it. -->
+        <DownloadTray />
+        {#if import.meta.env.DEV && developerPreferences.developerSettingsEnabled && developerPreferences.developerToolkitInHeader}
+          <!-- The developer console (modular tooling; motion tuning first). The dynamic import
+               inside a DEV-gated branch keeps every byte of it out of production bundles.
+               The preference gates (Settings · Developer) are live: switching them off
+               removes the console without a reload. -->
+          {#await import("$lib/developer/developer-console.svelte") then developerConsoleModule}
+            {@const DeveloperConsole = developerConsoleModule.default}
+            <DeveloperConsole />
+          {/await}
+        {/if}
+        <ProfileMenu />
+      </TopBar.Actions>
+    </TopBar.Root>
+
+    <!-- The work canvas — the single scroll region every page renders into. It scrolls
+         vertically; it never scrolls horizontally, so no page can grow a phantom sideways
+         scrollbar. Content wider than the canvas (data tables, wide diagrams) carries its own
+         overflow-x container and scrolls within itself (e.g. the design-system table's
+         mc-table-scroll wrapper) — the page body stays put. scrollbar-gutter: stable always
+         reserves the vertical scrollbar's track, so a short (no-scroll) page and a long
+         (scrolling) page frame their content at the exact same width — no reflow on navigation.
+         `relative` makes the canvas the containing block for absolutely positioned descendants:
+         without it a screen-reader-only element (Tailwind's sr-only is position: absolute) deep
+         in a tall page resolves against the document instead, lands at its table's document-y
+         coordinate past the shell's height, and stretches the WINDOW scrollable — a second
+         scrollbar outside the canvas with bare page background beneath the shell. -->
+    <main
+      bind:this={canvas}
+      class="mc-scrollbar relative grow overflow-x-hidden overflow-y-auto rounded-ss-lg bg-surface-default p-24 [scrollbar-gutter:stable]"
+    >
+      {@render children()}
+    </main>
   </div>
-</Tooltip.Provider>
+</div>
 
 {#if import.meta.env.DEV && developerPreferences.developerSettingsEnabled && developerPreferences.buildStampOverlayVisible}
   <!-- The build-stamp overlay: a fixed dev-only badge (live clock + this build's identity),
