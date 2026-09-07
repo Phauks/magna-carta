@@ -1,9 +1,9 @@
 # A matter's documents
 
-_The documents screen is early. Uploading files and folders, saving new versions, folders, and the
-version history all work today. Editing in the browser opens a real editing session but needs the
-editor service running, so on some installations the editor panel stays blank; the screen tells you
-when that is the case._
+_The documents screen is early. Uploading files and folders, saving new versions, folders, the
+version history, and editing text documents all work today. Editing a Word document in the browser
+opens a real editing session but needs the editor service running, so on some installations the
+editor stays blank; the screen tells you when that is the case._
 
 ## What it does
 
@@ -119,7 +119,22 @@ The **status** column is worth reading:
 
 ## Opening a document
 
-Select a document's name. A panel opens below the list with everything about that one document.
+Select a document's row and the details panel describes it: its details, its preview, its versions,
+its hashes, and its safety. **Open** is one gesture, and what it does depends on the document.
+Double-click a row, press Enter on it, or choose **Open** from its right-click menu:
+
+- A **Word document** (`.docx`, `.doc`, `.odt`, `.rtf`) opens in the browser editor, in a new tab.
+- A **text document** (`.txt`, `.md`, `.log`, and other plain-text files such as `.json` or
+  `.html`) opens in the text editor, in a new tab.
+- A **folder** opens itself, and a **zip archive** opens to show what is inside it.
+- **Everything else** opens its preview in the details panel. A document that is still being
+  checked, one the check refused, or one with a safety finding open opens its preview too, where
+  the panel says what is being held back and why; the editor never opens on a document the firm's
+  checks have not cleared.
+
+The tab the editor opens in is its own: leave it open while you go back to the file list, and open
+several documents at once. The link at the top of the editor leads back to the matter's Files page
+with the document selected.
 
 ## Saving a new version
 
@@ -142,17 +157,36 @@ it is recorded.
 
 ## Editing in the browser
 
-Press **Open the editor**. This starts a real editing session on the document: it is marked as being
-edited, the fact that you opened it is recorded, and you are given time-limited access to that
-specific version.
+### Word documents
+
+Opening a Word document starts a real editing session: the document is marked as being edited,
+the fact that you opened it is recorded, and you are given time-limited access to that specific
+version. The editor fills the tab. Saving inside it keeps the document's history the way any
+other save does.
+
+If a colleague holds the document under an exclusive lock, your tab opens **read-only** and says
+so at the top. You can read along, including their live changes, but cannot take the lock from
+them.
 
 The editor itself runs as a separate service. Where that service is running, the document opens in
-the panel and in a new tab. Where it is not, the panel stays blank — the button worked, there is
-simply nothing behind it yet. The screen carries a note saying so, so a blank panel is never a
-mystery.
+the tab. Where it is not, the frame stays blank: the session was opened, there is simply nothing
+behind it yet. Until the editor is available everywhere, the reliable way to change a Word document
+is to work on it in the application you normally use and then save it back with **Save New
+Version** from the file's right-click menu.
 
-Until the editor is available everywhere, the reliable way to change a document is to work on it in
-the application you normally use and then save it back with **Save a new version** above.
+### Text documents
+
+A text document opens in a plain editor with the document's current text in it. Type your changes
+and press **Save New Version** (or Ctrl+S, Cmd+S on a Mac). The status beside the button reads
+**Unsaved changes** while there is something to save, then follows the save as it goes, and reads
+**Saved as version N** when the new version is in the history. The previous version is never
+replaced; every save is a new version alongside the ones before it.
+
+If you try to close the tab or leave the page with unsaved changes, you are asked first.
+
+A text document larger than the editor holds (a little over two million characters) does not open
+for editing; the tab says so and offers a download instead. Edit it on your computer and save it
+back as a new version.
 
 ### Who can edit, and who decides between two copies
 
