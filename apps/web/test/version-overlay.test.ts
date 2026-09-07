@@ -24,6 +24,9 @@ import {
   apiWebSyncState,
   copyLineForPart,
   copyReportForPanel,
+  countPill,
+  deploymentSectionPills,
+  workersSectionPills,
   describeObservationAge,
   describeRetainedRows,
   findWebWorkerRow,
@@ -34,7 +37,6 @@ import {
   serviceStateDescription,
   serviceStateLabel,
   showsPageBuildRow,
-  summarizeSilentWorkers,
   syncStateBadgeVariant,
   syncStateLabel,
   versionChipLabel,
@@ -119,6 +121,7 @@ describe("the API-versus-web sync badge", () => {
     // two Workers deploy separately, so differing is a normal state most of the time. The colour
     // (syncStateBadgeVariant) carries that judgement now, not a standing sentence.
     const chip = stripComments(source("lib/versions/version-chip.svelte"));
+    const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
     expect(chip).not.toContain("Different Builds");
     expect(chip).not.toContain("buildsDiffer");
   });
@@ -417,6 +420,7 @@ describe("what each scope is allowed to read", () => {
 
 describe("the chip in its public scope", () => {
   const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("reads each authenticated aggregate from exactly one place, and refuses the public scope", () => {
     // Two reads now — the version aggregate and the database health — and each has ONE call site
@@ -482,6 +486,7 @@ describe("the chip in its public scope", () => {
 
 describe("the chip's row identities and refresh", () => {
   const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("heads every row with one name and nothing else, monospaced only when it is a Worker's", () => {
     expect(chip).toContain("{part.name}</span");
@@ -615,6 +620,7 @@ describe("the chip's row identities and refresh", () => {
 
 describe("the retired duplicate of magna-carta-web", () => {
   const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
 
   it("drops the build line once the Worker that serves this page reports", () => {
     /*
@@ -674,6 +680,7 @@ describe("the retired duplicate of magna-carta-web", () => {
 
 describe("the panel header", () => {
   const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const header = /<div class="flex flex-col gap-4">([\s\S]*?)\n    <\/div>/.exec(chip)?.[1] ?? "";
 
   it("puts the services line under the header instead of beside the controls", () => {
@@ -727,6 +734,7 @@ describe("the panel header", () => {
 
 describe("the fleet fold", () => {
   const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
 
   it("folds only the Workers beneath the pair that serves the app's address", () => {
@@ -738,51 +746,65 @@ describe("the fleet fold", () => {
   });
 
   it("is a disclosure: its own label names it and aria-expanded carries the state", () => {
-    // The mechanics live on the one sectionToggle snippet every fold in the panel renders through,
-    // so a second fold cannot arrive with a different idea of what a disclosure is.
-    expect(chip).toContain("aria-expanded={!section.collapsed}");
-    expect(chip).toContain("onclick={section.toggle}");
-    expect(chip).toContain("{section.label}");
+    // The mechanics live on the one heading COMPONENT every fold in the panel renders through, so a
+    // second fold cannot arrive with a different idea of what a disclosure is. It was a snippet
+    // inside the panel before, which kept the markup in one place but let each caller invent its own
+    // badge — the three had drifted into saying different kinds of thing.
+    expect(heading).toContain("aria-expanded={!collapsed}");
+    expect(heading).toContain("onclick={toggle}");
+    expect(heading).toContain("{label}");
     expect(chip).toMatch(
-      /label: FLEET_SECTION_LABEL,[\s\S]*collapsed: fleetSectionPreference\.collapsed,[\s\S]*toggle: \(\) => fleetSectionPreference\.toggle\(\)/,
+      /label=\{FLEET_SECTION_LABEL\}[\s\S]*collapsed=\{fleetSectionPreference\.collapsed\}[\s\S]*toggle=\{\(\) => fleetSectionPreference\.toggle\(\)\}/,
     );
     expect(FLEET_SECTION_LABEL).toBe("Workers");
   });
 
   it("turns its caret rather than swapping the glyph, and holds still under reduced motion", () => {
-    expect(chip).toContain("icons/chevron-right");
-    expect(chip).toMatch(/section\.collapsed\s*\?\s*''\s*:\s*'rotate-90'/);
-    expect(chip).toContain("motion-reduce:transition-none");
+    expect(heading).toContain("icons/chevron-right");
+    expect(heading).toMatch(/collapsed\s*\?\s*''\s*:\s*'rotate-90'/);
+    expect(heading).toContain("motion-reduce:transition-none");
   });
 
-  it("counts the silent Workers a fold would otherwise hide", () => {
-    // The list exists to show the whole fleet, so folding may hide rows and never a fault.
-    expect(summarizeSilentWorkers([serviceRow("scan"), serviceRow("bundle")])).toBeNull();
-    expect(summarizeSilentWorkers([serviceRow("scan"), serviceRow("bundle", "unreachable")])).toBe(
-      "1 without a version",
+  it("says the same KIND of thing on all three shut headings: a count, then a status", () => {
+    // The three sections each computed their own badge and had drifted. Deployment carried a
+    // warning count and dropped the sync read entirely, so folding it hid whether the two Workers
+    // serving the app agree. Workers carried that same warning with no sense of how many Workers
+    // were behind the fold. Database carried a mood with no count, so one bad row out of four read
+    // exactly like four. Every heading leads with a count now.
+    expect(countPill(1, "Worker").label).toBe("1 Worker");
+    expect(countPill(13, "Worker").label).toBe("13 Workers");
+
+    const healthy = workersSectionPills([serviceRow("scan"), serviceRow("bundle")]);
+    expect(healthy.map((pill) => pill.label)).toEqual(["2 Workers"]);
+    const silent = workersSectionPills([serviceRow("scan"), serviceRow("bundle", "unreachable")]);
+    expect(silent.map((pill) => pill.label)).toEqual(["2 Workers", "1 not reporting"]);
+    expect(silent[1]?.variant).toBe("warning");
+  });
+
+  it("keeps the sync read on a shut Deployment heading, where folding used to lose it", () => {
+    // The sync badge lived only inside the open section, so folding Deployment took the one fact a
+    // reader opens it for off the screen entirely.
+    const pills = deploymentSectionPills({ partCount: 3, syncState: "in-sync" });
+    expect(pills.map((pill) => pill.label)).toEqual(["3 parts", "In sync"]);
+    expect(pills[1]?.variant).toBe("success");
+    expect(deploymentSectionPills({ partCount: 3, syncState: "web-behind" })[1]?.variant).toBe(
+      "warning",
     );
-    expect(
-      summarizeSilentWorkers([
-        serviceRow("scan", "unbound"),
-        serviceRow("bundle", "unreachable"),
-        serviceRow("search", "unreported"),
-      ]),
-    ).toBe("3 without a version");
+    // Nothing real to compare is not a status, so the heading carries the count alone.
+    expect(deploymentSectionPills({ partCount: 3, syncState: null })).toHaveLength(1);
   });
 
   it("shows that count on the heading exactly while the fold is shut", () => {
     // Shut, the heading wears what the fold hides; open, the rows say it themselves and a badge
     // repeating them is the same fact twice.
-    expect(chip).toMatch(
-      /\{#if section\.collapsed && section\.badge !== null\}[\s\S]*\{section\.badge\}/,
-    );
+    expect(heading).toMatch(/\{#if collapsed\}[\s\S]*\{pill\.label\}/);
     // Each heading counts only the Workers ITS OWN fold hides. Workers is its own section now
     // rather than a drawer inside Deployment, so one count over the whole read would have both
     // headings claiming the same silent Worker.
-    expect(chip).toContain("badge: silentFleetWorkers");
-    expect(chip).toMatch(/silentFleetWorkers = \$derived\([\s\S]*?deploymentRows\.rest/);
-    expect(chip).toContain("badge: silentDeploymentWorkers");
-    expect(chip).toMatch(/silentDeploymentWorkers = \$derived\([\s\S]*?deploymentRows\.front/);
+    expect(chip).toContain("pills={workersPills}");
+    expect(chip).toMatch(/workersPills = \$derived\([\s\S]*?deploymentRows\.rest/);
+    expect(chip).toContain("pills={deploymentPills}");
+    expect(chip).toMatch(/deploymentPills = \$derived\([\s\S]*?deploymentRows\.front/);
   });
 
   it("remembers the fold per browser, and arrives open", () => {
@@ -799,6 +821,7 @@ describe("the fleet fold", () => {
 
 describe("the upstream-update notice", () => {
   const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const svelteConfig = repositoryFile("apps/web/svelte.config.js");
 
   it("names each build by its commit and polls for a newer one", () => {

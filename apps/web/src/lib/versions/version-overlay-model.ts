@@ -392,10 +392,59 @@ export const FLEET_SECTION_LABEL = "Workers";
  * the count of rows that came back without a version, which is the one fact all three non-answers
  * share; a fleet that is entirely reporting carries nothing, and the collapse is free.
  */
-export function summarizeSilentWorkers(rows: readonly ServiceVersionRow[]): string | null {
+/**
+ * What a SHUT heading says. One shape for all three sections, because they were each inventing their
+ * own and the differences were not decisions — Deployment carried a warning count and dropped the
+ * sync read entirely, so folding it hid whether the two Workers serving the app agree; Workers
+ * carried the same warning count with no sense of how many Workers it was hiding; and Database
+ * carried a word with no count at all. Folded, all three said nothing whatever when healthy, which
+ * reads identically to a section that never loaded.
+ *
+ * So every shut heading now carries a COUNT of what the fold hides, always, and a STATUS pill only
+ * when there is something to say beyond the count. A count that is present when things are fine is
+ * what makes silence meaningful: "13 Workers" and no second pill is a section reporting health,
+ * where an empty heading was a section reporting nothing.
+ */
+export interface SectionPill {
+  readonly label: string;
+  readonly variant: "neutral" | "success" | "warning" | "danger";
+}
+
+/** "1 Worker" / "13 Workers" — the count pill's own wording, singular where it should be. */
+export function countPill(count: number, noun: string): SectionPill {
+  return { label: `${String(count)} ${noun}${count === 1 ? "" : "s"}`, variant: "neutral" };
+}
+
+/**
+ * Deployment shut: how many parts it hides, and the sync read that is the section's whole point.
+ * The sync badge used to live only in the open section, so folding Deployment took the one fact a
+ * reader opens it for — whether the API and the Worker serving this page agree — off the screen.
+ */
+export function deploymentSectionPills(input: {
+  partCount: number;
+  syncState: ApiWebSyncState | null;
+}): SectionPill[] {
+  const pills: SectionPill[] = [countPill(input.partCount, "part")];
+  if (input.syncState !== null) {
+    pills.push({
+      label: syncStateLabel(input.syncState),
+      variant: syncStateBadgeVariant(input.syncState),
+    });
+  }
+  return pills;
+}
+/**
+ * Workers shut: how many there are, and how many of them did not report. "Without a version" named
+ * the missing FIELD rather than the condition; a reader wants to know the Worker did not answer,
+ * not which column is blank.
+ */
+export function workersSectionPills(rows: readonly ServiceVersionRow[]): SectionPill[] {
+  const pills: SectionPill[] = [countPill(rows.length, "Worker")];
   const silent = rows.filter((row) => row.state !== "reported").length;
-  if (silent === 0) return null;
-  return `${String(silent)} without a version`;
+  if (silent > 0) {
+    pills.push({ label: `${String(silent)} not reporting`, variant: "warning" });
+  }
+  return pills;
 }
 
 /**
