@@ -252,8 +252,11 @@ const DESTINATION_LIST = [
     icon: ShieldAlert,
     description: "Conflict checks run at intake and on demand.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The runner, the firm's check history, one check read back with its candidates and their
+    // adjudications, and where a matter stands. What is still short of the whole act is the
+    // firm's own policy floor, which has no write path to put a screen on.
+    stage: "alpha",
     defaultStarred: true,
   },
   {

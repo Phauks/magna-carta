@@ -1,10 +1,27 @@
 # Conflicts reports: what a check tells you, and what it does not
 
-_The conflicts search, its record, and the per-matter report behind them are built, along with the API
-that serves them. The screens — the matter's conflicts panel and the reviewer's queue — are authored
-when those surfaces ship. Automatic re-checks when your directory changes are built and have their own
-guide: [automatic conflicts re-checks](automatic-conflicts-rechecks.md). The printable conflicts report
-you could hand to a court is not built yet._
+_The conflicts search, its record, the per-matter report behind them, and the screens that read them
+are all built. Automatic re-checks when your directory changes are built and have their own guide:
+[automatic conflicts re-checks](automatic-conflicts-rechecks.md). Two things are not built yet: a
+screen for changing what your firm's checks must cover — the settings themselves work, but only your
+administrator can change them for you at present — and the printable conflicts report you could hand
+to a court, which is why the print option gives you the check as a printed sheet rather than a filed
+document._
+
+## Where to find it
+
+**Conflicts Check in the sidebar** is your firm's whole picture. Run a check from here against any
+matter on your docket, and read the list of every check your firm has run — newest first, each one
+saying what set it going, who asked for it if anybody did, and how many results it turned up. Open
+any of them to read the check in full.
+
+**The Conflicts tab on a matter**, next to Intake, is that one matter's record: when it was last
+checked and under what settings, anything nobody has answered yet, whether your firm has since
+widened what a check must cover, and a way to run another. It is also where the intake checklist
+sends you, and it keeps working after the intake step is marked done — the record is most often
+wanted long after the box is ticked.
+
+A conflicts check also appears on the matter's activity history, and opens the check it refers to.
 
 ## What it does
 

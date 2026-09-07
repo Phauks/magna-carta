@@ -12,9 +12,11 @@
    * subjects and the imputation class has something to join the firm's members against. Without
    * one, imputation records unavailable — which the check says out loud rather than leaving out.
    *
-   * WHAT THIS SCREEN CANNOT OFFER, AND SAYS SO. Nothing serves a list of the checks a firm has run,
-   * so there is no history here; the block that would hold one renders in its place, refused, naming
-   * what it waits on. A matter's own standing is reachable, because that read exists.
+   * THIS IS THE FIRM-WIDE SURFACE. It runs a check against any matter on the docket and lists every
+   * check the firm has run, across all of them. What ONE matter's record says is the matter's own
+   * business and lives in its Conflicts section — the two are separate for the reason the sidebar
+   * and the matter's section strip are separate: this answers "what has the firm done", and that
+   * answers "was this file checked".
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import * as Combobox from "@magna-carta/design-system/combobox";
@@ -215,7 +217,7 @@
       <div class="flex flex-wrap items-center gap-8">
         <Button
           variant="secondary"
-          onclick={() => void goto(`/conflicts/matters/${chosenMatter?.id ?? ""}`)}
+          onclick={() => void goto(`/matters/${chosenMatter?.id ?? ""}/conflicts`)}
         >
           <ScrollText class="size-16" aria-hidden="true" />
           Read where this matter stands

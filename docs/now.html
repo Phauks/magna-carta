@@ -883,7 +883,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Configurable strictness</span>
 <code>conflicts.matching-engine.strictness</code>
 <p>Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable, and the name roles each band compares against as a firm setting recorded on the check row.</p>
-<p class="note">Partial because the firm floor itself has no write path — readConflictsPolicy in packages/conflicts/src/settings.ts reads the conflicts.policy setting row and no route or screen sets it, so a firm changes its floor only by writing that row directly.</p>
+<p class="note">Partial because the firm floor itself has no write path — readConflictsPolicy in packages/conflicts/src/settings.ts reads the conflicts.policy setting row and no route or screen sets it, so a firm changes its floor only by writing that row directly. The screen is blocked on the ROUTE rather than on design: GET /api/v1/firm/conflicts-policy already serves the floor and the check runner already states it, so a Settings · Conflicts surface needs a PUT beside that GET and nothing else.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Configurable search depth</span>

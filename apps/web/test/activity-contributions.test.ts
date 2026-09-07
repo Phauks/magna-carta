@@ -196,10 +196,14 @@ describe("where a row opens", () => {
       kind: "none",
       reason: "The Emails section is not built yet",
     });
+    // The matter's Conflicts section owns this source, so a check row opens instead of explaining
+    // itself. It is here rather than only in the coverage lint because ownership is what decides
+    // whether a reader can follow a chronology row back to the record behind it.
     expect(openTargetFor(entry({ sourceKey: "conflictsCheck" }))).toEqual({
-      kind: "none",
-      reason: UNSECTIONED_TIMELINE_SOURCES["conflictsCheck"],
+      kind: "navigate",
+      href: "/matters/matter_1/files?entry=row_1",
     });
+    expect(UNSECTIONED_TIMELINE_SOURCES["conflictsCheck"]).toBeUndefined();
     expect(openTargetFor(entry({ sourceKey: "somethingNew" })).kind).toBe("none");
   });
 });
