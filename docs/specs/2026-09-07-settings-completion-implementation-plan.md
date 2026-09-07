@@ -72,7 +72,7 @@ blocks a firm from actually operating, not merely from configuring.
 7. **Documents & templates**, **Integrations**, **Diagnostics** (later). Each is a new surface
    rather than a gap in an existing one, and Diagnostics needs a design before it needs a page.
 
-## Slice 1 — firm members and rights
+## Slice 1 — firm members and rights (built)
 
 ### What a firm must be able to do
 
@@ -146,6 +146,37 @@ not change.
 - A frontend test that the roster renders a member holding no roles as holding none, rather than as
   a blank cell that reads as missing data.
 - The existing mode-purity fitness check must keep passing with Users moved to `instant`.
+
+## The account surface — a name is parts, not a string
+
+Raised by the owner while slice 1 was in build, and settled here because it is a decision about the
+record rather than about a form.
+
+`/account/profile` asked for one "Name". It now asks for the parts a name has — prefix, first,
+middle, last, suffix — with the display name composed from them rather than typed beside them. The
+reasoning is the platform's own: a Directory person is already `prefix / given / middle / family /
+suffix` with a rendered display name over it, and a member's own name is what the firm's letterhead,
+its pleading signature blocks and its generated documents print. A single string cannot be sorted by
+surname, cannot address a letter, and cannot be split back into parts afterwards without guessing —
+"Mary Anne van der Berg III" has no rule that recovers it.
+
+The rows stay honest seams, because the store behind them does not exist yet: the control-plane
+`user` row carries one `name`, and the per-firm `member` row mirrors it as `display_name`. What
+changes when authentication ships is therefore settled in advance:
+
+- the control-plane user row grows the five parts, and `name` becomes the rendered display name
+  rather than the thing typed;
+- the per-firm `member.display_name` stays a mirror of that rendering, so every screen that resolves
+  a colleague's name keeps reading exactly one column;
+- the parts flow into the merge-field catalogue beside the professional profile's title and
+  admissions, which is what a signature block needs;
+- the invitation collects them too, since that is where a member's name is first written.
+
+The security half of the account surface — password, two-factor, sessions — is unchanged and stays
+seams. It is worth recording what is missing from it beyond wiring, so the design is not discovered
+late: recovery codes and their regeneration, a "sign out everywhere" act distinct from ending one
+session, and recent account activity (where and when this account signed in) are all part of a
+credible security page and none of them has a row today.
 
 ## Slice 2 onward — sketch
 

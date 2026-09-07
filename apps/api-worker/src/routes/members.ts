@@ -3,6 +3,7 @@ import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-st
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import {
   selectFirmMembersStatement,
+  selectRoleIdByNameStatement,
   ROLE_NAME_SEPARATOR,
   type FirmMemberRow,
 } from "@magna-carta/data-access/member-statements";
@@ -33,6 +34,20 @@ const InviteMemberRequest = z
   .object({
     email: z.email(),
     name: z.string().min(1),
+    // The role the person arrives holding. Optional because a firm may genuinely want somebody set
+    // up before it has decided what they do, but naming it here is the common case and the one
+    // worth making possible: an invitation that lands with no role produces a member who can sign
+    // in and reach nothing, and every firm hitting that has to go and fix it by hand.
+    roleName: z
+      .string()
+      .min(1)
+      .optional()
+      .openapi({
+        description:
+          "A role of this firm, by name, for the invited member to hold on arrival. A name that " +
+          "is not one of the firm's roles is refused rather than dropped — an invitation quietly " +
+          "landing without the role somebody chose is worse than one that does not land.",
+      }),
   })
   .openapi("InviteMemberRequest");
 
@@ -41,6 +56,9 @@ const InviteMemberResponse = z
     id: z.string(),
     email: z.string(),
     name: z.string(),
+    roleName: z.string().nullable().openapi({
+      description: "The role the invitation names, or null where it names none.",
+    }),
   })
   .openapi("InviteMemberResponse");
 
@@ -208,7 +226,8 @@ export const inviteMemberRoute = defineOpenAPIRoute(membersInviteMeta, {
     },
     422: {
       description:
-        "The email is already in use, or the Idempotency-Key was reused with a different payload",
+        "The email is already in use, the named role is not one of this firm's, or the " +
+        "Idempotency-Key was reused with a different payload",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -268,6 +287,27 @@ export function registerMembersRoute(
       // activation flow must find the row the invite wrote.
       const email = request.email.trim().toLowerCase();
       const displayName = request.name;
+      const roleName = request.roleName ?? null;
+
+      // The named role is resolved against THIS firm before anything is written. The provisioning
+      // consumer resolves it again at consume time and dead-letters an unknown one, which is the
+      // right failure for a message but the wrong one for a person: they would get a 201, no
+      // member, and no way to tell. Checking here turns that into an answer they can act on.
+      if (roleName !== null) {
+        const firm = requireChokepointFirmContext(c);
+        const { results } = await selectRoleIdByNameStatement(firm.firmDatabase, roleName).all<{
+          id: string;
+        }>();
+        if (results.length === 0) {
+          return problemJson(c, {
+            type: "unknown-role",
+            title: "Unknown role",
+            status: 422,
+            detail: `This firm has no role called ${JSON.stringify(roleName)}.`,
+          });
+        }
+      }
+
       const idempotency = requireChokepointIdempotency(c);
 
       let result;
@@ -311,13 +351,18 @@ export function registerMembersRoute(
                       userId: invitedUserId,
                       firmId,
                       displayName,
-                      roleName: null,
+                      roleName,
                     },
                   },
                 ],
               },
               responseCode: 201,
-              responseBody: canonicalJsonStringify({ id: invitedUserId, email, name: displayName }),
+              responseBody: canonicalJsonStringify({
+                id: invitedUserId,
+                email,
+                name: displayName,
+                roleName,
+              }),
             });
           },
         });

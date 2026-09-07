@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 799 nodes of the feature ledger in
+is the complete register rather than a digest: all 800 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,27 +21,27 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**799 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**800 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **659 that are units of work**, for the reason set out under [What a roll-up is
+count the **660 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 293 | 44% |
-| Part-built | partial, in-build | 122 | 19% |
+| Done | shipped | 295 | 45% |
+| Part-built | partial, in-build | 121 | 18% |
 | Ahead | designed, planned, researching, not-started | 203 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **659** | **100%** |
+| **All units of work** | | **660** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 293 | 45% |
-| `partial` | 121 | 18% |
+| `shipped` | 295 | 45% |
+| `partial` | 120 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 137 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **659** | **100%** |
+| **All statuses** | **660** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 799 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 800 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 293 of 659 (44%). Shipped plus partial is 414 (63%).**
+**Shipped alone is 295 of 660 (45%). Shipped plus partial is 415 (63%).**
 
-The 121 units between those two numbers are work that is engineered and paid for and is not
+The 120 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**415 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**416 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 68 | 16% |
+| A person can open it today (`screen`) | 69 | 16% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 169 | 41% |
 | No user surface by nature (`internal`) | 178 | 43% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **415** | **100%** |
+| **Everything with something built** | **416** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -123,10 +123,10 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
 | Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
-| Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
+| Settings & Configuration | 6 | 5 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 15 | 40% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **293** | **121** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **659** | **44%** |
+| **All areas** | **295** | **120** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **660** | **45%** |
 
 ## Where we have been
 
@@ -1355,20 +1355,21 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Settings & Configuration
 
-[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 14 units of work, 29% shipped. 4 done, 6 part-built, 4 ahead, 0 parked.
+[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 15 units of work, 40% shipped. 6 done, 5 part-built, 4 ahead, 0 parked.
 
 - `settings` · `partial` · **Settings & configuration framework** — Declarative settings registry, scope-chain resolution, role-gated access enforced in the data-access layer, storage placement per tenancy, and the registry-driven Settings area.
   - `settings.registry` · `partial` · **Declarative settings registry** — Each setting declared once (key, type, scope, default, access, validation, audited/effective-dated flags).
     - `settings.registry.backend-definitions` · `shipped` · **Backend firm-setting definitions** — Per-package setting definitions with validated write paths and total reads (safe defaults).
     - `settings.registry.generated-ui` · `partial` · **Registry-generated settings pages** — One renderer generating pages from the registry — a standard page is a registry entry plus definitions.
   - `settings.scope-resolution` · `shipped` · **Scope chain resolution** — Most-specific-wins precedence: entity override, user, location, firm default, system default; settings opt into scopes.
-  - `settings.access-rbac` · `partial` · **Per-setting view/edit access** — Role required to view and to edit each setting, enforced server-side in the firm-scoped data-access layer, mirrored in the UI.
+  - `settings.access-rbac` · `shipped` · **Per-setting view/edit access** — Role required to view and to edit each setting, enforced server-side in the firm-scoped data-access layer, mirrored in the UI.
   - `settings.storage-placement` · `shipped` · **Storage placement (no duplication)** — Identity prefs on the control plane, per-user firm-scoped prefs on the member row, firm business settings in per-firm D1; framework registers data subsystems own.
   - `settings.change-discipline` · `partial` · **Audited & effective-dated changes** — Settings writes through the data-access layer; financial/security/firm settings audited; effective-dated where it matters.
   - `settings.area-ui` · `partial` · **The Settings area** — Banded settings navigation (My / Firm / Platform), posture badges, draft staging with confirmation recap, change-history pull-out, command-palette listing.
     - `settings.area-ui.my-account` · `partial` · **My Account (identity & security)** — Person-scoped /account secure shell: profile (name, email, avatar) and security (password, 2FA, sessions), no app chrome.
     - `settings.area-ui.personal-preferences` · `shipped` · **Personal preferences (Theme, Accessibility, Text)** — Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast axis. _Note: The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one._
-    - `settings.area-ui.firm-band` · `partial` · **Firm settings band** — Firm Profile, Users, Matter Numbering, Billing, File Safety & Scanning as staged draft pages with Save/Cancel commit flow.
+    - `settings.area-ui.firm-band` · `partial` · **Firm settings band** — Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety & Scanning as pages whose posture follows the signed-in member's real capability.
+    - `settings.area-ui.member-administration` · `shipped` · **Users and Roles and Permissions** — The firm's roster with its three acts (invite naming a role, change what a member holds, withdraw and restore access), and the read-only surface stating what each role allows. _Note: Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing._
     - `settings.area-ui.platform-band` · `partial` · **Platform band (Beta Access, Versions, Developer)** — Firm release-channel stance, versioned-component ledger, developer master switch and console.
     - `settings.area-ui.integrations-category` · `not-started` · **Integrations settings category** — Plugin credential management UI per firm.
     - `settings.area-ui.diagnostics-category` · `not-started` · **Diagnostics settings category** — UI for the diagnostics consent/level setting.

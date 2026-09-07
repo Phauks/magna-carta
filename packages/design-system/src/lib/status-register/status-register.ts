@@ -74,6 +74,13 @@ export type StatusKey =
   | "active"
   | "on-hold"
   | "closed"
+  // A member's standing in the firm. Two states and no third: a person the firm has added either
+  // can reach the platform or cannot. "No Access" rather than "Deactivated" because the word has to
+  // say what is true of them NOW — they are still on the roster, still the responsible attorney on
+  // the matters they carried, still the author of what they filed — and "deactivated" reads as a
+  // record that was switched off.
+  | "member-active"
+  | "member-no-access"
   // How a conflict hit stands. Only the unanswered one asks for anything.
   | "unanswered"
   | "cleared"
@@ -291,6 +298,23 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
     presentation: "chip",
   },
 
+  // A member's standing. Deliberately separate keys from the matter lifecycle's `active`: the word
+  // on the badge is the same and the MEANING behind it is not, and the meaning is what the hover
+  // carries.
+  "member-active": {
+    label: "Active",
+    tone: "success",
+    meaning: "Signs in and holds whatever their roles allow.",
+    presentation: "chip",
+  },
+  "member-no-access": {
+    label: "No Access",
+    tone: "neutral",
+    meaning:
+      "Cannot sign in. They stay on the roster and keep every record they made — they are still the responsible attorney on the matters they carried.",
+    presentation: "chip",
+  },
+
   // How a conflict hit was answered. Only the UNANSWERED state is loud: grading a lawyer's
   // judgement is the one thing this register may not do, so every answer reads level with the
   // others and none of them is coloured as the better outcome.
@@ -345,6 +369,8 @@ export const STATUS_VOCABULARIES = {
   custody: ["held", "out", "released", "destroyed", "lost", "superseded"],
   /** A matter's own lifecycle, in the order a matter passes through it. */
   matterLifecycle: ["intake", "consultation", "active", "on-hold", "closed"],
+  /** A member's standing in the firm: whether they can reach the platform at all. */
+  memberStanding: ["member-active", "member-no-access"],
   /**
    * How a conflict hit stands. Unanswered leads because it is the only one that asks for
    * something; the four answers follow in no order of preference, because there is none.

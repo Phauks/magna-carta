@@ -725,11 +725,53 @@ export type InviteMemberResponse = {
     id: string;
     email: string;
     name: string;
+    /**
+     * The role the invitation names, or null where it names none.
+     */
+    roleName: string | null;
 };
 
 export type InviteMemberRequest = {
     email: string;
     name: string;
+    /**
+     * A role of this firm, by name, for the invited member to hold on arrival. A name that is not one of the firm's roles is refused rather than dropped — an invitation quietly landing without the role somebody chose is worse than one that does not land.
+     */
+    roleName?: string;
+};
+
+export type FirmRoleListResponse = {
+    data: Array<FirmRole>;
+};
+
+export type FirmRole = {
+    id: string;
+    name: string;
+    /**
+     * The permission keys this role carries, in registry form. Empty where the role carries none, which is a real state rather than a missing answer.
+     */
+    permissions: Array<string>;
+    /**
+     * How many ACTIVE members hold this role — who a change to it would reach.
+     */
+    memberCount: number;
+};
+
+export type MemberRolesResponse = {
+    userId: string;
+    roleIds: Array<string>;
+};
+
+export type SetMemberRolesRequest = {
+    /**
+     * The roles this member is to hold, as a whole set rather than a change to it. The server diffs against what they hold now, so a role in both lists is never momentarily removed. An empty array leaves the member holding nothing.
+     */
+    roleIds: Array<string>;
+};
+
+export type MemberStatusResponse = {
+    userId: string;
+    status: 'active' | 'deactivated';
 };
 
 export type SetReleaseChannelResponse = {
@@ -10396,7 +10438,7 @@ export type MembersInviteErrors = {
      */
     409: Problem;
     /**
-     * The email is already in use, or the Idempotency-Key was reused with a different payload
+     * The email is already in use, the named role is not one of this firm's, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -10415,6 +10457,205 @@ export type MembersInviteResponses = {
 };
 
 export type MembersInviteResponse = MembersInviteResponses[keyof MembersInviteResponses];
+
+export type RolesListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/roles';
+};
+
+export type RolesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is the subject of their own request
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or no such member in this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RolesListError = RolesListErrors[keyof RolesListErrors];
+
+export type RolesListResponses = {
+    /**
+     * The firm's roles, ordered by name
+     */
+    200: FirmRoleListResponse;
+};
+
+export type RolesListResponse = RolesListResponses[keyof RolesListResponses];
+
+export type MembersSetRolesData = {
+    body: SetMemberRolesRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/members/{userId}/roles';
+};
+
+export type MembersSetRolesErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is the subject of their own request
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or no such member in this firm
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MembersSetRolesError = MembersSetRolesErrors[keyof MembersSetRolesErrors];
+
+export type MembersSetRolesResponses = {
+    /**
+     * The roles the member holds after the write
+     */
+    200: MemberRolesResponse;
+};
+
+export type MembersSetRolesResponse = MembersSetRolesResponses[keyof MembersSetRolesResponses];
+
+export type MembersDeactivateData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/members/{userId}/deactivation';
+};
+
+export type MembersDeactivateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is the subject of their own request
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or no such member in this firm
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MembersDeactivateError = MembersDeactivateErrors[keyof MembersDeactivateErrors];
+
+export type MembersDeactivateResponses = {
+    /**
+     * The member's status after the write
+     */
+    200: MemberStatusResponse;
+};
+
+export type MembersDeactivateResponse = MembersDeactivateResponses[keyof MembersDeactivateResponses];
+
+export type MembersReactivateData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/members/{userId}/reactivation';
+};
+
+export type MembersReactivateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is the subject of their own request
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or no such member in this firm
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MembersReactivateError = MembersReactivateErrors[keyof MembersReactivateErrors];
+
+export type MembersReactivateResponses = {
+    /**
+     * The member's status after the write
+     */
+    200: MemberStatusResponse;
+};
+
+export type MembersReactivateResponse = MembersReactivateResponses[keyof MembersReactivateResponses];
 
 export type FirmSetReleaseChannelData = {
     body: SetReleaseChannelRequest;

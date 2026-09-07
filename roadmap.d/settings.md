@@ -40,9 +40,9 @@
 - id: settings.access-rbac
   name: Per-setting view/edit access
   scope: Role required to view and to edit each setting, enforced server-side in the firm-scoped data-access layer, mirrored in the UI.
-  status: partial
+  status: shipped
   surface: internal
-  evidence: Server-side, permission-gated write paths exist through the data-access layer. Client-side the check is still a stated mock — apps/web/src/lib/settings/settings-permissions.ts says so in its own header and returns true only for the billing area, against a fixed cast of members, so Billing demonstrates the editable draft flow and Firm profile demonstrates read-only with the Request-a-Change dialog. The call sites are the ones the real check will keep.
+  evidence: Server-side, permission-gated write paths exist through the data-access layer. Client-side apps/web/src/lib/settings/settings-permissions.ts now maps each settings area to the registry key that governs it and asks the session through the shared reader (apps/web/src/lib/access/session-permissions.svelte.ts), replacing the constant that said yes to billing and no to everything else. An area is deliberately coarser than a permission: a page whose own controls are governed by something narrower (tasks:managePlans, intake:manageProcedures, calendar:manage) reads that key itself, and the server refuses on the narrow key regardless.
 
 - id: settings.storage-placement
   name: Storage placement (no duplication)
@@ -84,10 +84,18 @@
 
 - id: settings.area-ui.firm-band
   name: Firm settings band
-  scope: Firm Profile, Users, Matter Numbering, Billing, File Safety & Scanning as staged draft pages with Save/Cancel commit flow.
+  scope: Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety & Scanning as pages whose posture follows the signed-in member's real capability.
   status: partial
   surface: screen
-  evidence: Pages exist with draft-ledger staging; some values are Preview posture (demonstration values not yet governing behavior).
+  evidence: Pages exist with draft-ledger staging; Firm Profile and Billing values are still Preview posture (local storage, governing nothing). Users and Roles and Permissions are real end to end — see settings.area-ui.member-administration.
+
+- id: settings.area-ui.member-administration
+  name: Users and Roles and Permissions
+  scope: The firm's roster with its three acts (invite naming a role, change what a member holds, withdraw and restore access), and the read-only surface stating what each role allows.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/routes/(app)/settings/users/ and /roles/ over GET /api/v1/roles, PUT /api/v1/members/{userId}/roles and POST /api/v1/members/{userId}/deactivation|reactivation (apps/api-worker/src/routes/member-administration.ts), with the invite route accepting a role by name so a member arrives holding something. Permission keys are said in the firm's words by apps/web/src/lib/members/permission-language.ts, which derives the phrasing from the key rather than transcribing two hundred sentences that would go stale.
+  notes: Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing.
 
 - id: settings.area-ui.platform-band
   name: Platform band (Beta Access, Versions, Developer)

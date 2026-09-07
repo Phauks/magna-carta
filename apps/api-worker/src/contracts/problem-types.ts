@@ -574,6 +574,22 @@ export const PROBLEM_TYPES = {
   // the refusing subsystem's own words, because each of those is fixed by a different person doing a
   // different thing.
   "report-cannot-be-produced": "report-cannot-be-produced",
+  // A member administering their own membership (HTTP 403): changing the roles they hold, or
+  // deactivating themselves. DISTINCT from `permission-denied`, which says the member lacks the
+  // capability — here they hold it, and the refusal is about who the subject is. Self-promotion is
+  // the reason the capability exists, and self-demotion is an accident rather than an act; both are
+  // fixed by another administrator making the change, which is also what puts a second name in the
+  // firm's audit log.
+  "self-administration": "self-administration",
+  // A change that would leave the firm with no active member who can administer its members (HTTP
+  // 422) — deactivating the last such member, or taking that capability off them. The firm would
+  // then be unable to invite, deactivate, or grant anything ever again, with no remedy inside the
+  // product. Fixed by giving another active member that role first.
+  "last-administrator": "last-administrator",
+  // A role handle naming no role of this firm (HTTP 422). DISTINCT from `validation`, which refuses
+  // a malformed handle: this one is well-formed and simply names nothing, so the caller's list of
+  // roles is stale rather than wrong in shape.
+  "unknown-role": "unknown-role",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

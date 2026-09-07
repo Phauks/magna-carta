@@ -212,12 +212,34 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // The firm administering its members ("us"). A member's OWN identity and credentials live
     // in the separate Account Settings surface reached from the profile menu ("me") — the two
     // are never mixed (owner-settled).
+    //
+    // A CATALOG page rather than a settings form, so its mode is "instant" and it departs from
+    // the mode-follows-scope rule deliberately: inviting somebody, changing what they hold and
+    // withdrawing their access are acts committed one at a time through their own dialogs
+    // against the member routes, on the Rooms and Resources precedent. There is nothing to
+    // stage, and staging a batch of people behind one Save would make "who works here" a
+    // document with a draft.
     id: "users",
     label: "Users",
     href: "/settings/users",
     group: "firm",
     scope: "firm",
-    commitMode: "draft",
+    commitMode: "instant",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
+  {
+    // What each role allows, read-only. Its own page rather than a plate on Users because it
+    // answers a different question — "what am I about to give this person" rather than "who is
+    // here" — and because authoring roles lands here later, which is a write with a different
+    // shape from anything on the roster.
+    id: "roles",
+    label: "Roles and Permissions",
+    href: "/settings/roles",
+    group: "firm",
+    scope: "firm",
+    commitMode: "instant",
+    readOnly: true,
     editPermissionArea: "firm",
     shipped: true,
   },
