@@ -101,7 +101,9 @@ async function readRange(
   key: string,
   offset: number,
   length: number,
-): Promise<Uint8Array | null> {
+  // Typed as ArrayBuffer-backed (not the wider ArrayBufferLike) because both are minted here from a
+  // fresh ArrayBuffer, and the Blob the inflate runs over will only take a view over a real one.
+): Promise<Uint8Array<ArrayBuffer> | null> {
   if (length <= 0) return new Uint8Array(0);
   const object = await bucket.get(key, { range: { offset, length } });
   if (object === null) return null;
@@ -136,8 +138,11 @@ async function memberDataOffset(
 }
 
 /** Inflate raw-deflate bytes through the runtime's own decompressor, capped as it goes. */
-async function inflate(compressed: Uint8Array, maxBytes: number): Promise<Uint8Array | "too-large"> {
-  const stream = new Blob([compressed as BlobPart])
+async function inflate(
+  compressed: Uint8Array<ArrayBuffer>,
+  maxBytes: number,
+): Promise<Uint8Array<ArrayBuffer> | "too-large"> {
+  const stream = new Blob([compressed])
     .stream()
     .pipeThrough(new DecompressionStream("deflate-raw"));
   const reader = stream.getReader();
@@ -213,11 +218,11 @@ export async function extractZipMember(
     return { kind: "refused", reason: "malformed" };
   }
 
-  let bytes: Uint8Array;
+  let bytes: Uint8Array<ArrayBuffer>;
   if (entry.compressionMethod === METHOD_STORED) {
     bytes = compressed;
   } else {
-    let inflated: Uint8Array | "too-large";
+    let inflated: Uint8Array<ArrayBuffer> | "too-large";
     try {
       inflated = await inflate(compressed, limits.maxUncompressedBytes);
     } catch {
