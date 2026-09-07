@@ -204,10 +204,11 @@ function makeResolveFirmContext(): (
     // answers 500, and no firm data is served on a membership nothing could verify.
     //
     // A route declaring firmDatabaseOutage: "tolerate" is admitted instead. Registration has
-    // already refused that declaration alongside a named permission, so such a route reads no firm
-    // data and claims no capability — it is a diagnostic, and the outage is its subject. Nothing is
-    // relaxed for anything else, and nothing leaks by admitting it: the database that would hold
-    // the firm's data is the database that is down.
+    // already refused that declaration alongside a named permission, so such a route claims no
+    // capability, and any firm read it still attempts is its own to catch and report — which is
+    // what a diagnostic does, the outage being its subject. Nothing is relaxed for anything else,
+    // and nothing leaks by admitting it: the database that would hold the firm's data is the
+    // database that is down.
     let memberStatus: string | undefined;
     try {
       const memberStatusResult = await selectMemberStatusStatement(
