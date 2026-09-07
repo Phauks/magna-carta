@@ -380,5 +380,5 @@ export function copyLineForDatabaseHealth(value: DatabaseHealthValue): string {
   const backlog = describeProvisioningBacklog(value);
   if (backlog !== null) segments.push(backlog.sentence);
   segments.push(`observed ${value.observedAt}`);
-  return segments.join(" · ");
+  return segments.join("\n");
 }

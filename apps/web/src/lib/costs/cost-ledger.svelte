@@ -29,6 +29,7 @@
    * and nothing else: the link from a cost to its bill belongs on the cost.
    */
   import type { Snippet } from "svelte";
+  import { goto } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -41,7 +42,7 @@
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import ListChecks from "@lucide/svelte/icons/list-checks";
-  import { MoneySurface, type MoneySurfaceDensity } from "$lib/money/index.ts";
+  import { MoneySurface, billHref, type MoneySurfaceDensity } from "$lib/money/index.ts";
   import {
     RecordMenu,
     type RecordMenuAction,
@@ -71,6 +72,7 @@
   import { costRecordMenu, type CostMenuRecord } from "./cost-record-menu.ts";
   import {
     approveCost,
+    canWorkDraft,
     readCostLedgerEntry,
     submitCost,
     writeKey,
@@ -163,20 +165,6 @@
     },
   });
 
-  /**
-   * Whose draft this is to work.
-   *
-   * The listing does not serve who recorded a cost, so this surface cannot answer "only the person
-   * who entered it" the way the design words it. What it can say honestly is what the chain says:
-   * a draft is editable and everything past it is not. The recorder gate arrives with the recorder.
-   */
-  function canWorkDraft(cost: CostLedgerEntry): { allowed: boolean; reason: string } {
-    if (cost.status !== "draft") {
-      return { allowed: false, reason: statusEntry(costStatusKey(cost.status)).meaning };
-    }
-    return { allowed: true, reason: "Change any part of this draft." };
-  }
-
   function openRecord(cost: CostLedgerEntry, editing: boolean): void {
     windowEntry = cost;
     windowEditing = editing;
@@ -245,6 +233,7 @@
       entryNumber: null,
       description: cost.description,
       amount: money(cost.amountMinor),
+      invoiceId: cost.invoiceId ?? null,
     };
   }
 
@@ -344,6 +333,14 @@
       case "print":
         print(first);
         return;
+      case "openBill":
+        // The bill lands on the matter's own Billing section with that bill open — the same place
+        // the register would have opened it, so a reader arrives where they would have navigated.
+        // The verb is refused where there is no bill, so reaching here means there is one.
+        if (first.invoiceId != null) {
+          void goto(billHref(matterId, first.invoiceId));
+        }
+        return;
       default:
         return;
     }
@@ -373,6 +370,7 @@
           matterNumber,
           money: (amount) => formatMoney(amount, { currency }),
           date: (isoDate) => formatDate(isoDate),
+          instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
           expenseCodeLabels: expenseCodes.labelFor,
           source: printEntry.source,

@@ -51,14 +51,19 @@
   // document" cannot be confused.
   let savedText = $state<string | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
-  let tooLargeBytes = $state<number | null>(null);
+  /**
+   * Why this editor will not open the document, when it will not. Two documents reach it — one too
+   * big to hold, one whose bytes are not UTF-8 text — and both end the same way for the reader: the
+   * editor stands aside and offers the download. One state, so they cannot drift into two shapes.
+   */
+  let refusal = $state<{ title: string; description: string } | null>(null);
   let saveStage = $state<CreationStage | null>(null);
   let saveOutcome = $state<CreationOutcome | null>(null);
   // How many versions this surface has cut since it opened, so the version the record is on can be
   // stated without a re-read.
   let versionsSaved = $state(0);
 
-  const reading = $derived(savedText === null && readFailure === null && tooLargeBytes === null);
+  const reading = $derived(savedText === null && readFailure === null && refusal === null);
   const dirty = $derived(savedText !== null && text !== savedText);
   const saving = $derived(saveStage !== null && saveStage !== "settled");
   const versionNumber = $derived(file.versionNumber + versionsSaved);
@@ -75,7 +80,7 @@
   async function read(): Promise<void> {
     savedText = null;
     readFailure = null;
-    tooLargeBytes = null;
+    refusal = null;
     const outcome = await readTextDocument(fetch, file.id, file.sizeBytes);
     if (outcome.kind === "ok") {
       text = outcome.text;
@@ -83,7 +88,25 @@
       return;
     }
     if (outcome.kind === "too-large") {
-      tooLargeBytes = outcome.sizeBytes;
+      refusal = {
+        title: "This Document Is Larger Than the Editor Holds",
+        description:
+          `It is ${formatDocumentSize(outcome.sizeBytes)}; the editor holds up to ` +
+          `${formatDocumentSize(TEXT_EDITOR_MAX_BYTES)}. Download it to work on it.`,
+      };
+      return;
+    }
+    if (outcome.kind === "not-text") {
+      // Deliberately not opened as best-effort text. A document in a legacy encoding would come
+      // back with every accented character replaced, and saving it would write that loss into a new
+      // version of a legal record.
+      refusal = {
+        title: "This Document Is Not Text This Editor Can Open",
+        description:
+          "Its bytes are not UTF-8 text, so opening it here would show some characters wrongly " +
+          "and saving would store them that way. Download it and open it in the application it " +
+          "was written in.",
+      };
       return;
     }
     readFailure = stated(
@@ -148,14 +171,11 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="flex min-h-0 flex-1 flex-col">
-  {#if tooLargeBytes !== null}
+  {#if refusal !== null}
     <div class="p-24">
       <Alert.Root variant="warning">
-        <Alert.Title>This Document Is Larger Than the Editor Holds</Alert.Title>
-        <Alert.Description>
-          It is {formatDocumentSize(tooLargeBytes)}; the editor holds up to
-          {formatDocumentSize(TEXT_EDITOR_MAX_BYTES)}.
-        </Alert.Description>
+        <Alert.Title>{refusal.title}</Alert.Title>
+        <Alert.Description>{refusal.description}</Alert.Description>
         <Button
           variant="secondary"
           size="sm"

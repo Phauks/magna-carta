@@ -6,9 +6,13 @@ import {
   loadMigrationsFromDisk,
 } from "../../packages/database/src/node-sqlite.ts";
 import type { MigrationJournal } from "../../packages/database/src/migration.ts";
-import { REVIEWED_REBUILDS } from "../../packages/database/src/reviewed-rebuilds.ts";
+import {
+  PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING,
+  REVIEWED_REBUILDS,
+} from "../../packages/database/src/reviewed-rebuilds.ts";
 import {
   journalStructureViolations,
+  parentRebuildViolations,
   rebuildViolations,
   snapshotLineageViolations,
   LINEAGES,
@@ -89,6 +93,43 @@ function chainApplyViolations(lineage: Lineage): string[] {
   }
 }
 
+// What pointed at a table on the day a migration rebuilt it. Applies the chain UP TO that migration
+// and asks SQLite, rather than reading the schema file: a table gains references over time, and the
+// head's answer is not the one that decides whether the drop could have completed.
+function childrenOfRebuiltTableAt(lineage: Lineage) {
+  return (tag: string, table: string): string[] => {
+    const migrations = loadMigrationsFromDisk(lineage);
+    const at = migrations.findIndex((migration) => migration.tag === tag);
+    if (at < 0) return [];
+    const database = new DatabaseSync(":memory:");
+    try {
+      applyMigrations(database, migrations.slice(0, at));
+      const names = (
+        database.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as {
+          name: string;
+        }[]
+      ).map((row) => row.name);
+      const children: string[] = [];
+      for (const name of names) {
+        const keys = database.prepare(`PRAGMA foreign_key_list(${JSON.stringify(name)})`).all() as {
+          table: string;
+          from: string;
+        }[];
+        for (const key of keys) {
+          if (key.table === table) children.push(`${name}.${key.from}`);
+        }
+      }
+      return children;
+    } catch {
+      // A chain that does not apply is already reported by chainApplyViolations; this check has
+      // nothing to add about it.
+      return [];
+    } finally {
+      database.close();
+    }
+  };
+}
+
 export interface LineageReport {
   readonly lineage: Lineage;
   readonly migrationCount: number;
@@ -101,6 +142,11 @@ export function checkLineage(lineage: Lineage): LineageReport {
     ...journalStructureViolations(loadArtifacts(lineage)),
     ...chainApplyViolations(lineage),
     ...rebuildViolations(sqlByTagFor(lineage), REVIEWED_REBUILDS),
+    ...parentRebuildViolations(
+      sqlByTagFor(lineage),
+      childrenOfRebuiltTableAt(lineage),
+      PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING,
+    ),
     ...snapshotLineageViolations(loadSnapshotHeaders(lineage)),
   ];
   // A lineage with nothing in it satisfies every rule above vacuously. Report that as a violation

@@ -3,9 +3,10 @@
  *
  * The screen was designed whole, against a record that carries an entry number, both dates, the
  * person who recorded it, the files attached to it, the invoice it was billed onto, an internal
- * memo, a recorded kick-back reason and a history. The listing answers a smaller record than that:
- * the columns exist in the table `cost_entry` and simply are not projected onto the listing's
- * response.
+ * memo, a recorded kick-back reason and a history. The listing answers a smaller record than that.
+ * The entered date, the recorder, the invoice and the kick-back reason have since been projected
+ * onto the response — their columns were in `cost_entry` all along — and their entries came out of
+ * this file, which is what an entry here is for.
  *
  * Two wrong ways to handle the difference were available: invent the missing values, or quietly
  * drop the columns and controls that carry them. Both leave a reader unable to tell what the
@@ -30,14 +31,6 @@ export const COST_LEDGER_GAPS = {
     field: "Entry Number",
     waitsOn: "a matter-scoped entry number on the cost record",
   },
-  dateEntered: {
-    field: "Date Entered",
-    waitsOn: "the entered date being served on the cost listing",
-  },
-  enteredBy: {
-    field: "Entered By",
-    waitsOn: "the recorder being served on the cost listing",
-  },
   attachments: {
     field: "Attachments",
     waitsOn: "a cost's attached files being served on the cost listing",
@@ -46,10 +39,6 @@ export const COST_LEDGER_GAPS = {
     field: "Attach File",
     waitsOn: "a picker that reaches the matter's own files",
   },
-  invoice: {
-    field: "Invoice",
-    waitsOn: "the invoice a billed cost rides being served on the listing",
-  },
   history: {
     field: "History",
     waitsOn: "an endpoint that serves a cost's recorded events",
@@ -57,10 +46,6 @@ export const COST_LEDGER_GAPS = {
   memo: {
     field: "Internal Memo",
     waitsOn: "an internal memo field on the cost entry record",
-  },
-  kickBackReason: {
-    field: "Kicked Back",
-    waitsOn: "the recorded kick-back reason being served on the listing",
   },
   deleteDraft: {
     field: "Delete Draft",

@@ -1,6 +1,6 @@
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "vite-plus";
+import { defineConfig, type Rollup } from "vite-plus";
 import { resolveCommitIdentity } from "../../packages/build-identity/scripts/commit-identity.mjs";
 
 // Register the SvelteKit plugin only when Vite runs from this package (dev/build), not when vp's lint pass loads every workspace vite.config.ts from the repo root — SvelteKit's configResolved sync step resolves src/app.html via process.cwd() and would fail against the wrong cwd. The oxlint probe is indistinguishable from a real build by command/mode, so cwd is the only reliable signal. Tracking: drop this once vp can scope which configs its lint pass loads (vp 0.1.x).
@@ -34,10 +34,13 @@ const commitIdentity = runningInPackageDir
  *
  * magna-carta-web is an assets-only Worker, so nothing here can be gated by a session.
  */
-const PRODUCTION_OUTPUT = {
+// Typed as the output options rather than inferred: an inferred literal type here made the
+// type-checker give up comparing the whole config against `UserConfig` ("excessive stack depth"),
+// which read as a plugins error two lines down.
+const PRODUCTION_OUTPUT: Rollup.OutputOptions = {
   sourcemapExcludeSources: true,
   minify: { mangle: false, compress: true, codegen: { removeWhitespace: true } },
-} as const;
+};
 
 export default defineConfig({
   plugins: runningInPackageDir ? [tailwindcss(), sveltekit()] : [],

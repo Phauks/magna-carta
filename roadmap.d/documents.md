@@ -133,11 +133,32 @@
 
 - id: documents.upload.archive-opacity
   name: Opaque archive storage
-  scope: Uploaded archives stored versioned/hashed on the matter and never expanded server-side — no zip-bomb/nested-archive read pipeline exists.
+  scope: An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.
   status: shipped
   surface: internal
   adrs: ADR-0027
-  evidence: No server-side extraction code in the tree; ADR-0027 records the opaque posture; client-side extraction path deferred to Discovery.
+  evidence: The ingest path stores an archive unexpanded; ADR-0027 records the posture. What has changed since this node was written is that expansion now EXISTS in two asked-for lanes rather than nowhere — the discovery processing lane (crates/discovery-core archive.rs) and, on a member a person names, the file manager (packages/file-manager/src/zip-member-extract.ts). Neither runs on arrival, which is what opacity meant.
+
+- id: documents.file-manager.archive-browse
+  name: Browse inside a zip
+  scope: Read an archive's entry listing from its central directory over ranged reads, without inflating a byte, for a live or a soft-deleted archive alike.
+  status: shipped
+  surface: screen
+  evidence: packages/file-manager/src/zip-central-directory.ts + GET /api/v1/files/{id}/archive-entries + the archive view in apps/web/src/lib/file-manager (archive-browse.ts, archiveColumns).
+  audience: public
+  public-name: Looking inside a zip
+  public-summary: See what a zip holds without extracting it or downloading it first.
+
+- id: documents.file-manager.archive-extract
+  name: Extract an archive's members
+  scope: Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate.
+  status: shipped
+  surface: screen
+  evidence: packages/file-manager/src/zip-member-extract.ts (selective ranged read, DecompressionStream, CRC-32 and length verification, the firm archiveCaps as its bomb guard) + POST /api/v1/files/{id}/archive-extractions + the archive bar's extract control in apps/web/src/lib/file-manager/file-manager.svelte.
+  audience: public
+  public-name: Taking files out of a zip
+  public-summary: Extract what you need from a zip onto the matter, checked on the way in like any upload.
+  notes: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built.
 
 - id: documents.scanning
   name: Malware scanning
@@ -372,6 +393,17 @@
   evidence: packages/file-manager/src/safe-rendition-port.ts ships the port plus an engine-less adapter that refuses; active formats are download-only until the engine wires in.
   notes: Rasterize/transcode engine wires in with the player UI.
 
+- id: documents.preview.pdf-reader
+  name: Portable-document reader
+  scope: A read-only in-app reader that rasterizes a PDF's pages locally through the pure-Rust engine in a Web Worker, rather than serving the file to the browser.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/lib/documents/pdf-pages.ts + pdf-render.worker.ts over @magna-carta/pdf, opened from the file manager at /documents/{fileId}/view.
+  audience: public
+  public-name: Reading a PDF
+  public-summary: Open a PDF from a matter and read it in the app, turning pages and zooming, without downloading it first.
+  notes: Independent of the cookieless streaming path: only pixels reach the page, so it needs no rendition engine and no deploy activation. Pages are drawn as they come into view, and the resolution is capped.
+
 - id: documents.preview.player
   name: Video player UI
   scope: Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
@@ -515,11 +547,11 @@
   name: Render to raster
   scope: PDF page rendering for preview/flatten via the pure-Rust engine (hayro dependency doctrine).
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   slices: pdf-render-engine
   adrs: ADR-0127
   spec: docs/specs/2026-06-21-pdf-slice-1-core-render-design.md
-  evidence: pdf-render-engine fragment lists render built; crates/pdf-eval evaluation harness in the workspace.
+  evidence: pdf-render-engine fragment lists render built; crates/pdf-eval evaluation harness in the workspace. Reached by a person as of the document reader at apps/web/src/routes/(app)/documents/[id]/view, which draws every page through this renderer.
 
 - id: documents.pdf.redaction
   name: True redaction (rasterize route)

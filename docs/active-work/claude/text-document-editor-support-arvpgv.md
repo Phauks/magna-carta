@@ -1,12 +1,14 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/text-document-editor-support-arvpgv
-area: Documents — the one Open gesture opens a document's editor in a new tab; the editor screen at /documents/{id}/edit (Collabora frame for word-processing formats, an in-app text editor for plain text)
+area: Documents — zip extraction: the selective member engine, the route that files a member through the ingest gate, and the archive controls that had been disabled waiting on it. The PDF reader and the text editor's encoding guard from this stream have landed.
 status: building
-touches: apps/web/src/lib/file-manager/file-manager.svelte, apps/web/src/lib/documents/, apps/web/src/routes/(app)/documents/, apps/web/src/lib/screen/screen-header.ts, roadmap.d/documents.md, status.d/2-2-editing-versioning-storage-tiering.md, STATUS.md, ROADMAP.md, docs/user/features/matter-documents.md
+touches: packages/file-manager/src/zip-central-directory.ts, packages/file-manager/src/zip-member-extract.ts, apps/api-worker/src/routes/files.ts, apps/web/src/lib/file-manager/, roadmap.d/documents.md, status.d/1-1-matters-locations-file-manager.md, STATUS.md, docs/user/features/matter-documents.md
 ---
 
-Double-click, Enter and Open on a word-processing or plain-text document open its editor beside the
-file manager, through the one new-tab gate. The screen behind that address posts the WOPI token to
-the Collabora frame for office formats and runs an in-app text editor, saving through the upload
-ceremony as a new version, for plain text. A concurrent stream editing `file-manager.svelte`'s
-`activate()` or the document loop's inventory should merge this first.
+A zip stops being opaque to a person. Browsing one already read its central directory; extraction
+now reads one member's own bytes by ranged read, inflates them through the runtime's own
+decompressor, checks them against the length and the CRC-32 the archive recorded, and files the
+member through the ordinary ingest gate so it is sniffed and scanned fresh. The central-directory
+entry gained the four fields extraction needs, so a concurrent stream touching
+`zip-central-directory.ts` should merge this first. The same is true of the file manager's archive
+bar and `matter-file-api.ts`.

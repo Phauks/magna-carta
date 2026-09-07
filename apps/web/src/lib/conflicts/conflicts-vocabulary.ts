@@ -394,6 +394,55 @@ export function edgeClassLabel(edgeClass: string): string {
   return EDGE_CLASS_VOCABULARY[edgeClass]?.label ?? edgeClass;
 }
 
+// ---- name roles ---------------------------------------------------------------------------------
+
+/*
+ * The kinds of name row the Directory keeps, and what comparing each one buys a firm.
+ *
+ * These are a SETTING rather than a consequence of the strictness word, and the meanings are why: a
+ * firm choosing whether to compare maiden names is making a decision about which conflicts it will
+ * find, and the choice is unreadable unless each role says what it is. The order is the order the
+ * settings screen offers them — the three that answer "the same person under a name they previously
+ * held" first, since that is the reading the shipped default encodes, then the two that do not.
+ */
+export const NAME_ROLES = ["current", "former", "maiden", "alias", "aka", "dba"] as const;
+
+export const NAME_ROLE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
+  current: {
+    label: "Current",
+    meaning:
+      "The name the party goes by today. Always compared: a check that skipped it would not be a conflicts check.",
+  },
+  former: {
+    label: "Former",
+    meaning: "A name the party held before this one, kept as a row of its own.",
+  },
+  maiden: {
+    label: "Maiden",
+    meaning:
+      "A surname held before marriage. The miss the practitioner literature cites most often, which is why it is compared by default.",
+  },
+  alias: {
+    label: "Alias",
+    meaning: "Another name the same person is recorded under.",
+  },
+  aka: {
+    label: "Also known as",
+    meaning:
+      "A name the party is known by without it being one they previously held. Outside the default set for that reason, not because it is weaker evidence.",
+  },
+  dba: {
+    label: "Trading style",
+    meaning:
+      "A name an organization trades under. Outside the default set because a trading style is not the legal person under an earlier name.",
+  },
+};
+
+/** How one name role reads. An unrecognized role prints itself rather than being guessed at. */
+export function nameRoleVocabulary(role: string): VocabularyEntry {
+  return NAME_ROLE_VOCABULARY[role] ?? { label: role, meaning: "" };
+}
+
 // ---- the connecting path ------------------------------------------------------------------------
 
 /**

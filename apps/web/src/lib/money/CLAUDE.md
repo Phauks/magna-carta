@@ -18,11 +18,12 @@ frame.
 - `money-surface.svelte` — the surface: `FullHeightSection` > `LedgerPanes` > the list column
   (toolbar, notices, the ledger's `list` snippet, `beneath`, `DataTable.GridFooter` ending in
   `DetailsPanel.Toggle`), with the ledger's `panel` beside it
-- `money-toolbar.svelte` — the strip: the coins glyph, the five sub-parts as links, Clear Filters
-  while the grid is filtered, the ledger's `acts`, then the density and layout controls
+- `money-toolbar.svelte` — the strip: the coins glyph, the five sub-parts as links, the way out to
+  the section's firm-wide twin past a rule, Clear Filters while the grid is filtered, the ledger's
+  `acts`, then the density and layout controls
 - `money-sections.ts` — `moneySections` read from `matterStrip`'s Money group (a module-load
-  failure if the group and `MoneySectionSlug` disagree), `moneySectionHref`, and the two
-  preference codecs
+  failure if the group and `MoneySectionSlug` disagree), `moneySectionHref`, `billHref`,
+  `moneySectionFirmDestination`, and the two preference codecs
 - `apps/web/test/money-sections.test.ts` — the registry's facts, pinned without a browser
 
 ## Local conventions
@@ -37,6 +38,18 @@ frame.
 - **The sub-part links come from `matterStrip`'s Money group**, never a list written here. Adding a
   money section is an edit to `$lib/matters/sections.ts` and to `MoneySectionSlug`; the module
   refuses the two disagreeing.
+- **The way out names a sidebar DESTINATION, never an address.** Three of the five sections have a
+  firm-wide twin — `/time`, `/costs`, `/billing` — and `moneySectionFirmDestination` answers with
+  that destination's id so the href, the label and the glyph all come from
+  `$lib/navigation/destinations.ts`. The rail and the toolbar therefore cannot call one place two
+  things, and a destination that is announced but not `shipped` answers null: a way out to a Soon
+  page is worse than no way out. Fees and Trust answer null for that reason today.
+- **One bill has one address, and `billHref` is it.** Every surface that sends a reader to a bill —
+  the cost and time ledgers from a billed row's menu, the invoice window's list of the matters a
+  bill charges, the cost record window and its details panel — calls `billHref(matterId,
+invoiceId)`. It was spelled by hand in three files and one of them did not encode the identifier.
+  A bill opens on the matter it charges rather than at the firm's scale, because the acts against it
+  are that matter's.
 - **The ledger keeps its own panel-open preference** (its key is unchanged) and hands the surface
   `panelOpen` and `onTogglePanel`; the surface renders the toggle, the ledger stores the answer.
 
@@ -61,6 +74,8 @@ frame.
   (`GridFooter`, `DataTableGridState`) and `@magna-carta/design-system/button`.
 - Reads `$lib/matters/sections.ts` for the section registry and links to
   `/matters/{matterId}/{slug}`, the address the section strip links to.
+- Reads `$lib/navigation/destinations.ts` for the firm-wide twin behind the way out — the only
+  place this area reaches outside the matter.
 
 ## Gotchas
 

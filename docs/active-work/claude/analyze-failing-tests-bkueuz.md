@@ -1,14 +1,13 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/analyze-failing-tests-bkueuz
-area: Fix the three test failures standing on main (api-worker conformance + database health)
+area: The last of the three test failures that were standing on main (api-worker conformance mirror)
 status: review
 touches: apps/api-worker/test
 ---
 
-Repairs the three failures that were pre-existing on `main`, both in test expectations rather than in
-shipped behaviour. `uploads.matches` is a read-shaped POST that correctly declares `audited: false`,
-but was never added to the non-mutating allow-list the two conformance fitness functions consult, so
-it read as an unaudited mutating route; the entry is added to both copies of that list. The
-firm-database health test still asserted the two-key shape the row had before it began carrying the
-`fault` that explains an unreachable database, and now asserts the fault as well. No source changes,
-so nothing here is on another stream's path beyond `apps/api-worker/test`.
+Closes the remaining red test from the sweep of `main`. Two of the three were fixed on `main` while
+this branch was being written — the `uploads.matches` entry in the conformance register, and the
+firm-database health row learning to assert its `fault` — and this branch takes `main`'s version of
+both. What was left is the second copy of the non-mutating allow-list, the one the end-to-end suite
+applies to the live-served document, which never received the entry the register got. Test files
+only; no source is touched, so nothing here is on another stream's path.

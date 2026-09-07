@@ -30,6 +30,7 @@ export const PERMISSIONS = [
   // because reading one's own feed is not a privilege, and reusing it here would let any member lower
   // the floor and shorten retention for everybody. Owner/Admin only, mirroring firm:manageScanPolicy.
   "firm:manageNotificationPolicy", // read and update the firm's notification policy: the in-app floor, retention window, and digest hour
+  "firm:manageReportPolicy", // read and update the firm's report policy: what its trust-compliance document lists
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.
@@ -49,6 +50,12 @@ export const PERMISSIONS = [
   "conflicts:run", // run a conflicts check against the directory corpus
   "conflicts:read", // read a completed check and its surfaced hits
   "conflicts:dispose", // record a reviewer's adjudication (clear, waive, wall, decline) of a hit
+  // Separate from the three above, and narrower than all of them, because this key does not act on a
+  // check — it decides what every FUTURE check searches. Widening the floor makes a shortfall appear
+  // on every matter whose last check no longer covers it; narrowing it reduces what the firm will
+  // look at from here on, without any single check ever recording that a person chose that. So it
+  // seeds Owner and Admin only, like billing:configure, rather than riding along with conflicts:run.
+  "conflicts:configure", // set the firm's conflicts floor: sources, strictness, name roles, traversal and candidate bounds
   // Locations — the firm's offices/letterhead roots.
   "locations:manage", // create/update/close locations, addresses, staff assignment
   // Shipping & postage — connect the firm's postage account and create/rate/buy/track/refund shipments.

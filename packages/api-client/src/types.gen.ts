@@ -1684,6 +1684,28 @@ export type ArchiveEntry = {
     modifiedAt: string | null;
 };
 
+export type ExtractArchiveMembersResponse = {
+    extracted: Array<ExtractedArchiveMember>;
+    refused: Array<RefusedArchiveMember>;
+};
+
+export type ExtractedArchiveMember = {
+    path: string;
+    fileId: string;
+    versionId: string;
+    name: string;
+};
+
+export type RefusedArchiveMember = {
+    path: string;
+    reason: 'archive-missing' | 'directory' | 'encrypted' | 'unsupported-compression' | 'malformed' | 'too-large' | 'expansion-ratio' | 'corrupt' | 'not-in-archive' | 'policy-size' | 'policy-type';
+};
+
+export type ExtractArchiveMembersRequest = {
+    paths: Array<string>;
+    folderId?: string | null;
+};
+
 export type FileHistoryResponse = {
     data: Array<FileHistoryItem>;
     nextCursor: string | null;
@@ -5264,9 +5286,16 @@ export type CostSummary = {
     utbmsExpenseCodeId: string | null;
     description: string;
     status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    invoiceId?: string | null;
     vendorName?: string | null;
+    matterNumber?: string | null;
+    matterTitle?: string | null;
     source: 'manual' | 'grid' | 'recovery';
     recoveryCategory: string | null;
+    createdAt: string;
+    createdByUserId: string | null;
+    createdByName: string | null;
+    kickBackReason: string | null;
 };
 
 export type PatchCostRequest = {
@@ -5355,6 +5384,26 @@ export type TrustDisbursementRejection = {
 
 export type TrustDisbursementWithdrawal = {
     reason?: string | null;
+};
+
+export type TrustAccountPage = {
+    data: Array<TrustAccountListing>;
+    nextCursor: string | null;
+};
+
+export type TrustAccountListing = {
+    id: string;
+    name: string;
+    locationId: string;
+    jurisdiction: string | null;
+    bankName: string | null;
+    accountNumberLastFour: string | null;
+    currency: string;
+    iolta: boolean;
+    status: 'open' | 'closed';
+    openedOn: string;
+    closedAt: string | null;
+    timeZone: string;
 };
 
 export type TrustPendingDisbursementRequestsResponse = {
@@ -6228,6 +6277,7 @@ export type BillingInvoiceListResponse = {
 export type BillingInvoiceListItem = {
     id: string;
     clientEntityId: string;
+    clientName: string | null;
     currency: string;
     status: 'draft' | 'final' | 'void';
     invoiceNumber: string | null;
@@ -6237,6 +6287,9 @@ export type BillingInvoiceListItem = {
     appliedMinor: number;
     unpaidMinor: number;
     createdAt: string;
+    matterLinesMinor?: number;
+    matterTotalMinor?: number | null;
+    matterAppliedMinor?: number | null;
 };
 
 export type BillingInvoiceDetailResponse = BillingInvoiceListItem & {
@@ -6245,12 +6298,16 @@ export type BillingInvoiceDetailResponse = BillingInvoiceListItem & {
         id: string;
         lineIndex: number;
         matterId: string;
+        matterNumber: string | null;
+        matterTitle: string | null;
         kind: string;
         description: string;
         amountMinor: number;
     }>;
     matterBalances: Array<{
         matterId: string;
+        matterNumber: string | null;
+        matterTitle: string | null;
         totalMinor: number;
         appliedMinor: number;
         unpaidMinor: number;
@@ -7113,6 +7170,22 @@ export type PatchFirmNotificationPolicyRequest = {
     };
     retentionDays?: number;
     digestLocalHour?: number;
+};
+
+export type FirmReportPolicyResponse = {
+    trustCompliance: {
+        zeroBalanceLedgers: TrustComplianceListing;
+        authorizers: TrustComplianceListing;
+    };
+};
+
+export type TrustComplianceListing = 'include' | 'omit';
+
+export type PatchFirmReportPolicyRequest = {
+    trustCompliance?: {
+        zeroBalanceLedgers?: TrustComplianceListing;
+        authorizers?: TrustComplianceListing;
+    };
 };
 
 export type ConversionUploadResponse = {
@@ -14004,6 +14077,57 @@ export type FilesArchiveEntriesResponses = {
 };
 
 export type FilesArchiveEntriesResponse = FilesArchiveEntriesResponses[keyof FilesArchiveEntriesResponses];
+
+export type FilesExtractArchiveMembersData = {
+    body: ExtractArchiveMembersRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/archive-extractions';
+};
+
+export type FilesExtractArchiveMembersErrors = {
+    /**
+     * The request body is absent or is not JSON
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No such file in this firm, its stored bytes are gone, or the destination folder is unknown
+     */
+    404: Problem;
+    /**
+     * The file has no committed version yet, so there are no bytes to extract from
+     */
+    409: Problem;
+    /**
+     * The file is not a zip archive, or the request names no paths (or more than the cap)
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesExtractArchiveMembersError = FilesExtractArchiveMembersErrors[keyof FilesExtractArchiveMembersErrors];
+
+export type FilesExtractArchiveMembersResponses = {
+    /**
+     * Accepted: each extracted member's rows and audit were committed and its bytes were written. Every version is pending until the ingest gate commits or quarantines it. Members that could not be taken out are reported in refused, by reason.
+     */
+    202: ExtractArchiveMembersResponse;
+};
+
+export type FilesExtractArchiveMembersResponse = FilesExtractArchiveMembersResponses[keyof FilesExtractArchiveMembersResponses];
 
 export type FilesHistoryData = {
     body?: never;
@@ -27267,6 +27391,18 @@ export type CostsListData = {
         cursor?: string;
         matterId?: string;
         /**
+         * The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first.
+         */
+        from?: string;
+        /**
+         * The last incurred date of a period listing, inclusive. Required alongside `from`.
+         */
+        to?: string;
+        /**
+         * Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both.
+         */
+        billable?: 'true' | 'false';
+        /**
          * Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is.
          */
         status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
@@ -27287,6 +27423,10 @@ export type CostsListErrors = {
      * The firm is unreachable, the member is deactivated, or the cost entry is unknown
      */
     404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */
@@ -28081,6 +28221,45 @@ export type TrustWithdrawDisbursementResponses = {
 };
 
 export type TrustWithdrawDisbursementResponse = TrustWithdrawDisbursementResponses[keyof TrustWithdrawDisbursementResponses];
+
+export type TrustListTrustAccountsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/trust/accounts';
+};
+
+export type TrustListTrustAccountsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustListTrustAccountsError = TrustListTrustAccountsErrors[keyof TrustListTrustAccountsErrors];
+
+export type TrustListTrustAccountsResponses = {
+    /**
+     * One page of the firm's trust accounts
+     */
+    200: TrustAccountPage;
+};
+
+export type TrustListTrustAccountsResponse = TrustListTrustAccountsResponses[keyof TrustListTrustAccountsResponses];
 
 export type TrustReadAuthorizationPolicyData = {
     body?: never;
@@ -29354,6 +29533,10 @@ export type BillingListInvoicesData = {
     path?: never;
     query?: {
         clientEntityId?: string;
+        /**
+         * Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.
+         */
+        matterId?: string;
         status?: 'draft' | 'final' | 'void';
         cursor?: string;
     };
@@ -33575,6 +33758,95 @@ export type FirmNotificationPolicyUpdateResponses = {
 };
 
 export type FirmNotificationPolicyUpdateResponse = FirmNotificationPolicyUpdateResponses[keyof FirmNotificationPolicyUpdateResponses];
+
+export type FirmReportPolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/reports/policy';
+};
+
+export type FirmReportPolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageReportPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmReportPolicyGetError = FirmReportPolicyGetErrors[keyof FirmReportPolicyGetErrors];
+
+export type FirmReportPolicyGetResponses = {
+    /**
+     * The firm's report policy
+     */
+    200: FirmReportPolicyResponse;
+};
+
+export type FirmReportPolicyGetResponse = FirmReportPolicyGetResponses[keyof FirmReportPolicyGetResponses];
+
+export type FirmReportPolicyUpdateData = {
+    body: PatchFirmReportPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/reports/policy';
+};
+
+export type FirmReportPolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageReportPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmReportPolicyUpdateError = FirmReportPolicyUpdateErrors[keyof FirmReportPolicyUpdateErrors];
+
+export type FirmReportPolicyUpdateResponses = {
+    /**
+     * The firm's report policy after the write
+     */
+    200: FirmReportPolicyResponse;
+};
+
+export type FirmReportPolicyUpdateResponse = FirmReportPolicyUpdateResponses[keyof FirmReportPolicyUpdateResponses];
 
 export type ConversionsUploadData = {
     body?: never;

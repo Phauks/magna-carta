@@ -86,6 +86,19 @@ function collect(options: {
 }) {
   const firmContext = {
     firmDatabase: fakeFirmDatabase(options.firm ?? {}),
+    // The schema row asks the migration read now rather than SELECTing _migrations, so the plan's
+    // own `migrations` drives it — "throw" still means the question could not be answered.
+    migrationState: () => {
+      const planned = options.firm?.migrations;
+      if (planned === "throw") return Promise.reject(new Error("firm database unreachable"));
+      const tags = planned ?? [];
+      return Promise.resolve({
+        fault: null,
+        appliedCount: tags.length,
+        appliedHead: tags.at(-1)?.tag ?? null,
+        restorePoint: null,
+      });
+    },
     readFirmName: () => Promise.resolve("Test Firm"),
     bucketName: options.bucketName === undefined ? "firm-bucket" : options.bucketName,
   } satisfies FirmContext;
@@ -153,15 +166,31 @@ describe("collectDatabaseHealth", () => {
     });
   });
 
-  it("reports an unreachable firm database with the fault and no made-up round trip", async () => {
+  it("reports an unreachable firm database without a made-up round trip, and says why", async () => {
     const health = await collect({ firm: { ...HEALTHY_FIRM, roundTrip: "throw" } });
-    // The fault is the whole point of the row: "not answering" names the symptom the reader already
-    // has, so the thrown error's scrubbed head is carried through rather than discarded.
-    expect(health.firmDatabase).toEqual({
-      state: "unreachable",
-      roundTripMilliseconds: null,
-      fault: "read failed: SELECT 1 AS ok",
+    expect(health.firmDatabase.state).toBe("unreachable");
+    expect(health.firmDatabase.roundTripMilliseconds).toBeNull();
+    // The reason the read failed, carried rather than dropped: "unreachable" alone is the symptom a
+    // reader already has by the time they are looking at this panel.
+    expect(health.firmDatabase.fault).not.toBeNull();
+  });
+
+  it("still reads the schema when the database refuses every statement", async () => {
+    // THE POINT OF THE DEGRADATION. A firm database whose lineage is stuck refuses statements — it
+    // has to, because the schema it holds is older than the code querying it — and the schema row
+    // used to be a statement like any other, so the one check that could name a stuck lineage was
+    // the check the stuck lineage silenced. It reported "Not read" about its own subject.
+    //
+    // The durable object answers this question outside that gate now, so an unreachable database
+    // still says which migration it got to.
+    const health = await collect({
+      firm: { ...HEALTHY_FIRM, roundTrip: "throw", member: "throw" },
     });
+    expect(health.firmDatabase.state).toBe("unreachable");
+    // Membership genuinely cannot be read — it is a statement, and statements are refused.
+    expect(health.membership.state).toBe("unknown");
+    // The schema can, and does.
+    expect(health.schema).toMatchObject({ state: "current", appliedHead: EXPECTED_HEAD });
   });
 
   it("keeps one failing check from failing or contaminating the others", async () => {

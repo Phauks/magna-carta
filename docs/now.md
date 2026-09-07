@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 799 nodes of the feature ledger in
+is the complete register rather than a digest: all 806 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,27 +21,27 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**799 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**806 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **659 that are units of work**, for the reason set out under [What a roll-up is
+count the **666 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 293 | 44% |
-| Part-built | partial, in-build | 122 | 19% |
+| Done | shipped | 299 | 45% |
+| Part-built | partial, in-build | 123 | 18% |
 | Ahead | designed, planned, researching, not-started | 203 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **659** | **100%** |
+| **All units of work** | | **666** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 293 | 45% |
-| `partial` | 121 | 18% |
+| `shipped` | 299 | 45% |
+| `partial` | 122 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 137 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **659** | **100%** |
+| **All statuses** | **666** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 799 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 806 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 293 of 659 (44%). Shipped plus partial is 414 (63%).**
+**Shipped alone is 299 of 666 (45%). Shipped plus partial is 421 (63%).**
 
-The 121 units between those two numbers are work that is engineered and paid for and is not
+The 122 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**415 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**422 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 67 | 16% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 170 | 41% |
-| No user surface by nature (`internal`) | 178 | 43% |
+| A person can open it today (`screen`) | 78 | 19% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 166 | 39% |
+| No user surface by nature (`internal`) | 178 | 42% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **415** | **100%** |
+| **Everything with something built** | **422** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -100,15 +100,15 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Calendar and Rules-Based Docketing | 13 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 19 | 68% |
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
-| Conflicts Check | 5 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 63% |
+| Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
 | Core Domain — Directory, Matters & Locations | 33 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 54% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 63 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 97 | 65% |
+| Documents | 66 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 100 | 66% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
-| Financial Core | 17 | 16 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 55 | 31% |
+| Financial Core | 19 | 18 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 59 | 32% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
@@ -126,11 +126,11 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **293** | **121** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **659** | **44%** |
+| **All areas** | **299** | **122** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **666** | **45%** |
 
 ## Where we have been
 
-**64 of 83 commits read, 2026-07-14 to 2026-08-23 — 40 days.** The ledger keeps no history of its
+**30 of 30 commits read, 2026-09-02 to 2026-09-07 — 5 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -142,14 +142,13 @@ Every figure in this section counts **units of work**, the same quantity [Where 
 stands](#where-the-program-stands) counts, so a level here is comparable to a level there. Roll-up
 parents are excluded at every past commit the same way they are excluded now — the reconstruction
 reads the hierarchy off the ledger as it stood, not off today's. The whole-node totals are on the
-record too: 663 nodes on 2026-07-14, 759 on 2026-08-23.
+record too: 780 nodes on 2026-09-02, 799 on 2026-09-07.
 
-**+70 shipped since the ledger began** — 197 on 2026-07-14, 267 on 2026-08-23, across 40 days. The
-ledger itself grew by +85 units over the same period (541 to 626), so the share shipped went from
-36% to 43% against a denominator that was moving too.
+**+17 shipped since the ledger began** — 276 on 2026-09-02, 293 on 2026-09-07, across 5 days. The
+ledger itself grew by +17 units over the same period (642 to 659), so the share shipped went from
+43% to 44% against a denominator that was moving too.
 
-That is **12.3 capabilities shipped a week** across the whole series, and **21.0 a week** over the
-57 snapshots since the last gap (2026-08-11 to 2026-08-23, +36 shipped in 12 days).
+That is **23.8 capabilities shipped a week** across the whole series.
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -159,133 +158,84 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 
 | Date | Commit | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Units | Units added | Shipped added | Unread before |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2026-07-14 | `ad6526da` | 197 | 58 | 14 | 28 | 3 | 6 | 194 | 39 | 2 | 541 | — | — | 0 |
-| 2026-07-14 | `ccbddcf8` | 197 | 58 | 14 | 28 | 3 | 6 | 194 | 39 | 2 | 541 | 0 | 0 | 0 |
-| 2026-08-04 | `31f5b5f7` | 198 | 61 | 14 | 27 | 3 | 6 | 191 | 39 | 2 | 541 | 0 | +1 | 0 |
-| 2026-08-04 | `0d72292e` | 198 | 61 | 14 | 30 | 3 | 6 | 188 | 39 | 2 | 541 | 0 | 0 | 0 |
-| 2026-08-04 | `ff3676b0` | 199 | 60 | 14 | 30 | 3 | 6 | 188 | 39 | 2 | 541 | 0 | +1 | 0 |
-| 2026-08-04 | `3573106d` | 199 | 66 | 14 | 30 | 3 | 6 | 183 | 39 | 2 | 542 | +1 | 0 | 0 |
-| 2026-08-04 | `a97e0bf7` | 205 | 67 | 14 | 25 | 3 | 6 | 183 | 39 | 2 | 544 | +2 | +6 | 0 |
-| 2026-08-11 | `5902e0aa` | 231 | 83 | 13 | 21 | 4 | 6 | 175 | 39 | 2 | 574 | +30 | +26 | 19 |
-| 2026-08-13 | `ee1d92bf` | 232 | 83 | 13 | 21 | 4 | 6 | 175 | 39 | 2 | 575 | +1 | +1 | 0 |
-| 2026-08-13 | `7db7f650` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-13 | `5eaa6752` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-13 | `3022b4b3` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-13 | `25fba751` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `f30366ad` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `0a1860c0` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `3c764ff0` | 232 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `bb884fdc` | 232 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `4feb0ed5` | 232 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `c692886a` | 235 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 578 | +3 | +3 | 0 |
-| 2026-08-14 | `eb1129f2` | 235 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 578 | 0 | 0 | 0 |
-| 2026-08-14 | `cb9225bb` | 236 | 85 | 13 | 20 | 10 | 6 | 167 | 39 | 2 | 578 | 0 | +1 | 0 |
-| 2026-08-14 | `d5499591` | 237 | 88 | 13 | 18 | 10 | 6 | 165 | 39 | 2 | 578 | 0 | +1 | 0 |
-| 2026-08-14 | `3efca761` | 239 | 88 | 13 | 18 | 10 | 6 | 165 | 39 | 2 | 580 | +2 | +2 | 0 |
-| 2026-08-14 | `489d4225` | 240 | 88 | 13 | 18 | 10 | 6 | 164 | 39 | 2 | 580 | 0 | +1 | 0 |
-| 2026-08-14 | `ff1f49e3` | 240 | 88 | 13 | 18 | 10 | 6 | 164 | 39 | 2 | 580 | 0 | 0 | 0 |
-| 2026-08-14 | `5184145e` | 240 | 88 | 13 | 23 | 10 | 6 | 160 | 39 | 2 | 581 | +1 | 0 | 0 |
-| 2026-08-14 | `85140ca7` | 240 | 89 | 13 | 23 | 10 | 6 | 159 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `6a5dc585` | 244 | 92 | 13 | 23 | 10 | 6 | 152 | 39 | 2 | 581 | 0 | +4 | 0 |
-| 2026-08-15 | `dd2ac00d` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `d35ae516` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `67f39333` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `9bd40bd7` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `6beeb58e` | 245 | 92 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 602 | +21 | +1 | 0 |
-| 2026-08-15 | `07e3e6d1` | 245 | 92 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 602 | 0 | 0 | 0 |
-| 2026-08-15 | `5995edb0` | 245 | 92 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 602 | 0 | 0 | 0 |
-| 2026-08-15 | `477158b3` | 245 | 94 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 604 | +2 | 0 | 0 |
-| 2026-08-15 | `04a49fc9` | 245 | 95 | 13 | 34 | 17 | 5 | 152 | 41 | 2 | 604 | 0 | 0 | 0 |
-| 2026-08-15 | `3a75b031` | 245 | 96 | 13 | 34 | 17 | 5 | 152 | 41 | 2 | 605 | +1 | 0 | 0 |
-| 2026-08-15 | `9da23568` | 246 | 96 | 13 | 34 | 17 | 5 | 152 | 41 | 2 | 606 | +1 | +1 | 0 |
-| 2026-08-16 | `f5a32745` | 246 | 97 | 13 | 34 | 17 | 5 | 151 | 41 | 2 | 606 | 0 | 0 | 0 |
-| 2026-08-16 | `067cd52f` | 247 | 97 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 608 | +2 | +1 | 0 |
-| 2026-08-16 | `cd1f5436` | 249 | 96 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 609 | +1 | +2 | 0 |
-| 2026-08-16 | `31485623` | 252 | 97 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 613 | +4 | +3 | 0 |
-| 2026-08-16 | `e01afeea` | 252 | 97 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 613 | 0 | 0 | 0 |
-| 2026-08-16 | `d17b40fb` | 252 | 97 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 618 | +5 | 0 | 0 |
-| 2026-08-17 | `39e1a9ec` | 253 | 96 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 618 | 0 | +1 | 0 |
-| 2026-08-17 | `1161e54c` | 253 | 97 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 619 | +1 | 0 | 0 |
-| 2026-08-17 | `5ac8797e` | 253 | 97 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 619 | 0 | 0 | 0 |
-| 2026-08-17 | `aeb7ce20` | 253 | 97 | 10 | 44 | 18 | 5 | 151 | 41 | 2 | 621 | +2 | 0 | 0 |
-| 2026-08-17 | `e003ea13` | 257 | 97 | 5 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | +4 | 0 |
-| 2026-08-17 | `23900672` | 257 | 97 | 5 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | 0 | 0 |
-| 2026-08-17 | `03e494c8` | 257 | 97 | 5 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | 0 | 0 |
-| 2026-08-18 | `ad4b35c8` | 257 | 101 | 1 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | 0 | 0 |
-| 2026-08-19 | `528d2a8d` | 260 | 101 | 1 | 45 | 18 | 5 | 150 | 41 | 2 | 623 | +2 | +3 | 0 |
-| 2026-08-19 | `f8c294ef` | 260 | 102 | 1 | 45 | 18 | 5 | 150 | 41 | 2 | 624 | +1 | 0 | 0 |
-| 2026-08-19 | `6e4af19c` | 260 | 102 | 1 | 45 | 18 | 5 | 150 | 41 | 2 | 624 | 0 | 0 | 0 |
-| 2026-08-19 | `c006c9a5` | 264 | 110 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 624 | 0 | +4 | 0 |
-| 2026-08-19 | `80f9e186` | 265 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 624 | 0 | +1 | 0 |
-| 2026-08-19 | `5b40f751` | 266 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 625 | +1 | +1 | 0 |
-| 2026-08-19 | `45646867` | 267 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 626 | +1 | +1 | 0 |
-| 2026-08-20 | `f5429ecb` | 267 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 626 | 0 | 0 | 0 |
-| 2026-08-20 | `8b9af781` | 267 | 110 | 1 | 43 | 17 | 5 | 143 | 38 | 2 | 626 | 0 | 0 | 0 |
-| 2026-08-21 | `d728f134` | 267 | 110 | 1 | 43 | 17 | 5 | 143 | 38 | 2 | 626 | 0 | 0 | 0 |
-| 2026-08-23 | `e5766cb8` | 267 | 110 | 1 | 43 | 17 | 5 | 143 | 38 | 2 | 626 | 0 | 0 | 0 |
-
-### The gaps
-
-**19 of the 83 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
-2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
-counts are absent from the table above, no line is drawn through them, and the changes on either
-side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
-`--rebuild` after a parser change to pick up any that have since become readable.
-
-**19 commits, 2026-08-04 to 2026-08-11** — roadmap.d/document-automation.md: line 14:
-"document-automation.conditional-assembly" has unknown status "built" (expected one of shipped,
-partial, in-build, designed, planned, researching, not-started, deferred, cut)
-
-`a98c78df` (2026-08-04), `a0130bbf` (2026-08-04), `f03fb4d5` (2026-08-05), `6f422b1d` (2026-08-05),
-`18c23915` (2026-08-05), `57a0b679` (2026-08-05), `7bee0801` (2026-08-05), `324664c9` (2026-08-05),
-`0377a9b9` (2026-08-05), `8fd3ea9a` (2026-08-06), `e8837e3f` (2026-08-06), `227b4acd` (2026-08-06),
-`45003814` (2026-08-07), `93eee6c5` (2026-08-07), `846dbd4e` (2026-08-07), `681f4b98` (2026-08-10),
-`953e9a0c` (2026-08-11), `bafaf62d` (2026-08-11), `c164cc0c` (2026-08-11)
+| 2026-09-02 | `2bb8cc06` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | — | — | 0 |
+| 2026-09-02 | `f7ffea80` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `b3995238` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `ec02bf94` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `6fc68503` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `02dcf632` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `81baab5c` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-03 | `4b1119d4` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-03 | `7a06fdfa` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-03 | `c819051f` | 276 | 115 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 643 | +1 | 0 | 0 |
+| 2026-09-03 | `da1799e4` | 278 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 644 | +1 | +2 | 0 |
+| 2026-09-03 | `0084d55d` | 278 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 644 | 0 | 0 | 0 |
+| 2026-09-03 | `8724a8c4` | 285 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 651 | +7 | +7 | 0 |
+| 2026-09-03 | `e7bbc85c` | 286 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 652 | +1 | +1 | 0 |
+| 2026-09-03 | `9ec7e0b0` | 287 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 653 | +1 | +1 | 0 |
+| 2026-09-03 | `7ddde04a` | 288 | 116 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 653 | 0 | +1 | 0 |
+| 2026-09-03 | `ba799196` | 289 | 116 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 654 | +1 | +1 | 0 |
+| 2026-09-05 | `1a5804a0` | 290 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 655 | +1 | +1 | 0 |
+| 2026-09-05 | `e8e88e84` | 290 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 655 | 0 | 0 | 0 |
+| 2026-09-05 | `95fb7d67` | 290 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 655 | 0 | 0 | 0 |
+| 2026-09-05 | `684c1f74` | 291 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 656 | +1 | +1 | 0 |
+| 2026-09-05 | `dc58b8e1` | 291 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 656 | 0 | 0 | 0 |
+| 2026-09-05 | `ee63ee83` | 292 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 657 | +1 | +1 | 0 |
+| 2026-09-06 | `640e238d` | 292 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 657 | 0 | 0 | 0 |
+| 2026-09-06 | `a6e268e0` | 292 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 657 | 0 | 0 | 0 |
+| 2026-09-06 | `9a6cd073` | 292 | 119 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 658 | +1 | 0 | 0 |
+| 2026-09-06 | `f6eac118` | 292 | 120 | 1 | 46 | 15 | 5 | 138 | 38 | 3 | 658 | 0 | 0 | 0 |
+| 2026-09-06 | `63c5582d` | 292 | 120 | 1 | 46 | 15 | 5 | 138 | 38 | 3 | 658 | 0 | 0 | 0 |
+| 2026-09-06 | `2f4f9fa0` | 292 | 121 | 1 | 46 | 15 | 5 | 137 | 38 | 3 | 658 | 0 | 0 | 0 |
+| 2026-09-07 | `a9d0d50d` | 293 | 121 | 1 | 46 | 15 | 5 | 137 | 38 | 3 | 659 | +1 | +1 | 0 |
 
 ### Movement by area
 
 | Area | Units then | Units now | Shipped then | Shipped now | Shipped added |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| AI & Inference | 14 | 29 | 7 | 17 | +10 |
-| Authentication, Access Control & Encryption | 24 | 26 | 12 | 13 | +1 |
-| Calendar and Rules-Based Docketing | 6 | 11 | 0 | 5 | +5 |
-| Communications Layer | 15 | 16 | 2 | 4 | +2 |
+| AI & Inference | 29 | 29 | 17 | 17 | 0 |
+| Authentication, Access Control & Encryption | 26 | 26 | 13 | 13 | 0 |
+| Calendar and Rules-Based Docketing | 11 | 19 | 5 | 13 | +8 |
+| Communications Layer | 16 | 17 | 4 | 5 | +1 |
 | Community & Feedback Forum | 10 | 10 | 0 | 0 | 0 |
-| Conflicts Check | 7 | 7 | 1 | 4 | +3 |
-| Core Domain — Directory, Matters & Locations | 43 | 58 | 20 | 32 | +12 |
-| Custodian (Safe Custody) | 9 | 11 | 0 | 6 | +6 |
-| Design System, UI Consistency & Design Quality | 15 | 15 | 11 | 11 | 0 |
-| Discovery (e-discovery) | 15 | 22 | 2 | 8 | +6 |
-| Document Automation | 7 | 9 | 0 | 3 | +3 |
-| Documents | 97 | 97 | 58 | 63 | +5 |
-| Exhibits and Exhibit Lists | — | 8 | — | 0 | 0 |
-| Financial Core | 42 | 54 | 8 | 17 | +9 |
-| Client Intake / CRM | 6 | 6 | 0 | 0 | 0 |
+| Conflicts Check | 7 | 8 | 4 | 5 | +1 |
+| Core Domain — Directory, Matters & Locations | 61 | 61 | 32 | 33 | +1 |
+| Custodian (Safe Custody) | 11 | 11 | 6 | 6 | 0 |
+| Design System, UI Consistency & Design Quality | 16 | 18 | 11 | 12 | +1 |
+| Discovery (e-discovery) | 22 | 22 | 8 | 8 | 0 |
+| Document Automation | 9 | 9 | 3 | 3 | 0 |
+| Documents | 97 | 97 | 63 | 63 | 0 |
+| Exhibits and Exhibit Lists | 8 | 8 | 0 | 0 | 0 |
+| Financial Core | 54 | 55 | 17 | 17 | 0 |
+| Client Intake / CRM | 6 | 8 | 0 | 2 | +2 |
 | Integrations & Plugins | 41 | 41 | 16 | 16 | 0 |
-| Maintenance Agents | 10 | 10 | 0 | 2 | +2 |
-| Notifications | 12 | 14 | 0 | 3 | +3 |
-| Observability & Diagnostics | 20 | 20 | 11 | 11 | 0 |
-| Payments | 8 | 9 | 0 | 0 | 0 |
+| Maintenance Agents | 10 | 10 | 2 | 2 | 0 |
+| Matter Notes and Activity | 11 | 12 | 6 | 7 | +1 |
+| Notifications | 14 | 14 | 3 | 3 | 0 |
+| Observability & Diagnostics | 20 | 20 | 14 | 14 | 0 |
+| Payments | 9 | 9 | 0 | 0 | 0 |
 | Performance & Concurrency | 11 | 11 | 6 | 6 | 0 |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 66 | 66 | 30 | 31 | +1 |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 66 | 66 | 31 | 31 | 0 |
 | Client Portal | 14 | 14 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 14 | 14 | 2 | 2 | 0 |
 | Release Channels | 8 | 8 | 7 | 7 | 0 |
-| Reports | 10 | 10 | 0 | 1 | +1 |
-| Self-Serve Provisioning and Entitlements | — | 7 | — | 1 | +1 |
+| Reports | 11 | 11 | 1 | 1 | 0 |
+| Self-Serve Provisioning and Entitlements | 7 | 7 | 1 | 1 | 0 |
 | Settings & Configuration | 14 | 14 | 4 | 4 | 0 |
-| Tasks and Workflows / Matter Plans | 3 | 3 | 0 | 0 | 0 |
-| Translation Services | — | 6 | — | 0 | 0 |
+| Tasks and Workflows / Matter Plans | 3 | 4 | 0 | 2 | +2 |
+| Translation Services | 6 | 6 | 0 | 0 | 0 |
 
-**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+12), AI &
-Inference (+10), Financial Core (+9). **14 of 30 areas have shipped nothing in that time**:
-Community & Feedback Forum, Design System, UI Consistency & Design Quality, Exhibits and Exhibit
-Lists, Client Intake / CRM, Integrations & Plugins, Observability & Diagnostics, Payments,
-Performance & Concurrency, Client Portal, Product Updates & User-Facing Documentation, Release
-Channels, Settings & Configuration, Tasks and Workflows / Matter Plans, Translation Services. An
-area standing still here has not necessarily been idle — a node moves in this table only when it
-reaches `shipped`, so work that went from nothing to `partial` shows up in the units columns and not
-in this one.
+**Fastest since the first snapshot:** Calendar and Rules-Based Docketing (+8), Client Intake / CRM
+(+2), Tasks and Workflows / Matter Plans (+2). **23 of 31 areas have shipped nothing in that time**:
+AI & Inference, Authentication, Access Control & Encryption, Community & Feedback Forum, Custodian
+(Safe Custody), Discovery (e-discovery), Document Automation, Documents, Exhibits and Exhibit Lists,
+Financial Core, Integrations & Plugins, Maintenance Agents, Notifications, Observability &
+Diagnostics, Payments, Performance & Concurrency, Platform — Delivery, Architecture, Tenancy & Data
+Conventions, Client Portal, Product Updates & User-Facing Documentation, Release Channels, Reports,
+Self-Serve Provisioning and Entitlements, Settings & Configuration, Translation Services. An area
+standing still here has not necessarily been idle — a node moves in this table only when it reaches
+`shipped`, so work that went from nothing to `partial` shows up in the units columns and not in this
+one.
 
 ## Waiting on you
 
@@ -353,7 +303,7 @@ in this one.
 - **Documents on a note** (`notes.matter-note.documents`) — **Built and reachable.** A note cannot upload a NEW document, only point at one the matter already holds. Whether the note window should also file a document into the matter — which means the presigned upload, the quarantine chokepoint and a scan wait inside a note — is an owner call, not a gap to close quietly.
 - **Scheduled reminders** (`notifications.scheduling`) — **Built; no screen by nature.** Two, both about how much of a firm's overdue work one pass carries. The deadline horizon's lead window — "an open deadline enters the firm's configured lead window" needs a number and a bound, and a lead the platform picks is a lead the firm did not choose. And whether 200 findings per kind per pass is the right ceiling: it is counted rather than silent, but a busy litigation practice can exceed it honestly, and raising it is a firm-observable change in how much gets reported as well as a load question.
 - **Payments** (`payments`) — **A group of capabilities.** The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.
-- **Trust-compliance reports** (`reports.trust-compliance`) — **Built; no screen yet.** What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
+- **Trust-compliance reports** (`reports.trust-compliance`) — **Built and reachable.** What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
 - **Entitlement model** (`self-serve.entitlements`) — **A group of capabilities.** Whether a withheld capability can be metered rather than locked. The container-backed tools — recognition, conversion, repair, unlocking — cost real compute per invocation, and a handful of runs demonstrates the tool while a locked button demonstrates nothing. Metering is a third enforcement shape, a counter with a period beside the mask and the quota ceilings, and it is real work; the alternative is to lock them for the first version and say so plainly in the catalog. Self-serve provisioning design flag F6.
 - **Tasks and workflows** (`tasks`) — **A group of capabilities.** W7 and W8 are both answered and both built — W7 by event (the note primitive shipped first and tasks were built on the activity stream it settled), W8 by the owner on 2026-09-01 (a plan proposes its tasks and a member accepts them; acceptance is the write). T2 is answered and built the way the scope study recommended: one nullable task_id on time_entry, because an entry split across two tasks needs an allocation of its minutes and an allocation is a second ledger. Three calls raised by that study remain open and shape the remainder rather than the record: T3 (firm-defined task statuses, which the board view needs), T4 (comments on a task) and T5 (a flat checklist inside one, which the design's refusal of task TREES does not settle).
 - **Matter plans** (`tasks.matter-plans`) — **Built and reachable.** Two calls about how far a plan may reach, neither of them blocking — the build took the design's own answer to each. Whether the platform ever ships curated matter plans of its own: it ships none, the malpractice argument holds, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": it stays at that one value, because every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and one anchor is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.
@@ -592,14 +542,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Conflicts Check
 
-[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 63% shipped. 5 done, 3 part-built, 0 ahead, 0 parked.
+[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 75% shipped. 6 done, 2 part-built, 0 ahead, 0 parked.
 
 - `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   - `conflicts.directory-seams` · `shipped` · **Directory matching seams** — Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
   - `conflicts.triggers` · `partial` · **Check triggers** — Run checks at intake, whenever a party is added, and on optional periodic re-scans.
   - `conflicts.matching-engine` · `shipped` · **Matching engine** — Candidate generation over names and identifiers (exact identifier, exact normalized name, organization match keys, Double Metaphone, trigram) with related-party edge expansion, ordered by evidence tier. _Note: Backend only, no screen. Deliberately scorer-free — a tier orders evidence and never filters, so raising strictness can only add hits; the under-specification the white paper flagged was answered by the two conflicts design specs rather than left open. One named gap remains and it is measured rather than assumed: the phonetic channel encodes ENGLISH pronunciation, so cross-origin surname variants (Nowak/Novak, Kowalczyk/Kovalchik) are structurally out of its reach. A Beider-Morse channel would close seven such pairs in a thirty-pair corpus; it is unbuilt because the only pure-TypeScript encoder compiles its rule tables in 20,377 ms inside workerd against 16 ms in Node, which is past the CPU limit. The follow-on is the Rust/WASM port, with that number as its flip condition._
-    - `conflicts.matching-engine.strictness` · `partial` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable, and the name roles each band compares against as a firm setting recorded on the check row. _Note: Partial because the firm floor itself has no write path — readConflictsPolicy in packages/conflicts/src/settings.ts reads the conflicts.policy setting row and no route or screen sets it, so a firm changes its floor only by writing that row directly._
-  - `conflicts.search-depth` · `partial` · **Configurable search depth** — Structured Directory/matter scan by default, deep in two independent axes — how far the graph is walked and how a name is compared; optional document-content scan. _Note: The matching axis lands with the traversal one — the two organization match keys and the resolved channel set recorded verbatim on the check row (see conflicts.matching-engine and conflicts.matching-engine.strictness); the cross-origin surname encoder is measured-and-deferred, recorded on that node. The nickname equivalence dimension is registered and empty: the nickname_equivalence table exists, holds nothing, and NICKNAME_EQUIVALENCE_SOURCE in packages/conflicts/src/sources.ts makes every check record it as a source it could not search, read from the catalogue by nicknameCatalogueIsPopulated in packages/directory/src/nickname.ts rather than asserted. Partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen. The firm-marked non-expandable entity, the recorded and attributable alternative to a hub heuristic, is not built: it needs a Directory write path._
+    - `conflicts.matching-engine.strictness` · `shipped` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable, and the name roles each band compares against as a firm setting recorded on the check row. _Note: The firm floor now has a write path and a screen. PUT /api/v1/firm/conflicts-policy on conflicts:configure — a permission of its own rather than conflicts:run, seeded to Owner and Admin alone, because this decides what every LATER check searches and no check row records that a person chose it. writeConflictsPolicy normalizes through normalizeConflictsPolicy, the same function the read repairs with, and STORES the normalized value: what is in the row is what runs, so the screen can render the row back and believe it. Settings, Conflicts stages every control until Save, shows party and current as locked controls carrying their reason rather than hiding them, and names each specific repair the platform made on the way in instead of describing the possibility. Held by packages/conflicts/test/policy-write.test.ts and apps/web/test/conflicts-policy-screen.test.ts._
+  - `conflicts.search-depth` · `partial` · **Configurable search depth** — Structured Directory/matter scan by default, deep in two independent axes — how far the graph is walked and how a name is compared; optional document-content scan. _Note: The matching axis lands with the traversal one — the two organization match keys and the resolved channel set recorded verbatim on the check row (see conflicts.matching-engine and conflicts.matching-engine.strictness); the cross-origin surname encoder is measured-and-deferred, recorded on that node. The nickname equivalence dimension is registered and empty: the nickname_equivalence table exists, holds nothing, and NICKNAME_EQUIVALENCE_SOURCE in packages/conflicts/src/sources.ts makes every check record it as a source it could not search, read from the catalogue by nicknameCatalogueIsPopulated in packages/directory/src/nickname.ts rather than asserted. The traversal budgets, the closure cap and the candidate cap are now set from Settings, Conflicts over PUT /api/v1/firm/conflicts-policy, so the depth axis is no longer screenless. Still partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen. The firm-marked non-expandable entity, the recorded and attributable alternative to a hub heuristic, is not built: it needs a Directory write path._
   - `conflicts.firm-wide-scope` · `shipped` · **Firm-wide imputation** — Conflicts impute across the whole firm and every office; locations never partition the conflicts graph. _Note: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph._
   - `conflicts.clearance` · `shipped` · **Human clearance** — Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected. _Note: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything._
   - `conflicts.log` · `shipped` · **Immutable conflicts log** — Every check and clearance recorded in an immutable, defensible log. _Note: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it._
@@ -783,7 +733,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 97 units of work, 65% shipped. 63 done, 11 part-built, 19 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 66% shipped. 66 done, 11 part-built, 19 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -800,7 +750,9 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.upload.direct-to-r2` · `shipped` · **Direct-to-R2 transfer** — Presigned single PUT for small files, resumable S3 multipart above a threshold; Worker only authorizes, mints URLs, records metadata.
     - `documents.upload.policy-gates` · `shipped` · **Pre-acceptance gates** — Per-firm size and content-type allow-list enforced at presign and re-verified against real bytes; magic-byte validation; filename sanitization.
     - `documents.upload.quarantine` · `shipped` · **Quarantine-on-arrival** — Bytes land at their final key not visible/servable/indexed until the async ingest consumer clears them (gates, SHA-256, scan port, version commit in one read).
-    - `documents.upload.archive-opacity` · `shipped` · **Opaque archive storage** — Uploaded archives stored versioned/hashed on the matter and never expanded server-side — no zip-bomb/nested-archive read pipeline exists.
+    - `documents.upload.archive-opacity` · `shipped` · **Opaque archive storage** — An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.
+    - `documents.file-manager.archive-browse` · `shipped` · **Browse inside a zip** — Read an archive's entry listing from its central directory over ranged reads, without inflating a byte, for a live or a soft-deleted archive alike.
+    - `documents.file-manager.archive-extract` · `shipped` · **Extract an archive's members** — Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate. _Note: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built._
   - `documents.scanning` · `partial` · **Malware scanning** — Async scan of every uploaded byte behind a swappable port; verdict stored as file metadata; quarantine, never auto-delete. _Note: EICAR live check deferred (no production users yet)._
     - `documents.scanning.port` · `shipped` · **Scan port** — ScanPort seam in the file-manager package so scan engines are swappable without touching the pipeline.
     - `documents.scanning.engine` · `shipped` · **In-house scan engine (YARA + raw facts)** — YARA Forge rule packs plus a raw-facts extraction engine running in a dedicated scan container behind its own worker.
@@ -831,6 +783,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.preview.sandbox-origin` · `shipped` · **Safe-delivery sandbox** — Untrusted bytes served from a separate cookieless files._ origin with attachment disposition, correct Content-Type, nosniff, restrictive CSP, iframe sandbox.
     - `documents.preview.inline-playable` · `shipped` · **inlinePlayable verdict** — Cheap container/codec sniff recorded per version at ingest; preview policy serves inline only on a playable verdict. _Note: Firm-wide Reports rollup of the verdict awaits the Reports subsystem._
     - `documents.preview.safe-rendition` · `partial` · **Derived safe renditions** — Active formats previewed only via a derived rasterized/transcoded rendition (artifact_role derived version), never the raw file. _Note: Rasterize/transcode engine wires in with the player UI._
+    - `documents.preview.pdf-reader` · `shipped` · **Portable-document reader** — A read-only in-app reader that rasterizes a PDF's pages locally through the pure-Rust engine in a Web Worker, rather than serving the file to the browser. _Note: Independent of the cookieless streaming path: only pixels reach the page, so it needs no rendition engine and no deploy activation. Pages are drawn as they come into view, and the resolution is capped._
     - `documents.preview.player` · `designed` · **Video player UI** — Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
     - `documents.preview.transcoding` · `deferred` · **Preview transcoding** — Self-hosted FFmpeg (Queues + Container) MP4 renditions for non-web formats; clip/annotation, transcript sync, adaptive bitrate.
   - `documents.conversion` · `partial` · **In-app file conversion** — In-house any-format to any-format converter; bytes stay in-tenant (R2 to our compute to R2); original never mutated.
@@ -917,7 +870,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 55 units of work, 31% shipped. 17 done, 16 part-built, 19 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 59 units of work, 32% shipped. 19 done, 18 part-built, 19 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -958,7 +911,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.trust.multi-jurisdiction-accounts` · `partial` · **Multiple active jurisdictions per firm** — Each trust account opened in a state carries its own jurisdiction profile and governing-rule citation and is associated with a Location; matter trust activity defaults from the matter's home location. _Note: The binding and its refusals ship; what does not is the per-account profile actually resolving - no trust surface reads a requirement through the port in packages/trust/src/jurisdiction.ts yet - and matter trust activity defaulting to the matter's home location, which callers still name an account for._
     - `financial.trust.reconciliation` · `partial` · **Interactive three-way reconciliation** — Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account. _Note: No screen: the matter trust section is still the stub at apps/web/src/routes/(app)/matters/[id]/trust/+page.svelte, so matching, the outstanding lists and the proof are API-only. Import is the guided CSV path; a banking-plugin import still depends on an unbuilt banking integration._
     - `financial.trust.close-rule` · `shipped` · **Zero-balance close precondition** — Registers "all bills paid, no remaining balance" on the matter close-precondition hook. _Note: Backend only, and nothing more is promised - the capability is a refusal carried by the matter close route, not a screen. The "all bills paid" half of the scope is deliberately not registered: an uncollectable receivable's lawful exit is a write-off, and the money the firm owes back is covered instead by matterClientCreditClosePrecondition in packages/billing/src/close-precondition.ts._
-  - `financial.billing` · `partial` · **Billing and invoicing** — Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle. _Note: The slice map serializes this after time and costs, which are both on main._
+  - `financial.billing` · `partial` · **Billing and invoicing** — Bill generation combining time/fees, costs, and taxes across the four fee models, with a draft-to-finalize lifecycle. _Note: The slice map serializes this after time and costs, which are both on main. Two registers now read it — the matter's own Billing section and the firm's whole register — and the acts against a bill live on the first of them._
     - `financial.billing.fee-models` · `shipped` · **Fee models** — The four billing arrangements — hourly, flat/fixed, contingency, retainer/evergreen _Note: Built all at once per the owner's docket override of the staged default._
       - `financial.billing.fee-models.hourly` · `shipped` · **Hourly billing** — Hourly bills from billable WIP time at resolved rates.
       - `financial.billing.fee-models.flat-fee` · `shipped` · **Flat/fixed fee** — Flat and fixed-fee billing.
@@ -967,6 +920,8 @@ to change a line here, edit the node in its area file and re-run the build.
     - `financial.billing.corrections` · `shipped` · **Corrections after finalization** — Credit notes and their lines, the client credit a correction opens when it outruns the unpaid balance, write-offs, and the reversal of a mistaken application. _Note: Two of the three ways to discharge a client credit — a refund from operating and a return to the client's trust ledger — move real money through the operating-disbursement path and stay deferred; setting a credit against a later bill of the same client is built. Credit notes carry no number pending an owner decision._
       - `financial.billing.corrections.contingency-residual` · `shipped` · **Contingency shrunk-basis residual** — Reporting a contingency fee billed beyond what the surviving recovery entitles the firm to, and letting the credit note that resolves it clear the finding. _Note: The platform reports and never issues — what a firm owes back after a settlement collapses is a decision with a client in it._
     - `financial.billing.invoice-composition` · `partial` · **Invoice composition** — Bills combine time/fees plus costs plus taxes. _Note: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen._
+    - `financial.billing.firm-register` · `partial` · **The firm's billing register** — Every bill the firm has raised, narrowable by state, with the receivables aging over it. _Note: Partial because it reads and does not act — every verb that writes is refused here by name and says where it lives, and batch and recurring runs belong to the billing-automations slice. The aging is read from the server over every finalized bill rather than summed from the page on screen, so the figure never grows as a reader scrolls. A bill met here finds its matters: the detail names them beside every line and every balance, so the window offers one link per matter rather than a list of handles._
+    - `financial.billing.matter-register` · `shipped` · **A matter's bill register** — The bills that charge one matter, drafts included, each carrying that matter's own share. _Note: The register read the CLIENT's whole billing history and then read every one of those bills' details to work out this matter's share, which stated the client's account under the matter's heading at a request per bill. Closes gaps 1 and 6 of the matter Billing tab's screen design; the client's display name is resolved in the listing and the detail, so neither register prints an identifier._
     - `financial.billing.delivery` · `partial` · **Invoice delivery record** — An append-only row per attempt at giving a client a bill — channel, recipient reference, date, external reference, outcome, and who recorded it — plus the delivery-state read the apply-funds surface shows. _Note: Partial because it is a record and not a transmission - the platform renders no invoice and carries nothing to a client, so every row is a delivery the firm made and is reporting. Backend only, no screen. The client_portal channel is enumerated with nothing able to produce it until the portal lands._
     - `financial.billing.location-letterhead` · `not-started` · **Location letterhead and remit-to on invoices** — Invoices carry the home Location's letterhead and remit-to when the matter is location-assigned, snapshotted at finalize.
     - `financial.billing.wip-to-ar` · `shipped` · **WIP to A/R posting at finalize** — At invoice finalize, billable time and cost WIP convert atomically to an A/R receivable ledger entry with the Draft-to-Billed lock. _Note: Backend only, no screen._
@@ -980,7 +935,9 @@ to change a line here, edit the node in its area file and re-run the build.
       - `financial.billing.automations.reminders` · `designed` · **Payment reminders** — A comparison over unpaid finalized invoices past their due date, recorded as a durable billing decision and surfaced through the notifications subsystem. _Note: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member and the client portal is not started. The delivery record it needed is now built (financial.billing.delivery), so a reminder can state whether the bill was ever recorded as given to the client; it still cannot deliver one._
       - `financial.billing.automations.payment-plans` · `designed` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied. _Note: The record half is buildable now; charging is unreachable on three independent grounds — no payment rail, no stored method, and no principal an unattended charge could be checked against._
       - `financial.billing.automations.replenishment` · `designed` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
-  - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice._
+  - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Two registers read it — the matter's own Costs section and the firm's period across every matter; cost-to-A/R conversion and LEDES belong to the billing slice._
+    - `financial.costs.firm-period` · `partial` · **The firm's cost record over a period** — What the firm advanced across every matter over a span of incurred dates, and what is still waiting on a bill. _Note: Partial because it does not yet approve a submitted cost across matters. It reads, opens a cost, and records one — the record window takes the firm's matters and leads with an unfilled matter picker, on the arrangement the Time Sheet already has. The listing answered one matter entire and returned an empty list for anything else, which is why Costs was absent from the sidebar's Money group while the matter carried it — the two disagreed about what Money holds for a structural reason rather than an oversight._
+    - `financial.costs.billed-record-to-bill` · `shipped` · **A billed record names its bill** — The invoice that took a cost or a time entry up, on its own listing row and reachable from it. _Note: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently — and Fees declares no opensTheBill, because an unbilled fee record has no table behind it yet._
     - `financial.costs.entry-model` · `partial` · **Cost entry anatomy** — Per-matter entries with type, Directory-linked vendor, date, hard/soft, billable flag, optional UTBMS expense (E-) code with e-billing validation. _Note: Backend shipped; entry UI not built._
     - `financial.costs.hard` · `partial` · **Hard costs as client receivable** — Firm-advanced third-party costs (filing, recording, service, experts, postage/shipping) advanced as a client receivable and billed back. _Note: Capture shipped, and the receivable posting is shipped with it — packages/billing/src/finalize.ts credits client costs advanced for a hard cost, keeping it an asset the firm is repaid rather than income. The cost entry screens are not built._
     - `financial.costs.soft` · `partial` · **Soft/in-house costs** — In-house costs (printing, copies) tracked separately from hard costs. _Note: Backend shipped; UI not built._
@@ -1328,7 +1285,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 - `reports` · `partial` · **Reports** — Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports. _Note: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design._
   - `reports.projections` · `shipped` · **Ledger projections** — Reports computed as projections over the append-only ledger, consistent with the books and reproducible for any past date. _Note: Backend only, no screen. Two blocks in the trust-compliance pack are labelled as outside the claim — the three-way proof beside each attestation, and the outstanding-item, unmatched-line and stored-balance checks — because their owning reads take no knowledge instant and a second definition of them is refused._
-  - `reports.trust-compliance` · `partial` · **Trust-compliance reports** — Mandatory three-way reconciliation, client ledgers, and journal, per trust account. _Note: Backend only, no screen, and no filed artifact — turning a pack into an immutable firm document waits on a renderer this repository cannot run yet._
+  - `reports.trust-compliance` · `partial` · **Trust-compliance reports** — Mandatory three-way reconciliation, client ledgers, and journal, per trust account. _Note: On screen and exportable; no filed artifact — turning a pack into an immutable firm document waits on a renderer this repository cannot run yet and on the owner's answers on its record._
   - `reports.financial` · `planned` · **Financial reports** — WIP, A/R aging, realization, and profitability reports. _Note: Profitability is deferred — no timekeeper cost rate exists in the schema; work in progress is live-only because its stores are mutable and carry no billed_at/voided_at._
   - `reports.productivity` · `planned` · **Productivity reports** — Timekeeper and staff productivity reporting. _Note: Live-only (mutable store); no attainment figure, because the platform stores no billable-hour target._
   - `reports.operational` · `planned` · **Operational reports** — Operational reporting over firm activity.

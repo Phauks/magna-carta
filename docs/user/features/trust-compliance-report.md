@@ -1,7 +1,8 @@
 # The trust compliance report
 
-_Backend built, screens pending._ The report below can be produced today; the page a person clicks it
-from has not been built yet.
+Run it from **Reports** in the sidebar: choose the trust account, the period and the point in time,
+and the report appears on the page and exports from the menu at the top. How the Reports page works
+is in [Reports](reports.md); this guide is about what the document itself says.
 
 This is the document a firm hands a bar examiner, an auditor, or its own accountant when somebody
 asks how it has looked after client money. It covers **one trust account** over **one period**, and
@@ -68,13 +69,20 @@ today and the same report produced next year will show different names against t
 line carries the record's own identifier underneath, so the identity is stable even when the caption
 is not.
 
-## The choices you can make
+## The choices the firm makes
+
+Two things about what the report lists are decided once for the whole firm, by an administrator,
+so every copy of the report reads the same way:
 
 - **Ledgers that were empty all period.** By default they are listed, at zero, so the report accounts
-  for every ledger that existed. You can ask for only the ledgers with activity or a balance.
+  for every ledger that existed. The firm can choose to list only the ledgers with activity or a
+  balance.
 - **Who authorized each payment.** By default the report names the person who authorized money leaving
-  a client ledger — the platform records it on every such payment for exactly this reason. You can ask
-  for it to be left out.
+  a client ledger — the platform records it on every such payment for exactly this reason. The firm
+  can choose to leave it out.
+
+The provenance section of every report states which way each was set when it was produced. Changing
+them is described in [The trust compliance report policy](../admin/trust-compliance-report-policy.md).
 
 ## When the report will not be produced
 

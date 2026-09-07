@@ -49,6 +49,8 @@ import type {
 
 // Table names tracked against @magna-carta/database's schema by the schema-name-sync test.
 export const TRUST_ACCOUNT_TABLE = "trust_account";
+// The office a trust account belongs to; read here only for the listing's time zone column.
+const LOCATION_TABLE = "location";
 export const TRUST_LEDGER_NODE_TABLE = "trust_ledger_node";
 export const TRUST_HOLD_TABLE = "trust_hold";
 export const TRUST_TRANSFER_TABLE = "trust_transfer";
@@ -1634,4 +1636,40 @@ export function selectTrustAccountIdentityStatement(
       `SELECT id, name, location_id, jurisdiction, bank_name, account_number_last_four, currency, iolta, status, opened_on, closed_at, bank_ledger_account_id, client_liability_account_id FROM ${TRUST_ACCOUNT_TABLE} WHERE id = ?1`,
     )
     .bind(trustAccountId);
+}
+
+// THE FIRM'S TRUST ACCOUNTS, as a listing a person picks one from — the report screen's account
+// control, and the matter ledger's the day it is wired. Oldest first on the shared (created_at, id)
+// keyset, the one cursor shape every listing on the platform mints: an account's label is free text
+// the cursor encoding cannot carry (a firm names accounts with dashes and accents, and the opaque
+// token is Latin-1), so the alphabetical order a picker wants is the picker's to apply over what it
+// loaded, not the page's to promise.
+//
+// The same identity columns the pack's cover reads, plus the holding office's time zone: a report
+// asked "as at the end of 31 July" resolves that day in the office's own zone, and the listing is
+// where the account and its office are already read together. The last four is all the schema
+// stores of the number.
+export function selectTrustAccountsPageStatement(
+  database: SqlDatabase,
+  page: {
+    readonly afterCreatedAt: string | null;
+    readonly afterId: string | null;
+    readonly limit: number;
+  },
+): SqlStatement {
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  if (page.afterCreatedAt !== null && page.afterId !== null) {
+    conditions.push("(a.created_at > ? OR (a.created_at = ? AND a.id > ?))");
+    bindings.push(page.afterCreatedAt, page.afterCreatedAt, page.afterId);
+  }
+  const where = conditions.length === 0 ? "" : ` WHERE ${conditions.join(" AND ")}`;
+  bindings.push(page.limit);
+  return database
+    .prepare(
+      `SELECT a.id, a.name, a.location_id, a.jurisdiction, a.bank_name, a.account_number_last_four, a.currency, a.iolta, a.status, a.opened_on, a.closed_at, a.created_at, l.time_zone AS location_time_zone
+       FROM ${TRUST_ACCOUNT_TABLE} a
+       JOIN ${LOCATION_TABLE} l ON l.id = a.location_id${where} ORDER BY a.created_at, a.id LIMIT ?`,
+    )
+    .bind(...bindings);
 }

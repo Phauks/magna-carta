@@ -2413,6 +2413,12 @@ export const costEntry = sqliteTable(
     check("cost_entry_currency_check", sql`${table.currency} IN ('USD')`),
     index("cost_entry_matter_status_index").on(table.matterId, table.status),
     index("cost_entry_status_incurred_date_index").on(table.status, table.incurredDate),
+    // The firm-wide period read behind /costs when it is asked for every matter's cost: a date
+    // range with no matter and no status. The (matter_id, status) index above serves the same read
+    // narrowed to one matter, and the (status, incurred_date) index serves it narrowed to one
+    // status; neither has incurred_date in its leading position, so the unnarrowed range had
+    // nothing to ride and walked the table.
+    index("cost_entry_incurred_date_index").on(table.incurredDate),
     uniqueIndex("cost_entry_recovery_ref_unique")
       .on(table.recoveryRef)
       .where(sql`${table.recoveryRef} IS NOT NULL`),
