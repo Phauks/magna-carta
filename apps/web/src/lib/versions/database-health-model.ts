@@ -19,6 +19,7 @@
  * carries the worst of them so a folded section can still be trusted (the same rule the fleet fold
  * keeps: folding may hide rows, never a fault).
  */
+import { countPill, type SectionPill } from "./version-overlay-model.ts";
 
 /** The three readings a row can have, worst last. The heading carries the worst row's. */
 export type HealthReading = "healthy" | "attention" | "fault";
@@ -31,6 +32,8 @@ export interface DatabaseHealthValue {
   firmDatabase: {
     state: "reachable" | "unreachable";
     roundTripMilliseconds: number | null;
+    /** Why it is not answering, in the database's own words; null while it is. */
+    fault: string | null;
   };
   schema: {
     state: "current" | "behind" | "unknown";
@@ -82,12 +85,19 @@ export const HEALTH_READ_IN_FLIGHT_NOTICE = "Checking the database";
  */
 function firmDatabaseRow(value: DatabaseHealthValue): HealthRow {
   if (value.firmDatabase.state === "unreachable") {
+    // The database's own words when it gave any. "Not answering" is the symptom the reader already
+    // has; the sentence they need is the one underneath it, and the wire carries it now rather than
+    // making them go to the logs for a fact this read already held.
+    const fault = value.firmDatabase.fault;
     return {
       id: "firmDatabase",
       name: "Firm database",
       reading: "fault",
       status: "Not answering",
-      detail: "The firm's database did not answer this request.",
+      detail:
+        fault === null
+          ? "The firm's database did not answer this request, and gave no reason."
+          : `The firm's database did not answer this request: ${fault}`,
     };
   }
   const roundTrip = value.firmDatabase.roundTripMilliseconds;
@@ -311,6 +321,28 @@ export function overallHealthReading(value: DatabaseHealthValue): HealthReading 
   ]);
 }
 
+/**
+ * Database shut: how many checks it hides, and how many of them are not right.
+ *
+ * "Needs attention" and "Not working" named a MOOD and left the reader to open the section to learn
+ * how much of it was affected — one row wrong out of four reads very differently from all four, and
+ * the heading said the same thing either way. A count says which it is, and the section reports its
+ * own health when everything passes rather than going silent.
+ */
+export function databaseSectionPills(value: DatabaseHealthValue): SectionPill[] {
+  const rows = databaseHealthRows(value);
+  const pills: SectionPill[] = [countPill(rows.length, "check")];
+  const faulted = rows.filter((row) => row.reading === "fault").length;
+  const attention = rows.filter((row) => row.reading === "attention").length;
+  if (faulted > 0) {
+    pills.push({ label: `${String(faulted)} not working`, variant: "danger" });
+  }
+  if (attention > 0) {
+    pills.push({ label: `${String(attention)} needs attention`, variant: "warning" });
+  }
+  return pills;
+}
+
 /** The badge colour for a reading. Healthy earns no badge at all — see healthBadgeLabel. */
 export function healthBadgeVariant(reading: HealthReading): "success" | "warning" | "danger" {
   switch (reading) {
@@ -328,16 +360,6 @@ export function healthBadgeVariant(reading: HealthReading): "success" | "warning
  * healthy section says nothing beside its heading: a badge on every panel is a badge nobody reads,
  * and the rows are one caret away.
  */
-export function collapsedHealthBadge(reading: HealthReading): string | null {
-  switch (reading) {
-    case "healthy":
-      return null;
-    case "attention":
-      return "Needs attention";
-    case "fault":
-      return "Not working";
-  }
-}
 
 /**
  * The one line a copy click puts on the clipboard for the whole section: every row's name and
@@ -345,7 +367,16 @@ export function collapsedHealthBadge(reading: HealthReading): string | null {
  * a bug report hands over the whole diagnosis rather than a screenshot of part of it.
  */
 export function copyLineForDatabaseHealth(value: DatabaseHealthValue): string {
-  const segments = databaseHealthRows(value).map((row) => `${row.name}: ${row.status}`);
+  // A FAULTED row pastes its detail too, not just its status. "Firm database: Not answering" is the
+  // symptom the reader already had; the sentence under it is the diagnosis, and a copy that carried
+  // only the status handed over a report with the one useful fact stripped out of it. Healthy rows
+  // keep to their status — their detail is a round-trip time and a reassurance, which is noise in a
+  // bug report.
+  const segments = databaseHealthRows(value).map((row) =>
+    row.reading === "fault"
+      ? `${row.name}: ${row.status} — ${row.detail}`
+      : `${row.name}: ${row.status}`,
+  );
   const backlog = describeProvisioningBacklog(value);
   if (backlog !== null) segments.push(backlog.sentence);
   segments.push(`observed ${value.observedAt}`);

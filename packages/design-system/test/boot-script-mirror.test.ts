@@ -62,4 +62,12 @@ describe("apps/web/src/app.html inline boot script mirrors theme-preference.ts",
   it("resolves system contrast via the same media query", () => {
     expect(appHtml).toContain('"(prefers-contrast: more)"');
   });
+
+  // The one write in the boot script that is not about our own cascade. styles/base.css declares
+  // the same scheme, but a stylesheet is a separate request and this document has an empty body
+  // until the application mounts, so without the inline write the browser paints that whole window
+  // — canvas, scrollbars, form controls — in the scheme it last knew.
+  it("writes the same color-scheme applyThemeToDocument does", () => {
+    expect(appHtml).toContain("root.style.colorScheme");
+  });
 });

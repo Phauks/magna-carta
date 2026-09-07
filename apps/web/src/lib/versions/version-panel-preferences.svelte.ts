@@ -1,10 +1,11 @@
 /*
  * What the version panel remembers between openings: which of its sections are folded away.
  *
- * There are three, and they nest — Deployment and Database are the panel's two subjects, and the
- * fleet list sits inside Deployment. Each remembers itself separately, because folding the fleet
- * away is a different intent from folding the whole deployment away, and a reader who did one
- * should not find the other undone next time.
+ * There are three and they sit SIDE BY SIDE — Deployment, Workers, Database. Workers used to be a
+ * drawer inside Deployment, which put the fleet two folds deep and made "is anything not answering"
+ * a question a reader reached through "what build is live". They are separate questions, so they
+ * are separate carets. Each remembers itself, because folding one away is not a statement about
+ * the others.
  *
  * These are per-browser chrome state, not firm data, so they ride the shared persisted-preference
  * primitive ($lib/preferences/persisted-preference.svelte.ts): storage hazards are swallowed there,
@@ -42,12 +43,15 @@ function createSectionFold(storageKey: string): SectionFoldPreference {
   };
 }
 
-/** The whole deployment section — the API, the Worker serving this page, and the fleet within it. */
+/** The deployment section — the API and the Worker serving this page, and how the two compare. */
 export const deploymentSectionPreference = createSectionFold(
   "magna-carta.version-panel-deployment",
 );
 
-/** The fleet list inside the deployment section. */
+/**
+ * The Workers section: the rest of the fleet. Keeps its original storage key now that it has left
+ * Deployment — the key names a fold a reader already set, and changing it would silently undo it.
+ */
 export const fleetSectionPreference = createSectionFold("magna-carta.version-panel-fleet");
 
 /** The database-health section: the connection to this firm's own data. */

@@ -200,6 +200,26 @@ describe("applyThemeToDocument", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
+  // color-scheme decides what the BROWSER paints — the canvas, native scrollbars, form controls.
+  // styles/base.css declares it on this same class; this write is the one that lands before any
+  // stylesheet has arrived, so the two must never be able to disagree.
+  it("moves color-scheme with the dark class, in both directions", () => {
+    applyThemeToDocument("slate", "dark");
+    expect(document.documentElement.style.colorScheme).toBe("dark");
+    applyThemeToDocument("slate", "light");
+    expect(document.documentElement.style.colorScheme).toBe("light");
+  });
+
+  it("resolves color-scheme from the operating system in system mode", () => {
+    stubMatchMedia(true);
+    applyThemeToDocument("slate", "system");
+    expect(document.documentElement.style.colorScheme).toBe("dark");
+
+    stubMatchMedia(false);
+    applyThemeToDocument("slate", "system");
+    expect(document.documentElement.style.colorScheme).toBe("light");
+  });
+
   it("persists NOTHING — the pure DOM seam the Storybook toolbar relies on", () => {
     applyThemeToDocument("midnight", "dark");
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();

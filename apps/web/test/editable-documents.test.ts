@@ -1,0 +1,103 @@
+import { describe, expect, it } from "vitest";
+import {
+  editorHref,
+  editorKindOf,
+  openDestinationOf,
+  textContentTypeOf,
+  type EditableFileFacts,
+} from "../src/lib/documents/editable-documents.ts";
+
+/*
+ * What the one Open gesture does, decided from what a file IS. The ruling it holds: a
+ * word-processing document opens the browser editor, a plain-text document opens the text editor,
+ * everything else opens its preview — and a file whose bytes the platform is withholding opens the
+ * preview whatever its format, so a blank editor is never the answer.
+ */
+
+const clean = (over: Partial<EditableFileFacts & { id: string }> = {}) => ({
+  id: "file_01",
+  name: "Complaint.docx",
+  sniffedContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  currentVersionId: "fileVersion_01",
+  status: "clean" as const,
+  scanVerdict: "clean" as const,
+  ...over,
+});
+
+describe("editorKindOf", () => {
+  it("sends word-processing formats to the office editor, by content type or by name", () => {
+    expect(editorKindOf(clean())).toBe("office");
+    expect(editorKindOf({ name: "letter.doc", sniffedContentType: "application/msword" })).toBe(
+      "office",
+    );
+    expect(editorKindOf({ name: "letter.odt", sniffedContentType: null })).toBe("office");
+    expect(editorKindOf({ name: "letter.rtf", sniffedContentType: null })).toBe("office");
+  });
+
+  it("sends plain-text and code formats to the text editor, known by their extension", () => {
+    // Plain text has no magic bytes, so the gate sniffs nothing and the name decides.
+    expect(editorKindOf({ name: "notes.txt", sniffedContentType: null })).toBe("text");
+    expect(editorKindOf({ name: "README.md", sniffedContentType: null })).toBe("text");
+    expect(editorKindOf({ name: "run.log", sniffedContentType: null })).toBe("text");
+    expect(editorKindOf({ name: "config.json", sniffedContentType: null })).toBe("text");
+    expect(editorKindOf({ name: "page.html", sniffedContentType: "text/html" })).toBe("text");
+  });
+
+  it("names no editor for everything else", () => {
+    expect(editorKindOf({ name: "scan.pdf", sniffedContentType: "application/pdf" })).toBeNull();
+    expect(editorKindOf({ name: "photo.jpg", sniffedContentType: "image/jpeg" })).toBeNull();
+    expect(editorKindOf({ name: "budget.xlsx", sniffedContentType: null })).toBeNull();
+    expect(editorKindOf({ name: "bundle.zip", sniffedContentType: "application/zip" })).toBeNull();
+    expect(editorKindOf({ name: "mystery", sniffedContentType: null })).toBeNull();
+  });
+
+  it("lets the sniffed content type overrule a misleading name", () => {
+    expect(editorKindOf({ name: "notes.txt", sniffedContentType: "application/pdf" })).toBeNull();
+  });
+});
+
+describe("openDestinationOf", () => {
+  it("opens the editor for a clean, committed, editable document", () => {
+    expect(openDestinationOf(clean())).toEqual({
+      kind: "editor",
+      editor: "office",
+      href: "/documents/file_01/edit",
+    });
+    expect(openDestinationOf(clean({ name: "notes.md", sniffedContentType: null }))).toEqual({
+      kind: "editor",
+      editor: "text",
+      href: "/documents/file_01/edit",
+    });
+  });
+
+  it("previews a document whose bytes are withheld, whatever its format", () => {
+    expect(openDestinationOf(clean({ currentVersionId: null, status: "pending" }))).toEqual({
+      kind: "preview",
+    });
+    expect(openDestinationOf(clean({ status: "quarantined" }))).toEqual({ kind: "preview" });
+    expect(openDestinationOf(clean({ scanVerdict: "flagged" }))).toEqual({ kind: "preview" });
+  });
+
+  it("previews a document with no editor", () => {
+    expect(
+      openDestinationOf(clean({ name: "scan.pdf", sniffedContentType: "application/pdf" })),
+    ).toEqual({ kind: "preview" });
+  });
+});
+
+describe("editorHref", () => {
+  it("is one address per document, with the identifier escaped", () => {
+    expect(editorHref("file_01")).toBe("/documents/file_01/edit");
+    expect(editorHref("a b")).toBe("/documents/a%20b/edit");
+  });
+});
+
+describe("textContentTypeOf", () => {
+  it("follows the name, and falls back to plain text", () => {
+    expect(textContentTypeOf("notes.md")).toBe("text/markdown");
+    expect(textContentTypeOf("notes.txt")).toBe("text/plain");
+    expect(textContentTypeOf("run.log")).toBe("text/plain");
+    expect(textContentTypeOf("data.json")).toBe("application/json");
+    expect(textContentTypeOf("page.html")).toBe("text/html");
+  });
+});

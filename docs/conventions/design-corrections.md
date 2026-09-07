@@ -774,6 +774,22 @@ name, which is every screen outside a matter.
   design: filling the screen is that gesture. Every dialog, alert dialog, action dialog and record
   window inherits it from the shared modal stage; edge sheets are drawers and stay on their edge.
   _(the modal shells on a laptop, 2026-09-03)_
+- **The foot of the sidebar is the utility tray, and what belongs there is meta about the app.**
+  Settings, Customize, Downloads and Uploads sit as small icons at the rail's foot, apart from the
+  labelled destination rows above. The test is not importance but subject: a destination row names a
+  place in the firm's work, while a transfer register describes what the application is doing —
+  often two of them at once, since a download and an upload can run together — so the registers
+  belong with the app's own controls rather than in Workspace. They are fixtures there, never
+  starrable or reorderable, and the collapsed rail still shows only Settings. The top-bar trays keep
+  their own job: a summary with quick actions, linking into these full surfaces.
+  _(the sidebar's foot, 2026-09-07)_
+- **A tray holding two kinds of thing separates them by its two ends, not by a divider.** The
+  sidebar's foot leads with the rail's own controls (Settings, then Customize) and leans the two
+  transfer registers to the inline end, so a reader tells a control from a destination by where it
+  sits. An auto margin on the trailing group does it, never `justify-content: space-between` on the
+  tray, which would also spread the leading controls apart from each other; and the trailing group
+  is ONE element, so the collapsed rail's "everything past the first icon goes" rule takes it away
+  and brings it back whole. _(the sidebar's foot, 2026-09-07)_
 - **A totals strip sits on the bottom edge of its frame, not under the last row.** A ledger fills
   the height it is given, so the ordinary case is a table with room beneath it; totals that come to
   rest halfway up the screen with a band of empty surface below them read as a table that failed to
@@ -791,9 +807,32 @@ name, which is every screen outside a matter.
   (`packages/design-system/src/lib/styles/base.css`), imported by the app entry and the catalog
   preview alike, so the two review the same product. A component still names its own ink — this is
   only what the document starts from. _(the file manager, 2026-09-06)_
+- **The root is painted too, and the scheme is written before the stylesheet arrives.** The same
+  document base, carried the last two steps by the white-flash report. A colour scheme is not a
+  colour: it buys the browser's generic canvas for the mode, not the surface the product is drawn
+  on, and against a 99% warm surface the light one reads as a flash to pure white. Every shell
+  paints its background INSIDE the Svelte tree, so the canvas is what shows wherever that tree does
+  not cover the viewport — the boot of a hard load, a shell swap on the way to Account or sign-in,
+  an overscroll, the scrollbar gutter. The root takes `background-color` from the surface token, and
+  a background on the root propagates to the canvas, so no unpainted layer is left. And because a
+  stylesheet is a separate request while this document has an empty body until the application
+  mounts, `applyThemeToDocument` writes `color-scheme` inline as well — mirrored in the boot script,
+  the same fact in the one window a stylesheet cannot reach. _(reported as a white flash between
+  screens, 2026-09-07)_
 
 ### Spacing and rhythm
 
+- **The App Shell draws the page inset, once, for everybody.** A screen rendered into the shell's
+  `<main>` never insets itself: `<main>` already sets the distance between the chrome and the
+  content, and a screen that pads itself as well sits at twice every other screen's distance from
+  it. The difference is invisible on the screen itself and obvious the moment somebody navigates,
+  which is how Tasks, Time and Magnus each came to carry a second `p-24` — each written from a copy
+  of the last. Spacing BETWEEN the things on a screen is still the screen's own: the `gap-*` on its
+  column, the padding inside a card, a one-sided padding off a border. Enforced by
+  `pnpm run lint:page-inset`, which reads the inset off the shell rather than assuming it. The same
+  scan refuses `flex-1` on a screen's top-level element, because `<main>` is a block container and
+  a screen that says `flex-1` there is silently taking no height at all — `h-full` is what it means.
+  _(tasks and time, 2026-09-07)_
 - **Meta text sits at a fixed offset under the element it annotates**, expressed as one rule, not
   re-chosen per screen. Any explanatory line under a field, a button, or a heading uses it.
   _(auth flow, 2026-08-07)_
@@ -813,6 +852,26 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-07 — the sidebar's foot: the transfer registers join Settings and Customize
+
+The owner, on where Downloads lives: "I want to move access to the full downloads section from the
+left sidebar down to the area next to customize and settings. we can have access to uploads and
+downloads there. since they may both be working concurrently, and are more so meta about app
+behaviour rather than relating to items in the applicaiton. we will still keep the items in the top
+right header, as those are summary sections with quick actions, while these areas will be the larger
+ones." What binds:
+
+- **Downloads and Uploads leave the Workspace group and become footer fixtures**, beside Settings
+  and Customize, in the registry's own `footerPinned` tier — so the scrolling groups and Customize
+  mode never carry them and each row keeps exactly one home.
+- **The tray has two ends.** The owner, on seeing the first arrangement: "move the downloads and
+  uploads to the right side of the customize button. lean those to the right side, so the left side
+  is settings and the right side is the uploads and downloads." So the rail's own controls lead —
+  Settings, then Customize — and the registers lean to the far end. Settings still leads the row
+  outright, because it is the one icon the collapsed rail keeps.
+- **The two levels stay distinct.** The top-bar trays are summaries with quick actions; the footer
+  icons open the full surfaces. Neither replaces the other.
 
 ### 2026-09-06 — the calendar's create control, the header's hovers, the custody rail
 

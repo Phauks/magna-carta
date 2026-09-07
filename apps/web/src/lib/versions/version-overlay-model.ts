@@ -225,6 +225,73 @@ export function copyLineForPart(part: {
   return segments.join(" · ");
 }
 
+/**
+ * THE WHOLE PANEL on the clipboard, as the reader would read it down the screen.
+ *
+ * The per-row copy and the database line each put ONE part on the clipboard, which is right when a
+ * reader is quoting one row. It is wrong for the gesture the panel's own copy control offers: a
+ * member reporting "something is broken" pasted four database rows and nothing about what was
+ * running, so the report arrived without the one fact — which build — that says whether a fix has
+ * even shipped yet. Copying part of the diagnosis reads exactly like copying all of it.
+ *
+ * Multi-line rather than the dot-separated single line the row copies use: this is a dozen facts,
+ * and a paste a person has to unpick is a paste they summarize from memory instead. Sections that
+ * had nothing to say are omitted rather than printed empty, and every unknown stays named as one —
+ * a row that never reported says so here too, because "absent from the paste" and "reported nothing"
+ * are different faults.
+ */
+export function copyReportForPanel(input: {
+  pageBuild: { commit: string; commitTime: string | null; buildTime: string | null } | null;
+  versions: MetaVersionsValue | null;
+  databaseLine: string | null;
+}): string {
+  const lines: string[] = ["Magna Carta diagnostics"];
+
+  if (input.pageBuild !== null) {
+    lines.push(
+      copyLineForPart({
+        label: PAGE_BUILD_ROW_NAME,
+        commit: input.pageBuild.commit,
+        commitTime: input.pageBuild.commitTime,
+        buildTime: input.pageBuild.buildTime,
+      }),
+    );
+  }
+
+  if (input.versions !== null) {
+    lines.push(
+      copyLineForPart({
+        label: API_WORKER_UNIT_NAME,
+        commit: input.versions.api.commit,
+        commitTime: input.versions.api.commitTime,
+        buildTime: input.versions.api.buildTime,
+      }),
+    );
+    if (input.versions.services.length > 0) {
+      lines.push("Workers:");
+      for (const service of input.versions.services) {
+        // A worker that did not report has no commit to quote, so it carries the reason instead —
+        // "unbound" and "unreachable" are the answer in those cases, not a missing line.
+        const stated =
+          service.commit === null
+            ? (serviceStateLabel(service.state) ?? "no version reported")
+            : copyLineForPart({
+                label: service.service,
+                commit: service.commit,
+                commitTime: service.commitTime,
+                buildTime: service.buildTime,
+              });
+        lines.push(`  ${service.commit === null ? `${service.service}: ${stated}` : stated}`);
+      }
+    }
+    lines.push(`Services observed ${input.versions.observedAt}`);
+  }
+
+  if (input.databaseLine !== null) lines.push(`Database — ${input.databaseLine}`);
+
+  return lines.join("\n");
+}
+
 /** A compact local rendering of an ISO timestamp for the panel's meta lines; null passes through. */
 export function formatVersionTimestamp(iso: string | null): string | null {
   if (iso === null) return null;
@@ -325,10 +392,59 @@ export const FLEET_SECTION_LABEL = "Workers";
  * the count of rows that came back without a version, which is the one fact all three non-answers
  * share; a fleet that is entirely reporting carries nothing, and the collapse is free.
  */
-export function summarizeSilentWorkers(rows: readonly ServiceVersionRow[]): string | null {
+/**
+ * What a SHUT heading says. One shape for all three sections, because they were each inventing their
+ * own and the differences were not decisions — Deployment carried a warning count and dropped the
+ * sync read entirely, so folding it hid whether the two Workers serving the app agree; Workers
+ * carried the same warning count with no sense of how many Workers it was hiding; and Database
+ * carried a word with no count at all. Folded, all three said nothing whatever when healthy, which
+ * reads identically to a section that never loaded.
+ *
+ * So every shut heading now carries a COUNT of what the fold hides, always, and a STATUS pill only
+ * when there is something to say beyond the count. A count that is present when things are fine is
+ * what makes silence meaningful: "13 Workers" and no second pill is a section reporting health,
+ * where an empty heading was a section reporting nothing.
+ */
+export interface SectionPill {
+  readonly label: string;
+  readonly variant: "neutral" | "success" | "warning" | "danger";
+}
+
+/** "1 Worker" / "13 Workers" — the count pill's own wording, singular where it should be. */
+export function countPill(count: number, noun: string): SectionPill {
+  return { label: `${String(count)} ${noun}${count === 1 ? "" : "s"}`, variant: "neutral" };
+}
+
+/**
+ * Deployment shut: how many parts it hides, and the sync read that is the section's whole point.
+ * The sync badge used to live only in the open section, so folding Deployment took the one fact a
+ * reader opens it for — whether the API and the Worker serving this page agree — off the screen.
+ */
+export function deploymentSectionPills(input: {
+  partCount: number;
+  syncState: ApiWebSyncState | null;
+}): SectionPill[] {
+  const pills: SectionPill[] = [countPill(input.partCount, "part")];
+  if (input.syncState !== null) {
+    pills.push({
+      label: syncStateLabel(input.syncState),
+      variant: syncStateBadgeVariant(input.syncState),
+    });
+  }
+  return pills;
+}
+/**
+ * Workers shut: how many there are, and how many of them did not report. "Without a version" named
+ * the missing FIELD rather than the condition; a reader wants to know the Worker did not answer,
+ * not which column is blank.
+ */
+export function workersSectionPills(rows: readonly ServiceVersionRow[]): SectionPill[] {
+  const pills: SectionPill[] = [countPill(rows.length, "Worker")];
   const silent = rows.filter((row) => row.state !== "reported").length;
-  if (silent === 0) return null;
-  return `${String(silent)} without a version`;
+  if (silent > 0) {
+    pills.push({ label: `${String(silent)} not reporting`, variant: "warning" });
+  }
+  return pills;
 }
 
 /**

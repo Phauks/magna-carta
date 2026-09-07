@@ -29,6 +29,14 @@ describe("the document base", () => {
     expect(baseCss).toMatch(/:root\s*\{[^}]*color:\s*var\(--mc-text-default\);/);
   });
 
+  // A colour scheme is not a colour: it buys the browser's own generic canvas for the mode, not the
+  // surface the product is drawn on. Painting the root propagates to the canvas, which is what keeps
+  // it from showing through wherever the Svelte tree does not cover the viewport — the boot of a hard
+  // load against an empty body, a shell swap, an overscroll, the scrollbar gutter.
+  it("paints the root from the surface token, so no unpainted layer is left to show through", () => {
+    expect(baseCss).toMatch(/:root\s*\{[^}]*background-color:\s*var\(--mc-surface-default\);/);
+  });
+
   it("sits in the base layer, under the recipes and the utilities", () => {
     expect(baseCss.trimStart().startsWith("@layer base {")).toBe(true);
   });

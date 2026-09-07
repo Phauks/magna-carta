@@ -81,24 +81,25 @@
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
+  import VersionSectionHeading from "./version-section-heading.svelte";
+  import ClipboardCopy from "@lucide/svelte/icons/clipboard-copy";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import { updated } from "$app/state";
   import { requestJson, type Problem } from "$lib/api/request.ts";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import {
-    collapsedHealthBadge,
+    databaseSectionPills,
+    type HealthReading,
     copyLineForDatabaseHealth,
     databaseHealthRows,
     describeProvisioningBacklog,
     healthBadgeVariant,
-    overallHealthReading,
     DATABASE_SECTION_LABEL,
     DEPLOYMENT_SECTION_LABEL,
     HEALTH_READ_IN_FLIGHT_NOTICE,
     SIGNED_OUT_DATABASE_NOTICE,
     type DatabaseHealthValue,
-    type HealthReading,
   } from "$lib/versions/database-health-model.ts";
   import {
     databaseSectionPreference,
@@ -113,12 +114,14 @@
     findWebWorkerRow,
     formatVersionTimestamp,
     isRealCommit,
+    copyReportForPanel,
     partitionDeploymentRows,
     readsServiceAggregate,
     serviceStateDescription,
     serviceStateLabel,
     showsPageBuildRow,
-    summarizeSilentWorkers,
+    deploymentSectionPills,
+    workersSectionPills,
     syncStateBadgeVariant,
     syncStateLabel,
     versionChipLabel,
@@ -159,11 +162,15 @@
   );
   let healthLoading = $state(false);
   let copiedHealth = $state(false);
+  let copiedEverything = $state(false);
 
   const chipLabel = versionChipLabel(BUILD_IDENTITY.commit);
   // Sample words for the loading fixtures: an invented commit and its two timestamps, so a
   // fixture row's detail line is the width a real one is.
   const FIXTURE_COMMIT = "0f3a9c1";
+  // Three rows' worth of skeleton, named by nothing real (see the fixture snippets below).
+  const FIXTURE_ROW_KEYS = ["a", "b", "c"];
+  const FIXTURE_ROW_NAME = "\u2014";
   const FIXTURE_COMMIT_TIME = sampleInstant(1);
   const FIXTURE_BUILD_TIME = sampleInstant(0);
   const webCommitLabel = isRealCommit(BUILD_IDENTITY.commit) ? BUILD_IDENTITY.commit : "dev";
@@ -259,20 +266,57 @@
   // behind — the colour-coded read of the pair the front rows show, in place of a fixed sentence.
   const syncState = $derived(value === null ? null : apiWebSyncState(value.api, webWorkerRow));
 
-  // What a shut Database heading has to keep saying. Computed from the whole section — every row
-  // plus the provisioning line — so folding the section away can hide rows and never a fault.
-  const healthReading = $derived<HealthReading | null>(
-    healthValue === null ? null : overallHealthReading(healthValue),
-  );
   const healthRows = $derived(healthValue === null ? [] : databaseHealthRows(healthValue));
   const provisioningBacklog = $derived(
     healthValue === null ? null : describeProvisioningBacklog(healthValue),
   );
-  // The same fact for the Deployment heading: every Worker in the read, not just the folded ones,
-  // because collapsing Deployment hides the leading pair as well as the fleet beneath it.
-  const silentDeploymentWorkers = $derived(
-    value === null ? null : summarizeSilentWorkers(value.services),
+  // The read split the way the panel now shows it: the pair that serves the app's address, and the
+  // rest of the fleet. Lifted out of the template because each section's shut heading has to count
+  // only the Workers ITS OWN fold hides — Workers is no longer nested inside Deployment, so one
+  // count across the whole read would have both headings claiming the same silent Worker.
+  const deploymentRows = $derived(value === null ? null : partitionDeploymentRows(value.services));
+  // What each shut heading says. One shape for all three (version-overlay-model.ts): a count of what
+  // the fold hides, always, and a status pill only where there is one. The count is what makes a
+  // quiet heading meaningful — "13 Workers" with nothing beside it is a section reporting health,
+  // where an empty heading was a section reporting nothing at all.
+  const deploymentPills = $derived(
+    deploymentRows === null
+      ? []
+      : deploymentSectionPills({
+          // The parts this section shows: the API, plus the pair that serves the app's address.
+          partCount: 1 + deploymentRows.front.length,
+          syncState,
+        }),
   );
+  const workersPills = $derived(
+    deploymentRows === null ? [] : workersSectionPills(deploymentRows.rest),
+  );
+  const databasePills = $derived(healthValue === null ? [] : databaseSectionPills(healthValue));
+
+  // Everything the panel is showing, as one paste. Assembled from the same values the rows render
+  // from, so a copy can never disagree with the screen it was taken from.
+  async function copyEverything(): Promise<void> {
+    const report = copyReportForPanel({
+      pageBuild: {
+        commit: webCommitLabel,
+        commitTime: BUILD_IDENTITY.committedAt,
+        buildTime: BUILD_IDENTITY.builtAt,
+      },
+      versions: value,
+      databaseLine: healthValue === null ? null : copyLineForDatabaseHealth(healthValue),
+    });
+    // Same rule as every other copy here: the confirmation appears only when the clipboard actually
+    // took the text, and a denied permission is silent rather than a page error.
+    try {
+      await navigator.clipboard.writeText(report);
+    } catch {
+      return;
+    }
+    copiedEverything = true;
+    setTimeout(() => {
+      copiedEverything = false;
+    }, 1000);
+  }
 
   async function copyHealth(): Promise<void> {
     if (healthValue === null) return;
@@ -325,38 +369,6 @@
   }
 </script>
 
-{#snippet sectionToggle(section: {
-  label: string;
-  collapsed: boolean;
-  toggle: () => void;
-  badge: string | null;
-  badgeVariant: "neutral" | "success" | "warning" | "danger";
-})}
-  <!-- One folding heading, shared by all three sections. Its own visible label is its accessible
-       name, aria-expanded carries the state, and a badge rides beside it ONLY while it is shut:
-       what folding hides has to keep speaking, and a heading that carries the same badge open and
-       closed is saying it twice. -->
-  <Button
-    variant="ghost"
-    size="sm"
-    class="w-full justify-between gap-8"
-    aria-expanded={!section.collapsed}
-    onclick={section.toggle}
-  >
-    <span class="flex items-center gap-8">
-      <FieldLabel as="span">{section.label}</FieldLabel>
-      {#if section.collapsed && section.badge !== null}
-        <Badge variant={section.badgeVariant}>{section.badge}</Badge>
-      {/if}
-    </span>
-    <ChevronRight
-      class="size-16 shrink-0 text-text-muted transition-transform duration-fast ease-standard motion-reduce:transition-none {section.collapsed
-        ? ''
-        : 'rotate-90'}"
-      aria-hidden="true"
-    />
-  </Button>
-{/snippet}
 
 {#snippet healthRow(row: {
   name: string;
@@ -493,6 +505,21 @@
             </Button>
           {/if}
           {#if readsAggregate}
+            <!-- AT THE TOP, and it takes the WHOLE panel. Both of those were wrong before: the
+                 only copy control sat at the foot of the Database section and put four health rows
+                 on the clipboard, so a member reporting a fault pasted the database's state and
+                 nothing about which build was serving it — the one fact that says whether a fix has
+                 shipped yet. A reader reaches for Copy when they open the panel, not after
+                 scrolling past everything they wanted copied. -->
+            <Button
+              variant="ghost"
+              size="icon"
+              class="shrink-0 {copiedEverything ? 'bg-action-secondary-hover' : ''}"
+              aria-label="Copy the whole diagnosis"
+              onclick={() => void copyEverything()}
+            >
+              <ClipboardCopy class="size-16" aria-hidden="true" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -592,13 +619,12 @@
         <!-- Deployment folds like the fleet inside it. Shut, it wears the count of Workers without
              a version across the WHOLE read, not just the fleet — collapsing this heading takes the
              leading pair down with it, and a fault in the pair is the one most worth seeing. -->
-        {@render sectionToggle({
-          label: DEPLOYMENT_SECTION_LABEL,
-          collapsed: deploymentSectionPreference.collapsed,
-          toggle: () => deploymentSectionPreference.toggle(),
-          badge: silentDeploymentWorkers,
-          badgeVariant: "warning",
-        })}
+        <VersionSectionHeading
+            label={DEPLOYMENT_SECTION_LABEL}
+            collapsed={deploymentSectionPreference.collapsed}
+            toggle={() => deploymentSectionPreference.toggle()}
+            pills={deploymentPills}
+          />
         {#if deploymentSectionPreference.collapsed}
           <!-- Nothing: the heading above carries what the fold hides. -->
         {:else}
@@ -612,12 +638,15 @@
             class="flex flex-col gap-8"
           >
             {#snippet fixture()}
-              <!-- Three Worker rows over sample identifiers: the list's own shape, greyed. -->
+              <!-- Row shapes over sample identifiers, greyed. The names are placeholders on purpose:
+                   the API's roster is the one home for what the fleet contains, and a skeleton that
+                   spelled real Worker names would be this component asserting which Workers exist
+                   before the read has said — and would keep asserting it if one were ever renamed. -->
               <div class="flex flex-col">
-                {#each [API_WORKER_UNIT_NAME, "magna-carta-web", "magna-carta-scan"] as workerName (workerName)}
+                {#each FIXTURE_ROW_KEYS as fixtureKey (fixtureKey)}
                   {@render partRow({
-                    rowKey: `fixture-${workerName}`,
-                    name: workerName,
+                    rowKey: `fixture-${fixtureKey}`,
+                    name: FIXTURE_ROW_NAME,
                     isWorkerName: true,
                     state: "reported",
                     commit: FIXTURE_COMMIT,
@@ -639,10 +668,10 @@
               })}
               {#if value.services.length === 0}
                 <p class="text-xs text-text-muted">{NO_SERVICES_NOTICE}</p>
-              {:else}
-                {@const deploymentRows = partitionDeploymentRows(value.services)}
-                <!-- The two Workers that serve the app's address lead the list, with the topology
-                     line that explains them; the rest of the fleet sits beneath the fold. -->
+              {:else if deploymentRows !== null}
+                <!-- The two Workers that serve the app's address, with the sync read that compares
+                     them. The rest of the fleet is its own section below, not a fold within this
+                     one. -->
                 <div class="flex flex-col">
                   {#each deploymentRows.front as service (service.id)}
                     {@render partRow({
@@ -665,36 +694,63 @@
                     <Badge variant={syncStateBadgeVariant(syncState)}>{syncStateLabel(syncState)}</Badge>
                   </div>
                 {/if}
-                {#if deploymentRows.rest.length > 0}
-                  <Separator />
-                  <!-- The fleet's own fold, inside Deployment's. Shut, it counts only the Workers IT
-                       hides — the pair above it is still on screen and speaks for itself. -->
-                  {@render sectionToggle({
-                    label: FLEET_SECTION_LABEL,
-                    collapsed: fleetSectionPreference.collapsed,
-                    toggle: () => fleetSectionPreference.toggle(),
-                    badge: summarizeSilentWorkers(deploymentRows.rest),
-                    badgeVariant: "warning",
-                  })}
-                  {#if !fleetSectionPreference.collapsed}
-                    <div class="flex flex-col">
-                      {#each deploymentRows.rest as service (service.id)}
-                        {@render partRow({
-                          rowKey: service.id,
-                          name: service.service,
-                          isWorkerName: true,
-                          state: service.state,
-                          commit: service.commit,
-                          commitTime: service.commitTime,
-                          buildTime: service.buildTime,
-                        })}
-                      {/each}
-                    </div>
-                  {/if}
-                {/if}
               {/if}
             {/if}
           </LoadingRegion>
+        {/if}
+        {#if deploymentRows === null || deploymentRows.rest.length > 0}
+          <Separator />
+          <!-- WORKERS IS ITS OWN SUBJECT, not a drawer inside Deployment. Nesting it made the fleet
+               something a reader reached THROUGH the deployment, when in practice the two are asked
+               about separately: "what build is live" and "is anything not answering" are different
+               questions, and one of them was two folds deep. Shut, this heading counts only the
+               Workers it hides; the pair above it is on screen and speaks for itself. -->
+          <VersionSectionHeading
+            label={FLEET_SECTION_LABEL}
+            collapsed={fleetSectionPreference.collapsed}
+            toggle={() => fleetSectionPreference.toggle()}
+            pills={workersPills}
+          />
+          {#if !fleetSectionPreference.collapsed}
+            <LoadingRegion
+              loading={value === null}
+              refreshing={loading}
+              label="Reading which Workers are running"
+              onRetry={() => void refresh({ fresh: true })}
+              class="flex flex-col gap-8"
+            >
+              {#snippet fixture()}
+                <div class="flex flex-col">
+                  {#each FIXTURE_ROW_KEYS as fixtureKey (fixtureKey)}
+                    {@render partRow({
+                      rowKey: `fixture-worker-${fixtureKey}`,
+                      name: FIXTURE_ROW_NAME,
+                      isWorkerName: true,
+                      state: "reported",
+                      commit: FIXTURE_COMMIT,
+                      commitTime: FIXTURE_COMMIT_TIME,
+                      buildTime: FIXTURE_BUILD_TIME,
+                    })}
+                  {/each}
+                </div>
+              {/snippet}
+              {#if deploymentRows !== null}
+                <div class="flex flex-col">
+                  {#each deploymentRows.rest as service (service.id)}
+                    {@render partRow({
+                      rowKey: service.id,
+                      name: service.service,
+                      isWorkerName: true,
+                      state: service.state,
+                      commit: service.commit,
+                      commitTime: service.commitTime,
+                      buildTime: service.buildTime,
+                    })}
+                  {/each}
+                </div>
+              {/if}
+            </LoadingRegion>
+          {/if}
         {/if}
       {/if}
       <Separator />
@@ -702,13 +758,12 @@
            It folds on the same terms Deployment does, and a shut heading wears the worst reading in
            the section, so the one state this whole section exists to surface — a membership that
            has not landed, and every screen refusing because of it — survives being folded away. -->
-      {@render sectionToggle({
-        label: DATABASE_SECTION_LABEL,
-        collapsed: databaseSectionPreference.collapsed,
-        toggle: () => databaseSectionPreference.toggle(),
-        badge: healthReading === null ? null : collapsedHealthBadge(healthReading),
-        badgeVariant: healthReading === null ? "neutral" : healthBadgeVariant(healthReading),
-      })}
+      <VersionSectionHeading
+            label={DATABASE_SECTION_LABEL}
+            collapsed={databaseSectionPreference.collapsed}
+            toggle={() => databaseSectionPreference.toggle()}
+            pills={databasePills}
+          />
       {#if !databaseSectionPreference.collapsed}
         {#if healthFailure !== null}
           <div class="flex flex-col gap-4">
