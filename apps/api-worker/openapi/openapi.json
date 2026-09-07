@@ -15659,6 +15659,445 @@
           "rationale"
         ]
       },
+      "IntakeFormSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "closed"
+            ]
+          },
+          "publicToken": {
+            "type": "string"
+          },
+          "publishedVersionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "submissionBudgetPerDay": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "hasUnpublishedChanges": {
+            "type": "boolean"
+          },
+          "waitingSubmissions": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "title",
+          "status",
+          "publicToken",
+          "publishedVersionId",
+          "submissionBudgetPerDay",
+          "hasUnpublishedChanges",
+          "waitingSubmissions",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "IntakeFormDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/IntakeFormSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "introduction": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "confirmationMessage": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/IntakeFormField"
+                }
+              }
+            },
+            "required": [
+              "introduction",
+              "confirmationMessage",
+              "fields"
+            ]
+          }
+        ]
+      },
+      "IntakeFormField": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person-name",
+              "organization-name",
+              "email",
+              "telephone",
+              "postal-address",
+              "matter-description",
+              "choice",
+              "question"
+            ],
+            "description": "What a question collects. A CLOSED platform vocabulary, and the closure is the point: a public form's questions never come from the firm's custom-field definitions, because those can reference a directory record and a form that could bind one would let a stranger point a value at somebody in the firm's directory. A firm widens its form with `question` (free text) or `choice` (its own list), neither of which can address anything the firm holds."
+          },
+          "label": {
+            "type": "string"
+          },
+          "helpText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "position": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "helpText",
+          "required",
+          "options",
+          "position"
+        ]
+      },
+      "IntakeFormRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "What the firm calls this form internally. A visitor never sees it."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "What a visitor reads at the top of the page."
+          },
+          "introduction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "confirmationMessage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000,
+            "description": "What the visitor is told after submitting. Keep it as uninformative as the status code: \"we have received your enquiry and someone will be in touch\" is right, and naming a practice area or a person is not, because that is a routing decision the form did not make. Not validated — this is prose, and a rule pretending to enforce it would be theatre."
+          },
+          "submissionBudgetPerDay": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "An optional ceiling on submissions accepted through this form in a day, so a firm being flooded can throttle ONE form without touching its others or its authenticated surface. Absent means the platform's own rate limit is the only ceiling."
+          }
+        },
+        "required": [
+          "name",
+          "title"
+        ]
+      },
+      "IntakeFormFieldRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person-name",
+              "organization-name",
+              "email",
+              "telephone",
+              "postal-address",
+              "matter-description",
+              "choice",
+              "question"
+            ],
+            "description": "What a question collects. A CLOSED platform vocabulary, and the closure is the point: a public form's questions never come from the firm's custom-field definitions, because those can reference a directory record and a form that could bind one would let a stranger point a value at somebody in the firm's directory. A firm widens its form with `question` (free text) or `choice` (its own list), neither of which can address anything the firm holds."
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "helpText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500,
+            "description": "Shown under the field and left standing there — never as ghost text inside it, which disappears exactly when somebody starts typing and therefore at the moment an instruction is needed."
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "maxItems": 50,
+            "description": "The choices, for a `choice` question and nothing else. Required on one, refused on every other kind — a choice with no options renders a picker nobody can answer, and options on a telephone field are an authoring mistake that would sit unnoticed."
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ]
+      },
+      "IntakeFormSubmissionSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "string"
+          },
+          "triageState": {
+            "type": "string",
+            "enum": [
+              "new",
+              "accepted",
+              "declined",
+              "spam"
+            ],
+            "description": "What a member decided about a submission. `new` is the state it arrives in and is not a decision anyone can record — a member who has looked cannot un-look. Nothing reads this as a gate; it records what a person did and permits nothing."
+          },
+          "triagedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triagedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triageNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "submittedAt",
+          "triageState",
+          "triagedAt",
+          "triagedBy",
+          "triageNote"
+        ]
+      },
+      "IntakeFormSubmissionDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/IntakeFormSubmissionSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "answers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "fieldId": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "person-name",
+                        "organization-name",
+                        "email",
+                        "telephone",
+                        "postal-address",
+                        "matter-description",
+                        "choice",
+                        "question"
+                      ],
+                      "description": "What a question collects. A CLOSED platform vocabulary, and the closure is the point: a public form's questions never come from the firm's custom-field definitions, because those can reference a directory record and a form that could bind one would let a stranger point a value at somebody in the firm's directory. A firm widens its form with `question` (free text) or `choice` (its own list), neither of which can address anything the firm holds."
+                    },
+                    "value": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "fieldId",
+                    "label",
+                    "kind",
+                    "value"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "answers"
+            ]
+          }
+        ]
+      },
+      "PublicIntakeForm": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "introduction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fieldId": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "person-name",
+                    "organization-name",
+                    "email",
+                    "telephone",
+                    "postal-address",
+                    "matter-description",
+                    "choice",
+                    "question"
+                  ],
+                  "description": "What a question collects. A CLOSED platform vocabulary, and the closure is the point: a public form's questions never come from the firm's custom-field definitions, because those can reference a directory record and a form that could bind one would let a stranger point a value at somebody in the firm's directory. A firm widens its form with `question` (free text) or `choice` (its own list), neither of which can address anything the firm holds."
+                },
+                "label": {
+                  "type": "string"
+                },
+                "helpText": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "options": {
+                  "type": [
+                    "array",
+                    "null"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "fieldId",
+                "kind",
+                "label",
+                "helpText",
+                "required",
+                "options"
+              ]
+            }
+          }
+        },
+        "required": [
+          "title",
+          "introduction",
+          "fields"
+        ]
+      },
+      "PublicIntakeSubmissionRequest": {
+        "type": "object",
+        "properties": {
+          "answers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 10000
+            },
+            "description": "The answers, keyed by the `fieldId` the form served. Keyed by id rather than by label so a submission still renders against the right question if a later version reuses a label for a different one."
+          }
+        },
+        "required": [
+          "answers"
+        ]
+      },
       "CustodyLocation": {
         "type": "object",
         "properties": {
@@ -66214,6 +66653,1805 @@
         }
       }
     },
+    "/api/v1/intake-forms": {
+      "get": {
+        "description": "Every public intake form this firm has authored, with its status, its live link, whether it has unpublished changes, and how many submissions are waiting on a member.",
+        "operationId": "intakeForms.list",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's forms.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/IntakeFormSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Author a new form. It is created in draft with a working version and a freshly minted public token, and is unreachable from the internet until it is published.",
+        "operationId": "intakeForms.create",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.create",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeFormRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}": {
+      "get": {
+        "description": "One form with the questions on its WORKING DRAFT — what the builder edits. A form with no unpublished changes shows the questions it currently serves.",
+        "operationId": "intakeForms.read",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.read",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The form and its draft questions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeFormDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Change a form's own settings — its name, its title, its introduction, what a visitor is told afterwards, its daily budget. These are NOT part of the frozen version: they are not questions, so nothing answered them, and a firm fixing a typo in its own title should not have to republish.",
+        "operationId": "intakeForms.edit",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.edit",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeFormRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "acknowledged"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/fields": {
+      "post": {
+        "description": "Add a question to the form's working draft. If the form's last version was published, this opens a NEW draft seeded with a copy of the published questions — editing one question on a live form must not silently drop the others.",
+        "operationId": "intakeForms.addField",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.addField",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeFormFieldRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "acknowledged"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/fields/{fieldId}": {
+      "patch": {
+        "description": "Change a question on the working draft. A question on a PUBLISHED version is refused: people answered it, and their answers name it.",
+        "operationId": "intakeForms.editField",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.editField",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeFormField_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fieldId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeFormFieldRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "acknowledged"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Remove a question from the working draft, closing the gap it leaves so the order stays dense.",
+        "operationId": "intakeForms.removeField",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.removeField",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "none",
+          "reason": "A question can only be removed from a working draft, which has never been served to anybody and which no submission can name. Removing one and adding it back is the same form; there is nothing to restore because nothing answered it. A question on a published version cannot be removed at all — publishing a new version without it is how a firm stops asking something, and the old version stays readable beside the answers it took."
+        },
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeFormField_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fieldId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "acknowledged"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/field-order": {
+      "put": {
+        "description": "Set the order of the working draft's questions, as the order of the ids sent.",
+        "operationId": "intakeForms.reorderFields",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.reorderFields",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fieldIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^intakeFormField_[A-Za-z0-9_-]{21}$"
+                    }
+                  }
+                },
+                "required": [
+                  "fieldIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reordered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "acknowledged"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/publication": {
+      "post": {
+        "description": "Publish the working draft: freeze its questions and point the form's public link at them. A form with no questions is refused — a published form nobody can answer collects empty submissions. After this the form is reachable by anyone holding its link.",
+        "operationId": "intakeForms.publish",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.publish",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "acknowledged"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/closed": {
+      "put": {
+        "description": "Close a form, or reopen a closed one. Closing takes it off the internet and keeps everything — its questions, its versions, and the submissions people already sent it. There is no delete: those submissions are the firm's record of people who asked it for help.",
+        "operationId": "intakeForms.setClosed",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.setClosed",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "closed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "closed"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "acknowledged"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/token-rotations": {
+      "post": {
+        "description": "Mint a new public token for the form. EVERY LINK ALREADY HANDED OUT STOPS WORKING, which is the point: this is what a firm does when its link has been scraped and is being flooded. The form, its versions and its submissions all stand.",
+        "operationId": "intakeForms.rotateToken",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.rotateToken",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rotated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "publicToken": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "publicToken"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/submissions": {
+      "get": {
+        "description": "What strangers sent this form, newest first, across every version of it — a firm reading its queue wants what arrived, not what arrived through the questions it happens to ask this week.",
+        "operationId": "intakeForms.listSubmissions",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.listSubmissions",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:readSubmissions",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "new",
+                "accepted",
+                "declined",
+                "spam"
+              ],
+              "description": "What a member decided about a submission. `new` is the state it arrives in and is not a decision anyone can record — a member who has looked cannot un-look. Nothing reads this as a gate; it records what a person did and permits nothing."
+            },
+            "required": false,
+            "description": "What a member decided about a submission. `new` is the state it arrives in and is not a decision anyone can record — a member who has looked cannot un-look. Nothing reads this as a gate; it records what a person did and permits nothing.",
+            "name": "state",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The queue.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/IntakeFormSubmissionSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/submissions/{submissionId}": {
+      "get": {
+        "description": "One submission, with each answer beside the question AS IT WAS ASKED — read from the version the submission arrived through, never from what the form asks today.",
+        "operationId": "intakeForms.readSubmission",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.readSubmission",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:readSubmissions",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeFormSubmission_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "submissionId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The submission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeFormSubmissionDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/submissions/{submissionId}/triage": {
+      "put": {
+        "description": "Record what a member decided about a submission. ACCEPTING CREATES NOTHING — no person, no organization, no matter, no intake. It records that a member looked and decided to take it further; turning that into a directory record is a separate act with its own preconditions. A decision can be changed, because a submission marked spam that turns out to be a real enquiry is exactly the mistake a queue produces.",
+        "operationId": "intakeForms.triage",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.triage",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:readSubmissions",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeFormSubmission_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "submissionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "accepted",
+                      "declined",
+                      "spam"
+                    ],
+                    "description": "What a member decided about a submission. `new` is the state it arrives in and is not a decision anyone can record — a member who has looked cannot un-look. Nothing reads this as a gate; it records what a person did and permits nothing."
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "acknowledged"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/intake-forms/{firmId}/{publicToken}": {
+      "get": {
+        "description": "The questions a firm's published form asks, for rendering. Answers 404 — with one body — for a token that never existed, a token that was rotated away, a form still in draft, and a form the firm has closed. The cases are not distinguished, deliberately: separate answers would make this endpoint an index of which forms a firm has and what state each is in.",
+        "operationId": "intakeForms.readPublic",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.readPublic",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "publicToken",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The form.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicIntakeForm"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/intake-forms/{firmId}/{publicToken}/submissions": {
+      "post": {
+        "description": "Send a completed form. Answers 202 with one body for EVERY submission it accepts, whatever it contains: a name the firm already represents, a name adverse to a current client, an unknown name and a fifth submission from the same person are one answer, because anything else makes this endpoint a directory of who the firm acts for. The submission is stored and nothing else happens — no person, no matter and no intake is created, and no conflicts check runs. A member decides all of that afterwards, where the reveal is authorised.",
+        "operationId": "intakeForms.submitPublic",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.submitPublic",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "auth",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "publicToken",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "required": false,
+            "name": "x-human-verification-token",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicIntakeSubmissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Received.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "received": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "received",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Human verification is provisioned but could not be reached; retryable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/custody/locations": {
       "get": {
         "description": "Returns every node of the firm's physical custody tree, flat with parent ids — the client assembles the tree. A root node either names one of the firm's offices or stands for an external site such as a bank vault or an offsite records vendor.",
@@ -98748,6 +100986,9 @@
     },
     {
       "name": "intake"
+    },
+    {
+      "name": "intakeForms"
     },
     {
       "name": "invitations"

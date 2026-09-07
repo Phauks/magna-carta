@@ -110,6 +110,10 @@ import type {
   MatterPartyId,
   MatterPlanTaskTemplateId,
   MatterPlanTemplateId,
+  IntakeFormFieldId,
+  IntakeFormId,
+  IntakeFormSubmissionId,
+  IntakeFormVersionId,
   IntakeProcedureId,
   IntakeProcedureStepId,
   MatterIntakeStepRecordId,
@@ -9778,6 +9782,214 @@ export const matterIntakeStepRecord = sqliteTable(
     check(
       "matter_intake_step_record_waiver_rationale_check",
       sql`${table.outcome} != 'waived' OR (${table.rationale} IS NOT NULL AND length(${table.rationale}) > 0)`,
+    ),
+  ],
+);
+
+// THE PUBLIC INTAKE FORM — what a firm asks a stranger on the open internet, and what came back.
+//
+// The four tables here are the only place in the platform an unauthenticated caller writes into a
+// firm's own database, so two rules shape all of them and neither is negotiable.
+//
+// FIRST: nothing here reaches the Directory. A submission is a row of text. It becomes a person, an
+// organization, a matter or an intake only when a member decides so, on the staff side, where the
+// reveal is authorised. That is what keeps a spam run out of the firm's corpus no matter how much of
+// it gets past the rate limit and the challenge.
+//
+// SECOND: a form's questions FREEZE when it is published. A firm that changes what it asks must
+// still be able to read what an old submission was actually asked, so fields hang from a VERSION and
+// never from the form, and a submission names the version it arrived through. This is the same
+// reasoning document_template_version and the billing arrangement version already carry.
+export const intakeForm = sqliteTable(
+  "intake_form",
+  {
+    id: text("id").primaryKey().$type<IntakeFormId>(), // intakeForm_ handle
+    // What the firm calls it internally; the visitor never sees this.
+    name: text("name").notNull(),
+    // What the visitor reads at the top of the page.
+    title: text("title").notNull(),
+    introduction: text("introduction"),
+    // What the visitor is told after submitting. Firm-authored, and deliberately not validated: the
+    // rule it has to respect — say nothing the status code would not, so never "someone from the
+    // family law team", because the team is a routing decision the form did not make — is prose, and
+    // a validation rule pretending to enforce prose would be theatre. The authoring surface and the
+    // user guide carry it instead.
+    confirmationMessage: text("confirmation_message"),
+    // The URL's second segment, minted CSPRNG. SEPARATE FROM THE ID because it is rotatable: a firm
+    // whose link has been scraped and flooded rotates this and the old link stops resolving, keeping
+    // the form, its versions and its submissions. An id cannot do that — it is the record's identity.
+    publicToken: text("public_token").notNull(),
+    status: text("status", { enum: ["draft", "published", "closed"] })
+      .notNull()
+      .default("draft"),
+    // The version the public route serves. NULL while the form has never been published, which is
+    // also what makes `draft` unreachable from outside rather than merely undecorated.
+    publishedVersionId: text("published_version_id").$type<IntakeFormVersionId>(),
+    // An optional per-form ceiling on submissions accepted in a day, so a firm being flooded can
+    // throttle ONE form without touching its others or its authenticated surface. NULL means the
+    // platform's own rate limit is the only ceiling.
+    submissionBudgetPerDay: integer("submission_budget_per_day"),
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The public route's whole lookup: one token, within a firm's own database.
+    uniqueIndex("intake_form_public_token_unique_index").on(table.publicToken),
+    index("intake_form_status_index").on(table.status),
+    check("intake_form_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("intake_form_title_nonempty_check", sql`length(${table.title}) > 0`),
+    check("intake_form_public_token_nonempty_check", sql`length(${table.publicToken}) > 0`),
+    check(
+      "intake_form_status_check",
+      sql`${table.status} IN ('draft', 'published', 'closed')`,
+    ),
+    // A published form must name the version it publishes. A form that says published and serves
+    // nothing is the one state the public route could not answer honestly.
+    check(
+      "intake_form_published_version_check",
+      sql`${table.status} <> 'published' OR ${table.publishedVersionId} IS NOT NULL`,
+    ),
+    check(
+      "intake_form_submission_budget_check",
+      sql`${table.submissionBudgetPerDay} IS NULL OR ${table.submissionBudgetPerDay} > 0`,
+    ),
+  ],
+);
+
+// One frozen set of a form's questions. At most one version per form is unpublished at a time — the
+// working draft — and publishing stamps it; the next edit after a publish starts a new draft.
+export const intakeFormVersion = sqliteTable(
+  "intake_form_version",
+  {
+    id: text("id").primaryKey().$type<IntakeFormVersionId>(), // intakeFormVersion_ handle
+    formId: text("form_id")
+      .notNull()
+      .$type<IntakeFormId>()
+      .references(() => intakeForm.id),
+    versionNumber: integer("version_number").notNull(),
+    // Both null while this is the working draft; both set, together, by publishing.
+    publishedAt: text("published_at"),
+    publishedBy: text("published_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("intake_form_version_form_number_unique_index").on(
+      table.formId,
+      table.versionNumber,
+    ),
+    check("intake_form_version_number_check", sql`${table.versionNumber} > 0`),
+    // Published is a single fact, not two columns that can disagree about it.
+    check(
+      "intake_form_version_published_shape_check",
+      sql`(${table.publishedAt} IS NULL) = (${table.publishedBy} IS NULL)`,
+    ),
+  ],
+);
+
+// One question. `kind` is the BOUNDED PLATFORM VOCABULARY and the boundary is the point: a public
+// form's fields never come from the custom-fields definition set, because that engine has
+// contact-reference and matter-reference kinds and a public form able to bind one would let a
+// stranger point a value at a record in the firm's directory. A firm extends its form with a
+// `question` or a `choice`, not by reaching into custom fields.
+export const intakeFormField = sqliteTable(
+  "intake_form_field",
+  {
+    id: text("id").primaryKey().$type<IntakeFormFieldId>(), // intakeFormField_ handle
+    // A field belongs to a VERSION, never to a form — that is what freezing means.
+    formVersionId: text("form_version_id")
+      .notNull()
+      .$type<IntakeFormVersionId>()
+      .references(() => intakeFormVersion.id),
+    position: integer("position").notNull().default(0),
+    kind: text("kind", {
+      enum: [
+        "person-name",
+        "organization-name",
+        "email",
+        "telephone",
+        "postal-address",
+        "matter-description",
+        "choice",
+        "question",
+      ],
+    }).notNull(),
+    label: text("label").notNull(),
+    // Shown UNDER the field and left standing there. Never a placeholder: ghost text disappears
+    // exactly when someone starts typing, which is the moment an instruction is needed.
+    helpText: text("help_text"),
+    required: integer("required").notNull().default(0),
+    // The choices, as a JSON array of strings, for `choice` and nothing else.
+    optionsJson: text("options_json"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("intake_form_field_version_position_index").on(table.formVersionId, table.position),
+    check("intake_form_field_label_nonempty_check", sql`length(${table.label}) > 0`),
+    check(
+      "intake_form_field_kind_check",
+      sql`${table.kind} IN ('person-name', 'organization-name', 'email', 'telephone', 'postal-address', 'matter-description', 'choice', 'question')`,
+    ),
+    check("intake_form_field_required_check", sql`${table.required} IN (0, 1)`),
+    // Options belong to `choice` and to nothing else, in both directions: a choice without them
+    // renders an empty picker, and options on a telephone field are a authoring mistake that would
+    // otherwise sit in the row unnoticed.
+    check(
+      "intake_form_field_options_kind_check",
+      sql`(${table.kind} = 'choice') = (${table.optionsJson} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// What one stranger sent. `answers_json` is keyed by FIELD ID rather than by label: a version's
+// labels are frozen, but keying by id means a submission still renders against the right question
+// even if a later version reuses a label for a different one.
+//
+// THERE IS NO ip_address, user_agent OR FINGERPRINT COLUMN, and the absence is deliberate. The rate
+// limiter sees the caller's address at the edge and that is where it stays. Storing it would put an
+// identifier for an unidentified stranger in the firm's own database before the firm has decided
+// whether it wants to hear from them at all, and nothing in triage needs it.
+export const intakeFormSubmission = sqliteTable(
+  "intake_form_submission",
+  {
+    id: text("id").primaryKey().$type<IntakeFormSubmissionId>(), // intakeFormSubmission_ handle
+    // The version it arrived through. This column is the reason versions exist.
+    formVersionId: text("form_version_id")
+      .notNull()
+      .$type<IntakeFormVersionId>()
+      .references(() => intakeFormVersion.id),
+    submittedAt: text("submitted_at").notNull(),
+    answersJson: text("answers_json").notNull(),
+    // What a member decided. A PLATFORM vocabulary of four, not a firm-renameable label, and it
+    // carries no authority beyond describing what a member did — nothing reads it as a gate.
+    triageState: text("triage_state", { enum: ["new", "accepted", "declined", "spam"] })
+      .notNull()
+      .default("new"),
+    triagedAt: text("triaged_at"),
+    triagedBy: text("triaged_by").$type<UserId>(),
+    triageNote: text("triage_note"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    // The queue read: newest first within a form's version, and the whole firm's queue by state.
+    index("intake_form_submission_version_submitted_index").on(
+      table.formVersionId,
+      table.submittedAt,
+      table.id,
+    ),
+    index("intake_form_submission_state_submitted_index").on(table.triageState, table.submittedAt),
+    check(
+      "intake_form_submission_triage_state_check",
+      sql`${table.triageState} IN ('new', 'accepted', 'declined', 'spam')`,
+    ),
+    // A decided submission names who decided it and when; an undecided one names neither. The three
+    // columns move together or the row is lying about whether anybody looked.
+    check(
+      "intake_form_submission_triage_shape_check",
+      sql`(${table.triageState} = 'new') = (${table.triagedAt} IS NULL)
+        AND (${table.triagedAt} IS NULL) = (${table.triagedBy} IS NULL)`,
     ),
   ],
 );

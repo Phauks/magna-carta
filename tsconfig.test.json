@@ -62,6 +62,9 @@
       "path": "packages/calendar/tsconfig.test.json"
     },
     {
+      "path": "packages/communications/tsconfig.test.json"
+    },
+    {
       "path": "packages/conflicts/tsconfig.test.json"
     },
     {

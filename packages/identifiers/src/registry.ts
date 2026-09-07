@@ -297,6 +297,16 @@ export const ENTITY_PREFIXES = {
   intakeProcedure: "intakeProcedure",
   intakeProcedureStep: "intakeProcedureStep",
   matterIntakeStepRecord: "matterIntakeStepRecord",
+  // The public intake form: what a firm asks a stranger on the open internet. An `intakeForm` is the
+  // thing a firm authors and hands out a link to; an `intakeFormVersion` is one frozen set of its
+  // questions, because a firm that changes what it asks must still be able to read what an old
+  // submission was actually asked; an `intakeFormField` is one question on a version, never on a
+  // form; an `intakeFormSubmission` is what one stranger sent, answered against the version it
+  // arrived through.
+  intakeForm: "intakeForm",
+  intakeFormVersion: "intakeFormVersion",
+  intakeFormField: "intakeFormField",
+  intakeFormSubmission: "intakeFormSubmission",
   // The firm's own calendar scope. A `firmEvent` is something the firm schedules for itself — a
   // meeting, an office closure, training, a firm holiday — which belongs to no matter and so gets
   // its own table rather than a null where a case should be; a `firmEventParticipant` is one person

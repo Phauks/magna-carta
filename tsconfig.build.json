@@ -143,6 +143,9 @@
       "path": "packages/inference/tsconfig.build.json"
     },
     {
+      "path": "packages/intake-forms/tsconfig.build.json"
+    },
+    {
       "path": "packages/intake/tsconfig.build.json"
     },
     {

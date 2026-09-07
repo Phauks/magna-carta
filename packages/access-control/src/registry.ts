@@ -247,6 +247,15 @@ export const PERMISSIONS = [
   "intake:record", // record that a step was completed on a matter, or reopen one
   "intake:waive", // waive a required step on a matter, with a rationale, so the matter may open without it
   "intake:manageProcedures", // author, edit and deactivate the firm's intake procedures and their steps
+  // The public intake form — what a firm asks a stranger on the open internet. Two keys, and they are
+  // genuinely different capabilities rather than a read/write pair over one surface: authoring is the
+  // firm deciding what it asks strangers and where its public link points, which is a statement about
+  // the firm; working the queue is reception's daily job. A firm that lets a receptionist clear the
+  // submissions is not thereby letting them republish the form or rotate its link. Both bind
+  // resource: "firm" — a submission belongs to no matter by construction, since nothing on the
+  // anonymous path may create one, so the firm is its tenancy root.
+  "intakeForms:manage", // author, publish, close and rotate the firm's public intake forms
+  "intakeForms:readSubmissions", // read what strangers sent, and record a member's triage decision
   // Matter assets — the register of what a client or an estate owns, kept on a matter. Two keys,
   // because the register concentrates a matter's financially sensitive facts (what the estate owns,
   // what it is worth, account suffixes, home addresses) in one surface: a firm that gives a

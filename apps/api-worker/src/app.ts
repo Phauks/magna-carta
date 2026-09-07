@@ -47,6 +47,7 @@ import { registerCommunicationsRoutes } from "./routes/communications.ts";
 import { registerNotesRoutes } from "./routes/notes.ts";
 import { registerTasksRoutes } from "./routes/tasks.ts";
 import { registerMatterPlanRoutes } from "./routes/matter-plans.ts";
+import { registerIntakeFormRoutes } from "./routes/intake-forms.ts";
 import { registerIntakeRoutes } from "./routes/intake.ts";
 import { registerConflictsRoutes } from "./routes/conflicts.ts";
 import { registerCustodyRoutes } from "./routes/custody.ts";
@@ -793,6 +794,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerTasksRoutes(app, chokepoint);
   registerMatterPlanRoutes(app, chokepoint);
   registerIntakeRoutes(app, chokepoint);
+  registerIntakeFormRoutes(app, chokepoint);
   // Custodian — the register of physical client originals the firm holds in safekeeping: the
   // container tree, packets and their items, Directory ownership, the append-only movement ledger,
   // holds, and scanned copies bound over ordinary File Manager files.

@@ -1,0 +1,29 @@
+{
+  "name": "@magna-carta/intake-forms",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./validation": "./src/validation.ts",
+    "./form-statements": "./src/form-statements.ts",
+    "./form-service": "./src/form-service.ts",
+    "./submission-service": "./src/submission-service.ts",
+    "./public-read": "./src/public-read.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

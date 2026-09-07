@@ -3702,6 +3702,125 @@ export type IntakeWaiveStepRequest = {
     rationale: string;
 };
 
+export type IntakeFormSummary = {
+    id: string;
+    name: string;
+    title: string;
+    status: 'draft' | 'published' | 'closed';
+    publicToken: string;
+    publishedVersionId: string | null;
+    submissionBudgetPerDay: number | null;
+    hasUnpublishedChanges: boolean;
+    waitingSubmissions: number;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type IntakeFormDetail = IntakeFormSummary & {
+    introduction: string | null;
+    confirmationMessage: string | null;
+    fields: Array<IntakeFormField>;
+};
+
+export type IntakeFormField = {
+    id: string;
+    /**
+     * What a question collects. A CLOSED platform vocabulary, and the closure is the point: a public form's questions never come from the firm's custom-field definitions, because those can reference a directory record and a form that could bind one would let a stranger point a value at somebody in the firm's directory. A firm widens its form with `question` (free text) or `choice` (its own list), neither of which can address anything the firm holds.
+     */
+    kind: 'person-name' | 'organization-name' | 'email' | 'telephone' | 'postal-address' | 'matter-description' | 'choice' | 'question';
+    label: string;
+    helpText: string | null;
+    required: boolean;
+    options: Array<string> | null;
+    position: number;
+};
+
+export type IntakeFormRequest = {
+    /**
+     * What the firm calls this form internally. A visitor never sees it.
+     */
+    name: string;
+    /**
+     * What a visitor reads at the top of the page.
+     */
+    title: string;
+    introduction?: string | null;
+    /**
+     * What the visitor is told after submitting. Keep it as uninformative as the status code: "we have received your enquiry and someone will be in touch" is right, and naming a practice area or a person is not, because that is a routing decision the form did not make. Not validated — this is prose, and a rule pretending to enforce it would be theatre.
+     */
+    confirmationMessage?: string | null;
+    /**
+     * An optional ceiling on submissions accepted through this form in a day, so a firm being flooded can throttle ONE form without touching its others or its authenticated surface. Absent means the platform's own rate limit is the only ceiling.
+     */
+    submissionBudgetPerDay?: number | null;
+};
+
+export type IntakeFormFieldRequest = {
+    /**
+     * What a question collects. A CLOSED platform vocabulary, and the closure is the point: a public form's questions never come from the firm's custom-field definitions, because those can reference a directory record and a form that could bind one would let a stranger point a value at somebody in the firm's directory. A firm widens its form with `question` (free text) or `choice` (its own list), neither of which can address anything the firm holds.
+     */
+    kind: 'person-name' | 'organization-name' | 'email' | 'telephone' | 'postal-address' | 'matter-description' | 'choice' | 'question';
+    label: string;
+    /**
+     * Shown under the field and left standing there — never as ghost text inside it, which disappears exactly when somebody starts typing and therefore at the moment an instruction is needed.
+     */
+    helpText?: string | null;
+    required?: boolean;
+    /**
+     * The choices, for a `choice` question and nothing else. Required on one, refused on every other kind — a choice with no options renders a picker nobody can answer, and options on a telephone field are an authoring mistake that would sit unnoticed.
+     */
+    options?: Array<string> | null;
+};
+
+export type IntakeFormSubmissionSummary = {
+    id: string;
+    submittedAt: string;
+    /**
+     * What a member decided about a submission. `new` is the state it arrives in and is not a decision anyone can record — a member who has looked cannot un-look. Nothing reads this as a gate; it records what a person did and permits nothing.
+     */
+    triageState: 'new' | 'accepted' | 'declined' | 'spam';
+    triagedAt: string | null;
+    triagedBy: string | null;
+    triageNote: string | null;
+};
+
+export type IntakeFormSubmissionDetail = IntakeFormSubmissionSummary & {
+    answers: Array<{
+        fieldId: string;
+        label: string;
+        /**
+         * What a question collects. A CLOSED platform vocabulary, and the closure is the point: a public form's questions never come from the firm's custom-field definitions, because those can reference a directory record and a form that could bind one would let a stranger point a value at somebody in the firm's directory. A firm widens its form with `question` (free text) or `choice` (its own list), neither of which can address anything the firm holds.
+         */
+        kind: 'person-name' | 'organization-name' | 'email' | 'telephone' | 'postal-address' | 'matter-description' | 'choice' | 'question';
+        value: string | null;
+    }>;
+};
+
+export type PublicIntakeForm = {
+    title: string;
+    introduction: string | null;
+    fields: Array<{
+        fieldId: string;
+        /**
+         * What a question collects. A CLOSED platform vocabulary, and the closure is the point: a public form's questions never come from the firm's custom-field definitions, because those can reference a directory record and a form that could bind one would let a stranger point a value at somebody in the firm's directory. A firm widens its form with `question` (free text) or `choice` (its own list), neither of which can address anything the firm holds.
+         */
+        kind: 'person-name' | 'organization-name' | 'email' | 'telephone' | 'postal-address' | 'matter-description' | 'choice' | 'question';
+        label: string;
+        helpText: string | null;
+        required: boolean;
+        options: Array<string> | null;
+    }>;
+};
+
+export type PublicIntakeSubmissionRequest = {
+    /**
+     * The answers, keyed by the `fieldId` the form served. Keyed by id rather than by label so a submission still renders against the right question if a later version reuses a label for a different one.
+     */
+    answers: {
+        [key: string]: string;
+    };
+};
+
 export type CustodyLocation = {
     id: string;
     name: string;
@@ -21481,6 +21600,727 @@ export type IntakeReopenStepResponses = {
 };
 
 export type IntakeReopenStepResponse = IntakeReopenStepResponses[keyof IntakeReopenStepResponses];
+
+export type IntakeFormsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/intake-forms';
+};
+
+export type IntakeFormsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+};
+
+export type IntakeFormsListError = IntakeFormsListErrors[keyof IntakeFormsListErrors];
+
+export type IntakeFormsListResponses = {
+    /**
+     * The firm's forms.
+     */
+    200: {
+        data: Array<IntakeFormSummary>;
+    };
+};
+
+export type IntakeFormsListResponse = IntakeFormsListResponses[keyof IntakeFormsListResponses];
+
+export type IntakeFormsCreateData = {
+    body: IntakeFormRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/intake-forms';
+};
+
+export type IntakeFormsCreateErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsCreateError = IntakeFormsCreateErrors[keyof IntakeFormsCreateErrors];
+
+export type IntakeFormsCreateResponses = {
+    /**
+     * Created.
+     */
+    201: {
+        id: string;
+    };
+};
+
+export type IntakeFormsCreateResponse = IntakeFormsCreateResponses[keyof IntakeFormsCreateResponses];
+
+export type IntakeFormsReadData = {
+    body?: never;
+    path: {
+        formId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}';
+};
+
+export type IntakeFormsReadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+};
+
+export type IntakeFormsReadError = IntakeFormsReadErrors[keyof IntakeFormsReadErrors];
+
+export type IntakeFormsReadResponses = {
+    /**
+     * The form and its draft questions.
+     */
+    200: IntakeFormDetail;
+};
+
+export type IntakeFormsReadResponse = IntakeFormsReadResponses[keyof IntakeFormsReadResponses];
+
+export type IntakeFormsEditData = {
+    body: IntakeFormRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}';
+};
+
+export type IntakeFormsEditErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsEditError = IntakeFormsEditErrors[keyof IntakeFormsEditErrors];
+
+export type IntakeFormsEditResponses = {
+    /**
+     * Changed.
+     */
+    200: {
+        acknowledged: boolean;
+    };
+};
+
+export type IntakeFormsEditResponse = IntakeFormsEditResponses[keyof IntakeFormsEditResponses];
+
+export type IntakeFormsAddFieldData = {
+    body: IntakeFormFieldRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/fields';
+};
+
+export type IntakeFormsAddFieldErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsAddFieldError = IntakeFormsAddFieldErrors[keyof IntakeFormsAddFieldErrors];
+
+export type IntakeFormsAddFieldResponses = {
+    /**
+     * Added.
+     */
+    201: {
+        acknowledged: boolean;
+    };
+};
+
+export type IntakeFormsAddFieldResponse = IntakeFormsAddFieldResponses[keyof IntakeFormsAddFieldResponses];
+
+export type IntakeFormsRemoveFieldData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/fields/{fieldId}';
+};
+
+export type IntakeFormsRemoveFieldErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsRemoveFieldError = IntakeFormsRemoveFieldErrors[keyof IntakeFormsRemoveFieldErrors];
+
+export type IntakeFormsRemoveFieldResponses = {
+    /**
+     * Removed.
+     */
+    200: {
+        acknowledged: boolean;
+    };
+};
+
+export type IntakeFormsRemoveFieldResponse = IntakeFormsRemoveFieldResponses[keyof IntakeFormsRemoveFieldResponses];
+
+export type IntakeFormsEditFieldData = {
+    body: IntakeFormFieldRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/fields/{fieldId}';
+};
+
+export type IntakeFormsEditFieldErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsEditFieldError = IntakeFormsEditFieldErrors[keyof IntakeFormsEditFieldErrors];
+
+export type IntakeFormsEditFieldResponses = {
+    /**
+     * Changed.
+     */
+    200: {
+        acknowledged: boolean;
+    };
+};
+
+export type IntakeFormsEditFieldResponse = IntakeFormsEditFieldResponses[keyof IntakeFormsEditFieldResponses];
+
+export type IntakeFormsReorderFieldsData = {
+    body: {
+        fieldIds: Array<string>;
+    };
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/field-order';
+};
+
+export type IntakeFormsReorderFieldsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsReorderFieldsError = IntakeFormsReorderFieldsErrors[keyof IntakeFormsReorderFieldsErrors];
+
+export type IntakeFormsReorderFieldsResponses = {
+    /**
+     * Reordered.
+     */
+    200: {
+        acknowledged: boolean;
+    };
+};
+
+export type IntakeFormsReorderFieldsResponse = IntakeFormsReorderFieldsResponses[keyof IntakeFormsReorderFieldsResponses];
+
+export type IntakeFormsPublishData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/publication';
+};
+
+export type IntakeFormsPublishErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsPublishError = IntakeFormsPublishErrors[keyof IntakeFormsPublishErrors];
+
+export type IntakeFormsPublishResponses = {
+    /**
+     * Published.
+     */
+    200: {
+        acknowledged: boolean;
+    };
+};
+
+export type IntakeFormsPublishResponse = IntakeFormsPublishResponses[keyof IntakeFormsPublishResponses];
+
+export type IntakeFormsSetClosedData = {
+    body: {
+        closed: boolean;
+    };
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/closed';
+};
+
+export type IntakeFormsSetClosedErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsSetClosedError = IntakeFormsSetClosedErrors[keyof IntakeFormsSetClosedErrors];
+
+export type IntakeFormsSetClosedResponses = {
+    /**
+     * Changed.
+     */
+    200: {
+        acknowledged: boolean;
+    };
+};
+
+export type IntakeFormsSetClosedResponse = IntakeFormsSetClosedResponses[keyof IntakeFormsSetClosedResponses];
+
+export type IntakeFormsRotateTokenData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/token-rotations';
+};
+
+export type IntakeFormsRotateTokenErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsRotateTokenError = IntakeFormsRotateTokenErrors[keyof IntakeFormsRotateTokenErrors];
+
+export type IntakeFormsRotateTokenResponses = {
+    /**
+     * Rotated.
+     */
+    200: {
+        publicToken: string;
+    };
+};
+
+export type IntakeFormsRotateTokenResponse = IntakeFormsRotateTokenResponses[keyof IntakeFormsRotateTokenResponses];
+
+export type IntakeFormsListSubmissionsData = {
+    body?: never;
+    path: {
+        formId: string;
+    };
+    query?: {
+        /**
+         * What a member decided about a submission. `new` is the state it arrives in and is not a decision anyone can record — a member who has looked cannot un-look. Nothing reads this as a gate; it records what a person did and permits nothing.
+         */
+        state?: 'new' | 'accepted' | 'declined' | 'spam';
+    };
+    url: '/api/v1/intake-forms/{formId}/submissions';
+};
+
+export type IntakeFormsListSubmissionsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+};
+
+export type IntakeFormsListSubmissionsError = IntakeFormsListSubmissionsErrors[keyof IntakeFormsListSubmissionsErrors];
+
+export type IntakeFormsListSubmissionsResponses = {
+    /**
+     * The queue.
+     */
+    200: {
+        data: Array<IntakeFormSubmissionSummary>;
+    };
+};
+
+export type IntakeFormsListSubmissionsResponse = IntakeFormsListSubmissionsResponses[keyof IntakeFormsListSubmissionsResponses];
+
+export type IntakeFormsReadSubmissionData = {
+    body?: never;
+    path: {
+        formId: string;
+        submissionId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/submissions/{submissionId}';
+};
+
+export type IntakeFormsReadSubmissionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+};
+
+export type IntakeFormsReadSubmissionError = IntakeFormsReadSubmissionErrors[keyof IntakeFormsReadSubmissionErrors];
+
+export type IntakeFormsReadSubmissionResponses = {
+    /**
+     * The submission.
+     */
+    200: IntakeFormSubmissionDetail;
+};
+
+export type IntakeFormsReadSubmissionResponse = IntakeFormsReadSubmissionResponses[keyof IntakeFormsReadSubmissionResponses];
+
+export type IntakeFormsTriageData = {
+    body: {
+        /**
+         * What a member decided about a submission. `new` is the state it arrives in and is not a decision anyone can record — a member who has looked cannot un-look. Nothing reads this as a gate; it records what a person did and permits nothing.
+         */
+        state: 'new' | 'accepted' | 'declined' | 'spam';
+        note?: string | null;
+    };
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+        submissionId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/submissions/{submissionId}/triage';
+};
+
+export type IntakeFormsTriageErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsTriageError = IntakeFormsTriageErrors[keyof IntakeFormsTriageErrors];
+
+export type IntakeFormsTriageResponses = {
+    /**
+     * Recorded.
+     */
+    200: {
+        acknowledged: boolean;
+    };
+};
+
+export type IntakeFormsTriageResponse = IntakeFormsTriageResponses[keyof IntakeFormsTriageResponses];
+
+export type IntakeFormsReadPublicData = {
+    body?: never;
+    path: {
+        firmId: string;
+        publicToken: string;
+    };
+    query?: never;
+    url: '/api/v1/public/intake-forms/{firmId}/{publicToken}';
+};
+
+export type IntakeFormsReadPublicErrors = {
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeFormsReadPublicError = IntakeFormsReadPublicErrors[keyof IntakeFormsReadPublicErrors];
+
+export type IntakeFormsReadPublicResponses = {
+    /**
+     * The form.
+     */
+    200: PublicIntakeForm;
+};
+
+export type IntakeFormsReadPublicResponse = IntakeFormsReadPublicResponses[keyof IntakeFormsReadPublicResponses];
+
+export type IntakeFormsSubmitPublicData = {
+    body: PublicIntakeSubmissionRequest;
+    headers?: {
+        'x-human-verification-token'?: string;
+    };
+    path: {
+        firmId: string;
+        publicToken: string;
+    };
+    query?: never;
+    url: '/api/v1/public/intake-forms/{firmId}/{publicToken}/submissions';
+};
+
+export type IntakeFormsSubmitPublicErrors = {
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+    /**
+     * Human verification is provisioned but could not be reached; retryable
+     */
+    503: Problem;
+};
+
+export type IntakeFormsSubmitPublicError = IntakeFormsSubmitPublicErrors[keyof IntakeFormsSubmitPublicErrors];
+
+export type IntakeFormsSubmitPublicResponses = {
+    /**
+     * Received.
+     */
+    202: {
+        received: true;
+        message: string;
+    };
+};
+
+export type IntakeFormsSubmitPublicResponse = IntakeFormsSubmitPublicResponses[keyof IntakeFormsSubmitPublicResponses];
 
 export type CustodyListLocationsData = {
     body?: never;
