@@ -5,7 +5,12 @@ import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/id
 export const MATTER_TABLE = "matter";
 export const NUMBERING_SCHEME_TABLE = "numbering_scheme";
 
-export type MatterStatus = "prospective" | "open" | "closed";
+// The lifecycle, in the order a matter passes through it. An intake becomes a consultation when the
+// firm's intake procedure lets it through (the consultation number is drawn then); a consultation
+// opens (the matter number is drawn then); an open matter can be put on hold for a recorded reason
+// and released back to open; an open or held matter closes; a closed matter reopens to where it
+// was. No number is drawn or surrendered on either side of a hold.
+export type MatterStatus = "intake" | "consultation" | "open" | "hold" | "closed";
 
 // The two sequences a firm numbers, each with its own active scheme: the permanent matter number,
 // and the tentative number a consultation carries. Kept apart so a consultation that never becomes
@@ -66,12 +71,16 @@ export interface MatterRow extends MatterFields {
   // The honest "was this matter ever opened" signal: set by createMatter (status 'open') and by
   // openMatter, never by renumberMatter — so reopen restores the real pre-close status.
   readonly openedAt: string | null;
+  // Set while the matter is on hold, and left standing by a close so a reopen returns the matter to
+  // the hold it was in. Null on every matter that is not held.
+  readonly heldAt: string | null;
+  readonly holdReason: string | null;
 }
 
 export function selectMatterStatement(database: SqlDatabase, id: MatterId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, opened_at FROM ${MATTER_TABLE} WHERE id = ?1`,
+      `SELECT id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, opened_at, held_at, hold_reason FROM ${MATTER_TABLE} WHERE id = ?1`,
     )
     .bind(id);
 }
@@ -102,6 +111,8 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
               matter.consultation_number AS consultation_number,
               matter.e_billing AS e_billing,
               matter.opened_at AS opened_at,
+              matter.held_at AS held_at,
+              matter.hold_reason AS hold_reason,
               matter.closed_at AS closed_at,
               matter.created_at AS created_at,
               matter_type.name AS matter_type_name,
@@ -116,10 +127,10 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
     .bind(id);
 }
 
-// The number draw on an existing prospective: prospective -> open, carrying the rendered number and
+// The number draw on an existing consultation: consultation -> open, carrying the rendered number and
 // its draw/open instants. The matter_number UNIQUE index aborts the batch on a colliding draw.
 //
-// `status = 'prospective'` is the in-batch belt behind the service's read-then-write precondition:
+// `status = 'consultation'` is the in-batch belt behind the service's read-then-write precondition:
 // D1 has no interactive transaction, so a concurrent open (or a close) can land between that read
 // and this commit. Without the predicate the second writer silently rewrites an already-open
 // matter's frozen number and its opened_at. With it the UPDATE matches zero rows instead, and the
@@ -132,9 +143,27 @@ export function openMatterStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MATTER_TABLE} SET status = 'open', matter_number = ?2, numbered_at = ?3, opened_at = ?3, updated_at = ?3 WHERE id = ?1 AND status = 'prospective'`,
+      `UPDATE ${MATTER_TABLE} SET status = 'open', matter_number = ?2, numbered_at = ?3, opened_at = ?3, updated_at = ?3 WHERE id = ?1 AND status = 'consultation'`,
     )
     .bind(id, matterNumber, openedAt);
+}
+
+// The consultation-number draw on an intake: intake -> consultation, carrying the tentative number.
+// `status = 'intake'` is the same in-batch belt the open carries, for the same race: a concurrent
+// graduation (or a close) between the service's read and this commit matches zero rows here rather
+// than rewriting a number already drawn, and the service confirms the row carries the number this
+// call drew.
+export function graduateMatterStatement(
+  database: SqlDatabase,
+  id: MatterId,
+  consultationNumber: string,
+  graduatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MATTER_TABLE} SET status = 'consultation', consultation_number = ?2, updated_at = ?3 WHERE id = ?1 AND status = 'intake'`,
+    )
+    .bind(id, consultationNumber, graduatedAt);
 }
 
 export function updateMatterFieldsStatement(
@@ -175,10 +204,40 @@ export function closeMatterStatement(
     .bind(id, closedAt);
 }
 
+// The hold and its release. `status = 'open'` and `status = 'hold'` are the in-batch belts behind
+// the service's read-then-write checks, for the same reason the open carries one: a close landing
+// between the read and this commit must not be overwritten by a hold, and a release racing a close
+// must not resurrect a closed matter. The release clears the reason with the instant, because the
+// two are one fact (matter_hold_check).
+export function holdMatterStatement(
+  database: SqlDatabase,
+  id: MatterId,
+  reason: string,
+  heldAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MATTER_TABLE} SET status = 'hold', held_at = ?3, hold_reason = ?2, updated_at = ?3 WHERE id = ?1 AND status = 'open'`,
+    )
+    .bind(id, reason, heldAt);
+}
+
+export function releaseMatterStatement(
+  database: SqlDatabase,
+  id: MatterId,
+  releasedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${MATTER_TABLE} SET status = 'open', held_at = NULL, hold_reason = NULL, updated_at = ?2 WHERE id = ?1 AND status = 'hold'`,
+    )
+    .bind(id, releasedAt);
+}
+
 export function reopenMatterStatement(
   database: SqlDatabase,
   id: MatterId,
-  status: "open" | "prospective",
+  status: "open" | "hold" | "consultation" | "intake",
   updatedAt: string,
 ): SqlStatement {
   return database

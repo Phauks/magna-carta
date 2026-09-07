@@ -20,6 +20,7 @@
     chosenFolderId = $bindable(null),
     excludeFolderId = null,
     label = "Choose a folder",
+    disabled = false,
   }: {
     index: MatterFileIndex;
     /** The folder chosen, or null for the matter root. */
@@ -27,6 +28,8 @@
     /** A folder whose whole subtree is not a legal destination. */
     excludeFolderId?: string | null;
     label?: string;
+    /** Locked: the choice has been acted on and the tree no longer takes a press. Still shown. */
+    disabled?: boolean;
   } = $props();
 
   const excluded = $derived(
@@ -74,6 +77,8 @@
 <div
   class="mc-scrollbar overflow-y-auto rounded-md border border-border-default"
   style="max-block-size: min(calc(var(--mc-size-sidebar) + var(--mc-space-64)), 50vh)"
+  inert={disabled}
+  aria-disabled={disabled ? "true" : undefined}
 >
   <FolderTree
     folders={treeNodes}

@@ -64,7 +64,7 @@ function stubFetch(pages: (path: string) => StubPage | number): {
   return { fetchImpl, paths };
 }
 
-const numbered = (path: string): boolean => !path.includes("status=prospective");
+const numbered = (path: string): boolean => !path.includes("status=consultation");
 
 describe("the whole docket", () => {
   it("asks for the numbered matters AND the consultations, and merges them", async () => {
@@ -72,7 +72,7 @@ describe("the whole docket", () => {
       numbered(path)
         ? { data: [matter("matter_open")], nextCursor: null }
         : {
-            data: [matter("matter_consult", { status: "prospective", matterNumber: null })],
+            data: [matter("matter_consult", { status: "consultation", matterNumber: null })],
             nextCursor: null,
           },
     );
@@ -82,7 +82,7 @@ describe("the whole docket", () => {
     expect(outcome.kind).toBe("ok");
     if (outcome.kind !== "ok") return;
     expect(outcome.value.data.map((row) => row.id)).toEqual(["matter_open", "matter_consult"]);
-    expect(stub.paths.some((path) => path.includes("status=prospective"))).toBe(true);
+    expect(stub.paths.some((path) => path.includes("status=consultation"))).toBe(true);
     expect(stub.paths.some((path) => !path.includes("status="))).toBe(true);
   });
 

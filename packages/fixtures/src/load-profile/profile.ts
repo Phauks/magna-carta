@@ -27,9 +27,9 @@ export interface ArchetypeWeights {
 export interface PracticeVolume {
   readonly locationCount: number;
   readonly matterTypeCount: number;
-  // Matters laid down per lifecycle status. Prospective = consultations (no number); open/closed draw
+  // Matters laid down per lifecycle status. Consultation = consultations (no number); open/closed draw
   // a number through openMatter, exercising the counter.
-  readonly prospectiveMatterCount: number;
+  readonly consultationMatterCount: number;
   readonly openMatterCount: number;
   readonly closedMatterCount: number;
   // Folders created per matter (a flat working set under the matter root; no nesting in v1 volume).
@@ -567,7 +567,7 @@ export const ledgerVolume: LedgerVolumeProfile = {
   practice: {
     locationCount: 3,
     matterTypeCount: 8,
-    prospectiveMatterCount: 60,
+    consultationMatterCount: 60,
     openMatterCount: 220,
     closedMatterCount: 120,
     foldersPerMatter: { min: 2, max: 6 },
@@ -778,7 +778,7 @@ export function scaleProfile(
       ...profile.practice,
       locationCount: scaleCount(profile.practice.locationCount, 2),
       matterTypeCount: scaleCount(profile.practice.matterTypeCount, 2),
-      prospectiveMatterCount: scaleCount(profile.practice.prospectiveMatterCount, 2),
+      consultationMatterCount: scaleCount(profile.practice.consultationMatterCount, 2),
       openMatterCount: scaleCount(profile.practice.openMatterCount, 3),
       closedMatterCount: scaleCount(profile.practice.closedMatterCount, 2),
     },

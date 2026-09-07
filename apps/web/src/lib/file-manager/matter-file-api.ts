@@ -37,6 +37,11 @@ export interface MatterFile {
   scanVerdict: ScanVerdict | null;
   status: MatterFileStatus;
   quarantineReason: string | null;
+  /**
+   * The last-modified instant the uploading device reported for the file this row's version came
+   * from, or null where none was recorded. A fact about the source, kept beside the record's dates.
+   */
+  sourceModifiedAt: string | null;
 }
 
 export interface MatterFileVersion {

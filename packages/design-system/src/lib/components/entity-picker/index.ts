@@ -16,8 +16,13 @@ export type {
   PickableEntity,
 } from "./types.ts";
 export {
+  addRowKind,
+  addRowSentence,
+  addRowValue,
+  newControlName,
   CAPPED_SENTENCE,
   DEFAULT_MINIMUM_QUERY_LENGTH,
+  NEW_CONTROL_LABEL,
   SEARCH_SETTLE_MILLISECONDS,
   offerableEntities,
   runEntitySearch,

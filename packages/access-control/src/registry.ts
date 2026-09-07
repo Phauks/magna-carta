@@ -34,9 +34,10 @@ export const PERMISSIONS = [
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.
   "matters:create", // open a consultation or a numbered matter
-  "matters:open", // draw a number on a prospective matter (prospective -> open)
+  "matters:open", // draw a matter number on a consultation (consultation -> open)
   "matters:close", // archive a matter (closed-but-additive)
   "matters:reopen", // return a closed matter to open
+  "matters:hold", // put an open matter on hold for a recorded reason, and release it back to open
   "matters:edit", // edit matter fields (title/description/type/location/attorney/client)
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types

@@ -41,12 +41,12 @@ import type { CreateMatterRequest } from "./matters-api.ts";
  * Which starting state a matter is created in.
  *
  * Two, not three, and the missing one is the contract's rather than the design's: the create
- * operation accepts only prospective and open. Closed is a real lifecycle state a firm does start
+ * operation accepts only consultation and open. Closed is a real lifecycle state a firm does start
  * a file in — recording a matter it handled before it kept its record here — so the intake renders
  * it, disabled, naming what it waits on (matter-status.ts holds that sentence). It cannot reach
  * this type until the operation accepts it.
  */
-export type StartingStatus = "open" | "prospective";
+export type StartingStatus = "intake" | "consultation" | "open";
 
 /** The seats a member can hold on a matter. One person holds at most one of them. */
 export type TeamSeat = "responsible" | "assignedAttorney" | "supportStaff";
@@ -152,7 +152,7 @@ export interface IntakeDraft {
   readonly startingStatus: StartingStatus;
   /**
    * The client, chosen from the firm's directory. A matter has one from the moment it exists —
-   * open or prospective alike, because a prospective matter's conflict check needs a person — so
+   * open or consultation alike, because an intake's conflict check needs a person — so
    * the intake refuses to create one without it, and a name typed here never becomes a record: a
    * person the directory does not hold is added there first.
    */

@@ -41,8 +41,10 @@ const FirmUsageResponse = z
     counts: z.object({
       matters: z.object({
         total: z.number(),
-        prospective: z.number(),
+        intake: z.number(),
+        consultation: z.number(),
         open: z.number(),
+        hold: z.number(),
         closed: z.number(),
       }),
       files: z.number(),
@@ -55,8 +57,10 @@ const FirmUsageResponse = z
     mattersByType: z.array(
       z.object({
         matterTypeName: z.string().nullable(),
-        prospective: z.number(),
+        intake: z.number(),
+        consultation: z.number(),
         open: z.number(),
+        hold: z.number(),
         closed: z.number(),
         total: z.number(),
       }),
@@ -207,8 +211,10 @@ async function readFirmUsage(database: SqlDatabase) {
     counts: { matters, files, fileVersions, folders, locations },
     mattersByType: mattersByType.map((row) => ({
       matterTypeName: row.matterTypeName,
-      prospective: row.prospective,
+      intake: row.intake,
+      consultation: row.consultation,
       open: row.open,
+      hold: row.hold,
       closed: row.closed,
       total: row.total,
     })),

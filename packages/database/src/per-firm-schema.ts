@@ -594,17 +594,19 @@ export const matterNumberCounter = sqliteTable("matter_number_counter", {
   nextValue: integer("next_value").notNull(),
 });
 
-// The matter shell. status drives the owner-shaped lifecycle: prospective (an unnumbered
+// The matter shell. status drives the owner-shaped lifecycle: consultation (an unnumbered
 // consultation) -> open (draws the number) -> closed (archived but still additive). The number is
 // frozen at assignment; the partial UNIQUE index makes a duplicate number within the firm impossible
-// while leaving unnumbered prospectives unconstrained.
+// while leaving unnumbered consultations unconstrained.
 export const matter = sqliteTable(
   "matter",
   {
     id: text("id").primaryKey().$type<MatterId>(), // matter_ handle
     title: text("title").notNull(),
     description: text("description"),
-    status: text("status", { enum: ["prospective", "open", "closed"] }).notNull(),
+    status: text("status", {
+      enum: ["intake", "consultation", "open", "hold", "closed"],
+    }).notNull(),
     matterTypeId: text("matter_type_id")
       .$type<MatterTypeId>()
       .references(() => matterType.id),
@@ -631,12 +633,12 @@ export const matter = sqliteTable(
     matterNumber: text("matter_number"), // null until open draws it; frozen thereafter
     numberedAt: text("numbered_at"),
     // The tentative number a consultation carries from the moment it is created, drawn from the
-    // firm's consultation sequence. A prospective matter is a real thing a firm has to be able to
+    // firm's consultation sequence. A consultation is a real thing a firm has to be able to
     // name — on an intake sheet, a conflicts check, a bill for the consultation itself — and
     // "Consultation" is not a name. It is drawn once and frozen: opening the matter draws the
     // permanent matter_number alongside it rather than replacing it, so a document filed under the
     // tentative number still resolves. Null only on matters created straight to open (which never
-    // were a consultation) and on prospectives created before the sequence existed. The draw instant
+    // were a consultation) and on consultations created before the sequence existed. The draw instant
     // is created_at by construction — the number is allocated in the insert's own batch.
     consultationNumber: text("consultation_number"),
     // Names a platform-owned matter that exists to satisfy a structural requirement rather than to
@@ -647,6 +649,14 @@ export const matter = sqliteTable(
     // depend on) is not forced by one consumer's need.
     systemKey: text("system_key"),
     openedAt: text("opened_at"),
+    // A HOLD is an open matter the firm has stopped working without closing it: a client who has
+    // stopped paying, a party who has gone quiet, an instruction to wait. The matter keeps its
+    // number, because a hold is a pause of the engagement and not the end of it; what it gains is
+    // the reason, in the firm's own words, and the instant the pause began. Both are cleared when
+    // the hold is released and the matter returns to open. A close leaves them standing so a
+    // reopen can return the matter to the hold it was in, which is the rung it left.
+    heldAt: text("held_at"),
+    holdReason: text("hold_reason"),
     closedAt: text("closed_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -677,7 +687,19 @@ export const matter = sqliteTable(
       table.id,
     ),
     index("matter_created_at_id_index").on(table.createdAt, table.id),
-    check("matter_status_check", sql`${table.status} IN ('prospective', 'open', 'closed')`),
+    // The lifecycle: an INTAKE is the walk from first contact to a consultation the firm's own
+    // procedure lets through; a CONSULTATION is a prospective client's matter, numbered from the
+    // consultation sequence and not yet taken on; OPEN draws the matter number; HOLD is an open
+    // matter the firm has paused, for a recorded reason, keeping its number; CLOSED keeps the
+    // record. Held by a CHECK so a sixth status is a reviewed migration.
+    check(
+      "matter_status_check",
+      sql`${table.status} IN ('intake', 'consultation', 'open', 'hold', 'closed')`,
+    ),
+    // A hold is a reason and an instant together, or neither: a matter on hold with no reason
+    // recorded would be a pause nobody can explain, and a reason with no instant a pause nobody
+    // can date.
+    check("matter_hold_check", sql`(${table.heldAt} IS NULL) = (${table.holdReason} IS NULL)`),
     check("matter_title_nonempty_check", sql`length(${table.title}) > 0`),
     check("matter_e_billing_check", sql`${table.eBilling} IN (0, 1)`),
     check(
@@ -965,6 +987,12 @@ export const fileVersion = sqliteTable(
       .references((): AnySQLiteColumn => documentCheckout.id),
     createdAt: text("created_at").notNull(),
     committedAt: text("committed_at"),
+    // The last-modified instant the uploading device reported for the file this version came from,
+    // as the reader's browser saw it (File.lastModified). A fact about the SOURCE, recorded on every
+    // version whether or not the reader chose to date the file by it — so a later question about
+    // where a document's date came from has an answer. Null for a version that arrived some other
+    // way (a live-edit save, an assembled document, a version older than the column).
+    sourceModifiedAt: text("source_modified_at"),
   },
   (table) => [
     uniqueIndex("file_version_r2_key_unique_index").on(table.r2Key),
@@ -973,6 +1001,8 @@ export const fileVersion = sqliteTable(
       table.versionNumber,
     ),
     index("file_version_status_index").on(table.status),
+    // The upload dialog's "does the firm already hold these bytes" lookup, by the committed hash.
+    index("file_version_content_sha256_index").on(table.contentSha256),
     // The tiering sweep's firm-wide candidate scan (storage_class='standard' + status='clean' +
     // committed_at < cutoff) seeks this composite instead of walking every clean version.
     index("file_version_tiering_index").on(table.storageClass, table.status, table.committedAt),
@@ -2248,6 +2278,12 @@ export const timeEntry = sqliteTable(
     index("time_entry_timekeeper_work_date_index").on(table.timekeeperUserId, table.workDate),
     index("time_entry_matter_status_index").on(table.matterId, table.status),
     index("time_entry_status_work_date_index").on(table.status, table.workDate),
+    // The firm-wide period read behind /time when it is asked for everybody's time: a date range
+    // with no timekeeper and no status. The (timekeeper_user_id, work_date) index above serves the
+    // same read narrowed to one person, and the (status, work_date) index serves it narrowed to one
+    // status; neither has work_date in its leading position, so the unnarrowed range had nothing to
+    // ride and walked the table.
+    index("time_entry_work_date_index").on(table.workDate),
     // The grouped read behind "how long did this task actually take". Partial, because the column
     // is null on nearly every row and an index over those nulls would be mostly dead weight.
     index("time_entry_task_index")
@@ -2391,7 +2427,7 @@ export const conflictsCheck = sqliteTable(
   {
     id: text("id").primaryKey().$type<ConflictsCheckId>(),
     trigger: text("trigger").notNull(),
-    // Null for a pre-consult check against a prospective party set that has no matter yet.
+    // Null for a pre-consult check against a consultation party set that has no matter yet.
     subjectMatterId: text("subject_matter_id").$type<MatterId>(),
     subjectPartiesJson: text("subject_parties_json").notNull(), // JSON array of entity ids
     // The scope in force: each source class with its availability. An auditor must be able to tell
@@ -9541,6 +9577,8 @@ export const intakeProcedureStep = sqliteTable(
         "retainer",
         "identity-verification",
         "acknowledgement",
+        "client-forms",
+        "payment",
       ],
     }).notNull(),
     title: text("title").notNull(),
@@ -9557,10 +9595,13 @@ export const intakeProcedureStep = sqliteTable(
   (table) => [
     index("intake_procedure_step_procedure_position_index").on(table.procedureId, table.position),
     check("intake_procedure_step_title_nonempty_check", sql`length(${table.title}) > 0`),
-    // The kind vocabulary, as a CHECK so a ninth kind is a reviewed migration rather than a commit.
+    // The kind vocabulary, as a CHECK so an eleventh kind is a reviewed migration rather than a
+    // commit. client-forms and payment name two steps a receptionist's intake always has — the forms
+    // the client fills in online, and the money that changes hands — ahead of the portal and the
+    // payments subsystem that will one day answer them; today each is a member's record.
     check(
       "intake_procedure_step_kind_check",
-      sql`${table.kind} IN ('conflicts-check', 'fee-agreement', 'engagement-letter', 'document', 'questionnaire', 'retainer', 'identity-verification', 'acknowledgement')`,
+      sql`${table.kind} IN ('conflicts-check', 'fee-agreement', 'engagement-letter', 'document', 'questionnaire', 'retainer', 'identity-verification', 'acknowledgement', 'client-forms', 'payment')`,
     ),
     check("intake_procedure_step_required_check", sql`${table.required} IN (0, 1)`),
     check("intake_procedure_step_active_check", sql`${table.active} IN (0, 1)`),

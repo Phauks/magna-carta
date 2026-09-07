@@ -32,7 +32,7 @@ async function selectRescanMatters(database: ProxyBatchDatabase, limit: number):
       `SELECT matter.id AS id
          FROM matter
          LEFT JOIN conflicts_check ON conflicts_check.subject_matter_id = matter.id
-        WHERE matter.status IN ('prospective', 'open') AND matter.system_key IS NULL
+        WHERE matter.status IN ('intake', 'consultation', 'open', 'hold') AND matter.system_key IS NULL
         GROUP BY matter.id
         ORDER BY COALESCE(MAX(conflicts_check.created_at), '') ASC, matter.id ASC
         LIMIT ?1`,

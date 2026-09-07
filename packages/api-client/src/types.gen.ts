@@ -131,8 +131,10 @@ export type FirmUsageResponse = {
     counts: {
         matters: {
             total: number;
-            prospective: number;
+            intake: number;
+            consultation: number;
             open: number;
+            hold: number;
             closed: number;
         };
         files: number;
@@ -142,8 +144,10 @@ export type FirmUsageResponse = {
     };
     mattersByType: Array<{
         matterTypeName: string | null;
-        prospective: number;
+        intake: number;
+        consultation: number;
         open: number;
+        hold: number;
         closed: number;
         total: number;
     }>;
@@ -927,6 +931,46 @@ export type InitiateUploadRequest = {
     documentTypeId?: string | null;
     fileId?: string;
     uploadKind?: 'interactive' | 'bulk';
+    sourceModifiedAt?: string | null;
+    createdAtBasis?: 'upload' | 'source';
+};
+
+export type UploadMatchesResponse = {
+    onMatter: Array<{
+        fileId: string;
+        versionId: string;
+        folderId: string | null;
+        name: string;
+    }>;
+    elsewhere: Array<{
+        fileId: string;
+        versionId: string;
+        matterId: string;
+    }>;
+};
+
+export type UploadMatchesRequest = {
+    matterId: string;
+    /**
+     * SHA-256 of the file's bytes, lowercase hex.
+     */
+    sha256: string;
+    sizeBytes: number;
+};
+
+export type DuplicateUploadResponse = {
+    fileId: string;
+    versionId: string;
+};
+
+export type DuplicateUploadRequest = {
+    sourceVersionId: string;
+    matterId: string;
+    folderId?: string | null;
+    name: string;
+    documentTypeId?: string | null;
+    sourceModifiedAt?: string | null;
+    createdAtBasis?: 'upload' | 'source';
 };
 
 export type UploadStatusResponse = {
@@ -963,7 +1007,7 @@ export type CreateMatterResponse = {
 
 export type CreateMatterRequest = {
     title: string;
-    status: 'prospective' | 'open';
+    status: 'intake' | 'consultation' | 'open';
     description?: string | null;
     matterTypeId?: string | null;
     locationId?: string | null;
@@ -985,7 +1029,7 @@ export type MatterSummary = {
     id: string;
     title: string;
     clientEntityId: string | null;
-    status: 'prospective' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
     responsibleMemberId: string;
@@ -1013,7 +1057,7 @@ export type MatterDetail = {
     id: string;
     title: string;
     description: string | null;
-    status: 'prospective' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
     responsibleMemberId: string;
@@ -1024,6 +1068,8 @@ export type MatterDetail = {
     consultationNumber: string | null;
     eBilling: boolean;
     openedAt: string | null;
+    heldAt: string | null;
+    holdReason: string | null;
     closedAt: string | null;
     createdAt: string;
     matterTypeName: string | null;
@@ -1033,8 +1079,18 @@ export type MatterDetail = {
 
 export type MatterOpenReadiness = {
     matterId: string;
-    status: 'prospective' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     openable: boolean;
+    blockers: Array<{
+        code: string;
+        message: string;
+    }>;
+};
+
+export type MatterGraduateReadiness = {
+    matterId: string;
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
+    graduable: boolean;
     blockers: Array<{
         code: string;
         message: string;
@@ -1043,7 +1099,7 @@ export type MatterOpenReadiness = {
 
 export type MatterCloseReadiness = {
     matterId: string;
-    status: 'prospective' | 'open' | 'closed';
+    status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     closable: boolean;
     blockers: Array<{
         code: string;
@@ -1065,6 +1121,11 @@ export type PatchMatterRequest = {
     clientCode?: string | null;
 };
 
+export type GraduateMatterResponse = {
+    matterId: string;
+    consultationNumber: string;
+};
+
 export type OpenMatterResponse = {
     matterId: string;
     matterNumber: string;
@@ -1076,6 +1137,10 @@ export type MatterCloseAck = {
         code: string;
         message: string;
     }>;
+};
+
+export type HoldMatterRequest = {
+    reason: string;
 };
 
 export type RenumberMatterRequest = {
@@ -1541,6 +1606,7 @@ export type FileSummary = {
     scanVerdict: 'unscanned' | 'clean' | 'flagged' | null;
     status: 'clean' | 'pending' | 'quarantined';
     quarantineReason: string | null;
+    sourceModifiedAt: string | null;
 };
 
 export type FileVersionsResponse = {
@@ -2099,7 +2165,7 @@ export type DirectoryEntityMatterPartyEntry = {
      */
     matterTitle: string | null;
     /**
-     * Null while the matter is still prospective and undrawn.
+     * Null while the matter is still consultation and undrawn.
      */
     matterNumber: string | null;
     matterStatus: string | null;
@@ -3443,7 +3509,7 @@ export type IntakeProcedure = {
 
 export type IntakeProcedureStep = {
     id: string;
-    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'client-forms' | 'retainer' | 'payment' | 'document' | 'questionnaire' | 'acknowledgement';
     title: string;
     instructions: string | null;
     required: boolean;
@@ -3466,7 +3532,7 @@ export type IntakeAcknowledged = {
 };
 
 export type IntakeProcedureStepRequest = {
-    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'client-forms' | 'retainer' | 'payment' | 'document' | 'questionnaire' | 'acknowledgement';
     title: string;
     instructions?: string | null;
     required?: boolean | null;
@@ -3482,9 +3548,46 @@ export type IntakeProcedureStepEditRequest = {
     position?: number | null;
 };
 
+export type IntakeDeskList = {
+    data: Array<IntakeDeskRow>;
+    nextCursor: string | null;
+};
+
+export type IntakeDeskRow = {
+    matterId: string;
+    title: string;
+    status: 'intake' | 'consultation';
+    consultationNumber: string | null;
+    matterTypeId: string | null;
+    matterTypeName: string | null;
+    responsibleMemberId: string;
+    responsibleMemberName: string | null;
+    clientEntityId: string | null;
+    clientDisplayName: string | null;
+    createdAt: string;
+    isStale: boolean;
+    checklist: IntakeDeskChecklist;
+    nextConsultation: IntakeDeskConsultationSetting;
+};
+
+export type IntakeDeskChecklist = {
+    bound: boolean;
+    steps: number;
+    answered: number;
+    outstandingRequired: number;
+};
+
+export type IntakeDeskConsultationSetting = {
+    eventId: string;
+    title: string;
+    startsOn: string;
+    startsAtTime: string | null;
+    timeZone: string;
+} | null;
+
 export type IntakeChecklist = {
     matterId: string;
-    matterStatus: 'prospective' | 'open' | 'closed';
+    matterStatus: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     procedures: Array<{
         id: string;
         name: string;
@@ -3498,7 +3601,7 @@ export type IntakeChecklistStep = {
     stepId: string;
     procedureId: string;
     procedureName: string;
-    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'retainer' | 'document' | 'questionnaire' | 'acknowledgement';
+    kind: 'identity-verification' | 'conflicts-check' | 'fee-agreement' | 'engagement-letter' | 'client-forms' | 'retainer' | 'payment' | 'document' | 'questionnaire' | 'acknowledgement';
     title: string;
     instructions: string | null;
     required: boolean;
@@ -10887,6 +10990,91 @@ export type UploadsInitiateResponses = {
 
 export type UploadsInitiateResponse = UploadsInitiateResponses[keyof UploadsInitiateResponses];
 
+export type UploadsMatchesData = {
+    body: UploadMatchesRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/uploads/matches';
+};
+
+export type UploadsMatchesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsMatchesError = UploadsMatchesErrors[keyof UploadsMatchesErrors];
+
+export type UploadsMatchesResponses = {
+    /**
+     * The files that hold these bytes, on the matter and elsewhere in the firm
+     */
+    200: UploadMatchesResponse;
+};
+
+export type UploadsMatchesResponse = UploadsMatchesResponses[keyof UploadsMatchesResponses];
+
+export type UploadsDuplicateData = {
+    body: DuplicateUploadRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/uploads/duplicates';
+};
+
+export type UploadsDuplicateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * No committed version by that id in this firm, or no such folder on the matter
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsDuplicateError = UploadsDuplicateErrors[keyof UploadsDuplicateErrors];
+
+export type UploadsDuplicateResponses = {
+    /**
+     * The file was made from the held bytes
+     */
+    201: DuplicateUploadResponse;
+};
+
+export type UploadsDuplicateResponse = UploadsDuplicateResponses[keyof UploadsDuplicateResponses];
+
 export type UploadsGetData = {
     body?: never;
     path: {
@@ -11060,7 +11248,7 @@ export type MattersListData = {
     body?: never;
     path?: never;
     query?: {
-        status?: 'prospective' | 'open' | 'closed';
+        status?: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
         matterTypeId?: string;
         locationId?: string;
         responsibleMemberId?: string;
@@ -11313,6 +11501,45 @@ export type MattersOpenReadinessResponses = {
 
 export type MattersOpenReadinessResponse = MattersOpenReadinessResponses[keyof MattersOpenReadinessResponses];
 
+export type MattersGraduateReadinessData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/graduate-readiness';
+};
+
+export type MattersGraduateReadinessErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersGraduateReadinessError = MattersGraduateReadinessErrors[keyof MattersGraduateReadinessErrors];
+
+export type MattersGraduateReadinessResponses = {
+    /**
+     * Whether the intake can become a consultation, and what stands in the way
+     */
+    200: MatterGraduateReadiness;
+};
+
+export type MattersGraduateReadinessResponse = MattersGraduateReadinessResponses[keyof MattersGraduateReadinessResponses];
+
 export type MattersCloseReadinessData = {
     body?: never;
     path: {
@@ -11351,6 +11578,60 @@ export type MattersCloseReadinessResponses = {
 };
 
 export type MattersCloseReadinessResponse = MattersCloseReadinessResponses[keyof MattersCloseReadinessResponses];
+
+export type MattersGraduateData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/graduate';
+};
+
+export type MattersGraduateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A graduation rule refused the intake, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersGraduateError = MattersGraduateErrors[keyof MattersGraduateErrors];
+
+export type MattersGraduateResponses = {
+    /**
+     * The intake is now a consultation, and carries its consultation number
+     */
+    200: GraduateMatterResponse;
+};
+
+export type MattersGraduateResponse = MattersGraduateResponses[keyof MattersGraduateResponses];
 
 export type MattersOpenData = {
     body?: never;
@@ -11459,6 +11740,114 @@ export type MattersCloseResponses = {
 };
 
 export type MattersCloseResponse = MattersCloseResponses[keyof MattersCloseResponses];
+
+export type MattersHoldData = {
+    body: HoldMatterRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/hold';
+};
+
+export type MattersHoldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * The matter is not open, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersHoldError = MattersHoldErrors[keyof MattersHoldErrors];
+
+export type MattersHoldResponses = {
+    /**
+     * The matter is on hold
+     */
+    200: MatterActionAck;
+};
+
+export type MattersHoldResponse = MattersHoldResponses[keyof MattersHoldResponses];
+
+export type MattersReleaseData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/release';
+};
+
+export type MattersReleaseErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * The matter is not on hold, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersReleaseError = MattersReleaseErrors[keyof MattersReleaseErrors];
+
+export type MattersReleaseResponses = {
+    /**
+     * The hold was released and the matter is open
+     */
+    200: MatterActionAck;
+};
+
+export type MattersReleaseResponse = MattersReleaseResponses[keyof MattersReleaseResponses];
 
 export type MattersReopenData = {
     body?: never;
@@ -20418,6 +20807,47 @@ export type IntakeEditStepResponses = {
 };
 
 export type IntakeEditStepResponse = IntakeEditStepResponses[keyof IntakeEditStepResponses];
+
+export type IntakeListConsultationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/intake/consultations';
+};
+
+export type IntakeListConsultationsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type IntakeListConsultationsError = IntakeListConsultationsErrors[keyof IntakeListConsultationsErrors];
+
+export type IntakeListConsultationsResponses = {
+    /**
+     * A page of the desk
+     */
+    200: IntakeDeskList;
+};
+
+export type IntakeListConsultationsResponse = IntakeListConsultationsResponses[keyof IntakeListConsultationsResponses];
 
 export type IntakeReadChecklistData = {
     body?: never;
@@ -30395,7 +30825,15 @@ export type TimeEntriesListData = {
         matterId?: string;
         workDate?: string;
         /**
-         * Narrows a per-matter listing to one status. Omitted, the listing answers with every status the matter carries, which is what a matter's time record is.
+         * The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability.
+         */
+        from?: string;
+        /**
+         * The last work date of a period listing, inclusive. Required alongside `from`.
+         */
+        to?: string;
+        /**
+         * Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.
          */
         status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
         cursor?: string;
@@ -30416,6 +30854,10 @@ export type TimeEntriesListErrors = {
      * The firm is unreachable, the member is deactivated, or the entry is unknown
      */
     404: Problem;
+    /**
+     * The period's first date is after its last
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */

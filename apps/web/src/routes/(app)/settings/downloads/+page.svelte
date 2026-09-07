@@ -19,6 +19,7 @@
    */
   import { onMount } from "svelte";
   import { toast } from "@magna-carta/design-system/toast";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
@@ -88,12 +89,13 @@
 <SettingsMasthead
   sectionId="downloads"
   title="Downloads"
-  meta="How you take the files the platform makes for you."
   posture="instant"
 />
 
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>How you take the files the platform makes for you.</SettingsDescription>
+
     <SettingsPlate heading="Exporting">
       <SettingsRow
         definition={SAVE_IMMEDIATELY_DEFINITION}

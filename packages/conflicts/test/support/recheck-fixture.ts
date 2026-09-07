@@ -31,7 +31,7 @@ export interface RecheckFixture {
   };
   // Inserts a live matter and returns its id. Matters are seeded raw: what these tests are about is
   // which ledger rows a corpus change produces, not how a matter comes to exist.
-  addMatter(id: string, status?: "prospective" | "open" | "closed"): void;
+  addMatter(id: string, status?: "consultation" | "open" | "closed"): void;
 }
 
 export async function recheckFixture(

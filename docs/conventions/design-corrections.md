@@ -88,6 +88,20 @@ is usually the fastest way to understand the rule.
   back, and it had. The commit carries the act's own verb ("Upload", not "Save"), a failure reads as
   one ("Upload failed", not "did not land"), and a panel carries no running commentary about what
   it is doing on the reader's behalf. _(file manager upload, 2026-09-03)_
+- **A transfer the reader started outlives the panel that started it, and shows itself in the top
+  bar.** An upload is handed to the app's own queue the moment it is pressed; the panel stays as a
+  report and Close leaves the bytes moving; the top-bar upload tray carries every batch with its
+  tally, its failures, a Retry that resends only what failed, and the way to where the files landed.
+  Uploads and downloads are two trays, not one: the download shelf is a durable register on the
+  member's record, an upload is live state in this tab, and one list mixing the two would make every
+  item ambiguous about what closing the tab does to it. Leaving the screen with files chosen and not
+  yet sent asks first; a running transfer asks nothing inside the app and lets the browser ask
+  before the tab closes. _(file manager upload, 2026-09-06)_
+- **A panel never re-flows when its act begins.** Controls stay where they are and are disabled; a
+  list stays the same list and changes only the column that reports; a line that reported the
+  choice reports the progress in the same place at the same height. The Upload dialog swapped both
+  panes the instant the transfer began and moved under the pointer. _(file manager upload,
+  2026-09-06)_
 
 ### Lists and tables
 
@@ -238,6 +252,15 @@ is usually the fastest way to understand the rule.
   statement about a route and a wrong one about the work: the person has the document open in front
   of them. Hold the picks and apply them when the record is written. _(Time record window,
   2026-09-03)_
+- **A field that chooses a record can MAKE one, from where it stands, through a top-level New.**
+  Wherever a person or an organization is picked — a client, a payee, a conflicts subject, an
+  event's participant — a New control stands beside the field before anything is typed, and the
+  list ends with an add row for what was. It opens the record's own creation window (the same
+  window, the same duplicate gate) over the surface the field is on, seeded with what was typed,
+  and the new record lands in the field. Sending somebody to the Directory to add the caller and
+  then back to the matter they were opening is the same work twice and loses the sentence they were
+  halfway through. A reader who may not create sees the control refused with the reason, never
+  absent. _(the intake desk's client field, and every picker over the directory, 2026-09-05)_
 
 ### Controls and patterns
 
@@ -557,7 +580,8 @@ surface, which is most of the product.
   nothing they did not know before they clicked. This is not the same as an honest line that carries
   a CONSEQUENCE — "revealing a value is recorded in the firm's audit log" stays, because it says
   something a reader must know before they press. The test is whether removing the line loses a
-  fact. _(matters list, 2026-08-30)_
+  fact. **Issued here against lists, it binds every archetype** — see _Screen headers_ below, which
+  is where it was carried to the rest of the app. _(matters list, 2026-08-30)_
 - **Actions collapse into one compact action row.** Everything above the data that is not the data
   is a single row: the primary action, then narrowing and searching as icon controls that open what
   they need when they are needed. A labelled dropdown and a labelled search box, each with a
@@ -621,6 +645,59 @@ surface, which is most of the product.
   and shipping it beside the word it collides with is half the correction. This never licenses a
   synonym: the enum, the ledger and the filter are unchanged, and the word chosen is the domain's
   own (the ledger row for this state records a `borrower`). _(Custodian register, 2026-09-01)_
+
+### Screen headers
+
+Issued against the main screens as a set (2026-09-06). They bind every screen that states its own
+name, which is every screen outside a matter.
+
+- **A main screen's title is its destination's name, and nothing else.** `ScreenHeader` with a
+  `title` and no `eyebrow` — the Matters shape, which the owner named as the one to copy: "i like
+  matters, simple, just the name". Home greeted the reader with the daypart, Notifications called
+  itself "Notification Center" while the sidebar called it Notifications, and Downloads and
+  Notifications each carried an eyebrow that repeated their own title back. A screen and the
+  sidebar row that leads to it disagreeing about the screen's name costs the product a shared
+  vocabulary and buys nothing. Take the name from `destinations.ts`. _(main screens, 2026-09-06)_
+- **The eyebrow names what the screen's SUBJECT is, never what the screen is.** It exists for a
+  record window — PERSON over _Rosalind Chase_ — where the reader needs to know what kind of thing
+  they are looking at. On a destination screen the title is already that answer, so the eyebrow can
+  only repeat it. No main screen carries one. _(main screens, 2026-09-06)_
+- **The meta line carries facts, not descriptions.** This is the no-explanatory-sub-text rule
+  (_List screens_, above) applied to the masthead's citation, and the test is unchanged: removing
+  the line must lose a fact. Home's date, a room's kind and seat count, a speed test's run time and
+  a maturity badge all stay. "Alerts, mentions, and updates across your matters", "Runs outside any
+  matter" and "Registration records for a domain or IP address" were removed — each restated its
+  own title in a sentence. _(main screens, 2026-09-06)_
+- **The rule is a gate, not a ledger entry.** `pnpm run lint:screen-headers`
+  (`tooling/lint-screen-headers/`) refuses an eyebrow on any screen, a destination screen whose
+  title is not what `destinations.ts` calls it, and a meta line that is fixed prose rather than a
+  read value. It exists because the drift reappeared while the consolidation was still open: the
+  uploads screen shipped `eyebrow="Uploads"` over `title="Uploads"`, written by somebody with no
+  way to know the rule had been made. A rule in this file binds whoever reads this file; a rule
+  with a gate binds the diff. The meta test is a shape rather than a judgement — a fact is READ
+  from somewhere, a description is typed in place — and every line the consolidation removed was
+  static text while every line it kept interpolates or renders. Exemptions are named in the scan
+  with their reason, and there are none. _(main screens, 2026-09-06)_
+- **A screen with a page header does not also label its content region.** Where a page owns an
+  `h1`, the component beneath it drops its own heading rather than saying the name twice; where the
+  page's masthead names something else — a matter's Tasks section under the matter's own name —
+  the section keeps its label. `TaskList`'s `heading` is optional for exactly this reason.
+  _(main screens, 2026-09-06)_
+
+- **Information a screen owes the reader lives on the page, not in the header.** The header states
+  the name; a fact the reader needs stands where it bears on what they do. The safe website
+  viewer's "the page renders in an isolated remote browser" was not deleted — it moved to the
+  address bar, beside the control it qualifies, in the band that otherwise carries an invalid
+  address. This is the disposal route for anything the no-sub-text rule removes from a header:
+  ask where the fact is actually used, and put it there. _(safe website viewer, 2026-09-06)_
+- **A settings page's descriptor leads its content, and its header is only its name.** Settings is
+  a nested archetype — every page is a sub-page of Settings, named already by the section nav — and
+  it was the one place still carrying a sentence in the band. The descriptor now renders as the
+  first line of the page's own scroll area (`settings-description.svelte`), so it scrolls with the
+  plates it describes instead of being pinned above them, and `SettingsMasthead` no longer takes a
+  `meta` at all. The band keeps the page name and the standing facts about it — the posture badge,
+  the documentation seam, the history trail — because those are facts and controls, not
+  description. _(settings pages, 2026-09-06)_
 
 ### Screen search
 
@@ -758,6 +835,74 @@ Three corrections from one walk of the deployed app; all three generalize and ar
 Five corrections against the deployed file manager. The generalizable parts are promoted above — the
 document base, and the rule that a submenu holds what it is named after; what is local to this
 surface is in [`file-manager-rulings.md`](file-manager-rulings.md) (round seventeen).
+
+### 2026-09-06 — the matter lifecycle: a hold beside active, and no number before active
+
+The owner, the morning after the intake rung: "we should also add a HOLD status, for matters that
+are not closed, but there are various issues relating to why they are no longer considered active,
+like clients not paying bills. whats important is that no matter number is assigned until it
+becomes an active matter." And: "status pillbox modal will need to allow changing into this hold
+status as well." What binds:
+
+- **A matter's statuses are Intake, Consultation, Active, On Hold and Closed**, stored as `intake`,
+  `consultation`, `open`, `hold`, `closed`. On Hold is reached only from Active — "no longer
+  active" presumes it was — and returns only to Active.
+- **A hold keeps the number and draws nothing.** No number of any kind exists before a matter is
+  active, and none is surrendered or re-drawn on either side of a pause. A held matter stays on the
+  docket wearing its status; it is not an unnumbered rung and does not go to the Intake desk.
+- **A hold carries its reason, and the reason is required.** It is asked in a sentence, in place,
+  beneath the step that records it, and printed beside the status wherever the status is read. A
+  pause nobody can explain is not a pause anybody can resume.
+- **The status window offers every step a status allows, never a picker.** Active offers Close
+  Matter and Put On Hold; On Hold offers Release Hold and Close Matter. The first is the step the
+  lifecycle runs toward, the second the pause or the exit. One permission, `matters:hold`, both
+  ways: whoever may pause the firm's work may resume it.
+- **A matter cannot be started on hold**, and the New Matter window says so in its own words, with
+  no Soon mark, because nothing is coming: a hold pauses work, so there has to be work to pause.
+
+### 2026-09-05 — the matter lifecycle: an intake rung before the consultation, and the word
+
+The owner, walking the desk: "I don't think that intake should have a matter yet. Intake gets
+something to prospective after it has graduated all the other requirements for intake. Intake is
+like the walkthrough to get to prospective." Then: "perhaps prospective is the improper name, and
+it should be consultation?" Then: "we have no matters to migrate, so store it as consultation and
+open." What binds:
+
+- **A matter's statuses are Intake, Consultation, Active and Closed**, in that order, stored as
+  `intake`, `consultation`, `open`, `closed`. The word "prospective" is not a status word anywhere a
+  reader sees it; it survives only where it means the client's standing under the conduct rules.
+- **Intake is a rung, not a phase derived from a checklist.** The matter row exists from the first
+  call (the conflicts corpus, the files, the calendar and every procedure reader need it) but it
+  carries no number of any kind, it appears on the Intake desk and not the docket, and it
+  graduates into a consultation by a recorded act.
+- **The firm's intake procedure holds the door between intake and consultation**, never the door
+  into opening. Completing the intake draws the consultation number; opening draws the matter
+  number and is the firm's decision.
+- **A control that takes a lifecycle step reads the step's own verb**: Complete Intake, Open
+  Matter, Close Matter, Reopen Matter. Never "graduate", which is the code's word.
+
+### 2026-09-05 — the intake desk, and New beside every person field
+
+The owner described the receptionist's workflow: open Intake from the sidebar; choose the caller
+from the directory or create them; collect what the intake requires and clear its criteria — the
+conflicts check, the agreement out and back, the client's online forms, the payment, and whatever
+else the firm requires; run several intakes at once and resume any; and, once one is complete,
+schedule the consultation. And: "on this field and other places in the app where a user can select
+a person, we need a way to create an entity from that location. A top level '+ New'." The
+generalization is promoted under _Data entry_ above. What is local:
+
+- **The desk is one table**, on the list archetype every register uses: search and the create
+  control in the masthead, the columns' own filters, the consultation number anchoring the row.
+  The standing reads as counts of the firm's own steps ("3 of 5 answered, 1 required
+  outstanding"), never a word about the client.
+- **New Intake is the New Matter window** in an intake purpose — status fixed at Prospective and
+  not offered, Start Intake, no money block — not a second window for the same act.
+- **Schedule stands on every row and is refused with the reason** until every required step is
+  answered; it opens the calendar's own event window on the consultation with the client and the
+  responsible attorney already on it.
+- **The picker's New is a button for one kind and a menu for both**, in the field's row, at the
+  small secondary size; the add rows in the list say which kind they will make when both are
+  offered ("Add "Northwind Couriers" as an organization").
 
 ### 2026-09-05 — the directory record, from a screen to one window
 

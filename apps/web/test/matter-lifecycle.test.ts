@@ -22,16 +22,29 @@ import {
   matterLifecycleBlock,
   matterLifecycleStep,
   CLOSE_REFUSED_PROBLEM_TYPE,
+  holdReasonRefusal,
+  matterLifecycleSteps,
   MATTER_LIFECYCLE_STEPS,
   MATTER_PHYSICAL_FILE_FACTS,
 } from "../src/lib/matters/matter-lifecycle.ts";
 import { MATTER_STATUSES } from "../src/lib/matters/matter-status.ts";
 
 describe("matterLifecycleStep", () => {
-  it("offers one step per status, in the direction the lifecycle runs", () => {
-    expect(matterLifecycleStep("prospective").action).toBe("open");
+  it("leads with the step the lifecycle runs toward, for every status", () => {
+    expect(matterLifecycleStep("intake").action).toBe("graduate");
+    expect(matterLifecycleStep("consultation").action).toBe("open");
     expect(matterLifecycleStep("open").action).toBe("close");
+    expect(matterLifecycleStep("hold").action).toBe("release");
     expect(matterLifecycleStep("closed").action).toBe("reopen");
+  });
+
+  it("offers the pause beside the close on an active matter, and the close beside the release on a held one", () => {
+    expect(matterLifecycleSteps("open").map((step) => step.action)).toEqual(["close", "hold"]);
+    expect(matterLifecycleSteps("hold").map((step) => step.action)).toEqual(["release", "close"]);
+    // The unnumbered rungs and the closed one offer exactly one way forward.
+    expect(matterLifecycleSteps("intake")).toHaveLength(1);
+    expect(matterLifecycleSteps("consultation")).toHaveLength(1);
+    expect(matterLifecycleSteps("closed")).toHaveLength(1);
   });
 
   it("covers every status the contract stores", () => {
@@ -41,9 +54,25 @@ describe("matterLifecycleStep", () => {
   });
 
   it("names the permission each endpoint enforces", () => {
-    expect(MATTER_LIFECYCLE_STEPS.prospective.permission).toBe("matters:open");
-    expect(MATTER_LIFECYCLE_STEPS.open.permission).toBe("matters:close");
-    expect(MATTER_LIFECYCLE_STEPS.closed.permission).toBe("matters:reopen");
+    expect(matterLifecycleStep("intake").permission).toBe("matters:create");
+    expect(matterLifecycleStep("consultation").permission).toBe("matters:open");
+    expect(matterLifecycleStep("open").permission).toBe("matters:close");
+    expect(matterLifecycleStep("closed").permission).toBe("matters:reopen");
+    // The pause and its release are one authority in two directions.
+    for (const step of [...MATTER_LIFECYCLE_STEPS.open, ...MATTER_LIFECYCLE_STEPS.hold]) {
+      if (step.action === "hold" || step.action === "release") {
+        expect(step.permission).toBe("matters:hold");
+      }
+    }
+  });
+});
+
+describe("holdReasonRefusal", () => {
+  it("refuses a blank reason and one too long for a row, and accepts a sentence", () => {
+    expect(holdReasonRefusal("")).not.toBeNull();
+    expect(holdReasonRefusal("   ")).not.toBeNull();
+    expect(holdReasonRefusal("x".repeat(501))).not.toBeNull();
+    expect(holdReasonRefusal("The client has not paid the last two invoices.")).toBeNull();
   });
 });
 
@@ -181,7 +210,7 @@ describe("the physical file", () => {
 });
 
 describe("matterLifecycleBlock", () => {
-  const step = MATTER_LIFECYCLE_STEPS.open;
+  const step = matterLifecycleStep("open");
 
   it("lets a firm matter through once the session says the account may take the step", () => {
     expect(
@@ -243,7 +272,7 @@ describe("what opening requires", () => {
     expect(matterOpenRequirements(null, true)).toEqual([]);
     const rows = matterOpenRequirements({
       matterId: "matter_a",
-      status: "prospective",
+      status: "consultation",
       openable: false,
       blockers,
     });
@@ -258,7 +287,7 @@ describe("what opening requires", () => {
   it("answers whether the consultation would open only once the rules have", () => {
     expect(matterCanOpen(null)).toBeNull();
     expect(
-      matterCanOpen({ matterId: "matter_a", status: "prospective", openable: true, blockers: [] }),
+      matterCanOpen({ matterId: "matter_a", status: "consultation", openable: true, blockers: [] }),
     ).toBe(true);
   });
 

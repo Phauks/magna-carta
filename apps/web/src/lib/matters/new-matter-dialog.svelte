@@ -34,13 +34,19 @@
    * operation staffs everybody else, and a practice area the firm has not adopted yet becomes one
    * of the firm's own matter types when it is chosen. The client is a directory record, chosen and
    * never typed, and the conflict check runs against it before the matter exists. What cannot be
-   * used yet says so: a matter cannot be CREATED closed (the create operation takes only Prospective
+   * used yet says so: a matter cannot be CREATED closed (the create operation takes only Consultation
    * or Active), and money is recorded against a matter that does not exist yet. Neither is a field
    * that quietly discards what somebody typed.
    *
    * The matter NUMBER is not here and never will be. It is drawn by the firm's own counter at the
    * moment the matter opens, atomically, so that two people opening a matter at once cannot be
    * handed the same one.
+   *
+   * THE SAME WINDOW STARTS AN INTAKE. Opened from the intake desk (`purpose="intake"`), it records
+   * a consultation and nothing else: the status is fixed at Consultation and not offered, the commit
+   * says Start Intake, and the money block is not drawn, because on an intake the fee and the
+   * deposit are steps of the firm's procedure and the checklist asks for them. A second window for
+   * the same act would be a second place for the client field and the conflict check to drift.
    */
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
@@ -60,8 +66,8 @@
   import ScanSearch from "@lucide/svelte/icons/scan-search";
   import X from "@lucide/svelte/icons/x";
   import { MaturityBadge, SoonAffordance, soonDependencySentence } from "@magna-carta/design-system/maturity";
-  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
-  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
   import { readConflictsCheck, runConflictsCheck } from "$lib/conflicts/conflicts-api.ts";
   import MemberPicker from "./member-picker.svelte";
@@ -72,6 +78,7 @@
     isCreatableMatterStatus,
     matterStatusLabel,
     CLOSED_AT_CREATION_DEPENDENCY,
+    HOLD_AT_CREATION_REASON,
     MATTER_STATUSES,
   } from "./matter-status.ts";
   import { createMatterAssignment } from "./matter-assignments-api.ts";
@@ -103,6 +110,7 @@
 
   let {
     open = $bindable(false),
+    purpose = "matter",
     session,
     matterTypes,
     locations,
@@ -111,6 +119,8 @@
     onMatterTypeAdopted,
   }: {
     open?: boolean;
+    /** What the window is for: a matter in any creatable status, or an intake (always consultation). */
+    purpose?: "matter" | "intake";
     /** Who is asking. The responsible attorney defaults to them, and can be changed. */
     session: SessionBootstrap;
     matterTypes: readonly MatterTypeSummary[];
@@ -131,7 +141,6 @@
   let title = $state("");
   let startingStatus = $state<StartingStatus>("open");
   let client = $state<PickableEntity | null>(null);
-  const clientSearch = directoryPickerSearch(fetch);
   let matterTypeId = $state<string | null>(null);
   let locationId = $state<string | null>(null);
   let description = $state("");
@@ -168,13 +177,18 @@
    * Status column cannot disagree; Closed is offered and refused rather than hidden, because a firm
    * that wants to record a concluded matter should see that the state exists.
    */
+  const closedDependency = soonDependencySentence(CLOSED_AT_CREATION_DEPENDENCY);
+
+  // Two statuses cannot be started in, for two different reasons, and the difference is drawn:
+  // Closed waits on the contract and wears the Soon mark; On Hold is a pause of work already under
+  // way, so it is never a starting point and says so without promising anything.
   const STATUS_ITEMS = MATTER_STATUSES.map((status) => ({
     value: status,
     label: matterStatusLabel(status),
     creatable: isCreatableMatterStatus(status),
+    unavailable: status === "hold" ? HOLD_AT_CREATION_REASON : closedDependency,
+    soon: status !== "hold",
   }));
-
-  const closedDependency = soonDependencySentence(CLOSED_AT_CREATION_DEPENDENCY);
 
   const locationOptions = $derived(
     locations
@@ -210,9 +224,8 @@
   // ---- the conflict check ----------------------------------------------------------------------
 
   /*
-   * The check runs against the client BEFORE the matter exists — a prospective matter's whole point
-   * is finding out whether the firm may act, and the engine takes a directory entity, which the
-   * client now is. Once the matter is created its own preliminary check runs on the server against
+   * The check runs against the client BEFORE the matter exists — an intake's whole point is finding
+   * out whether the firm may act, and the engine takes a directory entity, which the client now is. Once the matter is created its own preliminary check runs on the server against
    * every party; this one is the answer a person wants while the file is still a question.
    */
   let checkRunning = $state(false);
@@ -277,10 +290,15 @@
     };
   }
 
-  /** The commit says what it will do, because the two outcomes are genuinely different files. */
+  /** The commit says what it will do, because the outcomes are genuinely different files. */
   const commitLabel = $derived(
-    startingStatus === "prospective" ? "Record Consultation" : "Open Matter",
+    startingStatus === "intake"
+      ? "Start Intake"
+      : startingStatus === "consultation"
+        ? "Record Consultation"
+        : "Open Matter",
   );
+  const heading = $derived(purpose === "intake" ? "New Intake" : "New Matter");
 
   /**
    * Why the commit is refused, or undefined when it is not. The shell renders this beside the
@@ -311,7 +329,7 @@
   // from the same place a first one does.
   function reset(): void {
     title = "";
-    startingStatus = "open";
+    startingStatus = purpose === "intake" ? "intake" : "open";
     client = null;
     checkOutcome = null;
     checkFailure = null;
@@ -329,7 +347,9 @@
   /** Only a creatable status can arrive: the others are rendered disabled, so bits never sends one. */
   function chooseStatus(next: string | string[] | undefined): void {
     const chosen = Array.isArray(next) ? (next[0] ?? "") : (next ?? "");
-    if (chosen === "prospective" || chosen === "open") startingStatus = chosen;
+    if (chosen === "intake" || chosen === "consultation" || chosen === "open") {
+      startingStatus = chosen;
+    }
   }
 
   function nameResponsible(memberId: string): void {
@@ -415,9 +435,9 @@
 
 <ActionDialog
   bind:open
-  heading="New Matter"
+  {heading}
   {commitLabel}
-  commitBusyLabel="Opening"
+  commitBusyLabel={purpose === "intake" ? "Starting" : "Opening"}
   commitRefusal={refusal}
   unsavedChanges={started}
   onOpen={reset}
@@ -439,6 +459,7 @@
             <Label for="new-matter-title">Title</Label>
             <Input id="new-matter-title" bind:value={title} disabled={busy} />
           </div>
+          {#if purpose === "matter"}
           <div class="flex flex-col gap-8">
             <Label id="new-matter-status-label">Status</Label>
             <Select.Root
@@ -466,11 +487,13 @@
                       value={item.value}
                       label={item.label}
                       disabled
-                      title={closedDependency}
+                      title={item.unavailable}
                     >
                       <span class="flex items-center gap-8">
                         {item.label}
-                        <MaturityBadge stage="soon" />
+                        {#if item.soon}
+                          <MaturityBadge stage="soon" />
+                        {/if}
                       </span>
                     </Select.Item>
                   {/if}
@@ -481,6 +504,7 @@
               {closedDependency}
             </p>
           </div>
+          {/if}
         </div>
 
         <div class="grid gap-16 sm:grid-cols-2">
@@ -585,8 +609,7 @@
         <Label for="new-matter-client">Client</Label>
         <!-- From the directory, never typed: a name typed here is how one client ends up in the
              book twice. Someone the directory does not hold yet is added there first. -->
-        <EntityPicker
-          search={clientSearch}
+        <DirectoryEntityPicker
           bind:value={client}
           label="Client"
           inputId="new-matter-client"
@@ -677,13 +700,15 @@
         </p>
       </div>
 
+      {#if purpose === "matter"}
       <Separator />
 
       <div class="flex flex-col gap-8">
         <!-- Money is recorded AGAINST a matter, so neither of these can happen before one
              exists: the intake would have to hand the new matter on to billing and to trust.
              That hand-off is the dependency, not the ledgers, which both already take these
-             writes. -->
+             writes. On an intake the fee and the deposit are steps of the firm's procedure, so
+             the block is not drawn there. -->
         <Label id="new-matter-consultation-fee-label">Consultation Fee</Label>
         <SoonAffordance
           reason="the intake handing a new matter to billing"
@@ -700,6 +725,7 @@
           {/snippet}
         </SoonAffordance>
       </div>
+      {/if}
     </div>
   {/snippet}
 
@@ -713,7 +739,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="The Matter Was Not Opened"
+        title={purpose === "intake" ? "The Intake Was Not Started" : "The Matter Was Not Opened"}
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       >

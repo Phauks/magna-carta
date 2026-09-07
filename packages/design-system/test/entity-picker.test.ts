@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MINIMUM_QUERY_LENGTH,
+  addRowKind,
+  addRowSentence,
+  addRowValue,
+  newControlName,
   offerableEntities,
   runEntitySearch,
   searchRequestFor,
@@ -145,5 +149,29 @@ describe("what the picker may offer", () => {
     const before = structuredClone(HITS);
     offerableEntities(HITS, ["directoryPerson_1"]);
     expect(HITS).toEqual(before);
+  });
+});
+
+describe("making what the field cannot find", () => {
+  it("carries the kind wanted in a reserved value no handle produces, and reads it back", () => {
+    expect(addRowKind(addRowValue("person"))).toBe("person");
+    expect(addRowKind(addRowValue("organization"))).toBe("organization");
+    expect(addRowKind("directoryPerson_1")).toBeNull();
+    expect(addRowKind("mc-entity-picker:add:court")).toBeNull();
+    expect(addRowValue("person")).toContain(":");
+  });
+
+  it("says which record the row will make, naming the typed value when there is one", () => {
+    expect(addRowSentence("organization", " Northwind Couriers ")).toBe(
+      'Add "Northwind Couriers" as an organization',
+    );
+    expect(addRowSentence("person", "Ada Pemberton")).toBe('Add "Ada Pemberton" as a person');
+    expect(addRowSentence("person", "")).toBe("Add a person");
+  });
+
+  it("names the New control by what it makes", () => {
+    expect(newControlName(["person"])).toBe("New person");
+    expect(newControlName(["organization"])).toBe("New organization");
+    expect(newControlName(["person", "organization"])).toBe("New person or organization");
   });
 });

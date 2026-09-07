@@ -29,6 +29,7 @@ const file = (id: string, over: Partial<MatterFile> = {}): FileManagerRow => ({
     scanVerdict: "clean",
     status: "clean",
     quarantineReason: null,
+    sourceModifiedAt: null,
     ...over,
   },
 });

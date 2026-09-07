@@ -21,7 +21,7 @@ reconciled nightly against the underlying store.
 
 ## Matters by Type
 
-One row per matter type in your firm's own catalog, with prospective, open, and closed counts. A
+One row per matter type in your firm's own catalog, with intake, consultation, open, on-hold, and closed counts. A
 matter that carries no type appears under **No Type Assigned** — the rollup never drops a matter for
 being untyped. Create a new matter type and it appears here as a row the same day.
 

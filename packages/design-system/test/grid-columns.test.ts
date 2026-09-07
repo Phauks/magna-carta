@@ -6,6 +6,7 @@ import {
   gridColumnSum,
   gridColumnTotalText,
   movedGridColumnOrder,
+  gridRowComparator,
   sortGridRows,
   visibleGridColumns,
   type GridColumn,
@@ -88,6 +89,15 @@ describe("sorting", () => {
     expect(ascending.map((row) => row.id)).toEqual(["e2", "e4", "e1", "e3"]);
     const descending = sortGridRows(ROWS, dateColumn, "descending", rowKey);
     expect(descending.map((row) => row.id)).toEqual(["e1", "e2", "e4", "e3"]);
+  });
+
+  it("hands a hierarchy the same rule it sorts flat rows by", () => {
+    // A tree surface sorts siblings within their parent with this comparator; it has to be the
+    // very rule the flat table uses, or the reader's sort would mean two things on two surfaces.
+    const compare = gridRowComparator(dateColumn, "descending", rowKey);
+    expect(ROWS.toSorted(compare).map((row) => row.id)).toEqual(
+      sortGridRows(ROWS, dateColumn, "descending", rowKey).map((row) => row.id),
+    );
   });
 
   it("does not mutate the input", () => {

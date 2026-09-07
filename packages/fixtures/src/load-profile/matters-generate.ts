@@ -230,7 +230,7 @@ export async function generatePracticeVolume(
   const matterFiles: { matterId: MatterId; locationId: LocationId; files: number }[] = [];
 
   const newMatter = async (
-    status: "prospective" | "open",
+    status: "consultation" | "open",
     responsibleMemberId: UserId,
   ): Promise<{ matterId: MatterId; locationId: LocationId }> => {
     const office = pickOffice();
@@ -253,9 +253,9 @@ export async function generatePracticeVolume(
     return matterShape(created.matterId, office);
   };
 
-  // Prospective consultations (no number, no counter touched). The probe member owns the lion's share.
-  for (let index = 0; index < volume.prospectiveMatterCount; index += 1) {
-    await newMatter("prospective", responsibleFor());
+  // Consultations (no matter number, the matter counter untouched). The probe member owns the lion's share.
+  for (let index = 0; index < volume.consultationMatterCount; index += 1) {
+    await newMatter("consultation", responsibleFor());
   }
 
   // Open matters: createMatter status 'open' draws the number through the counter at creation.
@@ -266,14 +266,14 @@ export async function generatePracticeVolume(
 
   // Closed matters: open at a number, then close. A closed matter still resolves in the caseload list.
   for (let index = 0; index < volume.closedMatterCount; index += 1) {
-    // Open through the prospective→open draw path so the counter is exercised on its own (openMatter).
+    // Open through the consultation→open draw path so the counter is exercised on its own (openMatter).
     const office = pickOffice();
     const consultation = await createMatter(
       database,
       {
         title: `${faker.person.lastName()} Estate`,
         responsibleMemberId: responsibleFor(),
-        status: "prospective",
+        status: "consultation",
         matterTypeId: pickType(),
         locationId: office.id,
         clientDisplayName: faker.company.name(),
@@ -293,7 +293,7 @@ export async function generatePracticeVolume(
   }
 
   // --- The folder/file tree. Only matters that carry a number (open/closed) get documents; a
-  // prospective consultation has none yet. ---
+  // consultation has none yet. ---
   let folderCount = 0;
   let fileCount = 0;
   let fileVersionCount = 0;

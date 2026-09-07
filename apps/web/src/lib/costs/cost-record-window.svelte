@@ -39,7 +39,8 @@
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
-  import EntityPicker, { type PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
   import type { ExpenseCodeCatalogue } from "./cost-expense-codes.svelte.ts";
@@ -387,7 +388,7 @@
             disabled
           />
         {:else}
-          <EntityPicker
+          <DirectoryEntityPicker
             search={payeeSearch}
             value={payee}
             onSelect={pickPayee}

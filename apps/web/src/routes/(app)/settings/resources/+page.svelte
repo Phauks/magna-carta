@@ -32,6 +32,7 @@
     type FirmResourceKind,
   } from "$lib/calendar/calendar-api.ts";
   import { mayManageCalendar } from "$lib/calendar/calendar-permission.ts";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import {
@@ -210,13 +211,14 @@
 <SettingsMasthead
   sectionId="resources"
   title="Rooms and Resources"
-  meta="What the firm can book: conference rooms, pool cars, equipment. A booking always belongs to an event."
   posture={canEdit ? "instant" : "readOnly"}
   showHistory={false}
 />
 
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>What the firm can book: conference rooms, pool cars, equipment. A booking always belongs to an event.</SettingsDescription>
+
     {#if actionFailure !== null}
       <FailureNotice failure={actionFailure.failure} fallback={actionFailure.fallback} />
     {/if}

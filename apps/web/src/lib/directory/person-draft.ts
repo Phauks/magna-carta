@@ -167,6 +167,11 @@ export function personSectionCounts(draft: PersonDraft): readonly PersonSectionC
   ];
 }
 
+/** The name the draft would be known by: what a field that took the new record shows at rest. */
+export function personDraftDisplayName(draft: PersonDraft): string {
+  return displayName(draft.name);
+}
+
 function displayName(name: PersonNameDraft): string {
   return [name.prefix, name.given, name.middle, name.family, name.suffix]
     .map((part) => part.trim())

@@ -28,6 +28,7 @@ import { parseQuickAdd } from "@magna-carta/timekeeping/quick-add-parser";
 import {
   listTimeEntriesForTimekeeperDay,
   listTimeEntriesByMatter,
+  listTimeEntriesInRange,
   listTimeEntryEvents,
   readTimeEntryRecord,
   type TimeEntryRecordItem,
@@ -314,20 +315,29 @@ const GridBatchAck = z
 
 const timeEntryParam = z.object({ id: identifierPathParam("timeEntry", "id") });
 
+const workDateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
 const listQuery = z.object({
   timekeeperUserId: identifierField("user").optional(),
   matterId: identifierField("matter").optional(),
-  workDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  workDate: workDateField.optional(),
+  from: workDateField.optional().openapi({
+    description:
+      "The first work date of a period listing, inclusive. Given with `to`, the listing answers " +
+      "a span of days across every matter — the question a timekeeper asks of their own week and " +
+      "a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which " +
+      "requires the time:viewFirm capability.",
+  }),
+  to: workDateField.optional().openapi({
+    description: "The last work date of a period listing, inclusive. Required alongside `from`.",
+  }),
   status: z
     .enum(["draft", "submitted", "approved", "billed", "void"])
     .optional()
     .openapi({
       description:
-        "Narrows a per-matter listing to one status. Omitted, the listing answers with every " +
-        "status the matter carries, which is what a matter's time record is.",
+        "Narrows a per-matter or period listing to one status. Omitted, the listing answers with " +
+        "every status the scope carries, which is what a time record is.",
     }),
   ...cursorQuery.shape,
 });
@@ -496,11 +506,15 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   method: "get",
   path: "/api/v1/time-entries",
   description:
-    "Lists time entries filtered by timekeeper and work date (the daily view) or by matter and " +
-    "status (the matter's own record). The per-matter listing is CURSOR-PAGED, newest work date " +
-    "first: a matter that has been billing for years is not a single response, and this read " +
-    "carried no bound at all until it was. The daily view is complete in one page by construction " +
-    "— one timekeeper, one date — so its cursor is always null.",
+    "Lists time entries three ways. By timekeeper and work date: the daily view, complete in one " +
+    "page by construction, so its cursor is always null. By matter: the matter's own record, " +
+    "CURSOR-PAGED newest work date first — a matter that has been billing for years is not a " +
+    "single response, and this read carried no bound at all until it was. By a `from`/`to` span " +
+    "of work dates: the period listing across every matter, cursor-paged the same way, narrowable " +
+    "to one timekeeper, one matter and one status. A period listing that names no timekeeper " +
+    "covers the whole firm and requires the time:viewFirm capability; one that names somebody " +
+    "other than the session member requires it too. A request matching none of the three answers " +
+    "with an empty list rather than scanning the table.",
   request: { query: listQuery },
   responses: {
     200: {
@@ -510,6 +524,13 @@ const listRoute = defineOpenAPIRoute(listMeta, {
     401: readErrorResponses[401],
     403: readErrorResponses[403],
     404: readErrorResponses[404],
+    // This read's own 422, not the write ladder's: the only way to make a listing unprocessable is
+    // to ask for a period whose first date is after its last, and the shared sentence is about
+    // idempotency keys and rate resolution, which a GET has neither of.
+    422: {
+      description: "The period's first date is after its last",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: readErrorResponses[429],
   },
 });
@@ -1201,6 +1222,53 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
         return c.json({ data: page.data.map(recordToSummary), nextCursor: null }, 200);
       }
 
+      if (query.from !== undefined && query.to !== undefined) {
+        // Period listing: a span of work dates across every matter. The span is what the firm-wide
+        // time surface reads, and it is the one listing shape that can answer "what time was
+        // recorded this week" without the caller first fetching every matter.
+        //
+        // WHOSE TIME, AND WHO MAY ASK. Naming no timekeeper asks for the firm's whole record for
+        // those days, which is a supervisor's question and gated as one; naming somebody else is
+        // the same question about one person and gated identically. Only a member reading their
+        // OWN span passes without the capability. Defaulting an ungated caller to themselves was
+        // considered and rejected: a listing that silently answers a narrower question than it was
+        // asked is the defect the per-matter status default already was.
+        if (query.timekeeperUserId !== sessionUserId) {
+          const permissions = await loadEffectivePermissions(firm.firmDatabase, sessionUserId);
+          if (!permissions.has(assertPermission("time:viewFirm"))) {
+            return problemJson(c, {
+              type: "permission-denied",
+              title: "Forbidden",
+              status: 403,
+              detail:
+                query.timekeeperUserId === undefined
+                  ? "Listing the firm's time over a period requires the time:viewFirm capability. Ask for your own by naming yourself as the timekeeper."
+                  : "Listing another timekeeper's time over a period requires the time:viewFirm capability.",
+            });
+          }
+        }
+        if (query.from > query.to) {
+          return problemJson(c, {
+            type: "validation",
+            title: "Unprocessable",
+            status: 422,
+            detail:
+              "The period's first date is after its last. The span is not swapped for you, because a swap would answer a question nobody asked.",
+          });
+        }
+        const page = await listTimeEntriesInRange(firm.firmDatabase, {
+          from: query.from,
+          to: query.to,
+          ...(query.timekeeperUserId === undefined
+            ? {}
+            : { timekeeperUserId: query.timekeeperUserId }),
+          ...(query.matterId === undefined ? {} : { matterId: query.matterId }),
+          ...(query.status === undefined ? {} : { status: query.status }),
+          ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+        });
+        return c.json({ nextCursor: page.nextCursor, data: page.data.map(recordToSummary) }, 200);
+      }
+
       if (query.matterId !== undefined) {
         // Per-matter listing. An absent status means EVERY status: a matter's time record is all
         // of the time on it, and a caller that wanted only the work in progress says so. This
@@ -1594,7 +1662,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           ? { results: [] as { id: string; title: string }[] }
           : await firm.firmDatabase
               .prepare(
-                "SELECT id, title FROM matter WHERE title LIKE ?1 ESCAPE '\\' AND status != 'prospective' ORDER BY title LIMIT 10",
+                "SELECT id, title FROM matter WHERE title LIKE ?1 ESCAPE '\\' AND status NOT IN ('intake', 'consultation') ORDER BY title LIMIT 10",
               )
               .bind(`%${parsed.matterHint.replace(/[%_\\]/g, "\\$&")}%`)
               .all<{ id: string; title: string }>();

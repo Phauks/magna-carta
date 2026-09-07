@@ -118,7 +118,27 @@ describe("POST /api/v1/uploads — initiate", () => {
     // Worker itself so `wrangler dev` and the test pool run the identical ceremony against a
     // resolvable, same-origin target — the development R2 upload route (routes/dev-r2-upload.ts).
     expect(body["url"] as string).toContain("/api/__dev/r2/object");
-    expect(body["headers"]).toMatchObject({ "Content-Type": "application/pdf" });
+    expect(body["headers"]).toMatchObject({ "content-type": "application/pdf" });
+  });
+
+  it("answers ONE spelling of each signed header, so the browser sends the value that was signed", async () => {
+    // The production defect: the response carried both "Content-Type" and "content-type". A record
+    // with two spellings of one header is merged by the browser's Headers into one doubled value
+    // ("application/pdf, application/pdf"), which is not the value the signature covers, so R2
+    // refused every PUT. Asserted through Headers itself, because that merge is the failure.
+    const response = await postUpload(smallPut(), {
+      cookie: ownerCookie,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as { headers: Record<string, string> };
+    const names = Object.keys(body.headers).map((name) => name.toLowerCase());
+    expect(new Set(names).size).toBe(names.length);
+    const sent = new Headers(body.headers);
+    expect(sent.get("content-type")).toBe("application/pdf");
+    // The scope stamp is signed too, so it must be in the set the client is told to send.
+    expect(sent.get("x-amz-meta-object_class")).toBe("working-document");
+    expect(sent.get("x-amz-meta-matter")).toBe(matterId);
   });
 
   it("opens a multipart session for a file above the mode threshold", async () => {
@@ -375,5 +395,167 @@ describe("POST /api/v1/uploads/{id}/abort", () => {
     expect((await postAction(`/api/v1/uploads/${uploadId}/abort`, {}, ownerCookie)).status).toBe(
       409,
     );
+  });
+});
+
+// ---- the hash-first path: asking whether the firm already holds the bytes, and duplicating them ----
+
+const HELD_HASH = "a".repeat(64);
+const HELD_BYTES = "%PDF-1.4 the same brief every time";
+
+/** A clean file on a matter whose current version holds HELD_BYTES, the object in the R2 binding. */
+async function seedHeldFile(onMatterId: MatterId, name: string) {
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+  const fileId = newIdentifier("file");
+  const versionId = newIdentifier("fileVersion");
+  const r2Key = `files/${fileId}/${versionId}`;
+  const at = "2026-06-13T00:00:00.000Z";
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, ?3, NULL, NULL, NULL, ?4, ?4)",
+    )
+    .bind(fileId, onMatterId, name, at)
+    .run();
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, status, uploaded_by, created_at, committed_at) " +
+        "VALUES (?1, ?2, 1, ?3, ?4, 'application/pdf', 'application/pdf', ?5, 'clean', 'engine-9', 'clean', NULL, ?6, ?6)",
+    )
+    .bind(versionId, fileId, r2Key, HELD_BYTES.length, HELD_HASH, at)
+    .run();
+  await firmDatabase
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    .bind(fileId, versionId)
+    .run();
+  await env.R2.put(r2Key, HELD_BYTES, {
+    customMetadata: { matter: onMatterId, object_class: "working-document" },
+  });
+  return { fileId, versionId, r2Key };
+}
+
+describe("POST /api/v1/uploads/matches", () => {
+  it("names the file on the matter that already holds the bytes, and the ones elsewhere", async () => {
+    const held = await seedHeldFile(matterId, "held brief.pdf");
+    const otherMatterId = newIdentifier("matter");
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Other Matter', 'open', (SELECT responsible_member_id FROM matter WHERE id = ?2), ?3, ?3)",
+      )
+      .bind(otherMatterId, matterId, "2026-06-13T00:00:00.000Z")
+      .run();
+    const elsewhere = await seedHeldFile(otherMatterId, "held elsewhere.pdf");
+
+    const response = await postAction(
+      "/api/v1/uploads/matches",
+      { matterId, sha256: HELD_HASH, sizeBytes: HELD_BYTES.length },
+      ownerCookie,
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      onMatter: { fileId: string; versionId: string; name: string; folderId: string | null }[];
+      elsewhere: { fileId: string; versionId: string; matterId: string }[];
+    };
+    expect(body.onMatter.some((match) => match.fileId === held.fileId)).toBe(true);
+    expect(body.onMatter.find((match) => match.fileId === held.fileId)).toMatchObject({
+      versionId: held.versionId,
+      name: "held brief.pdf",
+      folderId: null,
+    });
+    expect(body.elsewhere.some((match) => match.fileId === elsewhere.fileId)).toBe(true);
+    expect(body.elsewhere.find((match) => match.fileId === elsewhere.fileId)?.matterId).toBe(
+      otherMatterId,
+    );
+  });
+
+  it("answers nothing for a size that disagrees with the digest", async () => {
+    await seedHeldFile(matterId, "held again.pdf");
+    const response = await postAction(
+      "/api/v1/uploads/matches",
+      { matterId, sha256: HELD_HASH, sizeBytes: 1 },
+      ownerCookie,
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { onMatter: unknown[]; elsewhere: unknown[] };
+    expect(body.onMatter).toEqual([]);
+    expect(body.elsewhere).toEqual([]);
+  });
+});
+
+describe("POST /api/v1/uploads/duplicates", () => {
+  it("makes a committed file from held bytes with no upload, copying the object under the new key", async () => {
+    const otherMatterId = newIdentifier("matter");
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Source Matter', 'open', (SELECT responsible_member_id FROM matter WHERE id = ?2), ?3, ?3)",
+      )
+      .bind(otherMatterId, matterId, "2026-06-13T00:00:00.000Z")
+      .run();
+    const source = await seedHeldFile(otherMatterId, "source.pdf");
+
+    const response = await SELF.fetch("https://example.com/api/v1/uploads/duplicates", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://example.com",
+        cookie: ownerCookie,
+        "Idempotency-Key": crypto.randomUUID(),
+      },
+      body: JSON.stringify({
+        sourceVersionId: source.versionId,
+        matterId,
+        folderId: null,
+        name: "duplicated.pdf",
+        sourceModifiedAt: "2025-03-04T09:30:00.000Z",
+        createdAtBasis: "source",
+      }),
+    });
+    expect(response.status).toBe(201);
+    const made = (await response.json()) as { fileId: string; versionId: string };
+    expect(made.fileId).toMatch(/^file_/);
+
+    const read = await SELF.fetch(`https://example.com/api/v1/files/${made.fileId}`, {
+      headers: { origin: "https://example.com", cookie: ownerCookie },
+    });
+    expect(read.status).toBe(200);
+    const summary = (await read.json()) as Record<string, unknown>;
+    expect(summary).toMatchObject({
+      matterId,
+      name: "duplicated.pdf",
+      status: "clean",
+      sizeBytes: HELD_BYTES.length,
+      scanVerdict: "clean",
+      createdAt: "2025-03-04T09:30:00.000Z",
+    });
+
+    const copied = await env.R2.get(`files/${made.fileId}/${made.versionId}`);
+    expect(copied).not.toBeNull();
+    expect(await copied?.text()).toBe(HELD_BYTES);
+    // Stamped for the matter it now belongs to, not the one it came from.
+    expect(copied?.customMetadata).toMatchObject({ matter: matterId });
+  });
+
+  it("404s a version that is not committed, and demands an Idempotency-Key", async () => {
+    const missing = await SELF.fetch("https://example.com/api/v1/uploads/duplicates", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://example.com",
+        cookie: ownerCookie,
+        "Idempotency-Key": crypto.randomUUID(),
+      },
+      body: JSON.stringify({
+        sourceVersionId: newIdentifier("fileVersion"),
+        matterId,
+        name: "x.pdf",
+      }),
+    });
+    expect(missing.status).toBe(404);
+
+    const bare = await postAction(
+      "/api/v1/uploads/duplicates",
+      { sourceVersionId: newIdentifier("fileVersion"), matterId, name: "x.pdf" },
+      ownerCookie,
+    );
+    expect(bare.status).toBe(400);
   });
 });

@@ -260,7 +260,6 @@
 
 <ScreenHeader
   title="Downloads"
-  eyebrow="Downloads"
   class="mb-24"
 >
   {#snippet actions()}

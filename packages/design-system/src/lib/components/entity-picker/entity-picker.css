@@ -109,4 +109,16 @@
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
+  /*
+   * Making what the field cannot find. A small secondary button beside the field, never wider than
+   * its word, so the field keeps the room; the glyph is the create control's plus, so the two read
+   * as the same act at two sizes.
+   */
+  .mc-entity-picker-new {
+    flex: none;
+  }
+  .mc-entity-picker-new-glyph {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
 }

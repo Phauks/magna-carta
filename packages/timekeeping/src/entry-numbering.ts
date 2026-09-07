@@ -31,7 +31,7 @@ export const ENTRY_NUMBER_START_VALUE = 1;
 const ENTRY_NUMBER_PAD_WIDTH = 4;
 
 // Renders one entry number. The prefix is the matter's assigned number; a matter that has not
-// drawn one yet (a prospective consultation) falls back to the matter's own identifier handle —
+// drawn one yet (an intake, or a consultation) falls back to the matter's own identifier handle —
 // stable forever, unambiguous, and honestly not a matter number. The rendered string is minted at
 // capture and never re-rendered, so a later matter renumber leaves existing entry numbers exactly
 // as they were issued.

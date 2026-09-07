@@ -20,7 +20,7 @@
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
   import Button from "@magna-carta/design-system/button";
-  import EntityPicker from "@magna-carta/design-system/entity-picker";
+  import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import Input from "@magna-carta/design-system/input";
   import { badgeClasses } from "@magna-carta/design-system/badge";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -219,7 +219,7 @@
       </Combobox.Root>
     {:else if source === "entity"}
       <!-- Remounted per pick by the key above, so each pick starts the picker clean. -->
-      <EntityPicker
+      <DirectoryEntityPicker
         search={directorySearch}
         excluded={listedEntityIds}
         label="Directory"

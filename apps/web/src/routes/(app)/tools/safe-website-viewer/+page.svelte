@@ -8,6 +8,12 @@
    * preformatted text, and the page's outbound addresses are buttons that re-capture through the
    * same flow, never anchors.
    *
+   * THE ISOLATION IS STATED AT THE ADDRESS BAR, not in the masthead. It is the one thing a reader
+   * must know before they press, so it belongs beside the control they press rather than in the
+   * screen's header, which carries the screen's name and nothing else
+   * (docs/conventions/design-corrections.md, "Screen headers"). The band it sits in is the
+   * invalid-address band: a fault with the address in hand outranks a standing fact.
+   *
    * The viewer is one framed unit rendered from page load, empty and calm — the browser window
    * with its inspector tabs attached — so a capture fills a shape the reader already has. A
    * capture runs staged: the redirect probe settles first and its facts (the landed address, the
@@ -211,15 +217,7 @@
      capture arrives and leaves no dead band beneath the frame. On narrow screens the halves stack
      and keep their fixed comfortable heights instead — a phone cannot give both full height. -->
 <div class="flex h-full flex-col">
-  <ScreenHeader
-    title="Safe Website Viewer"
-    back="tools"
-    class="mb-24"
-  >
-    {#snippet meta()}
-      <span>The page renders in an isolated remote browser</span>
-    {/snippet}
-  </ScreenHeader>
+  <ScreenHeader title="Safe Website Viewer" back="tools" class="mb-24" />
 
   <!-- Polite live region: announces an arrived snapshot to a screen reader without re-reading the
        whole result. Alert-rendered states announce themselves through their own role. -->
@@ -260,6 +258,7 @@
       invalidHint={invalidInput
         ? "This is not a web address this tool can open. Enter one like https://example.com. Private, local, and internal addresses are not accepted."
         : null}
+      note="The page opens in an isolated remote browser and comes back as a static snapshot. It never loads in your own browser."
       canGoBack={canGoBack(history)}
       canGoForward={canGoForward(history)}
       canRefresh={currentEntry(history) !== null}

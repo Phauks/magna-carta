@@ -10,6 +10,7 @@
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import FileManager from "$lib/file-manager/file-manager.svelte";
+  import { page } from "$app/state";
   import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import { queryFromUrl } from "$lib/matters/query-from-url.ts";
   import FullHeightSection from "$lib/components/full-height-section.svelte";
@@ -23,6 +24,9 @@
 
   const matter = $derived(data.matter);
   const isSample = $derived(matter.source === "sample");
+  // The folder the upload tray's "Open folder" names: `?folder=<id>`, beside the `entry` every deep
+  // link carries. Read from the address so a new one lands without remounting.
+  const folderFromUrl = $derived(page.url.searchParams.get("folder"));
 
   /*
    * The matter header's New is the surface's one create control, and it is a MENU here: three
@@ -73,6 +77,7 @@
       matterId={matter.id}
       matterTitle={matter.title}
       revealFileId={entryFromUrl()}
+      revealFolderId={folderFromUrl === null || folderFromUrl === "" ? null : folderFromUrl}
       searchQuery={queryFromUrl()}
     />
   </FullHeightSection>

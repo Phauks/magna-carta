@@ -21,11 +21,13 @@
    * it sits with the status, its version history folded away, and Amend seated beside it the way
    * the lifecycle step is seated beside the status. The Fees screen states nothing about it.
    *
-   * THE STEP IS SEATED ON THE STATUS, NOT AT THE FOOT OF THE WINDOW. Somebody may open this to read
-   * where the file is kept, and a window whose bottom-right corner offers Close Matter puts the act
-   * they did not come for exactly where a hand goes by habit. So the corner offers only the way out,
-   * and the step is a quiet control beside the fact it changes, with the requirements that gate it
-   * directly beneath as the reason it is disabled.
+   * THE STEPS ARE SEATED ON THE STATUS, NOT AT THE FOOT OF THE WINDOW. Somebody may open this to
+   * read where the file is kept, and a window whose bottom-right corner offers Close Matter puts the
+   * act they did not come for exactly where a hand goes by habit. So the corner offers only the way
+   * out, and each step is a quiet control beside the fact it changes, with the requirements that
+   * gate it directly beneath as the reason it is disabled. An active matter offers two — the close,
+   * and the pause — and a matter on hold offers its release and the close; the pause asks for its
+   * reason in place, beneath the controls, rather than in a second window.
    *
    * IT IS A READING PANEL, AND THE SHELL SAYS SO. It opens in ActionDialog with `kind="reading"`,
    * which is the kind that asks for nothing: its action bar ends at the way out, and any step it
@@ -60,7 +62,11 @@
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
   import CircleDashed from "@lucide/svelte/icons/circle-dashed";
   import CircleDot from "@lucide/svelte/icons/circle-dot";
+  import ClipboardCheck from "@lucide/svelte/icons/clipboard-check";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import Hash from "@lucide/svelte/icons/hash";
+  import Pause from "@lucide/svelte/icons/pause";
+  import Play from "@lucide/svelte/icons/play";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import StatusMark from "@magna-carta/design-system/status-mark";
@@ -82,15 +88,25 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import Input from "@magna-carta/design-system/input";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
+  import Textarea from "@magna-carta/design-system/textarea";
+  import { renumberMatter, RENUMBER_MATTER_PERMISSION } from "./numbering-api.ts";
+  import { matterNumberRefusal } from "./numbering-scheme.ts";
   import type { MatterRecord } from "./matter-record.ts";
   import { matterStatusPresentation } from "./matter-status.ts";
   import {
     matterCanClose,
+    matterCanGraduate,
     matterCanOpen,
     matterCloseRefusals,
     matterCloseRequirements,
+    matterGraduateRefusals,
+    matterGraduateRequirements,
+    holdReasonRefusal,
     matterLifecycleBlock,
     matterLifecycleStep,
+    matterLifecycleSteps,
     matterOpenRefusals,
     matterOpenRequirements,
     MATTER_LIFECYCLE_TRANSPORT_FAILURE,
@@ -100,13 +116,18 @@
   } from "./matter-lifecycle.ts";
   import {
     closeMatter,
+    graduateMatter,
+    holdMatter,
     openMatter,
     readMatterCloseReadiness,
+    readMatterGraduateReadiness,
     readMatterOpenReadiness,
     readSession,
+    releaseMatter,
     reopenMatter,
     type MatterCloseNotice,
     type MatterCloseReadiness,
+    type MatterGraduateReadiness,
     type MatterOpenReadiness,
   } from "./matters-api.ts";
   import type { ApiOutcome } from "$lib/api/request.ts";
@@ -117,11 +138,23 @@
   // The seal comes from the one matter-status register, so this control and the docket's status
   // column can never disagree about what "Closed" looks like.
   const seal = $derived(matterStatusPresentation(matter.status));
+  /** The step the lifecycle runs toward, which is the one the readiness reads are about. */
   const step = $derived(matterLifecycleStep(matter.status));
+  /** Every step this status offers, in the order they are drawn. */
+  const steps = $derived(matterLifecycleSteps(matter.status));
+  const offersClose = $derived(steps.some((candidate) => candidate.action === "close"));
 
   // The lifecycle glyph per step. Closing wears Archive rather than a destructive glyph: the record
-  // stays additive after a close, and a bin would say the file was destroyed.
-  const STEP_ICON = { open: FolderOpen, close: Archive, reopen: RotateCcw };
+  // stays additive after a close, and a bin would say the file was destroyed. The pause and its
+  // release wear the two transport glyphs, which is what a pause is.
+  const STEP_ICON = {
+    graduate: ClipboardCheck,
+    open: FolderOpen,
+    hold: Pause,
+    release: Play,
+    close: Archive,
+    reopen: RotateCcw,
+  };
   // A met requirement wears the product's one affirmative mark (StatusMark, the filled disc), so a
   // requirement that is satisfied looks exactly like a file that is clean. The other three are
   // outline glyphs: unmet is a finding, and the two kinds of no-answer wear the quiet register on
@@ -150,13 +183,48 @@
   let readiness = $state<MatterCloseReadiness | null>(null);
   let readinessFailed = $state(false);
 
-  /** What the program says about opening: the intake steps outstanding. Null until it answers. */
+  /** What the program says about opening. Null until it answers. */
   let openReadiness = $state<MatterOpenReadiness | null>(null);
   let openReadinessFailed = $state(false);
+
+  /** What the program says about completing the intake: the steps outstanding. Null until it answers. */
+  let graduateReadiness = $state<MatterGraduateReadiness | null>(null);
+  let graduateReadinessFailed = $state(false);
 
   /** Null until the session read comes back, either way; `settled` is what tells the two apart. */
   let permissions = $state<readonly string[] | null>(null);
   let sessionSettled = $state(false);
+
+  /**
+   * The matter's number, set by hand: a court's number, a legacy number, a correction. Offered only
+   * where the matter has been active (the number is drawn at open and never before), and asked in
+   * place the way the hold's reason is.
+   */
+  let numberFormOpen = $state(false);
+  let numberDraft = $state("");
+  let numberTouched = $state(false);
+  let numberSaving = $state(false);
+  let numberFailure = $state<StatedFailure | null>(null);
+  /** The server's own refusal of the number: taken by another matter, or unfit for a link. */
+  let numberRefusal = $state<string | null>(null);
+  const numberError = $derived(
+    numberRefusal ?? (numberTouched ? matterNumberRefusal(numberDraft) : null),
+  );
+  /** A number belongs only to a matter that has been active; the unnumbered rungs never carry one. */
+  const mayCarryNumber = $derived(matter.openedAt !== null || matter.matterNumber !== null);
+  const numberBlock = $derived.by((): string | null => {
+    if (!sessionSettled) return "Reading your session.";
+    if (permissions === null) return null;
+    return permissions.includes(RENUMBER_MATTER_PERMISSION)
+      ? null
+      : permissionRefusal("Setting the number", RENUMBER_MATTER_PERMISSION);
+  });
+
+  /** The pause asks for its reason in place: the field is drawn once Put On Hold is pressed. */
+  let holdFormOpen = $state(false);
+  let holdReason = $state("");
+  let holdReasonTouched = $state(false);
+  const holdReasonError = $derived(holdReasonTouched ? holdReasonRefusal(holdReason) : null);
 
   /** The engagement: the fee arrangement in force and its history. Null until the read comes back. */
   let arrangement = $state<ArrangementRecord | null>(null);
@@ -177,21 +245,32 @@
   const identifier = $props.id();
   const blockedDescriptionIdentifier = `${identifier}-blocked`;
 
-  const StepIcon = $derived(STEP_ICON[step.action]);
   const isSample = $derived(matter.source === "sample");
   const requirements = $derived(matterCloseRequirements(readiness, readinessFailed));
   const canClose = $derived(matterCanClose(readiness));
   const openRequirements = $derived(matterOpenRequirements(openReadiness, openReadinessFailed));
   const canOpen = $derived(matterCanOpen(openReadiness));
+  const graduateRequirements = $derived(
+    matterGraduateRequirements(graduateReadiness, graduateReadinessFailed),
+  );
+  const canGraduate = $derived(matterCanGraduate(graduateReadiness));
   const intakeHref = $derived(`/matters/${encodeURIComponent(matter.id)}/intake`);
-  const block = $derived(matterLifecycleBlock({ step, isSample, sessionSettled, permissions }));
+  const blockOf = (candidate: MatterLifecycleStep): string | null =>
+    matterLifecycleBlock({ step: candidate, isSample, sessionSettled, permissions });
+  // What is in the way of each step, stated once per distinct sentence: two steps blocked by the
+  // same sample matter or the same unread session share one line, and two steps needing two
+  // different permissions each get their own.
+  const blockSentences = $derived([
+    ...new Set(steps.map(blockOf).filter((sentence): sentence is string => sentence !== null)),
+  ]);
   // A control does not offer a press whose refusal is already on the screen. An unanswered question
   // is NOT a refusal and never disables it: nothing has been predicted there, and the close is the
-  // authority either way.
-  const refused = $derived(
-    (step.action === "close" && canClose === false) ||
-      (step.action === "open" && canOpen === false),
-  );
+  // authority either way. The pause and its release have no readiness to consult: nothing gates
+  // them but the permission.
+  const refusedOf = (candidate: MatterLifecycleStep): boolean =>
+    (candidate.action === "close" && canClose === false) ||
+    (candidate.action === "open" && canOpen === false) ||
+    (candidate.action === "graduate" && canGraduate === false);
 
   // Who is asking, read once and only when somebody actually opens the window. Every matter page in
   // the app would otherwise pay for a request that only this control uses. A sample matter is
@@ -205,11 +284,11 @@
     })();
   });
 
-  // Whether the matter can close, asked of the rules themselves. Only where closing is the step in
+  // Whether the matter can close, asked of the rules themselves. Only where closing is a step in
   // front of the reader, and never for a sample matter, which has no record behind it to ask about.
   let readinessAsked = false;
   $effect(() => {
-    if (!open || readinessAsked || isSample || step.action !== "close") return;
+    if (!open || readinessAsked || isSample || !offersClose) return;
     readinessAsked = true;
     const matterId = matter.id;
     void (async () => {
@@ -230,6 +309,20 @@
       const outcome = await readMatterOpenReadiness(fetch, matterId);
       if (outcome.kind === "ok") openReadiness = outcome.value;
       else openReadinessFailed = true;
+    })();
+  });
+
+  // Whether the intake can complete, asked of the firm's intake procedure itself. Only where
+  // completing the intake is the step in front of the reader.
+  let graduateReadinessAsked = false;
+  $effect(() => {
+    if (!open || graduateReadinessAsked || isSample || step.action !== "graduate") return;
+    graduateReadinessAsked = true;
+    const matterId = matter.id;
+    void (async () => {
+      const outcome = await readMatterGraduateReadiness(fetch, matterId);
+      if (outcome.kind === "ok") graduateReadiness = outcome.value;
+      else graduateReadinessFailed = true;
     })();
   });
 
@@ -257,14 +350,64 @@
     failure = null;
     arrangementAsked = false;
     historyShown = false;
+    holdFormOpen = false;
+    holdReason = "";
+    holdReasonTouched = false;
+    numberFormOpen = false;
+    numberDraft = "";
+    numberTouched = false;
+    numberFailure = null;
+    numberRefusal = null;
   }
 
-  function report(outcome: Exclude<ApiOutcome<unknown>, { kind: "ok" }>): void {
+  async function setNumber(): Promise<void> {
+    numberTouched = true;
+    numberRefusal = null;
+    if (numberSaving || matterNumberRefusal(numberDraft) !== null) return;
+    numberSaving = true;
+    numberFailure = null;
+    const outcome = await renumberMatter(fetch, matter.id, numberDraft.trim(), crypto.randomUUID());
+    numberSaving = false;
+    if (outcome.kind === "ok") {
+      numberFormOpen = false;
+      numberDraft = "";
+      numberTouched = false;
+      await invalidateAll();
+      return;
+    }
+    // The one refusal a person can act on from the field reads beside it; anything else, the
+    // server's refusal of the number itself included, travels whole with its Error ID.
+    if (outcome.kind === "problem" && outcome.problem.status === 409) {
+      numberRefusal = "Another matter already wears that number.";
+      return;
+    }
+    numberFailure = stated(
+      outcome.failure,
+      "The number was not set.",
+      "Nothing answered. The matter's number is unchanged.",
+    );
+  }
+
+  function report(
+    attempted: MatterLifecycleStep,
+    outcome: Exclude<ApiOutcome<unknown>, { kind: "ok" }>,
+  ): void {
     // A close refused at the last moment is the same answer the requirements already hold, arriving
     // later: it re-answers them rather than sitting beside them, so the window never shows two
     // accounts of what closing requires at once. Anything else is a failure, and it travels whole —
     // the Error ID and the remedy come with the record rather than being squeezed into a sentence.
     if (outcome.kind === "problem") {
+      const refusedGraduation = matterGraduateRefusals(outcome.problem);
+      if (refusedGraduation.length > 0) {
+        graduateReadiness = {
+          matterId: matter.id,
+          status: matter.status,
+          graduable: false,
+          blockers: [...refusedGraduation],
+        };
+        graduateReadinessFailed = false;
+        return;
+      }
       const refusedOpen = matterOpenRefusals(outcome.problem);
       if (refusedOpen.length > 0) {
         openReadiness = {
@@ -288,11 +431,11 @@
         return;
       }
     }
-    failure = stated(outcome.failure, step.failureSentence, MATTER_LIFECYCLE_TRANSPORT_FAILURE);
+    failure = stated(outcome.failure, attempted.failureSentence, MATTER_LIFECYCLE_TRANSPORT_FAILURE);
   }
 
   // The matter behind the chrome is re-read rather than guessed at: reopen restores open OR
-  // prospective, and only the server knows which, so every step settles the same way.
+  // consultation, and only the server knows which, so every step settles the same way.
   async function settle(completed: MatterLifecycleStep): Promise<void> {
     taken = completed;
     // A step with nothing to report dismisses itself: the answer to "what happened" is the seal
@@ -302,9 +445,18 @@
     await invalidateAll();
   }
 
-  async function take(): Promise<void> {
-    if (working || block !== null || refused) return;
-    const completed = step;
+  async function take(completed: MatterLifecycleStep): Promise<void> {
+    if (working || blockOf(completed) !== null || refusedOf(completed)) return;
+    // The pause asks for its reason first. The first press opens the field; the field's own commit
+    // is what records the hold, so a hold is never recorded with nothing said about why.
+    if (completed.action === "hold" && !holdFormOpen) {
+      holdFormOpen = true;
+      return;
+    }
+    if (completed.action === "hold") {
+      holdReasonTouched = true;
+      if (holdReasonRefusal(holdReason) !== null) return;
+    }
     working = true;
     failure = null;
     // A double-press must not draw a second matter number or stamp a second close date, so every
@@ -318,19 +470,25 @@
         await settle(completed);
         return;
       }
-      report(outcome);
+      report(completed, outcome);
       return;
     }
     const outcome =
-      completed.action === "open"
-        ? await openMatter(fetch, matter.id, idempotencyKey)
-        : await reopenMatter(fetch, matter.id, idempotencyKey);
+      completed.action === "graduate"
+        ? await graduateMatter(fetch, matter.id, idempotencyKey)
+        : completed.action === "open"
+          ? await openMatter(fetch, matter.id, idempotencyKey)
+          : completed.action === "hold"
+            ? await holdMatter(fetch, matter.id, holdReason.trim(), idempotencyKey)
+            : completed.action === "release"
+              ? await releaseMatter(fetch, matter.id, idempotencyKey)
+              : await reopenMatter(fetch, matter.id, idempotencyKey);
     working = false;
     if (outcome.kind === "ok") {
       await settle(completed);
       return;
     }
-    report(outcome);
+    report(completed, outcome);
   }
 </script>
 
@@ -368,7 +526,11 @@
   onOpen={reset}
 >
   {#snippet subtitle()}
-    {matter.matterNumber === null ? "Consultation" : `Matter ${matter.matterNumber}`} ·
+    {matter.matterNumber !== null
+      ? `Matter ${matter.matterNumber}`
+      : matter.consultationNumber !== null
+        ? `Consultation ${matter.consultationNumber}`
+        : seal.label} ·
     {matter.title}
   {/snippet}
 
@@ -389,25 +551,196 @@
             <Badge variant={seal.variant} caps>
               {seal.label}
             </Badge>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={block !== null || refused || working}
-              title={block ?? undefined}
-              aria-describedby={block === null ? undefined : blockedDescriptionIdentifier}
-              onclick={take}
-            >
-              <StepIcon class="size-16" aria-hidden="true" />
-              {working ? step.busyLabel : step.label}
-            </Button>
+            {#each steps as candidate (candidate.action)}
+              {@const StepIcon = STEP_ICON[candidate.action]}
+              {@const candidateBlock = blockOf(candidate)}
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={candidateBlock !== null || refusedOf(candidate) || working}
+                title={candidateBlock ?? undefined}
+                aria-describedby={candidateBlock === null ? undefined : blockedDescriptionIdentifier}
+                aria-expanded={candidate.action === "hold" ? holdFormOpen : undefined}
+                onclick={() => void take(candidate)}
+              >
+                <StepIcon class="size-16" aria-hidden="true" />
+                {working && taken === null ? candidate.busyLabel : candidate.label}
+              </Button>
+            {/each}
           </dd>
         </div>
       </dl>
 
       <!-- What is in the way gets its own line: a disabled control can be neither hovered nor
            focused, so the sentence has to be readable on the screen. -->
-      {#if block !== null}
-        <p id={blockedDescriptionIdentifier} class="text-xs text-text-subtle">{block}</p>
+      {#if blockSentences.length > 0}
+        <div id={blockedDescriptionIdentifier} class="flex flex-col gap-4">
+          {#each blockSentences as sentence (sentence)}
+            <p class="text-xs text-text-subtle">{sentence}</p>
+          {/each}
+        </div>
+      {/if}
+
+      {#if matter.status === "hold"}
+        <!-- The pause, as the record states it: when it began, and why, in the words whoever
+             recorded it used. Read before anything else on a held matter, because it is the
+             reason the reader is looking at this window. -->
+        <div class="flex flex-col gap-8">
+          <FieldLabel as="h3">On Hold</FieldLabel>
+          <dl class="flex flex-col gap-8 text-sm">
+            <div class="grid grid-cols-2 items-baseline gap-16">
+              <dt class="text-text-muted">Since</dt>
+              <dd class="tabular-nums">
+                {matter.heldAt === null ? "Not recorded" : formatDate(matter.heldAt)}
+              </dd>
+            </div>
+            <div class="grid grid-cols-2 items-baseline gap-16">
+              <dt class="text-text-muted">Reason</dt>
+              <dd>{matter.holdReason ?? "Not recorded"}</dd>
+            </div>
+          </dl>
+        </div>
+      {/if}
+
+      <!-- The matter's number, and the way to set one by hand. A standing fact rather than a
+           step: it is drawn when the matter opens and sits here so a court's number or a legacy
+           number can be put on the record without leaving the window that states the status. -->
+      <div class="flex flex-col gap-8">
+        <FieldLabel as="h3">Number</FieldLabel>
+        <dl class="flex flex-col gap-8 text-sm">
+          <div class="grid grid-cols-2 items-center gap-16">
+            <dt class="text-text-muted">Matter Number</dt>
+            <dd class="flex flex-wrap items-center gap-8">
+              {#if matter.matterNumber !== null}
+                <span class="tabular-nums">{matter.matterNumber}</span>
+              {:else}
+                <span class="text-text-subtle">
+                  {mayCarryNumber ? "Not recorded" : "Drawn when the matter opens"}
+                </span>
+              {/if}
+              {#if mayCarryNumber && !isSample}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={numberBlock !== null || numberSaving}
+                  title={numberBlock ?? undefined}
+                  aria-expanded={numberFormOpen}
+                  onclick={() => {
+                    numberFormOpen = !numberFormOpen;
+                    numberRefusal = null;
+                  }}
+                >
+                  <Hash class="size-16" aria-hidden="true" />
+                  {matter.matterNumber === null ? "Set Number" : "Change Number"}
+                </Button>
+              {/if}
+            </dd>
+          </div>
+          {#if matter.consultationNumber !== null}
+            <div class="grid grid-cols-2 items-center gap-16">
+              <dt class="text-text-muted">Consultation Number</dt>
+              <dd class="tabular-nums">{matter.consultationNumber}</dd>
+            </div>
+          {/if}
+        </dl>
+        {#if mayCarryNumber && !isSample && numberBlock !== null}
+          <p class="text-xs text-text-subtle">{numberBlock}</p>
+        {/if}
+        {#if numberFormOpen}
+          <LabelledField
+            label={matter.matterNumber === null ? "Matter Number" : "New Matter Number"}
+            hint="A court's number, a number from the firm's old system, or a correction. It has to be unique in the firm and able to stand in a link; the number it replaces stays on the record."
+            error={numberError ?? undefined}
+          >
+            {#snippet children({ props })}
+              <Input
+                {...props}
+                bind:value={numberDraft}
+                disabled={numberSaving}
+                onblur={() => (numberTouched = true)}
+                onkeydown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void setNumber();
+                  }
+                }}
+              />
+            {/snippet}
+          </LabelledField>
+          {#if numberFailure !== null}
+            <FailureNotice
+              failure={numberFailure.failure}
+              title="The Number Was Not Set"
+              fallback={numberFailure.fallback}
+              whenSilent={numberFailure.whenSilent}
+            />
+          {/if}
+          <div class="flex flex-wrap items-center gap-8">
+            <Button variant="primary" size="sm" disabled={numberSaving} onclick={() => void setNumber()}>
+              <Hash class="size-16" aria-hidden="true" />
+              {numberSaving ? "Setting" : matter.matterNumber === null ? "Set Number" : "Change Number"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={numberSaving}
+              onclick={() => {
+                numberFormOpen = false;
+                numberDraft = "";
+                numberTouched = false;
+                numberRefusal = null;
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        {/if}
+      </div>
+
+      {#if holdFormOpen && matter.status === "open"}
+        <!-- The pause's reason, asked in place. Required, because a matter on hold with nothing
+             said about why is a matter nobody knows how to resume. -->
+        <div class="flex flex-col gap-8">
+          <FieldLabel as="h3">Put On Hold</FieldLabel>
+          <LabelledField
+            label="Reason"
+            hint="Why the firm has stopped work on this matter, in a sentence. It prints beside the status; the account of it belongs on the matter's notes."
+            error={holdReasonError ?? undefined}
+          >
+            {#snippet children({ props })}
+              <Textarea
+                {...props}
+                bind:value={holdReason}
+                rows={3}
+                disabled={working}
+                onblur={() => (holdReasonTouched = true)}
+              />
+            {/snippet}
+          </LabelledField>
+          <div class="flex flex-wrap items-center gap-8">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={working}
+              onclick={() => void take(steps.find((candidate) => candidate.action === "hold") ?? step)}
+            >
+              <Pause class="size-16" aria-hidden="true" />
+              {working ? "Holding" : "Put On Hold"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={working}
+              onclick={() => {
+                holdFormOpen = false;
+                holdReason = "";
+                holdReasonTouched = false;
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
       {/if}
 
       {#if !isSample}
@@ -520,27 +853,27 @@
         </div>
       {/if}
 
-      {#if step.action === "open" && !isSample}
-        <!-- What opening requires: the firm's own intake procedure, each required step that has no
-             satisfying answer, in the words of whoever should answer it. The rows are the refusals
-             themselves — there is no fixed roster to state as met, because what a consultation must
-             clear is the firm's to write and may be nothing at all. -->
+      {#if step.action === "graduate" && !isSample}
+        <!-- What completing the intake requires: the firm's own intake procedure, each required
+             step that has no satisfying answer, in the words of whoever should answer it. The rows
+             are the refusals themselves — there is no fixed roster to state as met, because what an
+             intake must clear is the firm's to write and may be nothing at all. -->
         <div class="flex flex-col gap-8">
-          <FieldLabel as="h3">Requirements To Open</FieldLabel>
-          {#if openReadiness === null && !openReadinessFailed}
+          <FieldLabel as="h3">Requirements To Complete Intake</FieldLabel>
+          {#if graduateReadiness === null && !graduateReadinessFailed}
             <p class="text-xs text-text-subtle">Reading the intake procedure.</p>
-          {:else if openReadinessFailed}
+          {:else if graduateReadinessFailed}
             <p class="text-xs text-text-subtle">
-              These could not be checked, so the open will check them.
+              These could not be checked, so completing the intake will check them.
             </p>
-          {:else if openRequirements.length === 0}
+          {:else if graduateRequirements.length === 0}
             <p class="flex items-center gap-8 text-sm text-text-muted">
               <StatusMark decorative class="size-16" />
               Every required intake step is answered.
             </p>
           {:else}
             <ul class="flex flex-col gap-8 text-sm">
-              {#each openRequirements as requirement (requirement.key)}
+              {#each graduateRequirements as requirement (requirement.key)}
                 <li class="flex items-start gap-8">
                   <CircleAlert
                     class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE.unmet}"
@@ -560,7 +893,27 @@
         </div>
       {/if}
 
-      {#if step.action === "close" && !isSample}
+      {#if step.action === "open" && !isSample && openRequirements.length > 0}
+        <!-- Opening has no roster of its own now that the procedure gates the intake; the block is
+             drawn only when the open itself refused with reasons, so they can be read where the
+             control is. -->
+        <div class="flex flex-col gap-8">
+          <FieldLabel as="h3">Requirements To Open</FieldLabel>
+          <ul class="flex flex-col gap-8 text-sm">
+            {#each openRequirements as requirement (requirement.key)}
+              <li class="flex items-start gap-8">
+                <CircleAlert
+                  class="mt-2 size-16 shrink-0 {REQUIREMENT_TONE.unmet}"
+                  aria-hidden="true"
+                />
+                <span class="text-text-default">{requirement.label}</span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
+      {#if offersClose && !isSample}
         <!-- What closing requires, each one already answered by the rules themselves. Not a
              checklist: nothing here is a person's to tick, and the mark states what the program
              found rather than what anybody is being asked to confirm. -->

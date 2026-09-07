@@ -56,6 +56,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         note: "The one table, in every state",
       },
       {
+        label: "Upload states",
+        href: "/developer-console/upload-states",
+        note: "The Upload dialog and the upload tray, mid-transfer and after a failure",
+      },
+      {
         label: "Loading states",
         href: "/developer-console/loading-states",
         note: "The one loading region, over every shape",

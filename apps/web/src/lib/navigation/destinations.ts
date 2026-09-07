@@ -29,6 +29,7 @@ import type { Component } from "svelte";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import House from "@lucide/svelte/icons/house";
 import Download from "@lucide/svelte/icons/download";
+import Upload from "@lucide/svelte/icons/upload";
 import Bell from "@lucide/svelte/icons/bell";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
 import CalendarDays from "@lucide/svelte/icons/calendar-days";
@@ -147,6 +148,20 @@ const DESTINATION_LIST = [
     defaultStarred: true,
   },
   {
+    // The uploads this browser tab is running: every batch in full, with each file's standing, the
+    // rate and the time left. Live state rather than a register — an upload dies with the tab — so
+    // it is the download shelf's opposite number, not a second shelf.
+    id: "uploads",
+    label: "Uploads",
+    href: "/uploads",
+    icon: Upload,
+    description: "Files you are sending to matters, each one's progress, and what did not go.",
+    group: "top",
+    shipped: true,
+    stage: "alpha",
+    defaultStarred: false,
+  },
+  {
     // A shipped stub: the page exists (an honest empty state) so the top-bar bell has a home to
     // open into. The alerts machinery that fills it arrives later.
     id: "notifications",
@@ -164,8 +179,11 @@ const DESTINATION_LIST = [
     // It sits in the workspace group beside Notifications rather than under a matter, because "what
     // is on my plate" is a question about the person and not about any one case — and a task list
     // somebody has to go looking for inside each matter is a task list nobody looks at.
-    id: "my-work",
-    label: "My Work",
+    //
+    // Named for the record it holds, not for whose it is: a matter's own section is Tasks, so a
+    // second name for the same noun made the sidebar and the matter disagree about one word.
+    id: "tasks",
+    label: "Tasks",
     href: "/tasks",
     icon: ListChecks,
     description: "Every task with your name on it, across your matters and the firm's own work.",
@@ -220,8 +238,10 @@ const DESTINATION_LIST = [
     icon: Inbox,
     description: "New client and matter intake, from first inquiry to open file.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The desk lists every intake in flight, starts one, and schedules the consultation; the public
+    // form, the pipeline board and call intake are still to come.
+    stage: "alpha",
     defaultStarred: true,
   },
   {
@@ -315,14 +335,18 @@ const DESTINATION_LIST = [
   },
   // Money (draft order: Time, Billing, Trust)
   {
+    // The period ledger: the firm's time over a span of days, across every matter. It is the read
+    // surface, distinct from the top bar's Time Sheet, which is capture and opens over whatever
+    // screen you are on. Alpha, not ready: the period reads, narrows and opens any entry, and the
+    // week grid that captures a missed week in one pass is still to come.
     id: "time",
     label: "Time",
     href: "/time",
     icon: Clock,
-    description: "Time capture and entries, ready for billing.",
+    description: "Every hour recorded, across matters and timekeepers, for the days you choose.",
     group: "money",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {

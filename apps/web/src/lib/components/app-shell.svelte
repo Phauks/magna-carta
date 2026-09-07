@@ -40,6 +40,7 @@
   import VersionChip from "$lib/versions/version-chip.svelte";
   import { MaturityBadge, MaturityDot } from "@magna-carta/design-system/maturity";
   import DownloadTray from "$lib/export/download-tray.svelte";
+  import UploadTray from "$lib/file-manager/upload-tray.svelte";
   import ProfileMenu from "$lib/components/profile-menu.svelte";
   import { DragReorderController } from "$lib/components/drag-reorder.svelte.ts";
   import {
@@ -521,6 +522,13 @@
                anatomy and every read it makes belong to the Time surface
                ($lib/time/time-keeper-chip.svelte); the shell seats it and does nothing else with it. -->
           <TimeKeeperChip />
+          <!-- The upload tray: what this member is SENDING, seated ahead of what the platform made
+               for them. A transfer outlives the panel that started it (the upload queue,
+               $lib/file-manager/upload-queue.svelte.ts), so this is where it shows its progress, its
+               failures and the way to the folder it landed in while the reader works elsewhere. Its
+               anatomy belongs to the file surface ($lib/file-manager/upload-tray.svelte); the
+               shell seats it and does nothing else with it. -->
+          <UploadTray />
           <!-- The download tray, seated beside the Time Sheet's handle on the owner's direction: what the
                platform has made for this member, reachable from the top of the app rather than only
                from the sidebar row. Clicking it gives the overview and offers the full register at

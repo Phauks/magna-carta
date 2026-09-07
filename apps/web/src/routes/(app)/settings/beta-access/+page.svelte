@@ -25,6 +25,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import Switch from "@magna-carta/design-system/switch";
   import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
@@ -70,7 +71,6 @@
 <SettingsMasthead
   sectionId="beta-access"
   title="Beta Access"
-  meta="Early access to features before general release — a choice the firm makes as a firm."
   posture={canEdit ? "draft" : "readOnly"}
   draft={canEdit ? draft : undefined}
 />
@@ -80,6 +80,8 @@
      identical width. Full canvas width (owner-directed): the table uses the space. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>Early access to features before general release — a choice the firm makes as a firm.</SettingsDescription>
+
   <SettingsPlate heading="Release Program">
     <SettingsRow definition={RELEASE_CHANNEL_DEFINITION} value="—" />
 

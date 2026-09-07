@@ -358,10 +358,10 @@ describe("never into a matter that is not open", () => {
     expect(decision.suspension).toEqual({ ruleId: THREAD_RULE, reason: "matterClosed" });
   });
 
-  it("refuses a prospective matter", () => {
+  it("refuses a consultation", () => {
     const decision = resolveAutoFileDecision(
       evidence({
-        targetMatters: [{ matterId: MATTER, status: "prospective", systemOwned: false }],
+        targetMatters: [{ matterId: MATTER, status: "consultation", systemOwned: false }],
       }),
     );
     expect(decision.outcome).toBe("noRule");

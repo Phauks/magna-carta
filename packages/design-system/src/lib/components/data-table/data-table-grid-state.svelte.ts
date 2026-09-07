@@ -12,8 +12,8 @@
 import type { GridColumn, GridSortDirection } from "./grid-columns.ts";
 import {
   gridColumnTotalText,
+  gridRowComparator,
   movedGridColumnOrder,
-  sortGridRows,
   visibleGridColumns,
 } from "./grid-columns.ts";
 import type { GridColumnFilter, GridFilters } from "./grid-filters.ts";
@@ -68,6 +68,18 @@ export interface DataTableGridOptions<TRow> {
   onSelectionChange?: (keys: readonly string[], rows: readonly TRow[]) => void;
   /** A row was activated (double-click / Enter) — distinct from selection. */
   onActivate?: (row: TRow) => void;
+  /**
+   * How the filtered rows are put in order, when a flat sort is not the whole answer. The grid
+   * hands over the rows that passed its filters and the comparator it would have sorted them
+   * with (the chosen column, in the chosen direction, ties broken on the key); the surface returns
+   * them arranged. A hierarchy uses this to sort siblings within their parent and keep every child
+   * under it, so the reader's sort still means what it says on every level while the tree holds.
+   * Omitted, the rows are sorted flat — which is every table but the hierarchical ones.
+   */
+  orderRows?: (
+    rows: readonly TRow[],
+    compare: (left: TRow, right: TRow) => number,
+  ) => readonly TRow[];
 }
 
 /** Per-column default sort direction: dates read newest-first, everything else ascending. */
@@ -133,8 +145,12 @@ export class DataTableGridState<TRow> {
 
   sortedRows = $derived.by((): readonly TRow[] => {
     const column = this.sortColumnId === null ? undefined : this.columnById(this.sortColumnId);
-    if (!column) return this.filteredRows;
-    return sortGridRows(this.filteredRows, column, this.sortDirection, this.options.rowKey);
+    const arrange = this.options.orderRows;
+    if (!column) {
+      return arrange ? arrange(this.filteredRows, () => 0) : this.filteredRows;
+    }
+    const compare = gridRowComparator(column, this.sortDirection, this.options.rowKey);
+    return arrange ? arrange(this.filteredRows, compare) : this.filteredRows.toSorted(compare);
   });
 
   /**

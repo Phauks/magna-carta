@@ -1,9 +1,14 @@
 <script lang="ts">
   /*
-   * Home — the Dashboard archetype's stage-1 form: the greeting masthead (the page's one
-   * ceremonial edge, with the quote-of-the-day riding the baseline) over the first widget and an
+   * Home — the Dashboard archetype's stage-1 form: the masthead over the first widget and an
    * honest empty state for the rest. The widget grid (my tasks / today / needs attention)
    * assembles here as its slices ship; nothing is faked meanwhile.
+   *
+   * THE MASTHEAD STATES THE SCREEN'S NAME, like every other main screen — it does not greet. The
+   * daypart greeting that stood here was the one main-page title that was not the destination's
+   * own name, which cost the sidebar and the screen a shared vocabulary for nothing a reader
+   * gains. The date stays: it is a fact the dashboard is read against, not a description of the
+   * screen.
    *
    * THE TODAY CARD IS THE CALENDAR, NARROWED. It is the one calendar component with the reader's
    * own scope, the agenda over today and tomorrow, headless, capped at six rows with a line to the
@@ -26,8 +31,6 @@
   import { sampleMatter, sampleOrganization } from "@magna-carta/design-system/loading-fixtures";
 
   const now = new Date();
-  const hour = now.getHours();
-  const daypart = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
   const today = now.toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
@@ -88,7 +91,7 @@
 </svelte:head>
 
 <ScreenHeader
-  title="Good {daypart}"
+  title="Home"
   class="mb-24"
 >
   {#snippet meta()}
