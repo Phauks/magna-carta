@@ -324,7 +324,7 @@ while you are there.
 `mergeValueForCustomField` returns `{ kind: "date", isoDate: stored }` for any non-empty
 `value_date`, and `expressionValueOf` (`assemble.ts:206-207`) passes it into the evaluator
 unchanged. The per-firm schema declares `value_date` as a bare `text` column with no CHECK
-(`packages/database/drizzle/per-firm/20260704T041516_baseline.sql:92`).
+(`packages/database/drizzle/per-firm/20260908T000000_baseline.sql:92`).
 
 Every other date the evaluator can see is validated: a literal by the parser
 (`parse.ts:144-152`), an instant by `formatMergeValue(value, "iso", …)`. This one is not. And date

@@ -4,6 +4,7 @@ import { isPermission } from "@magna-carta/access-control/registry";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { runScheduledSweep } from "../src/scheduled.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { NON_MUTATING_POST_ALLOW_LIST as NON_MUTATING_POST_EXEMPTIONS } from "./support/non-mutating-post-allow-list.ts";
 import {
   captureResetToken,
   liveCookie,
@@ -605,69 +606,12 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     expect(operationIds).toContain("firms.provision");
     expect(operationIds).toContain("members.invite");
 
-    // POST routes that mutate nothing — a pure computation over the request body (a preview/render) —
-    // are exempt from the audited-mutating requirement: there is no state change to audit, and
-    // auditing a hot read-shaped POST (the numbering live preview, fired on every keystroke) would
-    // flood audit_log. Mirrors the NON_MUTATING_POST_ALLOW_LIST in conformance.test.ts, applied here
-    // to the live-served document.
-    const NON_MUTATING_POST_ALLOW_LIST = new Set([
-      "numbering.preview",
-      "directory.duplicateCandidates",
-      "shipping.rateShipment",
-      "shipping.tracking",
-      "customFields.previewConvert",
-      "timeEntries.previewQuickAdd",
-      "conversions.upload",
-      "conversions.submit",
-      // Pure credential mint: a staging key plus a short-TTL presigned PUT URL for a template
-      // document — no firm-database write, nothing to audit (the conversions.upload precedent).
-      "templates.upload",
-      "safeBrowse.post",
-      // The streaming twin of safeBrowse.post — the same pure read delivered as newline-delimited
-      // stage lines; nothing is written and the target URL is deliberately never logged (redaction).
-      "safeBrowse.stream",
-      // Pure-compute POSTs — inspect/scrub operate over the request body only; nothing is stored.
-      "metadata.inspect",
-      "metadata.scrub",
-      // Pure computation over the streamed request body — computes five digests; nothing is stored.
-      "fileIntegrity.hash",
-      // Streams the bytes to the scan Container for identification; nothing is stored.
-      "fileType.verify",
-      // Diagnose/repair/carve operate over the request body only, returning results in-process;
-      // nothing is stored. The persisting attach variants are separate audited routes.
-      "fileRepair.diagnose",
-      "fileRepair.repair",
-      "fileRepair.carve",
-      // Pure recognition over the uploaded bytes — returns text, word boxes, and confidence;
-      // nothing is stored.
-      "ocr.recognize",
-      // Pure recognition over the uploaded PDF — returns the same document with an invisible
-      // searchable text layer; nothing is stored.
-      "ocr.searchable",
-      // Pure computation over the uploaded message bytes — parses and returns the structural
-      // inspection; nothing is stored, no firm data is written.
-      "emailInspector.inspect",
-      // Analysis POST: the only write is one incidental ai_detection_usage meter row (telemetry),
-      // not an auditable firm-domain mutation; auditing every detection would flood audit_log.
-      "aiDetection.detect",
-      // Read-shaped POST: ranks the matters an open message might belong to. The message facts ride
-      // the body rather than a URL because they are the firm's mail; nothing is written or filed.
-      "emails.suggestMatters",
-      // Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it.
-      // Nothing is stored; the separate, audited import route is what records anything.
-      "trust.previewStatementImport",
-      // A printer, not a data source: pure composition of the tabular document the caller already
-      // holds into a Word or PDF file, returned as bytes. Nothing is stored; filing a produced
-      // export would be a separate route riding reports:produce.
-      "reports.exportRender",
-      // A member settling their OWN notification feed row. These write, on the aiDetection.detect
-      // reasoning rather than the pure-computation one: the write records nothing about the firm's
-      // conduct, only that one member cleared one badge, and auditing every clear would flood
-      // audit_log with rows that outlive the notifications they described.
-      "notifications.markRead",
-      "notifications.dismiss",
-      "notifications.markAllRead",
-    ]);
+    // The read-shaped POSTs that mutate nothing, and are therefore exempt from the audited-mutating
+    // requirement. The set has ONE home — this fitness function reads the document the running worker
+    // serves, its twin in conformance.test.ts reads the one the route table emits, and when each kept
+    // its own copy they drifted: `uploads.matches` reached only the twin, and this suite was red on
+    // main until somebody looked. A route earns the exemption once, with its justification.
+    const NON_MUTATING_POST_ALLOW_LIST = new Set(Object.keys(NON_MUTATING_POST_EXEMPTIONS));
 
     // The two doors a signed-in account with no firm may push on, and the only mutating operations
     // that legitimately name no permission while being authenticated. Adding a third is a decision

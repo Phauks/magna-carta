@@ -68,7 +68,8 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
     });
     // Asserted rather than logged, so the runtime's answer reaches the run report either way: a
     // pass is the pragma working, and a failure prints what it did instead.
-    expect(outcome).toBe("the pragma took effect");
+    expect(outcome).toContain("the pragma did NOT take effect");
+    expect(outcome).toContain("FOREIGN KEY constraint failed");
   });
 
   it("says whether YIELDING between the pragma and the drop lets it take effect", async () => {
@@ -93,11 +94,11 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
         return `yielding did not help: ${error instanceof Error ? error.message : String(error)}`;
       }
     });
-    expect(outcome).toBe("yielding worked");
+    expect(outcome).toContain("yielding did not help");
   });
 
   it("says whether defer_foreign_keys carries a rebuild through one context", async () => {
-    const outcome = await runInDurableObject(stub(), (instance: FirmDatabase) => {
+    const attempt = runInDurableObject(stub(), (instance: FirmDatabase) => {
       const sql = (instance as unknown as { ctx: { storage: { sql: SqlStorage } } }).ctx.storage
         .sql;
       seedProbe(sql, "defer");
@@ -114,7 +115,15 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
         return `defer_foreign_keys did not: ${error instanceof Error ? error.message : String(error)}`;
       }
     });
-    expect(outcome).toBe("defer_foreign_keys carried the rebuild");
+    // Deferral does exactly what it says — no statement refuses — so the failure arrives at the
+    // COMMIT, as a durable-object reset rather than a value this callback could return. Caught
+    // here so the run report says which of the two happened.
+    const outcome = await attempt.then(
+      (value) => value,
+      (error: unknown) =>
+        `the commit rejected: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    expect(outcome).toMatch(/^(defer_foreign_keys did not|the commit rejected):/u);
   });
 
   it("rebuilds by renaming the original ASIDE, so nothing is ever dropped out from under a child", async () => {
@@ -145,7 +154,7 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
         return `rename-aside failed: ${error instanceof Error ? error.message : String(error)}`;
       }
     });
-    expect(outcome).toBe("rename-aside worked, children still resolve: 1");
+    expect(outcome).toContain("rename-aside failed");
   });
 
   it("says whether a pragma set in an EARLIER context still stands in a later one", async () => {
@@ -180,7 +189,58 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
         }
       }
     });
-    expect(outcome).toBe("a pragma from an earlier context still stands");
+    expect(outcome).toContain("it does not stand");
+  });
+
+  it("REBUILDS under defer_foreign_keys with the original renamed aside", async () => {
+    // The combination the two halves above each missed. Cloudflare's own guidance is that
+    // `PRAGMA foreign_keys` cannot be changed inside a migration — every query runs in an implicit
+    // transaction — and that `defer_foreign_keys` is the supported relaxation, holding violations
+    // until the end of that transaction, by which point they must all be resolved.
+    //
+    // Deferral alone is not enough: dropping the parent records a violation per child row that
+    // recreating the name does not retract. legacy_alter_table alone is not enough either: renaming
+    // the parent aside orphans its children immediately. Together they should work — the rename
+    // leaves children naming a table that the very next statement recreates, the table finally
+    // dropped is the one nothing points at, and deferral carries the gap to the commit where every
+    // reference resolves again.
+    const attempt = runInDurableObject(stub(), (instance: FirmDatabase) => {
+      const sql = (instance as unknown as { ctx: { storage: { sql: SqlStorage } } }).ctx.storage
+        .sql;
+      seedProbe(sql, "both");
+      try {
+        sql.exec("PRAGMA defer_foreign_keys=ON");
+        sql.exec("PRAGMA legacy_alter_table=ON");
+        sql.exec("ALTER TABLE probe_parent_both RENAME TO __old_probe_parent_both");
+        // The widened CHECK is the whole point of a rebuild, so the replacement carries one.
+        sql.exec(
+          "CREATE TABLE probe_parent_both (id TEXT PRIMARY KEY, v TEXT, CONSTRAINT ck CHECK(v IN ('a','b')))",
+        );
+        sql.exec("INSERT INTO probe_parent_both (id, v) SELECT id, v FROM __old_probe_parent_both");
+        sql.exec("DROP TABLE __old_probe_parent_both");
+        sql.exec("PRAGMA legacy_alter_table=OFF");
+        const kids = sql
+          .exec(
+            "SELECT COUNT(*) AS n FROM probe_child_both JOIN probe_parent_both ON probe_parent_both.id = probe_child_both.parent_id",
+          )
+          .toArray() as { n: number }[];
+        return `rebuilt, children still resolve: ${String(kids[0]?.n ?? -1)}`;
+      } catch (error) {
+        return `failed: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    });
+    // The rejection is caught rather than asserted with `.rejects`, because WHERE it fails is part
+    // of the finding and only the message says which: a statement that refuses outright surfaces
+    // through the `catch` above as "failed: ...", while a deferred violation lets every statement
+    // succeed and rejects at the COMMIT, which reaches here as a thrown reset instead.
+    const outcome = await attempt.then(
+      (value) => value,
+      (error: unknown) =>
+        `commit rejected: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    // Deferral genuinely defers, and the deferred violation is still outstanding at the commit — so
+    // the combination that should have worked does not, and the rebuild never lands.
+    expect(outcome).toMatch(/^(failed|commit rejected):/u);
   });
 
   it("enforces foreign keys on a drop with no pragma at all, in the same context", async () => {
