@@ -35,9 +35,20 @@ function stripComments(text: string): string {
 }
 
 const HEALTHY: DatabaseHealthValue = {
-  controlPlane: { state: "reachable", bucketProvisioned: true },
+  controlPlane: {
+    state: "reachable",
+    roundTripMilliseconds: 5,
+    fault: null,
+    bucketProvisioned: true,
+  },
+  controlPlaneSchema: {
+    state: "current",
+    appliedCount: 8,
+    appliedHead: "20260829T160000_registration-credential",
+    expectedHead: "20260829T160000_registration-credential",
+  },
   firmDatabase: { state: "reachable", roundTripMilliseconds: 12, fault: null },
-  schema: {
+  firmSchema: {
     state: "current",
     appliedCount: 214,
     appliedHead: "20260903T020000_conflicts-hit-entity-index",
@@ -48,6 +59,15 @@ const HEALTHY: DatabaseHealthValue = {
   observedAt: "2026-09-03T12:00:00.000Z",
 };
 
+const ROWS = [
+  "firmDatabase",
+  "firmSchema",
+  "membership",
+  "controlPlane",
+  "controlPlaneSchema",
+  "fileStorage",
+] as const;
+
 function rowFor(value: DatabaseHealthValue, id: string) {
   const row = databaseHealthRows(value).find((candidate) => candidate.id === id);
   if (row === undefined) throw new Error(`no row for ${id}`);
@@ -55,21 +75,89 @@ function rowFor(value: DatabaseHealthValue, id: string) {
 }
 
 describe("databaseHealthRows", () => {
-  it("always renders the same four rows, healthy or not", () => {
+  it("always renders the same six rows, healthy or not", () => {
     // A row that disappears when it is fine would make the section's LENGTH the signal, and half
-    // of these states are ordinary.
-    expect(databaseHealthRows(HEALTHY).map((row) => row.id)).toEqual([
-      "firmDatabase",
-      "schema",
-      "membership",
-      "controlPlane",
-    ]);
+    // of these states are ordinary. Two groups of three, the firm's database first and the platform
+    // one under it, so a reader who finds the firm's group healthy has somewhere to look next.
+    expect(databaseHealthRows(HEALTHY).map((row) => row.id)).toEqual([...ROWS]);
     expect(
       databaseHealthRows({
         ...HEALTHY,
         firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: null },
       }).map((row) => row.id),
-    ).toEqual(["firmDatabase", "schema", "membership", "controlPlane"]);
+    ).toEqual([...ROWS]);
+  });
+
+  // The reason this section grew a second group. Both databases are on the path of every request —
+  // the control plane resolves the account, the session and the firm's record before the firm's own
+  // database is consulted at all — and the panel used to time one of them and merely ping the
+  // other. A member whose screens were slow could read "Answered in 12 ms" off a healthy firm row
+  // and learn nothing about the leg actually failing them.
+  it("times BOTH databases and names each one, rather than timing the firm's alone", () => {
+    const rows = databaseHealthRows(HEALTHY);
+    const firm = rowFor(HEALTHY, "firmDatabase");
+    const platform = rowFor(HEALTHY, "controlPlane");
+    expect(firm.detail).toBe("Answered in 12 ms.");
+    expect(platform.detail).toBe("Answered in 5 ms.");
+    // Named apart, so "which database" is answerable from the row itself.
+    expect(new Set(rows.map((row) => row.name)).size).toBe(rows.length);
+    expect(platform.name).toContain("Magna Carta");
+  });
+
+  it("says WHY the platform database is not answering, on the same terms as the firm's", () => {
+    const row = rowFor(
+      {
+        ...HEALTHY,
+        controlPlane: {
+          state: "unreachable",
+          roundTripMilliseconds: null,
+          fault: "D1_ERROR: no such table: firm",
+        },
+      },
+      "controlPlane",
+    );
+    expect(row.reading).toBe("fault");
+    expect(row.status).toBe("Not answering");
+    expect(row.detail).toContain("D1_ERROR: no such table: firm");
+    // And it names the database it is about, so the two fault sentences cannot be confused.
+    expect(row.detail).toContain("Magna Carta");
+  });
+
+  it("reads each database's lineage against its OWN expected head", () => {
+    // Two journals, two heads. A row that compared the firm's applied tag with the control plane's
+    // expected one would report "Behind" on every healthy firm in the fleet.
+    const value: DatabaseHealthValue = {
+      ...HEALTHY,
+      controlPlaneSchema: {
+        ...HEALTHY.controlPlaneSchema,
+        state: "behind",
+        appliedHead: "20260811T224252_self-serve-registration-and-invitations",
+      },
+    };
+    expect(rowFor(value, "firmSchema").reading).toBe("healthy");
+    const platformSchema = rowFor(value, "controlPlaneSchema");
+    expect(platformSchema.reading).toBe("attention");
+    expect(platformSchema.detail).toContain(
+      "20260811T224252_self-serve-registration-and-invitations",
+    );
+    expect(platformSchema.detail).toContain(HEALTHY.controlPlaneSchema.expectedHead);
+  });
+
+  it("still answers the file-storage row when the control plane's own probe did not", () => {
+    // The bucket fact comes from the firm record the request was already resolved through, not from
+    // a read of its own, so blanking it with the probe would cost a reader the one line that
+    // explains an upload that will not start.
+    const value: DatabaseHealthValue = {
+      ...HEALTHY,
+      controlPlane: {
+        state: "unreachable",
+        roundTripMilliseconds: null,
+        fault: null,
+        bucketProvisioned: false,
+      },
+    };
+    expect(rowFor(value, "controlPlane").reading).toBe("fault");
+    expect(rowFor(value, "fileStorage").status).toBe("Still provisioning");
   });
 
   it("reads a healthy firm as healthy on every row", () => {
@@ -182,19 +270,23 @@ describe("databaseHealthRows", () => {
     const row = rowFor(
       {
         ...HEALTHY,
-        schema: { ...HEALTHY.schema, state: "behind", appliedHead: "20260704T041516_baseline" },
+        firmSchema: {
+          ...HEALTHY.firmSchema,
+          state: "behind",
+          appliedHead: "20260704T041516_baseline",
+        },
       },
-      "schema",
+      "firmSchema",
     );
     expect(row.reading).toBe("attention");
     expect(row.detail).toContain("20260704T041516_baseline");
-    expect(row.detail).toContain(HEALTHY.schema.expectedHead);
+    expect(row.detail).toContain(HEALTHY.firmSchema.expectedHead);
   });
 
   it("reads an unallocated bucket as a firm still being built", () => {
     const row = rowFor(
-      { ...HEALTHY, controlPlane: { state: "reachable", bucketProvisioned: false } },
-      "controlPlane",
+      { ...HEALTHY, controlPlane: { ...HEALTHY.controlPlane, bucketProvisioned: false } },
+      "fileStorage",
     );
     expect(row.reading).toBe("attention");
   });
@@ -263,6 +355,7 @@ describe("copyLineForDatabaseHealth", () => {
       provisioning: { state: "read", pending: 1, deadLettered: 0 },
     });
     expect(line).toContain("Firm database:");
+    expect(line).toContain("Magna Carta database:");
     expect(line).toContain("Your membership:");
     expect(line).toContain("still being written");
     expect(line).toContain(HEALTHY.observedAt);
@@ -321,12 +414,12 @@ describe("the panel's two folding sections", () => {
     // learn how much of it was affected — one bad row out of four reads very differently from four,
     // and the heading said the same thing either way.
     expect(chip).toContain("databaseSectionPills(healthValue)");
-    expect(databaseSectionPills(HEALTHY).map((pill) => pill.label)).toEqual(["4 checks"]);
+    expect(databaseSectionPills(HEALTHY).map((pill) => pill.label)).toEqual(["6 checks"]);
     const broken = databaseSectionPills({
       ...HEALTHY,
       firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: null },
     });
-    expect(broken.map((pill) => pill.label)).toEqual(["4 checks", "1 not working"]);
+    expect(broken.map((pill) => pill.label)).toEqual(["6 checks", "1 not working"]);
     expect(broken[1]?.variant).toBe("danger");
   });
 

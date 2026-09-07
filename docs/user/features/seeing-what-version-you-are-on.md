@@ -14,7 +14,7 @@ The overlay has two sections, **Deployment** and **Database**, each behind a car
 
 Under **Deployment**, the two workers that serve the application's address lead the list. Everything beneath them is grouped under **Workers**, which folds away behind a caret of its own. If any of the folded workers came back without a version, the shut heading says how many.
 
-Under **Database**, the overlay checks the connection between your session and your firm's own records, and says what is standing between the two when something is — see [Checking your firm's database](#checking-your-firms-database) below.
+Under **Database**, the overlay checks the connection between your session and both of the databases behind it, and says what is standing in the way when something is — see [Checking the databases behind your session](#checking-the-databases-behind-your-session) below.
 
 A line headed **This page** appears when nothing else in the list can state your page's version — before you sign in, when the read fails, or when `magna-carta-web` itself does not answer. It comes from the page itself rather than from the network, so it is there exactly when the network is not.
 
@@ -26,20 +26,24 @@ The application checks about once a minute whether a newer deployment has gone l
 
 The same chip sits in the top right of the sign-in page, the password-reset page and the registration screens, so you can answer "which version am I on" without getting in first. This matters most when getting in is the problem: you can quote the build identifier in a support request from the screen that is refusing you.
 
-The signed-out overlay shows this page's build only, and says so. The deployment reports its versions to people who are signed in, and a firm's database can only be checked once there is a firm to check, so before sign-in there is nothing to show for either. That is a boundary, not a fault: an absent list there does not mean anything is down. The new-version check still runs before sign-in, so the Update Available notice and its reload symbol can appear there too.
+The signed-out overlay shows this page's build only, and says so. The deployment reports its versions to people who are signed in, and the databases can only be checked once there is a firm and an account to check them for, so before sign-in there is nothing to show for either. That is a boundary, not a fault: an absent list there does not mean anything is down. The new-version check still runs before sign-in, so the Update Available notice and its reload symbol can appear there too.
 
-## Checking your firm's database
+## Checking the databases behind your session
 
-Your firm's records live in a database of their own, and your account has to be written into it before the platform will let you do anything. Usually that happens within a minute or two of the firm being created, and nobody ever notices. When it has not happened yet — or when something between your browser and those records is not working — every screen you open refuses you, and the message it shows is about permissions: _"Your role does not grant this action in this firm."_ That message is accurate and unhelpful, because it looks like something an administrator forgot to do when usually it is something you only have to wait for.
+**Every screen you open uses two databases, not one.** Magna Carta's own database holds your account, your sign-in and the record of your firm itself; your firm's database holds everything your firm does — matters, files, time, trust, all of it. The platform's is consulted first, on the way to your firm's, so a screen that is slow or refusing can be either of them, and the two have different remedies. The overlay reports on both, in the same words, so you can say which one it is.
 
-The **Database** section of the version overlay is where that gets sorted out. It shows four things, each with its own state:
+Your account also has to be written into your firm's database before the platform will let you do anything. Usually that happens within a minute or two of the firm being created, and nobody ever notices. When it has not happened yet — or when something between your browser and those records is not working — every screen you open refuses you, and the message it shows is about permissions: _"Your role does not grant this action in this firm."_ That message is accurate and unhelpful, because it looks like something an administrator forgot to do when usually it is something you only have to wait for.
+
+The **Database** section of the version overlay is where that gets sorted out. It shows six things, in two groups of three — your firm's database first, then Magna Carta's own underneath it — each with its own state:
 
 - **Firm database** — whether your firm's records answered this request, and how long they took. This is the connection itself.
-- **Schema** — whether your firm's database has caught up with the version of Magna Carta you are running. A firm's database updates itself the next time it is used, so **Behind** is a wait rather than a fault, and it explains a screen that is missing something a newer version added.
+- **Firm schema** — whether your firm's database has caught up with the version of Magna Carta you are running. A firm's database updates itself the next time it is used, so **Behind** is a wait rather than a fault, and it explains a screen that is missing something a newer version added.
 - **Your membership** — whether your account has been written into the firm's records yet, which role or roles you hold, and how many things those roles permit. This is the row that explains a refusal.
-- **Control plane** — whether the platform's own records answered, and whether your firm's file storage has finished being set up.
+- **Magna Carta database** — whether the platform's own records answered this request, and how long they took. Every screen consults these on its way to your firm's, so a slow or silent line here explains a slow screen that the firm rows above say nothing about.
+- **Magna Carta schema** — whether the platform's own database has caught up with the version you are running. Like your firm's, it updates itself, so **Behind** here is a wait too.
+- **File storage** — whether your firm's file storage has finished being set up. Until it has, an upload will not start; this is normal on a firm created minutes ago.
 
-When a member record for your firm is still being written, or could not be written, a **Provisioning** line appears beneath the four rows and says which. "Still being written" is a wait and usually clears within a few minutes; "will not retry on its own" means somebody at Magna Carta has to release it, and is worth quoting in a support request.
+When a member record for your firm is still being written, or could not be written, a **Provisioning** line appears beneath the six rows and says which. "Still being written" is a wait and usually clears within a few minutes; "will not retry on its own" means somebody at Magna Carta has to release it, and is worth quoting in a support request.
 
 The section is read when you open the overlay, and again whenever you press the refresh control at the top of it. Nothing is checked while the overlay is shut, so it never slows down the page you are working on.
 

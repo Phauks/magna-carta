@@ -15,6 +15,7 @@ import type { FirmContext } from "../src/chokepoint/ports.ts";
 const USER_ID = "usr_0000000000000000000000" as UserId;
 const FIRM_ID = "frm_0000000000000000000000";
 const EXPECTED_HEAD = "20260903T020000_conflicts-hit-entity-index";
+const CONTROL_PLANE_EXPECTED_HEAD = "20260829T160000_registration-credential";
 
 // What each statement the collector sends should answer with. Keyed by a fragment of the SQL, which
 // is how a fake stays legible: the test says "the migrations read answers these tags", not "the
@@ -63,16 +64,36 @@ function fakeFirmDatabase(plan: FirmDatabasePlan): FirmContext["firmDatabase"] {
   } as unknown as FirmContext["firmDatabase"];
 }
 
-function fakeControlPlane(
-  backlog: { pending: number; dead_lettered: number } | "throw",
-): ControlPlaneReader {
+/*
+ * The control plane answers three statements now, not two — its probe, its own migration ledger, and
+ * the provisioning backlog — so the fake keys on the SQL like the firm one does. `"throw"` is the
+ * whole database being down, which is the case the panel exists to describe; a single read can be
+ * failed on its own by naming it.
+ */
+function fakeControlPlane(options: {
+  backlog: { pending: number; dead_lettered: number } | "throw";
+  migrations?: { applied_count: number; applied_head: string | null } | "throw";
+}): ControlPlaneReader {
+  const answerFor = (sql: string): unknown | "throw" => {
+    if (options.backlog === "throw") return "throw";
+    if (sql.includes("SELECT 1")) return { ok: 1 };
+    if (sql.includes("_migrations")) {
+      return (
+        options.migrations ?? {
+          applied_count: 8,
+          applied_head: CONTROL_PLANE_EXPECTED_HEAD,
+        }
+      );
+    }
+    return options.backlog;
+  };
   return {
     prepare: (sql: string) => ({
       bind: () => ({
         first: <T>(): Promise<T | null> => {
-          if (backlog === "throw") return Promise.reject(new Error("control plane down"));
-          if (sql.includes("SELECT 1")) return Promise.resolve({ ok: 1 } as T);
-          return Promise.resolve(backlog as T);
+          const answer = answerFor(sql);
+          if (answer === "throw") return Promise.reject(new Error("control plane down"));
+          return Promise.resolve(answer as T);
         },
       }),
     }),
@@ -82,6 +103,7 @@ function fakeControlPlane(
 function collect(options: {
   firm?: FirmDatabasePlan;
   backlog?: { pending: number; dead_lettered: number } | "throw";
+  controlPlaneMigrations?: { applied_count: number; applied_head: string | null } | "throw";
   bucketName?: string | null;
 }) {
   const firmContext = {
@@ -103,11 +125,15 @@ function collect(options: {
     bucketName: options.bucketName === undefined ? "firm-bucket" : options.bucketName,
   } satisfies FirmContext;
   return collectDatabaseHealth({
-    controlPlane: fakeControlPlane(options.backlog ?? { pending: 0, dead_lettered: 0 }),
+    controlPlane: fakeControlPlane({
+      backlog: options.backlog ?? { pending: 0, dead_lettered: 0 },
+      migrations: options.controlPlaneMigrations,
+    }),
     firmContext,
     firmId: FIRM_ID,
     userId: USER_ID,
     expectedHead: EXPECTED_HEAD,
+    controlPlaneExpectedHead: CONTROL_PLANE_EXPECTED_HEAD,
   });
 }
 
@@ -123,14 +149,65 @@ describe("collectDatabaseHealth", () => {
     const health = await collect({ firm: HEALTHY_FIRM });
     expect(health.firmDatabase.state).toBe("reachable");
     expect(health.firmDatabase.roundTripMilliseconds).not.toBeNull();
-    expect(health.schema).toMatchObject({ state: "current", appliedHead: EXPECTED_HEAD });
+    expect(health.firmSchema).toMatchObject({ state: "current", appliedHead: EXPECTED_HEAD });
     expect(health.membership).toMatchObject({
       state: "active",
       roles: ["Owner/Admin"],
       permissionCount: 2,
     });
     expect(health.controlPlane).toMatchObject({ state: "reachable", bucketProvisioned: true });
+    expect(health.controlPlane.roundTripMilliseconds).not.toBeNull();
+    expect(health.controlPlaneSchema).toMatchObject({
+      state: "current",
+      appliedHead: CONTROL_PLANE_EXPECTED_HEAD,
+    });
     expect(health.provisioning).toMatchObject({ state: "read", pending: 0, deadLettered: 0 });
+  });
+
+  // The reason this read grew a second leg. EVERY request touches both databases — the control
+  // plane resolves the account, the session and the firm's record before the firm's own database is
+  // consulted — and this route used to time the firm's leg and merely ping the other, with no round
+  // trip, no reason when it failed, and nothing at all about the lineage it was running.
+  it("times the control plane and keeps its reason, exactly as it does the firm's", async () => {
+    const health = await collect({ firm: HEALTHY_FIRM, backlog: "throw" });
+    expect(health.controlPlane.state).toBe("unreachable");
+    expect(health.controlPlane.roundTripMilliseconds).toBeNull();
+    expect(health.controlPlane.fault).toContain("control plane down");
+    // And the fact that does NOT come from a control-plane read still answers.
+    expect(health.controlPlane.bucketProvisioned).toBe(true);
+  });
+
+  it("reads the control plane's lineage against its own head, not the firm's", async () => {
+    // Two journals, two heads. Comparing either database's applied tag against the other's expected
+    // one would report "behind" on every healthy deployment.
+    const health = await collect({
+      firm: HEALTHY_FIRM,
+      controlPlaneMigrations: {
+        applied_count: 5,
+        applied_head: "20260811T224252_self-serve-registration-and-invitations",
+      },
+    });
+    expect(health.firmSchema.state).toBe("current");
+    expect(health.controlPlaneSchema).toMatchObject({
+      state: "behind",
+      appliedCount: 5,
+      appliedHead: "20260811T224252_self-serve-registration-and-invitations",
+      expectedHead: CONTROL_PLANE_EXPECTED_HEAD,
+    });
+  });
+
+  it("reports an unreadable control-plane ledger as unknown, never as current", async () => {
+    // A control plane that has never been migrated has no _migrations table at all. Inventing a
+    // state from the absence of the ledger would be a guess about a database we could not read.
+    const health = await collect({ firm: HEALTHY_FIRM, controlPlaneMigrations: "throw" });
+    expect(health.controlPlaneSchema).toMatchObject({
+      state: "unknown",
+      appliedCount: 0,
+      appliedHead: null,
+    });
+    // And it is that check's own failure, not the read's.
+    expect(health.controlPlane.state).toBe("reachable");
+    expect(health.firmSchema.state).toBe("current");
   });
 
   it("names a member whose mirror has not landed, with the backlog that explains it", async () => {
@@ -144,7 +221,7 @@ describe("collectDatabaseHealth", () => {
     expect(health.provisioning).toMatchObject({ pending: 1, deadLettered: 0 });
     // And nothing else is blamed for it.
     expect(health.firmDatabase.state).toBe("reachable");
-    expect(health.schema.state).toBe("current");
+    expect(health.firmSchema.state).toBe("current");
   });
 
   it("separates a mirrored member with no role from one with no member row", async () => {
@@ -158,7 +235,7 @@ describe("collectDatabaseHealth", () => {
     const health = await collect({
       firm: { ...HEALTHY_FIRM, migrations: [{ tag: "20260704T041516_baseline" }] },
     });
-    expect(health.schema).toMatchObject({
+    expect(health.firmSchema).toMatchObject({
       state: "behind",
       appliedHead: "20260704T041516_baseline",
       expectedHead: EXPECTED_HEAD,
@@ -190,7 +267,7 @@ describe("collectDatabaseHealth", () => {
     // Membership genuinely cannot be read — it is a statement, and statements are refused.
     expect(health.membership.state).toBe("unknown");
     // The schema can, and does.
-    expect(health.schema).toMatchObject({ state: "current", appliedHead: EXPECTED_HEAD });
+    expect(health.firmSchema).toMatchObject({ state: "current", appliedHead: EXPECTED_HEAD });
   });
 
   it("keeps one failing check from failing or contaminating the others", async () => {
@@ -198,7 +275,7 @@ describe("collectDatabaseHealth", () => {
       firm: { ...HEALTHY_FIRM, migrations: "throw" },
       backlog: "throw",
     });
-    expect(health.schema.state).toBe("unknown");
+    expect(health.firmSchema.state).toBe("unknown");
     expect(health.provisioning.state).toBe("unknown");
     // The checks that could answer still did, and the control plane's own probe failing is its own
     // row rather than the whole read's.

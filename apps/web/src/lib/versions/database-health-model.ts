@@ -11,9 +11,17 @@
  * action in this firm" is looking at a sentence about permissions that is true and useless: on a
  * newly created firm the cause is usually that their member record has not finished being written
  * into the firm's own database yet, which is a wait, not a permission somebody has to grant. The
- * four rows below separate the causes that sentence collapses — the connection, the schema, this
+ * rows below separate the causes that sentence collapses — the connections, the schemas, this
  * account's standing, and any provisioning still in flight — so the reader can tell a wait from a
  * fault from something to ask an administrator for.
+ *
+ * TWO DATABASES, READ AS TWO GROUPS OF THREE. Every request in this application uses both: the
+ * control plane answers first, with the account, the session and the firm's own record, and the
+ * firm's own database answers everything after that. So each gets the same pair of rows — is it
+ * answering, and how fast; is its schema the one this build expects — followed by the one row that
+ * belongs to it alone: this account's standing in the firm's database, and the firm's file storage
+ * in the control plane. Naming both is what lets a reader say WHICH database is slow, rather than
+ * reading a healthy firm row while the leg in front of it is the one failing them.
  *
  * SEVERITY, NOT DECORATION. Each row resolves to one of three readings, and the section heading
  * carries the worst of them so a folded section can still be trusted (the same rule the fleet fold
@@ -24,23 +32,29 @@ import { countPill, type SectionPill } from "./version-overlay-model.ts";
 /** The three readings a row can have, worst last. The heading carries the worst row's. */
 export type HealthReading = "healthy" | "attention" | "fault";
 
+/** What a database owes beyond "it answered": what the round trip cost, and why when it did not. */
+export interface DatabaseConnectionValue {
+  state: "reachable" | "unreachable";
+  roundTripMilliseconds: number | null;
+  /** Why it is not answering, in the database's own words; null while it is. */
+  fault: string | null;
+}
+
+/** A database's applied lineage against the one this build carries. Both databases answer it. */
+export interface DatabaseSchemaValue {
+  state: "current" | "behind" | "unknown";
+  appliedCount: number;
+  appliedHead: string | null;
+  expectedHead: string;
+}
+
 export interface DatabaseHealthValue {
-  controlPlane: {
-    state: "reachable" | "unreachable";
+  controlPlane: DatabaseConnectionValue & {
     bucketProvisioned: boolean;
   };
-  firmDatabase: {
-    state: "reachable" | "unreachable";
-    roundTripMilliseconds: number | null;
-    /** Why it is not answering, in the database's own words; null while it is. */
-    fault: string | null;
-  };
-  schema: {
-    state: "current" | "behind" | "unknown";
-    appliedCount: number;
-    appliedHead: string | null;
-    expectedHead: string;
-  };
+  controlPlaneSchema: DatabaseSchemaValue;
+  firmDatabase: DatabaseConnectionValue;
+  firmSchema: DatabaseSchemaValue;
   membership: {
     state: "active" | "missing" | "inactive" | "unknown";
     roles: string[];
@@ -56,7 +70,13 @@ export interface DatabaseHealthValue {
 
 /** One rendered row: what it is called, how it reads, and the one line beneath it. */
 export interface HealthRow {
-  id: "firmDatabase" | "schema" | "membership" | "controlPlane";
+  id:
+    | "firmDatabase"
+    | "firmSchema"
+    | "membership"
+    | "controlPlane"
+    | "controlPlaneSchema"
+    | "fileStorage";
   name: string;
   reading: HealthReading;
   /** The row's own two or three words — its state, said plainly. */
@@ -73,75 +93,90 @@ export const DEPLOYMENT_SECTION_LABEL = "Deployment";
 
 /** The line a signed-out panel shows where the section would be. Same boundary, said the same way. */
 export const SIGNED_OUT_DATABASE_NOTICE =
-  "Your firm's database reports its health once you are signed in.";
+  "Magna Carta's database and your firm's own report their health once you are signed in.";
 
 /** The header line while the health read is in flight, matching the version read's own. */
-export const HEALTH_READ_IN_FLIGHT_NOTICE = "Checking the database";
+export const HEALTH_READ_IN_FLIGHT_NOTICE = "Checking the databases";
 
 /**
- * The firm's own database: the round trip that proves the connection, and what it cost. The number
- * is the point of the row — "reachable" with no measurement behind it is a claim, and the reader
- * opened this panel because something was not working.
+ * A database's connection row: the round trip that proves it, and what it cost. The number is the
+ * point of the row — "reachable" with no measurement behind it is a claim, and the reader opened
+ * this panel because something was not working.
+ *
+ * ONE BUILDER FOR BOTH DATABASES, so the two rows a reader is comparing cannot drift apart in what
+ * they measure or in how they say it. `subject` is how the sentences name the database; everything
+ * else is identical, because the question being asked of each is identical.
  */
-function firmDatabaseRow(value: DatabaseHealthValue): HealthRow {
-  if (value.firmDatabase.state === "unreachable") {
+function connectionRow(input: {
+  id: HealthRow["id"];
+  name: string;
+  subject: string;
+  value: DatabaseConnectionValue;
+}): HealthRow {
+  const { id, name, subject, value } = input;
+  if (value.state === "unreachable") {
     // The database's own words when it gave any. "Not answering" is the symptom the reader already
     // has; the sentence they need is the one underneath it, and the wire carries it now rather than
     // making them go to the logs for a fact this read already held.
-    const fault = value.firmDatabase.fault;
     return {
-      id: "firmDatabase",
-      name: "Firm database",
+      id,
+      name,
       reading: "fault",
       status: "Not answering",
       detail:
-        fault === null
-          ? "The firm's database did not answer this request, and gave no reason."
-          : `The firm's database did not answer this request: ${fault}`,
+        value.fault === null
+          ? `${subject} did not answer this request, and gave no reason.`
+          : `${subject} did not answer this request: ${value.fault}`,
     };
   }
-  const roundTrip = value.firmDatabase.roundTripMilliseconds;
+  const roundTrip = value.roundTripMilliseconds;
   return {
-    id: "firmDatabase",
-    name: "Firm database",
+    id,
+    name,
     reading: "healthy",
     status: "Connected",
-    detail:
-      roundTrip === null ? "The firm's database answered." : `Answered in ${String(roundTrip)} ms.`,
+    detail: roundTrip === null ? `${subject} answered.` : `Answered in ${String(roundTrip)} ms.`,
   };
 }
 
 /**
- * The lineage the firm's database actually ran, against the one this build carries. "Behind" is not
- * a fault: a firm's database migrates itself when it next wakes, so a firm nobody has touched since
- * the deploy is legitimately a version back and will catch up on its own. It is worth saying
- * because it explains a screen whose table does not exist yet.
+ * The lineage a database actually ran, against the one this build carries. "Behind" is not a fault
+ * on either database: a firm's database migrates itself when it next wakes, and the control plane's
+ * lineage is applied by the platform's own scheduled applier, so a database a deploy has not
+ * reached yet is legitimately a version back and catches up on its own. It is worth saying because
+ * it explains a screen whose table does not exist yet.
  */
-function schemaRow(value: DatabaseHealthValue): HealthRow {
-  switch (value.schema.state) {
+function schemaRow(input: {
+  id: HealthRow["id"];
+  name: string;
+  subject: string;
+  value: DatabaseSchemaValue;
+}): HealthRow {
+  const { id, name, subject, value } = input;
+  switch (value.state) {
     case "current":
       return {
-        id: "schema",
-        name: "Schema",
+        id,
+        name,
         reading: "healthy",
         status: "Up to date",
-        detail: `${String(value.schema.appliedCount)} migrations applied.`,
+        detail: `${String(value.appliedCount)} migrations applied.`,
       };
     case "behind":
       return {
-        id: "schema",
-        name: "Schema",
+        id,
+        name,
         reading: "attention",
         status: "Behind",
         detail:
-          value.schema.appliedHead === null
-            ? "The firm's database has applied no migrations yet."
-            : `At ${value.schema.appliedHead}; this build expects ${value.schema.expectedHead}.`,
+          value.appliedHead === null
+            ? `${subject} has applied no migrations yet.`
+            : `At ${value.appliedHead}; this build expects ${value.expectedHead}.`,
       };
     case "unknown":
       return {
-        id: "schema",
-        name: "Schema",
+        id,
+        name,
         reading: "attention",
         status: "Not read",
         detail: "The applied migrations could not be read.",
@@ -220,35 +255,30 @@ function membershipRow(value: DatabaseHealthValue): HealthRow {
 }
 
 /**
- * The control plane, and the one fact about the firm's record worth carrying: whether its storage
- * has been allocated. A firm without it is still being built — the state is honest and temporary,
- * and it explains a file upload that will not start.
+ * The firm's object storage, which is the one fact about its control-plane record worth a row of
+ * its own. Storage that has not been allocated is a firm still being built — the state is honest
+ * and temporary, and it explains a file upload that will not start.
+ *
+ * It answers even when the control plane's probe did not, because the fact comes from the firm
+ * record the request was already resolved through rather than from a read of its own. Blanking a
+ * row we can still answer would cost a reader the one line that explains their upload.
  */
-function controlPlaneRow(value: DatabaseHealthValue): HealthRow {
-  if (value.controlPlane.state === "unreachable") {
-    return {
-      id: "controlPlane",
-      name: "Control plane",
-      reading: "fault",
-      status: "Not answering",
-      detail: "The platform's own database did not answer this request.",
-    };
-  }
+function fileStorageRow(value: DatabaseHealthValue): HealthRow {
   if (!value.controlPlane.bucketProvisioned) {
     return {
-      id: "controlPlane",
-      name: "Control plane",
+      id: "fileStorage",
+      name: "File storage",
       reading: "attention",
       status: "Still provisioning",
       detail: "The firm's file storage has not finished being allocated.",
     };
   }
   return {
-    id: "controlPlane",
-    name: "Control plane",
+    id: "fileStorage",
+    name: "File storage",
     reading: "healthy",
-    status: "Connected",
-    detail: "The firm's record and its file storage are in place.",
+    status: "Allocated",
+    detail: "The firm's own storage bucket is in place.",
   };
 }
 
@@ -258,13 +288,45 @@ function formatRoles(roles: readonly string[]): string {
 }
 
 /**
- * The section's rows, in the order a reader works through a failure: the connection first, then
- * what is in the database, then where this account stands in it, then the platform behind all
- * three. Every row is always present — a row that disappears when it is healthy would make the
- * section's length a signal, and half of these states are normal.
+ * The section's rows: two groups of three, one per database, each in the order a reader works
+ * through a failure — the connection first, then what is in the database, then the one thing that
+ * database alone can say about this session.
+ *
+ * The FIRM'S comes first because it is the one a member's screens are usually about, and Magna
+ * Carta's follows because it is the leg underneath: a reader who finds the firm's group healthy has
+ * somewhere to look next rather than a section that has run out of answers. Every row is always
+ * present — a row that disappears when it is healthy would make the section's length a signal, and
+ * half of these states are normal.
  */
 export function databaseHealthRows(value: DatabaseHealthValue): HealthRow[] {
-  return [firmDatabaseRow(value), schemaRow(value), membershipRow(value), controlPlaneRow(value)];
+  return [
+    connectionRow({
+      id: "firmDatabase",
+      name: "Firm database",
+      subject: "The firm's database",
+      value: value.firmDatabase,
+    }),
+    schemaRow({
+      id: "firmSchema",
+      name: "Firm schema",
+      subject: "The firm's database",
+      value: value.firmSchema,
+    }),
+    membershipRow(value),
+    connectionRow({
+      id: "controlPlane",
+      name: "Magna Carta database",
+      subject: "Magna Carta's own database",
+      value: value.controlPlane,
+    }),
+    schemaRow({
+      id: "controlPlaneSchema",
+      name: "Magna Carta schema",
+      subject: "Magna Carta's own database",
+      value: value.controlPlaneSchema,
+    }),
+    fileStorageRow(value),
+  ];
 }
 
 /**
@@ -325,7 +387,7 @@ export function overallHealthReading(value: DatabaseHealthValue): HealthReading 
  * Database shut: how many checks it hides, and how many of them are not right.
  *
  * "Needs attention" and "Not working" named a MOOD and left the reader to open the section to learn
- * how much of it was affected — one row wrong out of four reads very differently from all four, and
+ * how much of it was affected — one row wrong out of six reads very differently from all six, and
  * the heading said the same thing either way. A count says which it is, and the section reports its
  * own health when everything passes rather than going silent.
  */

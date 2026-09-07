@@ -39,8 +39,10 @@
    * whose screens are refusing needs the second one answered: a newly created firm whose member
    * record has not finished being written reads, on every other screen, as a permission somebody
    * forgot to grant. So the Database section asks GET /api/v1/meta/database-health and lays the
-   * causes out separately — the connection, the schema, this account's standing in the firm, and
-   * any provisioning still in flight. Every word of that reading lives in database-health-model.ts.
+   * causes out separately, over BOTH databases a request touches: for each of them a connection and
+   * a schema row, plus this account's standing in the firm's, the firm's file storage in the
+   * control plane, and any provisioning still in flight. Every word of that reading lives in
+   * database-health-model.ts.
    *
    * BOTH SECTIONS FOLD, AND EACH REMEMBERS ITS OWN FOLD. Deployment and Database are the panel's
    * two subjects and each sits behind a caret; the fleet list keeps its own fold inside Deployment.
@@ -54,7 +56,7 @@
    * bundle's own origin.
    *
    * TWO SCOPES, ONE COMPONENT. Inside a session (`scope="app"`) the panel reports the whole
-   * deployment and its firm's database. On the signed-out surfaces (`scope="public"` — sign in, password reset, the
+   * deployment and both of the databases behind it. On the signed-out surfaces (`scope="public"` — sign in, password reset, the
    * joining screens) it reports the page's own build only: that identifier is already inside the
    * bundle the visitor downloaded, so showing it discloses nothing new, while the aggregate is an
    * authenticated read that a signed-out page must not attempt. The update poll still runs there —
@@ -739,10 +741,13 @@
         {/if}
       {/if}
       <Separator />
-      <!-- The panel's second subject: whether this session can reach and use its firm's own data.
-           It folds on the same terms Deployment does, and a shut heading wears the worst reading in
-           the section, so the one state this whole section exists to surface — a membership that
-           has not landed, and every screen refusing because of it — survives being folded away. -->
+      <!-- The panel's second subject: whether this session can reach and use its data — in BOTH
+           databases a request touches, the control plane that resolves the caller and the firm's own
+           that holds their work, each with the same two rows so the reader can say which of the two
+           is the slow or broken one. It folds on the same terms Deployment does, and a shut heading
+           wears the worst reading in the section, so the one state this whole section exists to
+           surface — a membership that has not landed, and every screen refusing because of it —
+           survives being folded away. -->
       <VersionSectionHeading
             label={DATABASE_SECTION_LABEL}
             collapsed={databaseSectionPreference.collapsed}
@@ -779,12 +784,13 @@
           <LoadingRegion
             loading={healthValue === null}
             refreshing={healthLoading}
-            label="Reading whether this firm's database can be reached"
+            label="Reading whether both databases behind this session can be reached"
             onRetry={() => void refreshHealth()}
             class="flex flex-col gap-8"
           >
             {#snippet fixture()}
-              <!-- Two health rows over sample readings: the section's own shape, greyed. -->
+              <!-- Two health rows over sample readings: the section's own shape, greyed. One per
+                   database, so the greyed shape says what is about to arrive. -->
               <div class="flex flex-col">
                 {@render healthRow({
                   name: "Firm database",
@@ -793,10 +799,10 @@
                   detail: "The firm's own database answered.",
                 })}
                 {@render healthRow({
-                  name: "Your membership",
+                  name: "Magna Carta database",
                   reading: "healthy",
-                  status: "Recorded",
-                  detail: "This account is a member of the firm.",
+                  status: "Reachable",
+                  detail: "Magna Carta's own database answered.",
                 })}
               </div>
             {/snippet}

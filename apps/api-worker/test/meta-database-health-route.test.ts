@@ -19,6 +19,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
+import { controlPlaneHeadSchemaVersion } from "../src/control-plane-migrations.ts";
 import { perFirmHeadSchemaVersion } from "../src/per-firm-migrations.ts";
 import { seedCredentialedUser, seedFirm, signInForSessionCookie } from "./support/test-auth.ts";
 
@@ -53,33 +54,49 @@ describe("GET /api/v1/meta/database-health", () => {
     const health = (await response.json()) as {
       membership: { state: string; roles: string[]; permissionCount: number };
       firmDatabase: { state: string; roundTripMilliseconds: number | null };
-      schema: { state: string; appliedCount: number; appliedHead: string | null };
-      controlPlane: { state: string; bucketProvisioned: boolean };
+      firmSchema: { state: string; appliedCount: number; appliedHead: string | null };
+      controlPlane: {
+        state: string;
+        roundTripMilliseconds: number | null;
+        bucketProvisioned: boolean;
+      };
       provisioning: { state: string; pending: number; deadLettered: number };
       observedAt: string;
     };
     expect(health.membership).toMatchObject({ state: "missing", roles: [], permissionCount: 0 });
-    // And the rest of the read still answers, so the panel names the one thing that is wrong.
+    // And the rest of the read still answers, so the panel names the one thing that is wrong. Both
+    // legs are timed: every request crosses both, so a panel that measured one of them could report
+    // a healthy firm while the leg that resolves the caller was the slow one.
     expect(health.firmDatabase.state).toBe("reachable");
     expect(health.firmDatabase.roundTripMilliseconds).toBeGreaterThanOrEqual(0);
     expect(health.controlPlane).toMatchObject({ state: "reachable", bucketProvisioned: true });
+    expect(health.controlPlane.roundTripMilliseconds).toBeGreaterThanOrEqual(0);
     expect(Number.isNaN(Date.parse(health.observedAt))).toBe(false);
   });
 
-  it("reads the firm database's real migration ledger, not a restatement of intent", async () => {
+  it("reads BOTH real migration ledgers, not a restatement of intent", async () => {
     // A live Durable Object self-migrates the per-firm lineage on first access, so its ledger head
-    // is this build's head. Reading it through the proxy is what proves the statement parses.
+    // is this build's head; the pool applies the control-plane lineage to a real D1 in beforeAll.
+    // Reading each through its own statement is what proves both statements parse — and both are
+    // swallowed into an "unknown" row on failure, which is right for an outage and terrible for a
+    // typo, because a broken statement would answer forever with what looks like a verdict.
     await seedCredentialedUser("health-schema@example.com", {
       userName: "Schema Reader",
       firmId: poolFirmId,
     });
     const cookie = await signInForSessionCookie("health-schema@example.com");
     const health = (await (await readHealth(cookie)).json()) as {
-      schema: { state: string; appliedCount: number; appliedHead: string | null };
+      firmSchema: { state: string; appliedCount: number; appliedHead: string | null };
+      controlPlaneSchema: { state: string; appliedCount: number; appliedHead: string | null };
     };
-    expect(health.schema.state).toBe("current");
-    expect(health.schema.appliedHead).toBe(perFirmHeadSchemaVersion());
-    expect(health.schema.appliedCount).toBeGreaterThan(0);
+    expect(health.firmSchema.state).toBe("current");
+    expect(health.firmSchema.appliedHead).toBe(perFirmHeadSchemaVersion());
+    expect(health.firmSchema.appliedCount).toBeGreaterThan(0);
+    // The control plane's own lineage, against its OWN head — a different journal and a different
+    // tag, which is why the two expected heads are read from two functions.
+    expect(health.controlPlaneSchema.appliedHead).toBe(controlPlaneHeadSchemaVersion());
+    expect(health.controlPlaneSchema.state).toBe("current");
+    expect(health.controlPlaneSchema.appliedCount).toBeGreaterThan(0);
   });
 
   it("counts this firm's pending and dead-lettered member mirrors, and nobody else's", async () => {

@@ -1,8 +1,17 @@
 /*
- * GET /api/v1/meta/database-health — whether THIS session can actually reach and use its firm's
- * data, told as the four separate facts that a single "the database is down" would collapse into
- * one. It is the companion to the version read: that one answers "what is running", this one
- * answers "does what is running work for me, here, now".
+ * GET /api/v1/meta/database-health — whether THIS session can actually reach and use its data, told
+ * as the separate facts that a single "the database is down" would collapse into one. It is the
+ * companion to the version read: that one answers "what is running", this one answers "does what is
+ * running work for me, here, now".
+ *
+ * IT REPORTS ON BOTH DATABASES, because a request uses both. The control plane holds the account,
+ * the session and the firm's own record; the firm's database holds everything the session then
+ * does. Each is a separate deployment leg with its own hop, its own migration lineage and its own
+ * way of failing, and for a while only the firm's got the full treatment — the control plane was a
+ * bare ping with no round trip, no reason when it failed, and no word about the schema it was
+ * running. A reader whose screens were slow could see the firm's leg answer in 9 ms and learn
+ * nothing about the leg that resolves them before the firm's is ever consulted. So both legs answer
+ * the same two questions, in the same words, and the panel puts them side by side.
  *
  * The question it exists to answer out loud is the one a newly provisioned firm asks. A firm is
  * created, its owner signs in, and every permission-gated screen answers 403 — "Your role does not
@@ -39,6 +48,7 @@ import type { AppVariables, FirmContext } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { controlPlaneHeadSchemaVersion } from "../control-plane-migrations.ts";
 import { perFirmHeadSchemaVersion } from "../per-firm-migrations.ts";
 import { loadEffectivePermissions } from "../session-context.ts";
 
@@ -67,55 +77,78 @@ export function faultOf(error: unknown): string | null {
 /** The topic whose backlog explains a member who is in the firm but not yet in its database. */
 export const MEMBER_PROVISION_TOPIC = "member.provision";
 
+/*
+ * The two facts a connected database owes beyond "it answered", shared by both legs of the read.
+ *
+ * EVERY REQUEST IN THIS APPLICATION TOUCHES BOTH DATABASES. The session, the account and the firm's
+ * own record live in the control plane; everything the session then does lives in the firm's
+ * database. So a panel that timed one of them and merely pinged the other could report a healthy
+ * firm database while the leg that resolves the caller was the slow or broken one — which is the
+ * shape of the outage a reader is most likely to be looking at, because the control-plane leg runs
+ * first on every request and its failure is what turns a working screen into a sign-in loop.
+ */
+const connectionShape = {
+  state: z.enum(["reachable", "unreachable"]),
+  // The round trip that proves the connection, in whole milliseconds — the number that says
+  // "connected, and this is what it cost". Null when the round trip never completed.
+  roundTripMilliseconds: z.number().int().nullable(),
+  // WHY it is not answering, in the database's own words, or null while it is.
+  //
+  // "Not answering" names the symptom and stops, which is the one thing a reader already knows by
+  // the time they open this panel. The cause was in hand the whole time — the database throws a
+  // specific error and this read was discarding it in a bare `catch` — and recovering it turns a
+  // database outage into a message that names the failing constraint outright.
+  //
+  // Scrubbed and bounded like any other message head, because an error string is the one place a
+  // stray value can ride out of a database: a constraint failure names the constraint, but a
+  // UNIQUE violation can carry the offending value with it. Same treatment as the error pipeline
+  // gives the `messageHead` it logs (docs/conventions/error-logging.md), for the same reason.
+  fault: z.string().nullable(),
+};
+
+/*
+ * A database's applied lineage against the one this build carries. Both databases answer it, from
+ * their own `_migrations` ledger, so "behind" means the same thing on either row: the database is
+ * at an older head and something else applies the rest.
+ */
+const schemaShape = {
+  // "current" once the applied lineage head matches the build's own journal head. "behind" is a
+  // database that has migrated to an older head. "unknown" is the lineage read failing — never
+  // guessed as either of the other two.
+  state: z.enum(["current", "behind", "unknown"]),
+  // How many migrations the database has actually run. Deliberately NOT paired with a target: a
+  // superseding migration collapses several applied tags into one, so a database at head can
+  // legitimately carry fewer than the lineage lists, and "213 of 214" would be a false alarm
+  // printed on every healthy firm. The two head tags below are what say whether it is current.
+  appliedCount: z.number().int(),
+  // The greatest applied tag and the tag this build expects, so a "behind" row says how far.
+  appliedHead: z.string().nullable(),
+  expectedHead: z.string(),
+};
+
 const ControlPlaneCheck = z
   .object({
-    // "reachable" once the control plane answered for this firm's row. "unreachable" is the read
-    // itself failing; the firm row's own absence cannot appear here at all, because the chokepoint
-    // turns it into the reserved 404 before this handler runs.
-    state: z.enum(["reachable", "unreachable"]),
+    // "reachable" once the control plane answered. "unreachable" is the read itself failing; the
+    // firm row's own absence cannot appear here at all, because the chokepoint turns it into the
+    // reserved 404 before this handler runs.
+    ...connectionShape,
     // Whether provisioning has finished allocating the firm's object storage. False is a firm still
-    // being built, not a fault — it is the one fact on the row that flips exactly once.
+    // being built, not a fault — it is the one fact on the row that flips exactly once. It lives on
+    // the control-plane leg because the control plane is where a firm's record and its bucket name
+    // are held.
     bucketProvisioned: z.boolean(),
   })
   .openapi("DatabaseHealthControlPlane");
 
-const FirmDatabaseCheck = z
-  .object({
-    state: z.enum(["reachable", "unreachable"]),
-    // The round trip to the firm's Durable Object, in whole milliseconds — the number that says
-    // "connected, and this is what it cost". Null when the round trip never completed.
-    roundTripMilliseconds: z.number().int().nullable(),
-    // WHY it is not answering, in the database's own words, or null while it is.
-    //
-    // "Not answering" names the symptom and stops, which is the one thing a reader already knows by
-    // the time they open this panel. The cause was in hand the whole time — the durable object
-    // throws a specific error and this read was discarding it in a bare `catch` — and recovering it
-    // turned a database outage into a message that names the failing constraint outright.
-    //
-    // Scrubbed and bounded like any other message head, because an error string is the one place a
-    // stray value can ride out of the database: a constraint failure names the constraint, but a
-    // UNIQUE violation can carry the offending value with it. Same treatment as the error pipeline
-    // gives the `messageHead` it logs (docs/conventions/error-logging.md), for the same reason.
-    fault: z.string().nullable(),
-  })
-  .openapi("DatabaseHealthFirmDatabase");
+const ControlPlaneSchemaCheck = z.object(schemaShape).openapi("DatabaseHealthControlPlaneSchema");
 
-const SchemaCheck = z
-  .object({
-    // "current" once the firm's applied lineage head matches the build's own journal head.
-    // "behind" is a database that self-migrated to an older head (a firm not yet woken by this
-    // build). "unknown" is the lineage read failing — never guessed as either of the other two.
-    state: z.enum(["current", "behind", "unknown"]),
-    // How many migrations the firm's database has actually run. Deliberately NOT paired with a
-    // target: a superseding migration collapses several applied tags into one, so a firm at head
-    // can legitimately carry fewer than the lineage lists, and "213 of 214" would be a false alarm
-    // printed on every healthy firm. The two head tags below are what say whether it is current.
-    appliedCount: z.number().int(),
-    // The greatest applied tag and the tag this build expects, so a "behind" row says how far.
-    appliedHead: z.string().nullable(),
-    expectedHead: z.string(),
-  })
-  .openapi("DatabaseHealthSchema");
+// The round trip here is to the firm's own Durable Object, which is a different hop from the
+// control plane's D1 — measuring both is what lets a reader tell a slow firm from a slow platform.
+const FirmDatabaseCheck = z.object(connectionShape).openapi("DatabaseHealthFirmDatabase");
+
+// "behind" on this row is a firm not yet woken by this build: a firm's database self-migrates when
+// it next wakes, so it catches up on its own.
+const FirmSchemaCheck = z.object(schemaShape).openapi("DatabaseHealthSchema");
 
 const MembershipCheck = z
   .object({
@@ -148,11 +181,17 @@ const ProvisioningCheck = z
   })
   .openapi("DatabaseHealthProvisioning");
 
+/*
+ * Both databases, each with the same two checks, plus the three facts that belong to one of them
+ * alone: this account's standing and the mirrors still owed it (the firm's), and whether the firm's
+ * object storage has been allocated (the control plane's).
+ */
 const DatabaseHealthResponse = z
   .object({
     controlPlane: ControlPlaneCheck,
+    controlPlaneSchema: ControlPlaneSchemaCheck,
     firmDatabase: FirmDatabaseCheck,
-    schema: SchemaCheck,
+    firmSchema: FirmSchemaCheck,
     membership: MembershipCheck,
     provisioning: ProvisioningCheck,
     observedAt: z.string(),
@@ -177,10 +216,10 @@ export interface ControlPlaneReader {
  * so this is the database stating what it actually ran — not this Worker restating what it intended
  * to run, which would answer "current" for a firm whose migration threw.
  */
-async function readSchemaState(
+async function readFirmSchemaState(
   migrationState: FirmContext["migrationState"],
   expectedHead: string,
-): Promise<z.infer<typeof SchemaCheck>> {
+): Promise<z.infer<typeof FirmSchemaCheck>> {
   // Asked through the migration read rather than a statement. This used to SELECT from _migrations
   // like any other query, which meant the one check that could name a stuck lineage was the check a
   // stuck lineage silenced: the durable object refused every statement, this fell to its catch, and
@@ -192,6 +231,39 @@ async function readSchemaState(
       state: state.appliedHead === expectedHead ? "current" : "behind",
       appliedCount: state.appliedCount,
       appliedHead: state.appliedHead,
+      expectedHead,
+    };
+  } catch {
+    return { state: "unknown", appliedCount: 0, appliedHead: null, expectedHead };
+  }
+}
+
+/*
+ * The control plane's own applied lineage, from the same `_migrations` ledger every database in this
+ * codebase keeps (packages/database/src/d1-migration-target.ts). Asked as one aggregate rather than
+ * by listing the tags, because the two facts the row shows are the count and the greatest tag, and
+ * the ledger is a full lineage — pulling it across to take a maximum in TypeScript would move rows
+ * to answer a question SQLite already answers.
+ *
+ * A control plane that has never been migrated has no `_migrations` table at all, so the read throws
+ * and the row says "not read". That is the honest answer: the ledger it was asked about does not
+ * exist, and inventing "behind" from its absence would be a guess about a database this Worker has
+ * not managed to read.
+ */
+async function readControlPlaneSchemaState(
+  controlPlane: ControlPlaneReader,
+  expectedHead: string,
+): Promise<z.infer<typeof ControlPlaneSchemaCheck>> {
+  try {
+    const row = await controlPlane
+      .prepare("SELECT COUNT(*) AS applied_count, MAX(tag) AS applied_head FROM _migrations")
+      .bind()
+      .first<{ applied_count: number; applied_head: string | null }>();
+    const appliedHead = row?.applied_head ?? null;
+    return {
+      state: appliedHead === expectedHead ? "current" : "behind",
+      appliedCount: row?.applied_count ?? 0,
+      appliedHead,
       expectedHead,
     };
   } catch {
@@ -277,7 +349,10 @@ export async function collectDatabaseHealth(input: {
   firmContext: FirmContext;
   firmId: string;
   userId: UserId;
+  /** The per-firm lineage head this build carries. */
   expectedHead: string;
+  /** The control-plane lineage head this build carries — a different journal, a different tag. */
+  controlPlaneExpectedHead: string;
   now?: () => number;
 }): Promise<DatabaseHealthValue> {
   const now = input.now ?? (() => Date.now());
@@ -304,35 +379,49 @@ export async function collectDatabaseHealth(input: {
     };
   }
 
-  // The control-plane leg. The firm's row is already proven to exist — the chokepoint read it to
-  // build this request's firm context — so what is asked here is whether the control plane is
-  // answering NOW, and whether provisioning finished allocating the firm's bucket.
+  // The control-plane leg, asked the same way and TIMED the same way. The firm's row is already
+  // proven to exist — the chokepoint read it to build this request's firm context — so what is
+  // asked here is whether the control plane is answering NOW, what that costs, and whether
+  // provisioning finished allocating the firm's bucket.
+  //
+  // Measured AFTER the firm's round trip rather than beside it: two probes in flight at once
+  // contend, and each would then report a number inflated by the other. A reader comparing the two
+  // legs is doing exactly the comparison that inflation would break.
+  const bucketProvisioned = input.firmContext.bucketName !== null;
+  const controlPlaneStartedAt = now();
   let controlPlaneCheck: z.infer<typeof ControlPlaneCheck>;
   try {
     await input.controlPlane.prepare("SELECT 1 AS ok").bind().first<{ ok: number }>();
     controlPlaneCheck = {
       state: "reachable",
-      bucketProvisioned: input.firmContext.bucketName !== null,
+      roundTripMilliseconds: Math.max(0, Math.round(now() - controlPlaneStartedAt)),
+      fault: null,
+      bucketProvisioned,
     };
-  } catch {
+  } catch (error) {
     controlPlaneCheck = {
       state: "unreachable",
-      bucketProvisioned: input.firmContext.bucketName !== null,
+      roundTripMilliseconds: null,
+      fault: faultOf(error),
+      bucketProvisioned,
     };
   }
 
-  // The three data reads run together: they are independent questions of two different databases,
+  // The four data reads run together: they are independent questions of two different databases,
   // and asking them serially would make a panel that exists to explain a delay into a source of one.
-  const [schema, membership, provisioning] = await Promise.all([
-    readSchemaState(input.firmContext.migrationState, input.expectedHead),
+  // None of them is timed, so unlike the two probes above they cost nothing by contending.
+  const [firmSchema, membership, provisioning, controlPlaneSchema] = await Promise.all([
+    readFirmSchemaState(input.firmContext.migrationState, input.expectedHead),
     readMembershipState(firmDatabase, input.userId),
     readProvisioningBacklog(input.controlPlane, input.firmId),
+    readControlPlaneSchemaState(input.controlPlane, input.controlPlaneExpectedHead),
   ]);
 
   return {
     controlPlane: controlPlaneCheck,
+    controlPlaneSchema,
     firmDatabase: firmDatabaseCheck,
-    schema,
+    firmSchema,
     membership,
     provisioning,
     observedAt: new Date(now()).toISOString(),
@@ -368,15 +457,16 @@ export const metaDatabaseHealthRoute = defineOpenAPIRoute(metaDatabaseHealthMeta
   method: "get",
   path: "/api/v1/meta/database-health",
   description:
-    "Whether this session can reach and use its firm's data: a timed round trip to the firm's " +
-    "database, the control plane's own answer, the applied migration lineage against the one this " +
-    "build expects, this account's member row and roles with the permission count they resolve " +
-    "to, and any member-provisioning message for the firm still pending or dead-lettered. Each " +
-    "check reports its own state, so one failing read never hides the others, and a check that " +
-    "could not run says so rather than reporting health.",
+    "Whether this session can reach and use the two databases every request touches: a timed round " +
+    "trip and applied migration lineage for the firm's own database and for the control plane " +
+    "alike, each against the lineage this build expects; this account's member row and roles with " +
+    "the permission count they resolve to; whether the firm's object storage has been allocated; " +
+    "and any member-provisioning message for the firm still pending or dead-lettered. Each check " +
+    "reports its own state, so one failing read never hides the others, and a check that could " +
+    "not run says so rather than reporting health.",
   responses: {
     200: {
-      description: "The firm database's health, as seen by this session",
+      description: "Both databases' health, as seen by this session",
       content: { "application/json": { schema: DatabaseHealthResponse } },
     },
     401: {
@@ -412,6 +502,7 @@ export function registerMetaDatabaseHealthRoute(
         firmId: requireChokepointFirmId(c),
         userId: requireChokepointUserId(c),
         expectedHead: perFirmHeadSchemaVersion(),
+        controlPlaneExpectedHead: controlPlaneHeadSchemaVersion(),
       });
       return c.json(value, 200);
     },

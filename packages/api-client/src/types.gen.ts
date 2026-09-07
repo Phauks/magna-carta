@@ -77,8 +77,9 @@ export type ServiceVersion = {
 
 export type DatabaseHealthResponse = {
     controlPlane: DatabaseHealthControlPlane;
+    controlPlaneSchema: DatabaseHealthControlPlaneSchema;
     firmDatabase: DatabaseHealthFirmDatabase;
-    schema: DatabaseHealthSchema;
+    firmSchema: DatabaseHealthSchema;
     membership: DatabaseHealthMembership;
     provisioning: DatabaseHealthProvisioning;
     observedAt: string;
@@ -86,7 +87,16 @@ export type DatabaseHealthResponse = {
 
 export type DatabaseHealthControlPlane = {
     state: 'reachable' | 'unreachable';
+    roundTripMilliseconds: number | null;
+    fault: string | null;
     bucketProvisioned: boolean;
+};
+
+export type DatabaseHealthControlPlaneSchema = {
+    state: 'current' | 'behind' | 'unknown';
+    appliedCount: number;
+    appliedHead: string | null;
+    expectedHead: string;
 };
 
 export type DatabaseHealthFirmDatabase = {
@@ -2519,6 +2529,20 @@ export type ConflictsPolicyResponse = {
     closureCap: number;
     candidateCap: number;
     balancedNameRoles: Array<string>;
+};
+
+export type ConflictsPolicyRequest = {
+    floorSources?: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    floorStrictness?: 'balanced' | 'over_inclusive';
+    defaultDepth?: number;
+    edgeClassBudgets?: {
+        control?: number;
+        family?: number;
+        representation?: number;
+    };
+    closureCap?: number;
+    candidateCap?: number;
+    balancedNameRoles?: Array<string>;
 };
 
 export type CreatedConflictsRecheckResponse = {
@@ -7744,7 +7768,7 @@ export type MetaDatabaseHealthError = MetaDatabaseHealthErrors[keyof MetaDatabas
 
 export type MetaDatabaseHealthResponses = {
     /**
-     * The firm database's health, as seen by this session
+     * Both databases' health, as seen by this session
      */
     200: DatabaseHealthResponse;
 };
@@ -16611,6 +16635,54 @@ export type ConflictsFirmPolicyResponses = {
 };
 
 export type ConflictsFirmPolicyResponse = ConflictsFirmPolicyResponses[keyof ConflictsFirmPolicyResponses];
+
+export type ConflictsSetFirmPolicyData = {
+    body: ConflictsPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/conflicts-policy';
+};
+
+export type ConflictsSetFirmPolicyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsSetFirmPolicyError = ConflictsSetFirmPolicyErrors[keyof ConflictsSetFirmPolicyErrors];
+
+export type ConflictsSetFirmPolicyResponses = {
+    /**
+     * The firm's conflicts policy as stored, after normalization
+     */
+    200: ConflictsPolicyResponse;
+};
+
+export type ConflictsSetFirmPolicyResponse = ConflictsSetFirmPolicyResponses[keyof ConflictsSetFirmPolicyResponses];
 
 export type ConflictsRecheckMatterData = {
     body?: never;
