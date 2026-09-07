@@ -112,7 +112,7 @@ export type ExtractionRefusalReason =
   | "corrupt"
   | "policy-size"
   | "policy-type"
-  | "not-found";
+  | "not-in-archive";
 
 export interface ArchiveExtraction {
   /** The members that became files on the matter. */
@@ -141,11 +141,11 @@ export function extractArchiveMembers(
   folderId: string | null,
   idempotencyKey: string,
 ): Promise<ApiOutcome<ArchiveExtraction>> {
-  return requestJson(
-    fetchImpl,
-    `/api/v1/files/${encodeURIComponent(fileId)}/archive-extractions`,
-    { method: "POST", body: { paths: [...paths], folderId }, idempotencyKey },
-  );
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/archive-extractions`, {
+    method: "POST",
+    body: { paths: [...paths], folderId },
+    idempotencyKey,
+  });
 }
 
 /** The matter's soft-deleted files, newest deletion first. */

@@ -18,9 +18,10 @@ interface Call {
   readonly body: { paths: string[]; folderId: string | null };
 }
 
-function scripted(
-  answer: (call: Call, index: number) => Response,
-): { fetchImpl: typeof fetch; calls: Call[] } {
+function scripted(answer: (call: Call, index: number) => Response): {
+  fetchImpl: typeof fetch;
+  calls: Call[];
+} {
   const calls: Call[] = [];
   const fetchImpl = (async (input: string | URL, init?: RequestInit) => {
     const url = input instanceof URL ? input.href : input;
@@ -74,7 +75,10 @@ describe("runExtraction", () => {
   });
 
   it("splits a selection past the batch size, and merges what comes back", async () => {
-    const paths = Array.from({ length: EXTRACTION_BATCH_SIZE + 5 }, (_u, at) => `m${String(at)}.txt`);
+    const paths = Array.from(
+      { length: EXTRACTION_BATCH_SIZE + 5 },
+      (_u, at) => `m${String(at)}.txt`,
+    );
     const { fetchImpl, calls } = scripted((call) => extraction(call.body.paths));
     const outcome = await runExtraction(fetchImpl, { fileId: "f", paths, folderId: null });
 
@@ -194,7 +198,7 @@ describe("refusalWords", () => {
       "corrupt",
       "policy-size",
       "policy-type",
-      "not-found",
+      "not-in-archive",
     ];
     const words = reasons.map((reason) => refusalWords(reason));
     expect(words.every((sentence) => sentence.length > 0)).toBe(true);

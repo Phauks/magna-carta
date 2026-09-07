@@ -219,9 +219,9 @@ describe("extractZipMember", () => {
   it("says so when the archive object is gone", async () => {
     const archive = zipSync({ "gone.txt": strToU8(LONG_BRIEF) });
     const entries = await entriesOf(archive);
-    expect(await extractZipMember(bucketOf(null), "k", entry(entries, "gone.txt"), GENEROUS)).toEqual(
-      { kind: "refused", reason: "archive-missing" },
-    );
+    expect(
+      await extractZipMember(bucketOf(null), "k", entry(entries, "gone.txt"), GENEROUS),
+    ).toEqual({ kind: "refused", reason: "archive-missing" });
   });
 
   it("takes an empty member out, which is a file and not a bomb", async () => {

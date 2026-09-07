@@ -79,7 +79,8 @@ const REFUSAL_WORDS: Readonly<Record<ExtractionRefusalReason, string>> = {
   corrupt: "its contents do not match what the archive recorded for it",
   "policy-size": "it is larger than this firm allows a file to be",
   "policy-type": "this firm does not accept files of its kind",
-  "not-found": "it is no longer in the archive",
+  "not-in-archive":
+    "the archive does not hold it, or it sits past the number of entries this firm reads",
 };
 
 export function refusalWords(reason: ExtractionRefusalReason): string {

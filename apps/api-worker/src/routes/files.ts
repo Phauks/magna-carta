@@ -1061,9 +1061,12 @@ async function fileExtractedMember(
         // container it came out of is a document with no provenance, and the provenance is most of
         // what an extracted member is worth. Ids and the in-archive path only — the path is where
         // this document sat inside the container, which is the fact being recorded.
+        // The archive this came out of, by id. NOT the member's path inside it: audit metadata on
+        // this surface carries ids and never names (the file-history contract says so above), and a
+        // path inside a client's archive can carry as much as a document title does. Which archive
+        // is the provenance question; which member is answered by the extracted file's own record.
         fileAuditStatement(firm.firmDatabase, auditContext, "file.extracted", initiated.versionId, {
           archiveFileId: member.archiveFileId,
-          archivePath: member.archivePath,
         }),
       ],
       outboxMessages: initiated.effect.outboxMessages,

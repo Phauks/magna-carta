@@ -124,7 +124,10 @@ async function memberDataOffset(
   entry: ZipCentralDirectoryEntry,
   objectSize: number,
 ): Promise<number | null> {
-  if (entry.localHeaderOffset < 0 || entry.localHeaderOffset + LOCAL_FILE_HEADER_BYTES > objectSize) {
+  if (
+    entry.localHeaderOffset < 0 ||
+    entry.localHeaderOffset + LOCAL_FILE_HEADER_BYTES > objectSize
+  ) {
     return null;
   }
   const header = await readRange(bucket, key, entry.localHeaderOffset, LOCAL_FILE_HEADER_BYTES);
