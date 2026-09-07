@@ -7,7 +7,8 @@ import type { MatterId, TrustAccountId, UserId } from "@magna-carta/identifiers/
 import { isValidCalendarDate, LedgerValidationError } from "@magna-carta/ledger/validate";
 import { readMatterClientEntityId } from "@magna-carta/matters/matter-party";
 import { currencyFromCode, money } from "@magna-carta/money/money";
-import { loadMatterTrustLeaf } from "@magna-carta/trust/account-tree";
+import { timeZoneForLocation } from "@magna-carta/document-assembly/resolve";
+import { listTrustAccounts, loadMatterTrustLeaf } from "@magna-carta/trust/account-tree";
 import {
   composeTrustAuthorizationPolicyChange,
   readCurrentTrustAuthorizationPolicy,
@@ -41,6 +42,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
@@ -489,6 +491,61 @@ const withdrawDisbursementRoute = defineOpenAPIRoute(movementMeta("trust.withdra
     429: errorResponses[429],
   },
 });
+
+// One of the firm's trust accounts as a person picks it: the label the firm gave it, the office, the
+// bank and the last four of the number. Nothing a movement needs, and no full account number — the
+// schema stores none, so there is none to serve.
+const TrustAccountListing = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    locationId: z.string(),
+    jurisdiction: z.string().nullable(),
+    bankName: z.string().nullable(),
+    accountNumberLastFour: z.string().nullable(),
+    currency: z.string(),
+    iolta: z.boolean(),
+    status: z.enum(["open", "closed"]),
+    openedOn: z.string(),
+    closedAt: z.string().nullable(),
+    // The holding office's IANA time zone, resolved: an office recorded before the column existed
+    // reads as the platform's normalized zone rather than as nothing. A report asked "as at the end
+    // of a day" resolves that day here.
+    timeZone: z.string(),
+  })
+  .openapi("TrustAccountListing");
+
+const TrustAccountPage = paginated(TrustAccountListing).openapi("TrustAccountPage");
+
+const listTrustAccountsRoute = defineOpenAPIRoute(
+  {
+    operationId: "trust.listTrustAccounts",
+    surface: "app",
+    authenticated: true,
+    permission: READ,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  },
+  {
+    method: "get",
+    path: "/api/v1/trust/accounts",
+    description:
+      "Lists the firm's trust accounts alphabetically by the name the firm gave each one, closed accounts included: a compliance report is asked about the period an account was live, which is often after it closed, and a listing that hid closed accounts would make that report impossible to ask for. Cursor-paginated. Each row carries the identity a person picks an account by and the last four digits of its number, which is all the platform stores of it.",
+    request: { query: cursorQuery },
+    responses: {
+      200: {
+        description: "One page of the firm's trust accounts",
+        content: { "application/json": { schema: TrustAccountPage } },
+      },
+      401: readErrorResponses[401],
+      403: readErrorResponses[403],
+      404: readErrorResponses[404],
+      429: readErrorResponses[429],
+    },
+  },
+);
 
 const pendingDisbursementRequestsRoute = defineOpenAPIRoute(
   {
@@ -982,6 +1039,32 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
           },
         };
       });
+    },
+  );
+
+  // GET /api/v1/trust/accounts — the firm's trust accounts, for anything that has to name one
+  app.openapi(
+    {
+      ...listTrustAccountsRoute,
+      middleware: chokepointMiddleware(chokepoint, listTrustAccountsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { cursor } = c.req.valid("query");
+      const page = await listTrustAccounts(
+        firm.firmDatabase,
+        cursor === undefined ? {} : { cursor },
+      );
+      return c.json(
+        {
+          data: page.data.map(({ locationTimeZone, ...account }) => ({
+            ...account,
+            timeZone: timeZoneForLocation({ timeZone: locationTimeZone }),
+          })),
+          nextCursor: page.nextCursor,
+        },
+        200,
+      );
     },
   );
 

@@ -1,10 +1,12 @@
 /*
  * What the Trust ledger is designed to show and the app cannot reach yet.
  *
- * ONE GAP DOMINATES THE REST: nothing hands out the firm's trust accounts. The matter's ledger
- * read names a trust account, a deposit is posted into one, a payment out is proposed against one
- * and a transfer moves money inside one, and no route lists them. The routes behind every one of
- * those acts exist and are served; what the screen lacks is the one identifier each of them takes.
+ * ONE GAP DOMINATES THE REST: this surface cannot name a trust account. The matter's ledger read
+ * names one, a deposit is posted into one, a payment out is proposed against one and a transfer
+ * moves money inside one. The listing exists now (GET /api/v1/trust/accounts, read by the report
+ * screen through $lib/reports/reports-api.ts) and this ledger is not yet wired to it; the routes
+ * behind every one of those acts exist and are served, and what the screen still lacks is the one
+ * identifier each of them takes.
  *
  * So this surface is built whole against the record a trust movement IS, the list stands empty
  * and says why, and every write renders where the design puts it, refused, naming this dependency
@@ -28,8 +30,8 @@ export const TRUST_LEDGER_GAPS = {
   account: {
     field: "Trust Account",
     waitsOn:
-      "a read of the firm's trust accounts: the matter's ledger is read against one, and no " +
-      "route hands one out yet",
+      "this ledger being wired to the firm's trust-account listing: the matter's ledger is read " +
+      "against one account, and the listing the report screen picks from is not yet wired here",
   },
   deposit: {
     field: "Deposit",

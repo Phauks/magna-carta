@@ -19,10 +19,11 @@
    * nothing else. There is no record window, because there is nothing about one movement that the
    * panel cannot state and nothing about it anybody may change.
    *
-   * NOTHING CAN NAME A TRUST ACCOUNT YET (trust-gaps.ts). The ledger read, the deposit, the
-   * disbursement and the transfer each take one of the firm's trust accounts, and no route lists
-   * them. The surface is built whole against the record a movement IS, the list stands empty and
-   * says why, and every write renders where the design puts it, refused, naming what it waits on.
+   * THIS SURFACE CANNOT NAME A TRUST ACCOUNT YET (trust-gaps.ts). The ledger read, the deposit, the
+   * disbursement and the transfer each take one of the firm's trust accounts; the listing exists
+   * (the report screen reads it) and this ledger is not yet wired to it. The surface is built whole
+   * against the record a movement IS, the list stands empty and says why, and every write renders
+   * where the design puts it, refused, naming what it waits on.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import EmptyState from "@magna-carta/design-system/empty-state";

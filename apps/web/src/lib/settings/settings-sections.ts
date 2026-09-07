@@ -97,7 +97,13 @@ export interface SettingsSection {
    * A declaration seam today — nothing enforces it yet; the settings permission model reads
    * it when firm settings pages ship.
    */
-  readonly editPermissionArea?: "firm" | "billing" | "documents" | "integrations" | "calendar";
+  readonly editPermissionArea?:
+    | "firm"
+    | "billing"
+    | "documents"
+    | "integrations"
+    | "calendar"
+    | "reports";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
    * is vacuous on such a page and set to "instant" (nothing staged, nothing to commit); the
@@ -242,6 +248,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "draft",
     editPermissionArea: "calendar",
+    shipped: true,
+  },
+  {
+    // The firm's report policy: what its trust-compliance document lists. A FIRM setting rather
+    // than a per-run choice (owner-ruled 2026-09-07): a compliance document should read the same
+    // every time the firm produces it. Server-backed from the start — the page reads and writes
+    // GET/PATCH /api/v1/firm/reports/policy and never stages into local storage — and its edit
+    // right is `firm:manageReportPolicy`, checked against the session on the page.
+    id: "reports",
+    label: "Reports",
+    href: "/settings/reports",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "reports",
     shipped: true,
   },
   {
