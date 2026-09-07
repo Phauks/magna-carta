@@ -285,11 +285,17 @@ describe("the panel's two folding sections", () => {
     expect(preferences).toContain("followAcrossTabs()");
   });
 
-  it("makes a shut Deployment heading speak for the whole read, not just the fleet", () => {
-    // Collapsing Deployment takes the leading pair down with it, and a fault in the pair is the
-    // one most worth seeing — so its badge counts every Worker in the read.
-    expect(chip).toContain("summarizeSilentWorkers(value.services)");
+  it("makes each shut heading speak for exactly what its own fold hides", () => {
+    // This once required Deployment's badge to count every Worker in the read, which was right
+    // while the fleet was a drawer INSIDE Deployment: collapsing Deployment took the fleet down
+    // with it. Workers is its own section now, so that same count would have both headings
+    // claiming the same silent Worker — and a reader who folded only Workers would see Deployment
+    // wearing a warning about rows still on screen. Each heading counts its own half.
     expect(chip).toContain("badge: silentDeploymentWorkers");
+    expect(chip).toMatch(/silentDeploymentWorkers = \$derived\([\s\S]*?deploymentRows\.front/);
+    expect(chip).toContain("badge: silentFleetWorkers");
+    expect(chip).toMatch(/silentFleetWorkers = \$derived\([\s\S]*?deploymentRows\.rest/);
+    expect(chip).not.toContain("summarizeSilentWorkers(value.services)");
   });
 
   it("makes a shut Database heading carry the worst reading in the section", () => {

@@ -23,6 +23,7 @@ import { describe, expect, it } from "vitest";
 import {
   apiWebSyncState,
   copyLineForPart,
+  copyReportForPanel,
   describeObservationAge,
   describeRetainedRows,
   findWebWorkerRow,
@@ -171,6 +172,54 @@ describe("the API-versus-web sync badge", () => {
     for (const state of ["in-sync", "web-behind", "mismatch"] as const) {
       expect(syncStateLabel(state)).not.toMatch(/fail|error|alarm/i);
     }
+  });
+});
+
+describe("the whole panel on the clipboard", () => {
+  const VERSIONS = {
+    api: { commit: "a1b2c3d", commitTime: "2026-09-07T01:00:00Z", buildTime: null },
+    services: [serviceRow(WEB_WORKER_ROW_ID, "reported", "9f9f9f9"), serviceRow("scan", "unbound")],
+    observedAt: "2026-09-07T02:40:45.489Z",
+  };
+
+  it("carries the build AND the database, because a report missing either is a report that cannot be acted on", () => {
+    const report = copyReportForPanel({
+      pageBuild: { commit: "f4b6d82", commitTime: null, buildTime: null },
+      versions: VERSIONS,
+      databaseLine: "Firm database: Not answering · observed 2026-09-07T02:40:45.489Z",
+    });
+    // The build half: which page, which API, and every Worker the read named.
+    expect(report).toContain(`${PAGE_BUILD_ROW_NAME}: f4b6d82`);
+    expect(report).toContain(`${API_WORKER_UNIT_NAME}: a1b2c3d`);
+    expect(report).toContain("magna-carta-web");
+    expect(report).toContain("Services observed 2026-09-07T02:40:45.489Z");
+    // The database half, which used to be the ONLY half this gesture copied.
+    expect(report).toContain("Firm database: Not answering");
+  });
+
+  it("names a Worker that reported nothing rather than dropping its line", () => {
+    // "Absent from the paste" and "reported nothing" are different faults, and a reader cannot tell
+    // them apart after the fact — so the row that had no version says which one it is.
+    const report = copyReportForPanel({
+      pageBuild: null,
+      versions: VERSIONS,
+      databaseLine: null,
+    });
+    expect(report).toContain(`magna-carta-scan: ${serviceStateLabel("unbound") ?? ""}`);
+  });
+
+  it("omits a section it has nothing for instead of printing an empty one", () => {
+    const report = copyReportForPanel({ pageBuild: null, versions: null, databaseLine: null });
+    expect(report).toBe("Magna Carta diagnostics");
+  });
+
+  it("is multi-line, because a dozen facts on one line is a paste people summarize instead", () => {
+    const report = copyReportForPanel({
+      pageBuild: { commit: "f4b6d82", commitTime: null, buildTime: null },
+      versions: VERSIONS,
+      databaseLine: "Firm database: Connected",
+    });
+    expect(report.split("\n").length).toBeGreaterThan(4);
   });
 });
 
@@ -456,12 +505,15 @@ describe("the chip's row identities and refresh", () => {
     expect(chip).toContain("syncStateLabel(syncState)");
     // Order: magna-carta, then magna-carta-web (the front partition), then the sync badge that
     // reads the pair, then the separator, then the rest of the fleet.
-    expect(chip.indexOf('rowKey: "api"')).toBeLessThan(chip.indexOf("deploymentRows.front"));
-    expect(chip.indexOf("deploymentRows.front")).toBeLessThan(
-      chip.indexOf("syncStateLabel(syncState)"),
+    // Read the MARKUP alone: the script derives the same split for the headings' counts, and a
+    // whole-file search finds that declaration long before the rows it is asserting the order of.
+    const markup = chip.slice(chip.indexOf("</script>"));
+    expect(markup.indexOf('rowKey: "api"')).toBeLessThan(markup.indexOf("deploymentRows.front"));
+    expect(markup.indexOf("deploymentRows.front")).toBeLessThan(
+      markup.indexOf("syncStateLabel(syncState)"),
     );
-    expect(chip.indexOf("syncStateLabel(syncState)")).toBeLessThan(
-      chip.indexOf("deploymentRows.rest"),
+    expect(markup.indexOf("syncStateLabel(syncState)")).toBeLessThan(
+      markup.indexOf("deploymentRows.rest"),
     );
   });
 
@@ -504,7 +556,11 @@ describe("the chip's row identities and refresh", () => {
     expect(refreshControl).not.toBeNull();
     const control = refreshControl?.[0] ?? "";
     expect(control).toContain("disabled={loading || healthLoading}");
-    expect(control).toContain("aria-busy={loading || healthLoading}");
+    // Inert is said by `disabled` alone. This once also demanded a hand-written aria-busy, which
+    // the later ruling that every loading state runs through one region forbids outright
+    // (tooling/lint-one-ui) — a region announces the read, a control does not announce itself. The
+    // two rules contradicted each other and this test was the older one.
+    expect(control).not.toContain("aria-busy");
     expect(control).toContain("refresh({ fresh: true })");
     expect(control).toContain("refreshHealth()");
   });
@@ -513,9 +569,14 @@ describe("the chip's row identities and refresh", () => {
     // Refresh and Retry both answer a member who asked what is running NOW, so both skip the
     // API's brief cache — otherwise the age line keeps climbing and the button reads as broken.
     // The on-open read is the one the cache exists for, and it stays plain.
-    const explicitGestures = chip.match(/refresh\(\{ fresh: true \}\)/g) ?? [];
-    expect(explicitGestures).toHaveLength(2);
-    expect(chip).toContain("void refresh();");
+    // Every gesture a PERSON makes probes fresh; the only plain re-ask is the automatic on-open
+    // read in the script. Counting the gestures instead pinned the panel's control layout — adding
+    // a section with a Retry of its own broke this while every gesture still obeyed the rule.
+    const markup = chip.slice(chip.indexOf("</script>"));
+    const gestures = markup.match(/refresh\((?:\{ fresh: true \})?\)/g) ?? [];
+    expect(gestures.length).toBeGreaterThan(0);
+    expect(gestures.every((gesture) => gesture === "refresh({ fresh: true })")).toBe(true);
+    expect(chip.slice(0, chip.indexOf("</script>"))).toContain("void refresh();");
     expect(chip).toContain("?fresh=true");
   });
 
@@ -715,7 +776,13 @@ describe("the fleet fold", () => {
     expect(chip).toMatch(
       /\{#if section\.collapsed && section\.badge !== null\}[\s\S]*\{section\.badge\}/,
     );
-    expect(chip).toContain("badge: summarizeSilentWorkers(deploymentRows.rest)");
+    // Each heading counts only the Workers ITS OWN fold hides. Workers is its own section now
+    // rather than a drawer inside Deployment, so one count over the whole read would have both
+    // headings claiming the same silent Worker.
+    expect(chip).toContain("badge: silentFleetWorkers");
+    expect(chip).toMatch(/silentFleetWorkers = \$derived\([\s\S]*?deploymentRows\.rest/);
+    expect(chip).toContain("badge: silentDeploymentWorkers");
+    expect(chip).toMatch(/silentDeploymentWorkers = \$derived\([\s\S]*?deploymentRows\.front/);
   });
 
   it("remembers the fold per browser, and arrives open", () => {
