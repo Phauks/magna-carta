@@ -167,6 +167,8 @@ describe("GET /api/v1/me", () => {
         // including Read-only carries (20260819T140000_seed-notification-policy-permission).
         "firm:manageNotificationPolicy",
         "firm:manageReleaseChannel",
+        // Seeded to Owner/Admin alone by 20260907T090000_seed-report-policy-permission.
+        "firm:manageReportPolicy",
         "firm:manageScanPolicy",
         "firm:manageSecrets",
         // Seeded to every default role, Read-only included — reading who is on the firm is not the

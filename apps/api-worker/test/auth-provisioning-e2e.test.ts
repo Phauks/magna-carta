@@ -331,6 +331,8 @@ describe("end-to-end", () => {
         // including Read-only carries (20260819T140000_seed-notification-policy-permission).
         "firm:manageNotificationPolicy",
         "firm:manageReleaseChannel",
+        // Seeded to Owner/Admin alone by 20260907T090000_seed-report-policy-permission.
+        "firm:manageReportPolicy",
         "firm:manageScanPolicy",
         "firm:manageSecrets",
         // The roster read, seeded to every default role including Read-only — the same universal
