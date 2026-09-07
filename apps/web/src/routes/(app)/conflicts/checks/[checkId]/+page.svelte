@@ -189,7 +189,7 @@
   {/snippet}
   {#snippet actions()}
     {#if check !== null && check.matterId !== null}
-      <Button variant="secondary" href="/conflicts/matters/{check.matterId}">
+      <Button variant="secondary" href="/matters/{check.matterId}/conflicts">
         <ScrollText class="size-16" aria-hidden="true" />
         Where the matter stands
       </Button>
