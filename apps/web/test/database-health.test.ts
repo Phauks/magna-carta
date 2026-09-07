@@ -36,7 +36,7 @@ function stripComments(text: string): string {
 
 const HEALTHY: DatabaseHealthValue = {
   controlPlane: { state: "reachable", bucketProvisioned: true },
-  firmDatabase: { state: "reachable", roundTripMilliseconds: 12 },
+  firmDatabase: { state: "reachable", roundTripMilliseconds: 12, fault: null },
   schema: {
     state: "current",
     appliedCount: 214,
@@ -67,7 +67,7 @@ describe("databaseHealthRows", () => {
     expect(
       databaseHealthRows({
         ...HEALTHY,
-        firmDatabase: { state: "unreachable", roundTripMilliseconds: null },
+        firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: null },
       }).map((row) => row.id),
     ).toEqual(["firmDatabase", "schema", "membership", "controlPlane"]);
   });
@@ -80,6 +80,37 @@ describe("databaseHealthRows", () => {
 
   it("puts the round trip on the connected row rather than claiming health bare", () => {
     expect(rowFor(HEALTHY, "firmDatabase").detail).toBe("Answered in 12 ms.");
+  });
+
+  // The reason a database is not answering is the whole diagnosis, and this row used to throw it
+  // away: a firm database bricked by a failing migration read as "Not answering" and nothing more,
+  // which sent a reader to the logs for a fact this very read already held.
+  it("says WHY the firm database is not answering when it said why", () => {
+    const row = rowFor(
+      {
+        ...HEALTHY,
+        firmDatabase: {
+          state: "unreachable",
+          roundTripMilliseconds: null,
+          fault: "CHECK constraint failed: matter_status_check",
+        },
+      },
+      "firmDatabase",
+    );
+    expect(row.reading).toBe("fault");
+    expect(row.status).toBe("Not answering");
+    expect(row.detail).toContain("CHECK constraint failed: matter_status_check");
+  });
+
+  it("says plainly that no reason was given rather than implying none exists", () => {
+    const row = rowFor(
+      {
+        ...HEALTHY,
+        firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: null },
+      },
+      "firmDatabase",
+    );
+    expect(row.detail).toContain("gave no reason");
   });
 
   it("tells the four refused-screen situations apart", () => {

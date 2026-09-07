@@ -360,11 +360,18 @@
               "integer",
               "null"
             ]
+          },
+          "fault": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "state",
-          "roundTripMilliseconds"
+          "roundTripMilliseconds",
+          "fault"
         ]
       },
       "DatabaseHealthSchema": {
