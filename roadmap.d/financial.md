@@ -580,14 +580,14 @@
   public-summary: See every cost the firm advanced in a month, across all its matters, and how much is still waiting on a bill.
   notes: Partial because it does not yet approve a submitted cost across matters. It reads, opens a cost, and records one — the record window takes the firm's matters and leads with an unfilled matter picker, on the arrangement the Time Sheet already has. The listing answered one matter entire and returned an empty list for anything else, which is why Costs was absent from the sidebar's Money group while the matter carried it — the two disagreed about what Money holds for a structural reason rather than an oversight.
 
-- id: financial.costs.billed-cost-to-bill
-  name: A billed cost names its bill
-  scope: The invoice that took a cost up, on the cost's own listing row and reachable from it.
+- id: financial.costs.billed-record-to-bill
+  name: A billed record names its bill
+  scope: The invoice that took a cost or a time entry up, on its own listing row and reachable from it.
   status: shipped
   surface: screen
-  slices: 3-3-costs-expenses-disbursements
-  evidence: cost_entry.invoice_id on the CostSummary contract and the Open The Bill verb in apps/web/src/lib/costs/cost-record-menu.ts, landing on the matter's Billing section with that bill open through the invoice address the two registers both honour
-  notes: The column existed and never reached the wire, so a billed cost could not answer the one question a ledger cannot — what was the client actually told. The symmetric gap stays open on time: time_entry.invoice_id is the same column and does not reach the wire.
+  slices: 3-3-costs-expenses-disbursements, 3-1-time-tracking-wip-rate-engine
+  evidence: cost_entry.invoice_id on the CostSummary contract, time_entry.invoice_id already on TimeEntrySummary, and one Open The Bill verb in apps/web/src/lib/records/ledger-record-menu.ts behind an opensTheBill declaration, landing on the matter's Billing section with that bill open through the invoice address both registers honour
+  notes: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently — and Fees declares no opensTheBill, because an unbilled fee record has no table behind it yet.
 
 - id: financial.costs.entry-model
   name: Cost entry anatomy

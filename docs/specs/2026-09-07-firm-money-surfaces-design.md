@@ -173,9 +173,17 @@ warning and the strip is absent, never a failed screen.
 
 Four surfaces held the same money and nothing connected them.
 
-1. **A cost names its bill.** `cost_entry.invoice_id` reaches the wire. The row menu's **Open The
-   Bill** lands on the matter's Billing section with that bill open. The verb renders on every cost,
-   refused where nothing has billed it, for the reason in section 4.
+1. **A record names the bill that took it up.** `cost_entry.invoice_id` reaches the wire, and the
+   row menu's **Open The Bill** lands on the matter's Billing section with that bill open. The verb
+   renders on every record, refused where nothing has billed it, for the reason in section 4.
+
+   It lives in the SHARED ledger catalogue rather than on the cost menu, because time asks the same
+   question of the same kind of row: `time_entry.invoice_id` had been on the entry contract since it
+   was written and nothing on the time surfaces read it, so the gap there was never the wire — it
+   was a verb nobody had built. Two menus answering one question would be two chances to word the
+   refusal differently. A ledger declares `opensTheBill` when it has somewhere to send a reader,
+   which Time and Costs do and Fees does not.
+
 2. **A bill is addressable.** `?invoice=` opens the named bill on the matter's register and on the
    firm's. This is what makes a bill linkable rather than describable, and what gives the cost's seam
    somewhere to land.
@@ -214,15 +222,13 @@ choosing one changes what is read rather than what is shown.
 
 ## 8. Gaps this design leaves open
 
-1. **A billed time entry cannot reach its bill.** `time_entry.invoice_id` is the same column as the
-   cost one and does not reach the wire. Symmetric, cheap, and deliberately out of this pass's scope.
-2. **The invoice read carries matter identifiers and no names.** It is what stops a bill that charges
+1. **The invoice read carries matter identifiers and no names.** It is what stops a bill that charges
    several matters offering the way into each of them (section 6.3).
-3. **Application history, attribution and events** remain unserved — gaps 2 and 3 of the matter
+2. **Application history, attribution and events** remain unserved — gaps 2 and 3 of the matter
    Billing tab design — so the window's Payments & Credits and History rails still say what they wait
    on.
-4. **Approving a submitted cost across matters** is not offered on the firm's period; approval stays
+3. **Approving a submitted cost across matters** is not offered on the firm's period; approval stays
    on the matter's own section.
-5. **The recorder of a cost** is not on the record, so Entered By states its gap on both screens.
-6. **Trust and Fees have no firm-wide surface.** Trust's row stays announced; a fee is not its own
+4. **The recorder of a cost** is not on the record, so Entered By states its gap on both screens.
+5. **Trust and Fees have no firm-wide surface.** Trust's row stays announced; a fee is not its own
    record yet. The money toolbar's way out is absent on both rather than pointing at a Soon page.

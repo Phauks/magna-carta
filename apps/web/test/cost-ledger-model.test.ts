@@ -348,6 +348,37 @@ describe("the row menu", () => {
     expect(menuItem(menu, "print")).not.toBeNull();
   });
 
+  it("offers the bill on every cost, refused where nothing has billed it", () => {
+    // On every cost rather than only on billed ones: a verb that appears and disappears with a
+    // row's state teaches a reader the menu has a mind of its own.
+    const unbilled = menuRecord();
+    const offered = menuItem(
+      costRecordMenu([unbilled], unbilled, { reviewGateEnabled: true }),
+      "openBill",
+    );
+    expect(offered).not.toBeNull();
+    expect(offered === null ? true : isEnabled(offered)).toBe(false);
+
+    const billed = menuRecord({ status: "billed", invoiceId: "invoice_one" });
+    const reachable = menuItem(
+      costRecordMenu([billed], billed, { reviewGateEnabled: true }),
+      "openBill",
+    );
+    expect(reachable === null ? false : isEnabled(reachable)).toBe(true);
+  });
+
+  it("refuses a billed cost whose bill was not read with it, rather than guessing one", () => {
+    // The claim is the truth about who holds a cost and invoiceId is its mirror; a row that lost it
+    // is a read to fix, never a bill to invent.
+    const billed = menuRecord({ status: "billed", invoiceId: null });
+    const verb = menuItem(
+      costRecordMenu([billed], billed, { reviewGateEnabled: true }),
+      "openBill",
+    );
+    expect(verb === null ? true : isEnabled(verb)).toBe(false);
+    expect(verb?.kind === "action" ? verb.disabledReason : undefined).toContain("was not read");
+  });
+
   it("shows the attach verb on every cost as designed but not served", () => {
     const target = menuRecord();
     const menu = costRecordMenu([target], target, { reviewGateEnabled: true });

@@ -74,6 +74,9 @@ the bill that took the cost up already open, so you can see what the client was 
 A cost nothing has billed yet says so and the control stays put, rather than appearing and
 disappearing as costs move through their states.
 
+The same control is on a time entry, in a matter's Time section: a billed hour reaches the bill it
+was charged on the same way.
+
 ## Recording a New Cost
 
 **New Cost** at the top of the screen records one. Because this screen is not standing on a matter,

@@ -11,7 +11,7 @@ Two gaps from the matter Billing tab's screen design close with them. The invoic
 
 `bill-columns.ts`, `invoice-window.svelte`, `invoice-print-sheet.ts` and `bill-actions.ts` now take a matter or take none; the cost columns gain a Matter column hidden inside a matter and brought forward across the firm. Both money-column pairs are declared in both scopes with one of each hidden, so a stored layout means the same thing on both screens. The matter-anchored acts are refused on the firm's register with a scope refusal — a third kind beside the state and permission refusals the verb set already carried.
 
-Seams: `cost_entry.invoice_id` reaches the wire and the row menu's Open The Bill lands on the matter's Billing section with that bill open; `?invoice=` opens a named bill on either register; the money toolbar's sibling row ends with the way out to the firm-wide twin, read from the sidebar's own registry so the two cannot call one place two things. Design: [`docs/specs/2026-09-07-firm-money-surfaces-design.md`](../docs/specs/2026-09-07-firm-money-surfaces-design.md). Left open, symmetric and deliberate: `time_entry.invoice_id` is the same column and still does not reach the wire.
+Seams: `cost_entry.invoice_id` reaches the wire, and one **Open The Bill** verb in the shared ledger catalogue (`opensTheBill`, on the terms `reclassify` and `canRestoreVoid` already follow) lands a billed cost OR time entry on the matter's Billing section with that bill open — `time_entry.invoice_id` had been on the entry contract since it was written and nothing on the time surfaces read it, so that gap was a verb rather than a read; `?invoice=` opens a named bill on either register; the money toolbar's sibling row ends with the way out to the firm-wide twin, read from the sidebar's own registry so the two cannot call one place two things. Design: [`docs/specs/2026-09-07-firm-money-surfaces-design.md`](../docs/specs/2026-09-07-firm-money-surfaces-design.md). Left open: the invoice read names the matters it charges by identifier and not by name, which is what stops a multi-matter bill offering the way into each of them.
 
 ## Public
 
@@ -21,7 +21,7 @@ Neither question could be asked before. A matter's own sections answer for one f
 
 **A matter's Billing section now shows the matter's bills, not the client's.** It listed every bill the client had ever been given and then worked out this matter's share of each one, which stated the client's account under the matter's heading. It reads its own bills now: the ones that charge this matter, drafts included, each showing this matter's share. The whole document's total is still there as a column you can turn on, named "Total (all matters)" so the two are never confused.
 
-**A billed cost names the bill that billed it.** Right-click a cost and choose "Open The Bill" to see what the client was actually told. An open bill is in the address too, so you can send somebody the bill rather than a register and instructions.
+**A billed cost or time entry names the bill that billed it.** Right-click one and choose "Open The Bill" to see what the client was actually told. An open bill is in the address too, so you can send somebody the bill rather than a register and instructions.
 
 **Each matter money section knows its firm-wide twin.** The row across the top of Time, Costs and Billing ends with the way out to the same money at the firm's scale.
 

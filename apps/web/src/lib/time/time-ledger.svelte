@@ -25,6 +25,7 @@
    * been asked about.
    */
   import type { Snippet } from "svelte";
+  import { goto } from "$app/navigation";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -39,6 +40,7 @@
   import {
     RecordMenu,
     ledgerRecordMenu,
+    type LedgerRecord,
     type RecordMenuAction,
     type RecordMenuModel,
   } from "$lib/records/index.ts";
@@ -249,6 +251,10 @@
       // today, which is exactly why the menu takes it as a fact about the surface rather than
       // assuming every ledger has the route.
       canRestoreVoid: true,
+      // The time ledger has somewhere to send a reader — the matter's Billing section, with that
+      // bill open — so it declares the verb the shared catalogue holds. Its own invoiceId has been
+      // on the wire since the entry contract was written; nothing on this surface read it.
+      opensTheBill: true,
     });
   });
 
@@ -261,13 +267,7 @@
     if (!grid.isSelected(key)) grid.rowClick(key, { repeated: true });
   }
 
-  function describeForMenu(entry: TimeEntrySummary): {
-    identifier: string;
-    status: TimeEntrySummary["status"];
-    entryNumber: null;
-    description: string;
-    amount: string;
-  } {
+  function describeForMenu(entry: TimeEntrySummary): LedgerRecord {
     return {
       identifier: entry.id,
       status: entry.status,
@@ -275,6 +275,7 @@
       entryNumber: null,
       description: entry.narrative,
       amount: chargeAmount(entry) === null ? "No charge" : chargeText(entry),
+      invoiceId: entry.invoiceId ?? null,
     };
   }
 
@@ -319,6 +320,13 @@
     switch (action.identifier) {
       case "open":
         openRecord(first, canWorkDraft(first).allowed);
+        return;
+      case "openBill":
+        // The matter's own Billing section, with that bill open — the same place the register would
+        // have opened it. The verb is refused where there is no bill, so reaching here means one.
+        if (first.invoiceId != null) {
+          void goto(`/matters/${matterId}/billing?invoice=${encodeURIComponent(first.invoiceId)}`);
+        }
         return;
       case "duplicate":
         duplicateEntry(first);

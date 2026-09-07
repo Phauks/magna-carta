@@ -70,8 +70,12 @@ hover it.
 ## Opening a bill from somewhere else
 
 A bill opened here puts itself in the address, so you can send somebody the bill rather than the
-register. That is also how a cost reaches its bill: **Open The Bill** on a billed cost lands here
-with that bill already open.
+register. That is also how a billed record reaches its bill: right-click a billed cost or a billed
+time entry and choose **Open The Bill**, and it lands here with that bill already open.
+
+The control is on every cost and every time entry, not only the billed ones — one that came and went
+with a row's state would be a control you could never learn the place of. A record nothing has billed
+says so.
 
 ## Trust
 
