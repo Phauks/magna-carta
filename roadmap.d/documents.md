@@ -372,6 +372,17 @@
   evidence: packages/file-manager/src/safe-rendition-port.ts ships the port plus an engine-less adapter that refuses; active formats are download-only until the engine wires in.
   notes: Rasterize/transcode engine wires in with the player UI.
 
+- id: documents.preview.pdf-reader
+  name: Portable-document reader
+  scope: A read-only in-app reader that rasterizes a PDF's pages locally through the pure-Rust engine in a Web Worker, rather than serving the file to the browser.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/lib/documents/pdf-pages.ts + pdf-render.worker.ts over @magna-carta/pdf, opened from the file manager at /documents/{fileId}/view.
+  audience: public
+  public-name: Reading a PDF
+  public-summary: Open a PDF from a matter and read it in the app, turning pages and zooming, without downloading it first.
+  notes: Independent of the cookieless streaming path: only pixels reach the page, so it needs no rendition engine and no deploy activation. Pages are drawn as they come into view, and the resolution is capped.
+
 - id: documents.preview.player
   name: Video player UI
   scope: Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
@@ -515,11 +526,11 @@
   name: Render to raster
   scope: PDF page rendering for preview/flatten via the pure-Rust engine (hayro dependency doctrine).
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   slices: pdf-render-engine
   adrs: ADR-0127
   spec: docs/specs/2026-06-21-pdf-slice-1-core-render-design.md
-  evidence: pdf-render-engine fragment lists render built; crates/pdf-eval evaluation harness in the workspace.
+  evidence: pdf-render-engine fragment lists render built; crates/pdf-eval evaluation harness in the workspace. Reached by a person as of the document reader at apps/web/src/routes/(app)/documents/[id]/view, which draws every page through this renderer.
 
 - id: documents.pdf.redaction
   name: True redaction (rasterize route)

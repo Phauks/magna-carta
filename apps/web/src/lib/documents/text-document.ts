@@ -3,42 +3,43 @@
  * edited text back as the next version — out of the component so both are testable against a
  * scripted fetch.
  *
- * Reading goes through the audited download route, which answers with a redirect to a short-lived
- * signed URL on the storage; `fetch` follows it, and the bucket's browser policy admits the read
- * from the application's origin. The bytes are decoded as UTF-8 text and never handed to anything
- * that would interpret them: they land in a text field, which is the one place untrusted content
- * is inert by construction.
+ * Reading is the shared byte read (document-bytes.ts) plus a decode. The decoded text is never
+ * handed to anything that would interpret it: it lands in a text field, which is the one place
+ * untrusted content is inert by construction.
  *
  * Writing IS the upload ceremony (create-document.ts) with the document's own id: reserve the next
  * version, put the bytes to storage, complete, wait for the gate. Nothing here is a second save
  * path — a version cut by typing and one cut by uploading are the same act on the server, so they
  * are the same act here.
  */
-import { problemOutcome, transportOutcome, type ApiOutcome } from "$lib/api/request.ts";
-import { fileDownloadUrl } from "$lib/file-manager/matter-file-api.ts";
+import { readDocumentBytes, type DocumentReadFailure } from "./document-bytes.ts";
 import { uploadDocument, type CeremonyOptions, type CreationOutcome } from "./create-document.ts";
 import { TEXT_EDITOR_MAX_BYTES, textContentTypeOf } from "./editable-documents.ts";
 
 /** The two ways a read fails, carrying the failure record every failure surface renders from. */
-export type TextReadFailure = Exclude<ApiOutcome<never>, { kind: "ok" }>;
+export type TextReadFailure = DocumentReadFailure;
 
 /** What reading a document's text settles to. */
 export type TextReadOutcome =
   | { readonly kind: "ok"; readonly text: string }
   /** The document is bigger than the editor is prepared to hold. It stays downloadable. */
   | { readonly kind: "too-large"; readonly sizeBytes: number }
+  /**
+   * The bytes are not UTF-8 text, so this editor will not open them. It stays downloadable.
+   *
+   * This is a REFUSAL, not a fallback, and the reason is what a save would do. A lossy decode
+   * turns every byte it cannot read into a replacement character, and the save path re-encodes
+   * the field as UTF-8 — so opening a document written in a legacy single-byte encoding, which is
+   * ordinary for older files carrying curly quotes, dashes or accented names, and then saving it
+   * would cut a new current version with every one of those characters destroyed. The prior
+   * versions would survive, and the document a colleague opens next would not.
+   */
+  | { readonly kind: "not-text" }
   | TextReadFailure;
 
-/** The failing branch of an outcome that was built to fail. Narrows without a cast. */
-function failure(outcome: ApiOutcome<never>): TextReadFailure {
-  if (outcome.kind === "ok") throw new Error("A failure outcome cannot be ok.");
-  return outcome;
-}
-
 /**
- * Read the document's current text. `sizeBytes` is the record's own size, asked before a byte
- * moves so a document the editor will refuse is refused without fetching it; a record that holds
- * no size is read and measured on arrival.
+ * Read the document's current text. The bytes come through the shared read; what is added here is
+ * the decode, which is where a text document differs from any other.
  */
 export async function readTextDocument(
   fetchImpl: typeof fetch,
@@ -46,24 +47,15 @@ export async function readTextDocument(
   sizeBytes: number | null,
   maxBytes: number = TEXT_EDITOR_MAX_BYTES,
 ): Promise<TextReadOutcome> {
-  if (sizeBytes !== null && sizeBytes > maxBytes) return { kind: "too-large", sizeBytes };
-  const path = fileDownloadUrl(fileId);
-  const line = `GET ${path}`;
-  let response: Response;
+  const outcome = await readDocumentBytes(fetchImpl, fileId, sizeBytes, maxBytes);
+  if (outcome.kind !== "ok") return outcome;
+  // `fatal` is the whole guard: it makes the decoder THROW on a byte sequence that is not UTF-8
+  // rather than substituting U+FFFD and handing back text that looks almost right.
   try {
-    response = await fetchImpl(path);
+    return { kind: "ok", text: new TextDecoder("utf-8", { fatal: true }).decode(outcome.bytes) };
   } catch {
-    return failure(transportOutcome<never>(line));
+    return { kind: "not-text" };
   }
-  if (!response.ok) return failure(problemOutcome<never>({ status: response.status }, line));
-  let bytes: ArrayBuffer;
-  try {
-    bytes = await response.arrayBuffer();
-  } catch {
-    return failure(transportOutcome<never>(line));
-  }
-  if (bytes.byteLength > maxBytes) return { kind: "too-large", sizeBytes: bytes.byteLength };
-  return { kind: "ok", text: new TextDecoder("utf-8").decode(bytes) };
 }
 
 /**

@@ -1,12 +1,15 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/text-document-editor-support-arvpgv
-area: Documents — the one Open gesture opens a document's editor in a new tab; the editor screen at /documents/{id}/edit (Collabora frame for word-processing formats, an in-app text editor for plain text)
+area: Documents — the PDF reader, drawn locally by the firm's own engine compiled to WebAssembly, and the guard that stops the text editor opening bytes it would corrupt on save
 status: building
-touches: apps/web/src/lib/file-manager/file-manager.svelte, apps/web/src/lib/documents/, apps/web/src/routes/(app)/documents/, apps/web/src/lib/screen/screen-header.ts, roadmap.d/documents.md, status.d/2-2-editing-versioning-storage-tiering.md, STATUS.md, ROADMAP.md, docs/user/features/matter-documents.md
+touches: apps/web/src/lib/documents/, apps/web/src/lib/file-manager/file-manager.svelte, apps/web/src/routes/(app)/documents/, apps/web/package.json, roadmap.d/documents.md, status.d/2-3-inline-preview-safe-delivery-sandbox.md, STATUS.md, ROADMAP.md, docs/user/features/matter-documents.md
 ---
 
-Double-click, Enter and Open on a word-processing or plain-text document open its editor beside the
-file manager, through the one new-tab gate. The screen behind that address posts the WOPI token to
-the Collabora frame for office formats and runs an in-app text editor, saving through the upload
-ceremony as a new version, for plain text. A concurrent stream editing `file-manager.svelte`'s
-`activate()` or the document loop's inventory should merge this first.
+Opening a PDF from the file manager now draws it, in a new tab, from `crates/pdf-core` compiled to
+WebAssembly and run in a Web Worker: the bytes are rasterized locally by the firm's own memory-safe
+engine and only pixels reach the page, so no PDF ever meets a parser that could run what is inside
+it. The same round fixes a defect in the text editor, which decoded leniently and would have written
+a lossy re-encoding into the next version of any document not already UTF-8.
+
+A concurrent stream touching `openDestinationOf`, the file manager's `activate()`, or anything under
+`apps/web/src/lib/documents/` should merge this first.

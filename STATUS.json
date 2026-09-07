@@ -666,7 +666,7 @@
           "gap": true
         },
         "ui": {
-          "state": "todo"
+          "state": "in-progress"
         },
         "load-profile": {
           "state": "n/a"
@@ -678,15 +678,15 @@
         }
       },
       "branch": "main",
-      "activeWork": null,
-      "next": null,
+      "activeWork": "docs/active-work/claude/text-document-editor-support-arvpgv.md",
+      "next": "The inline_playable writer at ingest, which nothing sets today, then the Preview tab over the streaming path for images and media.",
       "links": {
         "spec": null,
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Cookieless `files.*` subresource delivery under a first-party HMAC token; backend on main. Player UI → 0·7."
+      "notes": "Cookieless `files.*` subresource delivery under a first-party HMAC token; backend on main. Player UI → 0·7. A PORTABLE DOCUMENT does not travel this path at all: the reader at /documents/{fileId}/view rasterizes its pages locally through the pure-Rust engine in a Web Worker, so only pixels reach the page and no rendition engine is needed. The streaming path still awaits its `inline_playable` writer, which nothing in the repository sets, so every grant it issues is download-only."
     },
     {
       "slice": "2·4 — In-app conversion",
