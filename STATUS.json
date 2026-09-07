@@ -2450,7 +2450,8 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 5"
         },
         "load-profile": {
           "state": "done",
@@ -2462,7 +2463,7 @@
         }
       },
       "branch": "main",
-      "activeWork": null,
+      "activeWork": "docs/active-work/claude/sidebar-time-accessibility-88khpa.md",
       "next": null,
       "links": {
         "spec": null,
@@ -2470,7 +2471,7 @@
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "`@magna-carta/timekeeping`; first Durable Object (live timer); scoped-setting resolver; UTBMS catalog. AI narrative/UTBMS seam ships dark."
+      "notes": "`@magna-carta/timekeeping`; first Durable Object (live timer); scoped-setting resolver; UTBMS catalog. AI narrative/UTBMS seam ships dark. Three read surfaces are up — the matter's Time tab, the top bar's Time Sheet, and the period ledger at `/time` over the new cross-matter `from`/`to` listing. The week grid and My Day are the UI still to come."
     },
     {
       "slice": "3·2 — Trust accounting + jurisdiction compliance",
