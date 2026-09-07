@@ -1,0 +1,370 @@
+/*
+ * The reporting reads, and the trust-account listing a report about one account picks from.
+ *
+ * Mirrors `reports.trustCompliancePack` and `trust.listTrustAccounts` in
+ * apps/api-worker/openapi/openapi.json. apps/web hand-writes the shapes it reads (the transport
+ * seam in $lib/api/request.ts says why); every field the contract serves is declared, because a
+ * presenter that cannot see a field renders a gap on a record that has one. Field names stay as
+ * served.
+ */
+import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import type { ReportCompleteness } from "./report-presentation.ts";
+
+// ---- the trust-compliance pack ------------------------------------------------------------------
+
+export type ReportReproducibility =
+  | {
+      reproducible: true;
+      periodStart: string;
+      periodEnd: string;
+      knownAsOf: string;
+    }
+  | {
+      reproducible: false;
+      periodStart: string;
+      periodEnd: string;
+      computedAt: string;
+    };
+
+export type TrustComplianceJurisdiction =
+  | {
+      available: true;
+      jurisdiction: string;
+      requirement: string;
+      citation: string;
+      binding: boolean;
+    }
+  | {
+      available: false;
+      jurisdiction: string | null;
+      refusalCode: string;
+      refusalDetail: string;
+    };
+
+export interface TrustComplianceCover {
+  trustAccountId: string;
+  trustAccountName: string;
+  locationId: string;
+  currency: string;
+  pooledInterestBearing: boolean;
+  accountStatus: "open" | "closed";
+  bankName: string | null;
+  accountNumberLastFour: string | null;
+  jurisdiction: TrustComplianceJurisdiction;
+  bankChargeCarveOutOpen: boolean;
+  reproducibility: ReportReproducibility;
+  reproducibilityStatement: string;
+  completeness: ReportCompleteness;
+}
+
+export interface TrustComplianceFrozenProof {
+  statementClosingMinor: number;
+  outstandingDepositsMinor: number;
+  outstandingDisbursementsMinor: number;
+  adjustedBankMinor: number;
+  bookBalanceMinor: number;
+  clientLedgerTotalMinor: number;
+  firmFundsMinor: number;
+  unmatchedLineCount: number;
+  unmatchedItemCount: number;
+  balanced: boolean;
+}
+
+export interface TrustComplianceBankItem {
+  entryId: string;
+  effectiveDate: string;
+  description: string;
+  bankDeltaMinor: number;
+  movementId: string | null;
+  movementKind: string | null;
+  transferId: string | null;
+  reference: string | null;
+  counterpartyName: string | null;
+}
+
+export interface TrustComplianceStatementLine {
+  id: string;
+  statementId: string;
+  postedOn: string;
+  direction: string;
+  amountMinor: number;
+  description: string;
+  reference: string | null;
+  counterpartyName: string | null;
+  sourceRowNumber: number | null;
+}
+
+export interface TrustComplianceLiveProof {
+  trustAccountId: string;
+  statementId: string;
+  asOfDate: string;
+  currency: string;
+  statementClosingMinor: number;
+  outstandingDeposits: TrustComplianceBankItem[];
+  outstandingDepositsMinor: number;
+  outstandingDisbursements: TrustComplianceBankItem[];
+  outstandingDisbursementsMinor: number;
+  adjustedBankMinor: number;
+  bookBalanceMinor: number;
+  clientLedgerTotalMinor: number;
+  firmFundsMinor: number;
+  unmatchedStatementLines: TrustComplianceStatementLine[];
+  balanced: boolean;
+  disagreements: { leg: string; differenceMinor: number }[];
+}
+
+export interface TrustComplianceProofDifference {
+  leg: string;
+  attestedMinor: number;
+  liveMinor: number;
+  differenceMinor: number;
+}
+
+export interface TrustComplianceReconciliation {
+  reconciliationId: string;
+  statementId: string;
+  statementPeriodStart: string;
+  statementPeriodEnd: string;
+  statementReference: string | null;
+  openedBy: string;
+  openedAt: string;
+  statusAsKnown: "open" | "closed";
+  closedBy: string | null;
+  closedAt: string | null;
+  frozenProof: TrustComplianceFrozenProof | null;
+  proofAtProduction: {
+    computedAt: string;
+    boundedByKnowledgeInstant: false;
+    proof: TrustComplianceLiveProof;
+    differencesFromAttestation: TrustComplianceProofDifference[];
+  };
+}
+
+export interface TrustComplianceLedgerEntry {
+  entryId: string;
+  effectiveDate: string;
+  recordedAt: string;
+  description: string;
+  reversesEntryId: string | null;
+  direction: "debit" | "credit";
+  amountMinor: number;
+  deltaMinor: number;
+  runningBalanceMinor: number;
+  movementId: string | null;
+  movementKind: string | null;
+  method: string | null;
+  reference: string | null;
+  counterpartyName: string | null;
+  purpose: string | null;
+  transferId: string | null;
+  authorizedBy: string | null;
+  recordedBy: string | null;
+}
+
+export interface TrustComplianceMatterLedger {
+  nodeId: string;
+  matterId: string | null;
+  ledgerAccountId: string;
+  openingBalanceMinor: number;
+  closingBalanceMinor: number;
+  entries: TrustComplianceLedgerEntry[];
+}
+
+export interface TrustComplianceClientLedger {
+  clientEntityId: string | null;
+  openingBalanceMinor: number;
+  closingBalanceMinor: number;
+  matters: TrustComplianceMatterLedger[];
+}
+
+export interface TrustComplianceJournalEntry {
+  entryId: string;
+  effectiveDate: string;
+  recordedAt: string;
+  description: string;
+  reversesEntryId: string | null;
+  bankDeltaMinor: number;
+  runningBalanceMinor: number;
+  movementId: string | null;
+  movementKind: string | null;
+  transferId: string | null;
+  firmFundsMovementId: string | null;
+  firmFundsMovementKind: string | null;
+  method: string | null;
+  reference: string | null;
+  counterpartyName: string | null;
+  purpose: string | null;
+  nodeId: string | null;
+  counterpartyNodeId: string | null;
+  authorizedBy: string | null;
+  recordedBy: string | null;
+}
+
+export interface TrustComplianceCushionMovement {
+  firmFundsMovementId: string;
+  kind: "firm_funds_deposit" | "bank_charge";
+  effectiveDate: string;
+  recordedAt: string;
+  amountMinor: number;
+  method: string;
+  reference: string | null;
+  description: string;
+  recordedBy: string;
+}
+
+export interface TrustComplianceCushion {
+  nodeId: string;
+  openingBalanceMinor: number;
+  closingBalanceMinor: number;
+  movements: TrustComplianceCushionMovement[];
+}
+
+export interface TrustComplianceHold {
+  holdId: string;
+  nodeId: string;
+  matterId: string | null;
+  clientEntityId: string | null;
+  amountMinor: number;
+  reason: string;
+  placedAt: string;
+  placedBy: string | null;
+}
+
+export interface TrustComplianceExceptions {
+  holdsInForceAtKnowledgeInstant: TrustComplianceHold[];
+  atProduction: {
+    computedAt: string;
+    boundedByKnowledgeInstant: false;
+    outstandingBankItems: TrustComplianceBankItem[];
+    unmatchedStatementLines: { reconciliationId: string; line: TrustComplianceStatementLine }[];
+    storedBalanceDisagreements: {
+      ledgerAccountId: string;
+      storedBalanceMinor: number;
+      computedBalanceMinor: number;
+    }[];
+  };
+}
+
+export interface TrustCompliancePack {
+  cover: TrustComplianceCover;
+  reconciliations: TrustComplianceReconciliation[];
+  reconciliationNote: string | null;
+  proofAtProductionNote: string;
+  clientLedgers: TrustComplianceClientLedger[];
+  journal: {
+    openingBalanceMinor: number;
+    closingBalanceMinor: number;
+    entries: TrustComplianceJournalEntry[];
+  };
+  cushion: TrustComplianceCushion | null;
+  exceptions: TrustComplianceExceptions;
+  provenance: {
+    requestedBy: string | null;
+    computedAt: string;
+    periodStart: string;
+    periodEnd: string;
+    knownAsOf: string | null;
+    packShapeVersion: number;
+    options: {
+      zeroBalanceLedgers: "include" | "omit";
+      authorizers: "include" | "omit";
+    };
+  };
+}
+
+export interface TrustCompliancePackQuery {
+  readonly trustAccountId: string;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  /** Omitted means everything known now: a live report, stamped as such. */
+  readonly knownAsOf?: string;
+  readonly zeroBalanceLedgers?: "include" | "omit";
+  readonly authorizers?: "include" | "omit";
+}
+
+/** The permission the pack route names. A member without it is refused server-side. */
+export const TRUST_COMPLIANCE_PERMISSION = "reports:trustCompliance";
+
+export function readTrustCompliancePack(
+  fetchImpl: typeof fetch,
+  query: TrustCompliancePackQuery,
+): Promise<ApiOutcome<TrustCompliancePack>> {
+  const search = new URLSearchParams({
+    periodStart: query.periodStart,
+    periodEnd: query.periodEnd,
+  });
+  if (query.knownAsOf !== undefined) search.set("knownAsOf", query.knownAsOf);
+  if (query.zeroBalanceLedgers !== undefined) {
+    search.set("zeroBalanceLedgers", query.zeroBalanceLedgers);
+  }
+  if (query.authorizers !== undefined) search.set("authorizers", query.authorizers);
+  return requestJson(
+    fetchImpl,
+    `/api/v1/reports/trust-compliance/${encodeURIComponent(query.trustAccountId)}?${search.toString()}`,
+  );
+}
+
+// ---- the firm's trust accounts ------------------------------------------------------------------
+
+/** The permission the listing names: reading which accounts the firm holds is a trust read. */
+export const LIST_TRUST_ACCOUNTS_PERMISSION = "trust:read";
+
+export interface TrustAccountListing {
+  id: string;
+  name: string;
+  locationId: string;
+  jurisdiction: string | null;
+  bankName: string | null;
+  accountNumberLastFour: string | null;
+  currency: string;
+  iolta: boolean;
+  status: "open" | "closed";
+  openedOn: string;
+  closedAt: string | null;
+}
+
+interface TrustAccountPage {
+  data: TrustAccountListing[];
+  nextCursor: string | null;
+}
+
+/*
+ * A picker wants the whole roster, and the listing pages. Walking every page is right for a
+ * firm's trust accounts — a handful, a few dozen at the most — and the walk is capped so a
+ * cursor that never ends cannot hold the screen: past the cap the roster is returned short and
+ * `capped` says so, which is the difference between "these are all" and "we stopped".
+ */
+const MOST_PAGES_WALKED = 10;
+
+export interface TrustAccountRoster {
+  readonly accounts: readonly TrustAccountListing[];
+  readonly capped: boolean;
+}
+
+export async function listTrustAccounts(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<TrustAccountRoster>> {
+  const accounts: TrustAccountListing[] = [];
+  let cursor: string | null = null;
+  for (let pages = 0; pages < MOST_PAGES_WALKED; pages += 1) {
+    const path: string =
+      cursor === null
+        ? "/api/v1/trust/accounts"
+        : `/api/v1/trust/accounts?cursor=${encodeURIComponent(cursor)}`;
+    const outcome: ApiOutcome<TrustAccountPage> = await requestJson(fetchImpl, path);
+    if (outcome.kind !== "ok") return outcome;
+    accounts.push(...outcome.value.data);
+    cursor = outcome.value.nextCursor;
+    if (cursor === null) return { kind: "ok", value: { accounts, capped: false } };
+  }
+  return { kind: "ok", value: { accounts, capped: true } };
+}
+
+/** How an account reads in a picker: its name, and the bank and last four where recorded. */
+export function trustAccountLabel(account: TrustAccountListing): string {
+  const parts = [account.name];
+  if (account.bankName !== null) parts.push(account.bankName);
+  if (account.accountNumberLastFour !== null) parts.push(`ending ${account.accountNumberLastFour}`);
+  if (account.status === "closed") parts.push("closed");
+  return parts.join(" · ");
+}

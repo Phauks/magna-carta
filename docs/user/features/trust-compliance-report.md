@@ -1,7 +1,8 @@
 # The trust compliance report
 
-_Backend built, screens pending._ The report below can be produced today; the page a person clicks it
-from has not been built yet.
+Run it from **Reports** in the sidebar: choose the trust account, the period and the point in time,
+and the report appears on the page and exports from the menu at the top. How the Reports page works
+is in [Reports](reports.md); this guide is about what the document itself says.
 
 This is the document a firm hands a bar examiner, an auditor, or its own accountant when somebody
 asks how it has looked after client money. It covers **one trust account** over **one period**, and

@@ -1,6 +1,11 @@
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
-import { ensureMatterTrustLeaf, TRUST_LEAF_MINIMUM_BALANCE_MINOR } from "../src/account-tree.ts";
+import {
+  ensureMatterTrustLeaf,
+  listTrustAccounts,
+  openTrustAccount,
+  TRUST_LEAF_MINIMUM_BALANCE_MINOR,
+} from "../src/account-tree.ts";
 import { composeTrustEntry } from "../src/composition-guard.ts";
 import { assertTrustFitness } from "../src/fitness.ts";
 import {
@@ -210,5 +215,47 @@ describe("the no-negative floor", () => {
       .all<{ entries: number }>();
     expect(results[0]?.entries).toBe(1);
     await assertTrustFitness(fixture.database);
+  });
+});
+
+describe("listing the firm's trust accounts", () => {
+  it("lists every account oldest first and pages on the shared (created_at, id) keyset", async () => {
+    const fixture = await trustFixture();
+    // Two more accounts, opened after the fixture's own, so the fixture account leads the listing.
+    for (const name of ["Zeta Trust", "Alpha Trust"]) {
+      const opened = await openTrustAccount(
+        fixture.database,
+        {
+          name,
+          locationId: fixture.locationId,
+          jurisdiction: null,
+          currency: "USD",
+          iolta: true,
+          openedOn: "2026-01-01",
+        },
+        options,
+      );
+      await commit(fixture.database, opened.effect);
+    }
+    const firstPage = await listTrustAccounts(fixture.database, { limit: 2 });
+    // Same clock instant on every row, so the identifier breaks the tie; the fixture's own account
+    // was inserted first and the three read back in insertion order across the two pages.
+    const names = firstPage.data.map((account) => account.name);
+    expect(firstPage.nextCursor).not.toBeNull();
+    const secondPage = await listTrustAccounts(fixture.database, {
+      limit: 2,
+      cursor: firstPage.nextCursor ?? undefined,
+    });
+    names.push(...secondPage.data.map((account) => account.name));
+    expect(secondPage.data).toHaveLength(1);
+    expect(secondPage.nextCursor).toBeNull();
+    expect(names.toSorted()).toEqual(["Alpha Trust", "IOLTA — Reno", "Zeta Trust"]);
+    // The listing carries the identity a picker shows, and never a full account number.
+    const listed = firstPage.data[0]!;
+    expect(listed.id).toMatch(/^trustAccount_/);
+    expect(listed.status).toBe("open");
+    expect(listed.locationId).toBe(fixture.locationId);
+    expect(listed.name).toBe("IOLTA — Reno");
+    expect(Object.keys(listed)).not.toContain("accountNumber");
   });
 });

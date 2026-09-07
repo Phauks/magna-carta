@@ -5300,6 +5300,25 @@ export type TrustDisbursementWithdrawal = {
     reason?: string | null;
 };
 
+export type TrustAccountPage = {
+    data: Array<TrustAccountListing>;
+    nextCursor: string | null;
+};
+
+export type TrustAccountListing = {
+    id: string;
+    name: string;
+    locationId: string;
+    jurisdiction: string | null;
+    bankName: string | null;
+    accountNumberLastFour: string | null;
+    currency: string;
+    iolta: boolean;
+    status: 'open' | 'closed';
+    openedOn: string;
+    closedAt: string | null;
+};
+
 export type TrustPendingDisbursementRequestsResponse = {
     requests: Array<TrustPendingDisbursementRequest>;
 };
@@ -27702,6 +27721,45 @@ export type TrustWithdrawDisbursementResponses = {
 };
 
 export type TrustWithdrawDisbursementResponse = TrustWithdrawDisbursementResponses[keyof TrustWithdrawDisbursementResponses];
+
+export type TrustListTrustAccountsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/trust/accounts';
+};
+
+export type TrustListTrustAccountsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the trust account or matter ledger is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustListTrustAccountsError = TrustListTrustAccountsErrors[keyof TrustListTrustAccountsErrors];
+
+export type TrustListTrustAccountsResponses = {
+    /**
+     * One page of the firm's trust accounts
+     */
+    200: TrustAccountPage;
+};
+
+export type TrustListTrustAccountsResponse = TrustListTrustAccountsResponses[keyof TrustListTrustAccountsResponses];
 
 export type TrustReadAuthorizationPolicyData = {
     body?: never;

@@ -1635,3 +1635,35 @@ export function selectTrustAccountIdentityStatement(
     )
     .bind(trustAccountId);
 }
+
+// THE FIRM'S TRUST ACCOUNTS, as a listing a person picks one from — the report screen's account
+// control, and the matter ledger's the day it is wired. Oldest first on the shared (created_at, id)
+// keyset, the one cursor shape every listing on the platform mints: an account's label is free text
+// the cursor encoding cannot carry (a firm names accounts with dashes and accents, and the opaque
+// token is Latin-1), so the alphabetical order a picker wants is the picker's to apply over what it
+// loaded, not the page's to promise.
+//
+// The same identity columns the pack's cover reads, and nothing more: the list is what a picker
+// shows, and the last four is all the schema stores of the number.
+export function selectTrustAccountsPageStatement(
+  database: SqlDatabase,
+  page: {
+    readonly afterCreatedAt: string | null;
+    readonly afterId: string | null;
+    readonly limit: number;
+  },
+): SqlStatement {
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  if (page.afterCreatedAt !== null && page.afterId !== null) {
+    conditions.push("(created_at > ? OR (created_at = ? AND id > ?))");
+    bindings.push(page.afterCreatedAt, page.afterCreatedAt, page.afterId);
+  }
+  const where = conditions.length === 0 ? "" : ` WHERE ${conditions.join(" AND ")}`;
+  bindings.push(page.limit);
+  return database
+    .prepare(
+      `SELECT id, name, location_id, jurisdiction, bank_name, account_number_last_four, currency, iolta, status, opened_on, closed_at, created_at FROM ${TRUST_ACCOUNT_TABLE}${where} ORDER BY created_at, id LIMIT ?`,
+    )
+    .bind(...bindings);
+}

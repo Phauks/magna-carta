@@ -264,3 +264,30 @@ describe("the trust-compliance pack route", () => {
     expect(anonymousPack.provenance.options.authorizers).toBe("omit");
   });
 });
+
+describe("the trust-account listing the report screen picks from", () => {
+  it("lists the firm's trust accounts to a member who may read trust", async () => {
+    const response = await SELF.fetch("https://example.com/api/v1/trust/accounts", {
+      headers: { cookie: ownerCookie },
+    });
+    expect(response.status).toBe(200);
+    const page = (await response.json()) as {
+      data: { id: string; name: string; status: string; accountNumberLastFour: string | null }[];
+      nextCursor: string | null;
+    };
+    expect(page.nextCursor).toBeNull();
+    expect(page.data.map((account) => account.id)).toContain(trustAccountId);
+    const listed = page.data.find((account) => account.id === trustAccountId);
+    expect(listed?.name).toBe("Trust — Reno");
+    expect(listed?.status).toBe("open");
+    // The listing carries the last four at most; there is no full number anywhere to serve.
+    expect(Object.keys(listed ?? {})).not.toContain("accountNumber");
+  });
+
+  it("refuses a member who does not hold trust:read, at the chokepoint", async () => {
+    const response = await SELF.fetch("https://example.com/api/v1/trust/accounts", {
+      headers: { cookie: noPermissionCookie },
+    });
+    expect(response.status).toBe(403);
+  });
+});

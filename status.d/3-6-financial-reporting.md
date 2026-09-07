@@ -6,12 +6,12 @@ research: n/a
 spec: done by="Opus 5"
 plan: done by="Opus 5"
 built: in-progress by="Opus 5"
-ui: todo
+ui: in-progress
 load-profile: done by="Opus 5"
 tested: in-progress by="Opus 5"
-branch: claude/financial-reporting-1
-active-work:
-next: Owner answers on the nine flagged questions and on the two defaults this build shipped behind seams; then the filed pack artifact (needs a renderer), then sub-slice 3·6·2 — the financial reports
+branch: claude/main-report-generation-screen-ynuxnr
+active-work: docs/active-work/claude/main-report-generation-screen-ynuxnr.md
+next: Owner answers on the nine flagged questions, the two defaults shipped behind seams, and the three the screen adds (who may list trust accounts, the knowledge instant's grain, where the pack's options live); then sub-slice 3·6·2 — the financial reports, each one registry entry and a presenter
 link-spec: docs/specs/2026-08-13-financial-reporting-design.md
 link-plan: docs/specs/2026-08-13-financial-reporting-implementation-plan.md
 adrs:
@@ -29,3 +29,5 @@ blocked-by:
 **Measured over the trust volume** at one month and at twelve: client-ledger read 0.6 → 1.4 ms, journal 0.6 → 1.7 ms, whole document 63 → 106 ms, nothing scanning. The cost centre is the per-reconciliation three-way proof rather than the per-row reads, so the `ledger_line.effective_date` denormalization the design held in reserve is not warranted.
 
 **Unbuilt and named:** the filed pack artifact and its production record, which need a renderer this repository cannot run (the conversion engines are not deployed) — the two append-only tables are deliberately out of the migration rather than shipped for nothing to write. Sub-slices 2 to 5 and every screen are untouched. **Two defaults shipped behind named seams and flagged**: zero-balance ledgers are listed, authorizers are named, and a jurisdiction with no reviewed corpus states its refusal on the cover rather than refusing the whole document — which matters today, because every encoded jurisdiction ships unreviewed.
+
+**The report screen is built, over one registry.** `/reports` lists every report the platform declares, grouped by family, and `/reports/<id>` runs one: the controls a report takes are drawn from its declaration in `apps/web/src/lib/reports/report-registry.ts` (a period on every report, a knowledge instant only on a bitemporal one, a trust account where the report is about one, the report's own options), the read fires through the declaration's port when the scope is complete, and the answer renders as titled sections of tables whose shape is the tabular export document's, so every report exports in every format with no per-report code and a file cannot disagree with the screen. The scope rides the address. The trust-compliance pack is the first report wired, with a presenter that computes nothing (every balance printed is the pack's own, held by test); the financial, productivity and operational families are declared at stage `soon`, visible and disabled with what each waits on. `GET /api/v1/trust/accounts` (cursor-paged, on `trust:read`) is the listing the account control picks from, and the one the trust ledger's `account` gap has been waiting on. Design: `docs/specs/2026-09-07-report-screen-design.md`; three more owner questions flagged there. Not built, deliberately: production and scheduling controls, which wait on the delivery sub-slice and on the owner's Q6 and Q7.

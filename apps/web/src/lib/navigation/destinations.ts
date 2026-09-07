@@ -390,8 +390,8 @@ const DESTINATION_LIST = [
     icon: ChartColumn,
     description: "The firm's numbers, sliced and exported.",
     group: "firm",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {
