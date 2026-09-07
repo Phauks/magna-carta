@@ -3224,6 +3224,62 @@ export type AttachMatterNoteDocumentRequest = {
     fileId: string;
 };
 
+export type CommunicationPage = {
+    data: Array<CommunicationDetail>;
+    nextCursor: string | null;
+};
+
+export type CommunicationDetail = {
+    id: string;
+    channel: 'voice' | 'sms' | 'mms';
+    direction: 'inbound' | 'outbound';
+    matterId: string | null;
+    matterTitle: string | null;
+    matterStatus: string | null;
+    matterNumber: string | null;
+    consultationNumber: string | null;
+    counterpartyNumber: string;
+    counterpartyEntityId: string | null;
+    memberUserId: string | null;
+    occurredAt: string;
+    durationSeconds: number | null;
+    body: string | null;
+    summary: string | null;
+    producer: 'member' | 'carrier';
+    loggedByUserId: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type UnroutedCommunicationCount = {
+    count: number;
+};
+
+export type LoggedCommunication = {
+    id: string;
+};
+
+export type LogCommunicationRequest = {
+    channel: 'voice' | 'sms' | 'mms';
+    direction: 'inbound' | 'outbound';
+    matterId?: string | null;
+    counterpartyNumber: string;
+    counterpartyEntityId?: string | null;
+    memberUserId?: string | null;
+    occurredAt: string;
+    durationSeconds?: number | null;
+    body?: string | null;
+    summary?: string | null;
+};
+
+export type CommunicationAcknowledged = {
+    ok: true;
+};
+
+export type RouteCommunicationRequest = {
+    matterId: string;
+};
+
 export type MatterSearchAnswer = {
     matterId: string;
     query: string;
@@ -18988,6 +19044,327 @@ export type NotesDetachNoteDocumentResponses = {
 };
 
 export type NotesDetachNoteDocumentResponse = NotesDetachNoteDocumentResponses[keyof NotesDetachNoteDocumentResponses];
+
+export type CommunicationsListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        scope?: 'all' | 'routed' | 'unrouted';
+        channel?: 'voice' | 'sms' | 'mms';
+        search?: string;
+    };
+    url: '/api/v1/communications';
+};
+
+export type CommunicationsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsListError = CommunicationsListErrors[keyof CommunicationsListErrors];
+
+export type CommunicationsListResponses = {
+    /**
+     * One page of calls and texts
+     */
+    200: CommunicationPage;
+};
+
+export type CommunicationsListResponse = CommunicationsListResponses[keyof CommunicationsListResponses];
+
+export type CommunicationsLogData = {
+    body: LogCommunicationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/communications';
+};
+
+export type CommunicationsLogErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsLogError = CommunicationsLogErrors[keyof CommunicationsLogErrors];
+
+export type CommunicationsLogResponses = {
+    /**
+     * The logged call or message
+     */
+    201: LoggedCommunication;
+};
+
+export type CommunicationsLogResponse = CommunicationsLogResponses[keyof CommunicationsLogResponses];
+
+export type CommunicationsUnroutedCountData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/communications/unrouted-count';
+};
+
+export type CommunicationsUnroutedCountErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsUnroutedCountError = CommunicationsUnroutedCountErrors[keyof CommunicationsUnroutedCountErrors];
+
+export type CommunicationsUnroutedCountResponses = {
+    /**
+     * The queue's size
+     */
+    200: UnroutedCommunicationCount;
+};
+
+export type CommunicationsUnroutedCountResponse = CommunicationsUnroutedCountResponses[keyof CommunicationsUnroutedCountResponses];
+
+export type CommunicationsListForMatterData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        channel?: 'voice' | 'sms' | 'mms';
+        search?: string;
+    };
+    url: '/api/v1/matters/{matterId}/communications';
+};
+
+export type CommunicationsListForMatterErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsListForMatterError = CommunicationsListForMatterErrors[keyof CommunicationsListForMatterErrors];
+
+export type CommunicationsListForMatterResponses = {
+    /**
+     * One page of the matter's calls and texts
+     */
+    200: CommunicationPage;
+};
+
+export type CommunicationsListForMatterResponse = CommunicationsListForMatterResponses[keyof CommunicationsListForMatterResponses];
+
+export type CommunicationsGetData = {
+    body?: never;
+    path: {
+        communicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/communications/{communicationId}';
+};
+
+export type CommunicationsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsGetError = CommunicationsGetErrors[keyof CommunicationsGetErrors];
+
+export type CommunicationsGetResponses = {
+    /**
+     * The call or message
+     */
+    200: CommunicationDetail;
+};
+
+export type CommunicationsGetResponse = CommunicationsGetResponses[keyof CommunicationsGetResponses];
+
+export type CommunicationsUnrouteFromMatterData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        communicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/communications/{communicationId}/matter';
+};
+
+export type CommunicationsUnrouteFromMatterErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsUnrouteFromMatterError = CommunicationsUnrouteFromMatterErrors[keyof CommunicationsUnrouteFromMatterErrors];
+
+export type CommunicationsUnrouteFromMatterResponses = {
+    /**
+     * Taken off
+     */
+    200: CommunicationAcknowledged;
+};
+
+export type CommunicationsUnrouteFromMatterResponse = CommunicationsUnrouteFromMatterResponses[keyof CommunicationsUnrouteFromMatterResponses];
+
+export type CommunicationsRouteToMatterData = {
+    body: RouteCommunicationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        communicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/communications/{communicationId}/matter';
+};
+
+export type CommunicationsRouteToMatterErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsRouteToMatterError = CommunicationsRouteToMatterErrors[keyof CommunicationsRouteToMatterErrors];
+
+export type CommunicationsRouteToMatterResponses = {
+    /**
+     * Filed
+     */
+    200: CommunicationAcknowledged;
+};
+
+export type CommunicationsRouteToMatterResponse = CommunicationsRouteToMatterResponses[keyof CommunicationsRouteToMatterResponses];
 
 export type MatterSearchSearchData = {
     body?: never;

@@ -138,6 +138,12 @@ export const ENTITY_PREFIXES = {
   // stopped it, in identifiers and enums only.
   emailAutoFileRule: "emailAutoFileRule",
   emailAutoFileDecision: "emailAutoFileDecision",
+  // Calls and texts. A `communication` is one voice call or one SMS/MMS message the firm made or
+  // took — the log entry, whether a member typed it in after the fact or a carrier webhook wrote it.
+  // Its matter is nullable because an inbound text from an unrecognised number belongs to nobody
+  // until somebody files it, and because the anchor it eventually gets need not be a NUMBERED matter:
+  // an intake and a consultation are anchors a first contact usually lands on.
+  communication: "communication",
   // Discovery search index. An `indexSplit` is one immutable Tantivy split — a self-contained bundle of
   // index files stored as one object in the firm's R2 — recorded in the per-firm catalog that a query
   // enumerates to know which splits are live for a matter.

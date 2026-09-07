@@ -279,15 +279,17 @@ export const matterSections: readonly MatterSection[] = [
   },
   {
     slug: "messaging",
-    timelineSources: [],
+    timelineSources: ["communication"],
     label: "Messaging",
-    stage: "soon",
+    stage: "alpha",
     description:
-      "Secure messages exchanged with the client through the portal, kept on the matter record.",
-    searchSource: null,
-    searchWaitingOn: "The Messaging section itself is not built yet",
-    createNoun: null,
-    createWaitingOn: "The Messaging section itself is not built yet",
+      "Calls and texts on this matter \u2014 every voice call and message thread with the people on " +
+      "the case, logged as it happens, and for a call the recording and its transcript where the " +
+      "jurisdiction allows one.",
+    searchSource: "communications",
+    // A call is what the member wrote down about it; a text is its own words. Both are matched, and
+    // so is the number, which is how people actually look for a conversation.
+    createNoun: "Call",
   },
   {
     slug: "custodian",
