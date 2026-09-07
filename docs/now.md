@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 804 nodes of the feature ledger in
+is the complete register rather than a digest: all 806 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**804 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**806 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **664 that are units of work**, for the reason set out under [What a roll-up is
+count the **666 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 296 | 45% |
+| Done | shipped | 298 | 45% |
 | Part-built | partial, in-build | 124 | 19% |
 | Ahead | designed, planned, researching, not-started | 203 | 30% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **664** | **100%** |
+| **All units of work** | | **666** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 296 | 45% |
+| `shipped` | 298 | 45% |
 | `partial` | 123 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 137 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **664** | **100%** |
+| **All statuses** | **666** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 804 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 806 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 296 of 664 (45%). Shipped plus partial is 419 (63%).**
+**Shipped alone is 298 of 666 (45%). Shipped plus partial is 421 (63%).**
 
 The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**420 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**422 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 74 | 18% |
+| A person can open it today (`screen`) | 76 | 18% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 168 | 40% |
 | No user surface by nature (`internal`) | 178 | 42% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **420** | **100%** |
+| **Everything with something built** | **422** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -106,7 +106,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 64 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 98 | 65% |
+| Documents | 66 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 100 | 66% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 19 | 18 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 59 | 32% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **296** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **664** | **45%** |
+| **All areas** | **298** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **666** | **45%** |
 
 ## Where we have been
 
@@ -783,7 +783,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 98 units of work, 65% shipped. 64 done, 11 part-built, 19 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 66% shipped. 66 done, 11 part-built, 19 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -800,7 +800,9 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.upload.direct-to-r2` · `shipped` · **Direct-to-R2 transfer** — Presigned single PUT for small files, resumable S3 multipart above a threshold; Worker only authorizes, mints URLs, records metadata.
     - `documents.upload.policy-gates` · `shipped` · **Pre-acceptance gates** — Per-firm size and content-type allow-list enforced at presign and re-verified against real bytes; magic-byte validation; filename sanitization.
     - `documents.upload.quarantine` · `shipped` · **Quarantine-on-arrival** — Bytes land at their final key not visible/servable/indexed until the async ingest consumer clears them (gates, SHA-256, scan port, version commit in one read).
-    - `documents.upload.archive-opacity` · `shipped` · **Opaque archive storage** — Uploaded archives stored versioned/hashed on the matter and never expanded server-side — no zip-bomb/nested-archive read pipeline exists.
+    - `documents.upload.archive-opacity` · `shipped` · **Opaque archive storage** — An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.
+    - `documents.file-manager.archive-browse` · `shipped` · **Browse inside a zip** — Read an archive's entry listing from its central directory over ranged reads, without inflating a byte, for a live or a soft-deleted archive alike.
+    - `documents.file-manager.archive-extract` · `shipped` · **Extract an archive's members** — Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate. _Note: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built._
   - `documents.scanning` · `partial` · **Malware scanning** — Async scan of every uploaded byte behind a swappable port; verdict stored as file metadata; quarantine, never auto-delete. _Note: EICAR live check deferred (no production users yet)._
     - `documents.scanning.port` · `shipped` · **Scan port** — ScanPort seam in the file-manager package so scan engines are swappable without touching the pipeline.
     - `documents.scanning.engine` · `shipped` · **In-house scan engine (YARA + raw facts)** — YARA Forge rule packs plus a raw-facts extraction engine running in a dedicated scan container behind its own worker.

@@ -156,6 +156,33 @@ committed, and the start of its **content hash**. The hash is a fingerprint of t
 versions with the same hash are byte-for-byte the same file, and a version's hash never changes once
 it is recorded.
 
+## Zip files
+
+Open a zip and it shows what is inside it, folder by folder, without extracting anything or
+downloading it. The bar above the list names the archive you are in; use the crumbs to move through
+its folders, and close it to return to the matter's own files.
+
+### Taking files out
+
+Select what you want and choose **Extract**, or choose **Extract Into This Matter** with nothing
+selected to take out everything in the archive. Files land in the folder the zip itself sits in.
+
+Each extracted file is checked on the way in exactly like a file you upload: it is scanned, its type
+is read from its actual contents rather than from its name inside the archive, and it becomes an
+ordinary document on the matter with its own version history. Extracting never changes the zip,
+which stays on the matter as it was.
+
+Some members will not come out, and the screen names the reason rather than only counting them:
+
+- **Password-protected inside the archive.** Magna Carta holds no password for it.
+- **Packed in a way the application cannot open.** Most zips use a format it reads; a few do not.
+- **Its contents do not match what the archive recorded.** The zip's own checksum for that file
+  disagrees with the file itself, which is what a damaged or altered member looks like. It is
+  refused rather than filed.
+- **Too large, or it expands far enough to be treated as unsafe.** Your firm sets both limits.
+
+The rest of the selection still arrives. If nothing comes out at all, you are told why that was.
+
 ## Reading a PDF
 
 Open a PDF and it appears in a new tab, a page at a time. Scroll to move through it; the toolbar

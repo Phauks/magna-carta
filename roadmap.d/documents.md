@@ -133,11 +133,32 @@
 
 - id: documents.upload.archive-opacity
   name: Opaque archive storage
-  scope: Uploaded archives stored versioned/hashed on the matter and never expanded server-side — no zip-bomb/nested-archive read pipeline exists.
+  scope: An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.
   status: shipped
   surface: internal
   adrs: ADR-0027
-  evidence: No server-side extraction code in the tree; ADR-0027 records the opaque posture; client-side extraction path deferred to Discovery.
+  evidence: The ingest path stores an archive unexpanded; ADR-0027 records the posture. What has changed since this node was written is that expansion now EXISTS in two asked-for lanes rather than nowhere — the discovery processing lane (crates/discovery-core archive.rs) and, on a member a person names, the file manager (packages/file-manager/src/zip-member-extract.ts). Neither runs on arrival, which is what opacity meant.
+
+- id: documents.file-manager.archive-browse
+  name: Browse inside a zip
+  scope: Read an archive's entry listing from its central directory over ranged reads, without inflating a byte, for a live or a soft-deleted archive alike.
+  status: shipped
+  surface: screen
+  evidence: packages/file-manager/src/zip-central-directory.ts + GET /api/v1/files/{id}/archive-entries + the archive view in apps/web/src/lib/file-manager (archive-browse.ts, archiveColumns).
+  audience: public
+  public-name: Looking inside a zip
+  public-summary: See what a zip holds without extracting it or downloading it first.
+
+- id: documents.file-manager.archive-extract
+  name: Extract an archive's members
+  scope: Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate.
+  status: shipped
+  surface: screen
+  evidence: packages/file-manager/src/zip-member-extract.ts (selective ranged read, DecompressionStream, CRC-32 and length verification, the firm archiveCaps as its bomb guard) + POST /api/v1/files/{id}/archive-extractions + the archive bar's extract control in apps/web/src/lib/file-manager/file-manager.svelte.
+  audience: public
+  public-name: Taking files out of a zip
+  public-summary: Extract what you need from a zip onto the matter, checked on the way in like any upload.
+  notes: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built.
 
 - id: documents.scanning
   name: Malware scanning

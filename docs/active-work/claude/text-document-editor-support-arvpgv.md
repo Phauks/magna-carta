@@ -1,15 +1,14 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/text-document-editor-support-arvpgv
-area: Documents — the PDF reader, drawn locally by the firm's own engine compiled to WebAssembly, and the guard that stops the text editor opening bytes it would corrupt on save
+area: Documents — zip extraction: the selective member engine, the route that files a member through the ingest gate, and the archive controls that had been disabled waiting on it. The PDF reader and the text editor's encoding guard from this stream have landed.
 status: building
-touches: apps/web/src/lib/documents/, apps/web/src/lib/file-manager/file-manager.svelte, apps/web/src/routes/(app)/documents/, apps/web/package.json, roadmap.d/documents.md, status.d/2-3-inline-preview-safe-delivery-sandbox.md, STATUS.md, ROADMAP.md, docs/user/features/matter-documents.md
+touches: packages/file-manager/src/zip-central-directory.ts, packages/file-manager/src/zip-member-extract.ts, apps/api-worker/src/routes/files.ts, apps/web/src/lib/file-manager/, roadmap.d/documents.md, status.d/1-1-matters-locations-file-manager.md, STATUS.md, docs/user/features/matter-documents.md
 ---
 
-Opening a PDF from the file manager now draws it, in a new tab, from `crates/pdf-core` compiled to
-WebAssembly and run in a Web Worker: the bytes are rasterized locally by the firm's own memory-safe
-engine and only pixels reach the page, so no PDF ever meets a parser that could run what is inside
-it. The same round fixes a defect in the text editor, which decoded leniently and would have written
-a lossy re-encoding into the next version of any document not already UTF-8.
-
-A concurrent stream touching `openDestinationOf`, the file manager's `activate()`, or anything under
-`apps/web/src/lib/documents/` should merge this first.
+A zip stops being opaque to a person. Browsing one already read its central directory; extraction
+now reads one member's own bytes by ranged read, inflates them through the runtime's own
+decompressor, checks them against the length and the CRC-32 the archive recorded, and files the
+member through the ordinary ingest gate so it is sniffed and scanned fresh. The central-directory
+entry gained the four fields extraction needs, so a concurrent stream touching
+`zip-central-directory.ts` should merge this first. The same is true of the file manager's archive
+bar and `matter-file-api.ts`.

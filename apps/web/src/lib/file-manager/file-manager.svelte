@@ -95,6 +95,7 @@
     archivePathSegments,
     type ArchiveRow,
   } from "./archive-browse.ts";
+  import { extractionSentence, runExtraction } from "./archive-extraction.ts";
   import { uploadIntoFolder } from "./file-upload.ts";
   import { matterUploadRevision, startUploadBatch } from "./upload-queue.svelte.ts";
   import {
@@ -1464,6 +1465,58 @@
     leaveArchive();
   });
 
+  /*
+   * Taking members out of the archive and onto the matter.
+   *
+   * The destination is the folder the archive itself sits in, which is the ruling's default for a
+   * live archive: a member comes out beside the container it came from. What comes out is a
+   * decision the reader already made — the members they selected, or every file in the archive
+   * when they asked for the whole thing from the archive bar.
+   *
+   * Every extracted member re-enters through the scan gate, so this is not a way around the checks
+   * and the files appear as the gate settles them. The list is re-read either way, so what the
+   * reader sees afterwards is what actually landed rather than what was asked for.
+   */
+  let extracting = $state(false);
+
+  async function extract(paths: readonly string[]): Promise<void> {
+    const archive = archiveBrowse;
+    if (archive === null || extracting) return;
+    if (paths.length === 0) {
+      actionFailure = "Select something inside the archive to extract first.";
+      return;
+    }
+    actionFailure = null;
+    extracting = true;
+    const outcome = await runExtraction(fetch, {
+      fileId: archive.fileId,
+      paths,
+      folderId: archiveDestinationFolderId(),
+    });
+    extracting = false;
+    if (outcome.kind === "nothing-asked") return;
+    if (outcome.kind !== "done") {
+      actionFailure = "Nothing could be extracted from the archive.";
+      return;
+    }
+    // Stated whether or not anything was refused: a member that did not come out is the reader's
+    // to know about, and a count alone would not tell them what to do next.
+    actionFailure = extractionSentence(outcome.result);
+    reload();
+  }
+
+  /** Where an extracted member lands: the folder the archive itself sits in. */
+  function archiveDestinationFolderId(): string | null {
+    const archive = archiveBrowse;
+    if (archive === null) return null;
+    return files?.find((file) => file.id === archive.fileId)?.folderId ?? null;
+  }
+
+  /** Every file inside the archive, at any depth. Directories have no bytes and never come out. */
+  function everyArchiveMemberPath(): readonly string[] {
+    return archiveEntriesHeld.filter((entry) => !entry.isDirectory).map((entry) => entry.path);
+  }
+
   const archiveGrid = DataTable.createDataTableGrid<ArchiveRow>({
     columns: () => archiveColumns(),
     rows: () =>
@@ -2097,10 +2150,28 @@
 {/snippet}
 
 {#snippet archiveActions()}
-  <Button variant="secondary" size="sm" disabled title={waitingReason("archive-extract")}>
-    Extract Into This Matter
-    <Badge variant="neutral">Soon</Badge>
-  </Button>
+  {#if archiveGrid.selectedKeys.length > 0}
+    <Button
+      variant="secondary"
+      size="sm"
+      disabled={extracting}
+      onclick={() => void extract(archiveGrid.selectedKeys)}
+    >
+      {extracting ? "Extracting" : `Extract ${countPhrase(archiveGrid.selectedKeys.length, "Item")}`}
+    </Button>
+  {:else}
+    <Button
+      variant="secondary"
+      size="sm"
+      disabled={extracting || archiveLoading || everyArchiveMemberPath().length === 0}
+      title={everyArchiveMemberPath().length === 0
+        ? "This archive holds no files to extract."
+        : undefined}
+      onclick={() => void extract(everyArchiveMemberPath())}
+    >
+      {extracting ? "Extracting" : "Extract Into This Matter"}
+    </Button>
+  {/if}
   <Button
     variant="ghost"
     size="icon"
