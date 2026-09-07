@@ -323,6 +323,9 @@ importers:
       '@magna-carta/feature-flags':
         specifier: workspace:*
         version: link:../../packages/feature-flags
+      '@magna-carta/fees':
+        specifier: workspace:*
+        version: link:../../packages/fees
       '@magna-carta/file-integrity':
         specifier: workspace:*
         version: link:../../packages/file-integrity
