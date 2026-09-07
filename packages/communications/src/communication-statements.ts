@@ -325,11 +325,14 @@ export async function readRoutableMatter(
   matterId: MatterId,
   visibility: VisibleMatterPredicate,
 ): Promise<RoutableMatterRow | undefined> {
-  // ALIASED, and the alias is load-bearing rather than stylistic. The predicate composes as
-  // `EXISTS (SELECT 1 FROM matter WHERE matter.id = <expression> AND ...)`, so a query whose own
-  // FROM is the unaliased `matter` lets the subquery's table shadow the outer one: the correlation
-  // becomes `matter.id = matter.id`, which is true of every row, and the gate silently passes every
-  // matter in the firm. Naming the outer table `anchor` is what makes the correlation real.
+  // ALIASED, and kept aliased after the predicate learned to defend itself.
+  //
+  // This read is where the shadowing bug was found: the predicate composed as an EXISTS over the
+  // bare `matter`, so a query whose own FROM was also the bare `matter` let the subquery shadow it,
+  // the correlation became `matter.id = matter.id` — true of every row — and the gate passed every
+  // matter in the firm. That is fixed at the source now (the predicate aliases its own table), so
+  // this alias is no longer what makes the correlation real. It stays because the query reads more
+  // clearly for it, and because a read whose subject is "the matter being checked" is worth naming.
   const { results } = await database
     .prepare(
       `SELECT anchor.id, anchor.status FROM matter AS anchor WHERE anchor.id = ? AND ` +

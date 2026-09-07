@@ -15,8 +15,12 @@ import {
   selectMatterEventStatement,
   selectMatterEventsStatement,
 } from "../src/event-statements.ts";
-import { VISIBLE_MATTER_MARKER, visibleMatterPredicate } from "../src/visibility.ts";
-import { MATTER, migratedDatabase } from "./support.ts";
+import {
+  VISIBLE_MATTER_MARKER,
+  visibleMatterPredicate,
+  visibleMatterPredicateExcluding,
+} from "../src/visibility.ts";
+import { HOLDING_MATTER, MATTER, migratedDatabase, seedMatters } from "./support.ts";
 
 // The seam's whole value proposition is that an information-barrier overlay is ONE MORE CLAUSE in one
 // predicate and every read inherits it. `test/source-fitness.test.ts` proves that for the federated
@@ -30,7 +34,10 @@ interface InspectableStatement {
   readonly sql: string;
 }
 
-const { database } = migratedDatabase();
+const { database, raw } = migratedDatabase();
+// The behavioural assertion at the foot of this file reads real rows, so the firm's matters — the
+// platform-owned holding matter among them — have to exist.
+seedMatters(raw);
 const visibility = visibleMatterPredicate();
 const deadlineFragment = {
   visibilityFragment: visibility.fragmentFor(`${MATTER_DEADLINE_TABLE}.matter_id`),
@@ -140,3 +147,53 @@ function selectsOver(file: string, table: string): number {
   const needle = `FROM \${${table === MATTER_EVENT_TABLE ? "MATTER_EVENT_TABLE" : "MATTER_DEADLINE_TABLE"}}`;
   return withoutComments.split(needle).length - 1;
 }
+
+/*
+ * The predicate's own correlation, which the marker cannot vouch for.
+ *
+ * Every fitness function above proves the predicate was COMPOSED, by looking for its marker. None of
+ * them can prove it was composed usefully, and the difference is not academic: a caller whose own
+ * query has an unaliased `matter` in scope used to shadow the subquery's table, degenerating the
+ * correlation to `matter.id = matter.id` — true of every row — while the marker sat there in the SQL
+ * looking exactly like a gate. That shipped once, in the call and text log's anchor check, and was
+ * caught by a behavioural test rather than by any of these.
+ *
+ * The predicate now aliases its own table, so shadowing is impossible. These assertions pin that
+ * property to the fragment's text, because it is the one thing about this fragment that a later
+ * simplification would be most tempted to undo.
+ */
+describe("the predicate cannot be neutralized by a caller's own table names", () => {
+  it("aliases the table it selects from, so a caller's `matter` never shadows it", () => {
+    const fragment = visibleMatterPredicate().fragmentFor("matter.id");
+    expect(fragment).toContain("FROM matter AS visible_matter");
+    // The correlation names the ALIAS on its own side and the caller's expression on the other. If
+    // this ever reads `visible_matter.id = visible_matter.id`, the gate is checking nothing.
+    expect(fragment).toContain("visible_matter.id = matter.id");
+    expect(fragment).not.toMatch(/FROM matter\s+WHERE/u);
+  });
+
+  it("holds for the narrowed predicate too, which is the shape an ethical wall will take", () => {
+    const fragment = visibleMatterPredicateExcluding(["matter_walled00000000"]).fragmentFor(
+      "matter.id",
+    );
+    expect(fragment).toContain("FROM matter AS visible_matter");
+    expect(fragment).toContain("visible_matter.id = matter.id");
+    // The exclusion list is the wall itself; naming the caller's table here would exclude the wrong
+    // rows entirely rather than merely failing open.
+    expect(fragment).toContain("visible_matter.id NOT IN");
+  });
+
+  it("gates a real query whose own FROM is the unaliased matter table", async () => {
+    // The exact shape that failed: an anchor check selecting from `matter` and composing the
+    // predicate over its own id. Against the un-aliased predicate this returns the holding matter;
+    // against the aliased one it returns nothing.
+    const visible = visibleMatterPredicate();
+    const rows = await database
+      .prepare(
+        `SELECT matter.id FROM matter WHERE matter.id = ? AND ${visible.fragmentFor("matter.id")}`,
+      )
+      .bind(HOLDING_MATTER)
+      .all<{ id: string }>();
+    expect(rows.results).toEqual([]);
+  });
+});
