@@ -288,6 +288,14 @@ platform's only self-serve front door.**
    so setting the secret first turns every real signup into a `403`. The client must render a
    Turnstile widget and send its solution in the `X-Human-Verification-Token` request header. The
    sign-in screen's existing Turnstile row is a static placeholder, not a widget — it mints nothing.
+   - **Where the widget is expected to come from**, on the owner's answer of 2026-09-07: the public
+     intake form, built widget-first. It is the only anonymous surface with **no legacy client to
+     break** — the joining screens are live and would `403` the moment a secret existed, so the
+     widget cannot safely land there first, whereas a form that has never shipped can render it from
+     its first commit. Building it there produces the reusable component these two screens need, and
+     the intake form becomes the third protected endpoint rather than a fourth thing to retrofit.
+     Nothing here changes if that ordering shifts: the step is still "the widget exists before the
+     secret", whichever screen builds it.
 2. **Create the widget in the Cloudflare dashboard** — **Turnstile → Add widget**. Free on every
    plan.
    - **Mode: Managed.** Managed is the mode all four merged designs name: it shows a challenge only

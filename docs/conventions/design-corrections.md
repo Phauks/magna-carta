@@ -1605,3 +1605,25 @@ three findings below, the owner ruled: **Forms means client-facing.**
   the matter cannot answer — and nothing accepts a supplied value: not the request body, not the
   engine, not the schema. It moves to `/developer-console/document-assembly` and moves back out when
   the contract exists. Deleting it would have lost the only record of the shape.
+
+### 2026-09-07 — the public form comes first, and it carries the widget
+
+Following the Forms ruling above, the owner answered the two questions that decide when the client-facing
+build starts.
+
+- **The public intake form ships before the portal's client forms.** They are not one subsystem in two
+  stages: the public form needs no identity at all, while a client's forms need a portal account, a grant,
+  an assurance level, and a capability that does not exist in the accepted portal capability set — view,
+  download, upload, comment, esign — since completing a form is none of those. **The form definition and
+  its builder are the one component both halves share**, and they are built on the half that can carry them
+  now.
+- **The form is built widget-first, and that is what switches human verification on.** Turnstile's server
+  side has been built and dormant since 2026-08-15 because its activation order puts a browser widget
+  first, and the live joining screens would refuse every real signup the moment a secret existed. The
+  public form is the only anonymous surface with no shipped client to break, so it renders the widget from
+  its first commit and produces the component the joining screens are waiting on. The form is not blocked
+  by the bot control; it is what unblocks it.
+- **A form's questions are drawn from the bounded platform vocabulary, never from the firm's custom
+  fields** — this was already settled and is restated because it is the rule a builder is most likely to
+  break: a custom field can be a reference to a directory record, and a public form that could bind one
+  would let a stranger point a value at a person in the firm's directory.

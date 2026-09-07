@@ -14,7 +14,6 @@
   audience: public
   public-name: Client intake
   public-summary: Take an enquiry, check it for conflicts, and turn it into a matter without typing anything twice.
-  awaiting-owner: Does the first slice ship staff-entered intake only, with no public form at all? The intake procedure that shipped is staff-side and needs no anonymous surface; the design's recommendation (yes, staff-entered first) was taken for it, and the public form still waits on this answer plus its own flags. Client intake design flag J1.
 
 - id: intake.procedure
   name: Intake procedure
@@ -46,8 +45,8 @@
   name: Public intake forms
   scope: Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus intakes.
   status: not-started
-  evidence: No form builder or public intake route exists. The bot control such a form would sit behind does: apps/api-worker/src/human-verification/ ships Turnstile server-side verification, gating registrations and invitation redemptions, and serves them unprotected while no secret is provisioned. The surface this lands on is settled: the owner's 2026-09-07 ruling gave the Forms destination to what a client or a prospect fills in, so apps/web/src/lib/navigation/destinations.ts now announces it and nothing document-automation sits there.
-  awaiting-owner: Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
+  evidence: No form builder or public intake route exists. The bot control such a form would sit behind does: apps/api-worker/src/human-verification/ ships Turnstile server-side verification, gating registrations and invitation redemptions, and serves them unprotected while no secret is provisioned. The surface this lands on is settled: the owner's 2026-09-07 ruling gave the Forms destination to what a client or a prospect fills in, so apps/web/src/lib/navigation/destinations.ts now announces it and nothing document-automation sits there. So is the sequencing, on the owner's answers of the same day: this half ships BEFORE the portal's client forms, because those need an external principal type, a PortalGrant and an amendment to ADR-0036's closed capability set, none of which exists — while the form definition and its builder are the one component both halves share and are built here. And it is built WIDGET-FIRST: it is the only anonymous surface with no legacy client, so rendering Turnstile from its first commit produces the browser component the joining screens have been blocked on since 2026-08-15 (docs/deploy-queue.md, step 1 of the activation order), which inverts the dependency rather than waiting on it.
+  awaiting-owner: One thing stands in front of an anonymous form: whether it accepts attachments. The value is real (the contract, the letter they were served) and so is the cost, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage expense. A form without attachments is shippable and attachments are additive, so this decides the slice's scope rather than its start. Client intake design flag J3.
 
 - id: intake.call-intake
   name: Receptionist call intake

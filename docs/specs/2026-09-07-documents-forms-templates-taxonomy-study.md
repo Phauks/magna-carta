@@ -4,7 +4,9 @@
 **Outcome:** The owner ruled **taxonomy B** on 2026-09-07 — Forms means what a client fills in. Recorded in
 [`docs/conventions/design-corrections.md`](../conventions/design-corrections.md) and in the ADR fragment
 `forms-is-what-a-client-fills-in-not-what-a-firm-assembles`. **V1** and **V4** are answered; **V2** is answered
-differently from the way this study framed it, for the reason in section 7. **V3**, **V5** and **V6** stay open.
+differently from the way this study framed it, for the reason in section 7. **V6** was answered on the same day
+(public form first, the builder shared), together with the intake design's **J11** and — by consequence — **J1**.
+**V3** and **V5** stay open.
 **White paper:** _Document Automation_, _Client Intake & CRM_, _Client Portal_
 **Reads against:** [`2026-08-04-document-automation-design.md`](2026-08-04-document-automation-design.md),
 [`2026-08-15-client-intake-design.md`](2026-08-15-client-intake-design.md),
@@ -207,7 +209,7 @@ is a separate question this study does not answer. Flagged as **V3**.
 | **V3** | **Where does the template library render — a Documents surface, a Settings page, or both halves split as the permissions already split them?** Section 6 sets out the two readings and the resolution available.                                                                                                      |
 | **V4** | ~~Is it a destination (B) or Intake plus Portal (C)?~~ **Answered 2026-09-07: a destination.** The deciding question is whether a firm ever wants to see all its forms in one place, or only ever the one it is working in.                                                                                           |
 | **V5** | **What does the product call a fillable PDF the firm registered?** If templates and forms merge, one word has to cover a `.docx` with braces in it and a court PDF with boxes. "Template" is the schema's word and the guide's; "form" is the courthouse's. This is the vocabulary entry, not a schema change.        |
-| **V6** | **Does the client-facing work start before the portal exists?** The public intake form needs no portal (an anonymous stranger, a public route), but the client's forms do. If the two ship apart, the first is an Intake slice and the second waits.                                                                  |
+| **V6** | ~~Does the client-facing work start before the portal exists?~~ **Answered 2026-09-07: yes — public form first, and the form builder is the shared half.** See section 10 for what that settles and what it does not.                                                                                                 |
 
 **One correction this study owes, found while executing V1.** Section 2.3 called `/forms/assemble` "a second
 implementation of the same act". That is wrong, and the way it is wrong matters. The live path on the matter sends
@@ -255,7 +257,76 @@ in `apps/web/src/lib/navigation/destinations.ts`, the ruling in
 supplied-values gap as a node in `roadmap.d/document-automation.md`. No schema moved and no status flipped:
 `document-automation.supplied-values` enters the ledger at `not-started`, which is what it has always been.
 
-What the ruling did **not** settle stays open and is listed in section 7: where the template library renders
-(**V3**), what the product calls a registered fillable PDF (**V5**), and whether the client-facing build starts
-before the portal exists (**V6**). The public intake form additionally waits on its own flags **J1**, **J3**,
-**J10** and **J11**, none of which this ruling touches.
+What the taxonomy ruling did **not** settle stays open and is listed in section 7: where the template library
+renders (**V3**) and what the product calls a registered fillable PDF (**V5**). **V6** was answered later the same
+day, together with **J11** and **J1**; section 10 records all three and what remains after them.
+
+---
+
+## 10. V6 and J11, answered — and the finding that decided V6
+
+Both were put to the owner on 2026-09-07 and both were answered. What follows is the reasoning, because the
+answers turn on facts that were not in this study when it was written.
+
+### The two halves are not one subsystem in two stages
+
+The study treated "the client-facing sense" as one thing that ships in a public half and a portal half. Reading
+what each half actually needs shows they share exactly one component:
+
+|                            | The public intake form                  | The client's forms                                                                                                                                          |
+| -------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Who fills it in            | An unidentified stranger                | A known client                                                                                                                                              |
+| Identity needed            | None — that is the design's whole point | A portal account: a distinct external principal type in control-plane D1                                                                                    |
+| Access model               | A public route, open to anyone          | A `PortalGrant` with a per-share assurance level                                                                                                            |
+| What exists today          | Nothing, but nothing is required first  | Nothing. `PortalGrantId` is reserved in `packages/identifiers/src/types.ts` and is the only artifact — no table, no principal type, no assurance escalation |
+| Shared with the other half | **The form definition and its builder** | **The form definition and its builder**                                                                                                                     |
+
+**The finding that decided it.** The client-forms half is not merely waiting on an unbuilt portal — it needs a
+decision that is already closed to be reopened. ADR-0036 fixes the portal's capability set as **view, download,
+upload, comment/message, esign**. There is no capability for completing a form, and there is no honest way to
+spell one as an existing one: a form is not an upload (nothing is quarantined for staff acceptance), not a
+comment, and not an e-signature. Delivering the client's forms therefore means amending an Accepted ADR, on a
+subsystem with no code at all. The public form needs no amendment to anything.
+
+So the halves ship apart, and the shared component is built once, on the half that can carry it now.
+
+### What the public form needs, and none of it waits
+
+A form definition with a version ladder (per the intake design: every submission stores the version it arrived
+through), a builder over the bounded platform vocabulary, a public route on the marketing host, submission
+storage, and staff-side triage. Not one of those depends on the portal, on an external principal, or on a grant.
+
+### J11 inverts, and that is why the answer is widget-first
+
+The activation sequence in [`docs/deploy-queue.md`](../deploy-queue.md) is ordered and its first step is UI work:
+**the widget must exist in the client before the secret is set**, because the server refuses a request carrying no
+solution the moment a secret exists, and the live joining screens mint no token. The sign-in screen's Turnstile
+row is a static placeholder, not a widget. So Turnstile has been dormant since 2026-08-15 waiting on a browser
+component nobody has built.
+
+The public intake form is the one surface with **no legacy client to break**. It can render the widget from its
+first commit, which produces exactly the component `/register` and the redemption screen are blocked on. The
+dependency runs the other way round from how this study framed it: the form is not waiting on Turnstile
+activation, it is the thing that unblocks it.
+
+That also disposes of the risk the flag was raised about. The concern was shipping a public form in front of a
+control that is not running; building the form widget-first means the form is the first surface where the control
+actually runs.
+
+### What these answers do not settle
+
+**J3 — attachments.** Whether an anonymous stranger may attach a file (the contract, the letter they were served)
+is untouched and remains a real scope question, because it is an anonymous write into the untrusted-ingest and
+malware-scan pipeline at the firm's quarantine and storage cost. A form without attachments is shippable and
+attachments are additive, so this gates the slice's scope rather than its start.
+
+**J8 — the seeded stage set.** Which pipeline stages a firm starts with. Untouched, and needed only when the
+board is built, not for the form.
+
+**The fail-open posture.** The pending ADR `an-unprovisioned-human-check-fails-open-and-counts-itself` stays
+Proposed by the owner's choice of 2026-09-07. It does not block this work and does not need to: the posture
+decides behaviour only when **no** secret is provisioned, and it has no effect once one is. A form built
+widget-first is heading for the provisioned state, where the flag is inert.
+
+**J1 is answered by consequence.** It asked whether the first intake slice ships staff-entered only. It did, and
+shipped; the public form was what waited on the answer. V6 says it waits no longer.
