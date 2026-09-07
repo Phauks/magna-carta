@@ -68,7 +68,8 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
     });
     // Asserted rather than logged, so the runtime's answer reaches the run report either way: a
     // pass is the pragma working, and a failure prints what it did instead.
-    expect(outcome).toBe("the pragma took effect");
+    expect(outcome).toContain("the pragma did NOT take effect");
+    expect(outcome).toContain("FOREIGN KEY constraint failed");
   });
 
   it("says whether YIELDING between the pragma and the drop lets it take effect", async () => {
@@ -93,11 +94,11 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
         return `yielding did not help: ${error instanceof Error ? error.message : String(error)}`;
       }
     });
-    expect(outcome).toBe("yielding worked");
+    expect(outcome).toContain("yielding did not help");
   });
 
   it("says whether defer_foreign_keys carries a rebuild through one context", async () => {
-    const outcome = await runInDurableObject(stub(), (instance: FirmDatabase) => {
+    const attempt = runInDurableObject(stub(), (instance: FirmDatabase) => {
       const sql = (instance as unknown as { ctx: { storage: { sql: SqlStorage } } }).ctx.storage
         .sql;
       seedProbe(sql, "defer");
@@ -114,7 +115,15 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
         return `defer_foreign_keys did not: ${error instanceof Error ? error.message : String(error)}`;
       }
     });
-    expect(outcome).toBe("defer_foreign_keys carried the rebuild");
+    // Deferral does exactly what it says — no statement refuses — so the failure arrives at the
+    // COMMIT, as a durable-object reset rather than a value this callback could return. Caught
+    // here so the run report says which of the two happened.
+    const outcome = await attempt.then(
+      (value) => value,
+      (error: unknown) =>
+        `the commit rejected: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    expect(outcome).toMatch(/^(defer_foreign_keys did not|the commit rejected):/u);
   });
 
   it("rebuilds by renaming the original ASIDE, so nothing is ever dropped out from under a child", async () => {
@@ -145,7 +154,7 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
         return `rename-aside failed: ${error instanceof Error ? error.message : String(error)}`;
       }
     });
-    expect(outcome).toBe("rename-aside worked, children still resolve: 1");
+    expect(outcome).toContain("rename-aside failed");
   });
 
   it("says whether a pragma set in an EARLIER context still stands in a later one", async () => {
@@ -180,7 +189,7 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
         }
       }
     });
-    expect(outcome).toBe("a pragma from an earlier context still stands");
+    expect(outcome).toContain("it does not stand");
   });
 
   it("REBUILDS under defer_foreign_keys with the original renamed aside", async () => {
@@ -195,7 +204,7 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
     // leaves children naming a table that the very next statement recreates, the table finally
     // dropped is the one nothing points at, and deferral carries the gap to the commit where every
     // reference resolves again.
-    const outcome = await runInDurableObject(stub(), (instance: FirmDatabase) => {
+    const attempt = runInDurableObject(stub(), (instance: FirmDatabase) => {
       const sql = (instance as unknown as { ctx: { storage: { sql: SqlStorage } } }).ctx.storage
         .sql;
       seedProbe(sql, "both");
@@ -220,7 +229,18 @@ describe("PRAGMA foreign_keys inside one durable-object execution context", () =
         return `failed: ${error instanceof Error ? error.message : String(error)}`;
       }
     });
-    expect(outcome).toBe("rebuilt, children still resolve: 1");
+    // The rejection is caught rather than asserted with `.rejects`, because WHERE it fails is part
+    // of the finding and only the message says which: a statement that refuses outright surfaces
+    // through the `catch` above as "failed: ...", while a deferred violation lets every statement
+    // succeed and rejects at the COMMIT, which reaches here as a thrown reset instead.
+    const outcome = await attempt.then(
+      (value) => value,
+      (error: unknown) =>
+        `commit rejected: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    // Deferral genuinely defers, and the deferred violation is still outstanding at the commit — so
+    // the combination that should have worked does not, and the rebuild never lands.
+    expect(outcome).toMatch(/^(failed|commit rejected):/u);
   });
 
   it("enforces foreign keys on a drop with no pragma at all, in the same context", async () => {
