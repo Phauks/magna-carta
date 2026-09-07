@@ -1,6 +1,10 @@
 # Documents, Forms and Templates — a taxonomy scope study
 
 **Status:** Study (not a spec, not a plan) · **Date:** 2026-09-07 · **Owner:** Trevor Goldsmith
+**Outcome:** The owner ruled **taxonomy B** on 2026-09-07 — Forms means what a client fills in. Recorded in
+[`docs/conventions/design-corrections.md`](../conventions/design-corrections.md) and in the ADR fragment
+`forms-is-what-a-client-fills-in-not-what-a-firm-assembles`. **V1** and **V4** are answered; **V2** is answered
+differently from the way this study framed it, for the reason in section 7. **V3**, **V5** and **V6** stay open.
 **White paper:** _Document Automation_, _Client Intake & CRM_, _Client Portal_
 **Reads against:** [`2026-08-04-document-automation-design.md`](2026-08-04-document-automation-design.md),
 [`2026-08-15-client-intake-design.md`](2026-08-15-client-intake-design.md),
@@ -196,14 +200,28 @@ is a separate question this study does not answer. Flagged as **V3**.
 
 ## 7. Owner decisions this study needs
 
-| Flag   | Question                                                                                                                                                                                                                                                                                                                                  |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **V1** | **Which taxonomy — A, B or C?** Every other flag here reads differently depending on it. The study's recommendation is **B or C**: the schema and the permission registry have already fused templates with forms and split administration from use, and the word "form" has its strongest claim in a client's hands.                     |
-| **V2** | **Does `/forms/assemble` get deleted?** It duplicates a live screen on fixtures. Deleting it costs the field-input interaction shape it was built to show; the merge-field picker, chip and review list it exercises are design-system components and survive it. Under any taxonomy, two implementations of one act is the thing to end. |
-| **V3** | **Where does the template library render — a Documents surface, a Settings page, or both halves split as the permissions already split them?** Section 6 sets out the two readings and the resolution available.                                                                                                                          |
-| **V4** | **If Forms means client-facing, is it a destination (B) or is it Intake plus Portal (C)?** The deciding question is whether a firm ever wants to see all its forms in one place, or only ever the one it is working in.                                                                                                                   |
-| **V5** | **What does the product call a fillable PDF the firm registered?** If templates and forms merge, one word has to cover a `.docx` with braces in it and a court PDF with boxes. "Template" is the schema's word and the guide's; "form" is the courthouse's. This is the vocabulary entry, not a schema change.                            |
-| **V6** | **Does the client-facing work start before the portal exists?** The public intake form needs no portal (an anonymous stranger, a public route), but the client's forms do. If the two ship apart, the first is an Intake slice and the second waits.                                                                                      |
+| Flag   | Question                                                                                                                                                                                                                                                                                                              |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **V1** | ~~Which taxonomy — A, B or C?~~ **Answered 2026-09-07: B.** Forms means what a client or a prospect fills in; templates belong to the documents cluster and assembling one stays on the matter.                                                                                                                       |
+| **V2** | ~~Does `/forms/assemble` get deleted?~~ **Answered 2026-09-07: moved, not deleted** — to `/developer-console/document-assembly`. This study called it a duplicate of the live matter dialog and it is not; see section 7's note. Deleting it would have thrown away the only record of an unbuilt capability's shape. |
+| **V3** | **Where does the template library render — a Documents surface, a Settings page, or both halves split as the permissions already split them?** Section 6 sets out the two readings and the resolution available.                                                                                                      |
+| **V4** | ~~Is it a destination (B) or Intake plus Portal (C)?~~ **Answered 2026-09-07: a destination.** The deciding question is whether a firm ever wants to see all its forms in one place, or only ever the one it is working in.                                                                                           |
+| **V5** | **What does the product call a fillable PDF the firm registered?** If templates and forms merge, one word has to cover a `.docx` with braces in it and a court PDF with boxes. "Template" is the schema's word and the guide's; "form" is the courthouse's. This is the vocabulary entry, not a schema change.        |
+| **V6** | **Does the client-facing work start before the portal exists?** The public intake form needs no portal (an anonymous stranger, a public route), but the client's forms do. If the two ship apart, the first is an Intake slice and the second waits.                                                                  |
+
+**One correction this study owes, found while executing V1.** Section 2.3 called `/forms/assemble` "a second
+implementation of the same act". That is wrong, and the way it is wrong matters. The live path on the matter sends
+a template version and an output format and nothing else — `SubmitAssemblyRequest` in
+`apps/api-worker/src/routes/assemblies.ts` has no field for a supplied value, `packages/document-assembly`
+resolves every field from the matter through the dictionary, and no column holds one. A field the matter cannot
+answer becomes an absence in the finished document, and no person can fill it in.
+
+So the scaffold was never a duplicate. It is the design of a capability the platform has not built: **assembly
+from values a person supplies**, now carried as `document-automation.supplied-values` in the feature ledger so it
+outlives the screen. The screen went to `/developer-console/document-assembly`, which is where a reviewable state
+real data cannot reach belongs. Deleting it, as this study recommended, would have left the gap with no record of
+its intended shape and no entry in any ledger — the study's recommendation was right about the path and wrong
+about the reason, and the reason is what decided the disposal.
 
 ---
 
@@ -230,7 +248,14 @@ is a separate question this study does not answer. Flagged as **V3**.
 
 ## 9. What this study does not touch
 
-No schema, no route, no ledger status, no destination. `roadmap.d/document-automation.md`,
-`roadmap.d/intake.md` and `roadmap.d/portal.md` keep the statuses they have. The one thing it recommends acting on
-ahead of V1 is **V2**, because a fixture-backed duplicate of a live screen is a liability under every taxonomy —
-and that is still the owner's call, not this file's.
+As written, nothing: no schema, no route, no ledger status, no destination. **The owner's ruling of the same
+day changed that**, and what followed it is recorded where it belongs rather than here — the destination's meaning
+in `apps/web/src/lib/navigation/destinations.ts`, the ruling in
+[`design-corrections.md`](../conventions/design-corrections.md), the decision as an ADR fragment, and the
+supplied-values gap as a node in `roadmap.d/document-automation.md`. No schema moved and no status flipped:
+`document-automation.supplied-values` enters the ledger at `not-started`, which is what it has always been.
+
+What the ruling did **not** settle stays open and is listed in section 7: where the template library renders
+(**V3**), what the product calls a registered fillable PDF (**V5**), and whether the client-facing build starts
+before the portal exists (**V6**). The public intake form additionally waits on its own flags **J1**, **J3**,
+**J10** and **J11**, none of which this ruling touches.

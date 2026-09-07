@@ -71,9 +71,9 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
     title: "Document automation",
     pages: [
       {
-        label: "Assemble a document",
-        href: "/forms/assemble",
-        note: "Field input area · sample data",
+        label: "Document assembly",
+        href: "/developer-console/document-assembly",
+        note: "Field input area · sample data · the supplied-value capability is unbuilt",
       },
     ],
   },

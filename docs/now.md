@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 803 nodes of the feature ledger in
+is the complete register rather than a digest: all 804 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,9 +21,9 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**803 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**804 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **663 that are units of work**, for the reason set out under [What a roll-up is
+count the **664 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
@@ -32,9 +32,9 @@ not](#what-a-roll-up-is-not).
 | --- | --- | ---: | ---: |
 | Done | shipped | 295 | 44% |
 | Part-built | partial, in-build | 124 | 19% |
-| Ahead | designed, planned, researching, not-started | 203 | 31% |
+| Ahead | designed, planned, researching, not-started | 204 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **663** | **100%** |
+| **All units of work** | | **664** | **100%** |
 
 ### Every status
 
@@ -46,14 +46,14 @@ not](#what-a-roll-up-is-not).
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 137 | 21% |
+| `not-started` | 138 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **663** | **100%** |
+| **All statuses** | **664** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 803 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**140 of the 804 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 295 of 663 (44%). Shipped plus partial is 418 (63%).**
+**Shipped alone is 295 of 664 (44%). Shipped plus partial is 418 (63%).**
 
 The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -105,7 +105,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
-| Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
+| Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 10 | 30% |
 | Documents | 63 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 97 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 19 | 18 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 59 | 32% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **295** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **663** | **44%** |
+| **All areas** | **295** | **123** | **1** | **46** | **15** | **5** | **138** | **38** | **3** | **664** | **44%** |
 
 ## Where we have been
 
@@ -768,15 +768,16 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Document Automation
 
-[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 9 units of work, 33% shipped. 3 done, 6 part-built, 0 ahead, 0 parked.
+[`roadmap.d/document-automation.md`](../roadmap.d/document-automation.md) — 10 units of work, 30% shipped. 3 done, 6 part-built, 1 ahead, 0 parked.
 
-- `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint. One browser surface exists and no node below claims it — a field-input scaffold under the app's forms section, over apps/web/src/lib/document-assembly/ and the design system's merge-field picker, chip and review list. Its interaction shape is real; its data is not, since every template, field and proposal comes from an in-repo fixture catalog through a mock provider, and choosing Assemble reports the collected values rather than starting a job. The submit route is not the gap — it exists; what the surface lacks is a matter to submit against and a catalog read from the server._
+- `document-automation` · `partial` · **Document Automation** — Conditional assembly of .docx templates from matter data, with a data dictionary and dedicated PDF form filling. _Note: A firm can register a .docx template and assemble it onto a matter today; the output is filed through the existing ingest chokepoint, and the act is live on the matter's Add a Document dialog (apps/web/src/lib/documents/new-document-dialog.svelte, the From a template tab). What the browser still lacks is the CATALOGUE — registering, versioning, reading a field manifest and confirming a fillable PDF's mappings are reached only through /api/v1/templates — and that is a documents surface rather than a forms one, since a template and a fillable court PDF are two kinds of one record. The field-input scaffold that used to sit under the app's forms section now lives at /developer-console/document-assembly, because the capability it draws is unbuilt (see document-automation.supplied-values below); apps/web/src/lib/document-assembly/ and the design system's merge-field picker, chip and review list are what it exercises._
   - `document-automation.conditional-assembly` · `shipped` · **Conditional document assembly** — Merge fields plus conditional clauses/sections driven by matter data. _Note: Aggregates over a repeat collection are built — sum, minimum, and maximum over a literal field path of a list-valued key, bounded exactly as a repeat is. An aggregate over an empty collection is an absence rather than a zero._
   - `document-automation.docx-templates` · `partial` · **DOCX template authoring** — Templates authored as .docx for formatting control, bound to the data dictionary. _Note: Word MERGEFIELD conversion is detected always and applied only on explicit opt-in. The two constructs nothing binds — legacy Word form fields, and content controls showing a placeholder or bound to the template's own data — are reported on their own manifest lists at registration, in the field list, on a refusal, and by every assembly, which lands on succeeded_with_absences._
   - `document-automation.data-dictionary` · `partial` · **Data dictionary** — Directory/Matter/Location/custom/financial fields exposed as a merge-field dictionary.
   - `document-automation.location-identity` · `partial` · **Location-resolved office identity** — Office name, address, letterhead, remit-to, and jurisdiction resolve from the matter's home Location so generated documents carry the correct office identity.
   - `document-automation.generation-engine` · `partial` · **Generation engine** — In-house TypeScript OOXML merge in a Worker queue consumer; heavy DOCX-to-PDF via the office engine in a Container.
   - `document-automation.pdf-form-filling` · `shipped` · **Dedicated PDF form filling** — Court/government fillable PDFs filled via the PDF engine. _Note: Whether a filled form files flattened or interactive is an open owner decision, held as a required typed FormFillFinish parameter at the fill seam and answered today by one constant set to interactive, because flattening is irreversible. The registration and field-list surfaces are backend only; the browser screens are slice 2-6-4._
+  - `document-automation.supplied-values` · `not-started` · **Assembly from values a person supplies** — Collecting values for a template's fields that the matter cannot answer, and merging them alongside the derived ones. _Note: This is the gap the forms taxonomy ruling of 2026-09-07 surfaced rather than created — the scaffold had been read as a duplicate of the live matter dialog, and it is not: the dialog assembles from matter data alone. Any template with a blank only a person can fill (a hearing date not yet on the calendar, a negotiated figure) is unreachable by automation today and is finished by hand in the editor after assembly._
   - `document-automation.field-mapping-library` · `shipped` · **Per-firm merge-field mapping library** — A firm-scoped store of confirmed Word-field-name to merge-field-key mappings, so a second template import reuses what the first established. _Note: Backend only — no browser surface lists or withdraws a mapping yet; the authoring surfaces are slice 2-6-4. A mapping is only ever confirmed by converting a template, never typed in._
   - `document-automation.filing-grade-generation` · `partial` · **Filing-grade generation** — Court documents generated from vetted templates (optionally tweaked in Collabora) rather than co-edited from scratch.
   - `document-automation.template-storage-reclamation` · `partial` · **Template storage reclamation** — Reclaiming the R2 objects a refused template registration leaves behind, which no version row names. _Note: Deletion is deliberately not armed — see the owner question. The other half of the prefix, abandoned staged uploads, is an R2 lifecycle rule in docs/deploy-queue.md rather than code._

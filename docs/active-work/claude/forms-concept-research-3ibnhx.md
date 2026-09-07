@@ -1,10 +1,12 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/forms-concept-research-3ibnhx
-area: What "forms" means — the Documents / Forms / Templates taxonomy, as a study
-status: designing
-touches: docs/specs/
+area: What "forms" means — the Documents / Forms / Templates taxonomy, and executing the owner's ruling
+status: building
+touches: docs/specs/, docs/conventions/design-corrections.md, docs/decisions/pending/, roadmap.d/document-automation.md, roadmap.d/intake.md, docs/now.md, apps/web/src/lib/navigation/destinations.ts, apps/web/src/routes/developer-console/
 ---
 
-Research only. The owner asked what forms are, and whether templates are simply documents. The word carries four jobs in this repository and two of them are opposite — the sidebar says Forms means document automation, the intake procedure says forms are what the client fills in. The study at `docs/specs/2026-09-07-documents-forms-templates-taxonomy-study.md` says what the built code has already decided (the schema fuses templates with fillable-PDF forms; the permission registry splits administering a catalogue from using one; assembly already has a live screen on the matter that `/forms/assemble` duplicates on fixtures), sets out three taxonomies with their costs, and ends in flags V1–V6.
+The owner asked what forms are, and whether templates are simply documents. The word carried two opposite jobs on shipped screens — the sidebar said Forms meant document automation, the intake procedure said forms were what the client fills in. The study at `docs/specs/2026-09-07-documents-forms-templates-taxonomy-study.md` set out three taxonomies; the owner ruled **B** on 2026-09-07: **Forms means what a client fills in.**
 
-Nothing is built and no ledger status moves. No schema, no route, no destination change — in particular `apps/web/src/lib/navigation/destinations.ts` is untouched, and any stream editing it is not in conflict with this one.
+Executing that ruling: `destinations.ts` changes what the Forms destination is for (id, label and route unchanged, still announced-not-shipped); the field-input scaffold moves from `/forms/assemble` to `/developer-console/document-assembly`; the ruling is recorded in `design-corrections.md` and as an ADR fragment; the feature ledger gains `document-automation.supplied-values` for the gap the move surfaced.
+
+**Anyone editing `destinations.ts` should coordinate** — this stream changes the Forms entry's comment and description. It touches no other destination and no ordering. Nothing else in `apps/web` moves except the one route directory and the developer-console fixture list.

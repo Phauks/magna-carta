@@ -46,7 +46,7 @@
   name: Public intake forms
   scope: Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus intakes.
   status: not-started
-  evidence: No form builder or public intake route exists. The bot control such a form would sit behind does: apps/api-worker/src/human-verification/ ships Turnstile server-side verification, gating registrations and invitation redemptions, and serves them unprotected while no secret is provisioned.
+  evidence: No form builder or public intake route exists. The bot control such a form would sit behind does: apps/api-worker/src/human-verification/ ships Turnstile server-side verification, gating registrations and invitation redemptions, and serves them unprotected while no secret is provisioned. The surface this lands on is settled: the owner's 2026-09-07 ruling gave the Forms destination to what a client or a prospect fills in, so apps/web/src/lib/navigation/destinations.ts now announces it and nothing document-automation sits there.
   awaiting-owner: Two things stand in front of an anonymous form. Whether it accepts attachments — the value is real (the contract, the letter they were served) and so is the surface, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage cost. And whether Turnstile is switched on first: the verifier is built but dormant, and every unprotected pass is counted as unenforced rather than blocked, so a public form shipped ahead of the activation would ship in front of a bot control that is not actually running. Client intake design flags J3 and J11.
 
 - id: intake.call-intake

@@ -320,13 +320,17 @@ const DESTINATION_LIST = [
     defaultStarred: true,
   },
   {
-    // Document automation and court forms — the documents cluster, distinct glyph from
-    // Documents itself.
+    // What a client or a prospect fills in — the public intake form, and the forms a firm sends a
+    // client and gets back. NOT document automation: a template and a fillable court PDF are two
+    // kinds of one record (document_template_version.kind) and belong to the documents cluster,
+    // and assembling one is live on the matter's Add a Document dialog. The word was on the
+    // automation surface until the owner ruled otherwise; docs/conventions/design-corrections.md
+    // carries the reasoning.
     id: "forms",
     label: "Forms",
     href: "/forms",
     icon: ClipboardPenLine,
-    description: "Document automation and court forms.",
+    description: "Forms your clients fill in, and what comes back.",
     group: "top",
     shipped: false,
     announced: true,

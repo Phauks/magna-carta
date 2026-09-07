@@ -1577,3 +1577,31 @@ from fee screen".
 - **An arrangement version names the signed agreement as a file**, picked from the matter's own
   files — the conflicts waiver's precedent — never as a sentence. Optional, because the paper may
   follow the deal.
+
+### 2026-09-07 — Forms is what a client fills in
+
+The owner asked what forms are, having understood them as "online forms through which users and
+clients could fill in information", and asked whether that is different from templates, "which would
+be located in documents". The audit found the word doing two opposite jobs on shipped screens: the
+sidebar destination described itself as "Document automation and court forms", while the intake
+procedure's own step vocabulary called a client's questionnaire the client's online forms. Given the
+three findings below, the owner ruled: **Forms means client-facing.**
+
+- **Forms is what a client or a prospect fills in** — the public intake form, and the forms a firm
+  sends a client and gets back. The destination keeps its id, label and route and changes what it is
+  for. Nothing is built behind it; it stays announced-not-shipped.
+- **A template and a fillable court PDF are two kinds of one record**, not two things. The interface
+  never splits them, because the schema does not: they share the catalogue, the version ladder, the
+  ingest gate, the manifest shape, the dictionary and the provenance row, and share only an engine.
+  Templates belong to the documents cluster, and the curated court-form library lands there as
+  templates of a kind rather than as a separate shelf.
+- **Assembling a document is an act, not a place.** It stays on the matter's Add a Document dialog,
+  where the document lands. A verb does not earn a destination.
+- **The template library is the hole the word was hiding.** Registering, versioning and reading a
+  template's fields has no screen at all today and is reached only through the API. That is a
+  documents surface when it is built.
+- **A screen for a capability that does not exist goes to the developer console, not the product.**
+  The field-input scaffold formerly at `/forms/assemble` draws a person supplying values for fields
+  the matter cannot answer — and nothing accepts a supplied value: not the request body, not the
+  engine, not the schema. It moves to `/developer-console/document-assembly` and moves back out when
+  the contract exists. Deleting it would have lost the only record of the shape.

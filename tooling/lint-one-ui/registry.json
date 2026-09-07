@@ -326,7 +326,7 @@
     },
     {
       "rule": "placeholder",
-      "file": "apps/web/src/routes/(app)/forms/assemble/+page.svelte",
+      "file": "apps/web/src/routes/developer-console/document-assembly/+page.svelte",
       "text": "Choose a template",
       "reason": "predates the placeholder ruling; the field's name is Template."
     },
