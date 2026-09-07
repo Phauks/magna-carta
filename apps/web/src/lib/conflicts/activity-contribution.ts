@@ -1,6 +1,7 @@
 /*
- * How a conflicts check reads on the matter's Activity section. No matter section owns a check yet,
- * so a row states what happened and offers nowhere to go — the section registry says why.
+ * How a conflicts check reads on the matter's Activity section. The matter's own Conflicts section
+ * owns the source, so a row opens into the check it names — navigateInto reads that ownership off
+ * the section registry rather than hard-coding a route here.
  */
 import CircleDot from "@lucide/svelte/icons/circle-dot";
 import { navigateInto, type ActivityContribution } from "$lib/activity/contribution.ts";

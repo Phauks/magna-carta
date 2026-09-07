@@ -102,7 +102,6 @@ export interface MatterSection {
  * missing from both this map and every section's `timelineSources`.
  */
 export const UNSECTIONED_TIMELINE_SOURCES: Readonly<Record<string, string>> = {
-  conflictsCheck: "No matter section holds a conflicts check yet",
   firmEvent: "Firm-anchored: a firm event belongs to no matter and never appears on one",
 };
 
@@ -159,6 +158,27 @@ export const matterSections: readonly MatterSection[] = [
     // to one consultation would be a requirement the firm's procedure does not know about.
     createNoun: null,
     createWaitingOn: "Steps come from the firm's intake procedure, written under Settings",
+  },
+  {
+    slug: "conflicts",
+    timelineSources: ["conflictsCheck"],
+    label: "Conflicts",
+    stage: "alpha",
+    description:
+      "Whether this matter was checked for conflicts, and what the check found \u2014 the search " +
+      "that ran, the candidates it surfaced, and who answered each one. A check is run once at the " +
+      "start and re-run when the parties or the firm's records move; every one of them stays on " +
+      "the record.",
+    // The record here is the firm's append-only conflicts log, and it holds no prose about this
+    // matter for a search to find: a check row records WHAT WAS SEARCHED, and the names on its
+    // hits are the Directory's own, already searchable in their own right. A source here would
+    // return the Directory twice over and land a reader on a search instead of on a party.
+    searchSource: null,
+    searchWaitingOn:
+      "A check records what was searched; the names it holds are the Directory's, searched there",
+    // Running a check IS the create act on this section, and it writes a new row in an append-only
+    // log rather than editing the last one.
+    createNoun: "Check",
   },
   {
     slug: "files",
@@ -360,7 +380,14 @@ export type MatterStripEntry =
  * is the front of the file: what a consultation must clear before it is a matter at all, read
  * before anything else on a new file and rarely after. It stands on the row rather than in a group
  * because it belongs to neither neighbourhood — it is not money the matter moved and not a record
- * the matter accumulated — and a group of one is forbidden below. Activity leads the Record group
+ * the matter accumulated — and a group of one is forbidden below. Conflicts follows Intake, and
+ * stands on the row BESIDE it rather than folded into it (the owner's ruling, 2026-09-07): the two
+ * are separate destinations in the global sidebar for the reason they are separate here — running
+ * a check is not one of the intake procedure's steps, it is the act a step ASKS ABOUT, and the
+ * record it writes outlives the intake that prompted it. It sits this high for the same reason
+ * Intake does, and for one more: a check is run once at the front of a file, and after that the
+ * question is only ever "was it done, and what did it say", which is a lookup a reader should not
+ * have to open a menu for. Activity leads the Record group
  * because it is the record read in order: the chronology of everything the group's other sections
  * hold, one click from Overview's own recent-activity tile. Files stands alone because it
  * is the section members are in most — putting the busiest destination behind a menu would spend a
@@ -375,7 +402,10 @@ export type MatterStripEntry =
  * a member can most afford to reach through a menu: Magnus (asked once in a while, not read on
  * every visit), then the Record group (three of its four are stubs), then the work owed, the dates
  * and the people. Money stays on the row longest of the
- * folding candidates, because all five of its sections are live working surfaces.
+ * folding candidates, because all five of its sections are live working surfaces. Conflicts is the
+ * tenth top-level entry and so spends some of that backstop's headroom; it is placed knowing that,
+ * because what folds under the pressure it adds is the tail — the section asked once in a while,
+ * then the group of stubs — and never Conflicts itself.
  */
 const ARRANGEMENT: readonly (
   | string
@@ -383,6 +413,7 @@ const ARRANGEMENT: readonly (
 )[] = [
   "overview",
   "intake",
+  "conflicts",
   "files",
   { label: "Money", slugs: ["time", "fees", "costs", "billing", "trust"] },
   "parties",

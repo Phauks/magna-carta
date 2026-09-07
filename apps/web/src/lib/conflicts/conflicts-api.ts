@@ -505,6 +505,31 @@ export function readFirmConflictsPolicy(
 }
 
 /**
+ * Set the firm's floor. The whole policy, written whole.
+ *
+ * PUT rather than a patch because the floor is ONE value: two administrators saving different halves
+ * of the same screen would otherwise compose a floor neither of them chose, and the floor is what
+ * every later check is held to.
+ *
+ * WHAT COMES BACK IS WHAT WAS STORED, not what was sent. The platform normalizes on the way in — the
+ * party class is unioned back into the floor, `current` back into the name roles, the candidate cap
+ * clamped to what one atomic batch can carry — so a caller that displays the RESPONSE is showing the
+ * floor its checks will actually run, and one that re-displays its own request is not. Always render
+ * the response.
+ */
+export function writeFirmConflictsPolicy(
+  fetchImpl: typeof fetch,
+  policy: FirmConflictsPolicy,
+  idempotencyKey: string,
+): Promise<ApiOutcome<FirmConflictsPolicy>> {
+  return requestJson(fetchImpl, "/api/v1/firm/conflicts-policy", {
+    method: "PUT",
+    body: policy,
+    idempotencyKey,
+  });
+}
+
+/**
  * Run a fresh check against one matter's live parties, now, because a member asked.
  *
  * It sends NO scope, and there is none to send: the firm's floor is what runs. A screen composing a
@@ -584,3 +609,9 @@ export const RUN_CHECK_PERMISSION = "conflicts:run";
 export const READ_CONFLICTS_PERMISSION = "conflicts:read";
 /** Recording an adjudication of a hit. */
 export const DISPOSE_CONFLICTS_PERMISSION = "conflicts:dispose";
+/**
+ * Setting the firm's floor. Narrower than the three above and seeded to Owner and Admin alone: this
+ * does not act on a check, it decides what every LATER check searches, and no check row records that
+ * a person chose it. Reading the floor stays on conflicts:read.
+ */
+export const CONFIGURE_CONFLICTS_PERMISSION = "conflicts:configure";

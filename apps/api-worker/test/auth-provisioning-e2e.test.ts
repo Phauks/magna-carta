@@ -270,7 +270,10 @@ describe("end-to-end", () => {
         "communications:read",
         "communications:reviewUnrouted",
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
-        // consultation); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
+        // consultation); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only, and
+        // conflicts:configure narrower still — Owner/Admin alone, because it sets what every future
+        // check searches rather than acting on any one of them.
+        "conflicts:configure",
         "conflicts:dispose",
         "conflicts:read",
         "conflicts:run",
@@ -328,6 +331,8 @@ describe("end-to-end", () => {
         // including Read-only carries (20260819T140000_seed-notification-policy-permission).
         "firm:manageNotificationPolicy",
         "firm:manageReleaseChannel",
+        // Seeded to Owner/Admin alone by 20260907T090000_seed-report-policy-permission.
+        "firm:manageReportPolicy",
         "firm:manageScanPolicy",
         "firm:manageSecrets",
         // The roster read, seeded to every default role including Read-only — the same universal
