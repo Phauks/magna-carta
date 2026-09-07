@@ -232,9 +232,13 @@ describe("one query, answered from every section the member may read", () => {
       "calendar",
       "notes",
       "custody",
+      "communications",
     ]);
     expect(group(answer, "notes").section).toBe("notes");
     expect(group(answer, "custody").section).toBe("custodian");
+    // The source key and the section slug differ here, which is the case this assertion exists to
+    // catch: the source is named for what it holds and the section for what a reader calls the tab.
+    expect(group(answer, "communications").section).toBe("messaging");
   });
 
   it("finds the note and carries its words and a link into the Notes tab", async () => {

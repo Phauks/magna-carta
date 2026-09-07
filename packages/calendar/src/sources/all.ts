@@ -486,6 +486,86 @@ const matterNoteSource: TimelineSource = {
 // from every matter's history by construction rather than by a filter somebody could relax. It is
 // read on the member's own list instead. Undated tasks fall out of the window conditions for the
 // same structural reason: a timeline is a walk over dates, and a task nobody has scheduled has none.
+// ---- calls and texts -------------------------------------------------------------------------
+
+// What the firm said down a phone line, on this case.
+//
+// AN INSTANT SOURCE, unlike the note beside it, and the difference is real rather than incidental. A
+// note often records no single moment ("do not call this client before 10am"), which is why it takes
+// the calendar's civil-date shape; a call occupies a moment somebody can name to the minute, and the
+// log stores it as one. So there is no COALESCE and no fallback here — every row has an occurred_at.
+//
+// It carries no label. The channel and the direction are what a row of this source IS, and both are
+// on the record the Messaging section shows; a label restating "Call" on every row would be a column
+// of one word. That is the emailFiled source's line, and it holds for the same reason.
+//
+// UNROUTED ROWS NEVER REACH THE TIMELINE, and they cannot: the anchor is a matter, and a row waiting
+// in the queue has none, so the join excludes it by construction rather than by a rule somebody has
+// to remember. That is correct — a message nobody has filed has not happened on any case yet.
+const communicationSource: TimelineSource = {
+  key: "communication",
+  permission: assertPermission("communications:read"),
+  // The KIND is the channel, not a single constant. A timeline reads as a sequence of things that
+  // happened, and "a communication was recorded" is not one of them — "a call came in" is. The kind
+  // is what a surface turns into that sentence, so it has to carry the one fact that changes it.
+  // Direction is a fact on the row rather than part of the kind: doubling the vocabulary to six
+  // would buy one word that reads just as well beside the row.
+  kinds: ["voice", "sms", "mms"],
+  visibilityAnchor: "matter",
+  timeColumnShape: "instant",
+  declaresLabel: false,
+  supportsMemberFilter: false,
+  buildStatements: (request) => {
+    const window = instantWindowConditions(
+      "communication.occurred_at",
+      request.scope.fromDate,
+      request.scope.toDate,
+    );
+    const conditions = [...window.conditions, "communication.matter_id IS NOT NULL"];
+    const bindings = [...window.bindings];
+    if (request.scope.matterId !== undefined) {
+      conditions.push("communication.matter_id = ?");
+      bindings.push(request.scope.matterId);
+    }
+    return [
+      boundedSelect(request.database, {
+        request,
+        from: "communication",
+        sortColumn: "communication.occurred_at",
+        idColumn: "communication.id",
+        matterExpression: "communication.matter_id",
+        kindExpression: "communication.channel",
+        // Who was ON it, not who typed it in. A receptionist logging the call they transferred is
+        // recorded as the person who wrote the row, and the timeline's actor is the one who spoke.
+        actorExpression: "communication.member_user_id",
+        labelExpression: "NULL",
+        conditions,
+        bindings,
+      }),
+    ];
+  },
+  project: projectRow("communication", matterSectionLink("messaging")),
+  // The opening line of what was said, and nothing more: the read a member holding
+  // communications:read could make by opening the section, made for the rows on their screen. For a
+  // call that is the member's own summary; for a text it is the message.
+  describe: (request) => [
+    describeSelect(request.database, {
+      request,
+      from: "communication",
+      idColumn: "communication.id",
+      matterExpression: "communication.matter_id",
+      titleExpression: firstLineExpression("COALESCE(communication.body, communication.summary)"),
+      typeExpression: "communication.channel",
+      // The number is NOT here. It is the counterparty's personal data and the timeline is a
+      // consolidated read that spans a matter's whole record; who was called is on the Messaging
+      // section, behind the same key, where somebody went looking for it.
+      factsExpression:
+        "json_object('channel', communication.channel, 'direction', communication.direction, " +
+        "'durationSeconds', communication.duration_seconds, 'producer', communication.producer)",
+    }),
+  ],
+};
+
 const matterTaskSource: TimelineSource = {
   key: "matterTask",
   kinds: ["matterTask"],
@@ -1149,6 +1229,7 @@ export const TIMELINE_SOURCES: readonly TimelineSource[] = Object.freeze([
   documentFiledSource,
   fileHistorySource,
   matterNoteSource,
+  communicationSource,
   matterTaskSource,
   timeEntrySource,
   costEntrySource,

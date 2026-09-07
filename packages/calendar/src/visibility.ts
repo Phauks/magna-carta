@@ -19,7 +19,7 @@
 
 export interface VisibleMatterPredicate {
   // A SQL fragment over a matter-id expression the source supplies, e.g.
-  //   `EXISTS (SELECT 1 FROM matter WHERE matter.id = matter_event.matter_id AND ...)`.
+  //   `EXISTS (SELECT 1 FROM matter AS visible_matter WHERE visible_matter.id = matter_event.matter_id AND ...)`.
   // The source hands in the column that names its matter; the predicate decides everything else.
   readonly fragmentFor: (matterIdExpression: string) => string;
   readonly bindings: readonly unknown[];
@@ -31,7 +31,29 @@ export interface VisibleMatterPredicate {
 
 // The marker is the table-and-column reference the predicate always names. A statement that does not
 // contain it did not compose the predicate.
-export const VISIBLE_MATTER_MARKER = "matter.system_key IS NULL";
+export const VISIBLE_MATTER_MARKER = "visible_matter.system_key IS NULL";
+
+/*
+ * THE SUBQUERY ALIASES ITS OWN TABLE, AND THAT ALIAS IS A SECURITY CONTROL RATHER THAN A STYLE.
+ *
+ * The fragment is an EXISTS over `matter`, correlated to an expression the caller supplies. Written
+ * against the bare table name, the correlation silently dies whenever the CALLER's own query also
+ * has an unaliased `matter` in scope: inside the subquery, `matter` then resolves to the subquery's
+ * own copy, the correlation degenerates to `matter.id = matter.id` — true of every row — and the
+ * EXISTS is satisfied by any visible matter in the firm rather than by the one being checked. The
+ * gate reads as if it is doing its job and is checking nothing.
+ *
+ * That is not hypothetical: it shipped, in the call and text log's own anchor check, and it was
+ * caught by a test asserting the platform-owned holding matter is unreachable rather than by
+ * anything looking at the SQL. The marker-based fitness functions could not have caught it — the
+ * marker was present, because the predicate WAS composed; it was composed uselessly.
+ *
+ * Aliasing the subquery's table makes the failure unwritable rather than merely tested for. A
+ * caller's `matter` can no longer be shadowed, so an expression naming `matter.id` correlates to
+ * the caller's row, which is what every author writing one intends. The alias is deliberately not a
+ * name anybody would choose for a table of their own.
+ */
+const VISIBLE_MATTER_ALIAS = "matter AS visible_matter";
 
 // The firm's visible matters: every matter except the platform-owned holding matters. A firm-wide
 // calendar read is a matter-scoped read repeated under this same predicate, so a matter that becomes
@@ -39,7 +61,7 @@ export const VISIBLE_MATTER_MARKER = "matter.system_key IS NULL";
 export function visibleMatterPredicate(): VisibleMatterPredicate {
   return {
     fragmentFor: (matterIdExpression) =>
-      `EXISTS (SELECT 1 FROM matter WHERE matter.id = ${matterIdExpression} AND ${VISIBLE_MATTER_MARKER})`,
+      `EXISTS (SELECT 1 FROM ${VISIBLE_MATTER_ALIAS} WHERE visible_matter.id = ${matterIdExpression} AND ${VISIBLE_MATTER_MARKER})`,
     bindings: [],
     marker: VISIBLE_MATTER_MARKER,
   };
@@ -56,7 +78,7 @@ export function visibleMatterPredicateExcluding(
   const placeholders = excludedMatterIds.map(() => "?").join(", ");
   return {
     fragmentFor: (matterIdExpression) =>
-      `EXISTS (SELECT 1 FROM matter WHERE matter.id = ${matterIdExpression} AND ${VISIBLE_MATTER_MARKER} AND matter.id NOT IN (${placeholders}))`,
+      `EXISTS (SELECT 1 FROM ${VISIBLE_MATTER_ALIAS} WHERE visible_matter.id = ${matterIdExpression} AND ${VISIBLE_MATTER_MARKER} AND visible_matter.id NOT IN (${placeholders}))`,
     bindings: excludedMatterIds,
     marker: VISIBLE_MATTER_MARKER,
   };

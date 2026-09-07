@@ -1,0 +1,193 @@
+/*
+ * The call and text log's reads and writes — what the firm said down a phone line, on every channel
+ * that is not email.
+ *
+ * Mirrors the `communications.*` operations in apps/api-worker/openapi/openapi.json. `apps/web`
+ * hand-writes the response shapes it reads (the transport seam in $lib/api/request.ts says why), so
+ * each type here is the wire shape and nothing more — the surfaces do the presenting.
+ *
+ * TWO READS OF ONE RECORD, AND THE DIFFERENCE IS THE WHOLE DESIGN. The firm-wide list holds the
+ * unassigned and the cross-matter; a matter's own list holds the assigned and the case-bound. Filing
+ * a row onto a matter is what moves it from the first to the second, and that act exists only on the
+ * firm-wide surface — inside a matter the matter is already known, so there is nothing to decide.
+ *
+ * IT NEVER RESOLVES A NAME. A counterparty entity and a member are handles, and this module has no
+ * business duplicating the Directory's display rules — the same line the custody register holds.
+ *
+ * EVERY WRITE CARRIES AN IDEMPOTENCY KEY, and the contract refuses it without one. A person who
+ * presses submit twice, or whose first attempt died on a dropped connection, must not put two
+ * identical accounts of one phone call on the matter — which read as two calls, and are exactly the
+ * wrong thing for a record whose whole value is saying what happened.
+ */
+import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
+
+/** The permission a reader needs. A member without it is refused server-side. */
+export const READ_COMMUNICATIONS_PERMISSION = "communications:read";
+
+/** The permission that logs a call or a message, files one onto a matter, or takes one off. */
+export const LOG_COMMUNICATIONS_PERMISSION = "communications:log";
+
+/**
+ * The permission that reveals the queue of calls and texts belonging to no matter yet.
+ *
+ * Separate from the read on purpose. Every routed row is narrowed to the matters a member may see,
+ * so a walled matter contributes nothing to the firm-wide read; an unrouted row has no matter, so
+ * that narrowing has nothing to bite on. What sits in that queue is whatever was said to the firm's
+ * number before anybody decided where it belonged.
+ */
+export const REVIEW_UNROUTED_PERMISSION = "communications:reviewUnrouted";
+
+export type CommunicationChannel = "voice" | "sms" | "mms";
+export type CommunicationDirection = "inbound" | "outbound";
+export type CommunicationProducer = "member" | "carrier";
+export type CommunicationScope = "all" | "routed" | "unrouted";
+
+/** One call or message as the log answers it. */
+export interface Communication {
+  id: string;
+  channel: CommunicationChannel;
+  direction: CommunicationDirection;
+  /** Null while the row is in the queue, waiting for somebody to file it. */
+  matterId: string | null;
+  matterTitle: string | null;
+  /**
+   * The anchor's status, and it is not decoration. An anchor may be an intake or a consultation,
+   * which carry no matter number, and what may be said to a prospect and to a client are different
+   * things — so somebody about to reply has to be able to see which they are talking to.
+   */
+  matterStatus: string | null;
+  /** Null on exactly the unnumbered anchors; the consultation's own number stands in its place. */
+  matterNumber: string | null;
+  consultationNumber: string | null;
+  counterpartyNumber: string;
+  counterpartyEntityId: string | null;
+  memberUserId: string | null;
+  occurredAt: string;
+  durationSeconds: number | null;
+  body: string | null;
+  summary: string | null;
+  /**
+   * How the row came to exist. Only `member` is written today; `carrier` arrives with the Telnyx
+   * adapter and writes the same row. A surface that cannot tell them apart will present a
+   * recollection as an observation.
+   */
+  producer: CommunicationProducer;
+  loggedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** What the log may be narrowed by. Every one of these is the server's own filter. */
+export interface CommunicationQuery {
+  scope?: CommunicationScope;
+  channel?: CommunicationChannel;
+  /** Matched against what was said AND against the number, which is how people look for a text. */
+  search?: string;
+  matterId?: string;
+  cursor?: string;
+}
+
+function query(parameters: Record<string, string | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(parameters)) {
+    if (value !== undefined && value !== "") search.set(key, value);
+  }
+  const rendered = search.toString();
+  return rendered === "" ? "" : `?${rendered}`;
+}
+
+/**
+ * One page of the log, newest first.
+ *
+ * Naming a matter reads that matter's own section; leaving it off reads the firm's. They are the
+ * same rows through the same gate — a section written as its own read would drift from the log it is
+ * a view of, and the drift would be silent.
+ */
+export function listCommunications(
+  fetchImpl: typeof fetch,
+  parameters: CommunicationQuery = {},
+): Promise<ApiOutcome<Page<Communication>>> {
+  const suffix = query({
+    scope: parameters.scope,
+    channel: parameters.channel,
+    search: parameters.search,
+    cursor: parameters.cursor,
+  });
+  return parameters.matterId === undefined
+    ? requestJson(fetchImpl, `/api/v1/communications${suffix}`)
+    : requestJson(
+        fetchImpl,
+        `/api/v1/matters/${encodeURIComponent(parameters.matterId)}/communications${suffix}`,
+      );
+}
+
+/** How many calls and texts are waiting to be filed. Refused without the review capability. */
+export function readUnroutedCount(fetchImpl: typeof fetch): Promise<ApiOutcome<{ count: number }>> {
+  return requestJson(fetchImpl, "/api/v1/communications/unrouted-count");
+}
+
+export interface LogCommunicationInput {
+  channel: CommunicationChannel;
+  direction: CommunicationDirection;
+  /**
+   * Optional, and an UNNUMBERED matter counts: a matter number is null until a matter opens, and an
+   * intake or a consultation is a real anchor a first contact usually lands on. Omitted, the row
+   * lands in the queue for somebody to file.
+   */
+  matterId?: string | null;
+  counterpartyNumber: string;
+  counterpartyEntityId?: string | null;
+  memberUserId?: string | null;
+  occurredAt: string;
+  durationSeconds?: number | null;
+  body?: string | null;
+  summary?: string | null;
+}
+
+export function logCommunication(
+  fetchImpl: typeof fetch,
+  input: LogCommunicationInput,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ id: string }>> {
+  return requestJson(fetchImpl, "/api/v1/communications", {
+    method: "POST",
+    body: input,
+    idempotencyKey,
+  });
+}
+
+/** Files a call or a message onto a matter, taking it out of the queue. */
+export function fileCommunicationToMatter(
+  fetchImpl: typeof fetch,
+  communicationId: string,
+  matterId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: true }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/communications/${encodeURIComponent(communicationId)}/matter`,
+    { method: "POST", body: { matterId }, idempotencyKey },
+  );
+}
+
+/**
+ * Takes a call or a message off the matter it was filed to. The row returns to the queue rather than
+ * being deleted: what was said still happened, and a message taken off the wrong matter has to land
+ * somewhere a person will see it again.
+ */
+export function unfileCommunicationFromMatter(
+  fetchImpl: typeof fetch,
+  communicationId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: true }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/communications/${encodeURIComponent(communicationId)}/matter`,
+    { method: "DELETE", idempotencyKey },
+  );
+}
+
+/** A fresh idempotency key per submitted write, so a retry of THAT write is the same write. */
+export function newWriteKey(): string {
+  return crypto.randomUUID();
+}

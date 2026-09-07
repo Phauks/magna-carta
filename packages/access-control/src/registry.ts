@@ -124,6 +124,27 @@ export const PERMISSIONS = [
   // may set up automatic filing".
   "emails:manageAutoFileRules", // create/update/suspend/resume/revoke a matter's auto-file rules
   "emails:manageCaptureAddresses", // mint/rotate a matter's forward token, manage the firm catch-all (admin)
+  // Calls and texts — the log of every voice call and SMS/MMS the firm made or took. Three keys, and
+  // the third is the one that needs explaining.
+  //
+  // All three bind resource: "firm" and NOT "matter", which is the difference from emails:* and the
+  // reason to read this before copying that pattern. A communication's matter is nullable by
+  // construction — an inbound text from a number the firm has never seen belongs to nobody until
+  // somebody files it — so a matter cannot be the tenancy root for a record that need not have one.
+  // This is the line custody:* already sits on, for the same reason. The matter-scoped reads still
+  // compose the visible-matter predicate; the binding decides which root the chokepoint resolves,
+  // not what a read returns.
+  //
+  // communications:reviewUnrouted is separate because the rows behind it are the ones no other gate
+  // reaches. Every routed row is narrowed to the matters the member may see, so a walled matter
+  // contributes nothing to the firm-wide read; an UNROUTED row has no matter, so that narrowing has
+  // nothing to bite on and the row would otherwise be readable by anyone holding the read key. What
+  // sits in that queue is whatever was said to the firm's number before anyone decided where it
+  // belonged, which can be anything at all — so who works it is a grant a firm makes deliberately,
+  // the way it decides who opens the post.
+  "communications:read", // read the firm's calls and texts, and one matter's own
+  "communications:log", // log a call or a message by hand, file one onto a matter, unfile one
+  "communications:reviewUnrouted", // read and work the queue of calls and texts that belong to no matter yet
   // Document automation — the firm's assembly-template catalogue and the act of assembling a document
   // onto a matter. The catalogue is firm-level and carries no matter data, so templates:* binds
   // resource: "firm"; an assembly is matter-rooted like every other document operation, so

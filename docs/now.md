@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 798 nodes of the feature ledger in
+is the complete register rather than a digest: all 799 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**798 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**799 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **658 that are units of work**, for the reason set out under [What a roll-up is
+count the **659 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 292 | 44% |
+| Done | shipped | 293 | 44% |
 | Part-built | partial, in-build | 122 | 19% |
 | Ahead | designed, planned, researching, not-started | 203 | 31% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **658** | **100%** |
+| **All units of work** | | **659** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 292 | 44% |
+| `shipped` | 293 | 45% |
 | `partial` | 121 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
@@ -48,12 +48,12 @@ not](#what-a-roll-up-is-not).
 | `researching` | 5 | 1% |
 | `not-started` | 137 | 21% |
 | `deferred` | 38 | 6% |
-| `cut` | 3 | 1% |
-| **All statuses** | **658** | **100%** |
+| `cut` | 3 | 0% |
+| **All statuses** | **659** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 798 nodes are parents, and 108 of those parents are `partial`.** A parent's status is a
+**140 of the 799 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 292 of 658 (44%). Shipped plus partial is 413 (63%).**
+**Shipped alone is 293 of 659 (44%). Shipped plus partial is 414 (63%).**
 
 The 121 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**414 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**415 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 67 | 16% |
+| A person can open it today (`screen`) | 68 | 16% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 169 | 41% |
 | No user surface by nature (`internal`) | 178 | 43% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **414** | **100%** |
+| **Everything with something built** | **415** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -98,7 +98,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | AI & Inference | 17 | 4 | 0 | 0 | 0 | 1 | 4 | 3 | 0 | 29 | 59% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
 | Calendar and Rules-Based Docketing | 13 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 19 | 68% |
-| Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
+| Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
 | Conflicts Check | 5 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 63% |
 | Core Domain — Directory, Matters & Locations | 33 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 54% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **292** | **121** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **658** | **44%** |
+| **All areas** | **293** | **121** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **659** | **44%** |
 
 ## Where we have been
 
@@ -549,7 +549,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Communications Layer
 
-[`roadmap.d/communications.md`](../roadmap.d/communications.md) — 16 units of work, 25% shipped. 4 done, 0 part-built, 11 ahead, 1 parked.
+[`roadmap.d/communications.md`](../roadmap.d/communications.md) — 17 units of work, 29% shipped. 5 done, 0 part-built, 11 ahead, 1 parked.
 
 - `communications` · `partial` · **Communications layer** — Email, messaging (SMS/MMS/RCS), and voice/telephony unified behind one templating and trigger engine, all logged to the matter/Directory.
   - `communications.email` · `partial` · **Email** — Dual send paths — firm's own mailbox for matter correspondence, transactional provider for billing/system mail — plus the in-house parse engine.
@@ -558,7 +558,8 @@ to change a line here, edit the node in its area file and re-run the build.
       - `communications.email.filing.capture-addresses` · `shipped` · **Capture-address management** — Minting, rotating, and revoking the forward/CC capture address a matter files mail through, plus the firm's single catch-all address. _Note: Backend and user guide only — no screens yet; a minted address becomes routable on the next per-firm outbox sweep, and the capture-subdomain DNS onboarding is still a deploy step._
       - `communications.email.filing.auto-file-rules` · `shipped` · **Auto-file rules** — Typed, matter-bound, revocable rules that route captured mail to a matter unattended, behind a fixed set of fail-closed guardrails and a staged-by-default consent posture. _Note: Complete end to end with no screens. Until the management routes landed nothing in the product created a rule — the create statement's only caller was a test — so the engine evaluated an empty candidate set on every unrouted capture; a rule can now be created from a filing, re-postured, suspended, resumed and revoked, and the firm can read one message's decision history and a thirty-day per-rule review. Refusals are at creation rather than at fire time: a rule asking to file under a lowered firm ceiling is rejected outright, and a thread rule is rejected unless its conversation is already filed to the named matter. The circuit-breaker thresholds are a per-firm setting with the shipped numbers as defaults, bounded so the protection cannot be configured away. Measured: ten thousand rules cost no more per capture than ten; the breaker's read stays at its cap after two hundred firings; the thread read grows with the conversation (0.06 ms at eight messages, 1.9 ms at two thousand), which is narrower than the design's flat-cost sentence and is recorded in packages/fixtures/src/load-profile/auto-file-measurements.test.ts. The matterNumberInSubject firm toggle is deliberately not built._
     - `communications.email.parse-engine` · `shipped` · **Email parse core** — Pure-Rust .eml/.msg/mbox parse engine on the engine-host seam with WASM edge, wrapper package, and Email Inspector tool route. _Note: Parse-only; the communications capture subsystem builds on this record model later._
-  - `communications.messaging` · `not-started` · **Messaging (SMS/MMS/RCS)** — CPaaS behind a messaging port serving outbound notifications, SMS 2FA, access codes, and two-way client texting.
+  - `communications.messaging` · `partial` · **Messaging (SMS/MMS/RCS)** — CPaaS behind a messaging port serving outbound notifications, SMS 2FA, access codes, and two-way client texting. _Note: The owner's ruling of 2026-09-07 settled what the sidebar's Messaging row means — calls and texts, not email and not portal messages — and settled the anchor: a conversation may sit on an intake or a consultation, which carry no matter number, so every read and every picker turns on the matter's STATUS rather than its number._
+    - `communications.messaging.log` · `shipped` · **Call and text log** — One record per voice call or SMS/MMS message, hand-logged today and carrier-written later, filed onto a matter or waiting in the firm-wide queue. _Note: Only the member producer is built — `producer` is a stored column so a carrier row is never mistaken for a recollection, and the insert writes the literal 'member' rather than taking it as a parameter. The unrouted queue takes its own capability (communications:reviewUnrouted, seeded to Owner/Admin and Paralegal) because a row with no matter falls through the visible-matter predicate entirely; filing is gated by the same key, since it reads a queued row on its way. A counterparty number is stored as typed rather than normalized to E.164: canonicalizing needs the firm's own country, which this subsystem does not have._
     - `communications.messaging.port` · `not-started` · **Messaging port** — Swappable CPaaS adapter with per-firm scoped secrets.
     - `communications.messaging.notifications` · `not-started` · **Outbound notifications** — Appointment/deadline/payment reminders and invoice/report-ready notices over messaging.
     - `communications.messaging.two-way-texting` · `not-started` · **Two-way client texting** — Inbound and outbound conversations threaded and logged to the matter/Directory.

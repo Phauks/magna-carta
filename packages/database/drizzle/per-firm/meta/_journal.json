@@ -712,6 +712,13 @@
     {
       "idx": 101,
       "version": "6",
+      "when": 1788748436450,
+      "tag": "20260907T030000_communication-log",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "6",
       "when": 1788771600000,
       "tag": "20260907T090000_seed-report-policy-permission",
       "breakpoints": true
