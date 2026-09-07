@@ -25,6 +25,19 @@ const SEEDED_MATTERS = [
   { id: "matter_closed", status: "closed" },
 ] as const;
 
+// A row that POINTS AT a matter. The rebuild's whole hazard is here: dropping a parent table while
+// foreign keys are enforced fires a violation for every child row, and a database with no children
+// cannot show it. The production firm had these; every test fixture did not, which is exactly how a
+// rebuild that could not survive contact with real data passed everything.
+function seedChildOfMatter(raw: DatabaseSync, matterId: string): void {
+  raw
+    .prepare(
+      `INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at)
+       VALUES (?, ?, 'directoryEntity_seed', 'client', ?, ?)`,
+    )
+    .run(`matterParty_${matterId}`, matterId, NOW, NOW);
+}
+
 function seedPreRenameMatters(raw: DatabaseSync): void {
   raw
     .prepare(
@@ -52,9 +65,19 @@ describe("the matter status rename, applied to a database that already holds mat
     const raw = new DatabaseSync(":memory:");
     applyMigrations(raw, migrations.slice(0, renameAt));
     seedPreRenameMatters(raw);
+    for (const { id } of SEEDED_MATTERS) seedChildOfMatter(raw, id);
 
-    // The failure this pins was a throw out of the copy, which took every later migration with it.
+    // Two failures are pinned here, and the second only appears once the first is fixed. The copy
+    // threw on a status the widened CHECK would not admit; past that, DROP TABLE threw because the
+    // migration's own `PRAGMA foreign_keys=OFF` is a no-op inside a transaction and the seeded
+    // children were still pointing at the table being dropped.
     expect(() => applyMigrations(raw, migrations.slice(renameAt))).not.toThrow();
+
+    // Nothing was re-keyed: every child still resolves to the matter it resolved to before.
+    expect(raw.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+    expect(raw.prepare("SELECT COUNT(*) AS n FROM matter_party").get() as { n: number }).toEqual({
+      n: SEEDED_MATTERS.length,
+    });
 
     const rows = raw.prepare("SELECT id, status FROM matter ORDER BY id").all();
     expect(rows).toEqual([

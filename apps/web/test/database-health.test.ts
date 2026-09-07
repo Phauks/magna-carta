@@ -113,6 +113,27 @@ describe("databaseHealthRows", () => {
     expect(row.detail).toContain("gave no reason");
   });
 
+  it("puts a faulted row's reason on the clipboard, not just its status", () => {
+    // The copy is what reaches a bug report. Carrying "Not answering" without the reason handed
+    // over the symptom and stripped the diagnosis — which is exactly what happened in the report
+    // that led here.
+    const line = copyLineForDatabaseHealth({
+      ...HEALTHY,
+      firmDatabase: {
+        state: "unreachable",
+        roundTripMilliseconds: null,
+        fault: "FOREIGN KEY constraint failed",
+      },
+    });
+    expect(line).toContain("Firm database: Not answering");
+    expect(line).toContain("FOREIGN KEY constraint failed");
+  });
+
+  it("leaves a healthy row to its status, so a good read does not paste reassurance", () => {
+    expect(copyLineForDatabaseHealth(HEALTHY)).toContain("Firm database: Connected");
+    expect(copyLineForDatabaseHealth(HEALTHY)).not.toContain("Answered in 12 ms.");
+  });
+
   it("tells the four refused-screen situations apart", () => {
     const missing = rowFor(
       { ...HEALTHY, membership: { state: "missing", roles: [], permissionCount: 0 } },
