@@ -151,3 +151,50 @@ export function selectionSummary(
 export function ledgerCurrency(entries: readonly TimeEntrySummary[]): string {
   return entries[0]?.currency ?? "USD";
 }
+
+/**
+ * What a PERIOD says about itself: the counts and the sums over a span of days, across matters.
+ *
+ * The footer figures above answer a matter's two money questions. A period answers a different set,
+ * because the reader is asking about their week rather than about a file: how much time is on the
+ * record at all, how much of it bills, and how much of what bills is still waiting for an invoice.
+ * Hours lead, because a period ledger is read in hours; the money follows.
+ *
+ * EVERYTHING LEAVES AS A NUMBER. Minutes and minor units, never text — the currency belongs to the
+ * surface and the duration's two literacies are the formatter's, on the rule this file already
+ * follows for the footer.
+ *
+ * A VOID COUNTS TOWARD NOTHING and is counted separately, so a period that holds one can say so
+ * rather than quietly presenting a smaller total than the row count implies.
+ */
+export interface PeriodTotals {
+  /** Rows that count: everything but the voids. */
+  readonly liveCount: number;
+  readonly voidCount: number;
+  /** Every live minute on the record for the period, billable or not, as billed. */
+  readonly recordedMinutes: number;
+  readonly billableMinutes: number;
+  readonly nonBillableMinutes: number;
+  /** Billable value no finalized invoice has taken up. */
+  readonly unbilledAmountMinor: number;
+  /** Billable value an invoice has taken up. */
+  readonly billedAmountMinor: number;
+}
+
+function sumBilledMinutes(entries: readonly TimeEntrySummary[]): number {
+  return entries.reduce((total, entry) => total + entry.durationMinutes, 0);
+}
+
+export function periodTotals(entries: readonly TimeEntrySummary[]): PeriodTotals {
+  const live = countable(entries);
+  const billable = live.filter((entry) => entry.billable);
+  return {
+    liveCount: live.length,
+    voidCount: entries.length - live.length,
+    recordedMinutes: sumBilledMinutes(live),
+    billableMinutes: sumBilledMinutes(billable),
+    nonBillableMinutes: sumBilledMinutes(live.filter((entry) => !entry.billable)),
+    unbilledAmountMinor: sumAmountMinor(billable.filter((entry) => entry.status !== "billed")),
+    billedAmountMinor: sumAmountMinor(billable.filter((entry) => entry.status === "billed")),
+  };
+}

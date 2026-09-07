@@ -1,0 +1,1 @@
+CREATE INDEX `time_entry_work_date_index` ON `time_entry` (`work_date`);

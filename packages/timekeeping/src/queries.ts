@@ -391,6 +391,94 @@ export async function listUnbilledByMatter(
   }));
 }
 
+/**
+ * The period read: every entry in a span of work dates, across every matter.
+ *
+ * THE THIRD QUESTION TIME IS ASKED. The day read answers "what did this person do today"; the
+ * matter read answers "what time is on this file". Neither answers "what time was recorded this
+ * week", which is the question a timekeeper asks of their own record and a supervisor asks of the
+ * firm's — and it is the question the firm-wide time surface is built on. Answering it by walking
+ * the matters one at a time is not an answer: the caller would need every matter first, and the
+ * page boundaries would fall inside matters rather than inside the period.
+ *
+ * THE SPAN IS REQUIRED AND THE NARROWING IS NOT. A range with no timekeeper is the firm's whole
+ * record for those days, which is exactly what a supervisor asks for; the route decides who may ask
+ * it. What is never optional is the span itself, because a listing over all time with no bound is a
+ * full-table scan wearing a cursor.
+ *
+ * VOIDS ARE INCLUDED, on the per-matter read's rule: a void stays on the record with its chip and
+ * counts toward nothing, and a listing that dropped it would make a record look smaller than it is.
+ * The day read excludes them because My Day is a working surface rather than a record.
+ *
+ * The sort key is (work_date, id) descending — the same total order the per-matter read walks, so a
+ * cursor means the same thing on both and the two surfaces page identically.
+ */
+export interface ListTimeEntriesInRangeParams {
+  /** The first work date in the span, inclusive. */
+  readonly from: string;
+  /** The last work date in the span, inclusive. */
+  readonly to: string;
+  /** One timekeeper's own record; omitted, the span covers every timekeeper in the firm. */
+  readonly timekeeperUserId?: UserId;
+  /** One matter inside the span, for a caller narrowing a period read to a file. */
+  readonly matterId?: MatterId;
+  /** One status inside the span. Omitted means every status, as the per-matter read means it. */
+  readonly status?: TimeEntryStatus;
+  readonly cursor?: string;
+  readonly pageSize?: number;
+}
+
+export async function listTimeEntriesInRange(
+  database: SqlDatabase,
+  params: ListTimeEntriesInRangeParams,
+): Promise<Page<TimeEntryRecordItem>> {
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+
+  const conditions = ["time_entry.work_date >= ?", "time_entry.work_date <= ?"];
+  const bindings: unknown[] = [params.from, params.to];
+  if (params.timekeeperUserId !== undefined) {
+    conditions.push("time_entry.timekeeper_user_id = ?");
+    bindings.push(params.timekeeperUserId);
+  }
+  if (params.matterId !== undefined) {
+    conditions.push("time_entry.matter_id = ?");
+    bindings.push(params.matterId);
+  }
+  if (params.status !== undefined) {
+    conditions.push("time_entry.status = ?");
+    bindings.push(params.status);
+  }
+  appendCursorPredicateOnColumn(conditions, bindings, decodeCursor(params.cursor), {
+    sortColumn: "time_entry.work_date",
+    idColumn: "time_entry.id",
+    ascending: false,
+  });
+  // One more than the page, as the has-more probe.
+  bindings.push(pageSize + 1);
+
+  const { results } = await database
+    .prepare(
+      `SELECT ${TIME_ENTRY_RECORD_COLUMNS}
+         FROM ${TIME_ENTRY_TABLE} AS time_entry
+         ${TIME_ENTRY_RECORD_JOINS}
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY time_entry.work_date DESC, time_entry.id DESC
+        LIMIT ?`,
+    )
+    .bind(...bindings)
+    .all<TimeEntryRecordRowRaw>();
+
+  const hasMore = results.length > pageSize;
+  const rows = hasMore ? results.slice(0, pageSize) : results;
+  const last = rows.at(-1);
+  return {
+    // Minted over the SORT key, as the per-matter read mints it: assemblePage mints over created_at,
+    // which is the right key only for a read ordered by it.
+    nextCursor: hasMore && last !== undefined ? encodeCursor(last.work_date, last.id) : null,
+    data: rows.map(toTimeEntryRecordItem),
+  };
+}
+
 export interface ListTimeEntriesByMatterParams {
   readonly matterId: MatterId;
   // Omitted means EVERY status. A matter's time tab asks "what time is on this matter", and the
