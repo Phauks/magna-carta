@@ -9,10 +9,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { matterSections, matterStrip } from "../src/lib/matters/sections.ts";
+import { destinationById, type DestinationId } from "../src/lib/navigation/destinations.ts";
 import {
   MONEY_SURFACE_DENSITY_KEY,
   MONEY_SURFACE_LAYOUT_KEY,
   isMoneySectionSlug,
+  moneySectionFirmDestination,
   moneySectionHref,
   moneySections,
   moneySurfaceDensityPreference,
@@ -60,6 +62,37 @@ describe("the money sections", () => {
     expect(moneySectionHref("mat_1", "costs")).toBe("/matters/mat_1/costs");
     for (const section of moneySections) {
       expect(moneySectionHref("mat_1", section.slug)).toBe(`/matters/mat_1/${section.slug}`);
+    }
+  });
+});
+
+describe("the way out to a section's firm-wide twin", () => {
+  it("names the sidebar destination, so the rail and the toolbar cannot call one place two things", () => {
+    for (const slug of ["time", "costs", "billing"] as const) {
+      const named = moneySectionFirmDestination(slug);
+      expect(named).toBe(slug);
+      // The href, the label and the glyph all come from the registry entry this id resolves to.
+      const destination = destinationById(named as DestinationId);
+      expect(destination?.href).toBe(`/${slug}`);
+      expect(destination?.shipped).toBe(true);
+    }
+  });
+
+  it("answers nothing where the firm-wide surface does not exist", () => {
+    // A way out to a page that is not built is worse than no way out: the toolbar renders nothing
+    // rather than a link to a Soon row. A fee is not its own record yet, and Trust is announced.
+    expect(moneySectionFirmDestination("fees")).toBeNull();
+    expect(moneySectionFirmDestination("trust")).toBeNull();
+    expect(destinationById("trust")?.shipped).toBe(false);
+  });
+
+  it("keeps every money section answered, so a sixth cannot be added without deciding", () => {
+    for (const section of moneySections) {
+      expect(() =>
+        moneySectionFirmDestination(
+          section.slug as Parameters<typeof moneySectionFirmDestination>[0],
+        ),
+      ).not.toThrow();
     }
   });
 });

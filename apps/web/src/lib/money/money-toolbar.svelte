@@ -30,7 +30,10 @@
   import Frame from "@lucide/svelte/icons/frame";
   import Rows3 from "@lucide/svelte/icons/rows-3";
   import Rows4 from "@lucide/svelte/icons/rows-4";
+  import ArrowUpRight from "@lucide/svelte/icons/arrow-up-right";
+  import { destinationById } from "$lib/navigation/destinations.ts";
   import {
+    moneySectionFirmDestination,
     moneySectionHref,
     moneySections,
     type MoneySectionSlug,
@@ -65,6 +68,23 @@
   const linkCurrentClasses = "font-semibold text-text-default";
   const linkOtherClasses = "font-medium text-text-muted";
 
+  /*
+   * The way out to the same money at the firm's scale, where one exists.
+   *
+   * It sits at the end of the sibling row rather than with the view controls, because it is
+   * NAVIGATION — the last entry in the list of places this money can be read — and the two controls
+   * on the other end are settings about how the table is shown. It carries the destination's own
+   * glyph and its own name from the sidebar registry, so a member meets the same word here and in
+   * the rail. A section with no firm-wide surface renders nothing at all: an inert control that
+   * exists to say "not yet" is the affordance the file-manager rulings forbid.
+   */
+  const firmDestination = $derived(
+    (() => {
+      const named = moneySectionFirmDestination(section);
+      return named === null ? null : destinationById(named);
+    })(),
+  );
+
   const compact = $derived(density === "compact");
   const densityTitle = $derived(compact ? "Show comfortable rows" : "Show compact rows");
   const flush = $derived(layout === "flush");
@@ -94,6 +114,25 @@
         {moneySection.label}
       </Button>
     {/each}
+
+    {#if firmDestination !== null}
+      {@const Glyph = firmDestination.icon}
+      <!-- Separated from the siblings by a rule: the entries before it are this matter's sections
+           and this one leaves the matter, which is a different kind of destination and must not
+           read as a sixth section. -->
+      <span class="mx-4 h-16 w-px shrink-0 bg-border-default" aria-hidden="true"></span>
+      <Button
+        variant="ghost"
+        size="sm"
+        href={firmDestination.href}
+        class="whitespace-nowrap {linkOtherClasses}"
+        title="Leave this matter for the firm's whole {firmDestination.label.toLowerCase()} record."
+      >
+        <Glyph class="size-16" aria-hidden="true" />
+        All {firmDestination.label.toLowerCase()}
+        <ArrowUpRight class="size-12 text-text-subtle" aria-hidden="true" />
+      </Button>
+    {/if}
   </nav>
 
   <div class="ms-auto flex shrink-0 items-center gap-4">

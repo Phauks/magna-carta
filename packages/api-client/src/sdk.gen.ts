@@ -3545,7 +3545,7 @@ export const costsBatch = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * Lists cost entries for a matter, in every status unless one is named. CURSOR-PAGED, most recently incurred first: a matter's cost record grows for as long as the matter runs, and this read carried no bound at all until it was. Returns an empty list when no matterId is supplied.
+ * Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in every status unless one is named. By a `from`/`to` span of incurred dates: the period listing across every matter, which is what the firm's cost record is asked for at the end of a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, most recently incurred first, over the same statement, so a cost reads back identically whichever shape found it. Returns an empty list when neither a matter nor a span is named, rather than scanning the whole table.
  */
 export const costsList = <ThrowOnError extends boolean = false>(options?: Options<CostsListData, ThrowOnError>): RequestResult<CostsListResponses, CostsListErrors, ThrowOnError> => (options?.client ?? client).get<CostsListResponses, CostsListErrors, ThrowOnError>({ url: '/api/v1/costs', ...options });
 
@@ -3907,7 +3907,7 @@ export const trustCloseUnclaimedFundsReview = <ThrowOnError extends boolean = fa
 export const trustGetUnclaimedFundsReview = <ThrowOnError extends boolean = false>(options: Options<TrustGetUnclaimedFundsReviewData, ThrowOnError>): RequestResult<TrustGetUnclaimedFundsReviewResponses, TrustGetUnclaimedFundsReviewErrors, ThrowOnError> => (options.client ?? client).get<TrustGetUnclaimedFundsReviewResponses, TrustGetUnclaimedFundsReviewErrors, ThrowOnError>({ url: '/api/v1/trust/unclaimed-funds/reviews/{reviewId}', ...options });
 
 /**
- * Lists invoices newest first, with each one's total, what has been applied to it, and what is still unpaid. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them.
+ * Lists invoices newest first, with each one's total, what has been applied to it, what is still unpaid, and the client's name. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them. Unnarrowed it answers for the whole firm, which is what the firm's billing register reads; narrowed to a client it answers that client's bills, and narrowed to a matter it answers the bills that charge that matter and carries the matter's own share of each — the figure a matter's register states, which it used to reach by reading every bill's detail one at a time.
  */
 export const billingListInvoices = <ThrowOnError extends boolean = false>(options?: Options<BillingListInvoicesData, ThrowOnError>): RequestResult<BillingListInvoicesResponses, BillingListInvoicesErrors, ThrowOnError> => (options?.client ?? client).get<BillingListInvoicesResponses, BillingListInvoicesErrors, ThrowOnError>({ url: '/api/v1/billing/invoices', ...options });
 

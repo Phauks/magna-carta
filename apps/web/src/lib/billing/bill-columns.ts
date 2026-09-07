@@ -1,18 +1,26 @@
 /*
- * The bill register's columns — what a matter's bills say about themselves, declared once.
+ * The bill register's columns — what bills say about themselves, declared once for both scopes.
  *
  * The grid is the product's one table, so nothing about sorting, filtering, hiding, reordering,
  * pinning, resizing or totalling is decided here. This file says only WHAT the columns are.
+ *
+ * ONE DECLARATION, TWO SCOPES, AND THE MONEY IS WHAT DIFFERS. A register standing inside a MATTER
+ * states what that matter was charged: an invoice belongs to one client and may bill several of
+ * that client's matters, so the document's own total is a fact about the document, and putting it
+ * in a matter's register invites a reader to add up a column that is not theirs. The FIRM's
+ * register has no matter to take a share of, so the document's total is the only honest figure
+ * there, and the client — a constant inside one matter, and the identifying fact across the firm —
+ * changes places with it.
+ *
+ * Both figures are declared in both scopes and one of each pair arrives hidden, rather than a
+ * column existing in one scope and not the other: a member who wants the whole document's total
+ * while standing in a matter turns it on from the same show-and-hide control every other column
+ * uses, and a stored layout means the same thing on both screens.
  *
  * CREATED ANCHORS, AND IT LEADS. The register is a list of documents raised over time, and the date
  * one was raised is the fact that never goes missing: a draft has no number, a voided draft never
  * drew one, and anchoring on a column that is empty for two of the three states leaves the reader's
  * eye with nothing to hold. The number follows immediately, where it is read.
- *
- * THE FIGURE IS THIS MATTER'S SHARE, AND IT IS THE ONLY ONE. An invoice belongs to one client and
- * may bill several of that client's matters, but a register standing inside one matter states what
- * this matter was charged. The whole document's total is a fact about the document; showing it in a
- * matter's own register invites a reader to add up a column that is not theirs.
  *
  * A DRAFT'S FIGURES ARE COMPUTED AND SAY SO. A draft has no stored total — balances are created at
  * finalization — so its share is the sum of the lines it is carrying and moves as work is claimed.
@@ -21,6 +29,7 @@
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import {
+  billUnpaidMinor,
   creditedMinor,
   deliveryStateWord,
   invoiceReference,
@@ -39,6 +48,8 @@ export const BILL_COLUMN_IDENTIFIERS = {
   dueDate: "dueDate",
   matterShare: "matterShare",
   matterUnpaid: "matterUnpaid",
+  billTotal: "billTotal",
+  billUnpaid: "billUnpaid",
   delivered: "delivered",
   credited: "credited",
   client: "client",
@@ -50,12 +61,26 @@ export const BILL_REGISTER_INITIAL_SORT = {
   direction: "descending",
 } as const;
 
-/** What the register needs to know that is not on an invoice: whose bills these are. */
+/**
+ * Which register this is: one matter's, or the firm's own.
+ *
+ * The matter scope carries the two facts a matter's register knows and the firm's cannot — which
+ * matter to take a share of, and the one client whose bills these are. The firm scope carries
+ * neither, because across the firm every row answers for itself.
+ */
+export type BillRegisterScope =
+  | {
+      readonly kind: "matter";
+      /** The matter the register is standing in. Its share is the leading money column. */
+      readonly matterId: string;
+      /** The client every one of these bills belongs to, as the matter records their name. */
+      readonly clientName: string;
+    }
+  | { readonly kind: "firm" };
+
+/** What the register needs to know that is not on an invoice. */
 export interface BillRegisterContext {
-  /** The matter the register is standing in. Its share is the leading money column. */
-  readonly matterId: string;
-  /** The client every one of these bills belongs to, as the matter records their name. */
-  readonly clientName: string;
+  readonly scope: BillRegisterScope;
   readonly currency: string;
 }
 
@@ -77,7 +102,9 @@ export function draftShareTitle(): string {
 }
 
 export function billColumns(context: BillRegisterContext): readonly GridColumn<InvoiceRow>[] {
-  const { matterId, clientName, currency } = context;
+  const { scope, currency } = context;
+  const inMatter = scope.kind === "matter";
+  const matterId = scope.kind === "matter" ? scope.matterId : null;
 
   return [
     {
@@ -121,23 +148,55 @@ export function billColumns(context: BillRegisterContext): readonly GridColumn<I
       type: "money",
       currency,
       total: "sum",
+      hidden: !inMatter,
       filterNote: "In the matter's currency.",
+      // Null outside a matter rather than the document's total: the column asks what ONE matter was
+      // charged, and answering it with the whole bill would be a wrong answer rather than no answer.
       value: (row) => {
-        const share = matterShareMinor(row, matterId);
+        const share = matterId === null ? null : matterShareMinor(row, matterId);
         return share === null ? null : share / 100;
       },
     },
     {
       id: BILL_COLUMN_IDENTIFIERS.matterUnpaid,
+      label: "Unpaid, this matter",
+      type: "money",
+      currency,
+      total: "sum",
+      hidden: !inMatter,
+      filterNote: "In the matter's currency.",
+      value: (row) => {
+        const unpaid = matterId === null ? null : matterUnpaidMinor(row, matterId);
+        return unpaid === null ? null : unpaid / 100;
+      },
+    },
+    {
+      id: BILL_COLUMN_IDENTIFIERS.billTotal,
+      // Named for what it covers, because inside a matter it sits beside a column that does not:
+      // the two figures differ exactly when a bill charges more than this matter, and a reader who
+      // turned this on wants to see that difference rather than wonder which total they are reading.
+      label: inMatter ? "Total (all matters)" : "Total",
+      type: "money",
+      currency,
+      total: "sum",
+      hidden: inMatter,
+      filterNote: "In the bill's own currency.",
+      // A draft's total is the lines it carries; a finalized bill's is the sum of its balances,
+      // which is what the listing already states. Both come off the summary, so the figure is right
+      // before any detail has been read.
+      value: (row) => (row.summary.status === "void" ? null : row.summary.totalMinor / 100),
+    },
+    {
+      id: BILL_COLUMN_IDENTIFIERS.billUnpaid,
       label: "Unpaid",
       type: "money",
       currency,
       total: "sum",
-      filterNote: "In the matter's currency.",
-      value: (row) => {
-        const unpaid = matterUnpaidMinor(row, matterId);
-        return unpaid === null ? null : unpaid / 100;
-      },
+      hidden: inMatter,
+      filterNote: "In the bill's own currency.",
+      // Only a finalized bill owes anything: a draft has no balance yet and a voided draft never
+      // owed. Null rather than zero for both, because a zero reads as "settled".
+      value: (row) => (row.summary.status === "final" ? billUnpaidMinor(row) / 100 : null),
     },
     {
       id: BILL_COLUMN_IDENTIFIERS.delivered,
@@ -164,8 +223,14 @@ export function billColumns(context: BillRegisterContext): readonly GridColumn<I
       label: "Client",
       type: "text",
       filter: "set",
-      hidden: true,
-      value: () => clientName,
+      // Hidden inside a matter, where every row names the same client and the column would be one
+      // repeated word; shown across the firm, where it is what a reader picks a row out by.
+      hidden: inMatter,
+      // The matter's register prefers the name the MATTER records — what a reader there knows the
+      // client by — and the firm's register has only what the listing resolved from the directory.
+      // A bill whose client is not in the directory says so rather than printing an identifier.
+      value: (row) =>
+        scope.kind === "matter" ? scope.clientName : (row.summary.clientName ?? "Unnamed client"),
     },
   ];
 }

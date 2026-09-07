@@ -22,10 +22,17 @@ import {
   type InvoiceRow,
 } from "./invoice-standing.ts";
 
-/** Everything the sheet needs that is not the invoice itself. */
+/**
+ * Everything the sheet needs that is not the invoice itself.
+ *
+ * The matter is optional, because the same sheet is taken from a matter's register and from the
+ * firm's. Standing in a matter, the sheet says which matter and what that matter's share was;
+ * standing across the firm it says neither, because a bill may charge several matters and naming
+ * one of them on the record's own sheet would be picking a matter out of a hat.
+ */
 export interface InvoiceSheetContext {
-  readonly matterId: string;
-  readonly matterTitle: string;
+  readonly matterId?: string | null;
+  readonly matterTitle?: string | null;
   readonly matterNumber?: string | null;
   readonly clientName: string;
   /** Money in the bill's own currency, given the amount in major units. */
@@ -35,6 +42,16 @@ export interface InvoiceSheetContext {
   readonly printedAt: string;
 }
 
+/** Who the sheet is about: the client always, and the matter only where one is standing behind it. */
+function subtitleFor(context: InvoiceSheetContext): string {
+  const title = context.matterTitle ?? null;
+  if (title === null) return context.clientName;
+  const number = context.matterNumber ?? null;
+  return number === null
+    ? `${context.clientName} · ${title}`
+    : `${context.clientName} · ${title} · Matter ${number}`;
+}
+
 /** What one invoice's record sheet says. */
 export function invoiceRecordSheet(
   row: InvoiceRow,
@@ -42,16 +59,14 @@ export function invoiceRecordSheet(
 ): PrintSheetDocument {
   const invoice = row.summary;
   const lines = row.detail?.lines ?? [];
-  const share = matterShareMinor(row, context.matterId);
+  const matterId = context.matterId ?? null;
+  const share = matterId === null ? null : matterShareMinor(row, matterId);
   const credited = creditedMinor(row);
 
   return {
     heading: invoice.status === "draft" ? "Draft Bill" : "Invoice",
     reference: invoiceReference(row),
-    subtitle:
-      context.matterNumber === undefined || context.matterNumber === null
-        ? `${context.clientName} · ${context.matterTitle}`
-        : `${context.clientName} · ${context.matterTitle} · Matter ${context.matterNumber}`,
+    subtitle: subtitleFor(context),
     sections: [
       {
         id: "standing",
@@ -73,10 +88,16 @@ export function invoiceRecordSheet(
         id: "figures",
         kind: "fields",
         fields: [
-          {
-            label: "This Matter",
-            value: share === null ? "—" : context.money(share / 100),
-          },
+          // Only where a matter is standing behind the sheet. Across the firm the line would be a
+          // dash on every bill, which says nothing and reads as a figure that failed to load.
+          ...(matterId === null
+            ? []
+            : [
+                {
+                  label: "This Matter",
+                  value: share === null ? "—" : context.money(share / 100),
+                },
+              ]),
           { label: "Total", value: context.money(invoice.totalMinor / 100) },
           { label: "Applied", value: context.money(invoice.appliedMinor / 100) },
           { label: "Unpaid", value: context.money(billUnpaidMinor(row) / 100) },

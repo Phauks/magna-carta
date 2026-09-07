@@ -8501,7 +8501,7 @@ export const costsBatchMutation = (options?: Partial<Options<CostsBatchData>>): 
 export const costsListQueryKey = (options?: Options<CostsListData>) => createQueryKey('costsList', options);
 
 /**
- * Lists cost entries for a matter, in every status unless one is named. CURSOR-PAGED, most recently incurred first: a matter's cost record grows for as long as the matter runs, and this read carried no bound at all until it was. Returns an empty list when no matterId is supplied.
+ * Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in every status unless one is named. By a `from`/`to` span of incurred dates: the period listing across every matter, which is what the firm's cost record is asked for at the end of a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, most recently incurred first, over the same statement, so a cost reads back identically whichever shape found it. Returns an empty list when neither a matter nor a span is named, rather than scanning the whole table.
  */
 export const costsListOptions = (options?: Options<CostsListData>) => queryOptions<CostsListResponse, CostsListError, CostsListResponse, ReturnType<typeof costsListQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -8519,7 +8519,7 @@ export const costsListOptions = (options?: Options<CostsListData>) => queryOptio
 export const costsListInfiniteQueryKey = (options?: Options<CostsListData>): QueryKey<Options<CostsListData>> => createQueryKey('costsList', options, true);
 
 /**
- * Lists cost entries for a matter, in every status unless one is named. CURSOR-PAGED, most recently incurred first: a matter's cost record grows for as long as the matter runs, and this read carried no bound at all until it was. Returns an empty list when no matterId is supplied.
+ * Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in every status unless one is named. By a `from`/`to` span of incurred dates: the period listing across every matter, which is what the firm's cost record is asked for at the end of a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, most recently incurred first, over the same statement, so a cost reads back identically whichever shape found it. Returns an empty list when neither a matter nor a span is named, rather than scanning the whole table.
  */
 export const costsListInfiniteOptions = (options?: Options<CostsListData>) => infiniteQueryOptions<CostsListResponse, CostsListError, InfiniteData<CostsListResponse>, QueryKey<Options<CostsListData>>, string | Pick<QueryKey<Options<CostsListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore
@@ -9301,7 +9301,7 @@ export const trustGetUnclaimedFundsReviewOptions = (options: Options<TrustGetUnc
 export const billingListInvoicesQueryKey = (options?: Options<BillingListInvoicesData>) => createQueryKey('billingListInvoices', options);
 
 /**
- * Lists invoices newest first, with each one's total, what has been applied to it, and what is still unpaid. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them.
+ * Lists invoices newest first, with each one's total, what has been applied to it, what is still unpaid, and the client's name. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them. Unnarrowed it answers for the whole firm, which is what the firm's billing register reads; narrowed to a client it answers that client's bills, and narrowed to a matter it answers the bills that charge that matter and carries the matter's own share of each — the figure a matter's register states, which it used to reach by reading every bill's detail one at a time.
  */
 export const billingListInvoicesOptions = (options?: Options<BillingListInvoicesData>) => queryOptions<BillingListInvoicesResponse, BillingListInvoicesError, BillingListInvoicesResponse, ReturnType<typeof billingListInvoicesQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -9319,7 +9319,7 @@ export const billingListInvoicesOptions = (options?: Options<BillingListInvoices
 export const billingListInvoicesInfiniteQueryKey = (options?: Options<BillingListInvoicesData>): QueryKey<Options<BillingListInvoicesData>> => createQueryKey('billingListInvoices', options, true);
 
 /**
- * Lists invoices newest first, with each one's total, what has been applied to it, and what is still unpaid. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them.
+ * Lists invoices newest first, with each one's total, what has been applied to it, what is still unpaid, and the client's name. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them. Unnarrowed it answers for the whole firm, which is what the firm's billing register reads; narrowed to a client it answers that client's bills, and narrowed to a matter it answers the bills that charge that matter and carries the matter's own share of each — the figure a matter's register states, which it used to reach by reading every bill's detail one at a time.
  */
 export const billingListInvoicesInfiniteOptions = (options?: Options<BillingListInvoicesData>) => infiniteQueryOptions<BillingListInvoicesResponse, BillingListInvoicesError, InfiniteData<BillingListInvoicesResponse>, QueryKey<Options<BillingListInvoicesData>>, string | Pick<QueryKey<Options<BillingListInvoicesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore

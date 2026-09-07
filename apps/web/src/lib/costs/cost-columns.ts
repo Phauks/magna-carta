@@ -14,23 +14,37 @@
  *
  * A COLUMN THE LISTING CANNOT FILL STILL EXISTS. Its label is real, it appears in the columns menu,
  * and its cells say what they are waiting on instead of showing a value nobody recorded. Entry
- * Number, Date Entered and Entered By start hidden, because a column of identical gap marks in
- * front of every reader is noise. Attachments stays showing, because a cost's files are part of
- * what a reader came to check and the shape of the record is the thing worth seeing.
+ * Number starts hidden, because a column of identical gap marks in front of every reader is noise.
+ * Attachments stays showing, because a cost's files are part of what a reader came to check and
+ * the shape of the record is the thing worth seeing.
+ *
+ * DATE ENTERED AND ENTERED BY ARE SERVED, AND STILL START HIDDEN. The reason changed: they carry
+ * real values now, and they stay off by default because they answer a question about the RECORD
+ * rather than about the money — who captured this and when, which is what somebody asks while
+ * reconciling a month, not while reading a matter's disbursements. A reader who wants them turns
+ * them on and the layout is remembered.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { CostSummary } from "$lib/matters/cost-api.ts";
 import { costStatusKey } from "$lib/matters/cost-api.ts";
 import { gapCellTitle, type CostLedgerGapName } from "./cost-gaps.ts";
-import { billingLabel, costAmount, payeeText } from "./cost-vocabulary.ts";
+import {
+  billingLabel,
+  costAmount,
+  payeeText,
+  recorderText,
+  returnedDraftReason,
+} from "./cost-vocabulary.ts";
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const COST_COLUMN_IDENTIFIERS = {
   incurredDate: "incurredDate",
+  matter: "matter",
   entryNumber: "entryNumber",
   dateEntered: "dateEntered",
   enteredBy: "enteredBy",
+  returned: "returned",
   description: "description",
   payee: "payee",
   expenseCode: "expenseCode",
@@ -43,8 +57,6 @@ export const COST_COLUMN_IDENTIFIERS = {
 /** Which columns carry a value the listing does not serve, and which gap each of them names. */
 export const UNSERVED_COST_COLUMNS: Readonly<Record<string, CostLedgerGapName>> = {
   [COST_COLUMN_IDENTIFIERS.entryNumber]: "entryNumber",
-  [COST_COLUMN_IDENTIFIERS.dateEntered]: "dateEntered",
-  [COST_COLUMN_IDENTIFIERS.enteredBy]: "enteredBy",
   [COST_COLUMN_IDENTIFIERS.attachments]: "attachments",
 };
 
@@ -105,6 +117,20 @@ export function expenseCodeText(cost: CostSummary, labels: ExpenseCodeLabels): s
 }
 
 /**
+ * How a row names its matter: the number and the title, as the firm's own screens name it.
+ *
+ * The listing resolves both, so nothing here looks a matter up. Empty where the row carries
+ * neither, which the cell renders as its own blank — never a raw handle, which names the matter to
+ * nobody, and never a stand-in, which names the wrong thing.
+ */
+export function costMatterText(cost: CostSummary): string {
+  const title = cost.matterTitle ?? null;
+  if (title === null) return "";
+  const number = cost.matterNumber ?? null;
+  return number === null ? title : `${number} — ${title}`;
+}
+
+/**
  * The ledger's columns, in the order the design puts them.
  *
  * `currency` follows the rows rather than being assumed: a matter's costs are written in the
@@ -124,6 +150,17 @@ export function costLedgerColumns(options: {
       value: (cost) => cost.incurredDate,
     },
     {
+      // Hidden inside a matter, where every row is on the same one and the column would be one
+      // repeated phrase; the firm's own screen brings it forward (firmCostColumns below).
+      id: COST_COLUMN_IDENTIFIERS.matter,
+      label: "Matter",
+      type: "text",
+      filter: "set",
+      hidden: true,
+      fitExtra: 30,
+      value: (cost) => costMatterText(cost),
+    },
+    {
       id: COST_COLUMN_IDENTIFIERS.entryNumber,
       label: "Entry Number",
       type: "text",
@@ -132,23 +169,45 @@ export function costLedgerColumns(options: {
       value: () => null,
       text: () => "",
     },
+    /*
+     * When the cost was written down, which is not the day the money went out. A disbursement
+     * captured three weeks late is a different record from one captured the day it was paid, and
+     * only Incurred and this one together say which of the two a reader is looking at.
+     */
     {
       id: COST_COLUMN_IDENTIFIERS.dateEntered,
       label: "Date Entered",
       type: "date",
       hidden: true,
       filter: "none",
-      value: () => null,
-      text: () => "",
+      value: (cost) => cost.createdAt,
     },
+    /*
+     * Who wrote it down. It is not a permission fact — a cost belongs to the matter and not to its
+     * recorder, so nothing is scoped by this — it is who to ask about a figure that looks wrong.
+     */
     {
       id: COST_COLUMN_IDENTIFIERS.enteredBy,
       label: "Entered By",
       type: "text",
       hidden: true,
+      filter: "set",
+      fitExtra: 30,
+      value: (cost) => recorderText(cost),
+    },
+    /*
+     * Why a draft came back. Empty on nearly every row and hidden for that reason, but the column
+     * exists because it is the one fact that tells a returned draft from one nobody has submitted —
+     * and a reviewer who sent back six costs wants to see all six reasons at once rather than
+     * opening six records.
+     */
+    {
+      id: COST_COLUMN_IDENTIFIERS.returned,
+      label: "Returned",
+      type: "text",
+      hidden: true,
       filter: "none",
-      value: () => null,
-      text: () => "",
+      value: (cost) => returnedDraftReason(cost),
     },
     {
       id: COST_COLUMN_IDENTIFIERS.description,
@@ -206,4 +265,21 @@ export function costLedgerColumns(options: {
       value: (cost) => statusEntry(costStatusKey(cost.status)).label,
     },
   ];
+}
+
+/**
+ * The same declaration, arranged for the firm's own cost record.
+ *
+ * The matter is what a reader picks a row out by when the rows come from every matter at once, so
+ * it stands second — immediately after the date the cost was incurred, which is what the period is
+ * read by. Nothing else moves: one declaration, two arrangements, so a column means the same thing
+ * and carries the same words on both screens.
+ */
+export function firmCostColumns(options: {
+  readonly currency: string;
+  readonly expenseCodeLabels: ExpenseCodeLabels;
+}): readonly GridColumn<CostSummary>[] {
+  return costLedgerColumns(options).map((column) =>
+    column.id === COST_COLUMN_IDENTIFIERS.matter ? { ...column, hidden: false } : column,
+  );
 }

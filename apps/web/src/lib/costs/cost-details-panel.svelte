@@ -22,6 +22,7 @@
   import Button from "@magna-carta/design-system/button";
   import RecordChain from "@magna-carta/design-system/record-chain";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
+  import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import Printer from "@lucide/svelte/icons/printer";
@@ -33,14 +34,19 @@
   import Receipt from "@lucide/svelte/icons/receipt";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
   import { expenseCodeText, type ExpenseCodeLabels } from "./cost-columns.ts";
+  import { billHref } from "$lib/money/index.ts";
   import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { matterCostSummary, selectionSummary } from "./cost-figures.ts";
   import type { CostLedgerEntry } from "./cost-operations.ts";
   import {
     GONE_PAYEE_NOTE,
+    GONE_RECORDER_NOTE,
     billingSentence,
     payeeState,
     payeeText,
+    recorderState,
+    recorderText,
+    returnedDraftReason,
     sourceLabel,
   } from "./cost-vocabulary.ts";
 
@@ -92,6 +98,7 @@
   });
 
   const payee = $derived(sole === null ? null : payeeState(sole));
+  const recorder = $derived(sole === null ? null : recorderState(sole));
 </script>
 
 <DetailsPanel.Root label="Cost details">
@@ -155,6 +162,14 @@
             {statusEntry(costStatusKey(sole.status)).label}
           </Badge>
         </div>
+        <!-- Above the chain, because a returned draft is not a stage of the chain — it is a draft
+             again, with an instruction attached, and the instruction is what the reader needs. -->
+        {#if returnedDraftReason(sole) !== null}
+          <p class="text-sm text-text-default">
+            <span class="text-text-muted">Sent back for changes:</span>
+            {returnedDraftReason(sole)}
+          </p>
+        {/if}
         {#if chainStage !== null}
           <RecordChain current={chainStage} reviewGate={REVIEW_GATE_ENABLED} />
         {:else}
@@ -163,29 +178,46 @@
             a withdrawn cost was never charged.
           </p>
         {/if}
-        <!-- A billed cost is linkable to its bill, and the link is the invoice reference the
-             listing does not yet carry. -->
+        <!-- A billed cost names its bill, and the bill is read on the matter it charges, where the
+             acts against it live. A cost billed before the mirror was written carries no reference,
+             so the way through is stated as missing rather than offered and then failing. -->
         {#if sole.status === "billed"}
-          <SoonAffordance reason={gapReason("invoice")} reasonPlacement="line">
-            {#snippet control(soon)}
-              <Button variant="secondary" size="sm" {...soon}>
-                <Receipt class="size-16" aria-hidden="true" />
-                Open the Invoice
-              </Button>
-            {/snippet}
-          </SoonAffordance>
+          {#if sole.invoiceId == null}
+            <p class="text-xs text-text-muted">
+              Billed. Which bill took it up is not recorded on this cost, so there is nothing to
+              open: the matter's Billing section is where the bill itself is found.
+            </p>
+          {:else}
+            <Button
+              variant="secondary"
+              size="sm"
+              href={billHref(sole.matterId, sole.invoiceId)}
+              title="Open the bill this cost was billed onto, on the matter it charges."
+            >
+              <Receipt class="size-16" aria-hidden="true" />
+              Open the Bill
+            </Button>
+          {/if}
         {/if}
       </DetailsPanel.Section>
 
       <DetailsPanel.Facts ruled>
         <DetailsPanel.Fact label="Date Incurred" value={formatDate(sole.incurredDate)} />
-        <DetailsPanel.Fact label="Date Entered" value="Not served" title={gapCellTitle("dateEntered")} />
+        <DetailsPanel.Fact
+          label="Date Entered"
+          value={formatInstant(sole.createdAt)}
+          title="When this cost was written down, which is not the day the money went out."
+        />
         <DetailsPanel.Fact
           label="Payee"
           value={payeeText(sole)}
           title={payee?.kind === "gone" ? GONE_PAYEE_NOTE : undefined}
         />
-        <DetailsPanel.Fact label="Entered By" value="Not served" title={gapCellTitle("enteredBy")} />
+        <DetailsPanel.Fact
+          label="Entered By"
+          value={recorderText(sole)}
+          title={recorder?.kind === "gone" ? GONE_RECORDER_NOTE : undefined}
+        />
         <DetailsPanel.Fact label="Amount" value={money(sole.amountMinor)} />
         <DetailsPanel.Fact label="Billing" value={billingSentence(sole.billable)} />
         <DetailsPanel.Fact
