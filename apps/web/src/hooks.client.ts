@@ -1,11 +1,12 @@
 /*
  * The client's error boundary, and the breadcrumb trail that gives a report its context.
  *
- * WITHOUT THIS, A CRASH IS ANONYMOUS. SvelteKit's `+error.svelte` catches a failure while loading or
- * rendering a route; nothing caught a throw inside an event handler, an effect, or a promise nobody
- * awaited. Those left a screen that silently stopped working, a console the member will never open,
- * no Error ID, and nothing to report. Every one of them now mints a handle and records a breadcrumb,
- * so even a failure the API never saw is something a person can quote.
+ * WITHOUT THIS, A CRASH IS ANONYMOUS. SvelteKit's `+error.svelte` catches a failure while loading a
+ * route, and the render boundary in the root layout ($lib/diagnostics/render-boundary.svelte) catches
+ * a throw while a component renders; nothing caught a throw inside an event handler or a promise
+ * nobody awaited. Those left a screen that silently stopped working, a console the member will
+ * never open, no Error ID, and nothing to report. Every one of them now mints a handle and records
+ * a breadcrumb, so even a failure the API never saw is something a person can quote.
  *
  * NOTHING IS FILED AUTOMATICALLY. A crash offers "Report a problem"; it does not send one. That
  * holds the strict default the diagnostics setting already defines, and keeps reporting
@@ -13,27 +14,14 @@
  * setting a firm turns on, not a behaviour that arrives with a boundary.
  */
 import type { HandleClientError } from "@sveltejs/kit";
-import { newClientErrorId } from "$lib/diagnostics/client-error-id.ts";
 import { record } from "$lib/diagnostics/breadcrumbs.ts";
-
-/**
- * What a member is told when the app itself broke. Deliberately says nothing about the cause: an
- * exception message is written for whoever wrote the code, and pasting it onto a screen is how a
- * stack trace ends up in a screenshot in a client's inbox. The cause is in the trace block, which is
- * assembled from named fields rather than from whatever the throw happened to carry.
- */
-const CRASH_MESSAGE = "Something went wrong";
+import { CRASH_MESSAGE, noteCrash } from "$lib/diagnostics/crash.ts";
 
 export const handleError: HandleClientError = ({ error, event, status, message }) => {
   // A 404 is routing, not a crash: it has no handle to mint and nothing to report.
   if (status === 404) return { message };
 
-  const errorId = newClientErrorId();
-  record("failure", `crash ${errorId}`, event.url.pathname);
-
-  // The one console line the app writes, and only in development: a developer at a dev server wants
-  // the stack immediately, and a member's browser console is not a place we put anything.
-  if (import.meta.env.DEV) console.error(`[${errorId}]`, error);
+  const errorId = noteCrash(error, event.url.pathname);
 
   return { message: CRASH_MESSAGE, errorId };
 };

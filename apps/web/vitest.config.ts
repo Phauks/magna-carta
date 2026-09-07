@@ -15,13 +15,27 @@ import { defineConfig } from "vitest/config";
 // ERR_UNKNOWN_FILE_EXTENSION.
 export default defineConfig({
   plugins: [svelte()],
+  // The build identity vite.config.ts bakes in. A component test that reaches the failure screen
+  // reaches build-identity.ts through the trace block, and an undefined global there throws before
+  // the first assertion; fixed values keep a trace assertable rather than dependent on the checkout.
+  define: {
+    __MC_BUILD_COMMIT__: JSON.stringify("test"),
+    __MC_BUILD_COMMIT_TIME__: JSON.stringify(null),
+    __MC_BUILD_TIME__: JSON.stringify("2026-01-01T00:00:00.000Z"),
+  },
   // `$lib` is SvelteKit's alias, and SvelteKit's plugin is deliberately absent here (see above), so
   // nothing resolves it: any module under test that imports `$lib/...` fails to load with
   // ERR_MODULE_NOT_FOUND. Thirty-six modules in src/lib use the alias, and the suite only noticed
   // when one test finally reached one of them. Declaring it here keeps this config independent of
   // SvelteKit while matching what `.svelte-kit/tsconfig.json` maps for the type-checker.
   resolve: {
-    alias: { $lib: fileURLToPath(new URL("./src/lib", import.meta.url)) },
+    alias: {
+      $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
+      // A component that reads SvelteKit's page state has nothing to read without the plugin, and a
+      // `.svelte` importer fails at import analysis before a `vi.mock` can answer for it. The stub
+      // is a plain object a test sets the address on (test/stubs/app-state.ts).
+      "$app/state": fileURLToPath(new URL("./test/stubs/app-state.ts", import.meta.url)),
+    },
     // A test that mounts a component (opted into happy-dom per file) needs Svelte's CLIENT build:
     // under the default node conditions `svelte` resolves to its server entry, where `mount` is
     // "not available on the server". The data-module tests are indifferent to the condition — an
@@ -34,7 +48,12 @@ export default defineConfig({
     environment: "node",
     include: ["test/**/*.test.ts"],
     server: {
-      deps: { inline: ["@lucide/svelte"] },
+      // bits-ui for the same reason: a component test that mounts a design-system part reaches its
+      // raw .svelte sources (portal.svelte first), and Node cannot load those unpreprocessed. Its
+      // two Svelte helpers ride along because an externalized helper loads Node's own `svelte`
+      // while the inlined code uses Vite's, and two copies fail as "setContext(...) can only be
+      // used during component initialisation" — a misleading name for a duplicated module.
+      deps: { inline: ["@lucide/svelte", "bits-ui", "runed", "svelte-toolbelt"] },
     },
   },
 });
