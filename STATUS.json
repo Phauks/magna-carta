@@ -2092,7 +2092,8 @@
           "by": "Opus 5"
         },
         "ui": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 5"
         },
         "load-profile": {
           "state": "todo"
@@ -2101,9 +2102,9 @@
           "state": "todo"
         }
       },
-      "branch": "main",
-      "activeWork": null,
-      "next": "Explicit per-conversation context grants (the ratified shape), token streaming, then the chat surface",
+      "branch": "claude/magnus-ui-setup-a5lp1p",
+      "activeWork": "docs/active-work/claude/magnus-ui-setup-a5lp1p.md",
+      "next": "Explicit per-conversation context grants (the ratified shape), then token streaming and the events socket the surface polls in place of today",
       "links": {
         "spec": "docs/specs/2026-08-06-magnus-design.md",
         "plan": "docs/specs/2026-08-06-magnus-implementation-plan.md",

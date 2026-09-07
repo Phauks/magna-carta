@@ -2998,7 +2998,7 @@ export const magnusAvailability = <ThrowOnError extends boolean = false>(options
 export const magnusAcknowledge = <ThrowOnError extends boolean = false>(options: Options<MagnusAcknowledgeData, ThrowOnError>): RequestResult<MagnusAcknowledgeResponses, MagnusAcknowledgeErrors, ThrowOnError> => (options.client ?? client).post<MagnusAcknowledgeResponses, MagnusAcknowledgeErrors, ThrowOnError>({ url: '/api/v1/magnus/acknowledgement', ...options });
 
 /**
- * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited.
+ * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited. The optional matter filter narrows the page to the conversations kept on one matter's file, which is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about what any of those conversations was built from.
  */
 export const magnusListConversations = <ThrowOnError extends boolean = false>(options?: Options<MagnusListConversationsData, ThrowOnError>): RequestResult<MagnusListConversationsResponses, MagnusListConversationsErrors, ThrowOnError> => (options?.client ?? client).get<MagnusListConversationsResponses, MagnusListConversationsErrors, ThrowOnError>({ url: '/api/v1/magnus/conversations', ...options });
 
