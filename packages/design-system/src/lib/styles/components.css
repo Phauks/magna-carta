@@ -50,6 +50,9 @@
 @import "../components/progress/progress.css";
 @import "../components/progress-steps/progress-steps.css";
 @import "../components/event-rail/event-rail.css";
+/* The transcript reads in the same record register the event rail does, and dresses only native
+   elements of its own, so it sits beside it and overrides nothing. */
+@import "../components/conversation/conversation.css";
 @import "../components/accordion/accordion.css";
 @import "../components/tooltip/tooltip.css";
 @import "./recipes/presence.css";

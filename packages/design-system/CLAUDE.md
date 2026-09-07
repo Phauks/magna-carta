@@ -30,6 +30,12 @@ properties; off-token values are machine-rejected.
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
   the timing, the focus rules, and the one-hover-menu-at-a-time arbitration, shared from Root to
   Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only)
+- `src/lib/components/conversation/` — `Conversation`, the transcript surface the assistant is read
+  through. It is a RECORD, not a chat window: no bubbles, no avatars, no coloured alignment, no
+  motion. A turn is a speaker label over a body, hairline-separated, and the two speakers are told
+  apart by label and weight rather than by being pushed to opposite sides. It holds no copy — every
+  word, the speaker labels included, comes from the caller — and a `state="pending"` turn draws no
+  shimmer, spinner or skeleton, because loading here is `LoadingRegion` and nothing else
 - `src/lib/components/loading-region/` — `LoadingRegion`, the ONE loading state: real markup over a
   fixture, greyed by the `mc-loading` recipe (imported last in `components.css`, on purpose)
 - `src/lib/styles/components.css` — the semantic component-class layer (`mc-*` recipes)
