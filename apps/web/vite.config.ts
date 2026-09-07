@@ -27,13 +27,18 @@ export default defineConfig({
   server: { proxy: { "/api": "http://localhost:8787" } },
   build: {
     // Source maps ship with the production bundle, so a stack frame in a member's browser names
-    // the Svelte file and line rather than a hashed chunk and a minified identifier — the sign-in
-    // crash of 2026-09 was diagnosed from `De.get (naXSyiPE.js:5:816)`, which says nothing. The
-    // trade is explicit (owner ruling, 2026-09-07): magna-carta-web is an assets-only Worker, so
-    // the `.map` files are public assets and anyone who fetches one can read this app's source,
-    // comments included. That is disclosure of code, not of credentials — a browser bundle carries
-    // no secret, and everything privileged sits behind the API — and readable production stack
-    // frames were judged worth it.
+    // the Svelte file, line and function rather than a hashed chunk and a minified identifier —
+    // the sign-in crash of 2026-09 was diagnosed from `De.get (naXSyiPE.js:5:816)`, which says
+    // nothing. magna-carta-web is an assets-only Worker, so the `.map` files are public assets;
+    // the maps therefore carry mappings, paths and original names but NOT the source text
+    // (owner ruling, 2026-09-07). A stack trace resolves in full; what a fetched map does not give
+    // away is the code and its comments, which in this repository record design reasoning and
+    // what is not yet built. The DevTools Sources panel on the deployed site shows the minified
+    // chunk, not the original file — the price of keeping the text off the public internet.
     sourcemap: true,
+    rollupOptions: { output: { sourcemapExcludeSources: true } },
   },
+  // Web Workers (the upload hasher) bundle through their own Rollup pass, which does not inherit
+  // the output options above; without this line their maps ship the source text.
+  worker: { rollupOptions: { output: { sourcemapExcludeSources: true } } },
 });
