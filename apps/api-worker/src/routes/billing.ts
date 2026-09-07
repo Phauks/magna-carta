@@ -395,6 +395,13 @@ const InvoiceDetailResponse = InvoiceListItem.extend({
       id: z.string(),
       lineIndex: z.number().int(),
       matterId: z.string(),
+      // The line's matter, named. A bill belongs to a client and may charge several of that
+      // client's matters, so a surface showing what it charges has to name them — a list of
+      // identifiers asks a reader to choose between strings they cannot read. Null where no matter
+      // answers to the identifier: an honest gap, never the handle standing in for a name. Carried
+      // on the LINES as well as the balances because a draft has lines and no balance rows.
+      matterNumber: z.string().nullable(),
+      matterTitle: z.string().nullable(),
       kind: z.string(),
       description: z.string(),
       amountMinor: z.number().int(),
@@ -403,6 +410,8 @@ const InvoiceDetailResponse = InvoiceListItem.extend({
   matterBalances: z.array(
     z.object({
       matterId: z.string(),
+      matterNumber: z.string().nullable(),
+      matterTitle: z.string().nullable(),
       totalMinor: z.number().int(),
       appliedMinor: z.number().int(),
       unpaidMinor: z.number().int(),

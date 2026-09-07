@@ -72,8 +72,10 @@ Applying a client's trust funds, writing off a balance and recording a credit no
 acts: they move one matter's money, against one matter's account. On this screen they are shown and
 refused, and the refusal says where they live — open the bill from the matter it charges.
 
-Where a bill charges exactly one matter, the bill itself offers the way in: **Open In Its Matter**
-takes you to that matter's Billing section with the same bill open.
+The bill itself offers the way in. Open it and it lists the matters it charges, each by name, and
+each one takes you to that matter's Billing section with the same bill open. A bill that charges
+three of a client's matters offers all three, because which one you want is a choice only you can
+make.
 
 ## What Is Not Here Yet
 

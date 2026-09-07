@@ -6196,12 +6196,16 @@ export type BillingInvoiceDetailResponse = BillingInvoiceListItem & {
         id: string;
         lineIndex: number;
         matterId: string;
+        matterNumber: string | null;
+        matterTitle: string | null;
         kind: string;
         description: string;
         amountMinor: number;
     }>;
     matterBalances: Array<{
         matterId: string;
+        matterNumber: string | null;
+        matterTitle: string | null;
         totalMinor: number;
         appliedMinor: number;
         unpaidMinor: number;

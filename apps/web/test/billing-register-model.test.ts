@@ -71,6 +71,8 @@ function makeRow(summary: Partial<InvoiceListItem>, detail?: Partial<InvoiceDeta
           id: "invoiceLine_one",
           lineIndex: 0,
           matterId: THIS_MATTER,
+          matterNumber: null,
+          matterTitle: null,
           kind: "fee",
           description: "Professional services",
           amountMinor: base.totalMinor,
@@ -79,6 +81,8 @@ function makeRow(summary: Partial<InvoiceListItem>, detail?: Partial<InvoiceDeta
       matterBalances: [
         {
           matterId: THIS_MATTER,
+          matterNumber: null,
+          matterTitle: null,
           totalMinor: base.totalMinor,
           appliedMinor: base.appliedMinor,
           unpaidMinor: base.totalMinor - base.appliedMinor,
@@ -128,11 +132,20 @@ describe("the register's columns", () => {
         matterBalances: [
           {
             matterId: THIS_MATTER,
+            matterNumber: null,
+            matterTitle: null,
             totalMinor: 200_000,
             appliedMinor: 0,
             unpaidMinor: 200_000,
           },
-          { matterId: OTHER_MATTER, totalMinor: 100_000, appliedMinor: 0, unpaidMinor: 100_000 },
+          {
+            matterId: OTHER_MATTER,
+            matterNumber: null,
+            matterTitle: null,
+            totalMinor: 100_000,
+            appliedMinor: 0,
+            unpaidMinor: 100_000,
+          },
         ],
       },
     );
@@ -246,6 +259,8 @@ describe("the register's footer figures", () => {
             id: "dl1",
             lineIndex: 0,
             matterId: THIS_MATTER,
+            matterNumber: null,
+            matterTitle: null,
             kind: "fee",
             description: "Deposition preparation",
             amountMinor: 85_000,

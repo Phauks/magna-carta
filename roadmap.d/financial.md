@@ -442,7 +442,7 @@
   audience: public
   public-name: All your bills in one place
   public-summary: See every bill the firm has raised, what is still owed, and how far past due it is.
-  notes: Partial because it reads and does not act — the verbs that move one matter's money are refused here by name and say where they live, and batch and recurring runs belong to the billing-automations slice. The aging is read from the server over every finalized bill rather than summed from the page on screen, so the figure never grows as a reader scrolls.
+  notes: Partial because it reads and does not act — every verb that writes is refused here by name and says where it lives, and batch and recurring runs belong to the billing-automations slice. The aging is read from the server over every finalized bill rather than summed from the page on screen, so the figure never grows as a reader scrolls. A bill met here finds its matters: the detail names them beside every line and every balance, so the window offers one link per matter rather than a list of handles.
 
 - id: financial.billing.matter-register
   name: A matter's bill register

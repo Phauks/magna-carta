@@ -247,12 +247,29 @@ export interface InvoiceDetail extends InvoiceListItem {
     readonly id: string;
     readonly lineIndex: number;
     readonly matterId: string;
+    /**
+     * The line's matter, named. Resolved here for the same reason the balances are, and needed on
+     * the lines SEPARATELY because a DRAFT has lines and no balance rows at all — finalization
+     * creates those — so the lines are the only place a draft says which matters it charges.
+     */
+    readonly matterNumber: string | null;
+    readonly matterTitle: string | null;
     readonly kind: string;
     readonly description: string;
     readonly amountMinor: number;
   }[];
   readonly matterBalances: readonly {
     readonly matterId: string;
+    /**
+     * The matter's own name and number, resolved by this read.
+     *
+     * A bill belongs to a client and may charge several of that client's matters, so a surface
+     * showing what it charges has to NAME them: a list of identifiers asks a reader to choose
+     * between strings they cannot read, which is not a choice. Null where no matter row answers to
+     * the identifier — an honest gap, never the handle standing in for a name.
+     */
+    readonly matterNumber: string | null;
+    readonly matterTitle: string | null;
     readonly totalMinor: number;
     readonly appliedMinor: number;
     readonly unpaidMinor: number;
@@ -296,7 +313,13 @@ export async function readInvoiceDetail(
 
   const lines = await database
     .prepare(
-      `SELECT id, line_index, matter_id, kind, description, amount_minor FROM invoice_line WHERE invoice_id = ?1 ORDER BY line_index`,
+      `SELECT invoice_line.id, invoice_line.line_index, invoice_line.matter_id, invoice_line.kind,
+              invoice_line.description, invoice_line.amount_minor,
+              matter.matter_number AS matter_number, matter.title AS matter_title
+         FROM invoice_line
+         LEFT JOIN matter ON matter.id = invoice_line.matter_id
+        WHERE invoice_line.invoice_id = ?1
+        ORDER BY invoice_line.line_index`,
     )
     .bind(invoiceId)
     .all<{
@@ -306,13 +329,31 @@ export async function readInvoiceDetail(
       kind: string;
       description: string;
       amount_minor: number;
+      matter_number: string | null;
+      matter_title: string | null;
     }>();
   const balances = await database
     .prepare(
-      `SELECT matter_id, total_minor, applied_minor FROM invoice_matter_balance WHERE invoice_id = ?1 ORDER BY matter_id`,
+      // The matter's name comes back with its balance rather than a lookup per matter: a bill that
+      // charges several of a client's matters would otherwise be one read per row to print a list
+      // somebody has to be able to read. An outer join, so a balance whose matter went missing
+      // reads back as itself with an unnamed matter rather than vanishing from the bill.
+      `SELECT invoice_matter_balance.matter_id, invoice_matter_balance.total_minor,
+              invoice_matter_balance.applied_minor,
+              matter.matter_number AS matter_number, matter.title AS matter_title
+         FROM invoice_matter_balance
+         LEFT JOIN matter ON matter.id = invoice_matter_balance.matter_id
+        WHERE invoice_matter_balance.invoice_id = ?1
+        ORDER BY invoice_matter_balance.matter_id`,
     )
     .bind(invoiceId)
-    .all<{ matter_id: string; total_minor: number; applied_minor: number }>();
+    .all<{
+      matter_id: string;
+      total_minor: number;
+      applied_minor: number;
+      matter_number: string | null;
+      matter_title: string | null;
+    }>();
 
   const delivery = await readInvoiceDeliveryState(database, invoiceId);
 
@@ -323,12 +364,16 @@ export async function readInvoiceDetail(
       id: line.id,
       lineIndex: line.line_index,
       matterId: line.matter_id,
+      matterNumber: line.matter_number,
+      matterTitle: line.matter_title,
       kind: line.kind,
       description: line.description,
       amountMinor: line.amount_minor,
     })),
     matterBalances: balances.results.map((balance) => ({
       matterId: balance.matter_id,
+      matterNumber: balance.matter_number,
+      matterTitle: balance.matter_title,
       totalMinor: balance.total_minor,
       appliedMinor: balance.applied_minor,
       unpaidMinor: balance.total_minor - balance.applied_minor,

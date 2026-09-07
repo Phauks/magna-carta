@@ -275,6 +275,47 @@ describe("the firm's whole register", () => {
   });
 });
 
+describe("the matters a bill charges", () => {
+  it("names them on the detail, so a surface can offer the way into each", () => {
+    // A list of identifiers asks a reader to choose between strings they cannot read, which is not
+    // a choice — so the read names them rather than leaving a surface to resolve one per matter.
+    const detail = async (invoiceId: string) => {
+      const response = await get(`/api/v1/billing/invoices/${invoiceId}`);
+      expect(response.status).toBe(200);
+      return (await response.json()) as {
+        lines: { matterId: string; matterNumber: string | null; matterTitle: string | null }[];
+        matterBalances: {
+          matterId: string;
+          matterNumber: string | null;
+          matterTitle: string | null;
+        }[];
+      };
+    };
+
+    return detail(acmeSplitBillId).then((body) => {
+      const balance = body.matterBalances.find((row) => row.matterId === harlowMatterId);
+      expect(balance?.matterTitle).toBe("Harlow Acquisition");
+      expect(balance?.matterNumber).toMatch(/^IL-/);
+      // The lines carry it too, which is the half that matters on a draft.
+      const line = body.lines.find((row) => row.matterId === pembertonMatterId);
+      expect(line?.matterTitle).toBe("Pemberton Estate");
+    });
+  });
+
+  it("names them on a draft, which has lines and no balance rows at all", () => {
+    // Balances are created at finalization, so on a draft the lines are the only place the bill
+    // says which matters it charges. A surface reading the balances would say it charges nobody.
+    return get(`/api/v1/billing/invoices/${acmeDraftId}`).then(async (response) => {
+      const body = (await response.json()) as {
+        lines: { matterTitle: string | null }[];
+        matterBalances: unknown[];
+      };
+      expect(body.matterBalances).toEqual([]);
+      expect(body.lines[0]?.matterTitle).toBe("Pemberton Estate");
+    });
+  });
+});
+
 describe("one matter's share", () => {
   it("answers only the bills that charge the matter, drafts included", async () => {
     const rows = await listed(await get(`/api/v1/billing/invoices?matterId=${pembertonMatterId}`));

@@ -85,6 +85,16 @@ export interface InvoiceLine {
   id: string;
   lineIndex: number;
   matterId: string;
+  /**
+   * The line's matter, named by the read.
+   *
+   * A bill belongs to a client and may charge several of that client's matters, so a surface
+   * showing what it charges has to name them — a list of identifiers asks a reader to choose
+   * between strings they cannot read. Null where no matter answers to the identifier: an honest
+   * gap, never the handle standing in for a name.
+   */
+  matterNumber: string | null;
+  matterTitle: string | null;
   kind: string;
   description: string;
   amountMinor: number;
@@ -92,6 +102,9 @@ export interface InvoiceLine {
 
 export interface InvoiceMatterBalance {
   matterId: string;
+  /** The matter, named — on the terms the lines carry it. Null where none answers to the handle. */
+  matterNumber: string | null;
+  matterTitle: string | null;
   totalMinor: number;
   appliedMinor: number;
   unpaidMinor: number;

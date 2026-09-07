@@ -36,6 +36,8 @@ function line(overrides: Partial<InvoiceLine> = {}): InvoiceLine {
     id: "invoiceLine_one",
     lineIndex: 0,
     matterId: THIS_MATTER,
+    matterNumber: null,
+    matterTitle: null,
     kind: "fee",
     description: "Professional services",
     amountMinor: 100_000,
@@ -73,7 +75,14 @@ function detail(base: InvoiceListItem, overrides: Partial<InvoiceDetail> = {}): 
     },
     lines: [line()],
     matterBalances: [
-      { matterId: THIS_MATTER, totalMinor: 100_000, appliedMinor: 0, unpaidMinor: 100_000 },
+      {
+        matterId: THIS_MATTER,
+        matterNumber: null,
+        matterTitle: null,
+        totalMinor: 100_000,
+        appliedMinor: 0,
+        unpaidMinor: 100_000,
+      },
     ],
     ...overrides,
   };
@@ -130,11 +139,20 @@ describe("this matter's share of a bill", () => {
         matterBalances: [
           {
             matterId: THIS_MATTER,
+            matterNumber: null,
+            matterTitle: null,
             totalMinor: 200_000,
             appliedMinor: 50_000,
             unpaidMinor: 150_000,
           },
-          { matterId: OTHER_MATTER, totalMinor: 100_000, appliedMinor: 0, unpaidMinor: 100_000 },
+          {
+            matterId: OTHER_MATTER,
+            matterNumber: null,
+            matterTitle: null,
+            totalMinor: 100_000,
+            appliedMinor: 0,
+            unpaidMinor: 100_000,
+          },
         ],
       },
     );

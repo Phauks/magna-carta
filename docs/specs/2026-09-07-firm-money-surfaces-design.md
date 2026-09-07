@@ -187,10 +187,13 @@ Four surfaces held the same money and nothing connected them.
 2. **A bill is addressable.** `?invoice=` opens the named bill on the matter's register and on the
    firm's. This is what makes a bill linkable rather than describable, and what gives the cost's seam
    somewhere to land.
-3. **A bill met across the firm finds its matter.** Where it charges one, the window offers the way
-   in. Where it charges several it **says so and says what that waits on**: the invoice read carries
-   matter identifiers and no names, and a list of links labelled by handle asks a reader to choose
-   between strings they cannot read.
+3. **A bill met across the firm finds its matters.** The invoice detail NAMES them — the matter's
+   number and title resolved beside every line and every balance — so the window offers one link per
+   matter, each labelled the way a reader knows it. It is resolved on the lines as well as the
+   balances because a DRAFT has lines and no balance rows: reading the balances alone would say a
+   draft charges nobody. A matter the read could not name still gets its row, under a phrase saying
+   so, because dropping it would make a bill look like it charges fewer matters than it does — and
+   the link still works, since the identifier is what the address needs.
 4. **Each matter money section knows its firm-wide sibling.** The money toolbar's row of siblings
    ends with the way out, past a rule so it never reads as a sixth section. The destination and its
    words come from the sidebar's own registry, so the rail and the toolbar cannot call one place two
@@ -222,13 +225,11 @@ choosing one changes what is read rather than what is shown.
 
 ## 8. Gaps this design leaves open
 
-1. **The invoice read carries matter identifiers and no names.** It is what stops a bill that charges
-   several matters offering the way into each of them (section 6.3).
-2. **Application history, attribution and events** remain unserved — gaps 2 and 3 of the matter
+1. **Application history, attribution and events** remain unserved — gaps 2 and 3 of the matter
    Billing tab design — so the window's Payments & Credits and History rails still say what they wait
    on.
-3. **Approving a submitted cost across matters** is not offered on the firm's period; approval stays
+2. **Approving a submitted cost across matters** is not offered on the firm's period; approval stays
    on the matter's own section.
-4. **The recorder of a cost** is not on the record, so Entered By states its gap on both screens.
-5. **Trust and Fees have no firm-wide surface.** Trust's row stays announced; a fee is not its own
+3. **The recorder of a cost** is not on the record, so Entered By states its gap on both screens.
+4. **Trust and Fees have no firm-wide surface.** Trust's row stays announced; a fee is not its own
    record yet. The money toolbar's way out is absent on both rather than pointing at a Soon page.

@@ -26975,6 +26975,18 @@
                     "matterId": {
                       "type": "string"
                     },
+                    "matterNumber": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "matterTitle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "kind": {
                       "type": "string"
                     },
@@ -26989,6 +27001,8 @@
                     "id",
                     "lineIndex",
                     "matterId",
+                    "matterNumber",
+                    "matterTitle",
                     "kind",
                     "description",
                     "amountMinor"
@@ -27003,6 +27017,18 @@
                     "matterId": {
                       "type": "string"
                     },
+                    "matterNumber": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "matterTitle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "totalMinor": {
                       "type": "integer"
                     },
@@ -27015,6 +27041,8 @@
                   },
                   "required": [
                     "matterId",
+                    "matterNumber",
+                    "matterTitle",
                     "totalMinor",
                     "appliedMinor",
                     "unpaidMinor"
