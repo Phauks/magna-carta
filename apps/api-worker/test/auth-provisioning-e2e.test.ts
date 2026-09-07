@@ -626,6 +626,10 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "metadata.scrub",
       // Pure computation over the streamed request body — computes five digests; nothing is stored.
       "fileIntegrity.hash",
+      // Read-shaped POST: asks whether the firm already holds a file's bytes, by SHA-256 and size,
+      // before they are sent; nothing is written and nothing is uploaded. The duplicating route that
+      // acts on the answer is separately audited.
+      "uploads.matches",
       // Streams the bytes to the scan Container for identification; nothing is stored.
       "fileType.verify",
       // Diagnose/repair/carve operate over the request body only, returning results in-process;

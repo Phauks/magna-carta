@@ -102,6 +102,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure computation over the uploaded bytes — returns a cleaned copy in-process; nothing is stored, no firm data is written.",
   "fileIntegrity.hash":
     "Pure computation over the streamed request body — computes five digests in one pass; nothing is stored, no firm data is written.",
+  "uploads.matches":
+    "Read-shaped POST: asks whether the firm already holds a file's bytes, by SHA-256 and size, before they are sent (the hash and size ride the body) — no write, nothing uploaded. The duplicating route that acts on the answer is separately audited.",
   "fileType.verify":
     "Pure classification over the uploaded bytes — identifies the true content type (raw facts from the container, verdict app-side); nothing is stored, no firm data is written.",
   "fileRepair.diagnose":

@@ -153,9 +153,15 @@ describe("collectDatabaseHealth", () => {
     });
   });
 
-  it("reports an unreachable firm database without a made-up round trip", async () => {
+  it("reports an unreachable firm database with the fault and no made-up round trip", async () => {
     const health = await collect({ firm: { ...HEALTHY_FIRM, roundTrip: "throw" } });
-    expect(health.firmDatabase).toEqual({ state: "unreachable", roundTripMilliseconds: null });
+    // The fault is the whole point of the row: "not answering" names the symptom the reader already
+    // has, so the thrown error's scrubbed head is carried through rather than discarded.
+    expect(health.firmDatabase).toEqual({
+      state: "unreachable",
+      roundTripMilliseconds: null,
+      fault: "read failed: SELECT 1 AS ok",
+    });
   });
 
   it("keeps one failing check from failing or contaminating the others", async () => {
