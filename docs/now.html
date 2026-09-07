@@ -1904,9 +1904,9 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <p>An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
-<span class="nm">Browse inside a zip</span>
+<span class="nm">Browse inside an archive</span>
 <code>documents.file-manager.archive-browse</code>
-<p>Read an archive's entry listing from its central directory over ranged reads, without inflating a byte, for a live or a soft-deleted archive alike.</p>
+<p>Read an archive's entry listing over ranged reads of its headers, without unpacking a byte, for a live or a soft-deleted archive alike. Four formats, each decided from the object's own signature rather than its name - zip, tar, 7z and rar.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Extract an archive's members</span>

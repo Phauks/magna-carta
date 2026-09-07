@@ -156,13 +156,28 @@ committed, and the start of its **content hash**. The hash is a fingerprint of t
 versions with the same hash are byte-for-byte the same file, and a version's hash never changes once
 it is recorded.
 
-## Zip files
+## Archives
 
-Open a zip and it shows what is inside it, folder by folder, without extracting anything or
-downloading it. The bar above the list names the archive you are in; use the crumbs to move through
-its folders, and close it to return to the matter's own files.
+Open a zip, a tar, a 7z or a rar and it shows what is inside it, folder by folder, without
+unpacking anything or downloading it. The bar above the list names the archive you are in; use the
+crumbs to move through its folders, and close it to return to the matter's own files.
+
+What the archive is called does not decide this — its actual contents do. An archive somebody sent
+you under the wrong name still opens, and a file named `.zip` that is not one is told to you as
+what it is.
+
+A very large archive lists as quickly as a small one. Only the part of the file that records what is
+inside it is ever read.
+
+Two archives will not open their lists. One whose list of files is itself password-protected —
+possible with 7z, which can lock the names as well as the contents — cannot be shown without that
+password. One packed in a way the application does not read is named as that rather than reported as
+broken. Both can still be downloaded.
 
 ### Taking files out
+
+Files can be taken out of a **zip**. The other three formats can be looked inside but not unpacked
+here yet; download one to open it.
 
 Select what you want and choose **Extract**, or choose **Extract Into This Matter** with nothing
 selected to take out everything in the archive. Files land in the folder the zip itself sits in.

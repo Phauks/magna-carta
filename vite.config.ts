@@ -221,9 +221,9 @@ export default defineConfig({
       // bare runner has (it clones the repo + runs pnpm install). Harmless locally.
       "rust-wasm-build": {
         command:
-          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/decryption/src/pkg -f crates/decryption-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
+          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/decryption/src/pkg -f crates/decryption-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/seven-zip-listing/src/pkg -f crates/seven-zip-listing-core/wasm.Dockerfile crates",
       },
-      // DEV-ONLY, Docker-free fallback for the same three wasm artefacts, built with the host Rust
+      // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that
       // cannot pull the base image (e.g. a cloud session whose egress policy blocks Docker Hub /
       // ghcr blob pulls). It is NOT authoritative — the host rustc may emit different wasm bytes

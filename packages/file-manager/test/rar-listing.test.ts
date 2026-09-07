@@ -609,6 +609,16 @@ describe("readRarListing, whatever it is handed", () => {
     expect(listing?.truncated).toBe(true);
   });
 
+  it("does not present a signature with nothing behind it as an empty archive", async () => {
+    // A real rar ends with its own end block. Bytes that carry the signature and then run out were
+    // never read to the end of anything, and reporting them as a complete listing of zero members
+    // would be a claim about an archive rather than about how far the reading got.
+    const { bucket } = bucketOf(concat(RAR5_SIGNATURE, new Uint8Array(4)));
+    const listing = await readRarListing(bucket, "k", LIMITS);
+    expect(listing?.entries).toHaveLength(0);
+    expect(listing?.truncated).toBe(true);
+  });
+
   it("gives an empty short listing for an object too small to hold a signature", async () => {
     const { bucket } = bucketOf(Uint8Array.from([0x52, 0x61, 0x72]));
     const listing = await readRarListing(bucket, "k", LIMITS);

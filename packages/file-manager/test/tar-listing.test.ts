@@ -15,7 +15,9 @@ import type { ArchiveSourceBucket } from "../src/zip-central-directory.ts";
  */
 
 function fixture(name: string): Uint8Array {
-  return new Uint8Array(readFileSync(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))));
+  return new Uint8Array(
+    readFileSync(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))),
+  );
 }
 
 function bucketOf(bytes: Uint8Array | null): {

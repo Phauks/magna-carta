@@ -477,6 +477,10 @@ async function walkRarBlocks(
   const entries: RarEntry[] = [];
   let position = startPosition;
   let truncated = false;
+  // Both generations write an end-of-archive block last, so meeting it is the ONE way this walk
+  // finishes having read the whole archive. Every other exit — a block that would not parse, a step
+  // that leaves the object, an object that simply runs out — read part of something and must say so.
+  let sawEndBlock = false;
 
   while (position + MINIMUM_BLOCK_BYTES <= objectSizeBytes) {
     const windowLength = Math.min(MAX_HEADER_READ_BYTES, objectSizeBytes - position);
@@ -495,7 +499,10 @@ async function walkRarBlocks(
       truncated = true;
       break;
     }
-    if (block.endsArchive) break;
+    if (block.endsArchive) {
+      sawEndBlock = true;
+      break;
+    }
 
     const nextPosition = position + block.blockLength;
     // Any step that does not advance, or that leaves the object, ends the walk rather than looping.
@@ -513,7 +520,7 @@ async function walkRarBlocks(
     position = nextPosition;
   }
 
-  return { entries, truncated };
+  return { entries, truncated: truncated || !sawEndBlock };
 }
 
 /**
