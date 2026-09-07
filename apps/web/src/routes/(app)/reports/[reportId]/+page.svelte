@@ -81,9 +81,17 @@
 
   // ---- who is asking -----------------------------------------------------------------------------
 
-  let permissions = $state<readonly string[]>([]);
+  /*
+   * Null until the session read lands; then what it said. A session that could NOT be read is a
+   * different fact from a session that lacks the key: the first is a transport failure and the
+   * server still decides (a refusal comes back as a 403 and is shown as one), the second is known
+   * up front and the doomed request is not sent.
+   */
+  let permissions = $state<readonly string[] | null>(null);
   let sessionRead = $state(false);
-  const mayRun = $derived(permissions.includes(report.permission));
+  const refusedUpFront = $derived(
+    permissions !== null && !permissions.includes(report.permission),
+  );
 
   // The captions: the firm's matters and members, read for their names. The report is READ without
   // them — an identifier stands where a name has not arrived, which is the pack's own posture.
@@ -206,7 +214,7 @@
   let reloadToken = $state(0);
 
   const readKey = $derived(
-    !scopeComplete || !sessionRead || !mayRun
+    !scopeComplete || !sessionRead || refusedUpFront
       ? null
       : [
           report.id,
@@ -291,7 +299,7 @@
 <div class="flex flex-col gap-24">
   <!-- The report's own controls, at the reading edge. Which of them appear is the declaration's
        decision; the row draws what it is told. -->
-  <div class="flex flex-wrap items-end gap-16">
+  <div class="flex flex-wrap items-start gap-16">
     {#if built !== null && built.scope.trustAccount}
       <LabelledField label="Trust Account" hint={scopeGap ?? undefined}>
         {#snippet children({ props })}
@@ -386,14 +394,18 @@
         {/snippet}
       </LabelledField>
       {#if scope.knownAsOf !== null}
-        <DatePicker
-          label="End of day, UTC"
-          value={parseDate(knowledgeDateOf(scope.knownAsOf))}
-          maxValue={parseDate(today)}
-          onValueChange={(next) => {
-            if (next !== undefined) chooseKnowledgeDay(next.toString());
-          }}
-        />
+        <!-- The date field's label is the picker's own; the wrapper stacks it over the field so the
+             row reads label-over-control like its neighbours. -->
+        <div class="flex flex-col">
+          <DatePicker
+            label="End of Day, UTC"
+            value={parseDate(knowledgeDateOf(scope.knownAsOf))}
+            maxValue={parseDate(today)}
+            onValueChange={(next) => {
+              if (next !== undefined) chooseKnowledgeDay(next.toString());
+            }}
+          />
+        </div>
       {/if}
     {/if}
 
@@ -427,7 +439,7 @@
     <!-- A report the design named and nobody has built: the anatomy stands, disabled, with the one
          honest line about what it waits on. -->
     <p class="text-xs text-text-muted">{soonDependencySentence(report.waitsOn)}</p>
-  {:else if sessionRead && !mayRun}
+  {:else if refusedUpFront}
     <Alert.Root variant="danger">
       <Alert.Title>This Report Is Not Yours To Run</Alert.Title>
       <Alert.Description>{permissionRefusal("Running this report", report.permission)}</Alert.Description>
