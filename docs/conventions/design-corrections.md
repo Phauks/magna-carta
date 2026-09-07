@@ -822,6 +822,17 @@ name, which is every screen outside a matter.
 
 ### Spacing and rhythm
 
+- **The App Shell draws the page inset, once, for everybody.** A screen rendered into the shell's
+  `<main>` never insets itself: `<main>` already sets the distance between the chrome and the
+  content, and a screen that pads itself as well sits at twice every other screen's distance from
+  it. The difference is invisible on the screen itself and obvious the moment somebody navigates,
+  which is how Tasks, Time and Magnus each came to carry a second `p-24` — each written from a copy
+  of the last. Spacing BETWEEN the things on a screen is still the screen's own: the `gap-*` on its
+  column, the padding inside a card, a one-sided padding off a border. Enforced by
+  `pnpm run lint:page-inset`, which reads the inset off the shell rather than assuming it. The same
+  scan refuses `flex-1` on a screen's top-level element, because `<main>` is a block container and
+  a screen that says `flex-1` there is silently taking no height at all — `h-full` is what it means.
+  _(tasks and time, 2026-09-07)_
 - **Meta text sits at a fixed offset under the element it annotates**, expressed as one rule, not
   re-chosen per screen. Any explanatory line under a field, a button, or a heading uses it.
   _(auth flow, 2026-08-07)_
