@@ -65,11 +65,15 @@ export interface BillActionContext {
   /**
    * The matter the register is standing in, or null on the firm's own register.
    *
-   * The trust ceiling and the write-off are a MATTER'S acts — a firm applies a client's trust funds
-   * to what one matter was charged, and writes off what one matter still owes — so on the firm's
-   * register they are refused rather than absent, and the refusal names the way through: open the
-   * bill from the matter it charges. Absent, a reader would learn the verb had disappeared; refused,
-   * they learn where it lives.
+   * NULL MEANS THIS SURFACE READS AND DOES NOT ACT, and every verb that writes says so rather than
+   * disappearing. Two reasons converge on the same answer. Some of these acts are a MATTER'S by
+   * nature — a firm applies a client's trust funds to what one matter was charged, writes off what
+   * one matter still owes, and credits one matter's lines — and none of them has a meaning without
+   * one. The rest simply live where the work does: a bill is finalized, voided or recorded as
+   * delivered from the matter whose work it claims, which is also where the reader who does it is
+   * standing. Refused, a verb tells somebody where the act lives; absent, it teaches them the menu
+   * has a mind of its own, and an enabled control on a screen with no dialog behind it is worse
+   * than either.
    */
   readonly matterId: string | null;
   /**
@@ -150,10 +154,10 @@ export function billActions(
   const unpaid = isFinal ? billUnpaidMinor(row) : 0;
   const matterId = context.matterId;
   const matterUnpaid = matterId === null ? 0 : (matterUnpaidMinor(row, matterId) ?? 0);
-  /** The one refusal every matter-anchored act shares on the firm's register. */
+  /** The one refusal every act that WRITES shares on the firm's register. */
   const noMatterHere =
     matterId === null
-      ? "This act belongs to one matter's account. Open the bill from the matter it charges."
+      ? "The firm's register reads bills; the acts against one live on the matter it charges. Open the bill there."
       : null;
   const detailUnread = row.detail === null;
   const standingWord = isDraft ? "a draft" : invoice.status === "void" ? "a voided draft" : "final";
@@ -185,13 +189,15 @@ export function billActions(
     identifier: "finalize",
     label: "Finalize…",
     icon: Stamp,
-    ...(!isDraft
-      ? { disabledReason: `Only a draft finalizes. This invoice is ${standingWord}.` }
-      : lacks(context, BILLING_PERMISSIONS.finalize)
-        ? { disabledReason: permissionRefusal("Finalizing a bill", BILLING_PERMISSIONS.finalize) }
-        : detailUnread
-          ? { disabledReason: "This draft's lines have not been read yet." }
-          : {}),
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : !isDraft
+        ? { disabledReason: `Only a draft finalizes. This invoice is ${standingWord}.` }
+        : lacks(context, BILLING_PERMISSIONS.finalize)
+          ? { disabledReason: permissionRefusal("Finalizing a bill", BILLING_PERMISSIONS.finalize) }
+          : detailUnread
+            ? { disabledReason: "This draft's lines have not been read yet." }
+            : {}),
   });
 
   actions.push({
@@ -199,14 +205,16 @@ export function billActions(
     identifier: "voidDraft",
     label: "Void Draft…",
     icon: Ban,
-    ...(!isDraft
-      ? {
-          disabledReason:
-            "Only a draft can be voided — a finalized bill is corrected by a credit note beside it.",
-        }
-      : lacks(context, BILLING_PERMISSIONS.draft)
-        ? { disabledReason: permissionRefusal("Voiding a draft bill", BILLING_PERMISSIONS.draft) }
-        : {}),
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : !isDraft
+        ? {
+            disabledReason:
+              "Only a draft can be voided — a finalized bill is corrected by a credit note beside it.",
+          }
+        : lacks(context, BILLING_PERMISSIONS.draft)
+          ? { disabledReason: permissionRefusal("Voiding a draft bill", BILLING_PERMISSIONS.draft) }
+          : {}),
   });
 
   /*
@@ -229,11 +237,13 @@ export function billActions(
     identifier: "recordDelivery",
     label: "Record Delivery…",
     icon: Send,
-    ...(!isFinal
-      ? { disabledReason: "Only a finalized bill can be delivered." }
-      : lacks(context, BILLING_PERMISSIONS.draft)
-        ? { disabledReason: permissionRefusal("Recording delivery", BILLING_PERMISSIONS.draft) }
-        : {}),
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : !isFinal
+        ? { disabledReason: "Only a finalized bill can be delivered." }
+        : lacks(context, BILLING_PERMISSIONS.draft)
+          ? { disabledReason: permissionRefusal("Recording delivery", BILLING_PERMISSIONS.draft) }
+          : {}),
   });
 
   actions.push({
@@ -274,13 +284,19 @@ export function billActions(
         ? "Apply Client Credit"
         : `Apply Client Credit (${context.money(openCredit)})`,
     icon: HandCoins,
-    ...(openCredit === null || openCredit <= 0
-      ? { disabledReason: "The client holds no open credit." }
-      : !isFinal || unpaid <= 0
-        ? { disabledReason: "Nothing is owed on this bill." }
-        : lacks(context, BILLING_PERMISSIONS.apply)
-          ? { disabledReason: permissionRefusal("Recording a payment", BILLING_PERMISSIONS.apply) }
-          : {}),
+    // The scope refusal leads, because outside a matter the credits were never read: saying the
+    // client holds none would be a claim this surface cannot make.
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : openCredit === null || openCredit <= 0
+        ? { disabledReason: "The client holds no open credit." }
+        : !isFinal || unpaid <= 0
+          ? { disabledReason: "Nothing is owed on this bill." }
+          : lacks(context, BILLING_PERMISSIONS.apply)
+            ? {
+                disabledReason: permissionRefusal("Recording a payment", BILLING_PERMISSIONS.apply),
+              }
+            : {}),
   });
 
   actions.push({

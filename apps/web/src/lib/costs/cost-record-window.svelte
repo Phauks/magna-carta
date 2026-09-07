@@ -39,6 +39,11 @@
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
+  // The picker and the matter shape it takes are the Time Sheet's: pure narrowing over a list of
+  // matters, with no knowledge of time entries in it. A second combobox over the same list would be
+  // two chances to disagree about which half of a matter finds it.
+  import MatterPicker from "$lib/time/matter-picker.svelte";
+  import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
   import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
   import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
@@ -63,6 +68,8 @@
     matterId,
     matterTitle,
     matterNumber = null,
+    matters = [],
+    mattersCapped = false,
     currency,
     expenseCodes,
     canWorkDraft,
@@ -80,6 +87,18 @@
     matterId: string;
     matterTitle: string;
     matterNumber?: string | null;
+    /**
+     * The firm's matters, for a NEW cost written from a surface that stands on none.
+     *
+     * Empty is the matter ledger's case and the default: the matter is already decided, the field
+     * is absent, and `matterId` above is what a new cost is written against. Non-empty is the
+     * firm's own period screen, where the reader picks the matter per cost — the same arrangement
+     * the Time Sheet has, for the same reason: a cost captured with no matter has nowhere to be
+     * recovered from, so the choice is made at capture rather than left for somebody to file later.
+     */
+    matters?: readonly SheetMatter[];
+    /** Whether the list above is a page of the record rather than all of it. */
+    mattersCapped?: boolean;
     currency: string;
     expenseCodes: ExpenseCodeCatalogue;
     /** Whether this account may work this draft, and why not when it may not. */
@@ -89,6 +108,21 @@
 
   const creating = $derived(entry === null);
   const fieldPrefix = $props.id();
+
+  /**
+   * Which matter a NEW cost is written against.
+   *
+   * On a surface standing in a matter it is that matter and the picker is absent. On one standing
+   * in none it starts unchosen: a cost pre-filled with whichever matter happened to be first would
+   * be a wrong answer arriving faster than no answer, and a cost is filed against the wrong matter
+   * exactly once before somebody stops trusting the ledger.
+   */
+  const picksItsMatter = $derived(matters.length > 0);
+  let chosenMatterId = $state<string | null>(null);
+  const writingAgainst = $derived(picksItsMatter ? chosenMatterId : matterId);
+  const chosenMatterTitle = $derived(
+    matters.find((candidate) => candidate.id === chosenMatterId)?.title ?? null,
+  );
 
   let incurredDateText = $state("");
   let amountText = $state("");
@@ -194,7 +228,13 @@
   );
 
   const refusal = $derived(
-    editing ? costDraftRefusal({ amountText, description: descriptionText }) : null,
+    editing
+      ? // The matter leads the refusals for a new cost on a matterless surface: it is the one field
+        // whose absence makes the record meaningless rather than merely incomplete.
+        (creating && picksItsMatter && writingAgainst === null
+          ? "Name the matter this cost was advanced for."
+          : costDraftRefusal({ amountText, description: descriptionText }))
+      : null,
   );
 
   /** Why the change cannot be committed as it stands. A save in flight is one of those reasons. */
@@ -260,7 +300,7 @@
         ? await createCost(
             fetch,
             {
-              matterId,
+              matterId: writingAgainst ?? matterId,
               vendorId,
               incurredDate: incurredDateText,
               amountMinor: minor,
@@ -312,7 +352,10 @@
 
 {#snippet subtitle()}
   {#if entry === null}
-    <span>{matterTitle}</span>
+    <!-- On a matterless surface the subtitle follows the pick, so the window's own heading answers
+         "which matter" as soon as it has been decided rather than standing empty above a filled
+         form. -->
+    <span>{picksItsMatter ? (chosenMatterTitle ?? "No matter chosen yet") : matterTitle}</span>
   {:else}
     <span title={gapCellTitle("entryNumber")}>
       {COST_LEDGER_GAPS.entryNumber.field} not yet recorded
@@ -336,6 +379,23 @@
         <Alert.Title>Not Saved</Alert.Title>
         <Alert.Description>{saveFailure}</Alert.Description>
       </Alert.Root>
+    {/if}
+
+    {#if creating && picksItsMatter}
+      <!-- First, because a cost is a fact about a matter before it is a fact about an amount, and
+           because the refusal that names it leads the others. -->
+      <div class="flex flex-col gap-4">
+        <Label for="{fieldPrefix}-matter">Matter</Label>
+        <MatterPicker
+          {matters}
+          value={chosenMatterId}
+          inputId="{fieldPrefix}-matter"
+          disabled={readOnly}
+          capped={mattersCapped}
+          title="The matter this cost was advanced for. A cost has nowhere to be recovered from without one."
+          onpick={(picked) => (chosenMatterId = picked)}
+        />
+      </div>
     {/if}
 
     <div class="grid gap-12 sm:grid-cols-2">

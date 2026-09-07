@@ -20,10 +20,13 @@
    * total and what it still owes. The matter's-share pair is declared in the same column set and
    * arrives hidden here, so a stored layout means the same thing on both screens.
    *
-   * THE ACTS THAT MOVE ONE MATTER'S MONEY ARE REFUSED HERE, NOT ABSENT. Applying a client's trust
-   * funds, writing off a balance and recording a credit note are all a matter's acts, and the
-   * refusal names the way through rather than removing the verb — a reader learns where the act
-   * lives instead of learning that the menu changes shape between screens.
+   * IT READS AND DOES NOT ACT, AND EVERY VERB THAT WRITES SAYS SO. Applying a client's trust funds,
+   * writing off a balance and recording a credit note each move ONE matter's money against one
+   * matter's account and have no meaning without one; finalizing, voiding and recording a delivery
+   * simply live where the work does. All of them are refused here rather than removed, and the
+   * refusal names the way through — a reader learns where the act lives instead of learning that
+   * the menu changes shape between screens, and no control on this screen is left enabled with no
+   * dialog behind it.
    *
    * THE SCOPE IS IN THE ADDRESS, so a partner looking at one client's unpaid bills sends that view
    * by sending the link, and an opened bill is a link of its own.
@@ -426,10 +429,10 @@
   claiming={null}
   onAction={() => {
     /*
-     * Every act this window offers is either a matter's — refused here with the reason, which names
-     * the way through — or one the window itself completes. Nothing reaches this handler on the
-     * firm's register, and wiring it to a dialog that needs a matter would be building the act this
-     * screen deliberately does not carry.
+     * Every act that writes is refused on this register, with the reason naming where it lives
+     * (bill-actions.ts), so nothing reaches this handler. Wiring it to a dialog would be building
+     * the acts this screen deliberately does not carry — and leaving a verb enabled over an empty
+     * handler is the inert control the file-manager rulings forbid.
      */
   }}
   onEditLine={() => {}}

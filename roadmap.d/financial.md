@@ -360,7 +360,7 @@
   public-name: Billing and invoices
   public-summary: Raise a bill on any fee arrangement, apply trust money to it, correct it afterwards without editing it, and send it out.
   awaiting-owner: Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
-  notes: The slice map serializes this after time and costs, which are both on main.
+  notes: The slice map serializes this after time and costs, which are both on main. Two registers now read it — the matter's own Billing section and the firm's whole register — and the acts against a bill live on the first of them.
 
 - id: financial.billing.fee-models
   name: Fee models
@@ -430,6 +430,28 @@
   slices: 3-4-billing-and-invoicing
   evidence: packages/billing/src/draft.ts composes an invoice from claimed time and cost work-in-progress over the invoice, invoice_line and invoice_wip_claim tables in packages/database/src/per-firm-schema.ts, each line carrying its kind and tax treatment, behind the draft and line routes in apps/api-worker/src/routes/billing.ts.
   notes: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen.
+
+- id: financial.billing.firm-register
+  name: The firm's billing register
+  scope: Every bill the firm has raised, narrowable by state, with the receivables aging over it.
+  status: partial
+  surface: screen
+  slices: 3-4-billing-and-invoicing
+  spec: docs/specs/2026-09-07-firm-money-surfaces-design.md
+  evidence: apps/web/src/routes/(app)/billing/+page.svelte over the unnarrowed GET /api/v1/billing/invoices and GET /api/v1/billing/receivables/aging, both of which were shipped routes with no consumer; the bill columns, invoice window and record sheet in apps/web/src/lib/billing take a matter or take none, so one component set serves this and the matter's own section
+  audience: public
+  public-name: All your bills in one place
+  public-summary: See every bill the firm has raised, what is still owed, and how far past due it is.
+  notes: Partial because it reads and does not act — the verbs that move one matter's money are refused here by name and say where they live, and batch and recurring runs belong to the billing-automations slice. The aging is read from the server over every finalized bill rather than summed from the page on screen, so the figure never grows as a reader scrolls.
+
+- id: financial.billing.matter-register
+  name: A matter's bill register
+  scope: The bills that charge one matter, drafts included, each carrying that matter's own share.
+  status: shipped
+  surface: screen
+  slices: 3-4-billing-and-invoicing
+  evidence: the matterId narrowing on GET /api/v1/billing/invoices, whose predicate is over invoice_line rather than the balance row so drafts are not dropped, and which carries the matter's share as three figures because a draft's share is its lines and a finalized bill's is its balance; consumed by apps/web/src/lib/billing/matter-billing.svelte.ts and bill-register.svelte
+  notes: The register read the CLIENT's whole billing history and then read every one of those bills' details to work out this matter's share, which stated the client's account under the matter's heading at a request per bill. Closes gaps 1 and 6 of the matter Billing tab's screen design; the client's display name is resolved in the listing and the detail, so neither register prints an identifier.
 
 - id: financial.billing.delivery
   name: Invoice delivery record
@@ -543,7 +565,29 @@
   audience: public
   public-name: Costs and disbursements
   public-summary: Record what the firm has laid out on a matter, from a filing fee to postage, and recover it on the bill.
-  notes: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice.
+  notes: Two registers read it — the matter's own Costs section and the firm's period across every matter; cost-to-A/R conversion and LEDES belong to the billing slice.
+
+- id: financial.costs.firm-period
+  name: The firm's cost record over a period
+  scope: What the firm advanced across every matter over a span of incurred dates, and what is still waiting on a bill.
+  status: partial
+  surface: screen
+  slices: 3-3-costs-expenses-disbursements
+  spec: docs/specs/2026-09-07-firm-money-surfaces-design.md
+  evidence: the from/to span on GET /api/v1/costs (apps/api-worker/src/routes/costs.ts) over the new cost_entry incurred-date index, and apps/web/src/routes/(app)/costs/+page.svelte on the matter ledger's own column declaration with its Matter column brought forward
+  audience: public
+  public-name: What the firm has laid out
+  public-summary: See every cost the firm advanced in a month, across all its matters, and how much is still waiting on a bill.
+  notes: Partial because it does not yet approve a submitted cost across matters. It reads, opens a cost, and records one — the record window takes the firm's matters and leads with an unfilled matter picker, on the arrangement the Time Sheet already has. The listing answered one matter entire and returned an empty list for anything else, which is why Costs was absent from the sidebar's Money group while the matter carried it — the two disagreed about what Money holds for a structural reason rather than an oversight.
+
+- id: financial.costs.billed-cost-to-bill
+  name: A billed cost names its bill
+  scope: The invoice that took a cost up, on the cost's own listing row and reachable from it.
+  status: shipped
+  surface: screen
+  slices: 3-3-costs-expenses-disbursements
+  evidence: cost_entry.invoice_id on the CostSummary contract and the Open The Bill verb in apps/web/src/lib/costs/cost-record-menu.ts, landing on the matter's Billing section with that bill open through the invoice address the two registers both honour
+  notes: The column existed and never reached the wire, so a billed cost could not answer the one question a ledger cannot — what was the client actually told. The symmetric gap stays open on time: time_entry.invoice_id is the same column and does not reach the wire.
 
 - id: financial.costs.entry-model
   name: Cost entry anatomy

@@ -33,8 +33,10 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Popover from "@magna-carta/design-system/popover";
   import * as Select from "@magna-carta/design-system/select";
+  import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import CreateControl from "@magna-carta/design-system/create-control";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
@@ -50,7 +52,6 @@
   import { costStatusKey } from "$lib/matters/cost-api.ts";
   import {
     COST_COLUMN_IDENTIFIERS,
-    columnGap,
     costMatterText,
     expenseCodeReading,
     firmCostColumns,
@@ -59,6 +60,7 @@
   } from "$lib/costs/cost-columns.ts";
   import { footerFigures } from "$lib/costs/cost-figures.ts";
   import { ExpenseCodeCatalogue } from "$lib/costs/cost-expense-codes.svelte.ts";
+  import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
   import CostRecordWindow from "$lib/costs/cost-record-window.svelte";
   import {
     listCostLedgerInPeriod,
@@ -92,11 +94,15 @@
   const today = new Date().toISOString().slice(0, 10);
 
   const expenseCodes = new ExpenseCodeCatalogue();
+  const firmMatters = new FirmMatters();
   let bootstrapped = false;
   $effect(() => {
     if (bootstrapped) return;
     bootstrapped = true;
     void expenseCodes.load(fetch);
+    // The matters are read for the record window's picker alone — every row already names its own
+    // matter, resolved by the listing — so the period is read without waiting on them.
+    void firmMatters.load(fetch);
   });
 
   // ---- the scope: what is asked for --------------------------------------------------------------
@@ -234,12 +240,29 @@
     windowOpen = true;
   }
 
+  function openNew(): void {
+    windowEntry = null;
+    windowEditing = true;
+    windowOpen = true;
+  }
+
   /*
-   * A cost is captured against a matter, and this screen stands on none — so a new one is started
-   * from the matter it belongs to, where the matter is already decided. The screen says so rather
-   * than offering a create control that would have to ask which matter first, which is the matter's
-   * own Costs section with extra steps.
+   * A new cost takes a matter, and this screen is on none — so it can only be started once the
+   * firm's matters have arrived for the window's picker to offer. A screen that lists a record and
+   * offers no way to add one is a reader for somebody else's data, so the control ships with the
+   * surface and says what it is waiting on rather than being absent.
    */
+  const createRefusal = $derived.by((): string | undefined => {
+    if (firmMatters.matters === null) return "Reading the firm's matters.";
+    if (firmMatters.matters.length === 0) {
+      return (
+        firmMatters.failure ??
+        "The firm has no matter to advance a cost for. A cost is recovered from a file."
+      );
+    }
+    return undefined;
+  });
+
   const billingLine = $derived(
     chosenBilling === null
       ? "Billable and absorbed"
@@ -372,9 +395,27 @@
         </Select.Content>
       </Select.Root>
 
+      <CreateControl
+        noun="Cost"
+        title="Record one cost. It saves as a draft on the matter you name."
+        refusal={createRefusal}
+        onpress={openNew}
+      />
+
       <DataTable.ClearFilters {grid} />
     {/snippet}
   </ScreenHeader>
+
+  {#if firmMatters.failure !== null}
+    <!-- The matters are not this screen's subject, so their failure never fails it: every cost
+         below is still true, and only the way to record a new one goes quiet. -->
+    <Alert.Root variant="warning">
+      <Alert.Description>
+        {firmMatters.failure} Recording a new cost from here waits on them; a matter's own Costs section
+        is unaffected.
+      </Alert.Description>
+    </Alert.Root>
+  {/if}
 
   {#if list.failure !== null}
     <FailureNotice
@@ -440,6 +481,8 @@
   matterId={windowEntry?.matterId ?? ""}
   matterTitle={windowEntry?.matterTitle ?? ""}
   matterNumber={windowEntry?.matterNumber ?? null}
+  matters={firmMatters.matters ?? []}
+  mattersCapped={firmMatters.capped}
   {currency}
   {expenseCodes}
   {canWorkDraft}

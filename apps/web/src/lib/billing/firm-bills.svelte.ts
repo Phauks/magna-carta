@@ -25,6 +25,8 @@ import {
   listInvoices,
   readInvoice,
   readReceivablesAging,
+  type CreditNote,
+  type InvoiceDetail,
   type InvoiceListItem,
   type InvoiceListScope,
   type ReceivablesAging,
@@ -42,8 +44,15 @@ export class FirmBills {
   /**
    * The details read so far, by invoice id. A map rather than a field on each row: the listing is
    * re-read on every scope change and a detail already paid for should survive that.
+   *
+   * It holds only what the DETAIL adds — the lines, the balances, the delivery record and the credit
+   * notes. The summary is always the listing's, so this deliberately does not keep the copy of it
+   * the detail read came back with: two summaries for one bill is two answers about what it totals,
+   * and the stale one would go back on screen after a re-read.
    */
-  #details = $state<Record<string, InvoiceRow>>({});
+  #details = $state<
+    Record<string, { detail: InvoiceDetail; creditNotes: readonly CreditNote[] | null }>
+  >({});
 
   /** Which bill's detail is in flight, so a second open of the same bill does not ask twice. */
   #reading: string | null = null;
@@ -53,9 +62,6 @@ export class FirmBills {
     const items = this.list.items ?? [];
     return items.map((summary) => {
       const read = this.#details[summary.id];
-      // The SUMMARY always comes from the listing, even where a detail was read: a re-read after a
-      // write lands on the listing first, and a stale summary held inside a detail would put the
-      // old figure back on screen.
       return read === undefined
         ? { summary, detail: null, creditNotes: null }
         : { summary, detail: read.detail, creditNotes: read.creditNotes };
@@ -114,16 +120,10 @@ export class FirmBills {
     this.#details = {
       ...this.#details,
       [invoiceId]: {
-        summary: detailOutcome.value,
         detail: detailOutcome.value,
         creditNotes:
           notesOutcome === null ? [] : notesOutcome.kind === "ok" ? notesOutcome.value.data : null,
       },
     };
-  }
-
-  /** Forget every read detail — after a write, so a re-opened bill is read again rather than recalled. */
-  forgetDetails(): void {
-    this.#details = {};
   }
 }

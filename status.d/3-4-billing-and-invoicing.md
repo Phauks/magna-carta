@@ -6,11 +6,11 @@ research: n/a
 spec: done by="Opus 4.8"
 plan: done by="Opus 4.8"
 built: in-progress by="Opus 5"
-ui: todo
+ui: in-progress by="Opus 5"
 load-profile: done by="Opus 5"
 tested: in-progress by="Opus 5"
 branch: main
-active-work:
+active-work: docs/active-work/claude/billing-uui-consolidation-5l2kiu.md
 next: Taxes; the invoice renderer and LEDES; credit-note numbering (owner question); whether a delivery recorded in error can be corrected (owner question)
 link-spec: docs/specs/2026-08-05-billing-design.md
 link-plan: docs/specs/2026-08-05-billing-implementation-plan.md
@@ -35,3 +35,9 @@ Also extracts the counter/allocation numbering idiom into `@magna-carta/sequence
 **It is a record, not a transmission, and that is the design rather than a shortfall.** Nothing renders an invoice and nothing carries one to a client, so every row is a delivery the FIRM made and is reporting — handed over at a meeting, posted, emailed from the firm's own mailbox, submitted to the client's e-billing portal. A table that could only hold deliveries the platform performed would leave every out-of-band delivery unrecordable, which is the firm that most needs to answer the question. The record is SURFACED, never a gate: `readInvoiceDeliveryState` rides `readInvoiceDetail` so the surface that decides to take fees from a client's trust ledger cannot forget to show it, and finalization alone still gates — a hard delivery gate would be satisfied by firms recording deliveries that never happened. The state read distinguishes a bill never sent from a bill chased and not landed (attempt counts beside the flag), and reports the FIRST recorded success rather than the latest, because when the client was first given the bill is the question a jurisdiction asks. A batched form answers a whole set of open receivables in one query rather than N+1. `billing.invoice.delivered` is emitted carrying identifiers, the channel and the outcome — never the recipient reference, which is the client's own fact and resolves behind the deep link. Migration idx 68 (`20260817T000000_billing-invoice-delivery`); two new chokepoint routes on the existing `billing:draft` and `billing:read` keys, so no permission inventory moved.
 
 Taxes remain open, as do the invoice renderer and LEDES (4) and settlement disbursement statements (a later financial slice). **Two owner questions the delivery record raised and did not answer: whether a delivery recorded in error may be superseded by a correcting row, since the table is append-only and the design names no correction shape; and the `outcome` vocabulary, which the design names as a column without enumerating, built as `delivered`/`failed` — the floor rather than an answered set.**
+
+**The firm's own register, and the matter's stops being the client's.** `/billing` is every bill the firm has raised, newest first, narrowable by state in the address, with the receivables aging over it — the read a matter's Billing section structurally cannot give, since no amount of visiting matters one at a time adds up to what the firm is owed. Nothing behind it is new: the invoice listing has always answered without a client named, and `GET /billing/receivables/aging` had no consumer at all, so the sidebar's Soon row was announced over a read that already worked.
+
+Two gaps the matter Billing tab's screen design registered are closed with it. The listing now takes a **matter** and answers with the bills that charge it — drafts included, each carrying that matter's own share as three figures, because a draft's share is its lines and a finalized bill's is its balance row and flattening the two would state a figure the record does not have. The predicate is over `invoice_line` and deliberately not over the balance row, which finalization creates: filtering on the balance would drop every draft, which is the bill a matter's register most needs to see. And the **client's name** is resolved in the listing and the detail, so neither register prints an identifier or looks one up a row at a time. The matter's register was reading the CLIENT's whole billing history and then reading every one of those bills' details to work out this matter's share; it now reads its own bills once.
+
+One component set serves both scopes: the bill columns, the invoice window, the record sheet and the verb set take a matter or take none. The acts that move ONE matter's money — applying trust funds, writing off a balance, recording a credit note — are refused on the firm's register rather than absent, and the refusal names the way through.
