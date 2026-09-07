@@ -7,12 +7,22 @@ from the sidebar under Firm.
 ## The catalogue
 
 The Reports page lists every report the platform offers, grouped by family: trust compliance,
-financial, productivity, and operational. Each row says what the report answers. A report you can run
-opens when you click it. A report marked **Soon** is listed so you can see what is coming; it says on
-its row what it is waiting on and does nothing yet.
+financial, productivity, and operational. Each entry says what the report answers. A report you can
+run opens when you click it. A report marked **Soon** is listed so you can see what is coming; it
+says what it is waiting on and does nothing yet.
 
 The trust compliance report runs today. The accounts receivable aging, work in progress, realization,
 timekeeper productivity, and operational volumes reports are listed and marked Soon.
+
+**To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
+type, showing only the reports that match and only the families that still have one; the count
+inside the field says how much of the whole you are looking at. It searches a report's name, the
+question it answers, the family heading, and the permission it runs under. Clear it with the **✕**
+at the end of the field, or press Escape.
+
+The two buttons beside the search choose how the page reads: **tiles**, a card per report with its
+question at full length, or **list**, one dense line each. The choice is remembered in this browser.
+It is the same page the [Tools](tools.md) catalogue uses, and each remembers its own choice.
 
 ## Running a report
 
@@ -67,3 +77,4 @@ somebody the report alone should grant that beside it.
 - [The trust compliance report](trust-compliance-report.md): what each section of that report means
   and when it will not be produced.
 - [Downloads](../downloads.md): where an exported file goes.
+- [Tools](tools.md): the firm's workbench, on the same catalogue page.
