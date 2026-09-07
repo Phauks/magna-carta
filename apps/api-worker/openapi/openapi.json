@@ -10255,6 +10255,66 @@
           "balancedNameRoles"
         ]
       },
+      "ConflictsPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "floorSources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "party",
+                "graph",
+                "imputation",
+                "content"
+              ]
+            }
+          },
+          "floorStrictness": {
+            "type": "string",
+            "enum": [
+              "balanced",
+              "over_inclusive"
+            ]
+          },
+          "defaultDepth": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "edgeClassBudgets": {
+            "type": "object",
+            "properties": {
+              "control": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "family": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "representation": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "closureCap": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidateCap": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "balancedNameRoles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
       "CreatedConflictsRecheckResponse": {
         "type": "object",
         "properties": {
@@ -54552,6 +54612,119 @@
           },
           "403": {
             "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets the firm's conflicts floor. PUT rather than PATCH because the floor is one value: a partial update would let two administrators saving different halves of the same screen compose a floor neither of them chose, and the floor is what every future check is held to. It writes on conflicts:configure rather than conflicts:run, which is a narrower key seeded to Owner and Admin alone — this does not act on a check, it decides what every LATER check searches, and no single check row records that a person chose that. The stored value is normalized first and the normalized value is returned, so what a firm is shown is what its checks will actually run: a floor with every source deselected comes back carrying `party`, and a candidate cap above what one atomic batch can carry comes back clamped. Changing the floor writes no check and re-runs nothing — a matter whose last check no longer covers the new floor reports the shortfall on its own posture read, computed live, which is why raising the floor takes effect everywhere at once with no sweep.",
+        "operationId": "conflicts.setFirmPolicy",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.setFirmPolicy",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:configure",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConflictsPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's conflicts policy as stored, after normalization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictsPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {

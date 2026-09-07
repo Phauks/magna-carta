@@ -30,9 +30,9 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 298 | 45% |
-| Part-built | partial, in-build | 124 | 19% |
-| Ahead | designed, planned, researching, not-started | 203 | 30% |
+| Done | shipped | 299 | 45% |
+| Part-built | partial, in-build | 123 | 18% |
+| Ahead | designed, planned, researching, not-started | 203 | 31% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **666** | **100%** |
 
@@ -40,8 +40,8 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 298 | 45% |
-| `partial` | 123 | 18% |
+| `shipped` | 299 | 45% |
+| `partial` | 122 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 298 of 666 (45%). Shipped plus partial is 421 (63%).**
+**Shipped alone is 299 of 666 (45%). Shipped plus partial is 421 (63%).**
 
-The 123 units between those two numbers are work that is engineered and paid for and is not
+The 122 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -81,8 +81,8 @@ ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 76 | 18% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 168 | 40% |
+| A person can open it today (`screen`) | 78 | 19% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 166 | 39% |
 | No user surface by nature (`internal`) | 178 | 42% |
 | Not yet classified | 0 | 0% |
 | **Everything with something built** | **422** | **100%** |
@@ -100,7 +100,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Calendar and Rules-Based Docketing | 13 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 19 | 68% |
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
-| Conflicts Check | 5 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 63% |
+| Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
 | Core Domain — Directory, Matters & Locations | 33 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 54% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
@@ -126,11 +126,11 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **298** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **666** | **45%** |
+| **All areas** | **299** | **122** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **666** | **45%** |
 
 ## Where we have been
 
-**64 of 83 commits read, 2026-07-14 to 2026-08-23 — 40 days.** The ledger keeps no history of its
+**30 of 30 commits read, 2026-09-02 to 2026-09-07 — 5 days.** The ledger keeps no history of its
 own, so this series is reconstructed: for every commit on the trunk that touched
 [`roadmap.d/`](../roadmap.d/), the ledger as it stood at that commit is parsed by the same parser
 that renders the counts above, and the result is kept in
@@ -142,14 +142,13 @@ Every figure in this section counts **units of work**, the same quantity [Where 
 stands](#where-the-program-stands) counts, so a level here is comparable to a level there. Roll-up
 parents are excluded at every past commit the same way they are excluded now — the reconstruction
 reads the hierarchy off the ledger as it stood, not off today's. The whole-node totals are on the
-record too: 663 nodes on 2026-07-14, 759 on 2026-08-23.
+record too: 780 nodes on 2026-09-02, 799 on 2026-09-07.
 
-**+70 shipped since the ledger began** — 197 on 2026-07-14, 267 on 2026-08-23, across 40 days. The
-ledger itself grew by +85 units over the same period (541 to 626), so the share shipped went from
-36% to 43% against a denominator that was moving too.
+**+17 shipped since the ledger began** — 276 on 2026-09-02, 293 on 2026-09-07, across 5 days. The
+ledger itself grew by +17 units over the same period (642 to 659), so the share shipped went from
+43% to 44% against a denominator that was moving too.
 
-That is **12.3 capabilities shipped a week** across the whole series, and **21.0 a week** over the
-57 snapshots since the last gap (2026-08-11 to 2026-08-23, +36 shipped in 12 days).
+That is **23.8 capabilities shipped a week** across the whole series.
 
 **No completion date is derived from any of this, and none can be.** The ledger puts no size or
 effort on a node, so a date extrapolated from these counts would treat a jurisdiction research
@@ -159,133 +158,84 @@ corpus and a second authentication factor as the same amount of work. A rate is 
 
 | Date | Commit | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Units | Units added | Shipped added | Unread before |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2026-07-14 | `ad6526da` | 197 | 58 | 14 | 28 | 3 | 6 | 194 | 39 | 2 | 541 | — | — | 0 |
-| 2026-07-14 | `ccbddcf8` | 197 | 58 | 14 | 28 | 3 | 6 | 194 | 39 | 2 | 541 | 0 | 0 | 0 |
-| 2026-08-04 | `31f5b5f7` | 198 | 61 | 14 | 27 | 3 | 6 | 191 | 39 | 2 | 541 | 0 | +1 | 0 |
-| 2026-08-04 | `0d72292e` | 198 | 61 | 14 | 30 | 3 | 6 | 188 | 39 | 2 | 541 | 0 | 0 | 0 |
-| 2026-08-04 | `ff3676b0` | 199 | 60 | 14 | 30 | 3 | 6 | 188 | 39 | 2 | 541 | 0 | +1 | 0 |
-| 2026-08-04 | `3573106d` | 199 | 66 | 14 | 30 | 3 | 6 | 183 | 39 | 2 | 542 | +1 | 0 | 0 |
-| 2026-08-04 | `a97e0bf7` | 205 | 67 | 14 | 25 | 3 | 6 | 183 | 39 | 2 | 544 | +2 | +6 | 0 |
-| 2026-08-11 | `5902e0aa` | 231 | 83 | 13 | 21 | 4 | 6 | 175 | 39 | 2 | 574 | +30 | +26 | 19 |
-| 2026-08-13 | `ee1d92bf` | 232 | 83 | 13 | 21 | 4 | 6 | 175 | 39 | 2 | 575 | +1 | +1 | 0 |
-| 2026-08-13 | `7db7f650` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-13 | `5eaa6752` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-13 | `3022b4b3` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-13 | `25fba751` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `f30366ad` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `0a1860c0` | 232 | 83 | 13 | 21 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `3c764ff0` | 232 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `bb884fdc` | 232 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `4feb0ed5` | 232 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 575 | 0 | 0 | 0 |
-| 2026-08-14 | `c692886a` | 235 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 578 | +3 | +3 | 0 |
-| 2026-08-14 | `eb1129f2` | 235 | 84 | 13 | 20 | 12 | 6 | 167 | 39 | 2 | 578 | 0 | 0 | 0 |
-| 2026-08-14 | `cb9225bb` | 236 | 85 | 13 | 20 | 10 | 6 | 167 | 39 | 2 | 578 | 0 | +1 | 0 |
-| 2026-08-14 | `d5499591` | 237 | 88 | 13 | 18 | 10 | 6 | 165 | 39 | 2 | 578 | 0 | +1 | 0 |
-| 2026-08-14 | `3efca761` | 239 | 88 | 13 | 18 | 10 | 6 | 165 | 39 | 2 | 580 | +2 | +2 | 0 |
-| 2026-08-14 | `489d4225` | 240 | 88 | 13 | 18 | 10 | 6 | 164 | 39 | 2 | 580 | 0 | +1 | 0 |
-| 2026-08-14 | `ff1f49e3` | 240 | 88 | 13 | 18 | 10 | 6 | 164 | 39 | 2 | 580 | 0 | 0 | 0 |
-| 2026-08-14 | `5184145e` | 240 | 88 | 13 | 23 | 10 | 6 | 160 | 39 | 2 | 581 | +1 | 0 | 0 |
-| 2026-08-14 | `85140ca7` | 240 | 89 | 13 | 23 | 10 | 6 | 159 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `6a5dc585` | 244 | 92 | 13 | 23 | 10 | 6 | 152 | 39 | 2 | 581 | 0 | +4 | 0 |
-| 2026-08-15 | `dd2ac00d` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `d35ae516` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `67f39333` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `9bd40bd7` | 244 | 92 | 13 | 23 | 10 | 5 | 153 | 39 | 2 | 581 | 0 | 0 | 0 |
-| 2026-08-15 | `6beeb58e` | 245 | 92 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 602 | +21 | +1 | 0 |
-| 2026-08-15 | `07e3e6d1` | 245 | 92 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 602 | 0 | 0 | 0 |
-| 2026-08-15 | `5995edb0` | 245 | 92 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 602 | 0 | 0 | 0 |
-| 2026-08-15 | `477158b3` | 245 | 94 | 13 | 34 | 17 | 5 | 153 | 41 | 2 | 604 | +2 | 0 | 0 |
-| 2026-08-15 | `04a49fc9` | 245 | 95 | 13 | 34 | 17 | 5 | 152 | 41 | 2 | 604 | 0 | 0 | 0 |
-| 2026-08-15 | `3a75b031` | 245 | 96 | 13 | 34 | 17 | 5 | 152 | 41 | 2 | 605 | +1 | 0 | 0 |
-| 2026-08-15 | `9da23568` | 246 | 96 | 13 | 34 | 17 | 5 | 152 | 41 | 2 | 606 | +1 | +1 | 0 |
-| 2026-08-16 | `f5a32745` | 246 | 97 | 13 | 34 | 17 | 5 | 151 | 41 | 2 | 606 | 0 | 0 | 0 |
-| 2026-08-16 | `067cd52f` | 247 | 97 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 608 | +2 | +1 | 0 |
-| 2026-08-16 | `cd1f5436` | 249 | 96 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 609 | +1 | +2 | 0 |
-| 2026-08-16 | `31485623` | 252 | 97 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 613 | +4 | +3 | 0 |
-| 2026-08-16 | `e01afeea` | 252 | 97 | 13 | 34 | 18 | 5 | 151 | 41 | 2 | 613 | 0 | 0 | 0 |
-| 2026-08-16 | `d17b40fb` | 252 | 97 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 618 | +5 | 0 | 0 |
-| 2026-08-17 | `39e1a9ec` | 253 | 96 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 618 | 0 | +1 | 0 |
-| 2026-08-17 | `1161e54c` | 253 | 97 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 619 | +1 | 0 | 0 |
-| 2026-08-17 | `5ac8797e` | 253 | 97 | 13 | 39 | 18 | 5 | 151 | 41 | 2 | 619 | 0 | 0 | 0 |
-| 2026-08-17 | `aeb7ce20` | 253 | 97 | 10 | 44 | 18 | 5 | 151 | 41 | 2 | 621 | +2 | 0 | 0 |
-| 2026-08-17 | `e003ea13` | 257 | 97 | 5 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | +4 | 0 |
-| 2026-08-17 | `23900672` | 257 | 97 | 5 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | 0 | 0 |
-| 2026-08-17 | `03e494c8` | 257 | 97 | 5 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | 0 | 0 |
-| 2026-08-18 | `ad4b35c8` | 257 | 101 | 1 | 44 | 18 | 5 | 152 | 41 | 2 | 621 | 0 | 0 | 0 |
-| 2026-08-19 | `528d2a8d` | 260 | 101 | 1 | 45 | 18 | 5 | 150 | 41 | 2 | 623 | +2 | +3 | 0 |
-| 2026-08-19 | `f8c294ef` | 260 | 102 | 1 | 45 | 18 | 5 | 150 | 41 | 2 | 624 | +1 | 0 | 0 |
-| 2026-08-19 | `6e4af19c` | 260 | 102 | 1 | 45 | 18 | 5 | 150 | 41 | 2 | 624 | 0 | 0 | 0 |
-| 2026-08-19 | `c006c9a5` | 264 | 110 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 624 | 0 | +4 | 0 |
-| 2026-08-19 | `80f9e186` | 265 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 624 | 0 | +1 | 0 |
-| 2026-08-19 | `5b40f751` | 266 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 625 | +1 | +1 | 0 |
-| 2026-08-19 | `45646867` | 267 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 626 | +1 | +1 | 0 |
-| 2026-08-20 | `f5429ecb` | 267 | 109 | 1 | 43 | 17 | 5 | 144 | 38 | 2 | 626 | 0 | 0 | 0 |
-| 2026-08-20 | `8b9af781` | 267 | 110 | 1 | 43 | 17 | 5 | 143 | 38 | 2 | 626 | 0 | 0 | 0 |
-| 2026-08-21 | `d728f134` | 267 | 110 | 1 | 43 | 17 | 5 | 143 | 38 | 2 | 626 | 0 | 0 | 0 |
-| 2026-08-23 | `e5766cb8` | 267 | 110 | 1 | 43 | 17 | 5 | 143 | 38 | 2 | 626 | 0 | 0 | 0 |
-
-### The gaps
-
-**19 of the 83 commits do not parse under today's ledger schema** — they run from 2026-08-04 to
-2026-08-11, and every one of them fails for the same reason. They are recorded as holes: their
-counts are absent from the table above, no line is drawn through them, and the changes on either
-side of a hole are stated across it rather than apportioned to it. Re-run the reconstruction with
-`--rebuild` after a parser change to pick up any that have since become readable.
-
-**19 commits, 2026-08-04 to 2026-08-11** — roadmap.d/document-automation.md: line 14:
-"document-automation.conditional-assembly" has unknown status "built" (expected one of shipped,
-partial, in-build, designed, planned, researching, not-started, deferred, cut)
-
-`a98c78df` (2026-08-04), `a0130bbf` (2026-08-04), `f03fb4d5` (2026-08-05), `6f422b1d` (2026-08-05),
-`18c23915` (2026-08-05), `57a0b679` (2026-08-05), `7bee0801` (2026-08-05), `324664c9` (2026-08-05),
-`0377a9b9` (2026-08-05), `8fd3ea9a` (2026-08-06), `e8837e3f` (2026-08-06), `227b4acd` (2026-08-06),
-`45003814` (2026-08-07), `93eee6c5` (2026-08-07), `846dbd4e` (2026-08-07), `681f4b98` (2026-08-10),
-`953e9a0c` (2026-08-11), `bafaf62d` (2026-08-11), `c164cc0c` (2026-08-11)
+| 2026-09-02 | `2bb8cc06` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | — | — | 0 |
+| 2026-09-02 | `f7ffea80` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `b3995238` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `ec02bf94` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `6fc68503` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `02dcf632` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-02 | `81baab5c` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-03 | `4b1119d4` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-03 | `7a06fdfa` | 276 | 114 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 642 | 0 | 0 | 0 |
+| 2026-09-03 | `c819051f` | 276 | 115 | 1 | 46 | 16 | 5 | 143 | 38 | 3 | 643 | +1 | 0 | 0 |
+| 2026-09-03 | `da1799e4` | 278 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 644 | +1 | +2 | 0 |
+| 2026-09-03 | `0084d55d` | 278 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 644 | 0 | 0 | 0 |
+| 2026-09-03 | `8724a8c4` | 285 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 651 | +7 | +7 | 0 |
+| 2026-09-03 | `e7bbc85c` | 286 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 652 | +1 | +1 | 0 |
+| 2026-09-03 | `9ec7e0b0` | 287 | 117 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 653 | +1 | +1 | 0 |
+| 2026-09-03 | `7ddde04a` | 288 | 116 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 653 | 0 | +1 | 0 |
+| 2026-09-03 | `ba799196` | 289 | 116 | 1 | 46 | 16 | 5 | 140 | 38 | 3 | 654 | +1 | +1 | 0 |
+| 2026-09-05 | `1a5804a0` | 290 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 655 | +1 | +1 | 0 |
+| 2026-09-05 | `e8e88e84` | 290 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 655 | 0 | 0 | 0 |
+| 2026-09-05 | `95fb7d67` | 290 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 655 | 0 | 0 | 0 |
+| 2026-09-05 | `684c1f74` | 291 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 656 | +1 | +1 | 0 |
+| 2026-09-05 | `dc58b8e1` | 291 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 656 | 0 | 0 | 0 |
+| 2026-09-05 | `ee63ee83` | 292 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 657 | +1 | +1 | 0 |
+| 2026-09-06 | `640e238d` | 292 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 657 | 0 | 0 | 0 |
+| 2026-09-06 | `a6e268e0` | 292 | 118 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 657 | 0 | 0 | 0 |
+| 2026-09-06 | `9a6cd073` | 292 | 119 | 1 | 46 | 16 | 5 | 138 | 38 | 3 | 658 | +1 | 0 | 0 |
+| 2026-09-06 | `f6eac118` | 292 | 120 | 1 | 46 | 15 | 5 | 138 | 38 | 3 | 658 | 0 | 0 | 0 |
+| 2026-09-06 | `63c5582d` | 292 | 120 | 1 | 46 | 15 | 5 | 138 | 38 | 3 | 658 | 0 | 0 | 0 |
+| 2026-09-06 | `2f4f9fa0` | 292 | 121 | 1 | 46 | 15 | 5 | 137 | 38 | 3 | 658 | 0 | 0 | 0 |
+| 2026-09-07 | `a9d0d50d` | 293 | 121 | 1 | 46 | 15 | 5 | 137 | 38 | 3 | 659 | +1 | +1 | 0 |
 
 ### Movement by area
 
 | Area | Units then | Units now | Shipped then | Shipped now | Shipped added |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| AI & Inference | 14 | 29 | 7 | 17 | +10 |
-| Authentication, Access Control & Encryption | 24 | 26 | 12 | 13 | +1 |
-| Calendar and Rules-Based Docketing | 6 | 11 | 0 | 5 | +5 |
-| Communications Layer | 15 | 16 | 2 | 4 | +2 |
+| AI & Inference | 29 | 29 | 17 | 17 | 0 |
+| Authentication, Access Control & Encryption | 26 | 26 | 13 | 13 | 0 |
+| Calendar and Rules-Based Docketing | 11 | 19 | 5 | 13 | +8 |
+| Communications Layer | 16 | 17 | 4 | 5 | +1 |
 | Community & Feedback Forum | 10 | 10 | 0 | 0 | 0 |
-| Conflicts Check | 7 | 7 | 1 | 4 | +3 |
-| Core Domain — Directory, Matters & Locations | 43 | 58 | 20 | 32 | +12 |
-| Custodian (Safe Custody) | 9 | 11 | 0 | 6 | +6 |
-| Design System, UI Consistency & Design Quality | 15 | 15 | 11 | 11 | 0 |
-| Discovery (e-discovery) | 15 | 22 | 2 | 8 | +6 |
-| Document Automation | 7 | 9 | 0 | 3 | +3 |
-| Documents | 97 | 97 | 58 | 63 | +5 |
-| Exhibits and Exhibit Lists | — | 8 | — | 0 | 0 |
-| Financial Core | 42 | 54 | 8 | 17 | +9 |
-| Client Intake / CRM | 6 | 6 | 0 | 0 | 0 |
+| Conflicts Check | 7 | 8 | 4 | 5 | +1 |
+| Core Domain — Directory, Matters & Locations | 61 | 61 | 32 | 33 | +1 |
+| Custodian (Safe Custody) | 11 | 11 | 6 | 6 | 0 |
+| Design System, UI Consistency & Design Quality | 16 | 18 | 11 | 12 | +1 |
+| Discovery (e-discovery) | 22 | 22 | 8 | 8 | 0 |
+| Document Automation | 9 | 9 | 3 | 3 | 0 |
+| Documents | 97 | 97 | 63 | 63 | 0 |
+| Exhibits and Exhibit Lists | 8 | 8 | 0 | 0 | 0 |
+| Financial Core | 54 | 55 | 17 | 17 | 0 |
+| Client Intake / CRM | 6 | 8 | 0 | 2 | +2 |
 | Integrations & Plugins | 41 | 41 | 16 | 16 | 0 |
-| Maintenance Agents | 10 | 10 | 0 | 2 | +2 |
-| Notifications | 12 | 14 | 0 | 3 | +3 |
-| Observability & Diagnostics | 20 | 20 | 11 | 11 | 0 |
-| Payments | 8 | 9 | 0 | 0 | 0 |
+| Maintenance Agents | 10 | 10 | 2 | 2 | 0 |
+| Matter Notes and Activity | 11 | 12 | 6 | 7 | +1 |
+| Notifications | 14 | 14 | 3 | 3 | 0 |
+| Observability & Diagnostics | 20 | 20 | 14 | 14 | 0 |
+| Payments | 9 | 9 | 0 | 0 | 0 |
 | Performance & Concurrency | 11 | 11 | 6 | 6 | 0 |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 66 | 66 | 30 | 31 | +1 |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 66 | 66 | 31 | 31 | 0 |
 | Client Portal | 14 | 14 | 0 | 0 | 0 |
 | Product Updates & User-Facing Documentation | 14 | 14 | 2 | 2 | 0 |
 | Release Channels | 8 | 8 | 7 | 7 | 0 |
-| Reports | 10 | 10 | 0 | 1 | +1 |
-| Self-Serve Provisioning and Entitlements | — | 7 | — | 1 | +1 |
+| Reports | 11 | 11 | 1 | 1 | 0 |
+| Self-Serve Provisioning and Entitlements | 7 | 7 | 1 | 1 | 0 |
 | Settings & Configuration | 14 | 14 | 4 | 4 | 0 |
-| Tasks and Workflows / Matter Plans | 3 | 3 | 0 | 0 | 0 |
-| Translation Services | — | 6 | — | 0 | 0 |
+| Tasks and Workflows / Matter Plans | 3 | 4 | 0 | 2 | +2 |
+| Translation Services | 6 | 6 | 0 | 0 | 0 |
 
-**Fastest since the first snapshot:** Core Domain — Directory, Matters & Locations (+12), AI &
-Inference (+10), Financial Core (+9). **14 of 30 areas have shipped nothing in that time**:
-Community & Feedback Forum, Design System, UI Consistency & Design Quality, Exhibits and Exhibit
-Lists, Client Intake / CRM, Integrations & Plugins, Observability & Diagnostics, Payments,
-Performance & Concurrency, Client Portal, Product Updates & User-Facing Documentation, Release
-Channels, Settings & Configuration, Tasks and Workflows / Matter Plans, Translation Services. An
-area standing still here has not necessarily been idle — a node moves in this table only when it
-reaches `shipped`, so work that went from nothing to `partial` shows up in the units columns and not
-in this one.
+**Fastest since the first snapshot:** Calendar and Rules-Based Docketing (+8), Client Intake / CRM
+(+2), Tasks and Workflows / Matter Plans (+2). **23 of 31 areas have shipped nothing in that time**:
+AI & Inference, Authentication, Access Control & Encryption, Community & Feedback Forum, Custodian
+(Safe Custody), Discovery (e-discovery), Document Automation, Documents, Exhibits and Exhibit Lists,
+Financial Core, Integrations & Plugins, Maintenance Agents, Notifications, Observability &
+Diagnostics, Payments, Performance & Concurrency, Platform — Delivery, Architecture, Tenancy & Data
+Conventions, Client Portal, Product Updates & User-Facing Documentation, Release Channels, Reports,
+Self-Serve Provisioning and Entitlements, Settings & Configuration, Translation Services. An area
+standing still here has not necessarily been idle — a node moves in this table only when it reaches
+`shipped`, so work that went from nothing to `partial` shows up in the units columns and not in this
+one.
 
 ## Waiting on you
 
@@ -592,14 +542,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Conflicts Check
 
-[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 63% shipped. 5 done, 3 part-built, 0 ahead, 0 parked.
+[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 75% shipped. 6 done, 2 part-built, 0 ahead, 0 parked.
 
 - `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   - `conflicts.directory-seams` · `shipped` · **Directory matching seams** — Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
   - `conflicts.triggers` · `partial` · **Check triggers** — Run checks at intake, whenever a party is added, and on optional periodic re-scans.
   - `conflicts.matching-engine` · `shipped` · **Matching engine** — Candidate generation over names and identifiers (exact identifier, exact normalized name, organization match keys, Double Metaphone, trigram) with related-party edge expansion, ordered by evidence tier. _Note: Backend only, no screen. Deliberately scorer-free — a tier orders evidence and never filters, so raising strictness can only add hits; the under-specification the white paper flagged was answered by the two conflicts design specs rather than left open. One named gap remains and it is measured rather than assumed: the phonetic channel encodes ENGLISH pronunciation, so cross-origin surname variants (Nowak/Novak, Kowalczyk/Kovalchik) are structurally out of its reach. A Beider-Morse channel would close seven such pairs in a thirty-pair corpus; it is unbuilt because the only pure-TypeScript encoder compiles its rule tables in 20,377 ms inside workerd against 16 ms in Node, which is past the CPU limit. The follow-on is the Rust/WASM port, with that number as its flip condition._
-    - `conflicts.matching-engine.strictness` · `partial` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable, and the name roles each band compares against as a firm setting recorded on the check row. _Note: Partial because the firm floor itself has no write path — readConflictsPolicy in packages/conflicts/src/settings.ts reads the conflicts.policy setting row and no route or screen sets it, so a firm changes its floor only by writing that row directly._
-  - `conflicts.search-depth` · `partial` · **Configurable search depth** — Structured Directory/matter scan by default, deep in two independent axes — how far the graph is walked and how a name is compared; optional document-content scan. _Note: The matching axis lands with the traversal one — the two organization match keys and the resolved channel set recorded verbatim on the check row (see conflicts.matching-engine and conflicts.matching-engine.strictness); the cross-origin surname encoder is measured-and-deferred, recorded on that node. The nickname equivalence dimension is registered and empty: the nickname_equivalence table exists, holds nothing, and NICKNAME_EQUIVALENCE_SOURCE in packages/conflicts/src/sources.ts makes every check record it as a source it could not search, read from the catalogue by nicknameCatalogueIsPopulated in packages/directory/src/nickname.ts rather than asserted. Partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen. The firm-marked non-expandable entity, the recorded and attributable alternative to a hub heuristic, is not built: it needs a Directory write path._
+    - `conflicts.matching-engine.strictness` · `shipped` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable, and the name roles each band compares against as a firm setting recorded on the check row. _Note: The firm floor now has a write path and a screen. PUT /api/v1/firm/conflicts-policy on conflicts:configure — a permission of its own rather than conflicts:run, seeded to Owner and Admin alone, because this decides what every LATER check searches and no check row records that a person chose it. writeConflictsPolicy normalizes through normalizeConflictsPolicy, the same function the read repairs with, and STORES the normalized value: what is in the row is what runs, so the screen can render the row back and believe it. Settings, Conflicts stages every control until Save, shows party and current as locked controls carrying their reason rather than hiding them, and names each specific repair the platform made on the way in instead of describing the possibility. Held by packages/conflicts/test/policy-write.test.ts and apps/web/test/conflicts-policy-screen.test.ts._
+  - `conflicts.search-depth` · `partial` · **Configurable search depth** — Structured Directory/matter scan by default, deep in two independent axes — how far the graph is walked and how a name is compared; optional document-content scan. _Note: The matching axis lands with the traversal one — the two organization match keys and the resolved channel set recorded verbatim on the check row (see conflicts.matching-engine and conflicts.matching-engine.strictness); the cross-origin surname encoder is measured-and-deferred, recorded on that node. The nickname equivalence dimension is registered and empty: the nickname_equivalence table exists, holds nothing, and NICKNAME_EQUIVALENCE_SOURCE in packages/conflicts/src/sources.ts makes every check record it as a source it could not search, read from the catalogue by nicknameCatalogueIsPopulated in packages/directory/src/nickname.ts rather than asserted. The traversal budgets, the closure cap and the candidate cap are now set from Settings, Conflicts over PUT /api/v1/firm/conflicts-policy, so the depth axis is no longer screenless. Still partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen. The firm-marked non-expandable entity, the recorded and attributable alternative to a hub heuristic, is not built: it needs a Directory write path._
   - `conflicts.firm-wide-scope` · `shipped` · **Firm-wide imputation** — Conflicts impute across the whole firm and every office; locations never partition the conflicts graph. _Note: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph._
   - `conflicts.clearance` · `shipped` · **Human clearance** — Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected. _Note: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything._
   - `conflicts.log` · `shipped` · **Immutable conflicts log** — Every check and clearance recorded in an immutable, defensible log. _Note: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it._

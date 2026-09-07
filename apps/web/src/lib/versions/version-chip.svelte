@@ -161,7 +161,6 @@
     null,
   );
   let healthLoading = $state(false);
-  let copiedHealth = $state(false);
   let copiedEverything = $state(false);
 
   const chipLabel = versionChipLabel(BUILD_IDENTITY.commit);
@@ -318,20 +317,6 @@
     }, 1000);
   }
 
-  async function copyHealth(): Promise<void> {
-    if (healthValue === null) return;
-    // Same rule as the per-row copy: the confirmation appears only when the clipboard actually took
-    // the text, and a denied permission is silent rather than a page error.
-    try {
-      await navigator.clipboard.writeText(copyLineForDatabaseHealth(healthValue));
-    } catch {
-      return;
-    }
-    copiedHealth = true;
-    setTimeout(() => {
-      copiedHealth = false;
-    }, 1000);
-  }
 
   async function copyPart(
     rowKey: string,
@@ -830,20 +815,6 @@
                   <p class="text-xs text-text-muted">{provisioningBacklog.sentence}</p>
                 </div>
               {/if}
-              <div>
-                <!-- The whole section on the clipboard in one line: what a member pastes into a bug
-                     report instead of describing four rows from memory. Confirmation is the control
-                     filling for a moment, never a glyph that changes its width. -->
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  class={copiedHealth ? "bg-action-secondary-hover" : ""}
-                  aria-label="Copy the database health read"
-                  onclick={() => copyHealth()}
-                >
-                  Copy diagnosis
-                </Button>
-              </div>
             {/if}
           </LoadingRegion>
         {/if}

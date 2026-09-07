@@ -1,0 +1,581 @@
+<script lang="ts">
+  /*
+   * Settings · Conflicts — the firm's floor: what every check must search, whatever the person
+   * running it asks for.
+   *
+   * THIS PAGE CHANGES WHAT FUTURE CHECKS FIND, AND IT RE-RUNS NOTHING. Raising the floor does not
+   * touch a single check already on the record — it makes a SHORTFALL appear on every matter whose
+   * last check no longer covers what the firm now requires, computed live on each matter's own
+   * posture read rather than swept onto rows. So the effect is immediate and total, and yet nothing
+   * here writes to the log. Lowering the floor is the direction worth pausing over: it reduces what
+   * the firm will look at from here on, and no check row ever records that a person chose that,
+   * which is why the write is audited and sits behind its own permission.
+   *
+   * DRAFT, NOT INSTANT. Every control stages until Save. A settings page that applied on each
+   * keystroke would let a half-typed cap — "5" on the way to "500" — become the firm's bound for as
+   * long as it took to finish the number.
+   *
+   * WHAT IS SAVED IS WHAT IS SHOWN BACK. The platform normalizes a policy on the way in: the party
+   * class is unioned back into the floor, `current` back into the name roles, the candidate cap
+   * clamped to what one atomic transaction can carry. The screen renders the RESPONSE rather than
+   * its own request, so an administrator is never shown a floor their checks would not run — and
+   * where the two differ, they see the difference immediately instead of discovering it on a check.
+   *
+   * TWO CONTROLS ARE DELIBERATELY LOCKED. Party and Current are shown, checked, and disabled with
+   * the reason on them, rather than omitted. A firm-wide invariant a reader cannot see reads as an
+   * option somebody forgot to offer.
+   */
+  import * as Alert from "@magna-carta/design-system/alert";
+  import * as RadioGroup from "@magna-carta/design-system/radio-group";
+  import Button from "@magna-carta/design-system/button";
+  import Checkbox from "@magna-carta/design-system/checkbox";
+  import FieldLabel from "@magna-carta/design-system/field-label";
+  import Input from "@magna-carta/design-system/input";
+  import Label from "@magna-carta/design-system/label";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import Separator from "@magna-carta/design-system/separator";
+  import { SAMPLE_SENTENCE } from "@magna-carta/design-system/loading-fixtures";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
+  import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
+  import {
+    readFirmConflictsPolicy,
+    writeFirmConflictsPolicy,
+    CONFIGURE_CONFLICTS_PERMISSION,
+    type FirmConflictsPolicy,
+    type SourceClass,
+    type Strictness,
+  } from "$lib/conflicts/conflicts-api.ts";
+  import {
+    BUDGETED_EDGE_CLASSES,
+    EDGE_CLASS_VOCABULARY,
+    NAME_ROLES,
+    SOURCE_CLASSES,
+    SOURCE_VOCABULARY,
+    STRICTNESS_LEVELS,
+    STRICTNESS_VOCABULARY,
+    edgeClassLabel,
+    nameRoleVocabulary,
+  } from "$lib/conflicts/conflicts-vocabulary.ts";
+  import { newWriteKey } from "$lib/matters/tasks-api.ts";
+  import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
+
+  /*
+   * The two the firm cannot switch off. Rendered as locked controls rather than hidden ones — see
+   * the header note. `party` is the firm-wide corpus (conflicts impute across the whole firm, so it
+   * is not an option), and `current` is the name a party goes by today.
+   */
+  const LOCKED_SOURCE: SourceClass = "party";
+  const LOCKED_NAME_ROLE = "current";
+
+  /** The class with no corpus behind it: a firm cannot put it in the floor because it cannot run. */
+  const UNAVAILABLE_SOURCE: SourceClass = "content";
+
+  let committed = $state<FirmConflictsPolicy | null>(null);
+  let readFailure = $state<StatedFailure | null>(null);
+  let writeFailure = $state<StatedFailure | null>(null);
+  let session = $state<SessionBootstrap | null>(null);
+  let saving = $state(false);
+  let savedAt = $state<string | null>(null);
+
+  // The staged edit. Null until the committed policy lands, so the form never renders over guesses.
+  let draft = $state<FirmConflictsPolicy | null>(null);
+
+  const permissions = $derived(session?.permissions ?? null);
+  const mayConfigure = $derived(
+    permissions === null || permissions.includes(CONFIGURE_CONFLICTS_PERMISSION),
+  );
+  const REFUSAL = permissionRefusal("Setting the firm's conflicts floor", CONFIGURE_CONFLICTS_PERMISSION);
+
+  function readPolicy(): void {
+    committed = null;
+    readFailure = null;
+    void (async () => {
+      const outcome = await readFirmConflictsPolicy(fetch);
+      if (outcome.kind !== "ok") {
+        readFailure = stated(outcome.failure, "The firm's conflicts floor could not be read.");
+        return;
+      }
+      committed = outcome.value;
+      draft = structuredClone(outcome.value);
+    })();
+  }
+
+  $effect(() => {
+    readPolicy();
+  });
+
+  $effect(() => {
+    void (async () => {
+      const outcome = await readSession(fetch);
+      if (outcome.kind === "ok") session = outcome.value;
+    })();
+  });
+
+  /*
+   * Whether anything is staged. Compared on the SERIALIZED value rather than field by field, because
+   * a comparison written out by hand grows a blind spot the first time a field is added — and a
+   * settings page whose Save is dark while an edit is staged loses the edit.
+   */
+  const dirty = $derived(
+    committed !== null && draft !== null && JSON.stringify(committed) !== JSON.stringify(draft),
+  );
+
+  function toggleSource(source: SourceClass, on: boolean): void {
+    if (draft === null) return;
+    repairs = [];
+    const next = new Set(draft.floorSources);
+    if (on) next.add(source);
+    else next.delete(source);
+    // Ordered by the catalogue so the staged value and a re-read value compare equal after a save
+    // that changed nothing but the order somebody clicked them in.
+    draft = { ...draft, floorSources: SOURCE_CLASSES.filter((each) => next.has(each)) };
+  }
+
+  function toggleNameRole(role: string, on: boolean): void {
+    if (draft === null) return;
+    repairs = [];
+    const next = new Set(draft.balancedNameRoles);
+    if (on) next.add(role);
+    else next.delete(role);
+    // Sorted, because that is how the platform canonicalizes and therefore stores them. Ordering
+    // them by the catalogue instead would leave the form looking dirty after a role was switched
+    // off and back on, with the set unchanged — the display order is the `{#each NAME_ROLES}` below
+    // and does not depend on this.
+    draft = { ...draft, balancedNameRoles: NAME_ROLES.filter((each) => next.has(each)).toSorted() };
+  }
+
+  /*
+   * A number field, read back as a number. An emptied field stages 0 rather than NaN: the domain
+   * treats every one of these as a non-negative integer, and 0 is a real, sayable value for each of
+   * them (no traversal, no closure, no candidates written), so there is no case where an empty box
+   * should mean something other than the smallest thing it can mean.
+   */
+  function numberFrom(raw: string): number {
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  }
+
+  function setBudget(edgeClass: string, raw: string): void {
+    if (draft === null) return;
+    draft = {
+      ...draft,
+      edgeClassBudgets: { ...draft.edgeClassBudgets, [edgeClass]: numberFrom(raw) },
+    };
+  }
+
+  function discard(): void {
+    if (committed === null) return;
+    draft = structuredClone(committed);
+    writeFailure = null;
+  }
+
+  async function save(): Promise<void> {
+    if (draft === null || saving || !dirty) return;
+    saving = true;
+    writeFailure = null;
+    // Held so the response can be compared against exactly what was asked for; `draft` is replaced
+    // by the stored value below, and comparing that against itself would report no repair ever.
+    const sent = structuredClone(draft);
+    const outcome = await writeFirmConflictsPolicy(fetch, sent, newWriteKey());
+    saving = false;
+    if (outcome.kind !== "ok") {
+      writeFailure = stated(outcome.failure, "The firm's conflicts floor was not changed.");
+      return;
+    }
+    // The RESPONSE, not the request: what came back is what the checks will run. Where the platform
+    // repaired something the administrator asked for, this is where they see it.
+    repairs = describeRepairs(sent, outcome.value);
+    committed = outcome.value;
+    draft = structuredClone(outcome.value);
+    savedAt = new Date().toISOString();
+  }
+
+  /*
+   * What the platform changed on the way in, if anything — computed by comparing the request that
+   * was just sent against the policy that came back. It names the specific repair rather than
+   * describing the possibility in the abstract, because the failure this guards against is an
+   * administrator not noticing that a control moved on its own after they pressed Save.
+   */
+  function describeRepairs(sent: FirmConflictsPolicy, stored: FirmConflictsPolicy): string[] {
+    const notes: string[] = [];
+
+    const addedSources = stored.floorSources.filter((source) => !sent.floorSources.includes(source));
+    for (const source of addedSources) {
+      notes.push(
+        `${SOURCE_VOCABULARY[source]?.label ?? source} was added back to the floor: every check searches it.`,
+      );
+    }
+
+    const addedRoles = stored.balancedNameRoles.filter(
+      (role) => !sent.balancedNameRoles.includes(role),
+    );
+    for (const role of addedRoles) {
+      notes.push(
+        `${nameRoleVocabulary(role).label} was added back to the names compared: every check compares it.`,
+      );
+    }
+
+    if (stored.candidateCap !== sent.candidateCap) {
+      notes.push(
+        `The candidate cap was set to ${String(stored.candidateCap)} rather than ${String(sent.candidateCap)} — the most one transaction can carry.`,
+      );
+    }
+    if (stored.closureCap !== sent.closureCap) {
+      notes.push(
+        `The closure cap was set to ${String(stored.closureCap)} rather than ${String(sent.closureCap)}.`,
+      );
+    }
+    if (stored.defaultDepth !== sent.defaultDepth) {
+      notes.push(
+        `The default depth was set to ${String(stored.defaultDepth)} rather than ${String(sent.defaultDepth)}.`,
+      );
+    }
+    for (const edgeClass of BUDGETED_EDGE_CLASSES) {
+      const asked = sent.edgeClassBudgets[edgeClass];
+      const got = stored.edgeClassBudgets[edgeClass];
+      if (asked !== undefined && got !== undefined && asked !== got) {
+        notes.push(
+          `The ${edgeClassLabel(edgeClass).toLowerCase()} budget was set to ${String(got)} rather than ${String(asked)}.`,
+        );
+      }
+    }
+    return notes;
+  }
+
+  let repairs = $state<readonly string[]>([]);
+</script>
+
+<svelte:head>
+  <title>Conflicts · Settings · Magna Carta</title>
+</svelte:head>
+
+<SettingsMasthead
+  sectionId="conflicts"
+  title="Conflicts"
+  posture={mayConfigure ? "draft" : "readOnly"}
+  showHistory={false}
+/>
+
+<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
+  <div class="flex flex-col gap-24 p-24">
+    <SettingsDescription>
+      What every conflicts check must search, whatever the person running it asks for.
+    </SettingsDescription>
+
+    <Alert.Root variant="info">
+      <Alert.Title>The Floor Is A Minimum, Not A Setting Each Check Repeats</Alert.Title>
+      <Alert.Description>
+        A person running a check may search wider than this; a narrower request is raised back to the
+        floor before it runs, and the check records that it was. Changing the floor re-runs nothing
+        and rewrites no check already on the record — a matter whose last check no longer covers what
+        the firm now requires reports that shortfall on its own Conflicts section, worked out fresh
+        every time it is read. Narrowing the floor reduces what this firm will look at from here on.
+      </Alert.Description>
+    </Alert.Root>
+
+    {#if session !== null && !mayConfigure}
+      <Alert.Root variant="info">
+        <Alert.Title>Changing The Floor Is Not Available To This Account</Alert.Title>
+        <Alert.Description>{REFUSAL} The floor itself is readable by anyone who can read a check.</Alert.Description>
+      </Alert.Root>
+    {/if}
+
+    {#if writeFailure !== null}
+      <FailureNotice
+        failure={writeFailure.failure}
+        title="Nothing Changed"
+        fallback={writeFailure.fallback}
+        onRetry={() => void save()}
+      />
+    {/if}
+
+    {#if repairs.length > 0}
+      <Alert.Root variant="warning">
+        <Alert.Title>Saved, With Changes</Alert.Title>
+        <Alert.Description>
+          What is shown below is what the firm's checks will run.
+          <ul class="mt-8 flex list-disc flex-col gap-2 ps-16">
+            {#each repairs as repair (repair)}
+              <li>{repair}</li>
+            {/each}
+          </ul>
+        </Alert.Description>
+      </Alert.Root>
+    {/if}
+
+    <LoadingRegion
+      loading={committed === null}
+      failed={readFailure !== null}
+      label="Reading the firm's conflicts floor"
+      onRetry={readPolicy}
+      class="flex flex-col gap-24"
+    >
+      {#snippet failure()}
+        {#if readFailure !== null}
+          <FailureNotice
+            failure={readFailure.failure}
+            subject="The firm's conflicts floor"
+            fallback={readFailure.fallback}
+            onRetry={readPolicy}
+          />
+        {/if}
+      {/snippet}
+
+      {#snippet fixture()}
+        <!-- The form's own shape, in its own components, over nothing a reader could mistake for a
+             floor: the controls stand where they will stand and carry no value. The region holds it
+             inert and hidden from assistive technology, so no checkbox here can be read as a source
+             this firm searches. Without a fixture the children would render nothing while the read
+             is in flight, because they are guarded on the policy having arrived. -->
+        {#each ["What Every Check Must Search", "The Band Every Check Must Reach"] as heading (heading)}
+          <section class="flex flex-col gap-16">
+            <FieldLabel as="h2">{heading}</FieldLabel>
+            <div class="flex flex-col gap-8">
+              {#each [0, 1, 2] as row (row)}
+                <div class="flex items-start gap-8">
+                  <Checkbox checked={false} disabled />
+                  <div class="flex flex-col gap-2">
+                    <Label>{SAMPLE_SENTENCE.slice(0, 18)}</Label>
+                    <p class="text-xs text-text-muted">{SAMPLE_SENTENCE}</p>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </section>
+        {/each}
+      {/snippet}
+
+      {#if draft !== null}
+        <section class="flex flex-col gap-16">
+          <FieldLabel as="h2">What Every Check Must Search</FieldLabel>
+          <div class="flex flex-col gap-8">
+            {#each SOURCE_CLASSES as source (source)}
+              {@const word = SOURCE_VOCABULARY[source]}
+              {@const locked = source === LOCKED_SOURCE}
+              {@const unavailable = source === UNAVAILABLE_SOURCE}
+              <div class="flex items-start gap-8">
+                <Checkbox
+                  id="conflicts-floor-{source}"
+                  checked={locked || draft.floorSources.includes(source)}
+                  disabled={locked || unavailable || !mayConfigure || saving}
+                  title={locked
+                    ? "Conflicts impute across the whole firm, so the party corpus is not optional."
+                    : unavailable
+                      ? "No corpus is registered for document text, so a check records it as a source it could not search."
+                      : undefined}
+                  onCheckedChange={(on) => toggleSource(source, on === true)}
+                />
+                <div class="flex flex-col gap-2">
+                  <Label for="conflicts-floor-{source}">{word?.label ?? source}</Label>
+                  {#if word?.meaning}
+                    <p class="text-xs text-text-muted">{word.meaning}</p>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          </div>
+        </section>
+
+        <Separator />
+
+        <section class="flex flex-col gap-16">
+          <FieldLabel as="h2">The Band Every Check Must Reach</FieldLabel>
+          <!-- Stated because it is the invariant that makes the choice safe: the wider band searches
+               every name role and every phonetic scheme, so raising this can only add candidates. -->
+          <p class="text-sm text-text-muted">
+            The wider band is a strict superset of the narrower one, so raising this can only add
+            candidates to a check, never remove one.
+          </p>
+          <RadioGroup.Root
+            value={draft.floorStrictness}
+            disabled={!mayConfigure || saving}
+            onValueChange={(value) => {
+              if (draft !== null) draft = { ...draft, floorStrictness: value as Strictness };
+            }}
+            aria-labelledby="conflicts-strictness-label"
+          >
+            {#each STRICTNESS_LEVELS as level (level)}
+              {@const word = STRICTNESS_VOCABULARY[level]}
+              <div class="flex items-start gap-8">
+                <RadioGroup.Item value={level} id="conflicts-strictness-{level}" />
+                <div class="flex flex-col gap-2">
+                  <Label for="conflicts-strictness-{level}">{word.label}</Label>
+                  <p class="text-xs text-text-muted">{word.meaning}</p>
+                </div>
+              </div>
+            {/each}
+          </RadioGroup.Root>
+        </section>
+
+        <Separator />
+
+        <section class="flex flex-col gap-16">
+          <FieldLabel as="h2">Which Names The Narrower Band Compares</FieldLabel>
+          <!-- The wider band is not configurable here, and saying so is what keeps the superset
+               claim above legible: whatever is chosen, it is a subset of "every role". -->
+          <p class="text-sm text-text-muted">
+            These bind the narrower band only. The wider band always compares every name a party has,
+            which is what keeps it a superset of whatever is chosen here.
+          </p>
+          <div class="flex flex-col gap-8">
+            {#each NAME_ROLES as role (role)}
+              {@const word = nameRoleVocabulary(role)}
+              {@const locked = role === LOCKED_NAME_ROLE}
+              <div class="flex items-start gap-8">
+                <Checkbox
+                  id="conflicts-name-role-{role}"
+                  checked={locked || draft.balancedNameRoles.includes(role)}
+                  disabled={locked || !mayConfigure || saving}
+                  title={locked
+                    ? "A check that did not compare the name a party goes by today is not a conflicts check."
+                    : undefined}
+                  onCheckedChange={(on) => toggleNameRole(role, on === true)}
+                />
+                <div class="flex flex-col gap-2">
+                  <Label for="conflicts-name-role-{role}">{word.label}</Label>
+                  {#if word.meaning}
+                    <p class="text-xs text-text-muted">{word.meaning}</p>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          </div>
+        </section>
+
+        <Separator />
+
+        <section class="flex flex-col gap-16">
+          <FieldLabel as="h2">How Far A Check Walks</FieldLabel>
+          <p class="text-sm text-text-muted">
+            A budget is how many hops of that kind of relationship one check may follow. They are
+            spent separately, so a walk that has used up its family budget can still follow a control
+            edge.
+          </p>
+          <div class="grid grid-cols-1 gap-16 sm:grid-cols-3">
+            {#each BUDGETED_EDGE_CLASSES as edgeClass (edgeClass)}
+              <div class="flex flex-col gap-8">
+                <Label for="conflicts-budget-{edgeClass}" title={EDGE_CLASS_VOCABULARY[edgeClass]?.meaning}>
+                  {edgeClassLabel(edgeClass)}
+                </Label>
+                <Input
+                  id="conflicts-budget-{edgeClass}"
+                  type="number"
+                  min="0"
+                  inputmode="numeric"
+                  disabled={!mayConfigure || saving}
+                  value={draft.edgeClassBudgets[edgeClass] ?? 0}
+                  oninput={(event) => setBudget(edgeClass, event.currentTarget.value)}
+                />
+              </div>
+            {/each}
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <Label>{EDGE_CLASS_VOCABULARY.corporate?.label}</Label>
+            <!-- Stated rather than offered, exactly as the check runner states it: a rename, merger
+                 or successor chain of any length is the same legal person continuing, so it carries
+                 no hop budget for anyone to set. -->
+            <p class="text-sm text-text-muted">
+              Traversed transitively at no hop cost, bounded only by the closure cap.
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-8">
+            <Label for="conflicts-default-depth">Default Depth</Label>
+            <Input
+              id="conflicts-default-depth"
+              type="number"
+              min="0"
+              inputmode="numeric"
+              disabled={!mayConfigure || saving}
+              value={draft.defaultDepth}
+              oninput={(event) => {
+                if (draft !== null) {
+                  draft = { ...draft, defaultDepth: numberFrom(event.currentTarget.value) };
+                }
+              }}
+            />
+            <p class="text-xs text-text-muted">
+              What a check uses when the person running it names no depth of its own. A default
+              rather than a floor: a check may deliberately walk shallower, and it records how far it
+              actually went.
+            </p>
+          </div>
+        </section>
+
+        <Separator />
+
+        <section class="flex flex-col gap-16">
+          <FieldLabel as="h2">The Bounds A Run Is Held To</FieldLabel>
+          <p class="text-sm text-text-muted">
+            Both bounds are recorded and reported when they bite. A check that reached one says so in
+            words and names how much it did not reach, so a shortened search is never read as a
+            completed one.
+          </p>
+          <div class="grid grid-cols-1 gap-16 sm:grid-cols-2">
+            <div class="flex flex-col gap-8">
+              <Label for="conflicts-closure-cap">Closure Cap</Label>
+              <Input
+                id="conflicts-closure-cap"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                disabled={!mayConfigure || saving}
+                value={draft.closureCap}
+                oninput={(event) => {
+                  if (draft !== null) {
+                    draft = { ...draft, closureCap: numberFrom(event.currentTarget.value) };
+                  }
+                }}
+              />
+              <p class="text-xs text-text-muted">
+                The most entities one check may walk out to.
+              </p>
+            </div>
+            <div class="flex flex-col gap-8">
+              <Label for="conflicts-candidate-cap">Candidate Cap</Label>
+              <Input
+                id="conflicts-candidate-cap"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                disabled={!mayConfigure || saving}
+                value={draft.candidateCap}
+                oninput={(event) => {
+                  if (draft !== null) {
+                    draft = { ...draft, candidateCap: numberFrom(event.currentTarget.value) };
+                  }
+                }}
+              />
+              <p class="text-xs text-text-muted">
+                The most candidates one check may write. Asking for more than one transaction can
+                carry is reduced on save, and the value you are left with is the one shown here.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <Separator />
+
+        <div class="flex flex-wrap items-center gap-8">
+          <Button
+            disabled={!mayConfigure || !dirty || saving}
+            title={mayConfigure ? undefined : REFUSAL}
+            onclick={() => void save()}
+          >
+            {saving ? "Saving" : "Save The Floor"}
+          </Button>
+          <Button variant="ghost" disabled={!dirty || saving} onclick={discard}>Discard</Button>
+          {#if dirty}
+            <span class="text-sm text-text-muted">Not saved yet. Nothing has changed for any check.</span>
+          {:else if savedAt !== null}
+            <span class="text-sm text-text-muted">Saved. Every check from here on runs this floor.</span>
+          {/if}
+        </div>
+      {/if}
+    </LoadingRegion>
+  </div>
+</div>

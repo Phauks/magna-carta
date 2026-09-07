@@ -8,6 +8,35 @@
 // This lives in the database package rather than beside the sentinel because both the sentinel
 // (tooling/migration-integrity/) and the lineage tests read it, and a second list would let a
 // rebuild be acceptable to one and not the other.
+// Rebuilds of a table that OTHER TABLES POINT AT, which is a shape that cannot run in production and
+// must never be written again.
+//
+// A rebuild drops the table it replaces. In a Cloudflare durable object, foreign keys are enforced
+// at the statement AND at the commit, and `PRAGMA foreign_keys=OFF` does nothing inside the single
+// execution context a migration runs in — SQLite honours that pragma only outside a transaction and
+// reports success either way. Four ways around it were tried against real durable-object storage
+// (the pragma, yielding between the pragma and the drop, `defer_foreign_keys`, and rename-aside
+// under `legacy_alter_table`); all four fail, and workerd resets the object rather than allow the
+// violation. The probes are in apps/api-worker/test/durable-object-pragma-context.test.ts.
+//
+// So a `DROP TABLE` on a parent with children cannot complete against any firm database that holds
+// data. It completes against an empty one, which is the only place it was ever tried.
+//
+// THESE SIX ARE DEBT, NOT PERMISSION. Each was written before that was understood, and each is
+// unappliable to a firm whose rebuilt table has children — one of them is why a firm's database sat
+// unreachable for a day. They are listed so the guard can tell an old mistake from a new one; the
+// list must never grow. Widening a CHECK or dropping a column on a parent table needs a different
+// answer, and choosing one is an open decision rather than something to work around here.
+export const PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING: ReadonlySet<string> =
+  new Set<string>([
+    "20260829T101500_firmless-account",
+    "20260901T120000_matter-notes-edit-and-delete",
+    "20260901T150000_tasks",
+    "20260905T195543_intake-step-kinds-client-forms-and-payment",
+    "20260906T013304_matter-status-intake-and-consultation",
+    "20260906T030014_matter-hold-status",
+  ]);
+
 export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // `user`.`firm_id` widened to nullable, so an account can exist before it belongs to a firm.
   // Audited: the copy is column-for-column over the whole table, the foreign key and the unique

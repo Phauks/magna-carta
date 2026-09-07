@@ -1,0 +1,13 @@
+-- The firm's conflicts floor gains a write path, and the write needs a key of its own.
+--
+-- conflicts:run, conflicts:read and conflicts:dispose all act on a CHECK. This one does not: it
+-- decides what every future check searches. Widening the floor makes a shortfall appear on every
+-- matter whose last check no longer covers it, and narrowing it reduces what the firm will look at
+-- from here on with no single check ever recording that a person chose that. That is firm governance
+-- rather than casework, so it seeds Owner/Admin only — the footing billing:configure takes, and for
+-- the same reason: the setting decides where everything downstream lands.
+--
+-- Every other role receives nothing, Read-only included. A member who cannot change the floor can
+-- still SEE it: the floor reads on conflicts:read, because a reviewer looking at a check that fell
+-- short of the floor has to be able to see what the floor was.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_conflictsConfigOwner0', 'role_Gw-zKO8hOHQuNv2bWokMp', 'conflicts:configure');
