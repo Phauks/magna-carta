@@ -109,6 +109,7 @@ describe("databaseHealthRows", () => {
       {
         ...HEALTHY,
         controlPlane: {
+          ...HEALTHY.controlPlane,
           state: "unreachable",
           roundTripMilliseconds: null,
           fault: "D1_ERROR: no such table: firm",
