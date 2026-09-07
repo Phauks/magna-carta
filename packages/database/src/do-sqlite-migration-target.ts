@@ -8,6 +8,30 @@ import type { MigrationTarget } from "./migration-runner.ts";
 const CREATE_MIGRATIONS_TABLE =
   "CREATE TABLE IF NOT EXISTS _migrations (tag TEXT PRIMARY KEY, applied_at TEXT NOT NULL)";
 
+// WHICH migration, and WHICH statement in it. A migration that fails reports only SQLite's own
+// sentence — "FOREIGN KEY constraint failed" and nothing else — and that sentence is the same for
+// all ninety-odd migrations and every statement inside each one. Twice now a firm's database has
+// been down while the runner held the two facts that would have named the fault and threw them away
+// with the error it re-raised.
+//
+// The identity leads and the original message follows, because the fault surfaces through a bounded
+// message head: what is most specific has to survive the truncation. The statement is cut to its
+// opening keywords, which is what identifies it — `DROP TABLE` and `INSERT INTO role_permission`
+// are different diagnoses and the first few words separate them.
+const STATEMENT_HEAD_LENGTH = 60;
+
+export function migrationStatementFailure(
+  migration: Migration,
+  index: number,
+  cause: unknown,
+): string {
+  const statement = migration.statements[index] ?? "";
+  const head = statement.replace(/\s+/gu, " ").trim().slice(0, STATEMENT_HEAD_LENGTH);
+  const total = migration.statements.length;
+  const message = cause instanceof Error ? cause.message : String(cause);
+  return `${migration.tag} statement ${String(index + 1)}/${String(total)} [${head}] ${message}`;
+}
+
 export function doSqliteMigrationTarget(
   storage: DurableObjectStorage,
   now: () => string = () => new Date().toISOString(),
@@ -36,7 +60,13 @@ export function doSqliteMigrationTarget(
       sql.exec("PRAGMA foreign_keys=OFF");
       try {
         storage.transactionSync(() => {
-          for (const statement of migration.statements) sql.exec(statement);
+          for (const [index, statement] of migration.statements.entries()) {
+            try {
+              sql.exec(statement);
+            } catch (error) {
+              throw new Error(migrationStatementFailure(migration, index, error), { cause: error });
+            }
+          }
           // What the disabled enforcement above owes back: with the constraints off for the length
           // of the migration, a genuine dangling reference would otherwise commit unnoticed. This
           // asks the whole database the question once, INSIDE the transaction, so a migration that
