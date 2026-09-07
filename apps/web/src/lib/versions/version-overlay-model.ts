@@ -287,7 +287,12 @@ export function copyReportForPanel(input: {
     lines.push(`Services observed ${input.versions.observedAt}`);
   }
 
-  if (input.databaseLine !== null) lines.push(`Database — ${input.databaseLine}`);
+  if (input.databaseLine !== null) {
+    // The database's checks arrive one per line; they are indented under their own heading the way
+    // the Workers are, so the paste reads as two lists rather than one run-on.
+    lines.push("Database:");
+    for (const line of input.databaseLine.split("\n")) lines.push(`  ${line}`);
+  }
 
   return lines.join("\n");
 }
