@@ -179,6 +179,9 @@
           },
           "joining": {
             "$ref": "#/components/schemas/JoiningState"
+          },
+          "membership": {
+            "$ref": "#/components/schemas/Membership"
           }
         },
         "required": [
@@ -199,6 +202,60 @@
               "firmProvisioning"
             ],
             "description": "What this person still has to do: choose how they join a firm, or wait while the firm they asked for is built."
+          },
+          "build": {
+            "$ref": "#/components/schemas/FirmBuildProgress"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "FirmBuildProgress": {
+        "type": "object",
+        "properties": {
+          "firmRecord": {
+            "type": "boolean",
+            "description": "The firm's own record exists."
+          },
+          "fileStorage": {
+            "type": "boolean",
+            "description": "Its file storage has been allocated."
+          },
+          "encryptionKey": {
+            "type": "boolean",
+            "description": "Its encryption key has been minted."
+          },
+          "activated": {
+            "type": "boolean",
+            "description": "The firm is active and its owner is recorded — the last step."
+          },
+          "stalled": {
+            "type": "boolean",
+            "description": "The build stopped and is no longer being retried. Reported because it is the one state on a waiting screen that will not clear by waiting."
+          }
+        },
+        "required": [
+          "firmRecord",
+          "fileStorage",
+          "encryptionKey",
+          "activated",
+          "stalled"
+        ],
+        "description": "Present only while a firm is being built; how far it has got."
+      },
+      "Membership": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "provisioning",
+              "stalled",
+              "unknown"
+            ],
+            "description": "Whether this account's member record has reached the firm's own database. `provisioning` is a wait, not a permission somebody has to grant; `stalled` is that write having been given up on, which waiting will not fix; `unknown` is a read that did not answer, which is not a verdict about the account."
           }
         },
         "required": [

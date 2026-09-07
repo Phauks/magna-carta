@@ -224,6 +224,9 @@ describe("end-to-end", () => {
       // safe default with no flag provider bound in the test pool.
       channel: "stable",
       flags: { "release-channels.smoke": false },
+      // The owner's member record has reached the firm's own database — which is a separate fact
+      // from belonging to the firm, and the one the app's guards wait on before letting anybody in.
+      membership: { state: "active" },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
       // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
       // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /
@@ -660,6 +663,12 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // holds into a Word or PDF file, returned as bytes. Nothing is stored; filing a produced
       // export would be a separate route riding reports:produce.
       "reports.exportRender",
+      // Read-shaped POST: answers whether the firm already holds a file's bytes, by the SHA-256 and
+      // size in the body, before they are uploaded. Nothing is stored; a POST only because the
+      // digest and size are a question, not a resource. It landed in the matter-upload redesign
+      // with its entry in conformance.test.ts's list and not in this one, which is what left this
+      // sweep red on main — the two lists are the same exemption and have to move together.
+      "uploads.matches",
       // A member settling their OWN notification feed row. These write, on the aiDetection.detect
       // reasoning rather than the pure-computation one: the write records nothing about the firm's
       // conduct, only that one member cleared one badge, and auditing every clear would flood

@@ -47,6 +47,7 @@ export type MeResponse = {
         [key: string]: boolean;
     };
     joining?: JoiningState;
+    membership?: Membership;
 };
 
 export type JoiningState = {
@@ -54,6 +55,40 @@ export type JoiningState = {
      * What this person still has to do: choose how they join a firm, or wait while the firm they asked for is built.
      */
     state: 'chooseFirm' | 'firmProvisioning';
+    build?: FirmBuildProgress;
+};
+
+/**
+ * Present only while a firm is being built; how far it has got.
+ */
+export type FirmBuildProgress = {
+    /**
+     * The firm's own record exists.
+     */
+    firmRecord: boolean;
+    /**
+     * Its file storage has been allocated.
+     */
+    fileStorage: boolean;
+    /**
+     * Its encryption key has been minted.
+     */
+    encryptionKey: boolean;
+    /**
+     * The firm is active and its owner is recorded — the last step.
+     */
+    activated: boolean;
+    /**
+     * The build stopped and is no longer being retried. Reported because it is the one state on a waiting screen that will not clear by waiting.
+     */
+    stalled: boolean;
+};
+
+export type Membership = {
+    /**
+     * Whether this account's member record has reached the firm's own database. `provisioning` is a wait, not a permission somebody has to grant; `stalled` is that write having been given up on, which waiting will not fix; `unknown` is a read that did not answer, which is not a verdict about the account.
+     */
+    state: 'active' | 'provisioning' | 'stalled' | 'unknown';
 };
 
 export type MetaVersionsResponse = {
@@ -2519,6 +2554,20 @@ export type ConflictsPolicyResponse = {
     closureCap: number;
     candidateCap: number;
     balancedNameRoles: Array<string>;
+};
+
+export type ConflictsPolicyRequest = {
+    floorSources?: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    floorStrictness?: 'balanced' | 'over_inclusive';
+    defaultDepth?: number;
+    edgeClassBudgets?: {
+        control?: number;
+        family?: number;
+        representation?: number;
+    };
+    closureCap?: number;
+    candidateCap?: number;
+    balancedNameRoles?: Array<string>;
 };
 
 export type CreatedConflictsRecheckResponse = {
@@ -16611,6 +16660,54 @@ export type ConflictsFirmPolicyResponses = {
 };
 
 export type ConflictsFirmPolicyResponse = ConflictsFirmPolicyResponses[keyof ConflictsFirmPolicyResponses];
+
+export type ConflictsSetFirmPolicyData = {
+    body: ConflictsPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/conflicts-policy';
+};
+
+export type ConflictsSetFirmPolicyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsSetFirmPolicyError = ConflictsSetFirmPolicyErrors[keyof ConflictsSetFirmPolicyErrors];
+
+export type ConflictsSetFirmPolicyResponses = {
+    /**
+     * The firm's conflicts policy as stored, after normalization
+     */
+    200: ConflictsPolicyResponse;
+};
+
+export type ConflictsSetFirmPolicyResponse = ConflictsSetFirmPolicyResponses[keyof ConflictsSetFirmPolicyResponses];
 
 export type ConflictsRecheckMatterData = {
     body?: never;
