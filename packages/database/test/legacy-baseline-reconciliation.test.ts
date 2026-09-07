@@ -119,7 +119,7 @@ for (const lineage of ["per-firm", "control-plane"] as const) {
       expect(appliedLedger(database)).toEqual(journalTags);
     });
 
-    it("a strict prefix of the retired chain still refuses — its schema stops short of the baseline", async () => {
+    it("a strict prefix of the retired chain refuses AS STRANDED — not as a stale deploy", async () => {
       const database = new DatabaseSync(":memory:");
       database.exec(CREATE_MIGRATIONS_TABLE);
       for (const tag of legacyTags.slice(0, 3)) {
@@ -127,9 +127,16 @@ for (const lineage of ["per-firm", "control-plane"] as const) {
           .prepare("INSERT INTO _migrations (tag, applied_at) VALUES (?, ?)")
           .run(tag, "2026-07-01T00:00:00.000Z");
       }
+      // The schema stops short of the baseline and the SQL that would carry it the rest of the way
+      // was retired by the collapse, so this is a database that is BEHIND with no path forward. The
+      // wording matters more than the throw: told "code older than schema", whoever is holding the
+      // outage goes looking for a rollback that cannot help.
       await expect(
         runPendingMigrations(nodeSqliteMigrationTarget(database), migrations),
-      ).rejects.toThrow(/deploy mismatch/);
+      ).rejects.toThrow(/was retired into baseline .* needs a human/su);
+      await expect(
+        runPendingMigrations(nodeSqliteMigrationTarget(database), migrations),
+      ).rejects.not.toThrow(/deploy mismatch/);
       expect(appliedLedger(database)).toEqual(legacyTags.slice(0, 3).toSorted()); // ledger untouched
     });
   });
@@ -160,9 +167,11 @@ describe("legacy-baseline reconciliation (guard rails)", () => {
         .prepare("INSERT INTO _migrations (tag, applied_at) VALUES (?, ?)")
         .run(tag, "2026-07-01T00:00:00.000Z");
     }
+    // The retired tags sort ahead of the future one, so the retired-chain sentence is what this
+    // answers with — correctly: the ledger is not the complete chain, whatever else is in it.
     await expect(
       runPendingMigrations(nodeSqliteMigrationTarget(database), perFirmMigrations),
-    ).rejects.toThrow(/deploy mismatch/);
+    ).rejects.toThrow(/was retired into baseline/u);
   });
 
   it("a fresh database never enters the reconciliation path", async () => {
@@ -176,6 +185,18 @@ describe("legacy-baseline reconciliation (guard rails)", () => {
     expect(appliedLedger(database)).toEqual(
       perFirmMigrations.map((migration) => migration.tag).toSorted(),
     );
+  });
+
+  it("reconciling can only ever hop ONCE — no collapse retires a single migration", () => {
+    // The loop this replaced could not fire twice and said in a comment that it walked history
+    // forward. It cannot: reconciling leaves the ledger holding exactly one tag, so a second hop
+    // would need an entry whose retired chain is one migration long. A collapse retires the
+    // previous baseline PLUS everything appended after it, so that shape does not occur — asserted
+    // here rather than left as reasoning, because a future entry that broke it would silently
+    // reintroduce the stranded-ledger case the runner now reports by name.
+    for (const entry of LEGACY_BASELINES) {
+      expect(entry.legacyTags.length, entry.baselineTag).toBeGreaterThan(1);
+    }
   });
 
   it("findLegacyBaseline matches only when the code also carries the baseline", () => {

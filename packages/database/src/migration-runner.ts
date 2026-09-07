@@ -40,31 +40,36 @@ export async function runPendingMigrations(
   // cumulative schema the baseline was verified to reproduce — rewrite it to the baseline tag and
   // carry on; the schema itself is untouched. Exact-complete-chain matches only: any other unknown
   // tag still refuses below, because it really does mean a newer schema than this code.
-  // RECONCILED REPEATEDLY, because collapses compose. A database provisioned before the first
-  // collapse carries the retired chain that collapse replaced; reconciling it once lands the ledger
-  // on that collapse's baseline tag — which a LATER collapse has since retired in turn. One hop
-  // would leave such a database holding a tag this code no longer knows, and the refusal below would
-  // read it as a newer schema and stop. Each pass rewrites the ledger to the next baseline forward
-  // until no retired chain matches, which is the whole history walked in order.
   //
-  // Bounded by the number of baselines there could be: findLegacyBaseline only matches a COMPLETE
-  // retired chain, so a pass either advances the ledger or returns nothing, and a malformed set that
-  // somehow cycled would stop here rather than spin.
-  let reconciledToBaseline: string | null = null;
-  for (let hop = 0; hop <= LEGACY_BASELINES.length; hop += 1) {
-    const legacyBaseline = findLegacyBaseline(applied, known);
-    if (legacyBaseline === undefined) break;
+  // ONE hop is all there ever is, and that is a property of what a collapse is rather than a limit
+  // settled for here. Reconciling leaves the ledger holding exactly one tag, so a second hop would
+  // need an entry that retired a single migration — and a collapse always retires the previous
+  // baseline PLUS every migration appended after it, so its chain is never one tag long. A ledger
+  // that stopped part way through history therefore does not chain forward to today; it is
+  // stranded, which is what the refusal below says in those words.
+  const legacyBaseline = findLegacyBaseline(applied, known);
+  if (legacyBaseline !== undefined) {
     await target.supersedeAppliedMigrations(legacyBaseline.legacyTags, legacyBaseline.baselineTag);
     applied = new Set(await target.appliedMigrationTags());
-    reconciledToBaseline = legacyBaseline.baselineTag;
   }
+  const reconciledToBaseline = legacyBaseline?.baselineTag ?? null;
 
   for (const tag of applied) {
-    if (!known.has(tag)) {
+    if (known.has(tag)) continue;
+    // Two different faults answer with two different sentences, because the remedies are opposite.
+    // A tag this bundle retired means the database is behind and the SQL that would carry it
+    // forward is gone — no redeploy fixes that, and reading it as a stale deploy sends whoever is
+    // holding the outage looking for a rollback that does not exist. Anything else really is a
+    // deployment running older code than the schema it was pointed at.
+    const retiredInto = LEGACY_BASELINES.find((entry) => entry.legacyTags.includes(tag));
+    if (retiredInto !== undefined) {
       throw new Error(
-        `database has applied migration "${tag}" which this code does not know — deploy mismatch (code older than schema)`,
+        `database has applied migration "${tag}", which was retired into baseline "${retiredInto.baselineTag}" — but the ledger is not that complete chain, so this database's schema stops part way through a history this code no longer carries. It cannot be migrated forward automatically and needs a human.`,
       );
     }
+    throw new Error(
+      `database has applied migration "${tag}" which this code does not know — deploy mismatch (code older than schema)`,
+    );
   }
   const report: MigrationRunReport = {
     appliedTags: [],
