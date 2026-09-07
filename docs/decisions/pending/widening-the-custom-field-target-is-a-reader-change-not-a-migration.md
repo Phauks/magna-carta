@@ -16,7 +16,7 @@ additive value, plus the migration, … coordinate with the Custodian `custodyPa
 has not landed: one migration, both values."
 
 That instruction does not survive contact with the schema. `custom_field` was created in the per-firm
-baseline (`packages/database/drizzle/per-firm/20260704T041516_baseline.sql`) with `target` as a plain
+baseline (`packages/database/drizzle/per-firm/20260908T000000_baseline.sql`) with `target` as a plain
 `text NOT NULL` and no CHECK constraint, and no later migration has touched it. The `enum` option on
 the drizzle column is a **TypeScript** narrowing — it emits no DDL and, as the lineage-head snapshot
 shows, is not even recorded in `meta/`, so changing it produces no diff for `drizzle-kit generate` to

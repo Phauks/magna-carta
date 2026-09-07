@@ -1,1 +1,0 @@
-CREATE INDEX `cost_entry_incurred_date_index` ON `cost_entry` (`incurred_date`);

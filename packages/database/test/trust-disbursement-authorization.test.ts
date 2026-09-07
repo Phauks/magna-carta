@@ -9,13 +9,7 @@ import { expect, test } from "vitest";
 // tables it guards have to carry the append-only discipline every other evidentiary trust table has.
 
 const MIGRATION = readFileSync(
-  join(
-    import.meta.dirname,
-    "..",
-    "drizzle",
-    "per-firm",
-    "20260805T170000_trust-disbursement-authorization.sql",
-  ),
+  join(import.meta.dirname, "..", "drizzle", "per-firm", "20260908T000000_baseline.sql"),
   "utf8",
 );
 

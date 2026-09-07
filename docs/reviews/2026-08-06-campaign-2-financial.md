@@ -343,7 +343,7 @@ so a firm can find the lapsed grant speaking for somebody who left. Giving the g
 revocation distinct from an expiry is a migration, and this batch adds none.
 
 `packages/trust/src/statements.ts:543-547` and the matching trigger at
-`packages/database/drizzle/per-firm/20260805T170000_trust-disbursement-authorization.sql:94-110`
+`packages/database/drizzle/per-firm/20260908T000000_baseline.sql:94-110`
 count `direct_grant` rows for `trust:manage` regardless of `expires_at`, while
 `effectivePermissions` (`packages/access-control/src/resolver.ts:28-31`) excludes expired ones. The
 migration comment names this deliberately ("over-counting authorizers refuses the exception, which is

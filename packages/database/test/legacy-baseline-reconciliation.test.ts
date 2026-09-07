@@ -179,13 +179,13 @@ describe("legacy-baseline reconciliation (guard rails)", () => {
   });
 
   it("findLegacyBaseline matches only when the code also carries the baseline", () => {
-    const { legacyTags } = LEGACY_BASELINES.find((entry) => entry.lineage === "per-firm")!;
-    const applied = new Set(legacyTags);
+    // Read from the entry rather than written as a literal: a collapse retires the tag the previous
+    // one replaced, so a literal here would name a baseline that no longer exists the next time.
+    const entry = LEGACY_BASELINES.find((candidate) => candidate.lineage === "per-firm")!;
+    const applied = new Set(entry.legacyTags);
     expect(
       findLegacyBaseline(applied, new Set(["20990101T000000_something-else"])),
     ).toBeUndefined();
-    expect(findLegacyBaseline(applied, new Set(["20260704T041516_baseline"]))?.lineage).toBe(
-      "per-firm",
-    );
+    expect(findLegacyBaseline(applied, new Set([entry.baselineTag]))?.lineage).toBe("per-firm");
   });
 });

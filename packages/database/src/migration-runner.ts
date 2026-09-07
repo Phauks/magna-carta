@@ -1,4 +1,4 @@
-import { findLegacyBaseline } from "./legacy-baselines.ts";
+import { findLegacyBaseline, LEGACY_BASELINES } from "./legacy-baselines.ts";
 import type { Migration } from "./migration.ts";
 
 // The seam between "which migrations are pending" (pure, this file) and "how SQL reaches a database"
@@ -40,10 +40,23 @@ export async function runPendingMigrations(
   // cumulative schema the baseline was verified to reproduce — rewrite it to the baseline tag and
   // carry on; the schema itself is untouched. Exact-complete-chain matches only: any other unknown
   // tag still refuses below, because it really does mean a newer schema than this code.
-  const legacyBaseline = findLegacyBaseline(applied, known);
-  if (legacyBaseline !== undefined) {
+  // RECONCILED REPEATEDLY, because collapses compose. A database provisioned before the first
+  // collapse carries the retired chain that collapse replaced; reconciling it once lands the ledger
+  // on that collapse's baseline tag — which a LATER collapse has since retired in turn. One hop
+  // would leave such a database holding a tag this code no longer knows, and the refusal below would
+  // read it as a newer schema and stop. Each pass rewrites the ledger to the next baseline forward
+  // until no retired chain matches, which is the whole history walked in order.
+  //
+  // Bounded by the number of baselines there could be: findLegacyBaseline only matches a COMPLETE
+  // retired chain, so a pass either advances the ledger or returns nothing, and a malformed set that
+  // somehow cycled would stop here rather than spin.
+  let reconciledToBaseline: string | null = null;
+  for (let hop = 0; hop <= LEGACY_BASELINES.length; hop += 1) {
+    const legacyBaseline = findLegacyBaseline(applied, known);
+    if (legacyBaseline === undefined) break;
     await target.supersedeAppliedMigrations(legacyBaseline.legacyTags, legacyBaseline.baselineTag);
     applied = new Set(await target.appliedMigrationTags());
+    reconciledToBaseline = legacyBaseline.baselineTag;
   }
 
   for (const tag of applied) {
@@ -56,7 +69,7 @@ export async function runPendingMigrations(
   const report: MigrationRunReport = {
     appliedTags: [],
     skippedTags: [],
-    reconciledToBaseline: legacyBaseline?.baselineTag ?? null,
+    reconciledToBaseline,
   };
   for (const migration of migrations) {
     if (applied.has(migration.tag)) {
