@@ -15,6 +15,7 @@ import {
   readVisibleDiscoveryLoad,
   readVisibleDiscoveryLoads,
   readVisibleReviewSet,
+  readVisibleReviewSets,
   readVisibleReviewSetsForMatter,
 } from "@magna-carta/discovery/review-reads";
 import { reviewSetAccessPredicate } from "@magna-carta/discovery/review-set-visibility";
@@ -72,6 +73,10 @@ import {
 } from "../discovery/dispatch-processing.ts";
 import { runInternalLoadTurn } from "../discovery/run-internal-load.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
+import { presignerForEnv } from "../files/presigner-wiring.ts";
+import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { loadExceptionReportTextKey, loadManifestTextKey } from "@magna-carta/discovery/r2-keys";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { registerDiscoveryCodingRoutes } from "./discovery-coding.ts";
 import { registerDiscoveryReviewReadRoutes } from "./discovery-review-reads.ts";
@@ -91,6 +96,10 @@ const MANAGE = "discovery:manageReviewSets";
 const LOAD = "discovery:load";
 
 const DEFAULT_PAGE_SIZE = 100;
+
+// Long enough for a browser to follow the redirect and a slow connection to pull a large exception
+// report; short enough that a URL copied out of a network log is useless by the time it is read.
+const ARTIFACT_TTL_SECONDS = 300;
 
 const authErrors = {
   401: {
@@ -237,6 +246,37 @@ function readMeta(action: string): RouteMeta {
   };
 }
 
+// The one read here that is not about a single matter: the register of every corpus a member may
+// reach. Its resource is the FIRM because it names no matter and cannot — the member reading it may
+// hold no matter access at all, which is exactly the reader it exists for.
+function firmReadMeta(action: string): RouteMeta {
+  return {
+    operationId: `discovery.${action}`,
+    surface: "app",
+    authenticated: true,
+    permission: READ,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+}
+
+// Handing a record artifact to somebody is an EXPORT, so it is audited even though it is a GET.
+// The audit row names the load and which artifact left, never a byte of its content.
+function artifactMeta(action: string): RouteMeta {
+  return {
+    operationId: `discovery.${action}`,
+    surface: "app",
+    authenticated: true,
+    permission: READ,
+    resource: "matter",
+    audited: true,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+}
+
 function manageMeta(action: string): RouteMeta {
   return {
     operationId: `discovery.${action}`,
@@ -365,6 +405,67 @@ const listReviewSetsRoute = defineOpenAPIRoute(readMeta("listReviewSets"), {
         "application/json": { schema: paginated(ReviewSetSummary).openapi("ReviewSetList") },
       },
     },
+    ...commonErrors,
+  },
+});
+
+const listAllReviewSetsRoute = defineOpenAPIRoute(firmReadMeta("listAllReviewSets"), {
+  method: "get",
+  path: "/api/v1/review-sets",
+  description:
+    "Every review set this member may reach, across every matter, newest first. Scoped by the " +
+    "per-review-set access list and NOT by matter access, which is the whole reason it exists: a " +
+    "reviewer brought in for one production is on that review set's list and may hold no access to " +
+    "the matter it belongs to, so a register scoped by matter would hide from them precisely the " +
+    "work they were given. Each row names its matter, because that is how a person tells four " +
+    "review sets apart; naming it discloses nothing the reader is not already inside.",
+  request: { query: cursorQuery },
+  responses: {
+    200: {
+      description: "One page of the member's review sets",
+      content: {
+        "application/json": { schema: paginated(ReviewSetSummary).openapi("ReviewSetList") },
+      },
+    },
+    ...commonErrors,
+  },
+});
+
+// The two records a load produces, and the only way to reach them.
+//
+// They are the point of the whole ingest lane: the manifest states what arrived, and the exception
+// report names every document that could not be read with the reason for each — together they are
+// what converts "we produced everything we could read" from an assertion into a document a firm
+// hands to another party. Each exists in a machine-readable form and a printable one, because the
+// receiving side may have no tooling and no account.
+const downloadLoadArtifactRoute = defineOpenAPIRoute(artifactMeta("downloadLoadArtifact"), {
+  method: "get",
+  path: "/api/v1/loads/{loadId}/artifacts/{artifact}",
+  description:
+    "Redirects (302) to a short-lived URL for one of the load's two record artifacts — its " +
+    "manifest, or its exception report — in either the machine-readable or the printable form. " +
+    "404 until the load completes: the artifacts are written once, at completion, and a load that " +
+    "failed never had them. Access is the review set's own list, so a member off it gets the same " +
+    "answer as one asking about a load that does not exist.",
+  request: {
+    params: loadIdParam.extend({
+      artifact: z.enum(["manifest", "exception-report"]).openapi({
+        description: "Which of the load's two records to hand over.",
+      }),
+    }),
+    query: z.object({
+      format: z
+        .enum(["json", "text"])
+        .optional()
+        .openapi({
+          description:
+            "The machine-readable form (default) or the printable one a person reads with no " +
+            "tooling.",
+        }),
+    }),
+  },
+  responses: {
+    302: { description: "Redirect to the artifact" },
     ...commonErrors,
   },
 });
@@ -775,6 +876,89 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
   // The reads the review surface pages through — the document list, the exception surface, the
   // occurrences, and what the index still owes.
   registerDiscoveryReviewReadRoutes(app, chokepoint);
+
+  app.openapi(
+    {
+      ...listAllReviewSetsRoute,
+      middleware: chokepointMiddleware(chokepoint, listAllReviewSetsRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { cursor } = c.req.valid("query");
+      const page = await readVisibleReviewSets(
+        firm.firmDatabase,
+        accessFor(c),
+        DEFAULT_PAGE_SIZE,
+        cursor,
+      );
+      return c.json({ data: page.data.map(reviewSetPayload), nextCursor: page.nextCursor }, 200);
+    },
+  );
+
+  app.openapi(
+    {
+      ...downloadLoadArtifactRoute,
+      middleware: chokepointMiddleware(chokepoint, downloadLoadArtifactRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { loadId, artifact } = c.req.valid("param");
+      const format = c.req.valid("query").format ?? "json";
+      // Access-scoped, so a member off the review set's list gets ABSENCE rather than a refusal that
+      // would itself disclose that a corpus is there.
+      const load = await readVisibleDiscoveryLoad(
+        firm.firmDatabase,
+        loadId as DiscoveryLoadId,
+        accessFor(c),
+      );
+      // The stored key is the machine-readable object; its printable sibling is derived from the
+      // same identifiers rather than stored a second time. Reading the stored key first is what
+      // makes the printable form unreachable on a load that never wrote either — the two are
+      // written in one act, so one key standing for both is not an assumption, it is the invariant.
+      const storedKey =
+        artifact === "manifest" ? load?.manifest_r2_key : load?.exception_report_r2_key;
+      if (load === undefined || storedKey === null || storedKey === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail:
+            "No such load with that record. A load writes its manifest and its exception report " +
+            "once, when every document in it has reached a terminal state.",
+        });
+      }
+      const key =
+        format === "json"
+          ? storedKey
+          : artifact === "manifest"
+            ? loadManifestTextKey(load.review_set_id, load.id)
+            : loadExceptionReportTextKey(load.review_set_id, load.id);
+      const { bucketName } = resolveFirmBucket(c.env, firm.bucketName);
+      const url = await presignerForEnv(c.env).presignGet(bucketName, key, ARTIFACT_TTL_SECONDS);
+      const now = new Date().toISOString();
+      await commitEffectBatch(
+        firm.firmDatabase,
+        {
+          statements: [
+            insertAuditLogStatement(firm.firmDatabase, {
+              id: newIdentifier("auditLog"),
+              event: "discovery.loadArtifactExported",
+              actorUserId: userId,
+              subjectId: load.id,
+              // The load, which record, and which form. Never a line of either document: the
+              // exception report names documents, and an audit row is not where they belong.
+              metadata: { reviewSetId: load.review_set_id, artifact, format },
+              now,
+            }),
+          ],
+          outboxMessages: [],
+        },
+        { now: () => now },
+      );
+      return c.redirect(url, 302);
+    },
+  );
 
   app.openapi(
     { ...listReviewSetsRoute, middleware: chokepointMiddleware(chokepoint, listReviewSetsRoute) },

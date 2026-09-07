@@ -1,10 +1,10 @@
 # Reading the documents in a review set
 
-_Reading a review set is built, along with the API behind it, and so is the step that makes a read
-document searchable. The engines that do the reading and the searching are switched on at deployment;
-until they are, documents wait rather than being marked unreadable, and the set says so. The screens —
-the document list, the progress view and the exception report a person prints — are authored when those
-surfaces ship._
+_The document list is here: open a review set and it lands on **Documents**, one row per document with
+how far each one got, why it got no further, and whether it is searchable yet. The engines that do the
+reading and the searching are switched on at deployment; until they are, documents wait rather than
+being marked unreadable, and the screen says so. Opening a document to read it on screen, and coding
+it, are the next piece of work._
 
 ## What it does
 
@@ -117,12 +117,27 @@ it go together.
 are still in the set, still attributed to the people who held them, and still findable through the copy
 that stands for them. See [the manifest and exception report](discovery-exception-report.md).
 
+## Narrowing the list
+
+One control, **Narrow**, above the documents. It narrows by Custodian of Record, by the load a
+document arrived on, by whether it was read, by the named reason it was not, and by family — a message
+and its attachments, or an archive and its contents, which arrived together and are usually read
+together. Opening a document narrows to its family.
+
+Searching by keyword, narrowing by date, narrowing by how documents have been coded and grouping
+near-duplicates all appear in the same control, unavailable, each saying what it is waiting for. They
+are shown rather than hidden so the shape of the finished screen is visible now.
+
+Whatever you have narrowed to is in the address bar, so a narrowed list is a link you can send to
+somebody else on the review set — they will see the same documents in the same order.
+
 ## What this does not do yet
 
-- **The screens.** Everything above is recorded per document and reachable through the API; the
-  progress view, the document list and the exception report a person prints are the next piece of work.
+- **Opening a document to read it.** The list tells you what each document is and how it was read;
+  the reading pane itself, and coding beside it, are the next piece of work.
 - **Searching itself.** The pipeline that makes a set searchable is built and the engine that answers
-  the queries is switched on at deployment.
+  the queries is switched on at deployment. Until then every read document shows _Not searchable yet_,
+  which is the platform's own work outstanding and never appears on anything you hand over.
 - **Searching by meaning.** Keyword search across a review set is what is built. Searching by meaning
   rather than by word is a separate, deliberately unmade decision — it is expensive to run on a
   quarter-million documents and nobody has yet shown that it finds responsive documents a keyword

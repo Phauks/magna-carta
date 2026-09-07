@@ -76383,6 +76383,236 @@
         }
       }
     },
+    "/api/v1/review-sets": {
+      "get": {
+        "description": "Every review set this member may reach, across every matter, newest first. Scoped by the per-review-set access list and NOT by matter access, which is the whole reason it exists: a reviewer brought in for one production is on that review set's list and may hold no access to the matter it belongs to, so a register scoped by matter would hide from them precisely the work they were given. Each row names its matter, because that is how a person tells four review sets apart; naming it discloses nothing the reader is not already inside.",
+        "operationId": "discovery.listAllReviewSets",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.listAllReviewSets",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the member's review sets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSetList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/loads/{loadId}/artifacts/{artifact}": {
+      "get": {
+        "description": "Redirects (302) to a short-lived URL for one of the load's two record artifacts — its manifest, or its exception report — in either the machine-readable or the printable form. 404 until the load completes: the artifacts are written once, at completion, and a load that failed never had them. Access is the review set's own list, so a member off it gets the same answer as one asking about a load that does not exist.",
+        "operationId": "discovery.downloadLoadArtifact",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.downloadLoadArtifact",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^discoveryLoad_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "loadId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manifest",
+                "exception-report"
+              ],
+              "description": "Which of the load's two records to hand over."
+            },
+            "required": true,
+            "description": "Which of the load's two records to hand over.",
+            "name": "artifact",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "text"
+              ],
+              "description": "The machine-readable form (default) or the printable one a person reads with no tooling."
+            },
+            "required": false,
+            "description": "The machine-readable form (default) or the printable one a person reads with no tooling.",
+            "name": "format",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the artifact"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matters/{matterId}/review-sets": {
       "get": {
         "description": "The matter's review sets, newest first. A matter may have several — the firm's own collection, a production received in March, a second request — and each is its own corpus with its own index and its own lifecycle.",

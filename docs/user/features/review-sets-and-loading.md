@@ -1,11 +1,10 @@
 # Review sets — gathering the documents in a case
 
-_Review sets, Custodians of Record, and loading the firm's own matter files and filed email are built,
-along with the API behind them. Loading a production received from another party goes through the
-same upload path any file takes, and its destination is built. Reading what a document says,
-grouping duplicates, and the exception report are the next piece of work. The screens — the review
-set list, the load screen, and the document list a reviewer works through — are authored when those
-surfaces ship._
+_The screens are here: a matter's **Discovery** section lists its review sets and starts one, the
+**Discovery** row in the sidebar lists every review set you can open across every case, and opening
+one gives you its documents and its loads. Loading a production received from another party still
+goes through the same upload path any file takes. Coding documents, reading one on screen, and
+searching a set are the next pieces of work, and each says so where it would be._
 
 ## What it does
 
@@ -38,14 +37,18 @@ name and the date on it.
 
 ## Making a review set
 
-1. Open the matter and create a review set. Give it a name you would use in a letter: "Our
-   collection", "Defendant's second production".
-2. It starts empty and open. It carries a **document limit** — a large one — and it will tell you
-   before you go past it rather than after.
-3. Semantic search across the set is **off** unless you turn it on. Ordinary keyword searching —
-   exact terms, phrases, boolean — is always on and is what discovery actually runs on. The semantic
-   half is genuinely useful and genuinely costs money to prepare over a large set, so it is a choice
-   you make per set rather than one made for you. You can turn it on later without redoing anything.
+1. Open the matter, go to **Discovery**, and choose **New** → **New Review Set**.
+2. Give it a name you would use in a letter: "Our collection", "Defendant's second production". It is
+   what everybody will call this body of material for the rest of the case.
+3. It starts empty and open, and **only you can see it** until you add somebody — a review set's list
+   is separate from who works the matter. It carries a **document limit** — a large one — and it will
+   tell you before you go past it rather than after.
+
+Searching a set is not switched on yet, in either form. The set records whether the semantic half is
+wanted, and nothing acts on that answer, so the choice is not put in front of you: turning it on
+would start a real, metered cost for a benefit nobody has measured on legal material, and the
+decision cannot be unmade once the first document has been prepared. It is left until there is an
+answer worth acting on.
 
 ## Saying whose records these are
 
@@ -153,7 +156,14 @@ leaves a record of when you did and who decided to.
   does.
 - **Access to a case does not give access to its review sets.** They are granted separately, because
   material another party produced may be restricted to attorneys by court order. If you can see the
-  matter and not the set, that is the system working.
+  matter and not the set, that is the system working — and a set you are not on does not appear at
+  all rather than appearing and refusing you.
+- **`/discovery` in the sidebar is the screen to live on if reviewing is most of your work.** It
+  lists every review set you can open across every case, with the case named on the row. A case you
+  have no access to shows as unnamed, which is the same rule running the other way.
+- **A large selection of files takes several passes.** The platform adds documents in batches; if it
+  stops partway, opening the same load again continues from where it got to rather than adding
+  anything twice.
 
 ## Related features
 

@@ -87,6 +87,47 @@ export async function readVisibleReviewSetsForMatter(
   return assemblePage(results, pageSize, (row) => row);
 }
 
+// EVERY review set this member may reach, across every matter — the firm-wide register's read.
+//
+// It is the matter-scoped builder above with its matter clause removed, and that is the whole
+// difference: the wall is the access list and never matter access, so scoping this by the matters a
+// member can open would hide from a contract reviewer precisely the corpora they were brought in to
+// work. The order is the matter-scoped read's, so a member holding review sets on four matters walks
+// one list in one order rather than four interleaved by a client-side merge.
+export function selectVisibleReviewSetsStatement(
+  database: SqlDatabase,
+  access: ReviewSetAccessPredicate,
+  limit: number,
+  cursor?: SortCursor,
+): SqlStatement {
+  const bindings: unknown[] = [...access.bindings];
+  const cursorClause = keysetClause(bindings, cursor, "created_at", "id", false);
+  bindings.push(limit);
+  return database
+    .prepare(
+      `SELECT ${REVIEW_SET_COLUMNS} FROM ${REVIEW_SET_TABLE} ` +
+        `WHERE ${access.fragmentFor(`${REVIEW_SET_TABLE}.id`)} ` +
+        cursorClause +
+        `ORDER BY created_at DESC, id DESC LIMIT ?`,
+    )
+    .bind(...bindings);
+}
+
+export async function readVisibleReviewSets(
+  database: SqlDatabase,
+  access: ReviewSetAccessPredicate,
+  pageSize: number,
+  cursor?: string,
+): Promise<Page<ReviewSetRow>> {
+  const { results } = await selectVisibleReviewSetsStatement(
+    database,
+    access,
+    pageSize + 1,
+    decodeCursor(cursor),
+  ).all<ReviewSetRow>();
+  return assemblePage(results, pageSize, (row) => row);
+}
+
 export function selectVisibleReviewSetStatement(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,
@@ -695,6 +736,11 @@ export const ACCESS_SCOPED_REVIEW_READS: readonly AccessScopedReviewRead[] = [
     pages: true,
     build: (database, access) =>
       selectVisibleReviewSetsForMatterStatement(database, SAMPLE_MATTER, access, 50),
+  },
+  {
+    key: "selectVisibleReviewSets",
+    pages: true,
+    build: (database, access) => selectVisibleReviewSetsStatement(database, access, 50),
   },
   {
     key: "selectVisibleReviewSet",
