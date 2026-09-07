@@ -43,6 +43,7 @@ import {
   countsInTotals,
   payeeState,
   payeeText,
+  returnedDraftReason,
   sourceLabel,
 } from "../src/lib/costs/cost-vocabulary.ts";
 import type { CostLedgerEntry } from "../src/lib/costs/cost-operations.ts";
@@ -70,6 +71,7 @@ function cost(overrides: Partial<CostLedgerEntry> = {}): CostLedgerEntry {
     createdAt: "2026-07-02T14:05:00.000Z",
     createdByUserId: "user_paralegal",
     createdByName: "Imogen Vance",
+    kickBackReason: null,
     ...overrides,
   };
 }
@@ -91,6 +93,7 @@ describe("the ledger's columns", () => {
       "Entry Number",
       "Date Entered",
       "Entered By",
+      "Returned",
       "Description",
       "Payee",
       "Expense Code",
@@ -194,6 +197,34 @@ describe("the payee, in its three honest states", () => {
 
   it("uses the name where there is one", () => {
     expect(payeeText(cost())).toBe("Eighth Judicial District Court Clerk");
+  });
+});
+
+describe("a draft that came back", () => {
+  it("says why, which is the only thing telling it from a draft nobody submitted", () => {
+    const untouched = cost({ status: "draft" });
+    expect(returnedDraftReason(untouched)).toBeNull();
+
+    const returned = cost({
+      status: "draft",
+      kickBackReason: "Wrong matter — this is the Harlow filing fee.",
+    });
+    expect(returnedDraftReason(returned)).toBe("Wrong matter — this is the Harlow filing fee.");
+  });
+
+  it("reads the reason as a draft fact, so a cost that moved on cannot still say it came back", () => {
+    // The server clears the reason on the next submission, so this state should not occur. Reading
+    // it as a draft fact anyway is what stops "returned because..." ever printing over an approved
+    // cost if some later transition forgets to clear it.
+    const approved = cost({
+      status: "approved",
+      kickBackReason: "stale reason from an earlier round",
+    });
+    expect(returnedDraftReason(approved)).toBeNull();
+  });
+
+  it("treats a blank reason as no reason rather than an empty explanation", () => {
+    expect(returnedDraftReason(cost({ status: "draft", kickBackReason: "   " }))).toBeNull();
   });
 });
 

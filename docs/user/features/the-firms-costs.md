@@ -109,6 +109,11 @@ built. Approval is on the matter's own Costs section.
 **A cost's entry number** and **the files attached to it** are not on the record yet, so those two
 columns say what they are waiting on rather than guessing.
 
+**Cost review** — submitting a cost for approval, and a reviewer sending it back with a reason — is
+not switched on for any firm: the setting that turns it on is not served yet, so nothing on these
+screens asks you to submit anything. Where a cost does carry a reason it was sent back, the cost
+shows it and the **Returned** column carries it; that half is ready ahead of the workflow.
+
 ## Related
 
 - [A matter's money sections](matter-money-sections.md) — the matter's own Costs section, and where

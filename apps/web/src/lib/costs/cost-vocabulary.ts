@@ -86,6 +86,24 @@ export function recorderText(cost: CostSummary): string {
 }
 
 /**
+ * Why a draft came back, or null where it did not.
+ *
+ * A returned draft and a draft nobody has submitted are the same status and look identical on a
+ * ledger, which leaves the person who has to fix the cost with nothing to go on. The reason is the
+ * only thing that tells them apart.
+ *
+ * The status guard is belt-and-braces rather than a correction: the server clears the reason on
+ * the next submission, so a non-draft cannot carry one. Reading it as a DRAFT fact anyway means a
+ * surface can never print "returned because..." over a cost that has since been approved, whatever
+ * a future transition forgets to clear.
+ */
+export function returnedDraftReason(cost: CostSummary): string | null {
+  if (cost.status !== "draft") return null;
+  const reason = cost.kickBackReason?.trim() ?? "";
+  return reason === "" ? null : reason;
+}
+
+/**
  * Why a recorder has no name.
  *
  * The identifier is on the record and the member row it names is not, which is the shape a

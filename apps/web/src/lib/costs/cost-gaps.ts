@@ -4,9 +4,9 @@
  * The screen was designed whole, against a record that carries an entry number, both dates, the
  * person who recorded it, the files attached to it, the invoice it was billed onto, an internal
  * memo, a recorded kick-back reason and a history. The listing answers a smaller record than that.
- * The entered date, the recorder and the invoice have since been projected onto the response —
- * their columns were in `cost_entry` all along — and their entries came out of this file, which is
- * what an entry here is for.
+ * The entered date, the recorder, the invoice and the kick-back reason have since been projected
+ * onto the response — their columns were in `cost_entry` all along — and their entries came out of
+ * this file, which is what an entry here is for.
  *
  * Two wrong ways to handle the difference were available: invent the missing values, or quietly
  * drop the columns and controls that carry them. Both leave a reader unable to tell what the
@@ -46,10 +46,6 @@ export const COST_LEDGER_GAPS = {
   memo: {
     field: "Internal Memo",
     waitsOn: "an internal memo field on the cost entry record",
-  },
-  kickBackReason: {
-    field: "Kicked Back",
-    waitsOn: "the recorded kick-back reason being served on the listing",
   },
   deleteDraft: {
     field: "Delete Draft",

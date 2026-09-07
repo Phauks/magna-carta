@@ -37,6 +37,7 @@ function cost(overrides: Partial<CostLedgerEntry> = {}): CostLedgerEntry {
     createdAt: "2026-08-14T16:20:00.000Z",
     createdByUserId: "user_paralegal",
     createdByName: "Imogen Vance",
+    kickBackReason: null,
     ...overrides,
   };
 }

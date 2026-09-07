@@ -46,6 +46,7 @@
     payeeText,
     recorderState,
     recorderText,
+    returnedDraftReason,
     sourceLabel,
   } from "./cost-vocabulary.ts";
 
@@ -161,6 +162,14 @@
             {statusEntry(costStatusKey(sole.status)).label}
           </Badge>
         </div>
+        <!-- Above the chain, because a returned draft is not a stage of the chain — it is a draft
+             again, with an instruction attached, and the instruction is what the reader needs. -->
+        {#if returnedDraftReason(sole) !== null}
+          <p class="text-sm text-text-default">
+            <span class="text-text-muted">Sent back for changes:</span>
+            {returnedDraftReason(sole)}
+          </p>
+        {/if}
         {#if chainStage !== null}
           <RecordChain current={chainStage} reviewGate={REVIEW_GATE_ENABLED} />
         {:else}

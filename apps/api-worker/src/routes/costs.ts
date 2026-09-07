@@ -120,6 +120,11 @@ const CostSummary = z
     // recorder, so no read or write is scoped by it.
     createdByUserId: z.string().nullable(),
     createdByName: z.string().nullable(),
+    // Why a reviewer sent this cost back, or null. It is set only by the kick-back transition and
+    // cleared by the next submission, so a non-null value means exactly one thing: this draft came
+    // back and has not been sent again. Without it a returned draft is indistinguishable from one
+    // that was never submitted, and the person who has to fix it is told nothing.
+    kickBackReason: z.string().nullable(),
   })
   .openapi("CostSummary");
 
@@ -563,6 +568,7 @@ interface CostEntryRow {
   invoice_id: string | null;
   created_at: string;
   created_by: string | null;
+  kick_back_reason: string | null;
 }
 
 /*
@@ -588,7 +594,7 @@ const LIST_COLUMNS = `cost_entry.id, cost_entry.matter_id, cost_entry.vendor_id,
      cost_entry.disbursement_class, cost_entry.billable, cost_entry.utbms_expense_code_id,
      cost_entry.description, cost_entry.status, cost_entry.source,
      cost_entry.recovery_category, cost_entry.invoice_id,
-     cost_entry.created_at, cost_entry.created_by,
+     cost_entry.created_at, cost_entry.created_by, cost_entry.kick_back_reason,
      COALESCE(directory_person.display_name, directory_organization.display_name,
               directory_organization.legal_name) AS vendor_name,
      matter.matter_number AS matter_number, matter.title AS matter_title,
@@ -637,6 +643,7 @@ function rowToSummary(row: CostEntryRow) {
     invoiceId: row.invoice_id,
     createdAt: row.created_at,
     createdByUserId: row.created_by,
+    kickBackReason: row.kick_back_reason,
   };
 }
 

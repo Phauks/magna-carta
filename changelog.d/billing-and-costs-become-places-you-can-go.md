@@ -24,6 +24,18 @@ cost is scoped per person. The two surfaces had been carrying byte-identical cop
 `canWorkDraft` whose comment promised a recorder gate that ruling refuses; they now share one
 function that states the real rule — a draft is editable, and everything past it is evidence.
 
+`kick_back_reason` was the same story with more at stake. The kick-back transition returns a cost
+to **draft** and writes the reviewer's reason on the row, and the next submission clears it — so a
+non-null value means exactly "this draft came back and has not been sent again", and it is the only
+thing telling a returned draft from one nobody submitted. It never reached the wire, so the person
+who had to fix the cost was told nothing, anywhere. It now leads the record window's Details pane
+and sits above the chain on the details panel, with a hidden **Returned** column on the ledger. The
+surface reads it as a draft fact even though the server already guarantees that, so no later
+transition that forgets to clear it can print "returned because…" over an approved cost; and it
+shows whether or not the firm runs review, because a reason already written on a record is a fact
+about that cost rather than an invitation to a workflow. It stays off the printed sheet — a
+reviewer's rejection note is the firm's own business.
+
 `GET /api/v1/costs/{id}` stopped being a third shape: it was a hand-written column list that
 resolved none of the three names, so opening a cost answered with less than the row it was opened
 from. And `invoiceId`, which this same change put on the wire, is now read where it is served — the
@@ -40,6 +52,13 @@ Neither question could be asked before. A matter's own sections answer for one f
 **A matter's Billing section now shows the matter's bills, not the client's.** It listed every bill the client had ever been given and then worked out this matter's share of each one, which stated the client's account under the matter's heading. It reads its own bills now: the ones that charge this matter, drafts included, each showing this matter's share. The whole document's total is still there as a column you can turn on, named "Total (all matters)" so the two are never confused.
 
 **A billed cost or time entry names the bill that billed it.** Right-click one and choose "Open The Bill" to see what the client was actually told. An open bill is in the address too, so you can send somebody the bill rather than a register and instructions. A billed cost offers the same way through from its own record and from the details panel beside the list, and its printed sheet carries the bill's reference.
+
+**A cost that was sent back says why.** A reviewer who returns a cost writes a reason; nothing
+showed it, so a returned cost looked exactly like a draft you had never submitted and you were left
+to guess what was wrong with it. The reason is now the first thing on the cost's Details tab, sits
+beside the list, and clears itself the moment you send the cost back for review. Note that cost
+review itself is not switched on for any firm yet — the setting that turns it on is not served —
+so this is the reading half arriving ahead of the workflow, not a flow you can run today.
 
 **A cost says who recorded it and when.** Entered By and Date Entered carry values on both cost screens now; they start hidden, because they answer a question about the record rather than about the money, and a reader who wants them turns them on. Date Entered is when the cost was written down, which is not the day the money went out — a disbursement captured three weeks late is a different record from one captured the day it was paid. Entered By is who to ask when a figure looks wrong, never a lock: a cost belongs to the matter it was advanced for, not to whoever typed it. A cost recorded by somebody who has since left the firm says so rather than showing an internal identifier.
 

@@ -29,7 +29,13 @@ import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { CostSummary } from "$lib/matters/cost-api.ts";
 import { costStatusKey } from "$lib/matters/cost-api.ts";
 import { gapCellTitle, type CostLedgerGapName } from "./cost-gaps.ts";
-import { billingLabel, costAmount, payeeText, recorderText } from "./cost-vocabulary.ts";
+import {
+  billingLabel,
+  costAmount,
+  payeeText,
+  recorderText,
+  returnedDraftReason,
+} from "./cost-vocabulary.ts";
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const COST_COLUMN_IDENTIFIERS = {
@@ -38,6 +44,7 @@ export const COST_COLUMN_IDENTIFIERS = {
   entryNumber: "entryNumber",
   dateEntered: "dateEntered",
   enteredBy: "enteredBy",
+  returned: "returned",
   description: "description",
   payee: "payee",
   expenseCode: "expenseCode",
@@ -187,6 +194,20 @@ export function costLedgerColumns(options: {
       filter: "set",
       fitExtra: 30,
       value: (cost) => recorderText(cost),
+    },
+    /*
+     * Why a draft came back. Empty on nearly every row and hidden for that reason, but the column
+     * exists because it is the one fact that tells a returned draft from one nobody has submitted —
+     * and a reviewer who sent back six costs wants to see all six reasons at once rather than
+     * opening six records.
+     */
+    {
+      id: COST_COLUMN_IDENTIFIERS.returned,
+      label: "Returned",
+      type: "text",
+      hidden: true,
+      filter: "none",
+      value: (cost) => returnedDraftReason(cost),
     },
     {
       id: COST_COLUMN_IDENTIFIERS.description,

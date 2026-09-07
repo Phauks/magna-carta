@@ -5273,6 +5273,7 @@ export type CostSummary = {
     createdAt: string;
     createdByUserId: string | null;
     createdByName: string | null;
+    kickBackReason: string | null;
 };
 
 export type PatchCostRequest = {

@@ -62,6 +62,15 @@ export interface CostSummary {
    */
   createdByUserId: string | null;
   createdByName?: string | null;
+  /**
+   * Why a reviewer sent this cost back, or null.
+   *
+   * The lifecycle makes this a single, unambiguous fact rather than a note that lingers: the
+   * kick-back transition sets it and returns the cost to draft, and the next submission clears it.
+   * So a non-null value means "this draft came back and has not been sent again", and there is no
+   * state in which a stale reason sits on a cost that has moved on.
+   */
+  kickBackReason: string | null;
 }
 
 /**

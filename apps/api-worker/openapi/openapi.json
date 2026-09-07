@@ -22878,6 +22878,12 @@
               "string",
               "null"
             ]
+          },
+          "kickBackReason": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -22896,7 +22902,8 @@
           "recoveryCategory",
           "createdAt",
           "createdByUserId",
-          "createdByName"
+          "createdByName",
+          "kickBackReason"
         ]
       },
       "PatchCostRequest": {

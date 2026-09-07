@@ -66,6 +66,7 @@
     payeeText,
     recorderState,
     recorderText,
+    returnedDraftReason,
   } from "./cost-vocabulary.ts";
 
   let {
@@ -386,6 +387,24 @@
       <Alert.Root variant="danger">
         <Alert.Title>Not Saved</Alert.Title>
         <Alert.Description>{saveFailure}</Alert.Description>
+      </Alert.Root>
+    {/if}
+
+    <!--
+      A RETURNED DRAFT SAYS SO, ABOVE THE FIELDS IT WANTS CHANGED. A cost a reviewer sent back is
+      the same status as one nobody has submitted and looks identical everywhere else, so without
+      this the person who has to fix it is told only that it is a draft. The reason leads the pane
+      because it is the instruction: it says which of the fields below is wrong.
+
+      It appears whether or not this firm runs review, unlike the review VERBS, and the two are
+      different kinds of thing. A Submit control on a firm that has never been asked about review
+      would be soliciting a workflow; a reason that is already written on the record is a fact about
+      this cost, and hiding it would lose the one explanation the record carries.
+    -->
+    {#if entry !== null && returnedDraftReason(entry) !== null}
+      <Alert.Root variant="warning">
+        <Alert.Title>Sent Back For Changes</Alert.Title>
+        <Alert.Description>{returnedDraftReason(entry)}</Alert.Description>
       </Alert.Root>
     {/if}
 

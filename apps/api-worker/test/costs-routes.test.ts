@@ -573,6 +573,60 @@ describe("cost entry lifecycle transitions", () => {
     expect(row?.status).toBe("void");
   });
 
+  it("a kicked-back cost reads back as a draft that says why, and re-submitting clears it", async () => {
+    // The reason is the ONLY thing distinguishing a returned draft from one nobody submitted, so
+    // it has to survive the round trip; and it has to be gone once the cost is sent again, or a
+    // surface would keep telling somebody about a round that is over.
+    // Review has to be on for a cost to be submitted at all, and a kick-back is what the review
+    // chain is for. Restored at the end so the other cases keep the firm's default.
+    const setGate = async (value: string): Promise<void> => {
+      await firmDatabase
+        .prepare(
+          "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        )
+        .bind("billing.approval_required", value, new Date().toISOString())
+        .run();
+    };
+    await setGate("true");
+
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-27",
+      amountMinor: 1500,
+      currency: "USD",
+      disbursementClass: "hard",
+      billable: true,
+      description: "Filing fee, wrong matter",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+
+    expect((await post(`/api/v1/costs/${costEntryId}/submit`, {})).status).toBe(200);
+    expect(
+      (
+        await post(`/api/v1/costs/${costEntryId}/kick-back`, {
+          reason: "Wrong matter — this is the Harlow filing fee.",
+        })
+      ).status,
+    ).toBe(200);
+
+    const returned = (await (await get(`/api/v1/costs/${costEntryId}`)).json()) as {
+      status: string;
+      kickBackReason: string | null;
+    };
+    expect(returned.status).toBe("draft");
+    expect(returned.kickBackReason).toBe("Wrong matter — this is the Harlow filing fee.");
+
+    expect((await post(`/api/v1/costs/${costEntryId}/submit`, {})).status).toBe(200);
+    const resent = (await (await get(`/api/v1/costs/${costEntryId}`)).json()) as {
+      status: string;
+      kickBackReason: string | null;
+    };
+    expect(resent.status).toBe("submitted");
+    expect(resent.kickBackReason).toBeNull();
+
+    await setGate("false");
+  });
+
   it("kickBack requires costs:approve — a costs:track-only member gets 403", async () => {
     const created = await post("/api/v1/costs", {
       matterId,

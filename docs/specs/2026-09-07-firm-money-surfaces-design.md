@@ -231,7 +231,7 @@ choosing one changes what is read rather than what is shown.
 2. **Approving a submitted cost across matters** is not offered on the firm's period; approval stays
    on the matter's own section.
 3. **A cost's entry number and its attached files** are not on the record, so those two columns
-   state their gaps on both screens.
+   state their gaps on both screens. An internal memo has no column at all yet.
 4. **Trust and Fees have no firm-wide surface.** Trust's row stays announced; a fee is not its own
    record yet. The money toolbar's way out is absent on both rather than pointing at a Soon page.
 
@@ -260,3 +260,22 @@ firm's own database was holding.
   wire, but the details panel, the record window and the print sheet each still said "not served"
   over it. All three read it, through one `billHref` in the money surface — the address three files
   were spelling by hand, one of them without encoding the identifier.
+- **A returned draft says why.** `kick_back_reason` was the fourth unprojected column, and the
+  worst of them: the kick-back transition returns a cost to **draft** and writes the reviewer's
+  reason on the row, and the next submission clears it — so a non-null value means exactly "this
+  draft came back and has not been sent again", and it is the only thing distinguishing a returned
+  draft from one nobody has submitted. Unserved, the person who had to fix the cost was told
+  nothing anywhere in the product. It leads the record window's Details pane and sits above the
+  chain on the details panel, because it is the instruction: it says which of the fields below is
+  wrong. A hidden **Returned** column carries it on the ledger, for a reviewer who sent six costs
+  back and would rather read six reasons than open six records.
+
+  Two judgments worth keeping. The surface reads it as a **draft** fact even though the server
+  guarantees a non-draft cannot carry one, so no later transition that forgets to clear it can make
+  a surface print "returned because…" over an approved cost. And it appears **whether or not this
+  firm runs review**, unlike the review verbs — the two are different kinds of thing. A Submit
+  control on a firm that has never been asked about review would be soliciting a workflow; a reason
+  already written on the record is a fact about this cost, and hiding it would lose the only
+  explanation the record carries. It stays off the printed sheet: a reviewer's rejection note is
+  written for the firm about the firm's own spending, and the cost sheet's standing rule is that no
+  internal text reaches paper.
