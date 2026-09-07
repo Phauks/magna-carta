@@ -34,6 +34,13 @@ export interface ProxyBatchDatabase {
   batch(statements: readonly SqlStatement[]): Promise<{ success: boolean }[]>;
 }
 
+export interface FirmDatabaseMigrationState {
+  /** Why the lineage could not be applied, or null when it was. */
+  readonly fault: string | null;
+  readonly appliedCount: number;
+  readonly appliedHead: string | null;
+}
+
 // Every statement in a batch has to reach the Durable Object as a `sql` + `bindings` pair, and the
 // port type guarantees neither. In practice each one was built by this proxy's own prepare()/bind(),
 // which carries both — so this checks that rather than assuming it. A statement prepared against some
@@ -171,6 +178,28 @@ interface FirmDatabaseNamespace {
 // Residency activation seam: when the first eu-region firm is provisioned, resolve the firm's
 // data_region at the tenancy chokepoint and pass jurisdictionForRegion(region) here so every
 // statement addresses the firm's DO under its jurisdiction. Until then all firms are us (bare id).
+/**
+ * What the lineage did for one firm, and what stopped it.
+ *
+ * Resolved separately from the statement proxy above rather than hung off it. Every statement the
+ * proxy carries is refused while a migration is stuck — that is the point of the gate — so a
+ * diagnostic asked through `prepare` would go dark exactly when it is wanted. It is also not a
+ * statement, and the port that statements travel on is implemented by a great many test doubles that
+ * have no business answering questions about migrations.
+ */
+export function firmDatabaseMigrationStateFor(
+  namespace: FirmDatabaseNamespace,
+  firmId: string,
+  jurisdiction?: "eu" | "fedramp",
+): Promise<FirmDatabaseMigrationState> {
+  const resolver =
+    jurisdiction !== undefined && namespace.jurisdiction !== undefined
+      ? namespace.jurisdiction(jurisdiction)
+      : namespace;
+  const stub = resolver.get(resolver.idFromName(firmId)) as DurableObjectStub<FirmDatabase>;
+  return stub.migrationState();
+}
+
 export function firmDatabaseFor(
   namespace: FirmDatabaseNamespace,
   firmId: string,

@@ -11,6 +11,7 @@
    * behind it and therefore no entries to read; it says so rather than showing an empty table,
    * because "no time recorded" and "not a real matter" are different facts.
    */
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
@@ -98,14 +99,18 @@
 {/snippet}
 
 {#if loadFailure !== null}
+  <!-- Through the standard failure surface. The Alert here interpolated the failure RECORD, so a
+       reader got "[object Object]" ahead of the reassurance, and no Error ID to report. -->
   <section class="flex flex-col gap-16">
-    <Alert.Root variant="danger">
-      <Alert.Title>Time Could Not Be Read</Alert.Title>
-      <Alert.Description>
-        {loadFailure} The record itself is unaffected: nothing was changed by this failure.
-      </Alert.Description>
-    </Alert.Root>
-    <Button class="self-start" variant="secondary" onclick={() => (reloadToken += 1)}>Retry</Button>
+    <FailureNotice
+      failure={loadFailure}
+      title="Time Could Not Be Read"
+      fallback="This matter's time could not be read."
+      whenSilent="Nothing answered when this matter's time was asked for."
+      onRetry={() => (reloadToken += 1)}
+    >
+      The record itself is unaffected: nothing was changed by this failure.
+    </FailureNotice>
   </section>
 {:else if isSample}
   <section class="flex flex-col gap-16">

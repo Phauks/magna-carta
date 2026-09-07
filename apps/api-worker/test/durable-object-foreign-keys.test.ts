@@ -67,6 +67,15 @@ describe("durable-object SQLite: foreign key enforcement and the pragma that sus
   });
 
   it("HONOURS the pragma outside a transaction: the same drop then goes through", async () => {
+    // Guard against a vacuous pass. A durable object that hits a constraint violation is RESET and
+    // rolled back by workerd, so the two refusals above can take the seeded child with them — and a
+    // drop with no children left to orphan proves nothing at all.
+    const children = await database()
+      .prepare("SELECT COUNT(*) AS n FROM fk_probe_child")
+      .bind()
+      .all<{ n: number }>();
+    expect(children.results[0]?.n, "the child row this case depends on is gone").toBe(1);
+
     await run("PRAGMA foreign_keys=OFF");
     await run("DROP TABLE fk_probe_parent");
     await run("CREATE TABLE fk_probe_parent (id TEXT PRIMARY KEY, v TEXT, w TEXT)");
