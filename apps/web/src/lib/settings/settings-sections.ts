@@ -300,6 +300,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     editPermissionArea: "firm",
     shipped: true,
   },
+  {
+    // The firm's conflicts floor: what every check must search whatever a caller asks for. Firm
+    // scope and draft mode, and emphatically not instant — widening the floor makes a shortfall
+    // appear on every matter whose last check no longer covers it, which is not a change anybody
+    // should make by brushing a control. The page's own controls are gated on conflicts:configure
+    // from the session, which is narrower than this section's `editPermissionArea`.
+    id: "conflicts",
+    label: "Conflicts",
+    href: "/settings/conflicts",
+    group: "practice",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
   // Billing
   {
     id: "billing",

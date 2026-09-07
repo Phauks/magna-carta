@@ -485,7 +485,11 @@ describe("the real sources", () => {
     expect(result.covered).toEqual(
       expect.arrayContaining([
         "/conflicts/checks/[checkId]",
-        "/conflicts/matters/[matterId]",
+        // A matter's conflicts standing moved inside the matter, so the screen this list used to
+        // name (/conflicts/matters/[matterId]) is a redirect now and is no longer a screen to
+        // cover. Its replacement is named instead — the point of the assertion is that the rule
+        // still reaches the conflicts surface, not which address it reaches it at.
+        "/matters/[id]/conflicts",
         "/matters/[id]/overview",
         "/tools/whois-lookup",
         "/developer-console/table-states",
