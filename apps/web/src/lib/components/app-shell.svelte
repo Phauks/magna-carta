@@ -14,12 +14,14 @@
    * the eye catches where reconciliation seated it.
    *
    * THE FOOT OF THE RAIL IS THE UTILITY TRAY — a compact icon cluster of the things that are
-   * ABOUT the app rather than places in the firm's work: Settings, then the two transfer
-   * registers (Downloads and Uploads), then Customize and Collapse. Downloads and Uploads live
-   * here by owner direction (2026-09-07) rather than in the Workspace group: they run alongside
-   * whatever is on screen, often both at once, so they belong with the app's own controls. The
-   * top-bar trays keep their own job — a summary with quick actions; these open the full
-   * surfaces. Collapse and Customize remain RAIL CONTROLS, not destinations.
+   * ABOUT the app rather than places in the firm's work. It has two ends (owner-directed): the
+   * rail's own controls at the inline start (Settings, then Customize), and the two transfer
+   * registers (Downloads and Uploads) leaning to the inline end. Downloads and Uploads live here
+   * rather than in the Workspace group because they run alongside whatever is on screen, often
+   * both at once; they lean away from the rail's controls because they are the two things in the
+   * tray you actually navigate to. The top-bar trays keep their own job — a summary with quick
+   * actions; these open the full surfaces. Collapse and Customize remain RAIL CONTROLS, not
+   * destinations.
    *
    * Top-bar seams stay seams: +New renders nothing until its slice ships — the Actions region
    * reserves its geometry; the shell never fakes function. The notification bell IS a real (if
@@ -128,16 +130,18 @@
   });
 
   /*
-   * The footer utility tray, read from the registry's footer fixtures so each row has one home.
-   * The order is stated here rather than taken from the registry's canonical order because
-   * SETTINGS LEADS: it is the one icon the collapsed rail keeps (sidebar.css hides the rest at
-   * rail width), and the registry orders by where a destination sits in the app, not by which
-   * icon survives a collapse.
+   * The footer utility tray's two ends, read from the registry's footer fixtures so each row has
+   * one home. The membership of each end is stated here rather than derived, because it is a fact
+   * about the tray and not about the registry: SETTINGS LEADS the row (it is the one icon the
+   * collapsed rail keeps — sidebar.css hides the rest at rail width) and the transfer registers
+   * lean to the far end.
    */
-  const FOOTER_TRAY_IDS = ["settings", "downloads", "uploads"];
-  const footerTray = FOOTER_TRAY_IDS.map(
-    (id) => DESTINATIONS.find((destination) => destination.id === id) as Destination,
-  );
+  function footerFixture(id: string): Destination {
+    return DESTINATIONS.find((destination) => destination.id === id) as Destination;
+  }
+  const footerLeading = footerFixture("settings");
+  const footerTrailing = ["downloads", "uploads"].map((id) => footerFixture(id));
+  const LeadingIcon = footerLeading.icon;
 
   // The notification bell is the top-bar entry to the Notifications destination, so its maturity
   // dot reads the same stage as that destination's sidebar row.
@@ -395,26 +399,22 @@
       <Sidebar.Footer>
         <!-- Keyboard reorders narrate here (polite: never steals focus from the row). -->
         <span class="sr-only" role="status">{moveAnnouncement}</span>
-        <!-- The utility tray: the small icon activities that are about the app rather than about
-             the firm's work. Settings LEADS (a real link, so it stays the one visible icon when
-             the rail collapses), then Downloads and Uploads — the two transfer registers, which
-             run concurrently with whatever is on screen — and Customize closes the row. -->
+        <!-- The utility tray, in two ends (owner-directed). The rail's own controls lead:
+             Settings first — a real link, so it stays the one visible icon when the rail
+             collapses — then Customize. The two transfer registers lean to the far end, away
+             from the controls, because they are the things in this row you navigate to. -->
         <div class="mc-sidebar-controls">
-          {#each footerTray as destination (destination.id)}
-            {@const Icon = destination.icon}
-            {@const active = isCurrentDestination(destination, page.url.pathname)}
-            <a
-              href={destination.href}
-              class="mc-sidebar-control-button relative"
-              title={destination.label}
-              aria-label={destination.label}
-              aria-current={active ? "page" : undefined}
-              data-active={active ? "true" : undefined}
-            >
-              <Icon class="mc-sidebar-icon" aria-hidden="true" />
-              <MaturityDot stage={destinationStage(destination)} class="absolute end-4 top-4" />
-            </a>
-          {/each}
+          <a
+            href={footerLeading.href}
+            class="mc-sidebar-control-button relative"
+            title={footerLeading.label}
+            aria-label={footerLeading.label}
+            aria-current={isCurrentDestination(footerLeading, page.url.pathname) ? "page" : undefined}
+            data-active={isCurrentDestination(footerLeading, page.url.pathname) ? "true" : undefined}
+          >
+            <LeadingIcon class="mc-sidebar-icon" aria-hidden="true" />
+            <MaturityDot stage={destinationStage(footerLeading)} class="absolute end-4 top-4" />
+          </a>
           <Tooltip.Root>
             <Tooltip.Trigger
               class="mc-sidebar-control-button relative"
@@ -433,6 +433,25 @@
             </Tooltip.Trigger>
             <Tooltip.Content side="top">{customizing ? "Done" : "Customize"}</Tooltip.Content>
           </Tooltip.Root>
+          <!-- One element, so the collapsed rail's "everything past the first icon goes" rule
+               takes the pair away and brings it back whole. -->
+          <div class="mc-sidebar-controls-trailing">
+            {#each footerTrailing as destination (destination.id)}
+              {@const Icon = destination.icon}
+              {@const active = isCurrentDestination(destination, page.url.pathname)}
+              <a
+                href={destination.href}
+                class="mc-sidebar-control-button relative"
+                title={destination.label}
+                aria-label={destination.label}
+                aria-current={active ? "page" : undefined}
+                data-active={active ? "true" : undefined}
+              >
+                <Icon class="mc-sidebar-icon" aria-hidden="true" />
+                <MaturityDot stage={destinationStage(destination)} class="absolute end-4 top-4" />
+              </a>
+            {/each}
+          </div>
         </div>
         <!-- Collapse is a primary behaviour, so it keeps a large, full-width labelled control at
              the foot of the rail. When "expand on hover" governs the rail it is redundant (hover
