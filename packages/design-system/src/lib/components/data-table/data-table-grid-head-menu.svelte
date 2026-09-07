@@ -30,9 +30,10 @@
     /** The column whose header was right-clicked — the leading items speak about this one. */
     column: GridColumn<TRow>;
     /**
-     * The surface's own display settings, rendered under the shared ones so a surface's toggles
-     * (hide extensions, sidebar counts) live in the same menu as the columns they sit beside.
-     * Render them as ContextMenu.CheckboxItem rows so the whole menu keeps one keyboard model.
+     * The surface's own display settings, rendered in the menu's own root beside the shared ones so
+     * a surface's toggles (hide extensions, sidebar counts) are reached in one gesture rather than
+     * through a submenu that names something else. Render them as ContextMenu.CheckboxItem rows so
+     * the whole menu keeps one keyboard model.
      */
     settings?: Snippet;
   };
@@ -81,6 +82,10 @@
     {column.label}
   </ContextMenu.Item>
   <ContextMenu.Separator />
+  <!-- COLUMNS HOLDS COLUMNS, AND NOTHING ELSE. The roster is what a submenu is for: one row per
+       column, including the hidden ones that have no header left to right-click. How the table
+       LOOKS is not a column, so it does not hide behind a trigger named after one — a setting
+       filed under "Columns" is a setting nobody finds. -->
   <ContextMenu.Sub>
     <ContextMenu.SubTrigger>
       <Columns3 class="mc-table-grid-head-menu-icon" aria-hidden="true" />
@@ -101,13 +106,15 @@
           {rosterColumn.label}
         </ContextMenu.CheckboxItem>
       {/each}
-      <ContextMenu.Separator />
-      <ContextMenu.CheckboxItem bind:checked={grid.zebra}>
-        Shade alternate rows
-      </ContextMenu.CheckboxItem>
-      {#if settings}
-        {@render settings()}
-      {/if}
     </ContextMenu.SubContent>
   </ContextMenu.Sub>
+  <ContextMenu.Separator />
+  <!-- The display settings, in the menu's ROOT: the table's own (shading), then whatever the
+       surface adds. One gesture, in the menu a reader already has open. -->
+  <ContextMenu.CheckboxItem bind:checked={grid.zebra}>
+    Shade alternate rows
+  </ContextMenu.CheckboxItem>
+  {#if settings}
+    {@render settings()}
+  {/if}
 </ContextMenu.Content>

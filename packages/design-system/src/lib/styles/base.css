@@ -1,0 +1,31 @@
+@layer base {
+  /*
+   * The document's own ink and colour scheme — the two facts every screen inherits and no screen
+   * states for itself.
+   *
+   * COLOR-SCHEME IS WHAT TELLS THE BROWSER WHICH MODE IT IS IN. The theme cascade re-points the
+   * `--mc-*` custom properties per theme and mode, so anything drawn from a token follows the mode
+   * correctly — but the browser paints a great deal that no token reaches: the canvas behind an
+   * overscroll, scrollbars, form controls, the caret, and the system colours that stand in wherever
+   * a colour was never named. Those follow `color-scheme` and nothing else, and it was never
+   * declared, so on the dark themes the browser kept painting in light mode underneath the design
+   * system. Declaring it here is what makes the two agree.
+   *
+   * THE ROOT NAMES A TEXT COLOUR, so text that names none inherits the mode's ink rather than the
+   * browser's. That was the visible half of the same defect: a heading or a crumb written as a bare
+   * element takes `canvastext`, which is BLACK in a light scheme whatever the page behind it looks
+   * like — the file manager's breadcrumb read black on the dark theme's dark band, and so would
+   * every other element that had not been given a colour. A component still names its own ink; this
+   * is only what the document starts from.
+   *
+   * It sits in `base`, which Tailwind declares before `components` and `utilities`, so a recipe or
+   * a utility always wins over it.
+   */
+  :root {
+    color-scheme: light;
+    color: var(--mc-text-default);
+  }
+  :root.dark {
+    color-scheme: dark;
+  }
+}
