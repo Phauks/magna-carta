@@ -30,6 +30,7 @@ import { gapCellTitle, type TimeLedgerGapName } from "./time-gaps.ts";
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const TIME_COLUMN_IDENTIFIERS = {
   workDate: "workDate",
+  matter: "matter",
   entryNumber: "entryNumber",
   dateEntered: "dateEntered",
   timekeeper: "timekeeper",
@@ -280,4 +281,36 @@ export function timeLedgerColumns(currency: string): readonly GridColumn<TimeEnt
       value: (entry) => statusEntry(entry.status).label,
     },
   ];
+}
+
+/**
+ * The same columns, plus the Matter — what a ledger reading ACROSS matters needs and a matter's own
+ * ledger must never carry.
+ *
+ * On a matter's Time tab every row is on the same matter, so a Matter column would repeat one fact
+ * down the whole table. On the firm's period ledger the matter is the first thing a reader looks
+ * for after the date, because two rows beside each other are two different files. That is the whole
+ * difference between the two surfaces' columns, so it is expressed as the difference rather than as
+ * a second list that would drift from this one.
+ *
+ * THE NAME COMES FROM THE CALLER, because the listing does not serve it. A time entry carries its
+ * matter's identifier and nothing else, so the surface resolves the name against the firm's matters
+ * and hands the resolution in. A matter the resolution has not reached reads as its own honest
+ * blank rather than as a raw handle.
+ */
+export function firmTimeColumns(
+  currency: string,
+  matterText: (entry: TimeEntrySummary) => string,
+): readonly GridColumn<TimeEntrySummary>[] {
+  const columns = timeLedgerColumns(currency);
+  const matter: GridColumn<TimeEntrySummary> = {
+    id: TIME_COLUMN_IDENTIFIERS.matter,
+    label: "Matter",
+    type: "text",
+    filter: "set",
+    fitExtra: 30,
+    value: (entry) => matterText(entry),
+  };
+  // Directly after the date: a period ledger reads day, then file, then what was done.
+  return [...columns.slice(0, 1), matter, ...columns.slice(1)];
 }

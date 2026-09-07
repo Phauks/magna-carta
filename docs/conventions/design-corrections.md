@@ -276,6 +276,27 @@ is usually the fastest way to understand the rule.
   state names the control at the top instead. When nothing can be made right now the control is
   disabled with the reason as its title; it never leaves the row. Enforced by
   `pnpm run lint:matter-create-control`. _(the matter screens, 2026-09-03)_
+- **The verb is New, and a control that opens a MENU reads the bare "New".** New is the word this
+  product makes things with; a screen that invented its own — the firm calendar's "Record" — reads
+  as a different kind of control in the one place every screen puts the same one. And where the
+  control offers several kinds, the noun goes on the MENU ITEMS, each carrying the verb with it
+  ("New Event", "New Deadline", "New Firm Event"): a button naming one of three things is wrong
+  about the other two, and the item is where the choice is actually made. A control that does one
+  thing still names it ("New Fee"). On a matter the registry says which sections make several kinds
+  (`CREATE_SEVERAL_KINDS` in `sections.ts`) rather than the control reading it off the claim, so
+  the label does not change under the reader as the page mounts. It holds on every menu-bearing
+  control, not only the one it was raised on: Files reads "New" over New Document, New Folder and
+  Upload Files (it read "New File", naming one of the three), and the directory's items read "New
+  Person" and "New Organization". **Supersedes the label half of the file manager's N30**, which
+  named "New File" there; N30's placement stands. _(the calendar, 2026-09-06)_
+- **A control in a chrome band names itself on hover — one name, not a sentence.** The top bar's
+  cluster answers one question on hover: what is this? So the four read "Notifications", "Time
+  Sheet", "Downloads", "Build Information", and nothing more. Three of them had no hover text at
+  all and the fourth explained what pressing it would do, which made four controls in one band read
+  as four kinds of thing. The hover is the design system's Tooltip on every one of them, never a
+  native `title` beside a real tooltip: two hover behaviours in one band differ in delay, in
+  placement and in look. Where the control is already somebody else's trigger — a popover's — the
+  two share ONE button through `Tooltip.Trigger`'s `child` snippet. _(the app header, 2026-09-06)_
 - **The search and the create control travel together, search first.** A screen that carries one
   carries the other, in that order at the row's inline end: the search grows toward the inline
   start, so the control after it is the one place the field's growth cannot reach. The custody
@@ -525,7 +546,29 @@ is usually the fastest way to understand the rule.
   its own label it restates those metrics, and the two blocks change together. _(Time record window,
   2026-09-03)_
 
+- **A submenu holds what it is named after, and settings are not filed under a noun.** The table
+  header menu kept the display settings — row shading, and whatever the surface added — inside its
+  Columns submenu, one arrow to the right of a trigger that names something else. A column roster is
+  what a submenu is for: one row per column, the hidden ones included, since a hidden column has no
+  header left to right-click. How the table LOOKS is not a column, so it sits in the menu's own
+  root, in the menu the reader already has open. _(the file manager, 2026-09-06)_
+- **A control that comes and goes never ends a row.** The end of a right-aligned row is an anchor,
+  and a control that appears only in some states must not hold it: everything before it slides
+  sideways each time it arrives or leaves. The file manager's display settings, which belong to the
+  icon view alone, sit BEFORE the list-or-icons swapper for exactly this reason — the swapper is on
+  every view, so the swapper keeps the end. Same property the create control's fixed width protects
+  in the matter header. _(the file manager, 2026-09-06)_
+
 ### List screens
+
+- **A list screen is ONE table at the full width, and a rail down its side has to earn the
+  difference.** The custody register kept a container tree in a left column, narrowing the rows to
+  a whole branch — a subtree read the server does per request, which no column filter over loaded
+  rows can express. That argument was real and still lost: the rail made this register read as a
+  different kind of table from every other one in the product, which is a cost paid on every visit
+  for a narrowing that a set filter on the Location column already serves. Where a thing is kept is
+  a property of the row, so it is a column, filtered from its own header the way Status is.
+  _(the Custodian register, 2026-09-06)_
 
 Issued against the matters list and re-issued against the directory. They bind every List/Index
 surface, which is most of the product.
@@ -537,7 +580,8 @@ surface, which is most of the product.
   nothing they did not know before they clicked. This is not the same as an honest line that carries
   a CONSEQUENCE — "revealing a value is recorded in the firm's audit log" stays, because it says
   something a reader must know before they press. The test is whether removing the line loses a
-  fact. _(matters list, 2026-08-30)_
+  fact. **Issued here against lists, it binds every archetype** — see _Screen headers_ below, which
+  is where it was carried to the rest of the app. _(matters list, 2026-08-30)_
 - **Actions collapse into one compact action row.** Everything above the data that is not the data
   is a single row: the primary action, then narrowing and searching as icon controls that open what
   they need when they are needed. A labelled dropdown and a labelled search box, each with a
@@ -614,6 +658,59 @@ surface, which is most of the product.
   synonym: the enum, the ledger and the filter are unchanged, and the word chosen is the domain's
   own (the ledger row for this state records a `borrower`). _(Custodian register, 2026-09-01)_
 
+### Screen headers
+
+Issued against the main screens as a set (2026-09-06). They bind every screen that states its own
+name, which is every screen outside a matter.
+
+- **A main screen's title is its destination's name, and nothing else.** `ScreenHeader` with a
+  `title` and no `eyebrow` — the Matters shape, which the owner named as the one to copy: "i like
+  matters, simple, just the name". Home greeted the reader with the daypart, Notifications called
+  itself "Notification Center" while the sidebar called it Notifications, and Downloads and
+  Notifications each carried an eyebrow that repeated their own title back. A screen and the
+  sidebar row that leads to it disagreeing about the screen's name costs the product a shared
+  vocabulary and buys nothing. Take the name from `destinations.ts`. _(main screens, 2026-09-06)_
+- **The eyebrow names what the screen's SUBJECT is, never what the screen is.** It exists for a
+  record window — PERSON over _Rosalind Chase_ — where the reader needs to know what kind of thing
+  they are looking at. On a destination screen the title is already that answer, so the eyebrow can
+  only repeat it. No main screen carries one. _(main screens, 2026-09-06)_
+- **The meta line carries facts, not descriptions.** This is the no-explanatory-sub-text rule
+  (_List screens_, above) applied to the masthead's citation, and the test is unchanged: removing
+  the line must lose a fact. Home's date, a room's kind and seat count, a speed test's run time and
+  a maturity badge all stay. "Alerts, mentions, and updates across your matters", "Runs outside any
+  matter" and "Registration records for a domain or IP address" were removed — each restated its
+  own title in a sentence. _(main screens, 2026-09-06)_
+- **The rule is a gate, not a ledger entry.** `pnpm run lint:screen-headers`
+  (`tooling/lint-screen-headers/`) refuses an eyebrow on any screen, a destination screen whose
+  title is not what `destinations.ts` calls it, and a meta line that is fixed prose rather than a
+  read value. It exists because the drift reappeared while the consolidation was still open: the
+  uploads screen shipped `eyebrow="Uploads"` over `title="Uploads"`, written by somebody with no
+  way to know the rule had been made. A rule in this file binds whoever reads this file; a rule
+  with a gate binds the diff. The meta test is a shape rather than a judgement — a fact is READ
+  from somewhere, a description is typed in place — and every line the consolidation removed was
+  static text while every line it kept interpolates or renders. Exemptions are named in the scan
+  with their reason, and there are none. _(main screens, 2026-09-06)_
+- **A screen with a page header does not also label its content region.** Where a page owns an
+  `h1`, the component beneath it drops its own heading rather than saying the name twice; where the
+  page's masthead names something else — a matter's Tasks section under the matter's own name —
+  the section keeps its label. `TaskList`'s `heading` is optional for exactly this reason.
+  _(main screens, 2026-09-06)_
+
+- **Information a screen owes the reader lives on the page, not in the header.** The header states
+  the name; a fact the reader needs stands where it bears on what they do. The safe website
+  viewer's "the page renders in an isolated remote browser" was not deleted — it moved to the
+  address bar, beside the control it qualifies, in the band that otherwise carries an invalid
+  address. This is the disposal route for anything the no-sub-text rule removes from a header:
+  ask where the fact is actually used, and put it there. _(safe website viewer, 2026-09-06)_
+- **A settings page's descriptor leads its content, and its header is only its name.** Settings is
+  a nested archetype — every page is a sub-page of Settings, named already by the section nav — and
+  it was the one place still carrying a sentence in the band. The descriptor now renders as the
+  first line of the page's own scroll area (`settings-description.svelte`), so it scrolls with the
+  plates it describes instead of being pinned above them, and `SettingsMasthead` no longer takes a
+  `meta` at all. The band keeps the page name and the standing facts about it — the posture badge,
+  the documentation seam, the history trail — because those are facts and controls, not
+  description. _(settings pages, 2026-09-06)_
+
 ### Screen search
 
 - **A live query carries an X that clears it**, at the field's trailing edge, shown only while there
@@ -689,10 +786,32 @@ surface, which is most of the product.
   design: filling the screen is that gesture. Every dialog, alert dialog, action dialog and record
   window inherits it from the shared modal stage; edge sheets are drawers and stay on their edge.
   _(the modal shells on a laptop, 2026-09-03)_
+- **The foot of the sidebar is the utility tray, and what belongs there is meta about the app.**
+  Settings, Downloads, Uploads and Customize sit as small icons at the rail's foot, apart from the
+  labelled destination rows above. The test is not importance but subject: a destination row names a
+  place in the firm's work, while a transfer register describes what the application is doing —
+  often two of them at once, since a download and an upload can run together — so the registers
+  belong with the app's own controls rather than in Workspace. They are fixtures there, never
+  starrable or reorderable, and the collapsed rail still shows only Settings. The top-bar trays keep
+  their own job: a summary with quick actions, linking into these full surfaces.
+  _(the sidebar's foot, 2026-09-07)_
 - **A totals strip sits on the bottom edge of its frame, not under the last row.** A ledger fills
   the height it is given, so the ordinary case is a table with room beneath it; totals that come to
   rest halfway up the screen with a band of empty surface below them read as a table that failed to
   load the rest. _(the four financial ledgers, 2026-09-03)_
+
+- **The document declares its colour scheme, and the root declares its ink.** The token cascade
+  re-points every `--mc-*` per theme and mode, so anything drawn from a token follows the mode — but
+  the browser paints a great deal no token reaches (the canvas behind an overscroll, scrollbars,
+  form controls, the caret, and the system colour that stands in wherever a colour was never named),
+  and all of it follows `color-scheme` alone. Neither was declared, so on the dark themes the
+  browser was still painting in light mode underneath the design system, and any element written
+  without a colour took `canvastext`, which is BLACK whatever the page behind it looks like. It
+  surfaced as the file manager's breadcrumb reading black on a dark band; it was never a file
+  manager defect, and every screen carried it. One stylesheet in the `base` layer
+  (`packages/design-system/src/lib/styles/base.css`), imported by the app entry and the catalog
+  preview alike, so the two review the same product. A component still names its own ink — this is
+  only what the document starts from. _(the file manager, 2026-09-06)_
 
 ### Spacing and rhythm
 
@@ -715,6 +834,45 @@ surface, which is most of the product.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-07 — the sidebar's foot: the transfer registers join Settings and Customize
+
+The owner, on where Downloads lives: "I want to move access to the full downloads section from the
+left sidebar down to the area next to customize and settings. we can have access to uploads and
+downloads there. since they may both be working concurrently, and are more so meta about app
+behaviour rather than relating to items in the applicaiton. we will still keep the items in the top
+right header, as those are summary sections with quick actions, while these areas will be the larger
+ones." What binds:
+
+- **Downloads and Uploads leave the Workspace group and become footer fixtures**, beside Settings
+  and Customize, in the registry's own `footerPinned` tier — so the scrolling groups and Customize
+  mode never carry them and each row keeps exactly one home.
+- **Settings still leads the tray**, because it is the one icon the collapsed rail keeps; the
+  registers follow it, and Customize closes the row.
+- **The two levels stay distinct.** The top-bar trays are summaries with quick actions; the footer
+  icons open the full surfaces. Neither replaces the other.
+
+### 2026-09-06 — the calendar's create control, the header's hovers, the custody rail
+
+Three corrections from one walk of the deployed app; all three generalize and are promoted above.
+
+- The firm calendar's primary action was a hand-built dropdown reading "Record" — the one create
+  control the product has, re-implemented under a different verb. It is `CreateControl` now, reading
+  the bare "New" over "New Event", "New Deadline", "New Firm Event". The matter's own calendar
+  section had the same mislabel from the other direction: it read "New Event" over a menu that also
+  records a deadline. The gate that refuses a rival create button did not cover the calendar's
+  routes, which is why the hand-built one survived; it does now.
+- Each kind wears the glyph it already wears wherever it is named — event a calendar, deadline a
+  clock, firm event a building — rather than a second choice made per menu.
+- The custody register's location rail is gone; Location was already a set-filtered column.
+- The owner then extended the label rule to every menu-bearing create control rather than the
+  calendar alone, which is why Files and the directory move with it.
+
+### 2026-09-06 — the file manager, seventeenth round
+
+Five corrections against the deployed file manager. The generalizable parts are promoted above — the
+document base, and the rule that a submenu holds what it is named after; what is local to this
+surface is in [`file-manager-rulings.md`](file-manager-rulings.md) (round seventeen).
 
 ### 2026-09-06 — the matter lifecycle: a hold beside active, and no number before active
 

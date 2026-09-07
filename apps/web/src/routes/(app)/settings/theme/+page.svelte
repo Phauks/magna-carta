@@ -9,6 +9,7 @@
    * ($lib/settings/appearance-axes.svelte.ts — the seam the no-FOUC boot script reads) and
    * appends to this page's own change ledger.
    */
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
@@ -31,7 +32,6 @@
 <SettingsMasthead
   sectionId="theme"
   title="Theme"
-  meta="The theme is the firm's brand; six curated faces, each in light and dark."
   posture="instant"
   {restoreAction}
 />
@@ -41,6 +41,8 @@
      identical width. Full canvas width (owner-directed): the table uses the space. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>The theme is the firm's brand; six curated faces, each in light and dark.</SettingsDescription>
+
   <SettingsPlate heading="Brand">
     <SettingsRow definition={THEME_DEFINITION} instant={instantForAxis(THEME_AXIS)} />
     <SettingsRow definition={MODE_DEFINITION} instant={instantForAxis(MODE_AXIS)} />

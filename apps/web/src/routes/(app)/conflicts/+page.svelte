@@ -172,14 +172,7 @@
   <title>Conflicts Check · Magna Carta</title>
 </svelte:head>
 
-<ScreenHeader
-  title="Conflicts Check"
-  class="mb-24"
->
-  {#snippet meta()}
-    <span>Search the firm's record, and keep what the search did</span>
-  {/snippet}
-</ScreenHeader>
+<ScreenHeader title="Conflicts Check" class="mb-24" />
 
 {#if session !== null && !mayRun}
   <Alert.Root variant="info" class="mb-16">

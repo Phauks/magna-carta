@@ -10,7 +10,7 @@
 
 **No feature is complete until it is documented — for both audiences.** Code that works but is undocumented is _unfinished_, not finished. Documentation ships in the **same commit/PR** as the code it describes; a change that needs docs and omits them does not merge.
 
-Every change updates the docs in its lane. Skip a lane only when it genuinely does not apply, and **say so explicitly in the PR** — silence is not "no docs needed."
+Every change updates the docs in its lane. Skip a lane only when it genuinely does not apply, and **say so explicitly in the PR** — silence is not "no docs needed." The [pull request template](../../.github/pull_request_template.md) carries these lanes as a checklist, so the place to say it is already in front of the author.
 
 **Developer documentation (internal):**
 

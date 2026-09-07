@@ -88623,7 +88623,7 @@
         }
       },
       "get": {
-        "description": "Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the matter's own record). The per-matter listing is CURSOR-PAGED, newest work date first: a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. The daily view is complete in one page by construction — one timekeeper, one date — so its cursor is always null.",
+        "description": "Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.",
         "operationId": "timeEntries.list",
         "tags": [
           "timeEntries"
@@ -88672,6 +88672,28 @@
           {
             "schema": {
               "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability."
+            },
+            "required": false,
+            "description": "The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability.",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "The last work date of a period listing, inclusive. Required alongside `from`."
+            },
+            "required": false,
+            "description": "The last work date of a period listing, inclusive. Required alongside `from`.",
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
               "enum": [
                 "draft",
                 "submitted",
@@ -88679,10 +88701,10 @@
                 "billed",
                 "void"
               ],
-              "description": "Narrows a per-matter listing to one status. Omitted, the listing answers with every status the matter carries, which is what a matter's time record is."
+              "description": "Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is."
             },
             "required": false,
-            "description": "Narrows a per-matter listing to one status. Omitted, the listing answers with every status the matter carries, which is what a matter's time record is.",
+            "description": "Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.",
             "name": "status",
             "in": "query"
           },
@@ -88728,6 +88750,16 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The period's first date is after its last",
             "content": {
               "application/problem+json": {
                 "schema": {

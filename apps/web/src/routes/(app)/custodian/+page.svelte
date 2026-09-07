@@ -20,10 +20,15 @@
    * pinning and the per-column filters are summoned from a column's own header, which is the one
    * home for them; no surface carries a columns button.
    *
-   * THE CONTAINER TREE IS NOT A SECOND FILTER, WHICH IS WHY IT SURVIVED THAT CUT. It narrows to a
-   * whole BRANCH — the safe and every box and position inside it — which is a subtree read the
-   * server does once per request and which no column filter over loaded rows can express. It is
-   * also this screen's answer to "where are things kept", which is half of what a register is for.
+   * THE CONTAINER TREE IS GONE, AND LOCATION IS A COLUMN LIKE ANY OTHER (owner's ruling,
+   * 2026-09-06). It was kept as the one narrowing that is not a second filter — it read a whole
+   * BRANCH, a subtree the server resolves per request, which a column filter over loaded rows
+   * cannot express — and that argument did not survive contact with the screen: a rail down the
+   * left made this register read as a different kind of table from every other one in the product,
+   * and it did not earn the difference. Location is a set-filtered column (packet-columns.ts),
+   * narrowed the way Status is, and the register runs the full width the way every other listing
+   * does. The server's subtree read stays in the API for whatever asks for it next; nothing on
+   * this screen does.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
@@ -31,29 +36,28 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import FieldLabel from "@magna-carta/design-system/field-label";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import {
     listCustodyLocations,
-    readCustodyLocationOccupancy,
     MANAGE_CUSTODY_PERMISSION,
     type CreatedCustodyPacket,
     type CustodyLocationNode,
-    type CustodyLocationOccupancy,
     type CustodyPacketSummary,
   } from "$lib/custodian/custody-api.ts";
-  import LocationTree from "$lib/custodian/location-tree.svelte";
   import NewPacketDialog from "$lib/custodian/new-packet-dialog.svelte";
   import PacketRegister from "$lib/custodian/packet-register.svelte";
   import PacketWindow from "$lib/custodian/packet-window.svelte";
   import { permissionRefusal } from "$lib/access/refusal.ts";
 
-  // ---- the firm's own container tree -----------------------------------------------------------
+  // ---- the firm's own containers, read for their NAMES --------------------------------------------
+  //
+  // The register stores a location handle per packet; this read is what turns it into the shelf a
+  // person would say out loud, and what fills the New Packet dialog's location field. It is not a
+  // navigation of its own any more.
 
   let locations = $state<readonly CustodyLocationNode[]>([]);
-  let occupancy = $state<readonly CustodyLocationOccupancy[]>([]);
   let treeFailure = $state<StatedFailure | null>(null);
   let session = $state<SessionBootstrap | null>(null);
   let bootstrapped = false;
@@ -69,14 +73,10 @@
   });
 
   async function readTree(): Promise<void> {
-    const [tree, counts] = await Promise.all([
-      listCustodyLocations(fetch),
-      readCustodyLocationOccupancy(fetch),
-    ]);
+    const tree = await listCustodyLocations(fetch);
     if (tree.kind === "ok") locations = tree.value.data;
-    if (counts.kind === "ok") occupancy = counts.value.data;
-    // A tree that cannot be read leaves the register readable: the packets and their numbers are
-    // still true, and only the Location column and the branch filter go quiet.
+    // Containers that cannot be read leave the register readable: the packets and their numbers
+    // are still true, and only the Location column goes quiet.
     treeFailure =
       tree.kind === "ok"
         ? null
@@ -104,7 +104,6 @@
 
   // ---- the register ----------------------------------------------------------------------------
 
-  let selectedLocationId = $state<string | undefined>(undefined);
   let openPacketId = $state<string | null>(null);
   let windowOpen = $state(false);
   let dialogOpen = $state(false);
@@ -123,28 +122,18 @@
   let searchText = $state("");
   let appliedSearch = $state("");
 
-  const query = $derived({
-    ...(selectedLocationId === undefined ? {} : { locationSubtreeId: selectedLocationId }),
-    ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
-  });
-  const selectedLocationName = $derived(
-    occupancy.find((node) => node.locationId === selectedLocationId)?.name ?? null,
+  const query = $derived(
+    appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() },
   );
 
-  const narrowed = $derived(
-    selectedLocationId !== undefined ||
-      appliedSearch.trim() !== "" ||
-      (grid?.activeFilterCount ?? 0) > 0,
+  const narrowed = $derived(appliedSearch.trim() !== "" || (grid?.activeFilterCount ?? 0) > 0);
+  const narrowingSummary = $derived(
+    appliedSearch.trim() === ""
+      ? "Show every packet"
+      : `Showing "${appliedSearch.trim()}" of the register`,
   );
-  const narrowingSummary = $derived.by(() => {
-    const parts: string[] = [];
-    if (selectedLocationId !== undefined) parts.push(selectedLocationName ?? "one branch");
-    if (appliedSearch.trim() !== "") parts.push(`"${appliedSearch.trim()}"`);
-    return parts.length === 0 ? "Show every packet" : `Showing ${parts.join(", ")} of the register`;
-  });
 
   function clearNarrowing(): void {
-    selectedLocationId = undefined;
     searchText = "";
     appliedSearch = "";
     grid?.clearAllFilters();
@@ -159,9 +148,9 @@
   }
 
   /*
-   * A logged packet changes both halves of this screen: the register gained a row, and the
-   * container it went into gained an occupant. The occupancy counts are the tree's whole content,
-   * so leaving them stale would show a safe holding one fewer packet than it holds.
+   * A logged packet adds a row to the register, and may be the first packet in a container the
+   * names read has not seen — a container opened in another tab while this screen sat here. Both
+   * are read again, so the new row can print the shelf it went onto rather than an empty cell.
    */
   function onLogged(created: CreatedCustodyPacket, unrecorded: readonly string[]): void {
     lastLogged = created;
@@ -238,39 +227,26 @@
     />
   {/if}
 
-  <div class="grid min-h-0 flex-1 gap-24 lg:grid-cols-4">
-    <div class="flex min-h-0 flex-col gap-12 lg:col-span-1">
-      <FieldLabel as="h2">
-        Where things are
-      </FieldLabel>
-      {#if occupancy.length === 0}
-        <p class="text-xs text-text-muted">
-          No container has been described yet. A custody tree is offices, safes, cabinets, shelves
-          and boxes, plus the bank vaults and offsite stores that are not the firm's own offices.
-        </p>
-      {:else}
-        <LocationTree {occupancy} bind:selectedId={selectedLocationId} />
-      {/if}
-    </div>
-
-    <div class="flex min-h-0 min-w-0 flex-col gap-16 lg:col-span-3">
-      <PacketRegister
-        {query}
-        {locations}
-        bind:grid
-        bind:reread={rereadRegister}
-        onOpenPacket={openPacket}
-        caption="The firm's custody register"
-        emptyTitle="Nothing Is In Custody Yet"
-      >
-        {#snippet emptyBody()}
-          A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
-          wallet. It carries a custody number, the person or organization it is held for, and
-          everything that has ever happened to it. Logging the first one, with New Packet at the
-          top of the screen, draws the firm's first custody number.
-        {/snippet}
-      </PacketRegister>
-    </div>
+  <!-- One table, the full width of the screen — the arrangement every other list screen uses.
+       Where a packet is kept is the Location column's business, narrowed from its own header the
+       way Status is. -->
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-16">
+    <PacketRegister
+      {query}
+      {locations}
+      bind:grid
+      bind:reread={rereadRegister}
+      onOpenPacket={openPacket}
+      caption="The firm's custody register"
+      emptyTitle="Nothing Is In Custody Yet"
+    >
+      {#snippet emptyBody()}
+        A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
+        wallet. It carries a custody number, the person or organization it is held for, and
+        everything that has ever happened to it. Logging the first one, with New Packet at the top
+        of the screen, draws the firm's first custody number.
+      {/snippet}
+    </PacketRegister>
   </div>
 </div>
 

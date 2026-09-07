@@ -49,6 +49,46 @@ export function listTimeEntries(
   return requestJson(fetchImpl, `/api/v1/time-entries${suffix === "" ? "" : `?${suffix}`}`);
 }
 
+/** Whose time a period listing is asking for. */
+export interface TimePeriodQuery {
+  /** The first work date in the span, inclusive. */
+  readonly from: string;
+  /** The last work date in the span, inclusive. */
+  readonly to: string;
+  /**
+   * One timekeeper's own record, or null for the whole firm's.
+   *
+   * Null is a deliberate value rather than an omission: asking for everybody is a real question and
+   * the server gates it on `time:viewFirm`, so a surface without the capability must ask for a
+   * person by name rather than leaving the field off and hoping to be defaulted to itself.
+   */
+  readonly timekeeperUserId: string | null;
+  readonly cursor?: string;
+}
+
+/**
+ * Every entry in a span of work dates, across every matter, newest work date first.
+ *
+ * This is the read the firm's period surface is built on. The day listing answers what one person
+ * did on one date and the matter listing answers what is on one file; neither answers "what time
+ * was recorded this week", which is the question a timekeeper asks of their own record and a
+ * supervisor asks of the firm's.
+ *
+ * The status is not passed, on the rule both other listings follow: a record is all of it, and
+ * narrowing to one status is a different question. The surface narrows by status in its own table.
+ */
+export function listTimeEntriesInPeriod(
+  fetchImpl: typeof fetch,
+  query: TimePeriodQuery,
+): Promise<ApiOutcome<Page<TimeEntrySummary>>> {
+  const parameters = new URLSearchParams({ from: query.from, to: query.to });
+  if (query.timekeeperUserId !== null) {
+    parameters.set("timekeeperUserId", query.timekeeperUserId);
+  }
+  if (query.cursor !== undefined) parameters.set("cursor", query.cursor);
+  return requestJson(fetchImpl, `/api/v1/time-entries?${parameters.toString()}`);
+}
+
 /** What the create route answers: the identity of the entry it wrote. */
 export interface TimeEntryAcknowledgement {
   timeEntryId: string;

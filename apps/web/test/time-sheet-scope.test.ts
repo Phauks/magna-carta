@@ -35,6 +35,33 @@ describe("named spans", () => {
     expect(scope.label).toBe("Yesterday, Aug 25");
   });
 
+  it("spans last week as the seven days before the current one", () => {
+    const scope = scopePreset("lastWeek", WEDNESDAY, 1);
+    expect(scope.from).toBe("2026-08-17");
+    expect(scope.to).toBe("2026-08-23");
+    expect(scope.label).toBe("Last week, Aug 17 to 23");
+  });
+
+  it("spans this month from its first day to its last, whatever the month's length", () => {
+    const scope = scopePreset("month", WEDNESDAY, 1);
+    expect(scope.from).toBe("2026-08-01");
+    expect(scope.to).toBe("2026-08-31");
+    expect(scope.label).toBe("This month, Aug 1 to 31");
+  });
+
+  it("spans last month, and crosses the year boundary rather than naming month zero", () => {
+    const inJanuary = scopePreset("lastMonth", "2026-01-14", 1);
+    expect(inJanuary.from).toBe("2025-12-01");
+    expect(inJanuary.to).toBe("2025-12-31");
+    expect(inJanuary.label).toBe("Last month, Dec 1 to 31");
+  });
+
+  it("gets February's length right in a leap year, from the calendar rather than a table", () => {
+    // 2028 is a leap year; a month-length table is the classic place that gets this wrong.
+    expect(scopePreset("month", "2028-02-09", 1).to).toBe("2028-02-29");
+    expect(scopePreset("month", "2026-02-09", 1).to).toBe("2026-02-28");
+  });
+
   it("spans the firm's WHOLE week, and says which days that was", () => {
     const scope = scopePreset("week", WEDNESDAY, 1);
     expect(scope.from).toBe("2026-08-24");

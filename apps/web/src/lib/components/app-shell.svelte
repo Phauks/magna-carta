@@ -13,9 +13,13 @@
    * back). A destination newly arrived in the sidebar carries a one-time gilt-draw highlight so
    * the eye catches where reconciliation seated it.
    *
-   * Collapse and Customize are RAIL CONTROLS, not destinations: they live as a compact icon
-   * cluster at the rail's foot (tooltips carry their labels), set apart from Settings — which
-   * stays a normal labelled destination row, because it is a place you navigate to.
+   * THE FOOT OF THE RAIL IS THE UTILITY TRAY — a compact icon cluster of the things that are
+   * ABOUT the app rather than places in the firm's work: Settings, then the two transfer
+   * registers (Downloads and Uploads), then Customize and Collapse. Downloads and Uploads live
+   * here by owner direction (2026-09-07) rather than in the Workspace group: they run alongside
+   * whatever is on screen, often both at once, so they belong with the app's own controls. The
+   * top-bar trays keep their own job — a summary with quick actions; these open the full
+   * surfaces. Collapse and Customize remain RAIL CONTROLS, not destinations.
    *
    * Top-bar seams stay seams: +New renders nothing until its slice ships — the Actions region
    * reserves its geometry; the shell never fakes function. The notification bell IS a real (if
@@ -113,7 +117,6 @@
   const groups = $derived(sidebarGroups());
   const editingGroups = $derived(sidebarEditingGroups());
   const hoverExpand = $derived(expandSidebarOnHover());
-  const settingsActive = $derived(page.url.pathname.startsWith("/settings"));
 
   // "Expand on hover" makes the rail REST collapsed and float open on hover, so whenever the
   // preference is on (and we are not customizing, which needs the rail expanded to arrange) the
@@ -124,11 +127,17 @@
     if (hoverExpand && !customizing) collapsed = true;
   });
 
-  // The Settings footer fixture from the registry, so the row has one home.
-  const settingsDestination = DESTINATIONS.find(
-    (destination) => destination.footerPinned === true,
-  ) as Destination;
-  const SettingsIcon = settingsDestination.icon;
+  /*
+   * The footer utility tray, read from the registry's footer fixtures so each row has one home.
+   * The order is stated here rather than taken from the registry's canonical order because
+   * SETTINGS LEADS: it is the one icon the collapsed rail keeps (sidebar.css hides the rest at
+   * rail width), and the registry orders by where a destination sits in the app, not by which
+   * icon survives a collapse.
+   */
+  const FOOTER_TRAY_IDS = ["settings", "downloads", "uploads"];
+  const footerTray = FOOTER_TRAY_IDS.map(
+    (id) => DESTINATIONS.find((destination) => destination.id === id) as Destination,
+  );
 
   // The notification bell is the top-bar entry to the Notifications destination, so its maturity
   // dot reads the same stage as that destination's sidebar row.
@@ -386,24 +395,26 @@
       <Sidebar.Footer>
         <!-- Keyboard reorders narrate here (polite: never steals focus from the row). -->
         <span class="sr-only" role="status">{moveAnnouncement}</span>
-        <!-- The utility tray: small icon activities. Settings LEADS (a real link, so it stays the
-             one visible icon when the rail collapses), Customize sits beside it, and the row has
-             room for more small utilities of the same register later. -->
+        <!-- The utility tray: the small icon activities that are about the app rather than about
+             the firm's work. Settings LEADS (a real link, so it stays the one visible icon when
+             the rail collapses), then Downloads and Uploads — the two transfer registers, which
+             run concurrently with whatever is on screen — and Customize closes the row. -->
         <div class="mc-sidebar-controls">
-          <a
-            href={settingsDestination.href}
-            class="mc-sidebar-control-button relative"
-            title={settingsDestination.label}
-            aria-label={settingsDestination.label}
-            aria-current={settingsActive ? "page" : undefined}
-            data-active={settingsActive ? "true" : undefined}
-          >
-            <SettingsIcon class="mc-sidebar-icon" aria-hidden="true" />
-            <MaturityDot
-              stage={destinationStage(settingsDestination)}
-              class="absolute end-4 top-4"
-            />
-          </a>
+          {#each footerTray as destination (destination.id)}
+            {@const Icon = destination.icon}
+            {@const active = isCurrentDestination(destination, page.url.pathname)}
+            <a
+              href={destination.href}
+              class="mc-sidebar-control-button relative"
+              title={destination.label}
+              aria-label={destination.label}
+              aria-current={active ? "page" : undefined}
+              data-active={active ? "true" : undefined}
+            >
+              <Icon class="mc-sidebar-icon" aria-hidden="true" />
+              <MaturityDot stage={destinationStage(destination)} class="absolute end-4 top-4" />
+            </a>
+          {/each}
           <Tooltip.Root>
             <Tooltip.Trigger
               class="mc-sidebar-control-button relative"
@@ -471,13 +482,29 @@
                no count badge). Its popover states the truth and offers the center; live alerts
                arrive with the notifications machinery. -->
           <Popover.Root bind:open={notificationsOpen}>
-            <Popover.Trigger class="mc-top-bar-icon-button relative" aria-label="Notifications">
-              <Bell class="size-16" aria-hidden="true" />
-              <MaturityDot
-                stage={destinationStage(notificationsDestination)}
-                class="absolute end-4 top-4"
-              />
-            </Popover.Trigger>
+            <!-- The hover names the control and nothing else. Every control in this band answers
+                 the same question the same way — what is this? — so the four tooltips are four
+                 names: Notifications, Time Sheet, Downloads, Build Information. The tooltip and
+                 the popover share ONE button through the tooltip trigger's child snippet; two
+                 elements would be two controls. -->
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <Popover.Trigger
+                    {...props}
+                    class="mc-top-bar-icon-button relative"
+                    aria-label="Notifications"
+                  >
+                    <Bell class="size-16" aria-hidden="true" />
+                    <MaturityDot
+                      stage={destinationStage(notificationsDestination)}
+                      class="absolute end-4 top-4"
+                    />
+                  </Popover.Trigger>
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content>Notifications</Tooltip.Content>
+            </Tooltip.Root>
             <Popover.Content
               align="end"
               class="flex flex-col gap-8"

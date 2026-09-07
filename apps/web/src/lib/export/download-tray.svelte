@@ -20,6 +20,7 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Button from "@magna-carta/design-system/button";
   import * as Popover from "@magna-carta/design-system/popover";
+  import * as Tooltip from "@magna-carta/design-system/tooltip";
   import { MaturityDot } from "@magna-carta/design-system/maturity";
   import {
     DESTINATIONS,
@@ -172,23 +173,36 @@
 </script>
 
 <Popover.Root bind:open>
-  <Popover.Trigger class="mc-top-bar-icon-button relative" aria-label="Downloads">
-    <Download class="size-16" aria-hidden="true" />
-    {#if hasUnseen}
-      <!-- Real state: the shelf holds something that arrived since this browser last looked. One
-           16px corner holds one mark, so while there is something new the arrival dot takes the
-           slot from the maturity dot — the more time-sensitive signal wins it, and the stage stays
-           stated on the sidebar row and in the panel below. -->
-      <span
-        class="absolute end-4 top-4 block size-8 rounded-full"
-        style="background: var(--mc-accent-default)"
-        aria-hidden="true"
-      ></span>
-      <span class="sr-only">New downloads</span>
-    {:else}
-      <MaturityDot stage={destinationStage(downloadsDestination)} class="absolute end-4 top-4" />
-    {/if}
-  </Popover.Trigger>
+  <!-- The hover names the control: one word, the same question every control in the top bar's
+       cluster answers. The tooltip and the popover share ONE button through the tooltip trigger's
+       child snippet — two elements would be two controls. -->
+  <Tooltip.Root>
+    <Tooltip.Trigger>
+      {#snippet child({ props })}
+        <Popover.Trigger {...props} class="mc-top-bar-icon-button relative" aria-label="Downloads">
+          <Download class="size-16" aria-hidden="true" />
+          {#if hasUnseen}
+            <!-- Real state: the shelf holds something that arrived since this browser last looked.
+                 One 16px corner holds one mark, so while there is something new the arrival dot
+                 takes the slot from the maturity dot — the more time-sensitive signal wins it, and
+                 the stage stays stated on the sidebar row and in the panel below. -->
+            <span
+              class="absolute end-4 top-4 block size-8 rounded-full"
+              style="background: var(--mc-accent-default)"
+              aria-hidden="true"
+            ></span>
+            <span class="sr-only">New downloads</span>
+          {:else}
+            <MaturityDot
+              stage={destinationStage(downloadsDestination)}
+              class="absolute end-4 top-4"
+            />
+          {/if}
+        </Popover.Trigger>
+      {/snippet}
+    </Tooltip.Trigger>
+    <Tooltip.Content>Downloads</Tooltip.Content>
+  </Tooltip.Root>
   <Popover.Content
     align="end"
     class="flex flex-col gap-8"

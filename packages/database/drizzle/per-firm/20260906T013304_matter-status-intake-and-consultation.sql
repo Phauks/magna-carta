@@ -6,8 +6,13 @@
 -- client's matter, numbered from the consultation sequence, not yet taken on. The owner renamed it
 -- on 2026-09-05 because "prospective" is the conduct rules' word for the client's standing while
 -- "consultation" is the firm's word for the phase, and the product already said consultation
--- everywhere but the status chip. The stored value changes with the word: no firm holds a matter
--- yet, so there is nothing to carry across and the copy below is exhaustive as written.
+-- everywhere but the status chip. The stored value changes with the word, so the copy below
+-- REWRITES it: a row spelled `prospective` is carried across as `consultation`, which is the same
+-- rung under its new name. Every other status copies verbatim. The rewrite is in the copy rather
+-- than a follow-up UPDATE because the replacement's CHECK admits only the new vocabulary — a
+-- verbatim copy of `prospective` fails the constraint and takes the whole migration down with it,
+-- and a migration that cannot complete leaves the firm database unreachable, since it is applied
+-- in the FirmDatabase durable object's constructor before any read or write is served.
 --
 -- contract: matter is dropped after its rows are copied into a replacement. This is a same-
 -- transaction table REBUILD, not a data removal — the copy is exhaustive (every column, no
@@ -52,7 +57,7 @@ CREATE TABLE `__new_matter` (
 	CONSTRAINT "matter_natural_language_index_excluded_check" CHECK("__new_matter"."natural_language_index_excluded" IN (0, 1))
 );
 --> statement-breakpoint
-INSERT INTO `__new_matter`("id", "title", "description", "status", "matter_type_id", "location_id", "responsible_member_id", "client_display_name", "client_code", "e_billing", "natural_language_index_excluded", "matter_number", "numbered_at", "consultation_number", "system_key", "opened_at", "closed_at", "created_at", "updated_at") SELECT "id", "title", "description", "status", "matter_type_id", "location_id", "responsible_member_id", "client_display_name", "client_code", "e_billing", "natural_language_index_excluded", "matter_number", "numbered_at", "consultation_number", "system_key", "opened_at", "closed_at", "created_at", "updated_at" FROM `matter`;--> statement-breakpoint
+INSERT INTO `__new_matter`("id", "title", "description", "status", "matter_type_id", "location_id", "responsible_member_id", "client_display_name", "client_code", "e_billing", "natural_language_index_excluded", "matter_number", "numbered_at", "consultation_number", "system_key", "opened_at", "closed_at", "created_at", "updated_at") SELECT "id", "title", "description", CASE WHEN "status" = 'prospective' THEN 'consultation' ELSE "status" END, "matter_type_id", "location_id", "responsible_member_id", "client_display_name", "client_code", "e_billing", "natural_language_index_excluded", "matter_number", "numbered_at", "consultation_number", "system_key", "opened_at", "closed_at", "created_at", "updated_at" FROM `matter`;--> statement-breakpoint
 DROP TABLE `matter`;--> statement-breakpoint
 ALTER TABLE `__new_matter` RENAME TO `matter`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint

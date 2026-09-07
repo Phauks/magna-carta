@@ -9848,7 +9848,7 @@ export const billingContingencyResidualOptions = (options: Options<BillingContin
 export const timeEntriesListQueryKey = (options?: Options<TimeEntriesListData>) => createQueryKey('timeEntriesList', options);
 
 /**
- * Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the matter's own record). The per-matter listing is CURSOR-PAGED, newest work date first: a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. The daily view is complete in one page by construction — one timekeeper, one date — so its cursor is always null.
+ * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.
  */
 export const timeEntriesListOptions = (options?: Options<TimeEntriesListData>) => queryOptions<TimeEntriesListResponse, TimeEntriesListError, TimeEntriesListResponse, ReturnType<typeof timeEntriesListQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -9866,7 +9866,7 @@ export const timeEntriesListOptions = (options?: Options<TimeEntriesListData>) =
 export const timeEntriesListInfiniteQueryKey = (options?: Options<TimeEntriesListData>): QueryKey<Options<TimeEntriesListData>> => createQueryKey('timeEntriesList', options, true);
 
 /**
- * Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the matter's own record). The per-matter listing is CURSOR-PAGED, newest work date first: a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. The daily view is complete in one page by construction — one timekeeper, one date — so its cursor is always null.
+ * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.
  */
 export const timeEntriesListInfiniteOptions = (options?: Options<TimeEntriesListData>) => infiniteQueryOptions<TimeEntriesListResponse, TimeEntriesListError, InfiniteData<TimeEntriesListResponse>, QueryKey<Options<TimeEntriesListData>>, string | Pick<QueryKey<Options<TimeEntriesListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore

@@ -30,6 +30,7 @@
   import Textarea from "@magna-carta/design-system/textarea";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -191,12 +192,13 @@
 <SettingsMasthead
   sectionId="intake-procedures"
   title="Intake Procedures"
-  meta="What a kind of matter must clear before it opens, as a list the firm writes for itself."
   posture={canManage ? "draft" : "readOnly"}
 />
 
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>What a kind of matter must clear before it opens, as a list the firm writes for itself.</SettingsDescription>
+
     <Alert.Root variant="info">
       <Alert.Title>A Procedure Holds The Door</Alert.Title>
       <Alert.Description>
