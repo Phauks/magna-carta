@@ -225,6 +225,73 @@ export function copyLineForPart(part: {
   return segments.join(" · ");
 }
 
+/**
+ * THE WHOLE PANEL on the clipboard, as the reader would read it down the screen.
+ *
+ * The per-row copy and the database line each put ONE part on the clipboard, which is right when a
+ * reader is quoting one row. It is wrong for the gesture the panel's own copy control offers: a
+ * member reporting "something is broken" pasted four database rows and nothing about what was
+ * running, so the report arrived without the one fact — which build — that says whether a fix has
+ * even shipped yet. Copying part of the diagnosis reads exactly like copying all of it.
+ *
+ * Multi-line rather than the dot-separated single line the row copies use: this is a dozen facts,
+ * and a paste a person has to unpick is a paste they summarize from memory instead. Sections that
+ * had nothing to say are omitted rather than printed empty, and every unknown stays named as one —
+ * a row that never reported says so here too, because "absent from the paste" and "reported nothing"
+ * are different faults.
+ */
+export function copyReportForPanel(input: {
+  pageBuild: { commit: string; commitTime: string | null; buildTime: string | null } | null;
+  versions: MetaVersionsValue | null;
+  databaseLine: string | null;
+}): string {
+  const lines: string[] = ["Magna Carta diagnostics"];
+
+  if (input.pageBuild !== null) {
+    lines.push(
+      copyLineForPart({
+        label: PAGE_BUILD_ROW_NAME,
+        commit: input.pageBuild.commit,
+        commitTime: input.pageBuild.commitTime,
+        buildTime: input.pageBuild.buildTime,
+      }),
+    );
+  }
+
+  if (input.versions !== null) {
+    lines.push(
+      copyLineForPart({
+        label: API_WORKER_UNIT_NAME,
+        commit: input.versions.api.commit,
+        commitTime: input.versions.api.commitTime,
+        buildTime: input.versions.api.buildTime,
+      }),
+    );
+    if (input.versions.services.length > 0) {
+      lines.push("Workers:");
+      for (const service of input.versions.services) {
+        // A worker that did not report has no commit to quote, so it carries the reason instead —
+        // "unbound" and "unreachable" are the answer in those cases, not a missing line.
+        const stated =
+          service.commit === null
+            ? (serviceStateLabel(service.state) ?? "no version reported")
+            : copyLineForPart({
+                label: service.service,
+                commit: service.commit,
+                commitTime: service.commitTime,
+                buildTime: service.buildTime,
+              });
+        lines.push(`  ${service.commit === null ? `${service.service}: ${stated}` : stated}`);
+      }
+    }
+    lines.push(`Services observed ${input.versions.observedAt}`);
+  }
+
+  if (input.databaseLine !== null) lines.push(`Database — ${input.databaseLine}`);
+
+  return lines.join("\n");
+}
+
 /** A compact local rendering of an ISO timestamp for the panel's meta lines; null passes through. */
 export function formatVersionTimestamp(iso: string | null): string | null {
   if (iso === null) return null;

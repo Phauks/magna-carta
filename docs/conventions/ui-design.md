@@ -109,6 +109,8 @@ These are owner/reviewer discipline, not lint:
 
 Two `<html>` attributes — `data-theme="<theme>"` + a `dark` class — applied before first paint by the inline boot script (mirrored from `internal/theme-preference.ts`). Themes are pure data; a new theme is a new resolver input. The firm theme and user mode are a **localStorage seam** today; they move to the ADR-0040 settings registry in slice 0·7b — `theme-preference.ts` is the only touch point.
 
+**The document itself is painted once, and never by a screen.** `styles/base.css` is the only rule that touches the root: the colour scheme, the ink, and the `--mc-surface-default` background every screen sits on. A screen paints its own surfaces and nothing above them. The reason is not tidiness — every shell paints inside the Svelte tree, so an unpainted root looks correct right up until that tree stops covering the viewport (the boot of a hard load, a cross-group shell swap, an overscroll, the scrollbar gutter) and the browser's own canvas shows through. `applyThemeToDocument` additionally writes `color-scheme` as an inline style, and the boot script mirrors that line: the stylesheet is a separate request, and with `ssr = false` behind an `index.html` fallback the window before it arrives is the whole boot against an empty body.
+
 ## Browser verification — the loop that gives review eyes
 
 Every other gate here reads source text. None of them looks at a rendered pixel, so "the classes are

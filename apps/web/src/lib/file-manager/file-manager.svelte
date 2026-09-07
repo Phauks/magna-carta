@@ -150,6 +150,7 @@
     matterTitle,
     revealFileId = null,
     revealFolderId = null,
+    searchQuery = "",
   }: {
     matterId: string;
     matterTitle: string;
@@ -163,13 +164,19 @@
      * folders are in, and only if the record still holds it; a folder that has gone opens nothing.
      */
     revealFolderId?: string | null;
+    /**
+     * What to search this matter's files for, read off the address by the page above. This surface
+     * has NO field of its own: one matter is searched from one place, the matter header's search,
+     * and what reaches this table is the query that search put in the address.
+     */
+    searchQuery?: string;
   } = $props();
 
   const manager = new FileManagerState();
 
   // --- the create actions, answered from the matter header ---------------------------------------
   //
-  // The header's New File control (create-action.svelte.ts) is the one create button on this
+  // The header's New control (create-action.svelte.ts) is the one create button on this
   // surface; the toolbar carries none. These are what its menu offers, exported so the Files page
   // can put them behind it. Creating needs a current folder, and the views that show rows from
   // many folders have none — the refusal is read by the page inside its claim, so the control
@@ -444,18 +451,19 @@
 
   // --- acts ------------------------------------------------------------------------------------
 
-  /**
-   * Searching from the toolbar.
-   *
-   * The field is one control on one surface, so typing into it is what OPENS the results view and
-   * emptying it is what leaves: a reader who clears the box has said they are done searching, and
-   * being left staring at an empty results table would make them find their own way back.
+  /*
+   * The query in the address is what opens the results view, and losing it is what leaves: a reader
+   * who has cleared the search has said they are done, and being left staring at an empty results
+   * table would make them find their own way back. Reading the address rather than a field of this
+   * surface's own is what keeps one matter searched from one place.
    */
-  function runSearch(query: string): void {
-    manager.searchQuery = query;
-    if (query.trim() !== "" && manager.view !== "results") manager.openView("results");
-    else if (query.trim() === "" && manager.view === "results") manager.openFolder(null);
-  }
+  $effect(() => {
+    const query = searchQuery.trim();
+    if (manager.searchQuery === searchQuery) return;
+    manager.searchQuery = searchQuery;
+    if (query !== "" && manager.view !== "results") manager.openView("results");
+    else if (query === "" && manager.view === "results") manager.openFolder(null);
+  });
 
   function activate(row: FileManagerRow): void {
     if (row.kind === "folder") {
@@ -492,7 +500,7 @@
   let newFolderPending = $state(false);
 
   async function makeFolder(): Promise<void> {
-    // One folder per press: the header's New File menu can be pressed again before the first
+    // One folder per press: the header's New menu can be pressed again before the first
     // create has answered, and that would be two "New Folder"s, not one.
     if (manager.view !== "browse" || newFolderPending) return;
     newFolderPending = true;
@@ -1584,7 +1592,6 @@
               showFileCounts={manager.showSidebarCounts}
               {loading}
               label="Matter folders"
-              emptyMessage="No folders yet. Everything on this matter sits at the top level until one is made."
               newFolderDisabledReason={manager.view === "browse"
                 ? undefined
                 : "This view has no current folder to make one in."}
@@ -1636,12 +1643,7 @@
               });
             }}
           >
-            <FileManagerToolbar
-              {manager}
-              {trail}
-              viewTitle={VIEW_TITLES[manager.view]}
-              onSearch={runSearch}
-            />
+            <FileManagerToolbar {manager} {trail} viewTitle={VIEW_TITLES[manager.view]} />
 
             {#if archiveBrowse !== null}
               <!-- Inside a zip, the archive stands in for the LIST and only the list: the toolbar
@@ -1694,11 +1696,12 @@
               />
             {:else}
 
-            {#if manager.view === "results"}
+            {#if manager.view === "results" && manager.searchQuery.trim() !== ""}
               <!-- What the results view still says for itself: how the search was scoped, how many
-                   rows matched it, and how far the index actually reaches. The FIELD is not here —
-                   it lives with the surface's other controls at the top, so the table's own titles
-                   start in the same place in this view as in every other. -->
+                   rows matched it, and how far the index actually reaches. The FIELD is not here at
+                   all — the matter header's search is the one field this matter is searched from,
+                   and its query reaches this table through the address. With no query there is
+                   nothing to scope, so the strip does not render either. -->
               <div
                 class="flex items-center gap-8 border-b border-border-default px-12 py-4 text-xs text-text-muted"
               >
@@ -1837,7 +1840,7 @@
                     {cell}
                     settings={displaySettings}
                     caption="This matter's files"
-                    empty={emptyFolder}
+                    empty={manager.view === "results" ? emptyResults : emptyFolder}
                     {loading}
                     density={manager.scalePercent < 100 ? "compact" : "comfortable"}
                     class="h-full rounded-none border-0"
@@ -2191,8 +2194,9 @@
 {/snippet}
 
 {#snippet displaySettings()}
-  <!-- The surface's own display settings ride the header menu's Columns submenu, in the same
-       family as the zebra setting and beside the columns they change. -->
+  <!-- The surface's own display settings ride the header menu's ROOT, beside the table's own row
+       shading. Not under Columns: Columns holds columns, and a setting filed under a trigger that
+       names something else is a setting nobody finds. -->
   <ContextMenu.CheckboxItem
     bind:checked={() => manager.hideExtensions, (next) => manager.setHideExtensions(next)}
   >
@@ -2205,10 +2209,17 @@
   </ContextMenu.CheckboxItem>
 {/snippet}
 
+{#snippet emptyResults()}
+  <EmptyState title="Nothing to Show Yet">
+    Search this matter from the field at the top of the screen; what it finds among the files lands
+    here, where the whole result set can be acted on at once.
+  </EmptyState>
+{/snippet}
+
 {#snippet emptyFolder()}
   <EmptyState title="Nothing in This Folder">
     Files put here appear in this list. Everything on the matter is still reachable from Home,
-    whichever folder it sits in. New File, at the top of the matter, adds the first; dropping files
+    whichever folder it sits in. New, at the top of the matter, adds the first; dropping files
     here does too.
   </EmptyState>
 {/snippet}

@@ -13,9 +13,15 @@
    * back). A destination newly arrived in the sidebar carries a one-time gilt-draw highlight so
    * the eye catches where reconciliation seated it.
    *
-   * Collapse and Customize are RAIL CONTROLS, not destinations: they live as a compact icon
-   * cluster at the rail's foot (tooltips carry their labels), set apart from Settings — which
-   * stays a normal labelled destination row, because it is a place you navigate to.
+   * THE FOOT OF THE RAIL IS THE UTILITY TRAY — a compact icon cluster of the things that are
+   * ABOUT the app rather than places in the firm's work. It has two ends (owner-directed): the
+   * rail's own controls at the inline start (Settings, then Customize), and the two transfer
+   * registers (Downloads and Uploads) leaning to the inline end. Downloads and Uploads live here
+   * rather than in the Workspace group because they run alongside whatever is on screen, often
+   * both at once; they lean away from the rail's controls because they are the two things in the
+   * tray you actually navigate to. The top-bar trays keep their own job — a summary with quick
+   * actions; these open the full surfaces. Collapse and Customize remain RAIL CONTROLS, not
+   * destinations.
    *
    * Top-bar seams stay seams: +New renders nothing until its slice ships — the Actions region
    * reserves its geometry; the shell never fakes function. The notification bell IS a real (if
@@ -113,7 +119,6 @@
   const groups = $derived(sidebarGroups());
   const editingGroups = $derived(sidebarEditingGroups());
   const hoverExpand = $derived(expandSidebarOnHover());
-  const settingsActive = $derived(page.url.pathname.startsWith("/settings"));
 
   // "Expand on hover" makes the rail REST collapsed and float open on hover, so whenever the
   // preference is on (and we are not customizing, which needs the rail expanded to arrange) the
@@ -124,11 +129,19 @@
     if (hoverExpand && !customizing) collapsed = true;
   });
 
-  // The Settings footer fixture from the registry, so the row has one home.
-  const settingsDestination = DESTINATIONS.find(
-    (destination) => destination.footerPinned === true,
-  ) as Destination;
-  const SettingsIcon = settingsDestination.icon;
+  /*
+   * The footer utility tray's two ends, read from the registry's footer fixtures so each row has
+   * one home. The membership of each end is stated here rather than derived, because it is a fact
+   * about the tray and not about the registry: SETTINGS LEADS the row (it is the one icon the
+   * collapsed rail keeps — sidebar.css hides the rest at rail width) and the transfer registers
+   * lean to the far end.
+   */
+  function footerFixture(id: string): Destination {
+    return DESTINATIONS.find((destination) => destination.id === id) as Destination;
+  }
+  const footerLeading = footerFixture("settings");
+  const footerTrailing = ["downloads", "uploads"].map((id) => footerFixture(id));
+  const LeadingIcon = footerLeading.icon;
 
   // The notification bell is the top-bar entry to the Notifications destination, so its maturity
   // dot reads the same stage as that destination's sidebar row.
@@ -386,23 +399,21 @@
       <Sidebar.Footer>
         <!-- Keyboard reorders narrate here (polite: never steals focus from the row). -->
         <span class="sr-only" role="status">{moveAnnouncement}</span>
-        <!-- The utility tray: small icon activities. Settings LEADS (a real link, so it stays the
-             one visible icon when the rail collapses), Customize sits beside it, and the row has
-             room for more small utilities of the same register later. -->
+        <!-- The utility tray, in two ends (owner-directed). The rail's own controls lead:
+             Settings first — a real link, so it stays the one visible icon when the rail
+             collapses — then Customize. The two transfer registers lean to the far end, away
+             from the controls, because they are the things in this row you navigate to. -->
         <div class="mc-sidebar-controls">
           <a
-            href={settingsDestination.href}
+            href={footerLeading.href}
             class="mc-sidebar-control-button relative"
-            title={settingsDestination.label}
-            aria-label={settingsDestination.label}
-            aria-current={settingsActive ? "page" : undefined}
-            data-active={settingsActive ? "true" : undefined}
+            title={footerLeading.label}
+            aria-label={footerLeading.label}
+            aria-current={isCurrentDestination(footerLeading, page.url.pathname) ? "page" : undefined}
+            data-active={isCurrentDestination(footerLeading, page.url.pathname) ? "true" : undefined}
           >
-            <SettingsIcon class="mc-sidebar-icon" aria-hidden="true" />
-            <MaturityDot
-              stage={destinationStage(settingsDestination)}
-              class="absolute end-4 top-4"
-            />
+            <LeadingIcon class="mc-sidebar-icon" aria-hidden="true" />
+            <MaturityDot stage={destinationStage(footerLeading)} class="absolute end-4 top-4" />
           </a>
           <Tooltip.Root>
             <Tooltip.Trigger
@@ -422,6 +433,25 @@
             </Tooltip.Trigger>
             <Tooltip.Content side="top">{customizing ? "Done" : "Customize"}</Tooltip.Content>
           </Tooltip.Root>
+          <!-- One element, so the collapsed rail's "everything past the first icon goes" rule
+               takes the pair away and brings it back whole. -->
+          <div class="mc-sidebar-controls-trailing">
+            {#each footerTrailing as destination (destination.id)}
+              {@const Icon = destination.icon}
+              {@const active = isCurrentDestination(destination, page.url.pathname)}
+              <a
+                href={destination.href}
+                class="mc-sidebar-control-button relative"
+                title={destination.label}
+                aria-label={destination.label}
+                aria-current={active ? "page" : undefined}
+                data-active={active ? "true" : undefined}
+              >
+                <Icon class="mc-sidebar-icon" aria-hidden="true" />
+                <MaturityDot stage={destinationStage(destination)} class="absolute end-4 top-4" />
+              </a>
+            {/each}
+          </div>
         </div>
         <!-- Collapse is a primary behaviour, so it keeps a large, full-width labelled control at
              the foot of the rail. When "expand on hover" governs the rail it is redundant (hover
@@ -471,13 +501,29 @@
                no count badge). Its popover states the truth and offers the center; live alerts
                arrive with the notifications machinery. -->
           <Popover.Root bind:open={notificationsOpen}>
-            <Popover.Trigger class="mc-top-bar-icon-button relative" aria-label="Notifications">
-              <Bell class="size-16" aria-hidden="true" />
-              <MaturityDot
-                stage={destinationStage(notificationsDestination)}
-                class="absolute end-4 top-4"
-              />
-            </Popover.Trigger>
+            <!-- The hover names the control and nothing else. Every control in this band answers
+                 the same question the same way — what is this? — so the four tooltips are four
+                 names: Notifications, Time Sheet, Downloads, Build Information. The tooltip and
+                 the popover share ONE button through the tooltip trigger's child snippet; two
+                 elements would be two controls. -->
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <Popover.Trigger
+                    {...props}
+                    class="mc-top-bar-icon-button relative"
+                    aria-label="Notifications"
+                  >
+                    <Bell class="size-16" aria-hidden="true" />
+                    <MaturityDot
+                      stage={destinationStage(notificationsDestination)}
+                      class="absolute end-4 top-4"
+                    />
+                  </Popover.Trigger>
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content>Notifications</Tooltip.Content>
+            </Tooltip.Root>
             <Popover.Content
               align="end"
               class="flex flex-col gap-8"

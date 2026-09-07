@@ -70,8 +70,8 @@ the files where they landed. While it runs, the line under each upload reads the
 how long is left. A running upload can be cancelled from here too. Clear finished uploads when you
 no longer need to see them.
 
-**Uploads** in the sidebar (add it from Customize if it is not there) shows every upload in full,
-with the same list of files the panel showed, and the same controls. Uploads live in the browser
+The **upload icon at the far end of the row at the foot of the sidebar**, beside Downloads, shows
+every upload in full, with the same list of files the panel showed, and the same controls. Uploads live in the browser
 tab you started them in: the page shows this tab's uploads, and closing the tab ends them.
 
 If you close the browser tab while files are still uploading, the browser asks before it goes;
