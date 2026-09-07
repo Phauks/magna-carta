@@ -36,11 +36,14 @@ describe("every matter section answers for the create control", () => {
     }
   });
 
-  it("gives the calendar the bare New, because it makes two kinds", () => {
-    // The label would otherwise name one of them and be wrong about the other: the control read
-    // "New Event" over a menu that also records a deadline.
-    const calendar = matterSections.find((section) => section.slug === "calendar");
-    expect(calendar?.createNoun).toBe(CREATE_SEVERAL_KINDS);
+  it("gives a section that makes several kinds the bare New", () => {
+    // The label would otherwise name one of them and be wrong about the rest: the calendar read
+    // "New Event" over a menu that also records a deadline, and Files read "New File" over a menu
+    // offering a document, a folder and an upload.
+    const nounOf = (slug: string) =>
+      matterSections.find((section) => section.slug === slug)?.createNoun;
+    expect(nounOf("calendar")).toBe(CREATE_SEVERAL_KINDS);
+    expect(nounOf("files")).toBe(CREATE_SEVERAL_KINDS);
     // The sentinel is not a noun, so it can never be mistaken for one.
     expect(() => assertCreateNoun(CREATE_SEVERAL_KINDS)).toThrow(/one capitalised word/u);
   });
@@ -50,7 +53,6 @@ describe("every matter section answers for the create control", () => {
       matterSections.find((section) => section.slug === slug)?.createNoun;
     expect(nounOf("fees")).toBe("Fee");
     expect(nounOf("costs")).toBe("Cost");
-    expect(nounOf("files")).toBe("File");
   });
 
   it("refuses a noun the fixed width cannot hold, or that is not one word", () => {

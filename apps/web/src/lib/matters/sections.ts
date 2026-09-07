@@ -35,11 +35,12 @@
  *
  * EVERY SECTION ALSO ANSWERS FOR CREATE, the same way. The matter header carries ONE create control
  * beside the search, and its label is this registry's answer for the section the reader is on —
- * "New Fee" on Fees, "New File" on Files — so the label is settled by the address before the
- * section has even mounted, and the control never changes width or flickers between sections. A
- * section declares the noun it creates, or `null` with the line saying why nothing is created
- * there; the behaviour behind the label is claimed by the section's own page through
- * create-action.svelte.ts, and only the page standing on that section may claim it.
+ * "New Fee" on Fees, the bare "New" where a section makes several kinds — so the label is settled
+ * by the address before the section has even mounted, and the control never changes width or
+ * flickers between sections. A section declares the noun it creates, or `CREATE_SEVERAL_KINDS`
+ * where its menu names the kinds, or `null` with the line saying why nothing is created there; the
+ * behaviour behind the label is claimed by the section's own page through create-action.svelte.ts,
+ * and only the page standing on that section may claim it.
  */
 import { assertCreateNoun } from "@magna-carta/design-system/create-label";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
@@ -168,7 +169,9 @@ export const matterSections: readonly MatterSection[] = [
       "The matter's versioned file record — every document the firm holds for this matter, " +
       "organized in folders, each version kept and each byte's integrity hash recorded.",
     searchSource: "files",
-    createNoun: "File",
+    // A document, a folder and an upload are three kinds, so the control reads "New" and the menu
+    // names them. It read "New File" over that menu, which was wrong about two of the three.
+    createNoun: CREATE_SEVERAL_KINDS,
   },
   {
     slug: "time",

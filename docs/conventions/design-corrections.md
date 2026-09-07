@@ -261,7 +261,11 @@ is usually the fastest way to understand the rule.
   about the other two, and the item is where the choice is actually made. A control that does one
   thing still names it ("New Fee"). On a matter the registry says which sections make several kinds
   (`CREATE_SEVERAL_KINDS` in `sections.ts`) rather than the control reading it off the claim, so
-  the label does not change under the reader as the page mounts. _(the calendar, 2026-09-06)_
+  the label does not change under the reader as the page mounts. It holds on every menu-bearing
+  control, not only the one it was raised on: Files reads "New" over New Document, New Folder and
+  Upload Files (it read "New File", naming one of the three), and the directory's items read "New
+  Person" and "New Organization". **Supersedes the label half of the file manager's N30**, which
+  named "New File" there; N30's placement stands. _(the calendar, 2026-09-06)_
 - **A control in a chrome band names itself on hover — one name, not a sentence.** The top bar's
   cluster answers one question on hover: what is this? So the four read "Notifications", "Time
   Sheet", "Downloads", "Build Information", and nothing more. Three of them had no hover text at
@@ -746,6 +750,8 @@ Three corrections from one walk of the deployed app; all three generalize and ar
 - Each kind wears the glyph it already wears wherever it is named — event a calendar, deadline a
   clock, firm event a building — rather than a second choice made per menu.
 - The custody register's location rail is gone; Location was already a set-filtered column.
+- The owner then extended the label rule to every menu-bearing create control rather than the
+  calendar alone, which is why Files and the directory move with it.
 
 ### 2026-09-06 — the file manager, seventeenth round
 

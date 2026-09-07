@@ -237,9 +237,14 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-const creating = sections.filter((section) => section.noun !== null).length;
+// Three answers, counted apart: a section that names one noun, one that makes several kinds and
+// reads the bare "New", and one that creates nothing and says why. Folding the middle one into
+// either of the others would report a screen that creates plenty as a screen that creates nothing.
+const naming = sections.filter((section) => !section.severalKinds && section.noun !== null).length;
+const severalKinds = sections.filter((section) => section.severalKinds).length;
+const declining = sections.length - naming - severalKinds;
 console.log(
-  `Matter create control: every one of ${sections.length} section(s) answered — ${creating} ` +
-    `creating, ${sections.length - creating} declining with a reason — and no rival create button ` +
-    `across ${walked} screen(s) that carry the control.`,
+  `Matter create control: every one of ${sections.length} section(s) answered — ${naming} naming ` +
+    `a noun, ${severalKinds} offering several kinds, ${declining} declining with a reason — and no ` +
+    `rival create button across ${walked} screen(s) that carry the control.`,
 );

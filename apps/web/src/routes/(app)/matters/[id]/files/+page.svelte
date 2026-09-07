@@ -25,7 +25,7 @@
   const isSample = $derived(matter.source === "sample");
 
   /*
-   * The matter header's New File is the surface's one create control, and it is a MENU here: three
+   * The matter header's New is the surface's one create control, and it is a MENU here: three
    * ways something new lands in the folder the reader is standing in. Views with no current folder
    * (search results, deleted files, history, inside an archive) keep the control present and
    * disabled with the reason, so the header never changes shape under the pointer — the file
