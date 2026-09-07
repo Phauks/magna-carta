@@ -286,8 +286,16 @@ const listConversationsRoute = defineOpenAPIRoute(readMeta("listConversations"),
   path: "/api/v1/magnus/conversations",
   description:
     "The caller's own conversations, newest first. A member holding the read-all-conversations " +
-    "permission may pass `scope=firm` to list every member's instead; that read is audited.",
-  request: { query: cursorQuery.extend({ scope: z.enum(["own", "firm"]).optional() }) },
+    "permission may pass `scope=firm` to list every member's instead; that read is audited. The " +
+    "optional matter filter narrows the page to the conversations kept on one matter's file, which " +
+    "is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about " +
+    "what any of those conversations was built from.",
+  request: {
+    query: cursorQuery.extend({
+      scope: z.enum(["own", "firm"]).optional(),
+      matterId: identifierField("matter").optional(),
+    }),
+  },
   responses: {
     200: {
       description: "One page of conversations",
@@ -667,7 +675,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       const refusal = consentRefusal(c, consent);
       if (refusal !== null) return refusal;
 
-      const { cursor, scope } = c.req.valid("query");
+      const { cursor, scope, matterId } = c.req.valid("query");
       // The firm-wide scope is a separate grant. Without it a member sees exactly their own, which is
       // the default and needs no opt-in.
       if (scope === "firm" && !requireChokepointPermissions(c).has(READ_ALL_PERMISSION)) {
@@ -682,6 +690,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
 
       const rows = await listConversations(firm.firmDatabase, {
         ...(scope === "firm" ? {} : { createdBy: userId }),
+        ...(matterId !== undefined && { matterId }),
         ...(decodeCursor(cursor) !== undefined && { cursor: decodeCursor(cursor) }),
         limit: DEFAULT_PAGE_SIZE + 1,
       });

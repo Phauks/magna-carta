@@ -71,8 +71,9 @@ export interface Destination {
   readonly announced?: true;
   /**
    * Cannot be unstarred — Customize mode shows a lock instead of a star ("always in your
-   * sidebar"). Home and Settings also hold fixed positions (Home first; Settings in its pinned
-   * footer home); Matters is movable within its group but never hideable.
+   * sidebar"). Home and the footer fixtures also hold fixed positions (Home first; Downloads,
+   * Uploads and Settings in the pinned footer); Matters is movable within its group but never
+   * hideable.
    */
   readonly pinned?: true;
   /**
@@ -82,8 +83,13 @@ export interface Destination {
    */
   readonly defaultStarred: boolean;
   /**
-   * Lives in the sidebar's pinned footer, not the scrolling groups (Settings). The groups
-   * renderer skips it; the footer renders it from this entry so the row has one home.
+   * Lives in the sidebar's pinned footer utility tray, not the scrolling groups — Settings,
+   * Downloads and Uploads. The groups renderer (and Customize mode with it) skips it; the
+   * footer renders it from this entry so the row has one home. What earns a place here is
+   * meta about the app rather than a place in the firm's work: settings, and the two transfer
+   * registers that run alongside whatever you are doing (owner-directed, 2026-09-07). The
+   * top-bar trays stay what they are — summaries with quick actions; these are the full
+   * surfaces they open into.
    */
   readonly footerPinned?: true;
   /**
@@ -137,6 +143,11 @@ const DESTINATION_LIST = [
     // The download register: what the platform produced for this member, kept for a short window so
     // it can be taken again. Deliberately NOT the notification feed — that surface carries the
     // firm's work, and a generated file is platform mechanics (owner ruling, 2026-08-31).
+    //
+    // A FOOTER FIXTURE, not a workspace row (owner-directed, 2026-09-07): downloads and uploads run
+    // concurrently with the work rather than being part of it, so they sit with Settings and
+    // Customize at the rail's foot. The group is still `top` because the palette lists the whole
+    // registry flat and this is a workspace-register surface; only the sidebar placement moved.
     id: "downloads",
     label: "Downloads",
     href: "/downloads",
@@ -145,12 +156,15 @@ const DESTINATION_LIST = [
     group: "top",
     shipped: true,
     stage: "alpha",
+    pinned: true,
     defaultStarred: true,
+    footerPinned: true,
   },
   {
     // The uploads this browser tab is running: every batch in full, with each file's standing, the
     // rate and the time left. Live state rather than a register — an upload dies with the tab — so
-    // it is the download shelf's opposite number, not a second shelf.
+    // it is the download shelf's opposite number, not a second shelf. It shares the download
+    // register's footer home for the same reason.
     id: "uploads",
     label: "Uploads",
     href: "/uploads",
@@ -159,7 +173,9 @@ const DESTINATION_LIST = [
     group: "top",
     shipped: true,
     stage: "alpha",
-    defaultStarred: false,
+    pinned: true,
+    defaultStarred: true,
+    footerPinned: true,
   },
   {
     // A shipped stub: the page exists (an honest empty state) so the top-bar bell has a home to
@@ -193,17 +209,21 @@ const DESTINATION_LIST = [
     defaultStarred: true,
   },
   {
-    // Magnus — the Magna Carta assistant. It will converse inside a matter and around the
-    // app, but this is its always-reachable home: one sidebar entry, easy to find at all
-    // times (owner-directed). A stub only until the assistant ships.
+    // Magnus — the Magna Carta assistant. This is its always-reachable home: one sidebar entry,
+    // easy to find at all times (owner-directed). The member's own workspace for it — every
+    // conversation they have had, and the composer to start another. A matter's Magnus section is
+    // the same surface filtered to that matter's file; this one belongs to the member.
+    //
+    // It answers and nothing else: it cannot create, edit, file, send or delete, and it reads only
+    // what a member types into the conversation they are in.
     id: "magnus",
     label: "Magnus",
     href: "/magnus",
     icon: Sparkles,
     description: "The Magna Carta assistant — ask, draft, and navigate in plain language.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {
@@ -341,14 +361,18 @@ const DESTINATION_LIST = [
   },
   // Money (draft order: Time, Billing, Trust)
   {
+    // The period ledger: the firm's time over a span of days, across every matter. It is the read
+    // surface, distinct from the top bar's Time Sheet, which is capture and opens over whatever
+    // screen you are on. Alpha, not ready: the period reads, narrows and opens any entry, and the
+    // week grid that captures a missed week in one pass is still to come.
     id: "time",
     label: "Time",
     href: "/time",
     icon: Clock,
-    description: "Time capture and entries, ready for billing.",
+    description: "Every hour recorded, across matters and timekeepers, for the days you choose.",
     group: "money",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {

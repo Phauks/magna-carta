@@ -28,10 +28,29 @@ export interface SheetScope {
   readonly note?: string;
 }
 
-/** The named spans the scope menu offers above the custom range. */
+/** The named spans the SHEET's scope menu offers above the custom range. */
 export const SCOPE_PRESET_IDENTIFIERS = ["today", "yesterday", "week"] as const;
 
-export type ScopePresetIdentifier = (typeof SCOPE_PRESET_IDENTIFIERS)[number];
+/**
+ * The named spans the PERIOD ledger offers — the sheet's three, plus the ones only a review surface
+ * asks for.
+ *
+ * Two menus, one arithmetic. The sheet is a capture surface and a person captures into today,
+ * yesterday or the week they are in; the period ledger is where a month gets read back, reconciled
+ * and billed from, and a menu that stopped at seven days would send that reader to the custom range
+ * every single time. Both lists resolve through `scopePreset`, so a span can never mean one thing
+ * on one surface and something else on the other.
+ */
+export const PERIOD_PRESET_IDENTIFIERS = [
+  "today",
+  "yesterday",
+  "week",
+  "lastWeek",
+  "month",
+  "lastMonth",
+] as const;
+
+export type ScopePresetIdentifier = (typeof PERIOD_PRESET_IDENTIFIERS)[number];
 
 const MONTH_NAMES = [
   "Jan",
@@ -75,7 +94,8 @@ export function spanLabel(from: string, to: string): string {
  *
  * `firstWeekdayOfTheFirmsWeek` is 0 for Sunday through 6 for Saturday. It is a firm setting in the
  * product; until that setting is served, the caller passes the platform default and the label still
- * describes the span it actually produced.
+ * describes the span it actually produced. It is read by the week spans alone — a month begins on
+ * its first day at every firm.
  */
 export function scopePreset(
   identifier: ScopePresetIdentifier,
@@ -89,11 +109,33 @@ export function scopePreset(
     const yesterday = shiftDays(today, -1);
     return { from: yesterday, to: yesterday, label: `Yesterday, ${monthDay(yesterday)}` };
   }
+  if (identifier === "month" || identifier === "lastMonth") {
+    const year = Number(today.slice(0, 4));
+    const month = Number(today.slice(5, 7));
+    // The month asked for, as a 1-based month in its own year: December of the previous year when
+    // "last month" is asked in January.
+    const wanted = identifier === "month" ? month : month === 1 ? 12 : month - 1;
+    const wantedYear = identifier === "month" || month > 1 ? year : year - 1;
+    const first = `${String(wantedYear)}-${String(wanted).padStart(2, "0")}-01`;
+    // Day zero of the NEXT month is the last day of this one, so no month-length table is needed
+    // and February gets its leap years right for free.
+    const last = new Date(Date.UTC(wantedYear, wanted, 0)).toISOString().slice(0, 10);
+    return {
+      from: first,
+      to: last,
+      label: `${identifier === "month" ? "This month" : "Last month"}, ${spanLabel(first, last)}`,
+    };
+  }
   const daysIntoTheWeek =
     (new Date(`${today}T00:00:00Z`).getUTCDay() - firstWeekdayOfTheFirmsWeek + 7) % 7;
-  const from = shiftDays(today, -daysIntoTheWeek);
+  const thisWeek = shiftDays(today, -daysIntoTheWeek);
+  const from = identifier === "lastWeek" ? shiftDays(thisWeek, -7) : thisWeek;
   const to = shiftDays(from, 6);
-  return { from, to, label: `This week, ${spanLabel(from, to)}` };
+  return {
+    from,
+    to,
+    label: `${identifier === "lastWeek" ? "Last week" : "This week"}, ${spanLabel(from, to)}`,
+  };
 }
 
 /** Whether a preset is the span currently in view, so the menu can mark it. */

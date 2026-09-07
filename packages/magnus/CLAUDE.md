@@ -10,7 +10,10 @@ push transport, and the composition root live in `apps/api-worker/src/magnus/`.
 
 **White paper:** _AI / inference_, with _Tenancy and data isolation_ and _Observability &
 diagnostics_ — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md).
-**Design:** [`docs/specs/2026-08-06-magnus-design.md`](../../docs/specs/2026-08-06-magnus-design.md).
+**Design:** [`docs/specs/2026-08-06-magnus-design.md`](../../docs/specs/2026-08-06-magnus-design.md)
+(the backend) and
+[`docs/specs/2026-09-07-magnus-interface-design.md`](../../docs/specs/2026-09-07-magnus-interface-design.md)
+(the two member-facing surfaces and what makes them two).
 **Plan:**
 [`docs/specs/2026-08-06-magnus-implementation-plan.md`](../../docs/specs/2026-08-06-magnus-implementation-plan.md).
 **Decisions:** the [Decision Log](../../docs/Decision-Log.md) — the assistant's own flag ratifications
@@ -129,5 +132,14 @@ registered there; this file states what they mean for the code, not where they w
   A conversation has no artifact to sign, so relaxing that check to share the class would weaken it
   for both. The **frames** stay in the one home
   (`apps/api-worker/src/progress/job-progress-protocol.ts`); only the attachment differs.
-- **No user interface yet.** The feature is off by default and has no surface; the user-facing
-  disclosure text and the enablement guide land with the interface slice.
+- **The surface exists; the firm-administrator enablement screen does not.** A member reaches the
+  assistant from the sidebar destination and from a matter's own section, and accepts the disclosure
+  there. What is still missing is the screen a firm opens the two consent settings from — until it
+  ships, `magnus.enabled` and `inference.aiProcessingEligibility` are settable only through the
+  settings write path, so every firm's surface renders its closed state. That is the honest state,
+  not a defect: the feature is off by default and says which gate is shut.
+- **The interface polls the turn; it does not hold the socket.** The events route exists and is
+  correct, and the surface deliberately reads `GET .../turns/{turnId}` instead, because the two
+  return identical state and a socket buys nothing until a frame can carry a partial answer. Token
+  streaming is what makes the socket worth the second transport, and it changes the consumer and the
+  frame set rather than the screen.

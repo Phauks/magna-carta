@@ -186,11 +186,18 @@
 
 <Story
   name="Empty"
-  args={{ folders: [], views: VIEWS, selectedFolderId: null, expandedFolderIds: [] }}
+  args={{
+    folders: [],
+    views: VIEWS,
+    selectedFolderId: null,
+    expandedFolderIds: [],
+    emptyMessage: "No folders yet.",
+  }}
   {template}
   play={async ({ canvas, step }) => {
     await step("The root row still stands, and the rail says plainly that it is empty", async () => {
       await expect(canvas.getByRole("treeitem", { name: "Home" })).toBeInTheDocument();
+      // The sentence is the CALLER's, not a default: a rail given none shows none.
       await expect(canvas.getByText("No folders yet.")).toBeVisible();
     });
     await step("Nothing can be opened, so the open/close control is disabled", async () => {
