@@ -14,16 +14,22 @@
  *
  * A COLUMN THE LISTING CANNOT FILL STILL EXISTS. Its label is real, it appears in the columns menu,
  * and its cells say what they are waiting on instead of showing a value nobody recorded. Entry
- * Number, Date Entered and Entered By start hidden, because a column of identical gap marks in
- * front of every reader is noise. Attachments stays showing, because a cost's files are part of
- * what a reader came to check and the shape of the record is the thing worth seeing.
+ * Number starts hidden, because a column of identical gap marks in front of every reader is noise.
+ * Attachments stays showing, because a cost's files are part of what a reader came to check and
+ * the shape of the record is the thing worth seeing.
+ *
+ * DATE ENTERED AND ENTERED BY ARE SERVED, AND STILL START HIDDEN. The reason changed: they carry
+ * real values now, and they stay off by default because they answer a question about the RECORD
+ * rather than about the money — who captured this and when, which is what somebody asks while
+ * reconciling a month, not while reading a matter's disbursements. A reader who wants them turns
+ * them on and the layout is remembered.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { CostSummary } from "$lib/matters/cost-api.ts";
 import { costStatusKey } from "$lib/matters/cost-api.ts";
 import { gapCellTitle, type CostLedgerGapName } from "./cost-gaps.ts";
-import { billingLabel, costAmount, payeeText } from "./cost-vocabulary.ts";
+import { billingLabel, costAmount, payeeText, recorderText } from "./cost-vocabulary.ts";
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const COST_COLUMN_IDENTIFIERS = {
@@ -44,8 +50,6 @@ export const COST_COLUMN_IDENTIFIERS = {
 /** Which columns carry a value the listing does not serve, and which gap each of them names. */
 export const UNSERVED_COST_COLUMNS: Readonly<Record<string, CostLedgerGapName>> = {
   [COST_COLUMN_IDENTIFIERS.entryNumber]: "entryNumber",
-  [COST_COLUMN_IDENTIFIERS.dateEntered]: "dateEntered",
-  [COST_COLUMN_IDENTIFIERS.enteredBy]: "enteredBy",
   [COST_COLUMN_IDENTIFIERS.attachments]: "attachments",
 };
 
@@ -158,23 +162,31 @@ export function costLedgerColumns(options: {
       value: () => null,
       text: () => "",
     },
+    /*
+     * When the cost was written down, which is not the day the money went out. A disbursement
+     * captured three weeks late is a different record from one captured the day it was paid, and
+     * only Incurred and this one together say which of the two a reader is looking at.
+     */
     {
       id: COST_COLUMN_IDENTIFIERS.dateEntered,
       label: "Date Entered",
       type: "date",
       hidden: true,
       filter: "none",
-      value: () => null,
-      text: () => "",
+      value: (cost) => cost.createdAt,
     },
+    /*
+     * Who wrote it down. It is not a permission fact — a cost belongs to the matter and not to its
+     * recorder, so nothing is scoped by this — it is who to ask about a figure that looks wrong.
+     */
     {
       id: COST_COLUMN_IDENTIFIERS.enteredBy,
       label: "Entered By",
       type: "text",
       hidden: true,
-      filter: "none",
-      value: () => null,
-      text: () => "",
+      filter: "set",
+      fitExtra: 30,
+      value: (cost) => recorderText(cost),
     },
     {
       id: COST_COLUMN_IDENTIFIERS.description,

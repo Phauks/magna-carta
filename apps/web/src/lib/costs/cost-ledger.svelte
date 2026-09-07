@@ -42,7 +42,7 @@
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import ListChecks from "@lucide/svelte/icons/list-checks";
-  import { MoneySurface, type MoneySurfaceDensity } from "$lib/money/index.ts";
+  import { MoneySurface, billHref, type MoneySurfaceDensity } from "$lib/money/index.ts";
   import {
     RecordMenu,
     type RecordMenuAction,
@@ -72,6 +72,7 @@
   import { costRecordMenu, type CostMenuRecord } from "./cost-record-menu.ts";
   import {
     approveCost,
+    canWorkDraft,
     readCostLedgerEntry,
     submitCost,
     writeKey,
@@ -163,20 +164,6 @@
       openRecord(cost, canWorkDraft(cost).allowed);
     },
   });
-
-  /**
-   * Whose draft this is to work.
-   *
-   * The listing does not serve who recorded a cost, so this surface cannot answer "only the person
-   * who entered it" the way the design words it. What it can say honestly is what the chain says:
-   * a draft is editable and everything past it is not. The recorder gate arrives with the recorder.
-   */
-  function canWorkDraft(cost: CostLedgerEntry): { allowed: boolean; reason: string } {
-    if (cost.status !== "draft") {
-      return { allowed: false, reason: statusEntry(costStatusKey(cost.status)).meaning };
-    }
-    return { allowed: true, reason: "Change any part of this draft." };
-  }
 
   function openRecord(cost: CostLedgerEntry, editing: boolean): void {
     windowEntry = cost;
@@ -351,7 +338,7 @@
         // the register would have opened it, so a reader arrives where they would have navigated.
         // The verb is refused where there is no bill, so reaching here means there is one.
         if (first.invoiceId != null) {
-          void goto(`/matters/${matterId}/billing?invoice=${encodeURIComponent(first.invoiceId)}`);
+          void goto(billHref(matterId, first.invoiceId));
         }
         return;
       default:
@@ -383,6 +370,7 @@
           matterNumber,
           money: (amount) => formatMoney(amount, { currency }),
           date: (isoDate) => formatDate(isoDate),
+          instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
           expenseCodeLabels: expenseCodes.labelFor,
           source: printEntry.source,

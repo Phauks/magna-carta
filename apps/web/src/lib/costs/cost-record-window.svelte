@@ -49,6 +49,7 @@
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
   import type { ExpenseCodeCatalogue } from "./cost-expense-codes.svelte.ts";
+  import { billHref } from "$lib/money/index.ts";
   import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { costEntrySheet } from "./cost-print-sheet.ts";
   import {
@@ -59,7 +60,13 @@
     writeKey,
     type CostLedgerEntry,
   } from "./cost-operations.ts";
-  import { billingSentence, payeeText } from "./cost-vocabulary.ts";
+  import {
+    GONE_RECORDER_NOTE,
+    billingSentence,
+    payeeText,
+    recorderState,
+    recorderText,
+  } from "./cost-vocabulary.ts";
 
   let {
     open = $bindable(false),
@@ -267,6 +274,7 @@
           matterNumber,
           money: (amount) => formatMoney(amount, { currency: entry.currency }),
           date: (isoDate) => formatDate(isoDate),
+          instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
           expenseCodeLabels: expenseCodes.labelFor,
           source: entry.source,
@@ -546,6 +554,25 @@
         {/snippet}
       </SoonAffordance>
     </div>
+
+    <!--
+      WHERE THE RECORD CAME FROM, UNDER THE FIELDS AND NEVER AMONG THEM. Who wrote the cost down
+      and when are facts ABOUT the record rather than parts of it: nobody edits them, and putting
+      them in the form would invite somebody to try. They stay visible while the fields are open,
+      because the question they answer — who should I ask about this figure — is at its sharpest
+      exactly when a reader is about to change it.
+
+      Entered By is not a permission. A cost belongs to the matter it was advanced for, not to
+      whoever typed it, so this is who to ask and never a gate.
+    -->
+    {#if entry !== null}
+      <p class="text-xs text-text-muted">
+        Recorded by <span title={recorderState(entry).kind === "gone" ? GONE_RECORDER_NOTE : undefined}
+          >{recorderText(entry)}</span
+        >
+        on {formatInstant(entry.createdAt)}. The cost was incurred {formatDate(entry.incurredDate)}.
+      </p>
+    {/if}
   </div>
 {/snippet}
 
@@ -561,8 +588,8 @@
   <EventRail
     events={[]}
     label="This cost's history"
-    emptyMessage="Not built yet. Waiting on {gapReason('history')}. Who recorded it and when are the
-      first events this rail will carry."
+    emptyMessage="Not built yet. Waiting on {gapReason('history')}. Who recorded this cost and when
+      are under the fields on Details; what happened to it afterwards is what this rail will carry."
   />
 {/snippet}
 
@@ -584,7 +611,16 @@
         <Info class="size-16 shrink-0" aria-hidden="true" />
         <span>
           {#if entry.status === "billed"}
-            Billed. Which invoice took it up is not served yet: waiting on {gapReason("invoice")}.
+            {#if entry.invoiceId == null}
+              Billed. Which bill took it up is not recorded on this cost, so there is nothing to
+              open from here.
+            {:else}
+              Billed. <a
+                class="underline underline-offset-2"
+                href={billHref(entry.matterId, entry.invoiceId)}
+                >Open the bill this cost was charged on</a
+              >, on the matter it charges.
+            {/if}
           {:else if entry.status === "void"}
             Withdrawn. A void cost stays on the record and counts toward nothing.
           {:else}

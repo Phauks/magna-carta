@@ -87,13 +87,27 @@ over — and the form says so until you have chosen one.
 **Save & New** keeps the date and starts the next one, which is how a run of vendor invoices gets
 entered.
 
+## Who Recorded It, and When
+
+Two columns start hidden and are worth turning on when you are reconciling rather than reading:
+**Entered By** and **Date Entered**. Turn them on from any column's own heading.
+
+**Date Entered** is when the cost was written down, which is not the day the money went out — that
+is **Date Incurred**. A disbursement captured three weeks after the fact is a different record from
+one captured the day it was paid, and only the two dates together tell you which you are looking at.
+
+**Entered By** is who wrote it down. It is not a permission: a cost belongs to the matter it was
+advanced for, not to whoever typed it, so anybody who can record costs can work any matter's. It is
+who to ask when a figure looks wrong. A cost recorded by somebody who has since left the firm says
+so rather than showing you an internal identifier — the record itself is unaffected.
+
 ## What Is Not Here Yet
 
 **Approving submitted costs from here** — reviewing a batch across matters in one pass — is not
 built. Approval is on the matter's own Costs section.
 
-**Who recorded a cost** is not on the record yet, so the Entered By column has nothing to show and
-says so rather than guessing.
+**A cost's entry number** and **the files attached to it** are not on the record yet, so those two
+columns say what they are waiting on rather than guessing.
 
 ## Related
 

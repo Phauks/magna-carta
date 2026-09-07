@@ -323,6 +323,35 @@ describe("cost entry get", () => {
     expect(body.source).toBe("manual");
   });
 
+  it("answers one cost with the same resolved names the listing does", async () => {
+    // The detail read used to be a hand-written column list that resolved none of the three
+    // names, so opening a cost quietly answered with less than the row it was opened from. Both
+    // reads share one statement now, and this is what says so.
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-26",
+      amountMinor: 4200,
+      currency: "USD",
+      disbursementClass: "soft",
+      billable: true,
+      description: "Colour copies for the exhibit binder",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+
+    const body = (await (await get(`/api/v1/costs/${costEntryId}`)).json()) as {
+      matterTitle: string | null;
+      matterNumber: string | null;
+      createdAt: string;
+      createdByUserId: string | null;
+      createdByName: string | null;
+    };
+    expect(body.matterTitle).not.toBeNull();
+    expect(body.matterNumber).not.toBeNull();
+    expect(body.createdByUserId).toBe(ownerUserId);
+    expect(body.createdByName).not.toBeNull();
+    expect(body.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
   it("GET /api/v1/costs/{unknown-id} returns 404", async () => {
     const response = await get("/api/v1/costs/costEntry_000000000000000000000");
     expect(response.status).toBe(404);

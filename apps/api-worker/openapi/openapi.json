@@ -22863,6 +22863,21 @@
               "string",
               "null"
             ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdByName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -22878,7 +22893,10 @@
           "description",
           "status",
           "source",
-          "recoveryCategory"
+          "recoveryCategory",
+          "createdAt",
+          "createdByUserId",
+          "createdByName"
         ]
       },
       "PatchCostRequest": {

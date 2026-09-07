@@ -67,6 +67,9 @@ function cost(overrides: Partial<CostLedgerEntry> = {}): CostLedgerEntry {
     vendorName: "Eighth Judicial District Court Clerk",
     source: "manual",
     recoveryCategory: null,
+    createdAt: "2026-07-02T14:05:00.000Z",
+    createdByUserId: "user_paralegal",
+    createdByName: "Imogen Vance",
     ...overrides,
   };
 }

@@ -5270,6 +5270,9 @@ export type CostSummary = {
     matterTitle?: string | null;
     source: 'manual' | 'grid' | 'recovery';
     recoveryCategory: string | null;
+    createdAt: string;
+    createdByUserId: string | null;
+    createdByName: string | null;
 };
 
 export type PatchCostRequest = {

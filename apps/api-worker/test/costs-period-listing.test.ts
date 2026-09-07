@@ -27,6 +27,9 @@ import {
  * rows it did return.
  */
 
+/** The member row's display name, so the recorder assertion and the seed cannot drift apart. */
+const OWNER_DISPLAY_NAME = "Cost Period Owner";
+
 let poolFirmId: FirmId;
 let ownerCookie: string;
 let ownerUserId: UserId;
@@ -91,7 +94,7 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Cost Period Owner", poolFirmId);
+  await mirrorMemberWithOwnerRole(owner.userId, OWNER_DISPLAY_NAME, poolFirmId);
   ownerCookie = await signInForSessionCookie("cost-period-owner@example.com");
 
   await SELF.fetch("https://example.com/api/v1/numbering-scheme", {
@@ -122,6 +125,9 @@ interface ListedCost {
   readonly billable: boolean;
   readonly matterNumber: string | null;
   readonly matterTitle: string | null;
+  readonly createdAt: string;
+  readonly createdByUserId: string | null;
+  readonly createdByName: string | null;
 }
 
 async function listed(response: Response): Promise<readonly ListedCost[]> {
@@ -152,6 +158,20 @@ describe("the span", () => {
     const harlow = rows.find((row) => row.matterId === harlowMatterId);
     expect(harlow?.matterTitle).toBe("Harlow Acquisition");
     expect(harlow?.matterNumber).toMatch(/^CP-/);
+  });
+
+  it("names who recorded each row and when, resolved beside it rather than looked up", async () => {
+    const rows = await listed(await get("/api/v1/costs?from=2026-06-01&to=2026-06-30"));
+    for (const row of rows) {
+      expect(row.createdByUserId).toBe(ownerUserId);
+      // The member's display name, joined in the listing's own statement. Without it a surface
+      // showing Entered By would print an identifier at a reader, or read the member per row.
+      expect(row.createdByName).toBe(OWNER_DISPLAY_NAME);
+      // The entered date is an instant, and a distinct fact from the day the money went out: a
+      // cost captured weeks late is a different record from one captured the day it was paid.
+      expect(row.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(row.createdAt.slice(0, 10)).not.toBe(row.incurredDate);
+    }
   });
 
   it("narrows to one matter without giving up the span", async () => {

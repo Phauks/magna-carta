@@ -33,8 +33,7 @@ export interface CostSummary {
    * The matter's own name and number, resolved by the listing for the same reason the vendor's is.
    *
    * A firm-wide period listing prints the matter on every row, and resolving it a row at a time
-   * would be a lookup per disbursement to fill one column. Absent from a per-entry detail read,
-   * where the caller already stands on the matter.
+   * would be a lookup per disbursement to fill one column.
    */
   matterNumber?: string | null;
   matterTitle?: string | null;
@@ -46,6 +45,23 @@ export interface CostSummary {
    * billing register for the document that happens to carry this line.
    */
   invoiceId?: string | null;
+  /**
+   * When the cost was written down — a moment, not a day, and not the day the money went out.
+   *
+   * A disbursement captured three weeks after the fact is a different record from one captured the
+   * day it was paid, and only this and `incurredDate` together say which of the two a reader has.
+   */
+  createdAt: string;
+  /**
+   * Who wrote it down, as an identifier and as a name.
+   *
+   * Both, because they answer different questions: the name is what a reader is shown, and a null
+   * name over a present identifier means the member row is gone rather than that nobody recorded
+   * it. It is not a permission fact — a cost belongs to the matter and not to its recorder, so
+   * nothing about a cost is scoped by this.
+   */
+  createdByUserId: string | null;
+  createdByName?: string | null;
 }
 
 /**

@@ -63,6 +63,7 @@
   import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
   import CostRecordWindow from "$lib/costs/cost-record-window.svelte";
   import {
+    canWorkDraft,
     listCostLedgerInPeriod,
     type CostLedgerEntry,
     type CostPeriodScope,
@@ -219,20 +220,6 @@
   let windowOpen = $state(false);
   let windowEditing = $state(false);
   let windowEntry = $state<CostLedgerEntry | null>(null);
-
-  /*
-   * Whose draft this is to work — the matter ledger's own rule, held to the same words.
-   *
-   * The listing does not serve who recorded a cost, so this surface cannot answer "only the person
-   * who entered it" the way the design words it. What it can say honestly is what the chain says: a
-   * draft is editable and everything past it is not. The recorder gate arrives with the recorder.
-   */
-  function canWorkDraft(cost: CostLedgerEntry): { allowed: boolean; reason: string } {
-    if (cost.status !== "draft") {
-      return { allowed: false, reason: statusEntry(costStatusKey(cost.status)).meaning };
-    }
-    return { allowed: true, reason: "Change any part of this draft." };
-  }
 
   function openRecord(cost: CostLedgerEntry, editing: boolean): void {
     windowEntry = cost;

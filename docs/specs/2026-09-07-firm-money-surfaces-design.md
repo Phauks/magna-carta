@@ -230,6 +230,33 @@ choosing one changes what is read rather than what is shown.
    on.
 2. **Approving a submitted cost across matters** is not offered on the firm's period; approval stays
    on the matter's own section.
-3. **The recorder of a cost** is not on the record, so Entered By states its gap on both screens.
+3. **A cost's entry number and its attached files** are not on the record, so those two columns
+   state their gaps on both screens.
 4. **Trust and Fees have no firm-wide surface.** Trust's row stays announced; a fee is not its own
    record yet. The money toolbar's way out is absent on both rather than pointing at a Soon page.
+
+## 9. Closed after the first pass: the record answers with what it already held
+
+The gap register above opened with the recorder, the entered date and the bill a cost rides all in
+it. All three columns were in `cost_entry` from the baseline schema and simply were not projected
+onto the response, which made three of the four cost surfaces say "not served" about facts the
+firm's own database was holding.
+
+- **`created_at` and `created_by` reach the wire**, the recorder's name resolved by a `member` outer
+  join in the same statement the vendor's and the matter's already were. The join is outer, and
+  `created_by` is deliberately not a foreign key, for the same reason: who wrote a disbursement down
+  is a fact about the past that has to survive that person leaving the firm. A present identifier
+  with no name is a departure and reads as one; a null identifier is a cost nobody was recorded for.
+- **Entered By is not a permission fact, and this is settled rather than provisional.** The costs
+  design rules that a cost belongs to the **matter**, not to its recorder, so there is no per-user
+  self-scoping on costs at all — the deliberate difference from time, where an entry is somebody's
+  own hours. Both cost surfaces carried a duplicated `canWorkDraft` whose comment promised a
+  recorder gate that the accepted design refuses; the two are now one function, in
+  `cost-operations.ts`, and it states the real rule.
+- **The detail read stopped being a third shape.** `GET /api/v1/costs/{id}` was a hand-written
+  column list resolving none of the three names, so opening a cost answered with less than the row
+  it was opened from. Both reads share `LIST_COLUMNS` / `LIST_FROM` / `LIST_ORDER` now.
+- **`invoiceId` is read where it is served.** The seam this design added put the reference on the
+  wire, but the details panel, the record window and the print sheet each still said "not served"
+  over it. All three read it, through one `billHref` in the money surface — the address three files
+  were spelling by hand, one of them without encoding the identifier.

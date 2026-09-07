@@ -46,6 +46,7 @@
   import X from "@lucide/svelte/icons/x";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import { billHref } from "$lib/money/index.ts";
   import type { CostSummary } from "$lib/matters/cost-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
   import type { ClientCredit, InvoiceDelivery, InvoiceLine } from "./billing-api.ts";
@@ -406,7 +407,7 @@
                 <Button
                   variant="secondary"
                   size="sm"
-                  href="/matters/{charged.identifier}/billing?invoice={row.summary.id}"
+                  href={billHref(charged.identifier, row.summary.id)}
                   title="Open this bill on this matter's own Billing section, where the acts against it live."
                 >
                   <ArrowUpRight class="size-16" aria-hidden="true" />

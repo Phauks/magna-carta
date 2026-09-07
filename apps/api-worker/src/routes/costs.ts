@@ -98,18 +98,28 @@ const CostSummary = z
     // The CLAIM is the truth about who holds a cost; this mirror is set at finalization and is what
     // a read can carry without joining.
     invoiceId: z.string().nullable().optional(),
-    // The vendor's name, resolved by the listing. Null both when no vendor was recorded and when
+    // The vendor's name, resolved beside the cost. Null both when no vendor was recorded and when
     // the directory entry behind one is gone -- vendorId tells those two apart, and a screen that
     // needs to can say which. Never the identifier standing in for a name.
     vendorName: z.string().nullable().optional(),
-    // The matter's own name and number, resolved by the listing for the same reason the vendor's
+    // The matter's own name and number, resolved beside the cost for the same reason the vendor's
     // is: a firm-wide period listing prints the matter on every row, and resolving it a row at a
-    // time would be one lookup per disbursement to fill one column. Absent on the per-entry detail
-    // read, where the caller already stands on the matter.
+    // time would be one lookup per disbursement to fill one column.
     matterNumber: z.string().nullable().optional(),
     matterTitle: z.string().nullable().optional(),
     source: z.enum(["manual", "grid", "recovery"]),
     recoveryCategory: z.string().nullable(),
+    // When the cost was written down, as distinct from the day the money went out
+    // (`incurredDate`). A disbursement captured three weeks after the fact is a different record
+    // from one captured the day it was paid, and only these two dates together say so.
+    createdAt: z.string(),
+    // Who wrote it down. The identifier and the name are BOTH carried because they answer
+    // different questions: the name is what a reader is shown, and a null name over a present
+    // identifier means the member row is gone rather than that nobody recorded it. It is not a
+    // permission fact — the costs design rules that a cost belongs to the matter and not to its
+    // recorder, so no read or write is scoped by it.
+    createdByUserId: z.string().nullable(),
+    createdByName: z.string().nullable(),
   })
   .openapi("CostSummary");
 
@@ -551,33 +561,46 @@ interface CostEntryRow {
   source: "manual" | "grid" | "recovery";
   recovery_category: string | null;
   invoice_id: string | null;
+  created_at: string;
+  created_by: string | null;
 }
 
 /*
  * The listing's statement, in three pieces both listing shapes share.
  *
- * The vendor's name and the matter's are resolved in the same statement rather than a read per
- * row: a matter with fifty disbursements would otherwise be fifty lookups to print one column, and
- * a month of the firm's costs would be a page of them. Two outer joins for the vendor because a
- * vendor is optional on a cost and may be either side of the directory; one for the matter, which
- * is required on a cost but is still an outer join, so a cost whose matter went missing reads back
- * as itself with an unnamed matter rather than vanishing from the firm's own record.
+ * The vendor's name, the matter's and the recorder's are resolved in the same statement rather
+ * than a read per row: a matter with fifty disbursements would otherwise be fifty lookups to print
+ * one column, and a month of the firm's costs would be a page of them. Two outer joins for the
+ * vendor because a vendor is optional on a cost and may be either side of the directory; one for
+ * the matter, which is required on a cost but is still an outer join, so a cost whose matter went
+ * missing reads back as itself with an unnamed matter rather than vanishing from the firm's own
+ * record; and one for the member who recorded it, outer for the same reason and for one more —
+ * `created_by` is deliberately not a foreign key, because who wrote a disbursement down is a fact
+ * about the past that has to survive that person leaving the firm.
+ *
+ * BOTH LISTING SHAPES AND THE SINGLE READ SHARE THESE THREE PIECES. A cost read alone and the same
+ * cost read in a list are one record, so they are one statement; the detail read used to be a
+ * hand-written column list that resolved none of the three names, which made "open this cost"
+ * quietly answer with less than the row the reader opened it from.
  */
 const LIST_COLUMNS = `cost_entry.id, cost_entry.matter_id, cost_entry.vendor_id,
      cost_entry.incurred_date, cost_entry.amount_minor, cost_entry.currency,
      cost_entry.disbursement_class, cost_entry.billable, cost_entry.utbms_expense_code_id,
      cost_entry.description, cost_entry.status, cost_entry.source,
      cost_entry.recovery_category, cost_entry.invoice_id,
+     cost_entry.created_at, cost_entry.created_by,
      COALESCE(directory_person.display_name, directory_organization.display_name,
               directory_organization.legal_name) AS vendor_name,
-     matter.matter_number AS matter_number, matter.title AS matter_title`;
+     matter.matter_number AS matter_number, matter.title AS matter_title,
+     enterer.display_name AS created_by_name`;
 
 const LIST_FROM = `FROM cost_entry
      LEFT JOIN directory_person
             ON directory_person.id = cost_entry.vendor_id AND directory_person.deleted_at IS NULL
      LEFT JOIN directory_organization
             ON directory_organization.id = cost_entry.vendor_id AND directory_organization.deleted_at IS NULL
-     LEFT JOIN matter ON matter.id = cost_entry.matter_id`;
+     LEFT JOIN matter ON matter.id = cost_entry.matter_id
+     LEFT JOIN member enterer ON enterer.user_id = cost_entry.created_by`;
 
 /*
  * The tiebreak is the identifier, not created_at. A keyset cursor needs a TOTAL order and
@@ -593,6 +616,7 @@ type CostListRow = CostEntryRow & {
   vendor_name: string | null;
   matter_number: string | null;
   matter_title: string | null;
+  created_by_name: string | null;
 };
 
 function rowToSummary(row: CostEntryRow) {
@@ -611,6 +635,8 @@ function rowToSummary(row: CostEntryRow) {
     source: row.source,
     recoveryCategory: row.recovery_category,
     invoiceId: row.invoice_id,
+    createdAt: row.created_at,
+    createdByUserId: row.created_by,
   };
 }
 
@@ -866,6 +892,7 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
             vendorName: row.vendor_name,
             matterNumber: row.matter_number,
             matterTitle: row.matter_title,
+            createdByName: row.created_by_name,
           })),
         },
         200,
@@ -880,11 +907,9 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
       const firm = requireChokepointFirmContext(c);
       const { id } = c.req.valid("param");
       const { results } = await firm.firmDatabase
-        .prepare(
-          "SELECT id, matter_id, vendor_id, incurred_date, amount_minor, currency, disbursement_class, billable, utbms_expense_code_id, description, status, source, recovery_category, invoice_id FROM cost_entry WHERE id = ?1",
-        )
+        .prepare(`SELECT ${LIST_COLUMNS} ${LIST_FROM} WHERE cost_entry.id = ?1`)
         .bind(id)
-        .all<CostEntryRow>();
+        .all<CostListRow>();
       const row = results[0];
       if (row === undefined) {
         return problemJson(c, {
@@ -894,7 +919,16 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
           detail: "No such cost entry in this firm.",
         });
       }
-      return c.json(rowToSummary(row), 200);
+      return c.json(
+        {
+          ...rowToSummary(row),
+          vendorName: row.vendor_name,
+          matterNumber: row.matter_number,
+          matterTitle: row.matter_title,
+          createdByName: row.created_by_name,
+        },
+        200,
+      );
     },
   );
 

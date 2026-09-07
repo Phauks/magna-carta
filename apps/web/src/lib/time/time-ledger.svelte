@@ -36,7 +36,7 @@
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
-  import { MoneySurface, type MoneySurfaceDensity } from "$lib/money/index.ts";
+  import { MoneySurface, billHref, type MoneySurfaceDensity } from "$lib/money/index.ts";
   import {
     RecordMenu,
     ledgerRecordMenu,
@@ -325,7 +325,7 @@
         // The matter's own Billing section, with that bill open — the same place the register would
         // have opened it. The verb is refused where there is no bill, so reaching here means one.
         if (first.invoiceId != null) {
-          void goto(`/matters/${matterId}/billing?invoice=${encodeURIComponent(first.invoiceId)}`);
+          void goto(billHref(matterId, first.invoiceId));
         }
         return;
       case "duplicate":

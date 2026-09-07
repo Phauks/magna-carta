@@ -76,6 +76,22 @@ export function moneySectionHref(matterId: string, slug: string): string {
 }
 
 /**
+ * Where one bill is read: the matter's Billing section, with that bill already open.
+ *
+ * The seam every money surface uses to answer "what was the client actually told" — the cost and
+ * time ledgers from a billed row's menu, the invoice window from the list of matters a bill
+ * charges, the firm's own register from a row. It is spelled once because it was spelled three
+ * times, and one of the three forgot to encode the identifier.
+ *
+ * A bill is read on the matter it charges rather than at the firm's scale, because the acts
+ * against it are that matter's — applying its trust money, writing off its balance — and a reader
+ * who followed a bill wants to be somewhere those are possible.
+ */
+export function billHref(matterId: string, invoiceId: string): string {
+  return `${moneySectionHref(matterId, "billing")}?invoice=${encodeURIComponent(invoiceId)}`;
+}
+
+/**
  * The FIRM-wide surface a money section has a sibling on, or null where it has none yet.
  *
  * Three of the five now exist at both scopes — a matter's Time, Costs and Billing each have a
