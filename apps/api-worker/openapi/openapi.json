@@ -7011,6 +7011,102 @@
           "modifiedAt"
         ]
       },
+      "ExtractArchiveMembersResponse": {
+        "type": "object",
+        "properties": {
+          "extracted": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExtractedArchiveMember"
+            }
+          },
+          "refused": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefusedArchiveMember"
+            }
+          }
+        },
+        "required": [
+          "extracted",
+          "refused"
+        ]
+      },
+      "ExtractedArchiveMember": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "versionId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "fileId",
+          "versionId",
+          "name"
+        ]
+      },
+      "RefusedArchiveMember": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "archive-missing",
+              "directory",
+              "encrypted",
+              "unsupported-compression",
+              "malformed",
+              "too-large",
+              "expansion-ratio",
+              "corrupt",
+              "not-in-archive",
+              "policy-size",
+              "policy-type"
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "reason"
+        ]
+      },
+      "ExtractArchiveMembersRequest": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "folderId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^folder_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "paths"
+        ]
+      },
       "FileHistoryResponse": {
         "type": "object",
         "properties": {
@@ -48491,6 +48587,131 @@
           },
           "422": {
             "description": "The file is not a zip archive",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/archive-extractions": {
+      "post": {
+        "description": "Takes named members out of a zip file and files each one as a real file on the archive's own matter, through the ordinary ingest gate — the same sniff, hash, scan and commit an upload gets, because the name inside an archive is the other party's claim about its contents and nothing has inspected these bytes before. Paths are archive-relative, exactly as the entry listing returns them; folderId names a destination folder in that matter (null or absent = the matter root). The destination matter is always the archive's own, and a soft-deleted archive is a valid source (the member is filed into the live matter; the archive stays deleted). Answers 202 with what was filed and what was refused — a partial result is the normal result, and each filed version is pending until the ingest gate resolves it. 409 when the archive has no committed bytes; 422 when it is not a zip, or the request fails validation.",
+        "operationId": "files.extractArchiveMembers",
+        "tags": [
+          "files"
+        ],
+        "x-mc-operationId": "files.extractArchiveMembers",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "files"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractArchiveMembersRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted: each extracted member's rows and audit were committed and its bytes were written. Every version is pending until the ingest gate commits or quarantines it. Members that could not be taken out are reported in refused, by reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractArchiveMembersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body is absent or is not JSON",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file in this firm, its stored bytes are gone, or the destination folder is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The file has no committed version yet, so there are no bytes to extract from",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The file is not a zip archive, or the request names no paths (or more than the cap)",
             "content": {
               "application/problem+json": {
                 "schema": {
