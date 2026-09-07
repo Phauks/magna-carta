@@ -775,7 +775,7 @@ name, which is every screen outside a matter.
   window inherits it from the shared modal stage; edge sheets are drawers and stay on their edge.
   _(the modal shells on a laptop, 2026-09-03)_
 - **The foot of the sidebar is the utility tray, and what belongs there is meta about the app.**
-  Settings, Downloads, Uploads and Customize sit as small icons at the rail's foot, apart from the
+  Settings, Customize, Downloads and Uploads sit as small icons at the rail's foot, apart from the
   labelled destination rows above. The test is not importance but subject: a destination row names a
   place in the firm's work, while a transfer register describes what the application is doing —
   often two of them at once, since a download and an upload can run together — so the registers
@@ -783,6 +783,13 @@ name, which is every screen outside a matter.
   starrable or reorderable, and the collapsed rail still shows only Settings. The top-bar trays keep
   their own job: a summary with quick actions, linking into these full surfaces.
   _(the sidebar's foot, 2026-09-07)_
+- **A tray holding two kinds of thing separates them by its two ends, not by a divider.** The
+  sidebar's foot leads with the rail's own controls (Settings, then Customize) and leans the two
+  transfer registers to the inline end, so a reader tells a control from a destination by where it
+  sits. An auto margin on the trailing group does it, never `justify-content: space-between` on the
+  tray, which would also spread the leading controls apart from each other; and the trailing group
+  is ONE element, so the collapsed rail's "everything past the first icon goes" rule takes it away
+  and brings it back whole. _(the sidebar's foot, 2026-09-07)_
 - **A totals strip sits on the bottom edge of its frame, not under the last row.** A ledger fills
   the height it is given, so the ordinary case is a table with room beneath it; totals that come to
   rest halfway up the screen with a band of empty surface below them read as a table that failed to
@@ -847,8 +854,11 @@ ones." What binds:
 - **Downloads and Uploads leave the Workspace group and become footer fixtures**, beside Settings
   and Customize, in the registry's own `footerPinned` tier — so the scrolling groups and Customize
   mode never carry them and each row keeps exactly one home.
-- **Settings still leads the tray**, because it is the one icon the collapsed rail keeps; the
-  registers follow it, and Customize closes the row.
+- **The tray has two ends.** The owner, on seeing the first arrangement: "move the downloads and
+  uploads to the right side of the customize button. lean those to the right side, so the left side
+  is settings and the right side is the uploads and downloads." So the rail's own controls lead —
+  Settings, then Customize — and the registers lean to the far end. Settings still leads the row
+  outright, because it is the one icon the collapsed rail keeps.
 - **The two levels stay distinct.** The top-bar trays are summaries with quick actions; the footer
   icons open the full surfaces. Neither replaces the other.
 

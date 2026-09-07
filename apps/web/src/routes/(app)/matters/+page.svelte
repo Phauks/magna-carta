@@ -39,9 +39,9 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import { goto } from "$app/navigation";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
     listEveryMatter,
@@ -308,16 +308,18 @@
   {/if}
 
   {#if loadFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Docket Could Not Be Read</Alert.Title>
-      <Alert.Description>
-        {loadFailure}
-        <Button variant="secondary" class="mt-8" onclick={reread}>
-          <RotateCcw class="size-16" aria-hidden="true" />
-          Try again
-        </Button>
-      </Alert.Description>
-    </Alert.Root>
+    <!-- Through the standard failure surface rather than an Alert of this screen's own. The
+         hand-rolled one interpolated the failure RECORD, so a reader got "[object Object]" where the
+         sentence should have been — and no Error ID, which is the one thing that makes a report
+         actionable. FailureNotice reads the problem's own detail, falls back to this screen's words
+         when the server sent none, and carries the correlation handle and the retry. -->
+    <FailureNotice
+      failure={loadFailure}
+      title="The Docket Could Not Be Read"
+      fallback="The firm's matters could not be read."
+      whenSilent="Nothing answered when the docket was asked for."
+      onRetry={reread}
+    />
   {:else}
     <!-- The table holds the height it would hold when full, so the screen does not reflow as the
          docket grows or a filter narrows it. -->
