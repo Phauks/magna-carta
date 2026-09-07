@@ -79,8 +79,8 @@
     overflow-x: hidden;
     overflow-y: auto;
     /* The nav list scrolls its own area with the scrollbar HIDDEN — the dark rail stays one
-       clean plane while the header (brand) and footer (Settings + collapse) stay pinned around
-       it. Same Firefox/WebKit split the mc-scrollbar recipe documents; hidden rather than slim
+       clean plane while the header (brand) and footer (the utility tray + collapse) stay pinned
+       around it. Same Firefox/WebKit split the mc-scrollbar recipe documents; hidden rather than slim
        because chrome is identity, not a work surface. */
     scrollbar-width: none;
   }
@@ -243,17 +243,32 @@
     color: var(--mc-chrome-text-muted);
   }
   /*
-   * The utility tray — a row of small icon activities (Settings, Customize, and room for more
-   * that match their register), set apart from the labelled destination rows above and from the
-   * large collapse control below. In the COLLAPSED rail the tray does NOT reflow or stack (owner-
-   * directed): only its leftmost icon (Settings) shows; the rest return when the rail is expanded
-   * or peeked, so nothing rearranges as the rail narrows.
+   * The utility tray — a row of small icon activities, set apart from the labelled destination
+   * rows above and from the large collapse control below. It has TWO ENDS (owner-directed):
+   * the rail's own controls sit at the inline start, and the trailing group leans to the inline
+   * end, so the two kinds are told apart by where they sit rather than by a divider. The tray
+   * stays ONE LINE at every length the rail can hold (the expanded rail fits well over the icons
+   * it carries), so the foot keeps a fixed height and the collapse control below it never moves.
+   * In the COLLAPSED rail the tray does NOT reflow or stack (owner-directed): only its leftmost
+   * icon (Settings) shows; the rest return when the rail is expanded or peeked, so nothing
+   * rearranges as the rail narrows — the trailing group is one child, so it leaves and returns
+   * whole.
    */
   .mc-sidebar-controls {
     display: flex;
     align-items: center;
     gap: var(--mc-space-4);
     margin-block-start: var(--mc-space-4);
+  }
+  /* Pushed to the inline end by an auto margin rather than `justify-content: space-between` on the
+     tray, which would also spread the leading controls apart from each other. Same reason the
+     choice row's trailing part uses one. */
+  .mc-sidebar-controls-trailing {
+    display: flex;
+    align-items: center;
+    flex: none;
+    gap: var(--mc-space-4);
+    margin-inline-start: auto;
   }
   .mc-sidebar[data-state="collapsed"]:not([data-peek="true"])
     .mc-sidebar-controls

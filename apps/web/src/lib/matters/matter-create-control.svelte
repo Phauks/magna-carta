@@ -11,6 +11,11 @@
    * The page then claims the behaviour (create-action.svelte.ts); until it has, and whenever it
    * states a refusal, the control is disabled carrying the line that says why.
    *
+   * A SECTION THAT MAKES SEVERAL KINDS READS THE BARE "NEW", and its menu names them. The registry
+   * says which sections those are rather than this file reading it off the claim's choices: a label
+   * derived from the claim would show the noun until the page mounted and then change under the
+   * reader, and the header's business is holding still.
+   *
    * A CLAIM IS CHECKED AGAINST THE ADDRESS, AND A MISMATCH IS IGNORED RATHER THAN THROWN. The label
    * comes from the address and the behaviour from the claim, so a claim belonging to another section
    * must never be pressable — the label would say one thing and the press would do another. It is
@@ -26,7 +31,7 @@
   import { page } from "$app/state";
   import CreateControl from "@magna-carta/design-system/create-control";
   import { honouredClaim, type MatterCreateSlot } from "$lib/matters/create-action.svelte.ts";
-  import { sectionForPathname } from "$lib/matters/sections.ts";
+  import { CREATE_SEVERAL_KINDS, sectionForPathname } from "$lib/matters/sections.ts";
 
   let { slot, matterId }: { slot: MatterCreateSlot; matterId: string } = $props();
 
@@ -42,6 +47,12 @@
     return claim.refusal;
   });
 
+  /** The noun the control reads, or null for the bare "New" — nothing here, or several kinds. */
+  const noun = $derived.by((): string | null => {
+    const declared = section?.createNoun ?? null;
+    return declared === CREATE_SEVERAL_KINDS ? null : declared;
+  });
+
   /* The menu's items in the design system's vocabulary; the claim's `run` is the item's select. */
   const choices = $derived(
     claim?.choices?.map((choice) => ({
@@ -54,7 +65,7 @@
 </script>
 
 <CreateControl
-  noun={section?.createNoun ?? null}
+  {noun}
   title={claim?.title}
   {refusal}
   onpress={claim?.run}

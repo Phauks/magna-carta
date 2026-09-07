@@ -115,7 +115,8 @@ export interface SidebarGroupView {
 
 /**
  * The sidebar's render tree: per group, the pinned + starred destinations in the member's
- * reconciled order. Footer-pinned rows (Settings) are excluded — the footer renders them.
+ * reconciled order. Footer-pinned rows (Settings, Downloads, Uploads) are excluded — the footer's
+ * utility tray renders them.
  */
 export function sidebarGroups(): readonly SidebarGroupView[] {
   return DESTINATION_GROUPS.map((group) => {
@@ -148,7 +149,8 @@ export interface SidebarEditingGroupView {
 /**
  * The Customize-mode render tree: per group, EVERY destination split into the two tiers the editor
  * shows — the ones in the sidebar now (starred, member order) and the ones a click would add
- * (unstarred, canonical order). Footer-pinned rows (Settings) are excluded — the footer owns them.
+ * (unstarred, canonical order). Footer-pinned rows (Settings, Downloads, Uploads) are excluded —
+ * the footer's utility tray owns them, so they are never hideable or reorderable.
  * This is the editor's superset of sidebarGroups(), which shows only the starred tier.
  */
 export function sidebarEditingGroups(): readonly SidebarEditingGroupView[] {

@@ -146,11 +146,11 @@
   name: First concrete AI feature
   scope: Drafting / retrieval-augmented assistance / discovery AI review — the named consumer owning its spec, consent UI, and per-matter enforcement.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: magnus
   adrs: ADR-0109
   spec: docs/specs/2026-08-06-magnus-design.md
-  evidence: Magnus is that consumer and its backend is built (packages/magnus + apps/api-worker/src/magnus). It is off by default and has no interface; production enablement is gated on the consent decision and the ZDR procurement artifacts.
+  evidence: Magnus is that consumer; its backend is built (packages/magnus + apps/api-worker/src/magnus) and a member can now reach it from the sidebar and from a matter. It is off by default, so what a member reaches is the surface stating which gate is shut; production enablement is gated on the consent decision and the ZDR procurement artifacts.
 
 - id: ai.magnus
   name: Magnus — the conversational assistant
@@ -159,7 +159,7 @@
   slices: magnus
   adrs: ADR-0109, ADR-0111, ADR-0112, ADR-0113
   spec: docs/specs/2026-08-06-magnus-design.md
-  evidence: packages/magnus + apps/api-worker/src/magnus + apps/api-worker/src/routes/magnus.ts; three per-firm tables in the 20260806T050000 migration. Backend only; the interface and token streaming are later slices.
+  evidence: packages/magnus + apps/api-worker/src/magnus + apps/api-worker/src/routes/magnus.ts; three per-firm tables in the 20260806T050000 migration. The member-facing interface is built in both of its homes; the firm-administrator enablement screen and token streaming are later slices.
   audience: public
   public-name: Magnus, the in-app assistant
   public-summary: Ask a question about your matters in plain language and get an answer, with nothing you ask retained by the model provider.
@@ -201,9 +201,12 @@
 
 - id: ai.magnus.interface
   name: Assistant interface
-  scope: The in-app chat surface, the firm-administrator enablement screen, and the member disclosure.
-  status: not-started
-  evidence: No surface in apps/web; gated on the design-system chat surface. The backend is off by default and UI-less. Two places are reserved for it and both are stubs: the always-reachable sidebar destination (apps/web/src/lib/navigation/destinations.ts) and a "magnus" slug at stage soon in the matter section registry (apps/web/src/lib/matters/sections.ts), which is where a conversation already scoped to one matter will live.
+  scope: The in-app conversation surface in its two homes, and the member disclosure. The sidebar destination is the member's own workspace across everything; the matter section is one matter's file of transcripts. One surface serves both and they differ in scope and framing, not in capability.
+  status: partial
+  surface: screen
+  spec: docs/specs/2026-09-07-magnus-interface-design.md
+  evidence: The design-system Conversation component (packages/design-system/src/lib/components/conversation), the shared surface and its wire module (apps/web/src/lib/magnus), and the two routes it serves — apps/web/src/routes/(app)/magnus and apps/web/src/routes/(app)/matters/[id]/magnus. Both registries light up: the sidebar destination is shipped and the matter section is at stage alpha.
+  notes: Partial because the firm-administrator enablement screen is not built — the two consent settings are settable only through the settings write path, so every firm's surface renders its closed state naming which gate is shut. The surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer.
 
 - id: ai.magnus.context
   name: Explicit per-conversation context grants

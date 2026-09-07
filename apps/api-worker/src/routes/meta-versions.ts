@@ -199,6 +199,12 @@ export const metaVersionsMeta: RouteMeta = {
   audited: false,
   idempotency: "optional",
   rateLimit: "default",
+  // The read must survive the fault it reports. This route is firm-scoped for its session
+  // and permission handling, but it reads no firm data, so the chokepoint's member-active
+  // check — a read against the very database that may be down — must not be what decides
+  // whether it answers. Without this the diagnostic surfaces went dark exactly when they
+  // were the only thing worth looking at.
+  firmDatabaseOutage: "tolerate",
 };
 
 export const metaVersionsRoute = defineOpenAPIRoute(metaVersionsMeta, {

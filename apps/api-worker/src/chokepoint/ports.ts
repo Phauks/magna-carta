@@ -9,6 +9,7 @@ import { selectMemberStatusStatement } from "@magna-carta/data-access/member-sta
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import type { Bindings } from "../app.ts";
+import type { RouteMeta } from "../contracts/route-meta.ts";
 import type { createAuth } from "../auth.ts";
 import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import {
@@ -129,9 +130,10 @@ interface CachedFirmRow {
 function makeResolveFirmContext(): (
   c: Context,
   session: ResolvedSession,
+  meta: RouteMeta,
 ) => Promise<FirmContext | null> {
   const firmRowCache = new Map<FirmId, CachedFirmRow>();
-  return async (c, session) => {
+  return async (c, session, meta) => {
     // A session that carries no firm has no firm context, which is this port's own definition of
     // absence. The chokepoint already answers such a session before asking (its firmless-admission
     // step), so this is not a path production traffic takes — it is stated because the port is
@@ -194,10 +196,29 @@ function makeResolveFirmContext(): (
 
     // Member-active check: a row whose status is anything other than 'active' is a
     // DEACTIVATED member → absent → 404. Zero rows is the never-mirrored sweep-lag window → present.
-    const memberStatusResult = await selectMemberStatusStatement(firmDatabase, session.userId).all<{
-      status: string;
-    }>();
-    const memberStatus = memberStatusResult.results[0]?.status;
+    //
+    // Failing to RUN the check is a third outcome, and neither of the two above. The per-firm
+    // lineage is applied in the FirmDatabase durable object's constructor, so a migration that
+    // cannot complete leaves the firm's whole database unreachable and this read throws rather than
+    // answering. Fail-closed is the default and stays the default: the throw propagates, the route
+    // answers 500, and no firm data is served on a membership nothing could verify.
+    //
+    // A route declaring firmDatabaseOutage: "tolerate" is admitted instead. Registration has
+    // already refused that declaration alongside a named permission, so such a route claims no
+    // capability, and any firm read it still attempts is its own to catch and report — which is
+    // what a diagnostic does, the outage being its subject. Nothing is relaxed for anything else,
+    // and nothing leaks by admitting it: the database that would hold the firm's data is the
+    // database that is down.
+    let memberStatus: string | undefined;
+    try {
+      const memberStatusResult = await selectMemberStatusStatement(
+        firmDatabase,
+        session.userId,
+      ).all<{ status: string }>();
+      memberStatus = memberStatusResult.results[0]?.status;
+    } catch (error) {
+      if (meta.firmDatabaseOutage !== "tolerate") throw error;
+    }
     if (memberStatus !== undefined && memberStatus !== "active") return null;
 
     return {

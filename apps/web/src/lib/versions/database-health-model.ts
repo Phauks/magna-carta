@@ -31,6 +31,8 @@ export interface DatabaseHealthValue {
   firmDatabase: {
     state: "reachable" | "unreachable";
     roundTripMilliseconds: number | null;
+    /** Why it is not answering, in the database's own words; null while it is. */
+    fault: string | null;
   };
   schema: {
     state: "current" | "behind" | "unknown";
@@ -82,12 +84,19 @@ export const HEALTH_READ_IN_FLIGHT_NOTICE = "Checking the database";
  */
 function firmDatabaseRow(value: DatabaseHealthValue): HealthRow {
   if (value.firmDatabase.state === "unreachable") {
+    // The database's own words when it gave any. "Not answering" is the symptom the reader already
+    // has; the sentence they need is the one underneath it, and the wire carries it now rather than
+    // making them go to the logs for a fact this read already held.
+    const fault = value.firmDatabase.fault;
     return {
       id: "firmDatabase",
       name: "Firm database",
       reading: "fault",
       status: "Not answering",
-      detail: "The firm's database did not answer this request.",
+      detail:
+        fault === null
+          ? "The firm's database did not answer this request, and gave no reason."
+          : `The firm's database did not answer this request: ${fault}`,
     };
   }
   const roundTrip = value.firmDatabase.roundTripMilliseconds;

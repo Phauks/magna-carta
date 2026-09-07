@@ -71,7 +71,7 @@
     loading = false,
     label = "Folders",
     homeLabel = "Home",
-    emptyMessage = "No folders yet.",
+    emptyMessage = undefined,
     newFolderDisabledReason = undefined,
     onNewFolder,
     onSelectFolder,
@@ -102,8 +102,12 @@
     label?: string;
     /** The root row's name. */
     homeLabel?: string;
-    /** What the rail says when the matter has no folders at all. */
-    emptyMessage?: string;
+    /**
+     * What the rail says when there are no folders at all — and NOTHING when it is not given. A
+     * rail whose root row already stands, with the control that makes a folder beside it, has said
+     * everything a sentence would; a caller adds one only where the emptiness needs explaining.
+     */
+    emptyMessage?: string | undefined;
     /**
      * Why a folder cannot be made here, when it cannot. The control still renders, disabled and
      * saying so — a view with no current folder is not a place a folder can be made, and removing
@@ -398,7 +402,7 @@
         </ContextMenu.Content>
       </ContextMenu.Root>
 
-      {#if folders.length === 0}
+      {#if folders.length === 0 && emptyMessage !== undefined}
         <p class="mc-folder-tree-empty">{emptyMessage}</p>
       {/if}
 

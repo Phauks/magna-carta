@@ -27,9 +27,9 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import CalendarClock from "@lucide/svelte/icons/calendar-clock";
   import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import List from "@lucide/svelte/icons/list";
-  import Flag from "@lucide/svelte/icons/flag";
   import Table from "@lucide/svelte/icons/table";
   import { CalendarView, MatterCalendarList } from "$lib/calendar/index.ts";
   import { calendarContext } from "$lib/calendar/calendar-context.svelte.ts";
@@ -92,24 +92,29 @@
   // ---- recording -------------------------------------------------------------------------------
 
   /*
-   * Recording goes through the matter header's one create control (the section registry names the
-   * noun, this page claims the control while it is mounted): an event or a deadline, each opening
-   * its own form. The refusal is one line for the whole control (the session's permission, or the
-   * sample matter) and the same line on each choice, because both record against the same matter.
+   * Recording goes through the matter header's one create control (the registry says this section
+   * makes several kinds, so the control reads the bare "New"; this page claims it while it is
+   * mounted): an event or a deadline, each opening its own form. Each item carries the verb — a
+   * menu item is where the choice is actually made, so it names the whole thing being made. The
+   * refusal is one line for the whole control (the session's permission, or the sample matter) and
+   * the same line on each choice, because both record against the same matter.
+   *
+   * The glyphs are the ones each kind wears wherever it is named
+   * (`$lib/matters/calendar-activity-contribution.ts`): one kind, one glyph, across the product.
    */
   claimMatterCreate("calendar", () => ({
     title: "Record an event or a deadline on this matter.",
     refusal: recordRefusal,
     choices: [
       {
-        label: "Event",
+        label: "New Event",
         icon: CalendarDays,
         run: () => (eventDialogOpen = true),
         refusal: recordRefusal,
       },
       {
-        label: "Deadline",
-        icon: Flag,
+        label: "New Deadline",
+        icon: CalendarClock,
         run: () => (deadlineDialogOpen = true),
         refusal: recordRefusal,
       },

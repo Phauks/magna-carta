@@ -7030,7 +7030,7 @@ export const magnusAcknowledgeMutation = (options?: Partial<Options<MagnusAcknow
 export const magnusListConversationsQueryKey = (options?: Options<MagnusListConversationsData>) => createQueryKey('magnusListConversations', options);
 
 /**
- * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited.
+ * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited. The optional matter filter narrows the page to the conversations kept on one matter's file, which is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about what any of those conversations was built from.
  */
 export const magnusListConversationsOptions = (options?: Options<MagnusListConversationsData>) => queryOptions<MagnusListConversationsResponse, MagnusListConversationsError, MagnusListConversationsResponse, ReturnType<typeof magnusListConversationsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -7048,7 +7048,7 @@ export const magnusListConversationsOptions = (options?: Options<MagnusListConve
 export const magnusListConversationsInfiniteQueryKey = (options?: Options<MagnusListConversationsData>): QueryKey<Options<MagnusListConversationsData>> => createQueryKey('magnusListConversations', options, true);
 
 /**
- * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited.
+ * The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited. The optional matter filter narrows the page to the conversations kept on one matter's file, which is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about what any of those conversations was built from.
  */
 export const magnusListConversationsInfiniteOptions = (options?: Options<MagnusListConversationsData>) => infiniteQueryOptions<MagnusListConversationsResponse, MagnusListConversationsError, InfiniteData<MagnusListConversationsResponse>, QueryKey<Options<MagnusListConversationsData>>, string | Pick<QueryKey<Options<MagnusListConversationsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore
@@ -9830,7 +9830,7 @@ export const billingContingencyResidualOptions = (options: Options<BillingContin
 export const timeEntriesListQueryKey = (options?: Options<TimeEntriesListData>) => createQueryKey('timeEntriesList', options);
 
 /**
- * Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the matter's own record). The per-matter listing is CURSOR-PAGED, newest work date first: a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. The daily view is complete in one page by construction — one timekeeper, one date — so its cursor is always null.
+ * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.
  */
 export const timeEntriesListOptions = (options?: Options<TimeEntriesListData>) => queryOptions<TimeEntriesListResponse, TimeEntriesListError, TimeEntriesListResponse, ReturnType<typeof timeEntriesListQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -9848,7 +9848,7 @@ export const timeEntriesListOptions = (options?: Options<TimeEntriesListData>) =
 export const timeEntriesListInfiniteQueryKey = (options?: Options<TimeEntriesListData>): QueryKey<Options<TimeEntriesListData>> => createQueryKey('timeEntriesList', options, true);
 
 /**
- * Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the matter's own record). The per-matter listing is CURSOR-PAGED, newest work date first: a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. The daily view is complete in one page by construction — one timekeeper, one date — so its cursor is always null.
+ * Lists time entries three ways. By timekeeper and work date: the daily view, complete in one page by construction, so its cursor is always null. By matter: the matter's own record, CURSOR-PAGED newest work date first — a matter that has been billing for years is not a single response, and this read carried no bound at all until it was. By a `from`/`to` span of work dates: the period listing across every matter, cursor-paged the same way, narrowable to one timekeeper, one matter and one status. A period listing that names no timekeeper covers the whole firm and requires the time:viewFirm capability; one that names somebody other than the session member requires it too. A request matching none of the three answers with an empty list rather than scanning the table.
  */
 export const timeEntriesListInfiniteOptions = (options?: Options<TimeEntriesListData>) => infiniteQueryOptions<TimeEntriesListResponse, TimeEntriesListError, InfiniteData<TimeEntriesListResponse>, QueryKey<Options<TimeEntriesListData>>, string | Pick<QueryKey<Options<TimeEntriesListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore

@@ -15,11 +15,12 @@
  * Two questions, both refused when unanswered:
  *
  *   1. THE MATTER REGISTRY ANSWERS FOR EVERY SECTION. Each entry in sections.ts declares
- *      `createNoun`: the noun the control offers ("Fee" reads as New Fee), or `null` with a
- *      `createWaitingOn` line the disabled control carries. A noun is one capitalised word within
- *      the budget the control's fixed width holds — CREATE_NOUN_MAX_LENGTH, read from the design
- *      system's create-label.ts so the two cannot drift. The registry checks the same rules when it
- *      loads; this runs them over the source before anything is built.
+ *      `createNoun`: the noun the control offers ("Fee" reads as New Fee), or `CREATE_SEVERAL_KINDS`
+ *      where the control opens a menu and reads the bare "New", or `null` with a `createWaitingOn`
+ *      line the disabled control carries. A noun is one capitalised word within the budget the
+ *      control's fixed width holds — CREATE_NOUN_MAX_LENGTH, read from the design system's
+ *      create-label.ts so the two cannot drift. The registry checks the same rules when it loads;
+ *      this runs them over the source before anything is built.
  *
  *   2. NO RIVAL CREATE BUTTON ON A SCREEN THAT CARRIES THE CONTROL. Starting from every route under
  *      matters/[id] and from the docket, the directory and the custody register, and following each
@@ -52,6 +53,11 @@ const FIRM_SCREENS = [
   "apps/web/src/routes/(app)/matters/+page.svelte",
   "apps/web/src/routes/(app)/directory/+page.svelte",
   "apps/web/src/routes/(app)/custodian/+page.svelte",
+  // The calendar's two routes render one screen; it carried a hand-built "Record" dropdown with a
+  // plus glyph until 2026-09-06, which is exactly the rival this gate exists to refuse and which
+  // survived only because the screen was not walked.
+  "apps/web/src/routes/(app)/calendar/+page.svelte",
+  "apps/web/src/routes/(app)/calendar/firm-events/+page.svelte",
 ];
 /** Surfaces of their own, opened over a section rather than composed into it. */
 const OWN_SURFACE = /-(?:window|dialog|menu)\.svelte$/u;
@@ -75,10 +81,13 @@ const sections = [];
 for (const block of sectionsText.split(/^\s*\{$/mu).slice(1)) {
   const slug = /slug:\s*"([^"]+)"/u.exec(block);
   if (slug === null) continue;
-  const noun = /createNoun:\s*(null|"([^"]*)")/u.exec(block);
+  const noun = /createNoun:\s*(null|CREATE_SEVERAL_KINDS|"([^"]*)")/u.exec(block);
   sections.push({
     slug: slug[1],
     declared: noun !== null,
+    // The bare-"New" encoding is neither a noun to check nor a decline to explain: it says the
+    // control opens a menu and the menu items carry the nouns.
+    severalKinds: noun?.[1] === "CREATE_SEVERAL_KINDS",
     noun: noun?.[2] ?? null,
     hasReason: /createWaitingOn:\s*$|createWaitingOn:\s*"/mu.test(block),
   });
@@ -93,11 +102,13 @@ for (const section of sections) {
   if (!section.declared) {
     failures.push(
       `${SECTIONS}: section "${section.slug}" declares no \`createNoun\`. Name the noun the header's ` +
-        "create control offers there, or declare `createNoun: null` with a `createWaitingOn` line " +
-        "saying why nothing is created from it — the disabled control carries that line.",
+        "create control offers there, or `CREATE_SEVERAL_KINDS` where it opens a menu and reads " +
+        'the bare "New", or `createNoun: null` with a `createWaitingOn` line saying why nothing ' +
+        "is created from it — the disabled control carries that line.",
     );
     continue;
   }
+  if (section.severalKinds) continue;
   if (section.noun === null) {
     if (!section.hasReason) {
       failures.push(
@@ -226,9 +237,14 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-const creating = sections.filter((section) => section.noun !== null).length;
+// Three answers, counted apart: a section that names one noun, one that makes several kinds and
+// reads the bare "New", and one that creates nothing and says why. Folding the middle one into
+// either of the others would report a screen that creates plenty as a screen that creates nothing.
+const naming = sections.filter((section) => !section.severalKinds && section.noun !== null).length;
+const severalKinds = sections.filter((section) => section.severalKinds).length;
+const declining = sections.length - naming - severalKinds;
 console.log(
-  `Matter create control: every one of ${sections.length} section(s) answered — ${creating} ` +
-    `creating, ${sections.length - creating} declining with a reason — and no rival create button ` +
-    `across ${walked} screen(s) that carry the control.`,
+  `Matter create control: every one of ${sections.length} section(s) answered — ${naming} naming ` +
+    `a noun, ${severalKinds} offering several kinds, ${declining} declining with a reason — and no ` +
+    `rival create button across ${walked} screen(s) that carry the control.`,
 );
