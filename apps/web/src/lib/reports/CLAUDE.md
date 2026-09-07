@@ -14,7 +14,8 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 - `report-registry.ts` — every report as data: family, name, the question it answers, its
   `reports:*` permission, its temporal contract, its scope controls, and (for a built report) the
   read and the presenter paired under one payload type by `built()`. A `soon` report has no ports.
-- `report-scope.ts` — the period presets, the knowledge-instant day, the address round-trip.
+- `report-scope.ts` — the period presets, the knowledge-instant day in a zone, the address round-trip.
+- `report-policy-draft.svelte.ts` — the firm's report policy as the settings page's draft.
 - `report-presentation.ts` — the shape a report renders as, and its mapping onto the export document.
 - `reports-api.ts` — the wire shapes and the reads (the pack, the trust-account roster).
 - `trust-compliance-presenter.ts` — the pack's presenter; `trust-compliance-fixture.ts` its sample.
@@ -42,8 +43,13 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 
 ## Gotchas
 
-- **The account picker rides `trust:read`**, not the report key. A member holding only
-  `reports:trustCompliance` sees the report and cannot pick an account; flagged for the owner in the
-  design (Q1). Do not gate the listing on a report key to work around it.
-- **The knowledge instant is the end of the chosen day in UTC** (`knowledgeInstantForDate`). The
-  office-zone reading waits on a served time-zone setting (design Q2).
+- **The account picker rides `trust:read`**, not the report key, by the owner's ruling. A member
+  holding only `reports:trustCompliance` sees the refusal sentence naming the key. Do not gate the
+  listing on a report key to work around it.
+- **The knowledge instant is the end of the chosen day in the holding office's zone**
+  (`knowledgeInstantForDate(day, zone)`, the zone from the trust listing). Changing the account
+  keeps the day and moves the instant (`knowledgeInstantMovedToZone`). Never `T23:59:59.999Z`
+  literally.
+- **What the pack lists is the firm's policy, not a control.** The run screen states no option;
+  the server defaults from `firm:manageReportPolicy`'s settings and the provenance records it.
+  `report-policy-draft.svelte.ts` is the settings page's model.

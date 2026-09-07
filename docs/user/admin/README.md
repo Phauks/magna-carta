@@ -14,6 +14,7 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
 - [Event types](event-types.md) — the vocabulary a setting is classified under: the platform's
   shipped types (recategorized or retired, never renamed), the firm's own (added, renamed, retired),
   and why retiring is one way.
+- [The trust compliance report policy](trust-compliance-report-policy.md) — what the firm's trust compliance report lists, decided once: ledgers at zero, and who authorized each payment.
 - [The first day of the week](calendar-week-start.md) — the day every calendar in the firm begins
   its week on, why it is the firm's setting and not each member's, who can change it, and what a
   change does and does not move.

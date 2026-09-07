@@ -84,15 +84,16 @@ Two rules follow, and a test holds each:
   so a preset can never read "Last quarter" over the wrong ninety days.
 - **The knowledge instant** is offered only on a bitemporal report. Its default is **live**
   ("everything known now"), which the stamp says out loud. A person who wants the reproducible
-  form picks a date, and the instant is the end of that day in UTC, stated as such beside the
-  control. The instant is deliberately a date rather than a date-time: the question a person is
-  asking is "as things stood on the first of August", and a time picker would invite a precision
-  the answer does not need and the wire format would then have to explain.
+  form picks a date, and the instant is the end of that day in the zone of the office that holds
+  the account (section 7, Q2), named beside the control. The instant is deliberately a date rather
+  than a date-time: the question a person is asking is "as things stood on the first of August",
+  and a time picker would invite a precision the answer does not need and the wire format would
+  then have to explain.
 - **The subject** is the trust account, picked from `GET /api/v1/trust/accounts`, which this stream
   adds. Closed accounts are listed beside open ones, because a compliance report is most often asked
   about a period after the account closed.
-- **The pack's two options** (zero-balance ledgers, authorizers) ride the address as well and
-  default as the backend defaults; the design's Q8 and Q9 stay the owner's.
+- **The pack's two options** (zero-balance ledgers, authorizers) are the firm's report policy
+  (section 7, Q3) and are not on the screen.
 
 The read fires when the scope is complete and valid. There is no Run button: the reporting reads
 are bounded and measured (a twelve-month pack assembles in about a tenth of a second), every
@@ -118,22 +119,34 @@ the stamp, which is a true answer rather than an empty state.
 - **Any figure the screen would compute.** Section 3.
 - **A per-report page.** Section 1.
 
-## 7. Flagged for the owner
+## 7. Decided by the owner (2026-09-07)
 
-- **Q1 — Who may list trust accounts.** The account picker reads `GET /api/v1/trust/accounts` on
-  `trust:read`. A member granted only `reports:trustCompliance` can run the pack and cannot pick an
-  account. The recommended answer is that a firm granting the report key to a bookkeeper grants
-  `trust:read` beside it, which is what the reporting design's "a direct grant that leaves a
-  record" already implies; the alternative is a second listing on the report key, which is a
-  second answer to one question.
-- **Q2 — The knowledge instant's grain.** End of the chosen day, in UTC, is the default this
-  design ships. A firm in a Pacific zone reading "as at 31 July" gets rows recorded up to 4 p.m.
-  the next afternoon their time. Whether the instant should be the end of the day in the office's
-  zone is a question about what a report claims, and it waits on the office time zone being a
-  served setting.
-- **Q3 — Where the pack's two options live.** They are controls on the run screen today. If the
-  owner settles Q8 and Q9 of the reporting design as firm defaults, the controls come off the
-  screen and the defaults move to the firm's settings.
+The three questions the first build flagged were put to the owner with a recommendation each, and
+the owner took all three. Each is built in the same stream.
+
+- **Q1 — Who may list trust accounts: `trust:read`, stated on the screen.** The account picker
+  reads `GET /api/v1/trust/accounts` on `trust:read`. A member granted only
+  `reports:trustCompliance` sees the refusal in the one sentence the product uses for a refused
+  control, naming the key, so the reader has the words to take to an administrator. A firm that
+  grants the report key to a bookkeeper grants `trust:read` beside it, which is the direct grant
+  the reporting design already describes. A second listing on the report key was rejected as a
+  second answer to which accounts the firm holds.
+- **Q2 — The knowledge instant is the end of the chosen day in the holding office's zone.** The
+  office already records an IANA zone (`location.time_zone`), the trust-account listing carries it
+  resolved beside each account, and the screen ends the chosen day in that zone
+  (`knowledgeInstantForDate`), so two members asking for the same day get the same instant and a
+  Nevada firm's "31 July" ends at midnight in Nevada. An office recorded before the column existed
+  resolves to UTC on the server, in the one place the platform resolves a zone. Changing the
+  account keeps the chosen day and moves the instant. No time picker: the precision invites a
+  question the document cannot answer well, and the provenance section prints the full instant.
+- **Q3 — What the pack lists is the firm's policy, under Settings › Practice › Reports.** Whether
+  ledgers at zero all period appear and whether authorizers are named are firm settings
+  (`reports.trustCompliance.zeroBalanceLedgers`, `reports.trustCompliance.authorizers`), read and
+  written through `GET`/`PATCH /api/v1/firm/reports/policy` on `firm:manageReportPolicy` (Owner
+  and Admin by seed), audited on write. The pack route applies the policy when a request leaves an
+  option unstated, the screen states neither, and the provenance section records what was used.
+  The key is in the `firm:` namespace on purpose: no `reports:` key may gate a write, so a report
+  can never adjust the books it reports on. The controls came off the run screen.
 
 ## 8. Test plan
 

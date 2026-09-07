@@ -120,6 +120,7 @@ interface TrustAccountListingRow {
   opened_on: string;
   closed_at: string | null;
   created_at: string;
+  location_time_zone: string | null;
 }
 
 /**
@@ -139,6 +140,12 @@ export interface TrustAccountListing {
   readonly status: "open" | "closed";
   readonly openedOn: string;
   readonly closedAt: string | null;
+  /**
+   * The holding office's IANA time zone as recorded, or null for an office recorded before the
+   * column existed. Resolved to a zone by the caller through the one resolver the platform has
+   * (timeZoneForLocation), never here, so a null falls back in exactly one place.
+   */
+  readonly locationTimeZone: string | null;
 }
 
 /**
@@ -174,6 +181,7 @@ export async function listTrustAccounts(
       status: row.status,
       openedOn: row.opened_on,
       closedAt: row.closed_at,
+      locationTimeZone: row.location_time_zone,
     })),
     nextCursor: results.length > limit && last ? encodeCursor(last.created_at, last.id) : null,
   };

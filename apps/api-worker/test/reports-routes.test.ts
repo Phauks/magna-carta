@@ -1,5 +1,6 @@
 import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -10,6 +11,7 @@ import { composeTrustDeposit, composeTrustDisbursement } from "@magna-carta/trus
 import type { TrustAccountId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
+import { authorizersDefinition } from "../src/reporting/trust-compliance-report-policy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
@@ -263,6 +265,33 @@ describe("the trust-compliance pack route", () => {
     for (const entry of anonymousPack.journal.entries) expect(entry.authorizedBy).toBeNull();
     expect(anonymousPack.provenance.options.authorizers).toBe("omit");
   });
+
+  it("takes an option the caller leaves unstated from the firm's report policy", async () => {
+    await writeFirmSettingStatement(firmDatabase, authorizersDefinition, "omit", RECORDED_AT).run();
+    try {
+      const response = await SELF.fetch(packUrl("periodStart=2026-07-01&periodEnd=2026-07-31"), {
+        headers: { cookie: ownerCookie },
+      });
+      const pack = (await response.json()) as {
+        journal: { entries: { authorizedBy: string | null }[] };
+        provenance: { options: { authorizers: string; zeroBalanceLedgers: string } };
+      };
+      for (const entry of pack.journal.entries) expect(entry.authorizedBy).toBeNull();
+      // The provenance records what was USED, so a reader of the document can see the policy it
+      // was produced under without opening the settings.
+      expect(pack.provenance.options).toEqual({
+        authorizers: "omit",
+        zeroBalanceLedgers: "include",
+      });
+    } finally {
+      await writeFirmSettingStatement(
+        firmDatabase,
+        authorizersDefinition,
+        "include",
+        RECORDED_AT,
+      ).run();
+    }
+  });
 });
 
 describe("the trust-account listing the report screen picks from", () => {
@@ -272,7 +301,13 @@ describe("the trust-account listing the report screen picks from", () => {
     });
     expect(response.status).toBe(200);
     const page = (await response.json()) as {
-      data: { id: string; name: string; status: string; accountNumberLastFour: string | null }[];
+      data: {
+        id: string;
+        name: string;
+        status: string;
+        accountNumberLastFour: string | null;
+        timeZone: string;
+      }[];
       nextCursor: string | null;
     };
     expect(page.nextCursor).toBeNull();
@@ -280,6 +315,9 @@ describe("the trust-account listing the report screen picks from", () => {
     const listed = page.data.find((account) => account.id === trustAccountId);
     expect(listed?.name).toBe("Trust — Reno");
     expect(listed?.status).toBe("open");
+    // The office recorded no zone, so the listing resolves the platform's normalized one rather
+    // than serving nothing: a report's "end of day" always has a zone to be the end of.
+    expect(listed?.timeZone).toBe("UTC");
     // The listing carries the last four at most; there is no full number anywhere to serve.
     expect(Object.keys(listed ?? {})).not.toContain("accountNumber");
   });

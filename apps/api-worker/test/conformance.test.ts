@@ -122,6 +122,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Read-shaped POST: parses a bank-statement file the firm supplied and reports what is in it — the column mapping, every readable row and what it would become, every unreadable row and why. Nothing is stored; storing takes the separate, audited import route quoting this report's fingerprint back.",
   "reports.exportRender":
     "A printer, not a data source: pure composition of the tabular document the caller already holds into a Word or PDF file, returned as bytes. Nothing is stored; filing a produced export would be a separate route riding reports:produce.",
+  "uploads.matches":
+    "Read-shaped POST: answers whether the firm already holds a file's bytes, by the SHA-256 and size in the body, before they are uploaded. Nothing is stored; a POST only because the digest and size are a question, not a resource. Landed in the matter-upload redesign without this entry, which is what left the conformance suite red on main.",
   // The three notification-settling routes. They DO write — a read receipt on the member's own feed
   // row — and are exempt on the aiDetection.detect reasoning rather than the pure-computation one:
   // the write records nothing about the firm's conduct, only that one member cleared one badge, and
@@ -1127,6 +1129,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "firm.setReleaseChannel",
       "firmNotificationPolicy.get",
       "firmNotificationPolicy.update",
+      "firmReportPolicy.get",
+      "firmReportPolicy.update",
       "firmUsage.get",
       "firms.provision",
       "folders.create",
@@ -1388,8 +1392,10 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "trust.withdrawReconciliationMatch",
       "uploads.abort",
       "uploads.complete",
+      "uploads.duplicate",
       "uploads.get",
       "uploads.initiate",
+      "uploads.matches",
       "uploads.signPart",
       "utbmsCodes.disable",
       "utbmsCodes.enable",

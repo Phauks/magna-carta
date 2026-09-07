@@ -251,11 +251,17 @@ describe("listing the firm's trust accounts", () => {
     expect(secondPage.nextCursor).toBeNull();
     expect(names.toSorted()).toEqual(["Alpha Trust", "IOLTA — Reno", "Zeta Trust"]);
     // The listing carries the identity a picker shows, and never a full account number.
-    const listed = firstPage.data[0]!;
-    expect(listed.id).toMatch(/^trustAccount_/);
+    // Three rows share one clock instant, so which of them leads is the identifier's to decide;
+    // what the read promises is that the fixture's account is in the listing, whole.
+    const listed = [...firstPage.data, ...secondPage.data].find(
+      (account) => account.id === fixture.trustAccountId,
+    )!;
     expect(listed.status).toBe("open");
     expect(listed.locationId).toBe(fixture.locationId);
     expect(listed.name).toBe("IOLTA — Reno");
+    // The fixture office records no zone; the listing carries the null as read, and the caller
+    // resolves it through the one resolver rather than this read inventing a fallback.
+    expect(listed.locationTimeZone).toBeNull();
     expect(Object.keys(listed)).not.toContain("accountNumber");
   });
 });

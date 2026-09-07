@@ -278,6 +278,10 @@ export interface TrustCompliancePackQuery {
   readonly periodEnd: string;
   /** Omitted means everything known now: a live report, stamped as such. */
   readonly knownAsOf?: string;
+  /**
+   * Both default from the firm's report policy on the server when absent, and the screen leaves
+   * them absent; they stay on the call so a caller that must state one can.
+   */
   readonly zeroBalanceLedgers?: "include" | "omit";
   readonly authorizers?: "include" | "omit";
 }
@@ -321,6 +325,8 @@ export interface TrustAccountListing {
   status: "open" | "closed";
   openedOn: string;
   closedAt: string | null;
+  /** The holding office's IANA zone, resolved: the zone a chosen day ends in for this account. */
+  timeZone: string;
 }
 
 interface TrustAccountPage {
@@ -367,4 +373,49 @@ export function trustAccountLabel(account: TrustAccountListing): string {
   if (account.accountNumberLastFour !== null) parts.push(`ending ${account.accountNumberLastFour}`);
   if (account.status === "closed") parts.push("closed");
   return parts.join(" · ");
+}
+
+// ---- the firm's report policy -------------------------------------------------------------------
+//
+// What the firm decides once about what its trust-compliance document lists. A FIRM setting rather
+// than a per-run choice (the owner's ruling, 2026-09-07): a compliance document should read the same
+// every time the firm produces it. Read and written through `firm:manageReportPolicy`; the pack
+// applies it on the server, so a member who runs the report never reads the policy directly.
+
+export type TrustComplianceListing = "include" | "omit";
+
+export interface FirmReportPolicy {
+  trustCompliance: {
+    zeroBalanceLedgers: TrustComplianceListing;
+    authorizers: TrustComplianceListing;
+  };
+}
+
+/** The permission the policy routes name. Owners and administrators hold it by seed. */
+export const MANAGE_REPORT_POLICY_PERMISSION = "firm:manageReportPolicy";
+
+export function readFirmReportPolicy(
+  fetchImpl: typeof fetch,
+): Promise<ApiOutcome<FirmReportPolicy>> {
+  return requestJson(fetchImpl, "/api/v1/firm/reports/policy");
+}
+
+export interface UpdateFirmReportPolicyRequest {
+  trustCompliance?: {
+    zeroBalanceLedgers?: TrustComplianceListing;
+    authorizers?: TrustComplianceListing;
+  };
+}
+
+/** Changes what the firm's compliance document lists, for everybody; audited. */
+export function updateFirmReportPolicy(
+  fetchImpl: typeof fetch,
+  request: UpdateFirmReportPolicyRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<FirmReportPolicy>> {
+  return requestJson(fetchImpl, "/api/v1/firm/reports/policy", {
+    method: "PATCH",
+    body: request,
+    idempotencyKey,
+  });
 }

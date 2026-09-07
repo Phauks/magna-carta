@@ -7,6 +7,7 @@ import type { MatterId, TrustAccountId, UserId } from "@magna-carta/identifiers/
 import { isValidCalendarDate, LedgerValidationError } from "@magna-carta/ledger/validate";
 import { readMatterClientEntityId } from "@magna-carta/matters/matter-party";
 import { currencyFromCode, money } from "@magna-carta/money/money";
+import { timeZoneForLocation } from "@magna-carta/document-assembly/resolve";
 import { listTrustAccounts, loadMatterTrustLeaf } from "@magna-carta/trust/account-tree";
 import {
   composeTrustAuthorizationPolicyChange,
@@ -507,6 +508,10 @@ const TrustAccountListing = z
     status: z.enum(["open", "closed"]),
     openedOn: z.string(),
     closedAt: z.string().nullable(),
+    // The holding office's IANA time zone, resolved: an office recorded before the column existed
+    // reads as the platform's normalized zone rather than as nothing. A report asked "as at the end
+    // of a day" resolves that day here.
+    timeZone: z.string(),
   })
   .openapi("TrustAccountListing");
 
@@ -1050,7 +1055,16 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
         firm.firmDatabase,
         cursor === undefined ? {} : { cursor },
       );
-      return c.json({ data: [...page.data], nextCursor: page.nextCursor }, 200);
+      return c.json(
+        {
+          data: page.data.map(({ locationTimeZone, ...account }) => ({
+            ...account,
+            timeZone: timeZoneForLocation({ timeZone: locationTimeZone }),
+          })),
+          nextCursor: page.nextCursor,
+        },
+        200,
+      );
     },
   );
 

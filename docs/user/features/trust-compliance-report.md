@@ -69,13 +69,20 @@ today and the same report produced next year will show different names against t
 line carries the record's own identifier underneath, so the identity is stable even when the caption
 is not.
 
-## The choices you can make
+## The choices the firm makes
+
+Two things about what the report lists are decided once for the whole firm, by an administrator,
+so every copy of the report reads the same way:
 
 - **Ledgers that were empty all period.** By default they are listed, at zero, so the report accounts
-  for every ledger that existed. You can ask for only the ledgers with activity or a balance.
+  for every ledger that existed. The firm can choose to list only the ledgers with activity or a
+  balance.
 - **Who authorized each payment.** By default the report names the person who authorized money leaving
-  a client ledger — the platform records it on every such payment for exactly this reason. You can ask
-  for it to be left out.
+  a client ledger — the platform records it on every such payment for exactly this reason. The firm
+  can choose to leave it out.
+
+The provenance section of every report states which way each was set when it was produced. Changing
+them is described in [The trust compliance report policy](../admin/trust-compliance-report-policy.md).
 
 ## When the report will not be produced
 

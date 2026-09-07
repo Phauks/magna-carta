@@ -17,6 +17,15 @@ trust accounts, which the trust ledger's `account` gap has been waiting on; the 
 left to its own stream. Design: `docs/specs/2026-09-07-report-screen-design.md`. Sidebar row flipped
 to shipped.
 
+**The three questions the screen flagged, decided and built in the same stream.** The account
+picker names `trust:read` in the refusal sentence when a member holding only the report key hits
+it. The knowledge instant is the end of the chosen day in the zone of the office that holds the
+account (the trust listing now carries `timeZone`, resolved through `timeZoneForLocation`), and
+changing the account keeps the day and moves the instant. What the pack lists is a firm policy:
+`firm:manageReportPolicy` (seeded to Owner/Admin), `GET`/`PATCH /api/v1/firm/reports/policy`
+(audited), the pack route defaulting from it, Settings › Practice › Reports over the calendar
+settings page's server-backed draft pattern, and the two selects gone from the run screen.
+
 ## Public
 
 **Reports has a screen.** Open Reports from the sidebar to see every report the platform offers,
@@ -25,5 +34,8 @@ or last month, quarter or year, or any range), and whether you want everything k
 figures as they stood at the end of a chosen day, and the report appears below with its cover, each
 reconciliation, every client and matter ledger, the receipts and disbursements journal, the holds
 and exceptions, and its provenance. Export it in any format from the menu at the top, and send
-somebody the address to show them the same report. The financial, productivity and operational
-reports are listed and marked Soon, each saying what it waits on.
+somebody the address to show them the same report. A chosen day ends at midnight in the time zone
+of the office that holds the account. What the trust compliance report lists, such as ledgers at
+zero and who authorized each payment, is now a firm setting under Settings, Practice, Reports, so
+every copy of the report reads the same. The financial, productivity and operational reports are
+listed and marked Soon, each saying what it waits on.

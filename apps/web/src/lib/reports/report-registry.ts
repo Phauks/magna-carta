@@ -56,20 +56,10 @@ export const REPORT_FAMILIES: ReadonlyArray<{
  */
 export type ReportTemporal = "bitemporal" | "live-only";
 
-/** One option a report offers, drawn as a select on the run screen and carried on the address. */
-export interface ReportOptionControl {
-  readonly key: string;
-  readonly label: string;
-  readonly choices: ReadonlyArray<{ readonly value: string; readonly label: string }>;
-  /** The server's own default, so the control reads what an unstated option will do. */
-  readonly defaultValue: string;
-}
-
 /** Which controls the run screen draws beside the period. */
 export interface ReportScopeControls {
   /** The report is about one trust account, picked from the firm's roster. */
   readonly trustAccount: boolean;
-  readonly options: readonly ReportOptionControl[];
 }
 
 /** The port that fetches a report over a scope. */
@@ -143,27 +133,6 @@ function built<Payload>(
   };
 }
 
-const TRUST_COMPLIANCE_OPTIONS: readonly ReportOptionControl[] = [
-  {
-    key: "zeroBalanceLedgers",
-    label: "Ledgers at zero all period",
-    choices: [
-      { value: "include", label: "Listed" },
-      { value: "omit", label: "Omitted" },
-    ],
-    defaultValue: "include",
-  },
-  {
-    key: "authorizers",
-    label: "Who authorized each payment",
-    choices: [
-      { value: "include", label: "Named" },
-      { value: "omit", label: "Omitted" },
-    ],
-    defaultValue: "include",
-  },
-];
-
 const trustCompliance = built<TrustCompliancePack>({
   id: "trust-compliance",
   family: "trust-compliance",
@@ -173,7 +142,7 @@ const trustCompliance = built<TrustCompliancePack>({
   permission: TRUST_COMPLIANCE_PERMISSION,
   temporal: "bitemporal",
   stage: "alpha",
-  scope: { trustAccount: true, options: TRUST_COMPLIANCE_OPTIONS },
+  scope: { trustAccount: true },
   read: (fetchImpl, scope) => {
     // A scope with no subject never reaches here: the run screen reads only when the scope is
     // complete. The check stands so a caller that skips the screen gets a typed refusal, not a 404
@@ -181,17 +150,14 @@ const trustCompliance = built<TrustCompliancePack>({
     if (scope.subject === null) {
       throw new Error("the trust-compliance report is about one trust account, and none was named");
     }
-    const zeroBalanceLedgers = scope.options["zeroBalanceLedgers"];
-    const authorizers = scope.options["authorizers"];
+    // What the pack lists (ledgers at zero, the authorizers) is the firm's report policy, applied
+    // on the server and recorded on the provenance section; the screen states neither, so the
+    // firm's document reads the same every time it is produced.
     return readTrustCompliancePack(fetchImpl, {
       trustAccountId: scope.subject,
       periodStart: scope.period.from,
       periodEnd: scope.period.to,
       ...(scope.knownAsOf === null ? {} : { knownAsOf: scope.knownAsOf }),
-      ...(zeroBalanceLedgers === "include" || zeroBalanceLedgers === "omit"
-        ? { zeroBalanceLedgers }
-        : {}),
-      ...(authorizers === "include" || authorizers === "omit" ? { authorizers } : {}),
     });
   },
   present: presentTrustCompliancePack,

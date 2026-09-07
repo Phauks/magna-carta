@@ -5317,6 +5317,7 @@ export type TrustAccountListing = {
     status: 'open' | 'closed';
     openedOn: string;
     closedAt: string | null;
+    timeZone: string;
 };
 
 export type TrustPendingDisbursementRequestsResponse = {
@@ -7075,6 +7076,22 @@ export type PatchFirmNotificationPolicyRequest = {
     };
     retentionDays?: number;
     digestLocalHour?: number;
+};
+
+export type FirmReportPolicyResponse = {
+    trustCompliance: {
+        zeroBalanceLedgers: TrustComplianceListing;
+        authorizers: TrustComplianceListing;
+    };
+};
+
+export type TrustComplianceListing = 'include' | 'omit';
+
+export type PatchFirmReportPolicyRequest = {
+    trustCompliance?: {
+        zeroBalanceLedgers?: TrustComplianceListing;
+        authorizers?: TrustComplianceListing;
+    };
 };
 
 export type ConversionUploadResponse = {
@@ -33254,6 +33271,95 @@ export type FirmNotificationPolicyUpdateResponses = {
 };
 
 export type FirmNotificationPolicyUpdateResponse = FirmNotificationPolicyUpdateResponses[keyof FirmNotificationPolicyUpdateResponses];
+
+export type FirmReportPolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/reports/policy';
+};
+
+export type FirmReportPolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageReportPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmReportPolicyGetError = FirmReportPolicyGetErrors[keyof FirmReportPolicyGetErrors];
+
+export type FirmReportPolicyGetResponses = {
+    /**
+     * The firm's report policy
+     */
+    200: FirmReportPolicyResponse;
+};
+
+export type FirmReportPolicyGetResponse = FirmReportPolicyGetResponses[keyof FirmReportPolicyGetResponses];
+
+export type FirmReportPolicyUpdateData = {
+    body: PatchFirmReportPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/reports/policy';
+};
+
+export type FirmReportPolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageReportPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmReportPolicyUpdateError = FirmReportPolicyUpdateErrors[keyof FirmReportPolicyUpdateErrors];
+
+export type FirmReportPolicyUpdateResponses = {
+    /**
+     * The firm's report policy after the write
+     */
+    200: FirmReportPolicyResponse;
+};
+
+export type FirmReportPolicyUpdateResponse = FirmReportPolicyUpdateResponses[keyof FirmReportPolicyUpdateResponses];
 
 export type ConversionsUploadData = {
     body?: never;

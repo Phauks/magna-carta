@@ -4,9 +4,13 @@
    *
    * Nothing here knows what a report is. The declaration says which controls to draw (a period on
    * every report, a knowledge instant on a bitemporal one, a trust account where the report is
-   * about one, and the report's own options), the read fires through the declaration's port when
+   * about one), the read fires through the declaration's port when
    * the scope is complete, and the answer arrives as titled sections the screen draws as tables
    * and the export menu renders as a file. Adding a report never touches this file.
+   *
+   * WHAT THE PACK LISTS IS THE FIRM'S POLICY, NOT A CONTROL HERE. Whether ledgers at zero appear
+   * and whether authorizers are named are firm settings (Settings, Reports), applied on the server
+   * and recorded on the provenance section, so the firm's document reads the same every time.
    *
    * THE SCOPE IS IN THE ADDRESS. A report somebody ran is a link somebody else can open, so every
    * half of the scope rides the URL and a change here is `replaceState` rather than a navigation:
@@ -50,11 +54,13 @@
   } from "$lib/reports/report-presentation.ts";
   import { isBuiltReport, type ReportDeclaration } from "$lib/reports/report-registry.ts";
   import {
+    DEFAULT_KNOWLEDGE_ZONE,
     REPORT_PERIOD_PRESET_IDENTIFIERS,
     customReportPeriodOutcome,
     isPeriodShowing,
     knowledgeDateOf,
     knowledgeInstantForDate,
+    knowledgeInstantMovedToZone,
     readReportScope,
     reportPeriodPreset,
     scopeReading,
@@ -63,6 +69,7 @@
     type ReportScope,
   } from "$lib/reports/report-scope.ts";
   import {
+    LIST_TRUST_ACCOUNTS_PERMISSION,
     listTrustAccounts,
     trustAccountLabel,
     type TrustAccountRoster,
@@ -75,7 +82,6 @@
   let { data }: { data: { report: ReportDeclaration } } = $props();
   const report = $derived(data.report);
   const built = $derived(isBuiltReport(report) ? report : null);
-  const optionKeys = $derived(built === null ? [] : built.scope.options.map((option) => option.key));
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -132,6 +138,17 @@
     else accountsFailure = stated(outcome.failure, "The firm's trust accounts could not be read.");
   }
 
+  /*
+   * A member who may run the report and may not read trust cannot pick an account. The listing is
+   * a trust read on purpose, and the gap is stated in the words a reader can take to whoever
+   * administers their account, rather than as a read that failed.
+   */
+  const accountsRefusal = $derived(
+    accountsFailure?.failure.problem?.status === 403
+      ? permissionRefusal("Picking a trust account", LIST_TRUST_ACCOUNTS_PERMISSION)
+      : null,
+  );
+
   $effect(() => {
     if (built?.scope.trustAccount === true && accounts === null && accountsFailure === null) {
       void loadAccounts();
@@ -144,13 +161,37 @@
       .toSorted((left, right) => left.label.localeCompare(right.label)),
   );
 
+  /** The zone a chosen day ends in: the holding office's, once an account is chosen. */
+  const subjectZone = $derived(
+    accounts?.accounts.find((account) => account.id === scope.subject)?.timeZone ??
+      DEFAULT_KNOWLEDGE_ZONE,
+  );
+
   // ---- the scope: what is asked for --------------------------------------------------------------
 
   const defaultPeriod = $derived(reportPeriodPreset("month", today));
-  const scope = $derived(readReportScope(page.url.searchParams, defaultPeriod, optionKeys));
+  const scope = $derived(readReportScope(page.url.searchParams, defaultPeriod));
 
   function goToScope(next: ReportScope): void {
-    replaceState(writeReportScope(page.url, next, optionKeys), page.state);
+    replaceState(writeReportScope(page.url, next), page.state);
+  }
+
+  /*
+   * A different account may keep a different clock. The day the reader chose is what survives
+   * the change; the instant that day ends at is re-resolved in the new office's zone.
+   */
+  function chooseSubject(next: string | null): void {
+    const nextZone =
+      accounts?.accounts.find((account) => account.id === next)?.timeZone ??
+      DEFAULT_KNOWLEDGE_ZONE;
+    goToScope({
+      ...scope,
+      subject: next,
+      knownAsOf:
+        scope.knownAsOf === null
+          ? null
+          : knowledgeInstantMovedToZone(scope.knownAsOf, subjectZone, nextZone),
+    });
   }
 
   function applyPeriod(period: ReportPeriod): void {
@@ -181,18 +222,11 @@
     }
     // A day chosen with no day named yet is the end of the period: "as at the period end" is the
     // question a compliance report is most often asked.
-    goToScope({ ...scope, knownAsOf: knowledgeInstantForDate(scope.period.to) });
+    goToScope({ ...scope, knownAsOf: knowledgeInstantForDate(scope.period.to, subjectZone) });
   }
 
   function chooseKnowledgeDay(isoDate: string): void {
-    goToScope({ ...scope, knownAsOf: knowledgeInstantForDate(isoDate) });
-  }
-
-  function chooseOption(key: string, value: string, defaultValue: string): void {
-    const options = { ...scope.options };
-    if (value === defaultValue) delete options[key];
-    else options[key] = value;
-    goToScope({ ...scope, options });
+    goToScope({ ...scope, knownAsOf: knowledgeInstantForDate(isoDate, subjectZone) });
   }
 
   /** What is still missing before the report can be read, or null when nothing is. */
@@ -222,7 +256,6 @@
           scope.period.from,
           scope.period.to,
           scope.knownAsOf ?? "live",
-          JSON.stringify(scope.options),
           String(reloadToken),
         ].join(":"),
   );
@@ -270,7 +303,8 @@
       presentation?.subtitle ??
       accountChoices.find((choice) => choice.value === scope.subject)?.label ??
       null;
-    return subjectName === null ? scopeReading(scope) : `${subjectName} · ${scopeReading(scope)}`;
+    const reading = scopeReading(scope, subjectZone);
+    return subjectName === null ? reading : `${subjectName} · ${reading}`;
   });
 </script>
 
@@ -307,7 +341,7 @@
             type="single"
             items={accountChoices}
             value={scope.subject ?? ""}
-            onValueChange={(next) => goToScope({ ...scope, subject: next === "" ? null : next })}
+            onValueChange={(next) => chooseSubject(next === "" ? null : next)}
             allowDeselect={false}
             disabled={accounts === null}
           >
@@ -398,8 +432,8 @@
              row reads label-over-control like its neighbours. -->
         <div class="flex flex-col">
           <DatePicker
-            label="End of Day, UTC"
-            value={parseDate(knowledgeDateOf(scope.knownAsOf))}
+            label={`End of Day, ${subjectZone}`}
+            value={parseDate(knowledgeDateOf(scope.knownAsOf, subjectZone))}
             maxValue={parseDate(today)}
             onValueChange={(next) => {
               if (next !== undefined) chooseKnowledgeDay(next.toString());
@@ -409,30 +443,6 @@
       {/if}
     {/if}
 
-    {#if built !== null}
-      {#each built.scope.options as option (option.key)}
-        <LabelledField label={option.label}>
-          {#snippet children({ props })}
-            <Select.Root
-              type="single"
-              items={[...option.choices]}
-              value={scope.options[option.key] ?? option.defaultValue}
-              onValueChange={(next) => chooseOption(option.key, next, option.defaultValue)}
-              allowDeselect={false}
-            >
-              <Select.Trigger {...props} class="w-3xs">
-                <Select.Value />
-              </Select.Trigger>
-              <Select.Content>
-                {#each option.choices as choice (choice.value)}
-                  <Select.Item value={choice.value} label={choice.label} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          {/snippet}
-        </LabelledField>
-      {/each}
-    {/if}
   </div>
 
   {#if !isBuiltReport(report)}
@@ -445,7 +455,12 @@
       <Alert.Description>{permissionRefusal("Running this report", report.permission)}</Alert.Description>
     </Alert.Root>
   {:else}
-    {#if accountsFailure !== null}
+    {#if accountsRefusal !== null}
+      <Alert.Root variant="danger">
+        <Alert.Title>The Trust Accounts Are Not Yours To Read</Alert.Title>
+        <Alert.Description>{accountsRefusal}</Alert.Description>
+      </Alert.Root>
+    {:else if accountsFailure !== null}
       <FailureNotice
         failure={accountsFailure.failure}
         title="The Trust Accounts Could Not Be Read"

@@ -26,9 +26,13 @@ complete; there is no Run button, and changing any control runs it again.
 - **As Known.** Whether the report includes everything known now, or the figures as they stood at
   the end of a chosen day. Choosing a day makes the report reproducible: the same period and the
   same day give the same figures whenever you run it again. Everything known now is a live report,
-  and the report says so on its face. The day is read as the end of that day in universal time.
-- **The report's own choices.** The trust compliance report lets you list or omit ledgers that were
-  at zero all period, and name or omit who authorized each payment.
+  and the report says so on its face. The day ends at midnight in the time zone of the office that
+  holds the account, and the control names that zone; an office with no zone recorded reads in
+  universal time.
+
+What the trust compliance report lists, such as whether ledgers at zero all period appear and
+whether the person who authorized each payment is named, is decided once for the whole firm under
+Settings; see [The trust compliance report policy](../admin/trust-compliance-report-policy.md).
 
 Every control is part of the page's address, so copying the address and sending it shows a
 colleague the same report with the same settings.
@@ -55,7 +59,8 @@ together; see [Downloads](../downloads.md).
 Each report family has its own permission, separate from the permissions that let somebody read a
 single record. Owners and administrators hold them all. A report you may not run says so where its
 answer would be. Picking a trust account for the trust compliance report also needs the permission
-to read trust; a firm that grants somebody the report alone should grant that beside it.
+to read trust, and the page says so in those words if your account lacks it; a firm that grants
+somebody the report alone should grant that beside it.
 
 ## Related
 

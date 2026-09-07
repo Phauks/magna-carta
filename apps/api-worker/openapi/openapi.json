@@ -23027,6 +23027,9 @@
               "string",
               "null"
             ]
+          },
+          "timeZone": {
+            "type": "string"
           }
         },
         "required": [
@@ -23040,7 +23043,8 @@
           "iolta",
           "status",
           "openedOn",
-          "closedAt"
+          "closedAt",
+          "timeZone"
         ]
       },
       "TrustPendingDisbursementRequestsResponse": {
@@ -30862,6 +30866,52 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 23
+          }
+        }
+      },
+      "FirmReportPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "trustCompliance": {
+            "type": "object",
+            "properties": {
+              "zeroBalanceLedgers": {
+                "$ref": "#/components/schemas/TrustComplianceListing"
+              },
+              "authorizers": {
+                "$ref": "#/components/schemas/TrustComplianceListing"
+              }
+            },
+            "required": [
+              "zeroBalanceLedgers",
+              "authorizers"
+            ]
+          }
+        },
+        "required": [
+          "trustCompliance"
+        ]
+      },
+      "TrustComplianceListing": {
+        "type": "string",
+        "enum": [
+          "include",
+          "omit"
+        ]
+      },
+      "PatchFirmReportPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "trustCompliance": {
+            "type": "object",
+            "properties": {
+              "zeroBalanceLedgers": {
+                "$ref": "#/components/schemas/TrustComplianceListing"
+              },
+              "authorizers": {
+                "$ref": "#/components/schemas/TrustComplianceListing"
+              }
+            }
           }
         }
       },
@@ -94134,6 +94184,203 @@
         }
       }
     },
+    "/api/v1/firm/reports/policy": {
+      "get": {
+        "description": "Reads the firm's report policy: what its trust-compliance document lists. Whether a matter ledger that was at zero throughout the period appears, and whether the member who authorized each payment out of a client ledger is named. Both default to listed and named; the pack reads this policy for every report it produces, so the firm's document reads the same every time.",
+        "operationId": "firmReportPolicy.get",
+        "tags": [
+          "firmReportPolicy"
+        ],
+        "x-mc-operationId": "firmReportPolicy.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageReportPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmReportPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's report policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmReportPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageReportPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's report policy. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. Returns the policy after the write.",
+        "operationId": "firmReportPolicy.update",
+        "tags": [
+          "firmReportPolicy"
+        ],
+        "x-mc-operationId": "firmReportPolicy.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageReportPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmReportPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchFirmReportPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's report policy after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmReportPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageReportPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversions/upload": {
       "post": {
         "description": "Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.",
@@ -97255,6 +97502,9 @@
     },
     {
       "name": "firmNotificationPolicy"
+    },
+    {
+      "name": "firmReportPolicy"
     },
     {
       "name": "firmUsage"

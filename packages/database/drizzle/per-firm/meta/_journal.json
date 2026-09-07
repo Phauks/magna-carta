@@ -708,6 +708,13 @@
       "when": 1788682768698,
       "tag": "20260906T170000_time-entry-work-date-index",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "6",
+      "when": 1788771600000,
+      "tag": "20260907T090000_seed-report-policy-permission",
+      "breakpoints": true
     }
   ]
 }
