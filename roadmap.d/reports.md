@@ -9,7 +9,8 @@
   scope: Reproducible projections over the append-only ledger; standard library of trust-compliance, financial, productivity, and operational reports with scheduling and exports.
   status: partial
   slices: 3-6-financial-reporting
-  evidence: packages/reporting holds the temporal contract, the completeness declaration and the trust-compliance pack; apps/api-worker/src/routes/reports.ts serves it. The financial, productivity and operational families and the delivery surface are unbuilt, and no report has a screen.
+  spec: docs/specs/2026-09-07-report-screen-design.md
+  evidence: packages/reporting holds the temporal contract, the completeness declaration and the trust-compliance pack; apps/api-worker/src/routes/reports.ts serves it; apps/web/src/lib/reports/report-registry.ts declares every report and the /reports and /reports/<id> screens render from it. The financial, productivity and operational families are declared at stage soon and unbuilt, and the delivery surface is unbuilt.
   audience: public
   public-summary: Reports on money, time, trust compliance and productivity — on screen, exported, or sent to you on a schedule.
   notes: Owner scoped all four families with the bar-audit pack first; nine questions flagged for the owner in the design.
@@ -28,19 +29,19 @@
   name: Trust-compliance reports
   scope: Mandatory three-way reconciliation, client ledgers, and journal, per trust account.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 3-6-financial-reporting, 3-2-trust-accounting-jurisdiction-compliance
   adrs: ADR-0009, ADR-0246
-  evidence: packages/reporting/src/trust-compliance/pack.ts assembles the cover, reconciliations, client ledgers, journal, firm cushion, exceptions and provenance; GET /api/v1/reports/trust-compliance/{trustAccountId} serves it on reports:trustCompliance; packages/reporting/test/agreement.test.ts proves each decomposition equals the aggregate trust owns.
+  evidence: packages/reporting/src/trust-compliance/pack.ts assembles the cover, reconciliations, client ledgers, journal, firm cushion, exceptions and provenance; GET /api/v1/reports/trust-compliance/{trustAccountId} serves it on reports:trustCompliance; packages/reporting/test/agreement.test.ts proves each decomposition equals the aggregate trust owns; /reports/trust-compliance runs it on screen over a trust account, a period and a knowledge instant, and exports it through the tabular export seam.
   awaiting-owner: What a pack does when no jurisdiction rule can be cited, which is every pack today because every encoded jurisdiction ships unreviewed and no corpus is bound. It currently states that on the cover in the corpus's own words and produces the rest; refusing outright is the alternative, and would mean the surface produces nothing at all until an attorney review lands. Three defaults ship behind seams beside it and none is settled: whether a pack names the person who authorized each disbursement, whether zero-balance client ledgers appear, and whether the frozen attestation or the live proof leads each reconciliation.
-  notes: Backend only, no screen, and no filed artifact — turning a pack into an immutable firm document waits on a renderer this repository cannot run yet.
+  notes: On screen and exportable; no filed artifact — turning a pack into an immutable firm document waits on a renderer this repository cannot run yet and on the owner's answers on its record.
 
 - id: reports.financial
   name: Financial reports
   scope: WIP, A/R aging, realization, and profitability reports.
   status: planned
   slices: 3-6-financial-reporting, 3-1-time-tracking-wip-rate-engine, 3-3-costs-expenses-disbursements
-  evidence: Time/WIP, costs and billing substrates are shipped; sub-slice 3·6·2 plans as-of A/R aging, live work-in-progress, and realization.
+  evidence: Time/WIP, costs and billing substrates are shipped; sub-slice 3·6·2 plans as-of A/R aging, live work-in-progress, and realization. All three are declared at stage soon in apps/web/src/lib/reports/report-registry.ts and render in the /reports catalogue disabled, naming what each waits on.
   notes: Profitability is deferred — no timekeeper cost rate exists in the schema; work in progress is live-only because its stores are mutable and carry no billed_at/voided_at.
 
 - id: reports.productivity
@@ -48,7 +49,7 @@
   scope: Timekeeper and staff productivity reporting.
   status: planned
   slices: 3-6-financial-reporting
-  evidence: Planned as sub-slice 3·6·3 on its own permission key; time-entry data model shipped as substrate.
+  evidence: Planned as sub-slice 3·6·3 on its own permission key; time-entry data model shipped as substrate. Declared at stage soon in the report registry and listed in the /reports catalogue.
   notes: Live-only (mutable store); no attainment figure, because the platform stores no billable-hour target.
 
 - id: reports.operational
@@ -56,7 +57,7 @@
   scope: Operational reporting over firm activity.
   status: planned
   slices: 3-6-financial-reporting
-  evidence: Planned as sub-slice 3·6·4 — counts and dates over the matter, invoice, trust and cost records, deliberately summing no money.
+  evidence: Planned as sub-slice 3·6·4 — counts and dates over the matter, invoice, trust and cost records, deliberately summing no money. Declared at stage soon in the report registry and listed in the /reports catalogue.
 
 - id: reports.location-rollups
   name: Per-location roll-ups
@@ -81,7 +82,7 @@
   surface: screen
   slices: 3-6-financial-reporting
   adrs: ADR-0162
-  evidence: The tabular export framework is live on Firm Usage in every format — text, CSV, and Excel render in the browser ($lib/export), Word and PDF render server-side (POST /api/v1/reports/exports composes through document assembly, PDF across the live office-suite conversion edge). Every export taken is kept on the member's download register (/downloads) for seven days and can be taken again in any format. The trust-compliance pack is still served as JSON; adopting the menu on the financial reports is the remainder.
+  evidence: The tabular export framework is live on Firm Usage and on every report screen in every format — text, CSV, and Excel render in the browser ($lib/export), Word and PDF render server-side (POST /api/v1/reports/exports composes through document assembly, PDF across the live office-suite conversion edge). A report's presentation IS the export document's shape, so a report declared in the registry exports with no per-report code. Every export taken is kept on the member's download register (/downloads) for seven days and can be taken again in any format.
 
 - id: reports.download-register
   name: Download register

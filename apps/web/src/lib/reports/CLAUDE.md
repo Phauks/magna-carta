@@ -1,0 +1,55 @@
+# Reports (web) — CLAUDE.md
+
+**Purpose.** The report surface: the registry every report is declared in, the scope a report is
+asked over, the presentation a report renders as, and the presenters that turn a reporting payload
+into one. The screens under `apps/web/src/routes/(app)/reports/` render from here and decide
+nothing a report could decide for itself.
+
+**White paper:** _Reports_. **Spec:**
+[`docs/specs/2026-09-07-report-screen-design.md`](../../../../../docs/specs/2026-09-07-report-screen-design.md),
+over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs/specs/2026-08-13-financial-reporting-design.md).
+
+## Key files / entry points
+
+- `report-registry.ts` — every report as data: family, name, the question it answers, its
+  `reports:*` permission, its temporal contract, its scope controls, and (for a built report) the
+  read and the presenter paired under one payload type by `built()`. A `soon` report has no ports.
+- `report-scope.ts` — the period presets, the knowledge-instant day in a zone, the address round-trip.
+- `report-policy-draft.svelte.ts` — the firm's report policy as the settings page's draft.
+- `report-presentation.ts` — the shape a report renders as, and its mapping onto the export document.
+- `reports-api.ts` — the wire shapes and the reads (the pack, the trust-account roster).
+- `trust-compliance-presenter.ts` — the pack's presenter; `trust-compliance-fixture.ts` its sample.
+
+## Local conventions
+
+- **Adding a report is one registry entry plus a presenter.** Never a route of its own. The run
+  screen draws the controls the declaration names and nothing else.
+- **A presenter computes nothing.** Every figure printed is the payload's; a presenter formats
+  and arranges. Its test asserts the printed figures are the payload's and that every entry reaches
+  a row. A presenter that sums a column has become a second answer to a ledger question.
+- **The stamp is the response's own sentence.** Print `reproducibilityStatement` as served; do not
+  paraphrase it on screen or in a file.
+- **Live-only reports do not accept a knowledge instant.** `temporal: "live-only"` hides the
+  control; do not read `knownAsOf` in such a report's reader.
+- **Sample words only in a fixture.** The fixture pack uses the design system's sample people and
+  matters; never a firm's own figures.
+
+## Dependencies & contracts
+
+- Reads through `$lib/api/request.ts`; the shapes mirror `apps/api-worker/openapi/openapi.json`
+  (`reports.trustCompliancePack`, `trust.listTrustAccounts`).
+- Exports through `$lib/export` (the presentation IS the export document's shape).
+- Period arithmetic is the time sheet's (`$lib/time/time-sheet-scope.ts`) — one span vocabulary.
+
+## Gotchas
+
+- **The account picker rides `trust:read`**, not the report key, by the owner's ruling. A member
+  holding only `reports:trustCompliance` sees the refusal sentence naming the key. Do not gate the
+  listing on a report key to work around it.
+- **The knowledge instant is the end of the chosen day in the holding office's zone**
+  (`knowledgeInstantForDate(day, zone)`, the zone from the trust listing). Changing the account
+  keeps the day and moves the instant (`knowledgeInstantMovedToZone`). Never `T23:59:59.999Z`
+  literally.
+- **What the pack lists is the firm's policy, not a control.** The run screen states no option;
+  the server defaults from `firm:manageReportPolicy`'s settings and the provenance records it.
+  `report-policy-draft.svelte.ts` is the settings page's model.

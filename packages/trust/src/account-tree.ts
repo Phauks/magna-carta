@@ -14,9 +14,16 @@ import { setAccountBoundsStatement } from "@magna-carta/ledger/statements";
 import type { ClockPort } from "@magna-carta/ledger/types";
 import { readMatterClientEntityId } from "@magna-carta/matters/matter-party";
 import {
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  encodeCursor,
+  type Page,
+} from "@magna-carta/data-access/cursor-pagination";
+import {
   insertTrustAccountStatement,
   insertTrustLedgerNodeStatement,
   selectTrustAccountStatement,
+  selectTrustAccountsPageStatement,
   selectTrustClientNodeStatement,
   selectTrustMatterNodeStatement,
   selectTrustNodeStatement,
@@ -97,6 +104,86 @@ export async function loadTrustAccount(
     bankLedgerAccountId: row.bank_ledger_account_id as TrustAccountSnapshot["bankLedgerAccountId"],
     clientLiabilityAccountId:
       row.client_liability_account_id as TrustAccountSnapshot["clientLiabilityAccountId"],
+  };
+}
+
+interface TrustAccountListingRow {
+  id: string;
+  name: string;
+  location_id: string;
+  jurisdiction: string | null;
+  bank_name: string | null;
+  account_number_last_four: string | null;
+  currency: string;
+  iolta: number;
+  status: "open" | "closed";
+  opened_on: string;
+  closed_at: string | null;
+  created_at: string;
+  location_time_zone: string | null;
+}
+
+/**
+ * One of the firm's trust accounts as a listing names it: the identity a person picks an account
+ * by, and nothing a movement needs. The full account number is not a column anywhere, so the last
+ * four is the whole of what can be shown.
+ */
+export interface TrustAccountListing {
+  readonly id: TrustAccountId;
+  readonly name: string;
+  readonly locationId: LocationId;
+  readonly jurisdiction: string | null;
+  readonly bankName: string | null;
+  readonly accountNumberLastFour: string | null;
+  readonly currency: string;
+  readonly iolta: boolean;
+  readonly status: "open" | "closed";
+  readonly openedOn: string;
+  readonly closedAt: string | null;
+  /**
+   * The holding office's IANA time zone as recorded, or null for an office recorded before the
+   * column existed. Resolved to a zone by the caller through the one resolver the platform has
+   * (timeZoneForLocation), never here, so a null falls back in exactly one place.
+   */
+  readonly locationTimeZone: string | null;
+}
+
+/**
+ * The firm's trust accounts, oldest first, one page at a time. Closed accounts are listed beside
+ * open ones on purpose: a compliance report is asked about the period an account was live, which
+ * is more often than not after it closed, and a picker that hid closed accounts would make the one
+ * report an examiner asks for impossible to run.
+ */
+export async function listTrustAccounts(
+  database: SqlDatabase,
+  page: { readonly cursor?: string; readonly limit?: number } = {},
+): Promise<Page<TrustAccountListing>> {
+  const limit = page.limit ?? DEFAULT_PAGE_SIZE;
+  const after = decodeCursor(page.cursor);
+  // One row past the page tells a full page from a final one without a second count query.
+  const { results } = await selectTrustAccountsPageStatement(database, {
+    afterCreatedAt: after?.createdAt ?? null,
+    afterId: after?.id ?? null,
+    limit: limit + 1,
+  }).all<TrustAccountListingRow>();
+  const rows = results.slice(0, limit);
+  const last = rows[rows.length - 1];
+  return {
+    data: rows.map((row) => ({
+      id: row.id as TrustAccountId,
+      name: row.name,
+      locationId: row.location_id as LocationId,
+      jurisdiction: row.jurisdiction,
+      bankName: row.bank_name,
+      accountNumberLastFour: row.account_number_last_four,
+      currency: row.currency,
+      iolta: row.iolta !== 0,
+      status: row.status,
+      openedOn: row.opened_on,
+      closedAt: row.closed_at,
+      locationTimeZone: row.location_time_zone,
+    })),
+    nextCursor: results.length > limit && last ? encodeCursor(last.created_at, last.id) : null,
   };
 }
 

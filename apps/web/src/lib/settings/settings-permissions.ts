@@ -21,7 +21,13 @@
  */
 
 /** Mirrors SettingsSection.editPermissionArea (settings-sections.ts). */
-export type SettingsPermissionArea = "firm" | "billing" | "documents" | "integrations" | "calendar";
+export type SettingsPermissionArea =
+  | "firm"
+  | "billing"
+  | "documents"
+  | "integrations"
+  | "calendar"
+  | "reports";
 
 /**
  * Still the mock described above. The "calendar" area is the first whose real answer exists —
