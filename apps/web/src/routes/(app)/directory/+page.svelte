@@ -473,13 +473,14 @@
            reach — the same order as the matter header and the custody register. -->
       <!-- One create control rather than a button per kind: the two records are the same gesture on
            the same book, and spreading them across the top spends the row on a choice a menu makes
-           in one press. -->
+           in one press. It reads the bare "New" and each ITEM carries the verb — a menu item is
+           where the choice is actually made, so it names the whole thing being made. -->
       <CreateControl
         title="Record a person or an organization."
         refusal={mayEdit ? undefined : createDisabledReason}
         choices={[
-          { label: "Person", icon: UserPlus, onselect: () => openNew("person") },
-          { label: "Organization", icon: Building2, onselect: () => openNew("organization") },
+          { label: "New Person", icon: UserPlus, onselect: () => openNew("person") },
+          { label: "New Organization", icon: Building2, onselect: () => openNew("organization") },
         ]}
       />
     {/snippet}

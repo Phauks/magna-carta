@@ -52,7 +52,7 @@
   scope: Error surfaces bake in build commit/mode/time plus browser line in a copyable trace block, and a client boundary catches what never reached a route.
   status: shipped
   surface: screen
-  evidence: apps/web/src/hooks.client.ts is the SvelteKit client boundary; both error routes render apps/web/src/lib/diagnostics/failure-screen.svelte over the design system's failure-state, and the trace is assembled by apps/web/src/lib/diagnostics/failure-trace.ts — every line a key-value pair, absent facts stated rather than dropped, so one paste carries the whole report.
+  evidence: apps/web/src/hooks.client.ts is the SvelteKit client boundary for a failure while a route loads, and apps/web/src/lib/diagnostics/render-boundary.svelte (mounted by the root layout, above every route group) is the Svelte boundary for a throw while a component renders — the crash SvelteKit itself never catches; both error routes render apps/web/src/lib/diagnostics/failure-screen.svelte over the design system's failure-state, and the trace is assembled by apps/web/src/lib/diagnostics/failure-trace.ts — every line a key-value pair, absent facts stated rather than dropped, so one paste carries the whole report.
 
 - id: observability.client-reporter.breadcrumbs
   name: Client breadcrumb ring buffer

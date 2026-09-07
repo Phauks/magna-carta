@@ -457,6 +457,50 @@ describe("createChokepoint — registration-time permission validation (unregist
     expect(() => chokepoint.assertRouteHasMeta(route, "/api/v1/members")).not.toThrow();
   });
 
+  // Tolerating an unreachable firm database means being admitted WITHOUT the member-active check,
+  // because that check is the read that cannot run. A capability named alongside it could not be
+  // honoured either — permissions are read from the same unreachable database — so the combination
+  // is refused at startup rather than discovered during the outage it was written for.
+  it("assertRouteHasMeta throws when a route both tolerates a firm-database outage and names a permission", () => {
+    const { chokepoint } = buildChokepoint();
+    const contradictoryMeta: RouteMeta = {
+      ...authedMeta,
+      operationId: "meta.versions",
+      permission: "firm:manageMembers",
+      firmDatabaseOutage: "tolerate",
+    };
+    const route = defineOpenAPIRoute(contradictoryMeta, {
+      method: "get",
+      path: "/api/v1/meta/versions",
+      description: "What is running.",
+      responses: {
+        200: { description: "ok", content: { "application/json": { schema: z.object({}) } } },
+      },
+    });
+    expect(() => chokepoint.assertRouteHasMeta(route, "/api/v1/meta/versions")).toThrow(
+      /tolerate/i,
+    );
+  });
+
+  it("assertRouteHasMeta accepts tolerating a firm-database outage with permission: null", () => {
+    const { chokepoint } = buildChokepoint();
+    const diagnosticMeta: RouteMeta = {
+      ...authedMeta,
+      operationId: "meta.versions",
+      permission: null,
+      firmDatabaseOutage: "tolerate",
+    };
+    const route = defineOpenAPIRoute(diagnosticMeta, {
+      method: "get",
+      path: "/api/v1/meta/versions",
+      description: "What is running.",
+      responses: {
+        200: { description: "ok", content: { "application/json": { schema: z.object({}) } } },
+      },
+    });
+    expect(() => chokepoint.assertRouteHasMeta(route, "/api/v1/meta/versions")).not.toThrow();
+  });
+
   it("assertRouteHasMeta accepts a registered permission", () => {
     const { chokepoint } = buildChokepoint();
     const route = defineOpenAPIRoute(authedMeta, {

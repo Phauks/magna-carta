@@ -1,0 +1,45 @@
+@layer base {
+  /*
+   * The document's own ink and colour scheme — the two facts every screen inherits and no screen
+   * states for itself.
+   *
+   * COLOR-SCHEME IS WHAT TELLS THE BROWSER WHICH MODE IT IS IN. The theme cascade re-points the
+   * `--mc-*` custom properties per theme and mode, so anything drawn from a token follows the mode
+   * correctly — but the browser paints a great deal that no token reaches: the canvas behind an
+   * overscroll, scrollbars, form controls, the caret, and the system colours that stand in wherever
+   * a colour was never named. Those follow `color-scheme` and nothing else, and it was never
+   * declared, so on the dark themes the browser kept painting in light mode underneath the design
+   * system. Declaring it here is what makes the two agree.
+   *
+   * THE ROOT NAMES A TEXT COLOUR, so text that names none inherits the mode's ink rather than the
+   * browser's. That was the visible half of the same defect: a heading or a crumb written as a bare
+   * element takes `canvastext`, which is BLACK in a light scheme whatever the page behind it looks
+   * like — the file manager's breadcrumb read black on the dark theme's dark band, and so would
+   * every other element that had not been given a colour. A component still names its own ink; this
+   * is only what the document starts from.
+   *
+   * THE ROOT IS ALSO PAINTED, because a colour scheme is not a colour. `color-scheme` hands the
+   * browser its own generic canvas for the mode — near-white in light, a flat near-black in dark —
+   * and neither is the surface the product is drawn on. Every shell paints its background on an
+   * element INSIDE the Svelte tree (the app shell's frame, the secure shell's, a failure screen's),
+   * so wherever that tree does not cover the viewport the canvas is what shows: the whole boot of a
+   * hard load, where `ssr = false` behind an index.html fallback leaves the served document with an
+   * empty body until the application mounts; the frame where leaving the workspace for Account or
+   * sign-in swaps one shell for another; an overscroll; the scrollbar gutter. Against a 99% warm
+   * surface a near-white canvas reads as a flash to pure white, which is the defect as members
+   * reported it. A background on the root propagates to the canvas, so painting it here means there
+   * is no unpainted layer left to show through. A screen still paints its own surfaces; this is only
+   * what is behind all of them.
+   *
+   * It sits in `base`, which Tailwind declares before `components` and `utilities`, so a recipe or
+   * a utility always wins over it.
+   */
+  :root {
+    color-scheme: light;
+    color: var(--mc-text-default);
+    background-color: var(--mc-surface-default);
+  }
+  :root.dark {
+    color-scheme: dark;
+  }
+}

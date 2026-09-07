@@ -98,6 +98,7 @@
     "./internal/types": "./src/lib/internal/types.ts",
     "./internal/virtual-list": "./src/lib/internal/virtual-list.svelte",
     "./styles/animations.css": "./src/lib/styles/animations.css",
+    "./styles/base.css": "./src/lib/styles/base.css",
     "./styles/fonts.css": "./src/lib/styles/fonts.css",
     "./styles/components.css": "./src/lib/styles/components.css"
   },

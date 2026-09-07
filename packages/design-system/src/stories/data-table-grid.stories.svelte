@@ -473,8 +473,11 @@
       await closeMenu();
     });
 
-    await step("Zebra striping is the Columns submenu's display setting", async () => {
-      await openColumns("Date");
+    await step("Zebra striping is a display setting in the menu's own root", async () => {
+      // Not inside Columns: Columns holds columns. A setting about how the table LOOKS is one
+      // gesture away, in the menu the reader already has open.
+      await fireEvent.contextMenu(headOf("Date"));
+      await body.findByRole("menu");
       await userEvent.click(body.getByRole("menuitemcheckbox", { name: "Shade alternate rows" }));
       await expect(table).toHaveAttribute("data-zebra", "on");
       await closeMenu();

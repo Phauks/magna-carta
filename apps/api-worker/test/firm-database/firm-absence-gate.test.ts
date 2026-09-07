@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Context } from "hono";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { ResolvedSession } from "../../src/chokepoint/chokepoint.ts";
+import type { RouteMeta } from "../../src/contracts/route-meta.ts";
 import { createChokepointPorts } from "../../src/chokepoint/ports.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import { seedFirm } from "../support/test-auth.ts";
@@ -24,6 +25,20 @@ function contextWithEnv(): Context {
   return { env } as unknown as Context;
 }
 
+// The resolver reads only meta.firmDatabaseOutage, but it takes a whole RouteMeta — a route's own
+// shape, not a flag in isolation, is what decides whether an unreachable firm database is fatal.
+const READ_META: RouteMeta = {
+  operationId: "meta.versions",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+const TOLERATING_META: RouteMeta = { ...READ_META, firmDatabaseOutage: "tolerate" };
+
 // resolveFirmContext uses neither the auth instance nor the rate limiter, so stubs suffice to build
 // the production port bundle.
 function resolveFirmContext() {
@@ -40,7 +55,7 @@ describe("chokepoint firm-absence gate (real resolver)", () => {
       userId: newIdentifier("user"),
       firmId: newIdentifier("firm"),
     };
-    const result = await resolveFirmContext()(contextWithEnv(), session);
+    const result = await resolveFirmContext()(contextWithEnv(), session, READ_META);
     expect(result).toBeNull();
   });
 
@@ -50,7 +65,7 @@ describe("chokepoint firm-absence gate (real resolver)", () => {
     // self-healing window, not an absence). This is the path the absent case must NOT reach.
     const firmId = (await seedFirm({ name: "Firm Absence Present Firm" })).firmId;
     const session: ResolvedSession = { userId: newIdentifier("user"), firmId };
-    const result = await resolveFirmContext()(contextWithEnv(), session);
+    const result = await resolveFirmContext()(contextWithEnv(), session, READ_META);
     expect(result).not.toBeNull();
     expect(await result?.readFirmName()).toBe("Firm Absence Present Firm");
   });
@@ -72,14 +87,56 @@ describe("chokepoint firm-absence gate (real resolver)", () => {
     // could pass while the cached path stayed broken.
     const resolver = resolveFirmContext();
 
-    const before = await resolver(contextWithEnv(), session);
+    const before = await resolver(contextWithEnv(), session, READ_META);
     expect(await before?.readFirmName()).toBe("Chambers Before The Rename");
 
     await env.DB_CONTROL.prepare("UPDATE firm SET display_name = ?2 WHERE id = ?1")
       .bind(firmId, "Chambers After The Rename")
       .run();
 
-    const after = await resolver(contextWithEnv(), session);
+    const after = await resolver(contextWithEnv(), session, READ_META);
     expect(await after?.readFirmName()).toBe("Chambers After The Rename");
+  });
+});
+
+// A firm database that cannot be reached AT ALL is neither of the gate's two answers above. The
+// per-firm lineage is applied in the FirmDatabase durable object's constructor, so a migration that
+// cannot complete makes every read against that firm throw — including the member-active check the
+// gate itself runs. Which meant the fault took down the diagnostic reads whose subject IS the fault.
+describe("chokepoint firm-database outage gate (real resolver, unreachable firm database)", () => {
+  // A namespace whose stub rejects every read: what a durable object with a failing constructor
+  // looks like from the caller's side. The control plane stays real, so the resolver gets past the
+  // firm-row gate and fails exactly where production failed — on the member-active check.
+  function contextWithUnreachableFirmDatabase(): Context {
+    const stub = {
+      runRead: () => Promise.reject(new Error("CHECK constraint failed: matter_status_check")),
+    };
+    return {
+      env: { ...env, FIRM_DATABASE: { idFromName: (name: string) => name, get: () => stub } },
+    } as unknown as Context;
+  }
+
+  it("fails closed by default — an unverifiable membership is never admitted", async () => {
+    const firmId = (await seedFirm({ name: "Firm With Unreachable Database" })).firmId;
+    const session: ResolvedSession = { userId: newIdentifier("user"), firmId };
+    // Not null: null is ABSENCE, which would answer 404 and quietly tell a caller the firm is gone.
+    // The read must reject, so the route answers 500 and the fault stays visible as a fault.
+    await expect(
+      resolveFirmContext()(contextWithUnreachableFirmDatabase(), session, READ_META),
+    ).rejects.toThrow(/matter_status_check/u);
+  });
+
+  it("admits a route that tolerates the outage, so the diagnostic reads still answer", async () => {
+    const firmId = (await seedFirm({ name: "Firm With Tolerated Outage" })).firmId;
+    const session: ResolvedSession = { userId: newIdentifier("user"), firmId };
+    const result = await resolveFirmContext()(
+      contextWithUnreachableFirmDatabase(),
+      session,
+      TOLERATING_META,
+    );
+    // The context is built from the control plane alone — enough for a diagnostic to report the
+    // outage, and carrying no firm data, because the database that holds it is the one that is down.
+    expect(result).not.toBeNull();
+    expect(await result?.readFirmName()).toBe("Firm With Tolerated Outage");
   });
 });

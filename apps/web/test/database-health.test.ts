@@ -36,7 +36,7 @@ function stripComments(text: string): string {
 
 const HEALTHY: DatabaseHealthValue = {
   controlPlane: { state: "reachable", bucketProvisioned: true },
-  firmDatabase: { state: "reachable", roundTripMilliseconds: 12 },
+  firmDatabase: { state: "reachable", roundTripMilliseconds: 12, fault: null },
   schema: {
     state: "current",
     appliedCount: 214,
@@ -67,7 +67,7 @@ describe("databaseHealthRows", () => {
     expect(
       databaseHealthRows({
         ...HEALTHY,
-        firmDatabase: { state: "unreachable", roundTripMilliseconds: null },
+        firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: null },
       }).map((row) => row.id),
     ).toEqual(["firmDatabase", "schema", "membership", "controlPlane"]);
   });
@@ -80,6 +80,37 @@ describe("databaseHealthRows", () => {
 
   it("puts the round trip on the connected row rather than claiming health bare", () => {
     expect(rowFor(HEALTHY, "firmDatabase").detail).toBe("Answered in 12 ms.");
+  });
+
+  // The reason a database is not answering is the whole diagnosis, and this row used to throw it
+  // away: a firm database bricked by a failing migration read as "Not answering" and nothing more,
+  // which sent a reader to the logs for a fact this very read already held.
+  it("says WHY the firm database is not answering when it said why", () => {
+    const row = rowFor(
+      {
+        ...HEALTHY,
+        firmDatabase: {
+          state: "unreachable",
+          roundTripMilliseconds: null,
+          fault: "CHECK constraint failed: matter_status_check",
+        },
+      },
+      "firmDatabase",
+    );
+    expect(row.reading).toBe("fault");
+    expect(row.status).toBe("Not answering");
+    expect(row.detail).toContain("CHECK constraint failed: matter_status_check");
+  });
+
+  it("says plainly that no reason was given rather than implying none exists", () => {
+    const row = rowFor(
+      {
+        ...HEALTHY,
+        firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: null },
+      },
+      "firmDatabase",
+    );
+    expect(row.detail).toContain("gave no reason");
   });
 
   it("tells the four refused-screen situations apart", () => {
@@ -254,11 +285,17 @@ describe("the panel's two folding sections", () => {
     expect(preferences).toContain("followAcrossTabs()");
   });
 
-  it("makes a shut Deployment heading speak for the whole read, not just the fleet", () => {
-    // Collapsing Deployment takes the leading pair down with it, and a fault in the pair is the
-    // one most worth seeing — so its badge counts every Worker in the read.
-    expect(chip).toContain("summarizeSilentWorkers(value.services)");
+  it("makes each shut heading speak for exactly what its own fold hides", () => {
+    // This once required Deployment's badge to count every Worker in the read, which was right
+    // while the fleet was a drawer INSIDE Deployment: collapsing Deployment took the fleet down
+    // with it. Workers is its own section now, so that same count would have both headings
+    // claiming the same silent Worker — and a reader who folded only Workers would see Deployment
+    // wearing a warning about rows still on screen. Each heading counts its own half.
     expect(chip).toContain("badge: silentDeploymentWorkers");
+    expect(chip).toMatch(/silentDeploymentWorkers = \$derived\([\s\S]*?deploymentRows\.front/);
+    expect(chip).toContain("badge: silentFleetWorkers");
+    expect(chip).toMatch(/silentFleetWorkers = \$derived\([\s\S]*?deploymentRows\.rest/);
+    expect(chip).not.toContain("summarizeSilentWorkers(value.services)");
   });
 
   it("makes a shut Database heading carry the worst reading in the section", () => {

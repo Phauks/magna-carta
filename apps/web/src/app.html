@@ -6,9 +6,11 @@
     <script>
       // No-FOUC appearance boot. MIRRORS packages/design-system/src/lib/internal/
       // theme-preference.ts (readThemePreference + applyThemePreference) — it must run inline
-      // before first paint, so it cannot import that module; keep keys, defaults, and the dark +
-      // motion resolution rules in sync. The static data-theme="chancery" above is the
-      // no-JavaScript fallback.
+      // before first paint, so it cannot import that module; keep keys, defaults, the dark +
+      // motion resolution rules, and the color-scheme write in sync. The static
+      // data-theme="chancery" above is the no-JavaScript fallback, for whom the scheme and the
+      // document's paint come from the stylesheet
+      // (@magna-carta/design-system/styles/base.css) instead.
       (function () {
         var theme = localStorage.getItem("magna-carta.theme") || "chancery";
         var mode = localStorage.getItem("magna-carta.mode");
@@ -19,6 +21,11 @@
           mode === "dark" ||
           (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
         root.classList.toggle("dark", dark);
+        // The same fact base.css declares, written where a stylesheet cannot reach. Until that
+        // stylesheet arrives the browser paints its canvas, scrollbars and form controls in the
+        // scheme it last knew — and this document has an empty body until the application mounts,
+        // so that window is the whole boot and the longest of the flashes worth ending.
+        root.style.colorScheme = dark ? "dark" : "light";
         var motion = localStorage.getItem("magna-carta.motion");
         if (motion !== "full" && motion !== "reduced" && motion !== "off") motion = "system";
         if (motion === "system") {

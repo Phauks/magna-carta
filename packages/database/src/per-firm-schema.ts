@@ -2278,6 +2278,12 @@ export const timeEntry = sqliteTable(
     index("time_entry_timekeeper_work_date_index").on(table.timekeeperUserId, table.workDate),
     index("time_entry_matter_status_index").on(table.matterId, table.status),
     index("time_entry_status_work_date_index").on(table.status, table.workDate),
+    // The firm-wide period read behind /time when it is asked for everybody's time: a date range
+    // with no timekeeper and no status. The (timekeeper_user_id, work_date) index above serves the
+    // same read narrowed to one person, and the (status, work_date) index serves it narrowed to one
+    // status; neither has work_date in its leading position, so the unnarrowed range had nothing to
+    // ride and walked the table.
+    index("time_entry_work_date_index").on(table.workDate),
     // The grouped read behind "how long did this task actually take". Partial, because the column
     // is null on nearly every row and an index over those nulls would be mostly dead weight.
     index("time_entry_task_index")

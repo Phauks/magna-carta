@@ -35,14 +35,26 @@
  *
  * EVERY SECTION ALSO ANSWERS FOR CREATE, the same way. The matter header carries ONE create control
  * beside the search, and its label is this registry's answer for the section the reader is on —
- * "New Fee" on Fees, "New File" on Files — so the label is settled by the address before the
- * section has even mounted, and the control never changes width or flickers between sections. A
- * section declares the noun it creates, or `null` with the line saying why nothing is created
- * there; the behaviour behind the label is claimed by the section's own page through
- * create-action.svelte.ts, and only the page standing on that section may claim it.
+ * "New Fee" on Fees, the bare "New" where a section makes several kinds — so the label is settled
+ * by the address before the section has even mounted, and the control never changes width or
+ * flickers between sections. A section declares the noun it creates, or `CREATE_SEVERAL_KINDS`
+ * where its menu names the kinds, or `null` with the line saying why nothing is created there; the
+ * behaviour behind the label is claimed by the section's own page through create-action.svelte.ts,
+ * and only the page standing on that section may claim it.
  */
 import { assertCreateNoun } from "@magna-carta/design-system/create-label";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
+
+/**
+ * What a section declares instead of a noun when its create control opens a MENU. The control then
+ * reads the bare "New" and the menu items name the kinds — a label naming one of three things
+ * would be wrong about the other two, and the noun belongs where the choice is actually made.
+ *
+ * It is deliberately not a noun and not null: null already means "nothing is created here" and
+ * carries `createWaitingOn`, which is a different fact. The space in the value is what keeps it out
+ * of the noun grammar (`assertCreateNoun` takes one capitalised word), so the two can never collide.
+ */
+export const CREATE_SEVERAL_KINDS = "several kinds";
 
 export interface MatterSection {
   /** Route segment under matters/[id]/. */
@@ -68,8 +80,9 @@ export interface MatterSection {
    */
   timelineSources: readonly string[];
   /**
-   * The noun the header's one create control offers on this section — "Fee" renders as New Fee —
-   * or null when nothing is created from it. One capitalised word within the design system's
+   * What the header's one create control offers on this section: the noun it makes — "Fee" renders
+   * as New Fee — or `CREATE_SEVERAL_KINDS` where it opens a menu and reads the bare "New", or null
+   * when nothing is created from it. A noun is one capitalised word within the design system's
    * noun budget (create-label.ts in the CreateControl home), so every label fits the control's
    * fixed width; the module refuses anything else at load, and
    * `pnpm run lint:matter-create-control` refuses a section that declares neither a noun nor a
@@ -156,7 +169,9 @@ export const matterSections: readonly MatterSection[] = [
       "The matter's versioned file record — every document the firm holds for this matter, " +
       "organized in folders, each version kept and each byte's integrity hash recorded.",
     searchSource: "files",
-    createNoun: "File",
+    // A document, a folder and an upload are three kinds, so the control reads "New" and the menu
+    // names them. It read "New File" over that menu, which was wrong about two of the three.
+    createNoun: CREATE_SEVERAL_KINDS,
   },
   {
     slug: "time",
@@ -305,7 +320,8 @@ export const matterSections: readonly MatterSection[] = [
       "Hearings, depositions, and the dates this matter is held to. Each one is recorded by a " +
       "person, read in its own time zone, and reports when it has passed.",
     searchSource: "calendar",
-    createNoun: "Event",
+    // An event and a deadline are two kinds, so the control reads "New" and the menu names them.
+    createNoun: CREATE_SEVERAL_KINDS,
   },
   {
     slug: "magnus",
@@ -427,6 +443,7 @@ export function sectionOwningTimelineSource(sourceKey: string): MatterSection | 
  * rules over the source before anything is built.
  */
 for (const section of matterSections) {
+  if (section.createNoun === CREATE_SEVERAL_KINDS) continue;
   if (section.createNoun === null) {
     if (section.createWaitingOn === undefined || section.createWaitingOn.trim() === "") {
       throw new Error(

@@ -66,6 +66,18 @@ export function listMatterFiles(
   return requestJson(fetchImpl, `/api/v1/files?${query.toString()}`);
 }
 
+/**
+ * One file, as the file manager reads it. The route answers 404 for a file that is pending only,
+ * rejected, or deleted — the editor is the caller, and a document in any of those states has no
+ * version it could open.
+ */
+export function readMatterFile(
+  fetchImpl: typeof fetch,
+  fileId: string,
+): Promise<ApiOutcome<MatterFile>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}`);
+}
+
 export function listFileVersions(
   fetchImpl: typeof fetch,
   fileId: string,

@@ -92,6 +92,7 @@ export type DatabaseHealthControlPlane = {
 export type DatabaseHealthFirmDatabase = {
     state: 'reachable' | 'unreachable';
     roundTripMilliseconds: number | null;
+    fault: string | null;
 };
 
 export type DatabaseHealthSchema = {
@@ -30826,7 +30827,15 @@ export type TimeEntriesListData = {
         matterId?: string;
         workDate?: string;
         /**
-         * Narrows a per-matter listing to one status. Omitted, the listing answers with every status the matter carries, which is what a matter's time record is.
+         * The first work date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question a timekeeper asks of their own week and a supervisor asks of the firm's. Without a timekeeper the span covers everybody, which requires the time:viewFirm capability.
+         */
+        from?: string;
+        /**
+         * The last work date of a period listing, inclusive. Required alongside `from`.
+         */
+        to?: string;
+        /**
+         * Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.
          */
         status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
         cursor?: string;
@@ -30847,6 +30856,10 @@ export type TimeEntriesListErrors = {
      * The firm is unreachable, the member is deactivated, or the entry is unknown
      */
     404: Problem;
+    /**
+     * The period's first date is after its last
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */

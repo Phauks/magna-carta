@@ -623,7 +623,7 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "todo"
+          "state": "in-progress"
         },
         "load-profile": {
           "state": "done",
@@ -634,15 +634,15 @@
         }
       },
       "branch": "main",
-      "activeWork": null,
-      "next": null,
+      "activeWork": "docs/active-work/claude/text-document-editor-support-arvpgv.md",
+      "next": "Verify the Collabora frame fills on the deployed site; the spreadsheet and presentation lanes; the reconcile screen.",
       "links": {
         "spec": null,
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Collabora, one container per open document; `magna-carta-edit` deployed; reconciled onto the FirmDatabase DO. Stage-2 doc-open verify + editor UI pending."
+      "notes": "Collabora, one container per open document; `magna-carta-edit` deployed; reconciled onto the FirmDatabase DO. Stage-2 doc-open verify pending. The editor screen exists at /documents/{id}/edit: the file manager's Open opens it in a new tab, the WOPI token is form-posted into the Collabora frame for word-processing formats, and plain-text documents get an in-app editor that saves a new version."
     },
     {
       "slice": "2·3 — Inline preview + safe-delivery sandbox",
@@ -2451,7 +2451,8 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "todo"
+          "state": "in-progress",
+          "by": "Opus 5"
         },
         "load-profile": {
           "state": "done",
@@ -2463,7 +2464,7 @@
         }
       },
       "branch": "main",
-      "activeWork": null,
+      "activeWork": "docs/active-work/claude/sidebar-time-accessibility-88khpa.md",
       "next": null,
       "links": {
         "spec": null,
@@ -2471,7 +2472,7 @@
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "`@magna-carta/timekeeping`; first Durable Object (live timer); scoped-setting resolver; UTBMS catalog. AI narrative/UTBMS seam ships dark."
+      "notes": "`@magna-carta/timekeeping`; first Durable Object (live timer); scoped-setting resolver; UTBMS catalog. AI narrative/UTBMS seam ships dark. Three read surfaces are up — the matter's Time tab, the top bar's Time Sheet, and the period ledger at `/time` over the new cross-matter `from`/`to` listing. The week grid and My Day are the UI still to come."
     },
     {
       "slice": "3·2 — Trust accounting + jurisdiction compliance",

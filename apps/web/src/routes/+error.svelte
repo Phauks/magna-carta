@@ -12,6 +12,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
+  import { PAGE_CRASH_STEPS } from "$lib/diagnostics/crash.ts";
   import { routeFailure } from "$lib/diagnostics/route-failure.ts";
 
   const notFound = $derived(page.status === 404);
@@ -38,11 +39,7 @@
       scale="screen"
       subject="This page"
       fallback={page.error?.message}
-      steps={[
-        "Reload: a brief interruption usually clears on the next attempt.",
-        "Go home, and open the screen again from the navigation.",
-        "If it keeps happening, report it with the Error ID above.",
-      ]}
+      steps={PAGE_CRASH_STEPS}
       onRetry={() => location.reload()}
       onReport={() => (reportOpen = true)}
     />

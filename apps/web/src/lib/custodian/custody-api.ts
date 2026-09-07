@@ -373,7 +373,14 @@ export interface CustodyLocationOccupancy {
   subtreeOccupancy: number;
 }
 
-/** The tree with its occupancy counts, parents before children. */
+/*
+ * The tree with its occupancy counts, parents before children.
+ *
+ * NOTHING ON A SCREEN CALLS THIS TODAY. The custody register's location rail read it until the
+ * owner's 2026-09-06 ruling took the rail out — Location is a column of the one table now — and
+ * this stays because the endpoint is real and "how much is in each container" is a report, which
+ * is where it belongs when the custody reports are built.
+ */
 export function readCustodyLocationOccupancy(
   fetchImpl: typeof fetch,
 ): Promise<ApiOutcome<{ data: CustodyLocationOccupancy[] }>> {

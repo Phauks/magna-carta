@@ -83,6 +83,14 @@ export function readThemePreference(): {
  * operating system prefers dark). The CSS custom-property cascade in @magna-carta/design-tokens
  * does the rest. Pure DOM application — the Storybook preview's theme/mode toolbar calls this
  * directly so flipping themes in the catalog never writes to the reviewer's localStorage.
+ *
+ * It also writes `color-scheme` as an inline style, which styles/base.css declares on this same
+ * `dark` class. That is not a second opinion — it is the SAME fact, written where a stylesheet
+ * cannot reach: a stylesheet is a separate request, and until it has arrived the browser is still
+ * painting its canvas, scrollbars and form controls in the scheme it last knew. With `ssr = false`
+ * behind an index.html fallback, that window is the whole boot against an empty body, so it is
+ * exactly where the flash the base layer exists to end would otherwise survive. The inline boot
+ * script in apps/web/src/app.html mirrors this line for the same reason.
  */
 export function applyThemeToDocument(theme: string, mode: Mode): void {
   const root = document.documentElement;
@@ -90,6 +98,7 @@ export function applyThemeToDocument(theme: string, mode: Mode): void {
   const dark =
     mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   root.classList.toggle("dark", dark);
+  root.style.colorScheme = dark ? "dark" : "light";
 }
 
 /**
