@@ -54,7 +54,7 @@
   import { readSession } from "$lib/matters/matters-api.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
-  import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
+  import { FirmMatters } from "$lib/matters/firm-matters.svelte.ts";
   import TimeRecordWindow from "$lib/time/time-record-window.svelte";
   import {
     TIME_COLUMN_IDENTIFIERS,
@@ -65,7 +65,7 @@
     timekeeperOf,
   } from "$lib/time/time-columns.ts";
   import { ledgerCurrency, periodTotals } from "$lib/time/time-figures.ts";
-  import { matterDisplay } from "$lib/time/time-sheet-model.ts";
+  import { matterDisplay } from "$lib/matters/matter-choice.ts";
   import { listTimeEntriesInPeriod } from "$lib/time/time-operations.ts";
   import {
     PERIOD_PRESET_IDENTIFIERS,
