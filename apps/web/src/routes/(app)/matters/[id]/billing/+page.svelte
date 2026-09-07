@@ -5,6 +5,11 @@
    * section at the same level as Time and Costs; a fee reaches a bill the same way a cost does —
    * a draft invoice claims it.
    *
+   * THE REGISTER IS THIS MATTER'S OWN. The listing is asked for this matter, so the rows are the
+   * bills that charge it — drafts included — each carrying this matter's share rather than the
+   * document's whole total. It used to be the CLIENT's bills, with the share reached by reading
+   * every one of their details, which stated the client's account under the matter's heading.
+   *
    * THE PAGE IS THE READ AND THE STATE SET; the surfaces below it are the screens. The register
    * renders inside the money surface, which takes the rest of the screen and keeps it; the page
    * hands it the rows, the client, and the one line about bills not read here. A SAMPLE matter
@@ -98,7 +103,7 @@
      above the counts strip on a register that is complete. -->
 {#snippet beneath()}
   <p class="text-xs text-text-muted">
-    This client has more bills than are read here: the register is showing the {(rows ?? []).length}
+    This matter has more bills than are read here: the register is showing the {(rows ?? []).length}
     most recent, and the figures beneath it cover only those. Reading the whole history is a
     further page this section does not ask for yet.
   </p>

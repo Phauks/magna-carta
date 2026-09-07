@@ -9,9 +9,10 @@
  * The internal memo is not on this sheet and is not even named on it. That is not a filter applied
  * here — the record this surface holds carries no memo at all yet.
  *
- * A FACT NOBODY SERVES IS STILL A FACT THE SHEET NAMES. The entered date, the recorder, the files
- * attached and the invoice a billed cost rides all belong on a printed cost, so the sheet states
- * the gap rather than silently printing a shorter record than the one that exists.
+ * A FACT NOBODY SERVES IS STILL A FACT THE SHEET NAMES. The entry number and the files attached
+ * both belong on a printed cost, so the sheet states the gap rather than silently printing a
+ * shorter record than the one that exists. The entered date, the recorder and the invoice a billed
+ * cost rides were in that list until the listing began serving them; they print values now.
  */
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
 import { statusEntry } from "@magna-carta/design-system/status-register";
@@ -22,6 +23,7 @@ import {
   billingSentence,
   costAmount,
   payeeText,
+  recorderText,
   sourceLabel,
   type CostCaptureSource,
 } from "./cost-vocabulary.ts";
@@ -34,6 +36,8 @@ export interface CostSheetContext {
   readonly money: (amount: number) => string;
   /** A date as a reader sees it. */
   readonly date: (isoDate: string) => string;
+  /** An instant as a reader sees it — a moment, not a day. */
+  readonly instant: (isoInstant: string) => string;
   /** When the sheet was taken, already stated as an instant. */
   readonly printedAt: string;
   /** How an expense-code identifier is read into a human label, where the catalogue is readable. */
@@ -64,9 +68,9 @@ export function costEntrySheet(cost: CostSummary, context: CostSheetContext): Pr
         fields: [
           { label: "Status", value: statusEntry(costStatusKey(cost.status)).label },
           { label: "Date Incurred", value: context.date(cost.incurredDate) },
-          { label: "Date Entered", value: NOT_SERVED("dateEntered") },
+          { label: "Date Entered", value: context.instant(cost.createdAt) },
           { label: "Payee", value: payeeText(cost) },
-          { label: "Entered By", value: NOT_SERVED("enteredBy") },
+          { label: "Entered By", value: recorderText(cost) },
         ],
       },
       {
@@ -82,8 +86,14 @@ export function costEntrySheet(cost: CostSummary, context: CostSheetContext): Pr
             value: context.source === undefined ? "—" : sourceLabel(context.source),
           },
           {
+            // The reference itself, not a link: paper cannot be clicked, and the number is what
+            // somebody holding the sheet needs in order to find the bill. A cost billed before the
+            // reference was written on the record says so rather than printing an empty field.
             label: "Invoice",
-            value: cost.status === "billed" ? NOT_SERVED("invoice") : "—",
+            value:
+              cost.status !== "billed"
+                ? "—"
+                : (cost.invoiceId ?? "Billed — the bill is not recorded on this cost"),
           },
         ],
       },

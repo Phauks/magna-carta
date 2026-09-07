@@ -103,6 +103,7 @@ import fileVersionContentSha256IndexSql from "@magna-carta/database/drizzle/per-
 import timeEntryWorkDateIndexSql from "@magna-carta/database/drizzle/per-firm/20260906T170000_time-entry-work-date-index.sql";
 import communicationLogSql from "@magna-carta/database/drizzle/per-firm/20260907T030000_communication-log.sql";
 import seedReportPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/20260907T090000_seed-report-policy-permission.sql";
+import costEntryIncurredDateIndexSql from "@magna-carta/database/drizzle/per-firm/20260907T100000_cost-entry-incurred-date-index.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -220,6 +221,7 @@ export function perFirmMigrations(): Migration[] {
     "20260906T170000_time-entry-work-date-index": timeEntryWorkDateIndexSql,
     "20260907T030000_communication-log": communicationLogSql,
     "20260907T090000_seed-report-policy-permission": seedReportPolicyPermissionSql,
+    "20260907T100000_cost-entry-incurred-date-index": costEntryIncurredDateIndexSql,
   });
 }
 

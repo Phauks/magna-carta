@@ -14,13 +14,15 @@
    * (apps/web/src/lib/money/), the same on every money section. This file declares columns, cells,
    * figures and verbs, and the panel beside the list; it decides none of that behaviour.
    *
-   * THE REGISTER IS CLIENT-WIDE AND THE FIGURES ARE MATTER-WIDE, DELIBERATELY. An invoice belongs to
-   * one client and may bill several of that client's matters, and there is no per-matter listing to
-   * ask for — so the rows are the client's bills and the leading money column is THIS MATTER'S share
-   * of each. Presenting a client-wide list as though it were the matter's own would misstate every
-   * total on the screen.
+   * THE ROWS AND THE FIGURES ARE BOTH THIS MATTER'S. An invoice belongs to one client and may bill
+   * several of that client's matters, so the listing is asked for this matter: the rows are the
+   * bills that charge it, drafts included, and the leading money column is THIS MATTER'S share of
+   * each rather than the document's total. The register was client-wide before the listing could be
+   * narrowed, and presenting a client-wide list under a matter's heading misstated every figure on
+   * the screen — the Total (all matters) column is where the document's own total still reads.
    */
   import type { Snippet } from "svelte";
+  import { page } from "$app/state";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -176,7 +178,9 @@
   });
 
   const grid = DataTable.createDataTableGrid<InvoiceRow>({
-    columns: () => billColumns({ matterId, clientName, currency }),
+    // This register always stands inside a matter — the firm's own register is its own screen
+    // (routes/(app)/billing), built on the same columns with the firm scope.
+    columns: () => billColumns({ scope: { kind: "matter", matterId, clientName }, currency }),
     rows: () => rows,
     rowKey: (row) => row.summary.id,
     initialSort: BILL_REGISTER_INITIAL_SORT,
@@ -203,6 +207,24 @@
     windowRow = row;
     windowOpen = true;
   }
+
+  /*
+   * A bill named in the address opens itself once the register carries it.
+   *
+   * This is what makes a bill reachable from outside its own register: a billed cost's Open The
+   * Bill lands here with the invoice named, and a member who sends the address sends the document
+   * rather than a register and an instruction to go looking. It fires once per named bill, so
+   * closing the window does not immediately reopen it.
+   */
+  let addressOpened: string | null = null;
+  $effect(() => {
+    const named = page.url.searchParams.get("invoice");
+    if (named === null || named === addressOpened) return;
+    const row = rows.find((candidate) => candidate.summary.id === named);
+    if (row === undefined) return;
+    addressOpened = named;
+    openInvoice(row);
+  });
 
   const figures = $derived(
     billFigures(grid.isFiltered ? grid.rowsInView : rows, {
