@@ -94,7 +94,10 @@ describe("GET /api/v1/me", () => {
         "calendar:manage",
         "calendar:read",
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
-        // consultation); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
+        // consultation); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only, and
+        // conflicts:configure narrower still — Owner/Admin alone, because it sets what every future
+        // check searches rather than acting on any one of them.
+        "conflicts:configure",
         "conflicts:dispose",
         "conflicts:read",
         "conflicts:run",

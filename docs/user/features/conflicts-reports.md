@@ -1,12 +1,10 @@
 # Conflicts reports: what a check tells you, and what it does not
 
-_The conflicts search, its record, the per-matter report behind them, and the screens that read them
-are all built. Automatic re-checks when your directory changes are built and have their own guide:
-[automatic conflicts re-checks](automatic-conflicts-rechecks.md). Two things are not built yet: a
-screen for changing what your firm's checks must cover — the settings themselves work, but only your
-administrator can change them for you at present — and the printable conflicts report you could hand
-to a court, which is why the print option gives you the check as a printed sheet rather than a filed
-document._
+_The conflicts search, its record, the per-matter report behind them, and the screens that read and
+configure them are all built. Automatic re-checks when your directory changes are built and have
+their own guide: [automatic conflicts re-checks](automatic-conflicts-rechecks.md). One thing is not
+built yet: the printable conflicts report you could hand to a court, which is why the print option
+gives you the check as a printed sheet rather than a filed document._
 
 ## Where to find it
 
@@ -22,6 +20,36 @@ sends you, and it keeps working after the intake step is marked done — the rec
 wanted long after the box is ticked.
 
 A conflicts check also appears on the matter's activity history, and opens the check it refers to.
+
+**Settings, Conflicts** is where your firm decides what every check must cover — see below.
+
+## What your firm decides, and what it cannot switch off
+
+Under **Settings, Conflicts** an owner or administrator sets your firm's floor: the minimum every
+check searches, whoever runs it. Somebody running a check can search wider than the floor; a narrower
+request is raised back up to it before it runs, and the check records that this happened. Nobody can
+search below what your firm requires.
+
+The floor covers what a check searches (the party register, the relationship graph, your own
+members), which band it must reach, which of a person's names the narrower band compares — current,
+former, maiden, alias, and two more your firm can add — how far it follows each kind of relationship,
+and the two limits on how much one check may do.
+
+Two things are shown but cannot be turned off, and the screen says why on each. **The party register**
+is always searched, because conflicts apply across your whole firm. And the **current name** is always
+compared, because a check that skipped the name someone goes by today would not be a conflicts check.
+
+Three things worth knowing before you change it:
+
+- **Changing the floor re-runs nothing.** No check already on your record is altered or repeated. What
+  happens instead is that any matter whose last check no longer covers what you now require will say
+  so on its own Conflicts tab, worked out fresh each time it is read.
+- **Narrowing the floor reduces what your firm will look at from then on**, and no individual check
+  records that somebody chose that. This is why the change is kept in your firm's audit trail and why
+  only owners and administrators can make it.
+- **What you save is what you are shown.** If you ask for something the platform cannot store as
+  given — a limit above what one operation can carry, for instance — it is adjusted on save and the
+  screen tells you exactly what was adjusted, rather than leaving you to notice a box that moved.
 
 ## What it does
 

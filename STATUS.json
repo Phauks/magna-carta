@@ -2747,7 +2747,7 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "in-progress",
+          "state": "done",
           "by": "Opus 5"
         },
         "load-profile": {
@@ -2761,7 +2761,7 @@
       },
       "branch": "claude/conflicts-4",
       "activeWork": "docs/active-work/claude/conflicts-check-ui-0i4kir.md",
-      "next": "The web surface is now REACHABLE — the sidebar destination shipped disabled while the screens behind it were already built, so the runner, the firm check history, a check read back and a matter standing were all address-only; the matter also gained its own Conflicts section beside Intake, which claims the conflictsCheck timeline source. UI stays in-progress for one named reason: the firm policy floor has no WRITE path, so the strictness and depth nodes still read awaiting-screen and a firm changes its floor by writing the setting row directly. Deepening slices 1-4 built (reporting posture; event triggers + the re-check ledger + the consumers, cron backstop and notification; typed traversal budgets + the closure cap and its truncation record + the batched matcher; matching depth — the two organization match keys, the empty nickname catalogue, and name-role breadth as a firm setting). Slice 5 follows: the adjudication read models and the conflicts report artifact, whose tasks embed owner flags F4 and F5. The firm-marked non-expandable entity (F9) is still unbuilt — slice 3 left it to whichever slice owns the Directory write path and slice 4 deliberately did not take it, since the mark is a traversal control rather than a matching one",
+      "next": "The web surface is now REACHABLE — the sidebar destination shipped disabled while the screens behind it were already built, so the runner, the firm check history, a check read back and a matter standing were all address-only; the matter also gained its own Conflicts section beside Intake, which claims the conflictsCheck timeline source. The firm policy floor then gained its write path and its screen: PUT /api/v1/firm/conflicts-policy on a new conflicts:configure permission seeded to Owner and Admin alone, and Settings, Conflicts over it. normalizeConflictsPolicy was extracted from the read so the WRITE stores the normalized value rather than the request — what is in the row is what runs, which is what lets the screen render the row back and be believed, and what stops an administrator who deselected every source being shown an empty floor the platform would never run. Both awaiting-screen markers are cleared. Deepening slices 1-4 built (reporting posture; event triggers + the re-check ledger + the consumers, cron backstop and notification; typed traversal budgets + the closure cap and its truncation record + the batched matcher; matching depth — the two organization match keys, the empty nickname catalogue, and name-role breadth as a firm setting). Slice 5 follows: the adjudication read models and the conflicts report artifact, whose tasks embed owner flags F4 and F5. The firm-marked non-expandable entity (F9) is still unbuilt — slice 3 left it to whichever slice owns the Directory write path and slice 4 deliberately did not take it, since the mark is a traversal control rather than a matching one",
       "links": {
         "spec": "docs/specs/2026-08-13-conflicts-deepening-design.md",
         "plan": "docs/specs/2026-08-13-conflicts-deepening-implementation-plan.md",

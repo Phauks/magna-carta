@@ -33,7 +33,13 @@ import {
 } from "@magna-carta/conflicts/posture";
 import { describeCheck, type ReportedSource } from "@magna-carta/conflicts/report-text";
 import { ConflictsIdempotencyConflictError } from "@magna-carta/conflicts/run-conflicts-effect";
-import { MAX_CANDIDATE_CAP, readConflictsPolicy } from "@magna-carta/conflicts/settings";
+import {
+  MAX_CANDIDATE_CAP,
+  readConflictsPolicy,
+  writeConflictsPolicy,
+  type ConflictsPolicy,
+} from "@magna-carta/conflicts/settings";
+import { BUDGETED_EDGE_CLASSES } from "@magna-carta/conflicts/edge-classes";
 import { CONFLICTS_CHECK_TABLE, CONFLICTS_HIT_TABLE } from "@magna-carta/conflicts/statements";
 import {
   CONFLICTS_TRIGGERS,
@@ -256,6 +262,35 @@ const ConflictsPolicyResponse = z
     balancedNameRoles: z.array(z.string()),
   })
   .openapi("ConflictsPolicyResponse");
+
+/*
+ * The floor a firm is setting. Every field is optional and an omitted one is NOT "leave it alone" —
+ * it is "use the shipped default", exactly as an absent key in the stored row means. The whole
+ * policy is one value written whole, so a partial PUT that meant "patch" would let two administrators
+ * saving different halves of the same screen compose a floor neither of them chose.
+ *
+ * The bounds here are the shape of the wire, not the firm's invariants: they refuse what could not be
+ * a policy at all (a negative hop budget, a fractional cap). What a firm cannot opt out of — party in
+ * the floor, `current` among the name roles, a candidate cap one atomic batch can carry — belongs to
+ * the domain and is applied by normalizeConflictsPolicy on the way in, so a caller that bypasses this
+ * schema is held to the same guards. The response then says what was actually stored.
+ */
+const ConflictsPolicyRequest = z
+  .object({
+    floorSources: z.array(z.enum(SOURCE_CLASSES)).optional(),
+    floorStrictness: z.enum(STRICTNESS_LEVELS).optional(),
+    // Non-negative integers and no invented ceiling: these mirror exactly what resolveScope accepts,
+    // so the wire cannot refuse a policy the domain would have run. A depth nobody could walk is
+    // bounded in practice by closureCap, which is the bound that actually stops a traversal, and
+    // candidateCap is clamped to MAX_CANDIDATE_CAP by the domain — the response carries the clamped
+    // value, so an administrator who asks for more is told what they got rather than refused.
+    defaultDepth: z.number().int().min(0).optional(),
+    edgeClassBudgets: z.record(z.enum(BUDGETED_EDGE_CLASSES), z.number().int().min(0)).optional(),
+    closureCap: z.number().int().min(0).optional(),
+    candidateCap: z.number().int().min(0).optional(),
+    balancedNameRoles: z.array(z.string().min(1)).optional(),
+  })
+  .openapi("ConflictsPolicyRequest");
 
 /*
  * One line of the firm's check history. Narrow on purpose: this is a listing, and the whole check —
@@ -827,6 +862,46 @@ const firmPolicyRoute = defineOpenAPIRoute(readMeta("firmPolicy", "conflicts:rea
   },
 });
 
+const setFirmPolicyRoute = defineOpenAPIRoute(
+  mutationMeta("setFirmPolicy", "conflicts:configure"),
+  {
+    method: "put",
+    path: "/api/v1/firm/conflicts-policy",
+    description:
+      "Sets the firm's conflicts floor. PUT rather than PATCH because the floor is one value: a " +
+      "partial update would let two administrators saving different halves of the same screen " +
+      "compose a floor neither of them chose, and the floor is what every future check is held to. " +
+      "It writes on conflicts:configure rather than conflicts:run, which is a narrower key seeded to " +
+      "Owner and Admin alone — this does not act on a check, it decides what every LATER check " +
+      "searches, and no single check row records that a person chose that. The stored value is " +
+      "normalized first and the normalized value is returned, so what a firm is shown is what its " +
+      "checks will actually run: a floor with every source deselected comes back carrying `party`, " +
+      "and a candidate cap above what one atomic batch can carry comes back clamped. Changing the " +
+      "floor writes no check and re-runs nothing — a matter whose last check no longer covers the " +
+      "new floor reports the shortfall on its own posture read, computed live, which is why raising " +
+      "the floor takes effect everywhere at once with no sweep.",
+    request: {
+      headers: idempotencyKeyHeader,
+      body: {
+        content: { "application/json": { schema: ConflictsPolicyRequest } },
+        required: true,
+      },
+    },
+    responses: {
+      200: {
+        description: "The firm's conflicts policy as stored, after normalization",
+        content: { "application/json": { schema: ConflictsPolicyResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
 const matterRecheckRoute = defineOpenAPIRoute(mutationMeta("recheckMatter", "conflicts:run"), {
   method: "post",
   path: "/api/v1/matters/{matterId}/conflicts-rechecks",
@@ -1038,6 +1113,40 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
       // hand-edited can never report a floor this platform would not actually run.
       const policy = await readConflictsPolicy(firm.firmDatabase);
       return c.json(policy as unknown as z.infer<typeof ConflictsPolicyResponse>, 200);
+    },
+  );
+
+  // PUT /api/v1/firm/conflicts-policy
+  app.openapi(
+    { ...setFirmPolicyRoute, middleware: chokepointMiddleware(chokepoint, setFirmPolicyRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      try {
+        // The whole policy, written whole. What comes back is the STORED value after normalization,
+        // not the request echoed — a floor the firm cannot actually have (every source deselected, a
+        // candidate cap past one atomic batch) is repaired here and the repair is what the caller is
+        // told, so a screen never shows a floor its own checks would not run.
+        const policy = await writeConflictsPolicy(firm.firmDatabase, request as ConflictsPolicy, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+          randomSource: cryptoRandomSource,
+          idempotency,
+        });
+        return c.json(policy as unknown as z.infer<typeof ConflictsPolicyResponse>, 200);
+      } catch (caught) {
+        // Narrower than conflictsErrorResponse on purpose. This write reads no check, resolves no
+        // hit and refuses no policy — normalization repairs rather than rejects — so a replayed
+        // Idempotency-Key is the one refusal it can produce. Routing through the general mapper
+        // would declare a 404 this route can never return, which reads to a client as an operation
+        // that might not find something.
+        if (caught instanceof ConflictsIdempotencyConflictError) {
+          return problemResponseForIdempotencyConflict(c, caught);
+        }
+        throw caught;
+      }
     },
   );
 

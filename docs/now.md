@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 292 | 45% |
-| Part-built | partial, in-build | 119 | 18% |
+| Done | shipped | 293 | 45% |
+| Part-built | partial, in-build | 118 | 18% |
 | Ahead | designed, planned, researching, not-started | 205 | 31% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **657** | **100%** |
@@ -40,15 +40,15 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 292 | 44% |
-| `partial` | 118 | 18% |
+| `shipped` | 293 | 45% |
+| `partial` | 117 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 16 | 2% |
 | `researching` | 5 | 1% |
 | `not-started` | 138 | 21% |
 | `deferred` | 38 | 6% |
-| `cut` | 3 | 1% |
+| `cut` | 3 | 0% |
 | **All statuses** | **657** | **100%** |
 
 ### What a roll-up is not
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 292 of 657 (44%). Shipped plus partial is 410 (62%).**
+**Shipped alone is 293 of 657 (45%). Shipped plus partial is 410 (62%).**
 
-The 118 units between those two numbers are work that is engineered and paid for and is not
+The 117 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -81,8 +81,8 @@ ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 62 | 15% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 171 | 42% |
+| A person can open it today (`screen`) | 64 | 16% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 169 | 41% |
 | No user surface by nature (`internal`) | 178 | 43% |
 | Not yet classified | 0 | 0% |
 | **Everything with something built** | **411** | **100%** |
@@ -100,7 +100,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Calendar and Rules-Based Docketing | 13 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 19 | 68% |
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
 | Community & Feedback Forum | 0 | 0 | 0 | 9 | 0 | 0 | 0 | 1 | 0 | 10 | 0% |
-| Conflicts Check | 5 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 63% |
+| Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
 | Core Domain — Directory, Matters & Locations | 33 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 54% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **292** | **118** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **657** | **44%** |
+| **All areas** | **293** | **117** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **657** | **45%** |
 
 ## Where we have been
 
@@ -592,14 +592,14 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Conflicts Check
 
-[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 63% shipped. 5 done, 3 part-built, 0 ahead, 0 parked.
+[`roadmap.d/conflicts.md`](../roadmap.d/conflicts.md) — 8 units of work, 75% shipped. 6 done, 2 part-built, 0 ahead, 0 parked.
 
 - `conflicts` · `partial` · **Conflicts Check** — Firm-wide conflict checking across the Directory graph and matter role-links, with configurable strictness/depth, human clearance, and an immutable log.
   - `conflicts.directory-seams` · `shipped` · **Directory matching seams** — Name normalization, phonetic keys, entity search, and duplicate-detection/merge machinery in the Directory.
   - `conflicts.triggers` · `partial` · **Check triggers** — Run checks at intake, whenever a party is added, and on optional periodic re-scans.
   - `conflicts.matching-engine` · `shipped` · **Matching engine** — Candidate generation over names and identifiers (exact identifier, exact normalized name, organization match keys, Double Metaphone, trigram) with related-party edge expansion, ordered by evidence tier. _Note: Backend only, no screen. Deliberately scorer-free — a tier orders evidence and never filters, so raising strictness can only add hits; the under-specification the white paper flagged was answered by the two conflicts design specs rather than left open. One named gap remains and it is measured rather than assumed: the phonetic channel encodes ENGLISH pronunciation, so cross-origin surname variants (Nowak/Novak, Kowalczyk/Kovalchik) are structurally out of its reach. A Beider-Morse channel would close seven such pairs in a thirty-pair corpus; it is unbuilt because the only pure-TypeScript encoder compiles its rule tables in 20,377 ms inside workerd against 16 ms in Node, which is past the CPU limit. The follow-on is the Rust/WASM port, with that number as its flip condition._
-    - `conflicts.matching-engine.strictness` · `partial` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable, and the name roles each band compares against as a firm setting recorded on the check row. _Note: Partial because the firm floor itself has no write path — readConflictsPolicy in packages/conflicts/src/settings.ts reads the conflicts.policy setting row and no route or screen sets it, so a firm changes its floor only by writing that row directly. The screen is blocked on the ROUTE rather than on design: GET /api/v1/firm/conflicts-policy already serves the floor and the check runner already states it, so a Settings · Conflicts surface needs a PUT beside that GET and nothing else._
-  - `conflicts.search-depth` · `partial` · **Configurable search depth** — Structured Directory/matter scan by default, deep in two independent axes — how far the graph is walked and how a name is compared; optional document-content scan. _Note: The matching axis lands with the traversal one — the two organization match keys and the resolved channel set recorded verbatim on the check row (see conflicts.matching-engine and conflicts.matching-engine.strictness); the cross-origin surname encoder is measured-and-deferred, recorded on that node. The nickname equivalence dimension is registered and empty: the nickname_equivalence table exists, holds nothing, and NICKNAME_EQUIVALENCE_SOURCE in packages/conflicts/src/sources.ts makes every check record it as a source it could not search, read from the catalogue by nicknameCatalogueIsPopulated in packages/directory/src/nickname.ts rather than asserted. Partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen. The firm-marked non-expandable entity, the recorded and attributable alternative to a hub heuristic, is not built: it needs a Directory write path._
+    - `conflicts.matching-engine.strictness` · `shipped` · **Configurable strictness** — Balanced default with an over-inclusive fuzzy/phonetic/alias mode a firm can enable, and the name roles each band compares against as a firm setting recorded on the check row. _Note: The firm floor now has a write path and a screen. PUT /api/v1/firm/conflicts-policy on conflicts:configure — a permission of its own rather than conflicts:run, seeded to Owner and Admin alone, because this decides what every LATER check searches and no check row records that a person chose it. writeConflictsPolicy normalizes through normalizeConflictsPolicy, the same function the read repairs with, and STORES the normalized value: what is in the row is what runs, so the screen can render the row back and believe it. Settings, Conflicts stages every control until Save, shows party and current as locked controls carrying their reason rather than hiding them, and names each specific repair the platform made on the way in instead of describing the possibility. Held by packages/conflicts/test/policy-write.test.ts and apps/web/test/conflicts-policy-screen.test.ts._
+  - `conflicts.search-depth` · `partial` · **Configurable search depth** — Structured Directory/matter scan by default, deep in two independent axes — how far the graph is walked and how a name is compared; optional document-content scan. _Note: The matching axis lands with the traversal one — the two organization match keys and the resolved channel set recorded verbatim on the check row (see conflicts.matching-engine and conflicts.matching-engine.strictness); the cross-origin surname encoder is measured-and-deferred, recorded on that node. The nickname equivalence dimension is registered and empty: the nickname_equivalence table exists, holds nothing, and NICKNAME_EQUIVALENCE_SOURCE in packages/conflicts/src/sources.ts makes every check record it as a source it could not search, read from the catalogue by nicknameCatalogueIsPopulated in packages/directory/src/nickname.ts rather than asserted. The traversal budgets, the closure cap and the candidate cap are now set from Settings, Conflicts over PUT /api/v1/firm/conflicts-policy, so the depth axis is no longer screenless. Still partial because the content class has no corpus behind it — availabilityOf in packages/conflicts/src/sources.ts records it unavailable on every check and unavailabilityReason states why, so the log can never read as searched-and-clean for document text. Backend only, no screen. The firm-marked non-expandable entity, the recorded and attributable alternative to a hub heuristic, is not built: it needs a Directory write path._
   - `conflicts.firm-wide-scope` · `shipped` · **Firm-wide imputation** — Conflicts impute across the whole firm and every office; locations never partition the conflicts graph. _Note: Backend only, no screen. The package names no location column and takes no office argument on any path, so there is no seam through which a location filter could partition the graph._
   - `conflicts.clearance` · `shipped` · **Human clearance** — Reviewer adjudicates hits; clearance records waiver obtained or ethical wall erected. _Note: Backend only, no review screen. A reversal is a second row rather than an edit, so the whole adjudication history stays on the books; wall_erected records that a wall was put in place and enforces no access restriction by itself. packages/conflicts/test/automated-path-cannot-dispose.test.ts proves no automated trigger can dispose of anything._
   - `conflicts.log` · `shipped` · **Immutable conflicts log** — Every check and clearance recorded in an immutable, defensible log. _Note: Backend only, no screen reads it. The entry format the white paper left open is now the schema, and the fitness probes also refuse a plaintext-identifier-shaped digit run in a recorded input or evidence string — the log records what was searched, never the identifier value that drove it._

@@ -24,8 +24,10 @@ and never calls external services.
   `SourceAvailability` (`searched`/`unavailable`), `EvidenceTier` (1-4, ordering only), `MatchEvidence`,
   `EdgeStep`
 - `src/settings.ts` — `ConflictsPolicy` (the firm-set floor), `resolveScope` (raises a request to the
-  floor, never lowers it), `readConflictsPolicy` (falls back to `DEFAULT_CONFLICTS_POLICY`, always
-  unions `party` back into `floorSources` even from a corrupt or hand-edited stored row)
+  floor, never lowers it), `normalizeConflictsPolicy` (every guard the floor carries, in one
+  function), `readConflictsPolicy` (falls back to `DEFAULT_CONFLICTS_POLICY`, normalizing whatever it
+  loads) and `writeConflictsPolicy` (the one write path, normalizing through the SAME function and
+  storing the result, audited as `conflicts.policy.changed`)
 - `src/evidence.ts` — `assignTier` (identifier > exact name > phonetic > trigram-only; a candidate
   with no recorded signal still lands at tier 4, never disappears), `describeEvidence` (the
   reviewer-facing explanation string list)
@@ -144,6 +146,19 @@ and never calls external services.
   a role later is covered by the first and not the second. A stored set that is corrupt or emptied
   falls back to the default, and `current` is unioned back in unconditionally — a check that did not
   compare the name the party goes by today is not a conflicts check.
+- **What is STORED as the firm's policy is what runs.** The read repairs an unsound stored policy on
+  the way out, which is right for a value this platform did not write — and it becomes a trap the
+  moment something can write one, because a stored value and an effective value then differ whenever
+  the stored one is unsound. A settings screen that saved `floorSources: []`, re-read `[]`, and
+  displayed it would be showing a floor no check would ever run. So `normalizeConflictsPolicy` holds
+  every guard once, `readConflictsPolicy` and `writeConflictsPolicy` both call it, and the write
+  stores the NORMALIZED value: the row is the effective policy, the read's repairs go back to being a
+  backstop against corruption and hand edits rather than a routine correction of this platform's own
+  writes, and read and write cannot drift because there is one implementation.
+  `test/policy-write.test.ts` asserts against the raw `setting` row rather than the read's answer,
+  since a repairing read would make a broken write look correct. The write is also the reason
+  `conflicts:configure` exists as a key of its own: it does not act on a check, it decides what every
+  LATER check searches, and no check row records that a person chose it.
 - **Seven blocking channels now, and three of them are probes in this package.** The directory's shared
   corpus reader offers exactly three (phonetic, trigram, blind-index) and widening it would change what
   entry-time duplicate detection and merge see, so the exact-name probe, the two match-key probes, and
@@ -278,13 +293,14 @@ and never calls external services.
   `readPerson`/`readOrganization`, `normalizeName`, the identifier statements — read-only, this package
   never writes a Directory table), `@magna-carta/data-access` (effect batches, `composeEffectBatch`,
   the idempotency/audit seams), `@magna-carta/database` (per-firm schema), `@magna-carta/identifiers`,
-  `@magna-carta/access-control` (`conflicts:run` / `conflicts:dispose` permissions).
+  `@magna-carta/access-control` (`conflicts:run` / `conflicts:dispose` / `conflicts:configure`
+  permissions).
 - Pure and synchronous per operation except for its own database reads: produces statements for the
   caller to run via the data-access layer; holds no D1 binding of its own and calls no external
   service.
 - The worker routes (`apps/api-worker/src/routes/conflicts.ts`) are the only callers of
-  `runConflictsCheck` / `recordDisposition` / `readMatterConflictsPosture` — they own threading `env`,
-  the actor, and idempotency.
+  `runConflictsCheck` / `recordDisposition` / `readMatterConflictsPosture` / `writeConflictsPolicy` —
+  they own threading `env`, the actor, and idempotency.
 
 ## Gotchas
 
