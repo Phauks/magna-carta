@@ -17,7 +17,7 @@ have something under them. The count inside the field says how much of the whole
 heading it sits under. Some tools also answer to words they do not display, so "bandwidth" reaches
 the network speed test and "registrant" reaches the WHOIS lookup.
 
-Clear the search with the **✕** at the end of the field, or by pressing Escape. Pressing Escape on
+Clear the search with the cross at the end of the field, or by pressing Escape. Pressing Escape on
 an already-empty field closes it again. The field stays open, with a coloured edge, for as long as
 something is typed in it, so a shortened list always shows its reason.
 

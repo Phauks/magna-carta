@@ -17,7 +17,7 @@ timekeeper productivity, and operational volumes reports are listed and marked S
 **To find a report, use the magnifying glass at the top right.** Type and the page narrows as you
 type, showing only the reports that match and only the families that still have one; the count
 inside the field says how much of the whole you are looking at. It searches a report's name, the
-question it answers, the family heading, and the permission it runs under. Clear it with the **✕**
+question it answers, the family heading, and the permission it runs under. Clear it with the cross
 at the end of the field, or press Escape.
 
 The two buttons beside the search choose how the page reads: **tiles**, a card per report with its
