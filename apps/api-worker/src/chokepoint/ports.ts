@@ -11,7 +11,12 @@ import type { Logger } from "@magna-carta/telemetry/logger";
 import type { Bindings } from "../app.ts";
 import type { RouteMeta } from "../contracts/route-meta.ts";
 import type { createAuth } from "../auth.ts";
-import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
+import {
+  firmDatabaseFor,
+  firmDatabaseMigrationStateFor,
+  type FirmDatabaseMigrationState,
+  type ProxyBatchDatabase,
+} from "../firm-database/firm-database-proxy.ts";
 import {
   loadEffectivePermissions,
   resolveSession,
@@ -27,6 +32,12 @@ import { resolveSupportPermissions } from "../support/tier-permissions.ts";
 // "chokepointFirmContext"). The firm came from the SESSION, never the URL.
 export interface FirmContext {
   readonly firmDatabase: ProxyBatchDatabase;
+  /**
+   * What the firm's lineage did, and what stopped it — asked on demand, and answerable when nothing
+   * else about this database is. Every statement `firmDatabase` carries is refused while a migration
+   * is stuck, so this is the one question a diagnostic can still put.
+   */
+  readonly migrationState: () => Promise<FirmDatabaseMigrationState>;
   /**
    * The firm's readable name, resolved ON DEMAND rather than carried.
    *
@@ -223,6 +234,7 @@ function makeResolveFirmContext(): (
 
     return {
       firmDatabase,
+      migrationState: () => firmDatabaseMigrationStateFor(env.FIRM_DATABASE, firmId),
       readFirmName,
       bucketName,
     };
