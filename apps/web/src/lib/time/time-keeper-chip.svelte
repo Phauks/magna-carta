@@ -111,11 +111,13 @@
     list.items === null ? null : incompleteCount(entries.map(sheetRowFromEntry)),
   );
 
-  const chipTitle = $derived(
-    running
-      ? "A timer is running. Open the Time Sheet, over whatever you are doing."
-      : "Open the Time Sheet, over whatever you are doing.",
-  );
+  /*
+   * The hover names the control and nothing else — the same one-name answer the bell, the download
+   * tray and the build chip give in this band. It used to explain what pressing it would do, and
+   * whether a timer was running; the readout beside the glyph already says the second, and a
+   * sentence where its neighbours show a name made the four controls read as four kinds of thing.
+   */
+  const CHIP_TOOLTIP = "Time Sheet";
 </script>
 
 <Tooltip.Root>
@@ -140,7 +142,7 @@
       </span>
     {/if}
   </Tooltip.Trigger>
-  <Tooltip.Content>{chipTitle}</Tooltip.Content>
+  <Tooltip.Content>{CHIP_TOOLTIP}</Tooltip.Content>
 </Tooltip.Root>
 
 <TimeSheet

@@ -482,13 +482,29 @@
                no count badge). Its popover states the truth and offers the center; live alerts
                arrive with the notifications machinery. -->
           <Popover.Root bind:open={notificationsOpen}>
-            <Popover.Trigger class="mc-top-bar-icon-button relative" aria-label="Notifications">
-              <Bell class="size-16" aria-hidden="true" />
-              <MaturityDot
-                stage={destinationStage(notificationsDestination)}
-                class="absolute end-4 top-4"
-              />
-            </Popover.Trigger>
+            <!-- The hover names the control and nothing else. Every control in this band answers
+                 the same question the same way — what is this? — so the four tooltips are four
+                 names: Notifications, Time Sheet, Downloads, Build Information. The tooltip and
+                 the popover share ONE button through the tooltip trigger's child snippet; two
+                 elements would be two controls. -->
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <Popover.Trigger
+                    {...props}
+                    class="mc-top-bar-icon-button relative"
+                    aria-label="Notifications"
+                  >
+                    <Bell class="size-16" aria-hidden="true" />
+                    <MaturityDot
+                      stage={destinationStage(notificationsDestination)}
+                      class="absolute end-4 top-4"
+                    />
+                  </Popover.Trigger>
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content>Notifications</Tooltip.Content>
+            </Tooltip.Root>
             <Popover.Content
               align="end"
               class="flex flex-col gap-8"

@@ -276,6 +276,27 @@ is usually the fastest way to understand the rule.
   state names the control at the top instead. When nothing can be made right now the control is
   disabled with the reason as its title; it never leaves the row. Enforced by
   `pnpm run lint:matter-create-control`. _(the matter screens, 2026-09-03)_
+- **The verb is New, and a control that opens a MENU reads the bare "New".** New is the word this
+  product makes things with; a screen that invented its own — the firm calendar's "Record" — reads
+  as a different kind of control in the one place every screen puts the same one. And where the
+  control offers several kinds, the noun goes on the MENU ITEMS, each carrying the verb with it
+  ("New Event", "New Deadline", "New Firm Event"): a button naming one of three things is wrong
+  about the other two, and the item is where the choice is actually made. A control that does one
+  thing still names it ("New Fee"). On a matter the registry says which sections make several kinds
+  (`CREATE_SEVERAL_KINDS` in `sections.ts`) rather than the control reading it off the claim, so
+  the label does not change under the reader as the page mounts. It holds on every menu-bearing
+  control, not only the one it was raised on: Files reads "New" over New Document, New Folder and
+  Upload Files (it read "New File", naming one of the three), and the directory's items read "New
+  Person" and "New Organization". **Supersedes the label half of the file manager's N30**, which
+  named "New File" there; N30's placement stands. _(the calendar, 2026-09-06)_
+- **A control in a chrome band names itself on hover — one name, not a sentence.** The top bar's
+  cluster answers one question on hover: what is this? So the four read "Notifications", "Time
+  Sheet", "Downloads", "Build Information", and nothing more. Three of them had no hover text at
+  all and the fourth explained what pressing it would do, which made four controls in one band read
+  as four kinds of thing. The hover is the design system's Tooltip on every one of them, never a
+  native `title` beside a real tooltip: two hover behaviours in one band differ in delay, in
+  placement and in look. Where the control is already somebody else's trigger — a popover's — the
+  two share ONE button through `Tooltip.Trigger`'s `child` snippet. _(the app header, 2026-09-06)_
 - **The search and the create control travel together, search first.** A screen that carries one
   carries the other, in that order at the row's inline end: the search grows toward the inline
   start, so the control after it is the one place the field's growth cannot reach. The custody
@@ -525,7 +546,29 @@ is usually the fastest way to understand the rule.
   its own label it restates those metrics, and the two blocks change together. _(Time record window,
   2026-09-03)_
 
+- **A submenu holds what it is named after, and settings are not filed under a noun.** The table
+  header menu kept the display settings — row shading, and whatever the surface added — inside its
+  Columns submenu, one arrow to the right of a trigger that names something else. A column roster is
+  what a submenu is for: one row per column, the hidden ones included, since a hidden column has no
+  header left to right-click. How the table LOOKS is not a column, so it sits in the menu's own
+  root, in the menu the reader already has open. _(the file manager, 2026-09-06)_
+- **A control that comes and goes never ends a row.** The end of a right-aligned row is an anchor,
+  and a control that appears only in some states must not hold it: everything before it slides
+  sideways each time it arrives or leaves. The file manager's display settings, which belong to the
+  icon view alone, sit BEFORE the list-or-icons swapper for exactly this reason — the swapper is on
+  every view, so the swapper keeps the end. Same property the create control's fixed width protects
+  in the matter header. _(the file manager, 2026-09-06)_
+
 ### List screens
+
+- **A list screen is ONE table at the full width, and a rail down its side has to earn the
+  difference.** The custody register kept a container tree in a left column, narrowing the rows to
+  a whole branch — a subtree read the server does per request, which no column filter over loaded
+  rows can express. That argument was real and still lost: the rail made this register read as a
+  different kind of table from every other one in the product, which is a cost paid on every visit
+  for a narrowing that a set filter on the Location column already serves. Where a thing is kept is
+  a property of the row, so it is a column, filtered from its own header the way Status is.
+  _(the Custodian register, 2026-09-06)_
 
 Issued against the matters list and re-issued against the directory. They bind every List/Index
 surface, which is most of the product.
@@ -745,6 +788,19 @@ name, which is every screen outside a matter.
   rest halfway up the screen with a band of empty surface below them read as a table that failed to
   load the rest. _(the four financial ledgers, 2026-09-03)_
 
+- **The document declares its colour scheme, and the root declares its ink.** The token cascade
+  re-points every `--mc-*` per theme and mode, so anything drawn from a token follows the mode — but
+  the browser paints a great deal no token reaches (the canvas behind an overscroll, scrollbars,
+  form controls, the caret, and the system colour that stands in wherever a colour was never named),
+  and all of it follows `color-scheme` alone. Neither was declared, so on the dark themes the
+  browser was still painting in light mode underneath the design system, and any element written
+  without a colour took `canvastext`, which is BLACK whatever the page behind it looks like. It
+  surfaced as the file manager's breadcrumb reading black on a dark band; it was never a file
+  manager defect, and every screen carried it. One stylesheet in the `base` layer
+  (`packages/design-system/src/lib/styles/base.css`), imported by the app entry and the catalog
+  preview alike, so the two review the same product. A component still names its own ink — this is
+  only what the document starts from. _(the file manager, 2026-09-06)_
+
 ### Spacing and rhythm
 
 - **Meta text sits at a fixed offset under the element it annotates**, expressed as one rule, not
@@ -783,6 +839,28 @@ ones." What binds:
   registers follow it, and Customize closes the row.
 - **The two levels stay distinct.** The top-bar trays are summaries with quick actions; the footer
   icons open the full surfaces. Neither replaces the other.
+
+### 2026-09-06 — the calendar's create control, the header's hovers, the custody rail
+
+Three corrections from one walk of the deployed app; all three generalize and are promoted above.
+
+- The firm calendar's primary action was a hand-built dropdown reading "Record" — the one create
+  control the product has, re-implemented under a different verb. It is `CreateControl` now, reading
+  the bare "New" over "New Event", "New Deadline", "New Firm Event". The matter's own calendar
+  section had the same mislabel from the other direction: it read "New Event" over a menu that also
+  records a deadline. The gate that refuses a rival create button did not cover the calendar's
+  routes, which is why the hand-built one survived; it does now.
+- Each kind wears the glyph it already wears wherever it is named — event a calendar, deadline a
+  clock, firm event a building — rather than a second choice made per menu.
+- The custody register's location rail is gone; Location was already a set-filtered column.
+- The owner then extended the label rule to every menu-bearing create control rather than the
+  calendar alone, which is why Files and the directory move with it.
+
+### 2026-09-06 — the file manager, seventeenth round
+
+Five corrections against the deployed file manager. The generalizable parts are promoted above — the
+document base, and the rule that a submenu holds what it is named after; what is local to this
+surface is in [`file-manager-rulings.md`](file-manager-rulings.md) (round seventeen).
 
 ### 2026-09-06 — the matter lifecycle: a hold beside active, and no number before active
 
