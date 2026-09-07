@@ -86,8 +86,8 @@
   });
 
   /** A member's standing as the status register words it — never a tone chosen here. */
-  function standingKey(member: FirmMemberSummary): "member-active" | "member-no-access" {
-    return member.status === "active" ? "member-active" : "member-no-access";
+  function standingKey(member: FirmMemberSummary): "member-has-access" | "member-no-access" {
+    return member.status === "active" ? "member-has-access" : "member-no-access";
   }
 
   function roleName(roleId: string): string {
@@ -307,8 +307,8 @@
                   <DataTable.Cell>{row.name}</DataTable.Cell>
                   <DataTable.Cell>{row.roles}</DataTable.Cell>
                   <DataTable.Cell>
-                    <Badge {...statusBadgeAttributes("member-active")}>
-                      {statusEntry("member-active").label}
+                    <Badge {...statusBadgeAttributes("member-has-access")}>
+                      {statusEntry("member-has-access").label}
                     </Badge>
                   </DataTable.Cell>
                 </DataTable.Row>
