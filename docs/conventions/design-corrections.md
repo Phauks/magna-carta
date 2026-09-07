@@ -800,6 +800,18 @@ name, which is every screen outside a matter.
   (`packages/design-system/src/lib/styles/base.css`), imported by the app entry and the catalog
   preview alike, so the two review the same product. A component still names its own ink — this is
   only what the document starts from. _(the file manager, 2026-09-06)_
+- **The root is painted too, and the scheme is written before the stylesheet arrives.** The same
+  document base, carried the last two steps by the white-flash report. A colour scheme is not a
+  colour: it buys the browser's generic canvas for the mode, not the surface the product is drawn
+  on, and against a 99% warm surface the light one reads as a flash to pure white. Every shell
+  paints its background INSIDE the Svelte tree, so the canvas is what shows wherever that tree does
+  not cover the viewport — the boot of a hard load, a shell swap on the way to Account or sign-in,
+  an overscroll, the scrollbar gutter. The root takes `background-color` from the surface token, and
+  a background on the root propagates to the canvas, so no unpainted layer is left. And because a
+  stylesheet is a separate request while this document has an empty body until the application
+  mounts, `applyThemeToDocument` writes `color-scheme` inline as well — mirrored in the boot script,
+  the same fact in the one window a stylesheet cannot reach. _(reported as a white flash between
+  screens, 2026-09-07)_
 
 ### Spacing and rhythm
 
