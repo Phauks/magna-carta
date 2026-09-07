@@ -354,7 +354,16 @@ export function collapsedHealthBadge(reading: HealthReading): string | null {
  * a bug report hands over the whole diagnosis rather than a screenshot of part of it.
  */
 export function copyLineForDatabaseHealth(value: DatabaseHealthValue): string {
-  const segments = databaseHealthRows(value).map((row) => `${row.name}: ${row.status}`);
+  // A FAULTED row pastes its detail too, not just its status. "Firm database: Not answering" is the
+  // symptom the reader already had; the sentence under it is the diagnosis, and a copy that carried
+  // only the status handed over a report with the one useful fact stripped out of it. Healthy rows
+  // keep to their status — their detail is a round-trip time and a reassurance, which is noise in a
+  // bug report.
+  const segments = databaseHealthRows(value).map((row) =>
+    row.reading === "fault"
+      ? `${row.name}: ${row.status} — ${row.detail}`
+      : `${row.name}: ${row.status}`,
+  );
   const backlog = describeProvisioningBacklog(value);
   if (backlog !== null) segments.push(backlog.sentence);
   segments.push(`observed ${value.observedAt}`);

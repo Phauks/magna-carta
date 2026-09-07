@@ -112,9 +112,40 @@ export function loadMigrationsFromDisk(lineage: "control-plane" | "per-firm"): M
 }
 
 export function applyMigrations(database: DatabaseSync, migrations: readonly Migration[]): void {
+  // APPLIED THE WAY PRODUCTION APPLIES THEM: foreign keys enforced, each migration in a transaction,
+  // and the pragma toggled OUTSIDE that transaction where SQLite actually honours it — the same
+  // shape as do-sqlite-migration-target.ts.
+  //
+  // This used to be a bare loop with no transaction and no enforcement, which is why a rebuild that
+  // could not survive contact with a real database passed every test here. `PRAGMA foreign_keys=OFF`
+  // written inside a migration is a no-op in a transaction, so DROP TABLE on a parent fires a
+  // violation for every child row; with nothing enforced and nothing wrapped, this harness could not
+  // see it, and the fixtures it builds have no child rows to fire one anyway. A harness that applies
+  // migrations differently from production is not testing the migrations.
+  database.exec("PRAGMA foreign_keys=ON");
   for (const migration of migrations) {
-    for (const statement of migration.statements) {
-      database.exec(statement);
+    database.exec("PRAGMA foreign_keys=OFF");
+    try {
+      database.exec("BEGIN");
+      for (const statement of migration.statements) {
+        database.exec(statement);
+      }
+      const violations = database.prepare("PRAGMA foreign_key_check").all();
+      if (violations.length > 0) {
+        throw new Error(
+          `migration "${migration.tag}" left ${String(violations.length)} row(s) referencing a row that is not there`,
+        );
+      }
+      database.exec("COMMIT");
+    } catch (error) {
+      try {
+        database.exec("ROLLBACK");
+      } catch {
+        // The transaction was never opened, or SQLite already unwound it; the original error stands.
+      }
+      throw error;
+    } finally {
+      database.exec("PRAGMA foreign_keys=ON");
     }
   }
 }

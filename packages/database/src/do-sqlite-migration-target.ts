@@ -22,9 +22,32 @@ export function doSqliteMigrationTarget(
       return Promise.resolve(rows.map((row) => row.tag));
     },
     applyMigration(migration: Migration): Promise<void> {
+      // FOREIGN KEYS COME OFF OUT HERE, because SQLite only honours this pragma outside a
+      // transaction — inside one it is a silent no-op that reports success and changes nothing.
+      // Every table-rebuild migration writes `PRAGMA foreign_keys=OFF` in its own text believing it
+      // works, and none of them ever did: the statements run inside transactionSync below. That
+      // cost a firm its entire database. A rebuild drops the old table, DROP TABLE on a parent with
+      // enforcement live fires a violation for every child row, and the migration failed — while
+      // passing everywhere it was tested, because a database with no rows has no children to
+      // orphan.
+      //
+      // The pragma is restored in `finally` so a failed migration cannot leave enforcement off for
+      // the reads that follow it.
+      sql.exec("PRAGMA foreign_keys=OFF");
       try {
         storage.transactionSync(() => {
           for (const statement of migration.statements) sql.exec(statement);
+          // What the disabled enforcement above owes back: with the constraints off for the length
+          // of the migration, a genuine dangling reference would otherwise commit unnoticed. This
+          // asks the whole database the question once, INSIDE the transaction, so a migration that
+          // really did orphan a row aborts and rolls back rather than being discovered later by a
+          // read that cannot explain itself.
+          const violations = sql.exec("PRAGMA foreign_key_check").toArray();
+          if (violations.length > 0) {
+            throw new Error(
+              `migration "${migration.tag}" left ${String(violations.length)} row(s) referencing a row that is not there`,
+            );
+          }
           sql.exec(
             "INSERT INTO _migrations (tag, applied_at) VALUES (?1, ?2)",
             migration.tag,
@@ -33,6 +56,8 @@ export function doSqliteMigrationTarget(
         });
       } catch (error) {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+      } finally {
+        sql.exec("PRAGMA foreign_keys=ON");
       }
       return Promise.resolve();
     },
