@@ -32,6 +32,7 @@
   import { sampleCivilDate } from "@magna-carta/design-system/loading-fixtures";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
@@ -117,7 +118,6 @@
 <SettingsMasthead
   sectionId="versions"
   title="Versions"
-  meta="What is running: every versioned component of the platform, in one place."
   posture="readOnly"
   badgeLabel="Reported by the platform"
   showHistory={false}
@@ -128,6 +128,8 @@
      identical width. Full canvas width (owner-directed): the table uses the space. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>What is running: every versioned component of the platform, in one place.</SettingsDescription>
+
   <!-- `keep` marks a row that stays real inside a loading fixture: a seam row's dash is an
        answer, not a value on its way. -->
   {#snippet row(component: string, version: string | null, asOf: string | null, keep: boolean)}

@@ -23,6 +23,7 @@
   import { MANAGE_NUMBERING_PERMISSION } from "$lib/matters/numbering-api.ts";
   import { civilToday } from "$lib/billing/invoice-standing.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
 
@@ -48,7 +49,6 @@
 <SettingsMasthead
   sectionId="matter-numbering"
   title="Matter Numbering"
-  meta="The shape of every matter number and consultation number the firm draws."
   posture={mayManage === false ? "readOnly" : "draft"}
   showHistory={false}
 />
@@ -58,6 +58,8 @@
      identical width. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+    <SettingsDescription>The shape of every matter number and consultation number the firm draws.</SettingsDescription>
+
     <Alert.Root variant="info">
       <Alert.Title>A Number Is Drawn Once, When The Matter Opens</Alert.Title>
       <Alert.Description>

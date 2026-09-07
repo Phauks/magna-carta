@@ -33,6 +33,7 @@
     type EventTypeCategory,
   } from "$lib/calendar/calendar-api.ts";
   import { mayManageCalendar } from "$lib/calendar/calendar-permission.ts";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -202,13 +203,14 @@
 <SettingsMasthead
   sectionId="event-types"
   title="Event Types"
-  meta="The words an event is classified under: the vocabulary the platform ships, and the firm's own."
   posture={canEdit ? "instant" : "readOnly"}
   showHistory={false}
 />
 
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>The words an event is classified under: the vocabulary the platform ships, and the firm's own.</SettingsDescription>
+
     <SettingsPlate heading="The Vocabulary">
       {#if canEdit}
         <div class="flex justify-end py-12">

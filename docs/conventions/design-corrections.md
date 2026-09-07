@@ -537,7 +537,8 @@ surface, which is most of the product.
   nothing they did not know before they clicked. This is not the same as an honest line that carries
   a CONSEQUENCE — "revealing a value is recorded in the firm's audit log" stays, because it says
   something a reader must know before they press. The test is whether removing the line loses a
-  fact. _(matters list, 2026-08-30)_
+  fact. **Issued here against lists, it binds every archetype** — see _Screen headers_ below, which
+  is where it was carried to the rest of the app. _(matters list, 2026-08-30)_
 - **Actions collapse into one compact action row.** Everything above the data that is not the data
   is a single row: the primary action, then narrowing and searching as icon controls that open what
   they need when they are needed. A labelled dropdown and a labelled search box, each with a
@@ -601,6 +602,59 @@ surface, which is most of the product.
   and shipping it beside the word it collides with is half the correction. This never licenses a
   synonym: the enum, the ledger and the filter are unchanged, and the word chosen is the domain's
   own (the ledger row for this state records a `borrower`). _(Custodian register, 2026-09-01)_
+
+### Screen headers
+
+Issued against the main screens as a set (2026-09-06). They bind every screen that states its own
+name, which is every screen outside a matter.
+
+- **A main screen's title is its destination's name, and nothing else.** `ScreenHeader` with a
+  `title` and no `eyebrow` — the Matters shape, which the owner named as the one to copy: "i like
+  matters, simple, just the name". Home greeted the reader with the daypart, Notifications called
+  itself "Notification Center" while the sidebar called it Notifications, and Downloads and
+  Notifications each carried an eyebrow that repeated their own title back. A screen and the
+  sidebar row that leads to it disagreeing about the screen's name costs the product a shared
+  vocabulary and buys nothing. Take the name from `destinations.ts`. _(main screens, 2026-09-06)_
+- **The eyebrow names what the screen's SUBJECT is, never what the screen is.** It exists for a
+  record window — PERSON over _Rosalind Chase_ — where the reader needs to know what kind of thing
+  they are looking at. On a destination screen the title is already that answer, so the eyebrow can
+  only repeat it. No main screen carries one. _(main screens, 2026-09-06)_
+- **The meta line carries facts, not descriptions.** This is the no-explanatory-sub-text rule
+  (_List screens_, above) applied to the masthead's citation, and the test is unchanged: removing
+  the line must lose a fact. Home's date, a room's kind and seat count, a speed test's run time and
+  a maturity badge all stay. "Alerts, mentions, and updates across your matters", "Runs outside any
+  matter" and "Registration records for a domain or IP address" were removed — each restated its
+  own title in a sentence. _(main screens, 2026-09-06)_
+- **The rule is a gate, not a ledger entry.** `pnpm run lint:screen-headers`
+  (`tooling/lint-screen-headers/`) refuses an eyebrow on any screen, a destination screen whose
+  title is not what `destinations.ts` calls it, and a meta line that is fixed prose rather than a
+  read value. It exists because the drift reappeared while the consolidation was still open: the
+  uploads screen shipped `eyebrow="Uploads"` over `title="Uploads"`, written by somebody with no
+  way to know the rule had been made. A rule in this file binds whoever reads this file; a rule
+  with a gate binds the diff. The meta test is a shape rather than a judgement — a fact is READ
+  from somewhere, a description is typed in place — and every line the consolidation removed was
+  static text while every line it kept interpolates or renders. Exemptions are named in the scan
+  with their reason, and there are none. _(main screens, 2026-09-06)_
+- **A screen with a page header does not also label its content region.** Where a page owns an
+  `h1`, the component beneath it drops its own heading rather than saying the name twice; where the
+  page's masthead names something else — a matter's Tasks section under the matter's own name —
+  the section keeps its label. `TaskList`'s `heading` is optional for exactly this reason.
+  _(main screens, 2026-09-06)_
+
+- **Information a screen owes the reader lives on the page, not in the header.** The header states
+  the name; a fact the reader needs stands where it bears on what they do. The safe website
+  viewer's "the page renders in an isolated remote browser" was not deleted — it moved to the
+  address bar, beside the control it qualifies, in the band that otherwise carries an invalid
+  address. This is the disposal route for anything the no-sub-text rule removes from a header:
+  ask where the fact is actually used, and put it there. _(safe website viewer, 2026-09-06)_
+- **A settings page's descriptor leads its content, and its header is only its name.** Settings is
+  a nested archetype — every page is a sub-page of Settings, named already by the section nav — and
+  it was the one place still carrying a sentence in the band. The descriptor now renders as the
+  first line of the page's own scroll area (`settings-description.svelte`), so it scrolls with the
+  plates it describes instead of being pinned above them, and `SettingsMasthead` no longer takes a
+  `meta` at all. The band keeps the page name and the standing facts about it — the posture badge,
+  the documentation seam, the history trail — because those are facts and controls, not
+  description. _(settings pages, 2026-09-06)_
 
 ### Screen search
 

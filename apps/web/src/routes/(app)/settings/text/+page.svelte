@@ -19,6 +19,7 @@
    */
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
+  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
@@ -53,7 +54,6 @@
 <SettingsMasthead
   sectionId="text"
   title="Text"
-  meta="How interface text reads — typeface and size, yours across every screen."
   posture="instant"
 />
 
@@ -62,6 +62,8 @@
      identical width. Full canvas width (owner-directed): the table uses the space. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
+  <SettingsDescription>How interface text reads — typeface and size, yours across every screen.</SettingsDescription>
+
   <SettingsPlate heading="Type">
     <SettingsRow definition={FONT_FAMILY_DEFINITION}>
       {#snippet control()}
