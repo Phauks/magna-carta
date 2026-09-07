@@ -10,7 +10,7 @@ ui: done by="Opus 5"
 load-profile: todo
 tested: todo
 branch: claude/magnus-ui-setup-a5lp1p
-active-work: docs/active-work/claude/magnus-ui-setup-a5lp1p.md
+active-work:
 next: The firm-administrator enablement screen (the two consent settings have no screen, so a firm opens them through the settings write path), then explicit per-conversation context grants, then token streaming and the events socket the surface polls in place of today
 link-spec: docs/specs/2026-08-06-magnus-design.md
 link-plan: docs/specs/2026-08-06-magnus-implementation-plan.md
