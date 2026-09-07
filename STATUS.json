@@ -2677,8 +2677,8 @@
           "by": "Opus 5"
         }
       },
-      "branch": "claude/main-report-generation-screen-ynuxnr",
-      "activeWork": "docs/active-work/claude/main-report-generation-screen-ynuxnr.md",
+      "branch": "main",
+      "activeWork": null,
       "next": "Owner answers on the nine flagged questions of the reporting design; then sub-slice 3·6·2 — the financial reports, each one registry entry and a presenter",
       "links": {
         "spec": "docs/specs/2026-08-13-financial-reporting-design.md",
