@@ -85,7 +85,12 @@ export { DICTIONARY_VERSION, mergeFieldCatalogRevision } from "./catalog/revisio
 // through the formatters. An office that carries no zone — one recorded before the column existed —
 // falls back to the platform's normalized zone, which is what every office resolved to before: a
 // document that rendered correctly yesterday renders identically today.
-export function timeZoneForLocation(location: LocationMergeRow | undefined): string {
+// Takes only the zone column, so a caller holding an office read for another purpose (the trust
+// listing carries the zone beside the account) resolves through this one place rather than
+// repeating the null fallback.
+export function timeZoneForLocation(
+  location: Pick<LocationMergeRow, "timeZone"> | undefined,
+): string {
   const recorded = location?.timeZone;
   return recorded === null || recorded === undefined || recorded.length === 0 ? "UTC" : recorded;
 }

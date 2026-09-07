@@ -14,6 +14,7 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { identifierField } from "../contracts/common.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { readTrustComplianceReportPolicy } from "../reporting/trust-compliance-report-policy.ts";
 
 // REPORTING — projections over records the firm already holds, and nothing else.
 //
@@ -46,11 +47,12 @@ const trustCompliancePackQuery = z.object({
   // not claimed to reproduce. The distinction is carried in the response because a reader cannot
   // tell the two apart from the figures.
   knownAsOf: knowledgeInstant.optional(),
-  // Whether a matter ledger that was at zero throughout the period appears. Completeness argues for
-  // listing every ledger that existed; a readable document argues for only those with activity.
+  // Whether a matter ledger that was at zero throughout the period appears, and whether the ledgers
+  // and the journal name the member who authorized money leaving a client ledger. Both are the
+  // firm's POLICY (Settings, Reports) and default from it when absent, so the firm's document reads
+  // the same every time it is produced; a caller may still state either, and the provenance section
+  // records what was used.
   zeroBalanceLedgers: z.enum(["include", "omit"]).optional(),
-  // Whether the ledgers and the journal name the member who authorized money leaving a client
-  // ledger. The ledger records it on every such movement so that it can be produced.
   authorizers: z.enum(["include", "omit"]).optional(),
 });
 
@@ -493,6 +495,7 @@ export function registerReportsRoutes(app: ReportsApp, chokepoint: Chokepoint): 
           },
           computedAt,
         );
+        const policy = await readTrustComplianceReportPolicy(firm.firmDatabase);
         const pack = await assembleTrustCompliancePack(
           firm.firmDatabase,
           {
@@ -500,8 +503,8 @@ export function registerReportsRoutes(app: ReportsApp, chokepoint: Chokepoint): 
             period,
             requestedBy: null,
             options: {
-              zeroBalanceLedgers: query.zeroBalanceLedgers,
-              authorizers: query.authorizers,
+              zeroBalanceLedgers: query.zeroBalanceLedgers ?? policy.zeroBalanceLedgers,
+              authorizers: query.authorizers ?? policy.authorizers,
             },
           },
           {

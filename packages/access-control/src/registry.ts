@@ -30,6 +30,7 @@ export const PERMISSIONS = [
   // because reading one's own feed is not a privilege, and reusing it here would let any member lower
   // the floor and shorten retention for everybody. Owner/Admin only, mirroring firm:manageScanPolicy.
   "firm:manageNotificationPolicy", // read and update the firm's notification policy: the in-app floor, retention window, and digest hour
+  "firm:manageReportPolicy", // read and update the firm's report policy: what its trust-compliance document lists
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.

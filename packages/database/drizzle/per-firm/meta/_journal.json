@@ -719,6 +719,13 @@
     {
       "idx": 102,
       "version": "6",
+      "when": 1788771600000,
+      "tag": "20260907T090000_seed-report-policy-permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "6",
       "when": 1788782400000,
       "tag": "20260907T120000_conflicts-configure-permission",
       "breakpoints": true
