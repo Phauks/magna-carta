@@ -14,6 +14,7 @@
  */
 import type { Component } from "svelte";
 import Terminal from "@lucide/svelte/icons/terminal";
+import FolderOpen from "@lucide/svelte/icons/folder-open";
 import { destinationById, type DestinationId } from "$lib/navigation/destinations.ts";
 
 /** A screen the way back leads to, spelled out — for destinations outside the sidebar registry. */
@@ -46,3 +47,23 @@ export const DEVELOPER_CONSOLE_BACK: BackDestination = {
   label: "Developer console",
   icon: Terminal,
 };
+
+/**
+ * A matter's Files section — where a document's editor was opened from. Spelled out rather than
+ * a destination id because the sidebar carries the matters list, not any one matter: the way back
+ * from a document leads to the matter it belongs to, opened on its files with the document
+ * revealed, and that address is the matter's own. The label is the matter's title, so the reader
+ * learns which matter the link lands on rather than only that it lands on some files.
+ */
+export function matterFilesBack(
+  matterId: string,
+  matterTitle: string,
+  fileId?: string,
+): BackDestination {
+  const entry = fileId === undefined ? "" : `?entry=${encodeURIComponent(fileId)}`;
+  return {
+    href: `/matters/${encodeURIComponent(matterId)}/files${entry}`,
+    label: matterTitle,
+    icon: FolderOpen,
+  };
+}

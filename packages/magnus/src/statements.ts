@@ -177,6 +177,10 @@ export async function readConversation(
 export interface ListConversationsOptions {
   // Absent = every member's conversations (the administrative read); present = one member's own.
   readonly createdBy?: UserId;
+  // Present = only the conversations kept on one matter's file. Absent = every conversation the
+  // other conditions allow, whether it names a matter or not — never "the ones on no matter", which
+  // is a third question nothing asks.
+  readonly matterId?: MatterId;
   readonly cursor?: SortCursor;
   readonly limit?: number;
 }
@@ -190,6 +194,10 @@ export async function listConversations(
   if (options.createdBy !== undefined) {
     conditions.push("created_by = ?");
     bindings.push(options.createdBy);
+  }
+  if (options.matterId !== undefined) {
+    conditions.push("matter_id = ?");
+    bindings.push(options.matterId);
   }
   appendCursorPredicate(conditions, bindings, options.cursor);
   const limit = options.limit ?? DEFAULT_PAGE_SIZE;

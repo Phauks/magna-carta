@@ -9,9 +9,10 @@ The owner's ruling of 2026-09-07: the two transfer registers are meta about what
 doing — often both at once — rather than places in the firm's work, so they belong at the foot of the
 rail with Settings and Customize, not among the destination rows. Both entries move into the
 registry's existing `footerPinned` tier (until now Settings alone), which is what takes them out of
-the scrolling groups AND out of Customize mode in one move; the shell renders the tray from the
-registry but states the order itself, because Settings has to lead the row that the collapsed rail
-truncates to one icon.
+the scrolling groups AND out of Customize mode in one move. The owner then set the arrangement
+within the tray: the rail's own controls lead (Settings, then Customize) and the registers lean to
+the inline end on an auto margin, with Settings still leading the row outright because the collapsed
+rail truncates the tray to its first icon.
 
 Touches the sidebar CSS recipe (a comment and the tray's stated one-line rule) and the destination
 registry, so a concurrent stream editing either should look here first. The top-bar download and

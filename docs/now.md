@@ -30,9 +30,9 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 292 | 45% |
-| Part-built | partial, in-build | 120 | 18% |
-| Ahead | designed, planned, researching, not-started | 205 | 31% |
+| Done | shipped | 292 | 44% |
+| Part-built | partial, in-build | 122 | 19% |
+| Ahead | designed, planned, researching, not-started | 203 | 31% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **658** | **100%** |
 
@@ -41,12 +41,12 @@ not](#what-a-roll-up-is-not).
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 292 | 44% |
-| `partial` | 119 | 18% |
+| `partial` | 121 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
-| `planned` | 16 | 2% |
+| `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 138 | 21% |
+| `not-started` | 137 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 1% |
 | **All statuses** | **658** | **100%** |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 292 of 658 (44%). Shipped plus partial is 411 (62%).**
+**Shipped alone is 292 of 658 (44%). Shipped plus partial is 413 (63%).**
 
-The 119 units between those two numbers are work that is engineered and paid for and is not
+The 121 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**412 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**414 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 63 | 15% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 171 | 42% |
+| A person can open it today (`screen`) | 66 | 16% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 170 | 41% |
 | No user surface by nature (`internal`) | 178 | 43% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **412** | **100%** |
+| **Everything with something built** | **414** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -95,7 +95,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 
 | Area | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Shipped |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| AI & Inference | 17 | 3 | 0 | 0 | 0 | 1 | 5 | 3 | 0 | 29 | 59% |
+| AI & Inference | 17 | 4 | 0 | 0 | 0 | 1 | 4 | 3 | 0 | 29 | 59% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
 | Calendar and Rules-Based Docketing | 13 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 19 | 68% |
 | Communications Layer | 4 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 16 | 25% |
@@ -106,7 +106,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 63 | 10 | 0 | 2 | 1 | 0 | 17 | 3 | 1 | 97 | 65% |
+| Documents | 63 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 97 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 17 | 16 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 55 | 31% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **292** | **119** | **1** | **46** | **16** | **5** | **138** | **38** | **3** | **658** | **44%** |
+| **All areas** | **292** | **121** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **658** | **44%** |
 
 ## Where we have been
 
@@ -382,7 +382,6 @@ Decisions about a capability only. Account-side steps that no session can perfor
 - `matter-assets.carry-forward` · **Carry-forward from a prior matter** — Copying selected assets into another matter as new rows with recorded provenance, never a shared row.
 - `discovery.search.semantic` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
 - `discovery.review.near-duplicates` · **Near-duplicate detection** — Detect near-duplicate documents in the review set.
-- `documents.editing.editor-ui` · **Editor UI** — In-app surface that opens a document in the Collabora frame.
 - `documents.preview.player` · **Video player UI** — Vidstack-based inline player with consistent themed controls; HLS support dormant for future transcoding.
 - `documents.conversion.convert-ui` · **Convert-to menu / converter tool UI** — Data-driven Convert-to menu answered by the registry; file-converter tool surface.
 - `exhibits` · **Exhibits and exhibit lists** — Matter-level exhibits, ordered per-document sets, labels computed from position, in-text references that follow a reorder, the freeze at issue, exhibit lists, and compiled exhibit packages.
@@ -446,7 +445,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### AI & Inference
 
-[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 29 units of work, 59% shipped. 17 done, 3 part-built, 6 ahead, 3 parked.
+[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 29 units of work, 59% shipped. 17 done, 4 part-built, 5 ahead, 3 parked.
 
 - `ai` · `partial` · **AI / inference** — Single credential-less model chokepoint owning confidentiality, tenant isolation, and fairness; AI-text detection; consent gate before any feature sends privileged content to a model.
   - `ai.inference` · `shipped` · **Inference chokepoint (@magna-carta/inference)** — Every AI feature reaches the model through one pure package; no feature talks to the gateway directly.
@@ -473,7 +472,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `ai.magnus.port-reuse` · `shipped` · **One model port, one additive operation** — No second model port — the assistant consumes the shipped InferencePort and adds generateConversation, with a platform-vocabulary role set and a structurally separate system prompt.
     - `ai.magnus.stub-adapter` · `shipped` · **Deterministic stub InferencePort** — A complete, network-free implementation of the port that every AI feature inherits; the composition root resolves to it whenever the binding or the enabling configuration is absent.
     - `ai.magnus.streaming` · `not-started` · **Token streaming** — Delta frames on the push-progress protocol, a protocol version bump, and partial-content semantics for a stream that dies mid-answer.
-    - `ai.magnus.interface` · `not-started` · **Assistant interface** — The in-app chat surface, the firm-administrator enablement screen, and the member disclosure.
+    - `ai.magnus.interface` · `partial` · **Assistant interface** — The in-app conversation surface in its two homes, and the member disclosure. The sidebar destination is the member's own workspace across everything; the matter section is one matter's file of transcripts. One surface serves both and they differ in scope and framing, not in capability. _Note: Partial because the firm-administrator enablement screen is not built — the two consent settings are settable only through the settings write path, so every firm's surface renders its closed state naming which gate is shut. The surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer._
     - `ai.magnus.context` · `not-started` · **Explicit per-conversation context grants** — What the assistant can see beyond what the member typed. The shape is settled — the member attaches a named document or matter and can see exactly what was attached; implicit firm-wide retrieval is not on this path and would need a consent decision of its own.
     - `ai.magnus.actions` · `deferred` · **Tools and actions** — Propose-and-approve only, where a tool proposes, a member approves, and the approval is the audited act.
   - `ai.natural-language-search` · `partial` · **Natural-language document search** — A retrieval-only question-and-answer search over a firm's own committed working documents, on a Cloudflare AI Search instance per firm fed by a derived text feed. Passages with their citations, never composed prose; matter-scoped, with the metadata filter treated as a recall optimization and read-time re-authorization through the firm-scoped data-access layer as the boundary. _Note: The route is blocked on the ethical-wall filter experiment's E1 and E2 — the protocol is built and sensitivity-proven, and the live run against a fenced account has not been executed._
@@ -783,7 +782,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 97 units of work, 65% shipped. 63 done, 10 part-built, 20 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 97 units of work, 65% shipped. 63 done, 11 part-built, 19 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -815,7 +814,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.editing.collabora-host` · `shipped` · **Collabora container host** — One container per open document, spun up on demand by a Durable Object and reaped when idle, in a dedicated edit worker.
     - `documents.editing.wopi-host` · `shipped` · **WOPI host & version-cut policy** — WOPI callbacks with autosave-aware version cutting (explicit save and session close cut versions; autosaves overwrite current) and timestamp-guarded current overwrite.
     - `documents.editing.checkout` · `shipped` · **Offline checkout / check-in** — Optimistic checkout with check-in reconciliation and an active-to-stale-to-released idle-checkout sweep on cron.
-    - `documents.editing.editor-ui` · `planned` · **Editor UI** — In-app surface that opens a document in the Collabora frame. _Note: Gated on the app-shell / file-surface streams._
+    - `documents.editing.editor-ui` · `partial` · **Editor UI** — In-app surface that opens a document in the Collabora frame, and the in-app plain-text editor beside it. _Note: The office frame fills only where magna-carta-edit is deployed; the text editor saves a new version everywhere. Spreadsheets and presentations still open their preview._
     - `documents.editing.native-editor` · `cut` · **Native CRDT editor** — A second, lightweight Yjs/CRDT working-doc editor alongside Collabora.
   - `documents.versioning` · `partial` · **Versioning & storage tiering** — App-managed immutable version objects (not R2 native versioning) with per-version storage class and lifecycle.
     - `documents.versioning.app-managed` · `shipped` · **App-managed version objects** — Churning current key overwritten per save; immutable vN snapshots cut deliberately, never per autosave.

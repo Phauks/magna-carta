@@ -23944,6 +23944,7 @@ export type MagnusListConversationsData = {
     query?: {
         cursor?: string;
         scope?: 'own' | 'firm';
+        matterId?: string;
     };
     url: '/api/v1/magnus/conversations';
 };
