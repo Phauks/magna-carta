@@ -47,6 +47,7 @@ function summary(overrides: Partial<InvoiceListItem> = {}): InvoiceListItem {
   return {
     id: "invoice_one",
     clientEntityId: "entity_pemberton",
+    clientName: "Pemberton Holdings",
     currency: "USD",
     status: "final",
     invoiceNumber: "00413",

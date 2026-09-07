@@ -1,17 +1,21 @@
 /*
  * Everything the matter's Billing section reads, in one place.
  *
- * THE READS ARE SHAPED BY WHAT THE CONTRACT SERVES, NOT BY WHAT THE SCREEN WANTS.
+ * THE REGISTER IS THE MATTER'S OWN, and it is the listing that makes it so. An invoice belongs to a
+ * CLIENT and may bill several of that client's matters; asking the listing for this matter answers
+ * with the bills that charge it — drafts included — each carrying this matter's own share. The
+ * register used to read the client's whole billing history and then read every one of those bills'
+ * details to work out the share, which stated the client's account under the matter's heading and
+ * cost a request per bill to correct.
  *
- *   - There is no per-matter invoice listing. An invoice belongs to one CLIENT, so the register is
- *     read by client, and this matter's share of each bill comes out of the bill's own detail.
- *   - The client is not on the matter read either. It is resolved from the matter's own party
- *     record — the party wearing the client role — which is also why a matter with no client party
- *     can be read but cannot be billed, and says so rather than offering a control that fails.
- *   - The listing carries no lines and no balances, so each bill's detail is read after it. That is
- *     an N-plus-one and it is deliberate for now: nothing serves a batch detail read, and a register
- *     that showed a client-wide list without this matter's share of each bill would state figures
- *     that are true of the documents and false of the matter.
+ *   - The client is not on the matter read. It is resolved from the matter's own party record — the
+ *     party wearing the client role — which is also why a matter with no client party can be read
+ *     but cannot be billed, and says so rather than offering a control that fails. The client is
+ *     still needed for the credits read and for the drafts a member opens against them; it is no
+ *     longer what the register is read by.
+ *   - Each bill's detail is still read, because the window a member opens a bill in needs its lines,
+ *     its balances and its delivery record. What changed is the size of that fan-out: it is now the
+ *     matter's own bills rather than every bill the client has ever been given.
  *
  * ONE FAILURE, WITH ITS EVIDENCE KEPT. A failed read holds the failing request, the answer, the
  * moment and the correlation handle, because those are what a person needs to report it and what
@@ -23,7 +27,7 @@ import { listMatterCosts, type CostSummary } from "$lib/matters/cost-api.ts";
 import { listMatterTimeEntries, type TimeEntrySummary } from "$lib/matters/time-api.ts";
 import {
   listClientCredits,
-  listClientInvoices,
+  listInvoices,
   listInvoiceCreditNotes,
   readArrangement,
   readInvoice,
@@ -151,16 +155,13 @@ export class MatterBilling {
       return;
     }
 
-    const clientEntityId = this.clientEntityId;
-    if (clientEntityId === null) {
-      this.rows = [];
-      this.nextCursor = null;
-      return;
-    }
-
-    const invoicesOutcome = await listClientInvoices(fetchImpl, clientEntityId);
+    // The register is read by MATTER, so it does not wait on the client resolving: a matter whose
+    // party record names nobody still has whatever bills charge it, and the surface says separately
+    // that there is nobody to bill NEXT. The client is what the credits read and the draft controls
+    // need, and both stand down honestly without one.
+    const invoicesOutcome = await listInvoices(fetchImpl, { matterId });
     if (!fresh()) return;
-    const invoicesFailure = failureFrom(invoicesOutcome, "The client's bills did not load.");
+    const invoicesFailure = failureFrom(invoicesOutcome, "This matter's bills did not load.");
     if (invoicesFailure !== null || invoicesOutcome.kind !== "ok") {
       this.failure = invoicesFailure;
       this.rows = [];
@@ -169,12 +170,16 @@ export class MatterBilling {
 
     this.nextCursor = invoicesOutcome.value.nextCursor;
     const summaries = invoicesOutcome.value.data.slice(0, DETAIL_PAGE_LIMIT);
-    // The rows land before their details do, so the register is readable while the details arrive.
+    // The rows land before their details do, and the money columns are already right: the matter's
+    // share rides the listing row, so nothing on screen has to wait for a detail to state a figure.
     this.rows = summaries.map((summary) => ({ summary, detail: null, creditNotes: null }));
 
-    const credits = await listClientCredits(fetchImpl, clientEntityId);
-    if (!fresh()) return;
-    if (credits.kind === "ok") this.clientCredits = credits.value.data;
+    const clientEntityId = this.clientEntityId;
+    if (clientEntityId !== null) {
+      const credits = await listClientCredits(fetchImpl, clientEntityId);
+      if (!fresh()) return;
+      if (credits.kind === "ok") this.clientCredits = credits.value.data;
+    }
 
     const detailed = await Promise.all(
       summaries.map(async (summary) => this.#readOne(fetchImpl, summary)),

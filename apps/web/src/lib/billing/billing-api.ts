@@ -33,6 +33,12 @@ export type InvoiceStatus = "draft" | "final" | "void";
 export interface InvoiceListItem {
   id: string;
   clientEntityId: string;
+  /**
+   * The client's name as the directory holds it, resolved by the listing. Null both when no
+   * directory entry answers to the identifier and when the entry behind one is gone —
+   * `clientEntityId` tells those two apart. Never the identifier standing in for a name.
+   */
+  clientName: string | null;
   currency: string;
   status: InvoiceStatus;
   /** Null until finalization draws one from the firm's sequence. */
@@ -43,6 +49,22 @@ export interface InvoiceListItem {
   appliedMinor: number;
   unpaidMinor: number;
   createdAt: string;
+  /**
+   * ONE MATTER'S SHARE OF THIS BILL — present only when the listing was narrowed to a matter.
+   *
+   * An invoice belongs to a client and may bill several of that client's matters, so a matter's own
+   * register states each bill's share of it rather than the bill's whole total. These carry that
+   * share on the listing row itself, which is what lets the money columns be right the moment the
+   * list lands instead of after every bill's detail has been read.
+   *
+   * Three fields rather than one because a draft and a finalized bill hold the fact in different
+   * places. `matterLinesMinor` is the sum of the matter's own lines and exists from the moment a
+   * claim composes one — a draft's share. The other two come from the matter's balance row, which
+   * finalization creates, so both are null on a draft: null means "not owed yet", never zero.
+   */
+  matterLinesMinor?: number;
+  matterTotalMinor?: number | null;
+  matterAppliedMinor?: number | null;
 }
 
 /**
@@ -206,24 +228,40 @@ export const DELIVERY_CHANNEL_LABELS: Readonly<Record<DeliveryChannel, string>> 
 
 // ---- reads -------------------------------------------------------------------------------------
 
+/** How a listing is narrowed. Every field is optional; nothing named is the firm's whole register. */
+export interface InvoiceListScope {
+  /** One client's bills, across every matter of theirs the firm bills. */
+  readonly clientEntityId?: string;
+  /**
+   * The bills that charge ONE matter, drafts included, each carrying that matter's own share.
+   *
+   * An invoice belongs to a client and may bill several of that client's matters, so this is the
+   * narrowing a matter's own register asks for: without it the register would list the client's
+   * whole billing history and state totals that are true of the documents and false of the matter.
+   */
+  readonly matterId?: string;
+  readonly status?: InvoiceStatus;
+  readonly cursor?: string;
+}
+
 /**
- * The client's invoices, newest first.
+ * Invoices, newest first, in whichever scope is asked for.
  *
- * The listing filters by CLIENT and not by matter, because an invoice belongs to one client and may
- * bill several of that client's matters — there is no per-matter listing to ask for. The matter's
- * own share of each bill is read from the detail, which is why the register reads the details it
- * shows rather than presenting a client-wide list as though it were the matter's.
+ * ONE READ SERVES BOTH SURFACES. The firm's billing register asks with nothing named; a matter's
+ * Billing section asks for its own matter and gets the same rows with that matter's share on each.
+ * A second read shaped for one of them would be a second answer to what a bill is.
  */
-export function listClientInvoices(
+export function listInvoices(
   fetchImpl: typeof fetch,
-  clientEntityId: string,
-  cursor?: string,
+  scope: InvoiceListScope = {},
 ): Promise<ApiOutcome<Page<InvoiceListItem>>> {
-  const query = new URLSearchParams({
-    clientEntityId,
-    ...(cursor === undefined ? {} : { cursor }),
-  });
-  return requestJson(fetchImpl, `/api/v1/billing/invoices?${query.toString()}`);
+  const query = new URLSearchParams();
+  if (scope.clientEntityId !== undefined) query.set("clientEntityId", scope.clientEntityId);
+  if (scope.matterId !== undefined) query.set("matterId", scope.matterId);
+  if (scope.status !== undefined) query.set("status", scope.status);
+  if (scope.cursor !== undefined) query.set("cursor", scope.cursor);
+  const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+  return requestJson(fetchImpl, `/api/v1/billing/invoices${suffix}`);
 }
 
 export function readInvoice(
@@ -269,6 +307,36 @@ export function listInvoiceDeliveries(
     fetchImpl,
     `/api/v1/billing/invoices/${encodeURIComponent(invoiceId)}/deliveries`,
   );
+}
+
+/**
+ * The firm's unpaid receivables, bucketed by how far past due they are.
+ *
+ * Overdue is worked out at the moment of asking rather than stored, so a bill settled this morning
+ * is never reported as late and nothing has to run a sweep to keep the figure true.
+ */
+export interface ReceivablesAgingBucket {
+  /**
+   * The bucket's own label, as the server names it. The boundaries are the server's to decide and
+   * the screen prints what it is given — a screen that relabelled them would be a second opinion
+   * about when a firm's money is late.
+   */
+  label: string;
+  invoiceCount: number;
+  unpaidMinor: number;
+}
+
+export interface ReceivablesAging {
+  asOfDate: string;
+  buckets: readonly ReceivablesAgingBucket[];
+}
+
+export function readReceivablesAging(
+  fetchImpl: typeof fetch,
+  asOfDate?: string,
+): Promise<ApiOutcome<ReceivablesAging>> {
+  const suffix = asOfDate === undefined ? "" : `?asOfDate=${encodeURIComponent(asOfDate)}`;
+  return requestJson(fetchImpl, `/api/v1/billing/receivables/aging${suffix}`);
 }
 
 /** The client's open credits — money the firm has said is not its own and still holds. */

@@ -5209,6 +5209,8 @@ export type CostSummary = {
     description: string;
     status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
     vendorName?: string | null;
+    matterNumber?: string | null;
+    matterTitle?: string | null;
     source: 'manual' | 'grid' | 'recovery';
     recoveryCategory: string | null;
 };
@@ -6172,6 +6174,7 @@ export type BillingInvoiceListResponse = {
 export type BillingInvoiceListItem = {
     id: string;
     clientEntityId: string;
+    clientName: string | null;
     currency: string;
     status: 'draft' | 'final' | 'void';
     invoiceNumber: string | null;
@@ -6181,6 +6184,9 @@ export type BillingInvoiceListItem = {
     appliedMinor: number;
     unpaidMinor: number;
     createdAt: string;
+    matterLinesMinor?: number;
+    matterTotalMinor?: number | null;
+    matterAppliedMinor?: number | null;
 };
 
 export type BillingInvoiceDetailResponse = BillingInvoiceListItem & {
@@ -26890,6 +26896,18 @@ export type CostsListData = {
         cursor?: string;
         matterId?: string;
         /**
+         * The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first.
+         */
+        from?: string;
+        /**
+         * The last incurred date of a period listing, inclusive. Required alongside `from`.
+         */
+        to?: string;
+        /**
+         * Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both.
+         */
+        billable?: 'true' | 'false';
+        /**
          * Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is.
          */
         status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
@@ -26910,6 +26928,10 @@ export type CostsListErrors = {
      * The firm is unreachable, the member is deactivated, or the cost entry is unknown
      */
     404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */
@@ -28977,6 +28999,10 @@ export type BillingListInvoicesData = {
     path?: never;
     query?: {
         clientEntityId?: string;
+        /**
+         * Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.
+         */
+        matterId?: string;
         status?: 'draft' | 'final' | 'void';
         cursor?: string;
     };

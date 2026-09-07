@@ -341,6 +341,10 @@ const InvoiceListItem = z
   .object({
     id: z.string(),
     clientEntityId: z.string(),
+    // The client's name as the directory holds it, resolved by the listing. Null both where no
+    // directory entry answers to the identifier and where the entry behind one is gone;
+    // clientEntityId tells those two apart. Never the identifier standing in for a name.
+    clientName: z.string().nullable(),
     currency: z.string(),
     status: z.enum(["draft", "final", "void"]),
     invoiceNumber: z.string().nullable(),
@@ -350,6 +354,14 @@ const InvoiceListItem = z
     appliedMinor: z.number().int(),
     unpaidMinor: z.number().int(),
     createdAt: z.string(),
+    // One matter's share of this bill, present only when the listing named a matter. Three fields
+    // rather than one because a draft and a finalized bill hold the fact in different places:
+    // matterLinesMinor is the sum of the matter's own lines and exists from the moment a claim
+    // composes one, while the other two come from the matter's balance row, which finalization
+    // creates — so both are null on a draft, and a null there means "not owed yet", never zero.
+    matterLinesMinor: z.number().int().optional(),
+    matterTotalMinor: z.number().int().nullable().optional(),
+    matterAppliedMinor: z.number().int().nullable().optional(),
   })
   .openapi("BillingInvoiceListItem");
 
@@ -837,6 +849,10 @@ const clientParam = z.object({ clientEntityId: z.string().min(1) });
 const retainerStatusQuery = z.object({ trustAccountId: identifierField("trustAccount") });
 const listQuery = z.object({
   clientEntityId: z.string().min(1).optional(),
+  matterId: z.string().min(1).optional().openapi({
+    description:
+      "Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.",
+  }),
   status: z.enum(["draft", "final", "void"]).optional(),
   cursor: z.string().optional(),
 });
@@ -1210,7 +1226,7 @@ const listInvoicesRoute = defineOpenAPIRoute(readMeta("billing.listInvoices"), {
   method: "get",
   path: "/api/v1/billing/invoices",
   description:
-    "Lists invoices newest first, with each one's total, what has been applied to it, and what is still unpaid. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them.",
+    "Lists invoices newest first, with each one's total, what has been applied to it, what is still unpaid, and the client's name. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them. Unnarrowed it answers for the whole firm, which is what the firm's billing register reads; narrowed to a client it answers that client's bills, and narrowed to a matter it answers the bills that charge that matter and carries the matter's own share of each — the figure a matter's register states, which it used to reach by reading every bill's detail one at a time.",
   request: { query: listQuery },
   responses: {
     200: {

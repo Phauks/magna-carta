@@ -14,11 +14,12 @@
    * (apps/web/src/lib/money/), the same on every money section. This file declares columns, cells,
    * figures and verbs, and the panel beside the list; it decides none of that behaviour.
    *
-   * THE REGISTER IS CLIENT-WIDE AND THE FIGURES ARE MATTER-WIDE, DELIBERATELY. An invoice belongs to
-   * one client and may bill several of that client's matters, and there is no per-matter listing to
-   * ask for — so the rows are the client's bills and the leading money column is THIS MATTER'S share
-   * of each. Presenting a client-wide list as though it were the matter's own would misstate every
-   * total on the screen.
+   * THE ROWS AND THE FIGURES ARE BOTH THIS MATTER'S. An invoice belongs to one client and may bill
+   * several of that client's matters, so the listing is asked for this matter: the rows are the
+   * bills that charge it, drafts included, and the leading money column is THIS MATTER'S share of
+   * each rather than the document's total. The register was client-wide before the listing could be
+   * narrowed, and presenting a client-wide list under a matter's heading misstated every figure on
+   * the screen — the Total (all matters) column is where the document's own total still reads.
    */
   import type { Snippet } from "svelte";
   import * as Alert from "@magna-carta/design-system/alert";

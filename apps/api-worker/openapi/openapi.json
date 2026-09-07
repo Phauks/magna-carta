@@ -22554,6 +22554,18 @@
               "null"
             ]
           },
+          "matterNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTitle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "source": {
             "type": "string",
             "enum": [
@@ -26854,6 +26866,12 @@
           "clientEntityId": {
             "type": "string"
           },
+          "clientName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "currency": {
             "type": "string"
           },
@@ -26894,11 +26912,27 @@
           },
           "createdAt": {
             "type": "string"
+          },
+          "matterLinesMinor": {
+            "type": "integer"
+          },
+          "matterTotalMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "matterAppliedMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "required": [
           "id",
           "clientEntityId",
+          "clientName",
           "currency",
           "status",
           "invoiceNumber",
@@ -79211,7 +79245,7 @@
         }
       },
       "get": {
-        "description": "Lists cost entries for a matter, in every status unless one is named. CURSOR-PAGED, most recently incurred first: a matter's cost record grows for as long as the matter runs, and this read carried no bound at all until it was. Returns an empty list when no matterId is supplied.",
+        "description": "Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in every status unless one is named. By a `from`/`to` span of incurred dates: the period listing across every matter, which is what the firm's cost record is asked for at the end of a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, most recently incurred first, over the same statement, so a cost reads back identically whichever shape found it. Returns an empty list when neither a matter nor a span is named, rather than scanning the whole table.",
         "operationId": "costs.list",
         "tags": [
           "costs"
@@ -79245,6 +79279,42 @@
             },
             "required": false,
             "name": "matterId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first."
+            },
+            "required": false,
+            "description": "The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first.",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "The last incurred date of a period listing, inclusive. Required alongside `from`."
+            },
+            "required": false,
+            "description": "The last incurred date of a period listing, inclusive. Required alongside `from`.",
+            "name": "to",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "description": "Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both."
+            },
+            "required": false,
+            "description": "Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both.",
+            "name": "billable",
             "in": "query"
           },
           {
@@ -79298,6 +79368,16 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the cost entry is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -84156,7 +84236,7 @@
         }
       },
       "get": {
-        "description": "Lists invoices newest first, with each one's total, what has been applied to it, and what is still unpaid. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them.",
+        "description": "Lists invoices newest first, with each one's total, what has been applied to it, what is still unpaid, and the client's name. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them. Unnarrowed it answers for the whole firm, which is what the firm's billing register reads; narrowed to a client it answers that client's bills, and narrowed to a matter it answers the bills that charge that matter and carries the matter's own share of each — the figure a matter's register states, which it used to reach by reading every bill's detail one at a time.",
         "operationId": "billing.listInvoices",
         "tags": [
           "billing"
@@ -84182,6 +84262,17 @@
             },
             "required": false,
             "name": "clientEntityId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given."
+            },
+            "required": false,
+            "description": "Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.",
+            "name": "matterId",
             "in": "query"
           },
           {

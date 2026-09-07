@@ -41,6 +41,7 @@ function makeRow(summary: Partial<InvoiceListItem>, detail?: Partial<InvoiceDeta
   const base: InvoiceListItem = {
     id: summary.id ?? "invoice_one",
     clientEntityId: "entity_pemberton",
+    clientName: "Pemberton Holdings",
     currency: "USD",
     status: "final",
     invoiceNumber: "00413",
