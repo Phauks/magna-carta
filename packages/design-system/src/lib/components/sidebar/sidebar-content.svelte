@@ -25,7 +25,7 @@
 <div class="relative flex min-h-0 grow flex-col">
   <div
     bind:this={ref}
-    class={mergeClasses("mc-sidebar-content mc-scrollbar min-h-0 grow", className)}
+    class={mergeClasses("mc-sidebar-content mc-scrollbar-hidden min-h-0 grow", className)}
     {...restProps}
   >
     {@render children?.()}

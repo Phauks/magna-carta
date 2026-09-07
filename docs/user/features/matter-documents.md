@@ -117,6 +117,16 @@ The **status** column is worth reading:
   deliberately, so a document that did not make it is visible rather than quietly missing. A rejected
   document has no readable content and cannot be opened.
 
+### Where you are in the folders
+
+The strip above the list is the path to the folder you are in, starting at the home icon. Home is
+always there, beside the back, forward and up buttons, so the top of the matter is one press away
+however deep you have gone.
+
+A path too long for the strip folds its middle away behind an ellipsis (**…**). The folder you are
+in, the one it sits in, and the first folder under Home stay visible; pressing the ellipsis lists the
+folders it stands for, and choosing one opens it.
+
 ## Opening a document
 
 Select a document's row and the details panel describes it: its details, its preview, its versions,
