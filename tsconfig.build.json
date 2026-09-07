@@ -119,6 +119,9 @@
       "path": "packages/feature-flags/tsconfig.build.json"
     },
     {
+      "path": "packages/fees/tsconfig.build.json"
+    },
+    {
       "path": "packages/file-integrity/tsconfig.build.json"
     },
     {

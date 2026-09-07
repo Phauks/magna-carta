@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "451d8845-9124-4c49-8122-c6ae50597ecf",
-  "prevId": "0cc0534f-5849-48a7-bd44-3f2b53e97cd4",
+  "id": "e79644c0-8cfa-4c79-8186-dfbbd04b9e3d",
+  "prevId": "74878e80-ace5-4adb-9dc4-9df1149b6ea7",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -8290,8 +8290,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "fee_date": {
-          "name": "fee_date",
+        "service_date": {
+          "name": "service_date",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -8392,10 +8392,10 @@
           ],
           "isUnique": false
         },
-        "fee_entry_fee_date_index": {
-          "name": "fee_entry_fee_date_index",
+        "fee_entry_service_date_index": {
+          "name": "fee_entry_service_date_index",
           "columns": [
-            "fee_date"
+            "service_date"
           ],
           "isUnique": false
         }

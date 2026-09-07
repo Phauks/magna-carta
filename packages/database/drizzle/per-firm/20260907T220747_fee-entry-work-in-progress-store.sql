@@ -1,7 +1,7 @@
 CREATE TABLE `fee_entry` (
 	`id` text PRIMARY KEY NOT NULL,
 	`matter_id` text NOT NULL,
-	`fee_date` text NOT NULL,
+	`service_date` text NOT NULL,
 	`timekeeper_user_id` text,
 	`description` text DEFAULT '' NOT NULL,
 	`amount_minor` integer NOT NULL,
@@ -22,4 +22,4 @@ CREATE TABLE `fee_entry` (
 );
 --> statement-breakpoint
 CREATE INDEX `fee_entry_matter_status_index` ON `fee_entry` (`matter_id`,`status`);--> statement-breakpoint
-CREATE INDEX `fee_entry_fee_date_index` ON `fee_entry` (`fee_date`);
+CREATE INDEX `fee_entry_service_date_index` ON `fee_entry` (`service_date`);
