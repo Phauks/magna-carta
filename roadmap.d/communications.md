@@ -9,7 +9,7 @@
   scope: Email, messaging (SMS/MMS/RCS), and voice/telephony unified behind one templating and trigger engine, all logged to the matter/Directory.
   status: partial
   adrs: ADR-0047
-  evidence: The email channel is the only one with code — parse engine, transactional adapter, forward/CC capture, auto-file rules, and the add-in's server routes. Messaging and voice have no port, no adapter and no table, and there is no template or trigger engine of any kind.
+  evidence: Two channels now have code. Email has the parse engine, transactional adapter, forward/CC capture, auto-file rules and the add-in's server routes. Calls and texts have a record, a firm-scoped read and two screens (packages/communications, apps/api-worker/src/routes/communications.ts, apps/web/src/routes/(app)/communications) — but only the hand-logging producer: no port, no adapter and nothing sent or received. Voice beyond the log has no code, and there is no template or trigger engine of any kind.
 
 - id: communications.email
   name: Email
@@ -74,12 +74,24 @@
 - id: communications.messaging
   name: Messaging (SMS/MMS/RCS)
   scope: CPaaS behind a messaging port serving outbound notifications, SMS 2FA, access codes, and two-way client texting.
-  status: not-started
+  status: partial
   adrs: ADR-0047
-  evidence: Decision accepted; no messaging port, adapter, or schema on the tree.
+  spec: docs/specs/2026-09-07-call-and-text-log-design.md
+  evidence: The LOG exists and the carrier does not. A text is recorded, read, filed onto a matter and taken back off (packages/communications + the communication table + apps/api-worker/src/routes/communications.ts), and it reaches the matter's Messaging section, the matter's consolidated search and its activity timeline. What is absent is the whole sending half — no messaging port, no adapter, no A2P 10DLC registration — so nothing leaves or arrives.
   audience: public
   public-name: Text messaging
   public-summary: Text a client from a firm number and keep the whole thread on the matter.
+  notes: The owner's ruling of 2026-09-07 settled what the sidebar's Messaging row means — calls and texts, not email and not portal messages — and settled the anchor: a conversation may sit on an intake or a consultation, which carry no matter number, so every read and every picker turns on the matter's STATUS rather than its number.
+
+- id: communications.messaging.log
+  name: Call and text log
+  scope: One record per voice call or SMS/MMS message, hand-logged today and carrier-written later, filed onto a matter or waiting in the firm-wide queue.
+  status: shipped
+  surface: screen
+  adrs: ADR-0047
+  spec: docs/specs/2026-09-07-call-and-text-log-design.md
+  evidence: packages/communications (types, validation, communication-statements, communication-service) over the per-firm communication table; seven operations in apps/api-worker/src/routes/communications.ts, all present in apps/api-worker/openapi/openapi.json; the firm-wide screen at apps/web/src/routes/(app)/communications and the matter section at matters/[id]/messaging, both over one listing component; the communication source registered in packages/calendar/src/sources/all.ts and packages/matter-search/src/sources/all.ts; four rows in packages/data-access/src/pii-registry.ts. Exercised by packages/communications/test (33) and apps/api-worker/test/communications-routes.test.ts (12).
+  notes: Only the member producer is built — `producer` is a stored column so a carrier row is never mistaken for a recollection, and the insert writes the literal 'member' rather than taking it as a parameter. The unrouted queue takes its own capability (communications:reviewUnrouted, seeded to Owner/Admin and Paralegal) because a row with no matter falls through the visible-matter predicate entirely; filing is gated by the same key, since it reads a queued row on its way. A counterparty number is stored as typed rather than normalized to E.164: canonicalizing needs the firm's own country, which this subsystem does not have.
 
 - id: communications.messaging.port
   name: Messaging port
@@ -101,7 +113,7 @@
   scope: Inbound and outbound conversations threaded and logged to the matter/Directory.
   status: not-started
   adrs: ADR-0047
-  evidence: Promoted from backlog by decision; no code.
+  evidence: The logging half landed with communications.messaging.log — a text in either direction is recorded, filed and read. The TWO-WAY half is the part this node names and none of it exists: nothing sends, nothing receives, and there is no port to carry either.
 
 - id: communications.messaging.sms-2fa
   name: SMS 2FA factor
@@ -173,4 +185,4 @@
   scope: All communication across all three channels logged to the matter/Directory under the redact-by-default telemetry discipline.
   status: not-started
   adrs: ADR-0017
-  evidence: The redaction discipline is platform standard, and the email channel already files correspondence onto a matter through packages/email-filing; what is absent is the unified cross-channel log this node names — there is no communications-log table and no read that spans channels, and the messaging and voice channels it would also cover have no code.
+  evidence: Two channels file onto a matter now — packages/email-filing for mail, packages/communications for calls and texts — and both are redacted by default in the audit log. What is absent is the UNIFIED cross-channel read this node names: no query spans the two, and the place they genuinely converge (a Directory contact's own communications tab) is not built.

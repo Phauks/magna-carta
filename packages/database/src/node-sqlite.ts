@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { migrationStatementFailure } from "./do-sqlite-migration-target.ts";
 import { migrationsFromJournal, type Migration, type MigrationJournal } from "./migration.ts";
 
 // DEV/TEST ONLY — node-only. A D1-shaped adapter over node:sqlite so the data-access batch write
@@ -127,8 +128,14 @@ export function applyMigrations(database: DatabaseSync, migrations: readonly Mig
     database.exec("PRAGMA foreign_keys=OFF");
     try {
       database.exec("BEGIN");
-      for (const statement of migration.statements) {
-        database.exec(statement);
+      for (const [index, statement] of migration.statements.entries()) {
+        try {
+          database.exec(statement);
+        } catch (error) {
+          // Named the same way production names it, so a failure read here is the failure a firm
+          // would see rather than a shorter version of it.
+          throw new Error(migrationStatementFailure(migration, index, error), { cause: error });
+        }
       }
       const violations = database.prepare("PRAGMA foreign_key_check").all();
       if (violations.length > 0) {

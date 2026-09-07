@@ -18,6 +18,7 @@ const MATTER_NOTE_TABLE = "matter_note";
 const FILE_TABLE = "file";
 const FOLDER_TABLE = "folder";
 const CUSTODY_PACKET_TABLE = "custody_packet";
+const COMMUNICATION_TABLE = "communication";
 const MATTER_PARTY_TABLE = "matter_party";
 const DIRECTORY_PERSON_TABLE = "directory_person";
 const DIRECTORY_ORGANIZATION_TABLE = "directory_organization";
@@ -234,6 +235,60 @@ const custodySource: MatterSearchSource = {
     ];
   },
   project: projectInto("custody", "custodian"),
+};
+
+// ---- calls and texts ---------------------------------------------------------------------------
+
+// What the firm said on this matter, matched on the words AND on the number.
+//
+// THE NUMBER IS IN THE MATCH ON PURPOSE, and it is the half people actually use. Somebody hunting
+// for a text remembers the number they dialled far more reliably than a phrase inside it, and a
+// search that only read the body would silently fail the commonest way anybody looks for one.
+//
+// It matches the SUMMARY as well as the body, which is what makes calls findable at all: a voice row
+// has no message text, and what a member wrote down about the call is the only words it holds.
+//
+// UNROUTED ROWS ARE OUT OF SCOPE HERE BY CONSTRUCTION, not by a condition — a matter search is
+// scoped to one matter, and a row waiting in the queue is on none. The firm-wide screen's own search
+// is where those are found.
+const communicationsSource: MatterSearchSource = {
+  key: "communications",
+  sectionSlug: "messaging",
+  permission: assertPermission("communications:read"),
+  answerShape: "listing",
+  matchedFields: ["what was said", "the number"],
+  declaresSnippet: true,
+  minimumQueryLength: 2,
+  // A logged call is edited or left alone, never soft-deleted, so there is no deleted set.
+  supportsDeleted: false,
+  buildStatements: (request) => {
+    if (tooShort(request, 2)) return [];
+    const term = likeContainsTerm(request.query.trim());
+    return [
+      boundedSearchSelect(request.database, {
+        request,
+        from: COMMUNICATION_TABLE,
+        idColumn: `${COMMUNICATION_TABLE}.id`,
+        matterExpression: `${COMMUNICATION_TABLE}.matter_id`,
+        sortExpression: `${COMMUNICATION_TABLE}.occurred_at`,
+        // A call has no name; the reader recognizes it by when it happened, and the snippet carries
+        // the words. The title is that instant, rendered by the client.
+        titleExpression: `${COMMUNICATION_TABLE}.occurred_at`,
+        snippetExpression: `COALESCE(${COMMUNICATION_TABLE}.body, ${COMMUNICATION_TABLE}.summary)`,
+        // What it was and which way it went — the two facts that tell a reader whether the hit is
+        // the conversation they meant before they open it.
+        secondaryExpression: `${COMMUNICATION_TABLE}.channel || ' · ' || ${COMMUNICATION_TABLE}.direction`,
+        actorExpression: `${COMMUNICATION_TABLE}.member_user_id`,
+        conditions: [
+          `(${COMMUNICATION_TABLE}.body LIKE ? ESCAPE '\\' ` +
+            `OR ${COMMUNICATION_TABLE}.summary LIKE ? ESCAPE '\\' ` +
+            `OR ${COMMUNICATION_TABLE}.counterparty_number LIKE ? ESCAPE '\\')`,
+        ],
+        bindings: [term, term, term],
+      }),
+    ];
+  },
+  project: projectInto("communications", "messaging"),
 };
 
 // ---- parties ---------------------------------------------------------------------------------
@@ -530,4 +585,5 @@ export const matterSearchSources = new MatterSearchSourceRegistry([
   calendarSource,
   notesSource,
   custodySource,
+  communicationsSource,
 ]);

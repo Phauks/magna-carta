@@ -26,7 +26,6 @@
  */
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { OUTBOX_TABLE } from "@magna-carta/data-access/outbox-statements";
-import { MESSAGE_HEAD_LENGTH } from "@magna-carta/telemetry/operation";
 import { scrubText } from "@magna-carta/telemetry/scrub";
 import type { UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
@@ -46,14 +45,22 @@ import { loadEffectivePermissions } from "../session-context.ts";
 /**
  * An unreachable database's own words, made safe to show.
  *
- * Bounded to the same MESSAGE_HEAD_LENGTH the error pipeline logs, and put through the same scrub
- * pass, so this cannot become the one surface that prints a value the logs are careful never to.
- * A non-Error throw yields null rather than "[object Object]": a reader is better served by a
- * missing line than by one that says nothing while looking like it says something.
+ * Put through the same scrub pass the error pipeline uses, so this cannot become the one surface
+ * that prints a value the logs are careful never to. A non-Error throw yields null rather than
+ * "[object Object]": a reader is better served by a missing line than by one that says nothing
+ * while looking like it says something.
+ *
+ * Bounded LONGER than a logged message head, deliberately. MESSAGE_HEAD_LENGTH is sized for a log
+ * line, where the same fault repeats across many entries and the tail is recoverable from any of
+ * them. This is the opposite case: one line, on screen, for a fault a reader cannot get at any
+ * other way — a failing migration names itself, the statement inside it, and then SQLite's own
+ * sentence, and 120 characters cut that off before the part that identifies anything.
  */
+const FAULT_LENGTH = 400;
+
 export function faultOf(error: unknown): string | null {
   if (!(error instanceof Error)) return null;
-  const head = error.message.slice(0, MESSAGE_HEAD_LENGTH).trim();
+  const head = error.message.slice(0, FAULT_LENGTH).trim();
   return head.length === 0 ? null : scrubText(head).text;
 }
 
