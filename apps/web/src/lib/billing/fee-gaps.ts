@@ -1,18 +1,10 @@
 /*
  * What the Fees ledger is designed to show and the server does not answer yet.
  *
- * ONE GAP DOMINATES THE REST: there is no fee work-in-progress store. A fee is a flat charge for
- * professional services, recorded by hand as its own dated draft — date, timekeeper, description,
- * amount, billing disposition — riding the same chain as time and costs and claimed onto a draft
- * invoice like any work in progress. It is never computed from time entries, never derived from
- * them, and never drawn out of them. Nothing on the wire carries such a record today: the billing
- * routes serve invoices and their lines, which is the OUTPUT of billing a fee rather than the fee
- * itself.
- *
- * So this surface is built whole against the record a fee IS, and every write on it renders where
- * the design puts it, refused, naming this dependency. The alternative — showing invoice lines and
- * calling them fees — is the shape this ledger used to have, and it stated a model the product does
- * not hold.
+ * THE STORE ITSELF IS NO LONGER ONE OF THEM. `fee_entry` exists, the fee routes serve both listing
+ * shapes and the whole chain, and a draft invoice claims a fee exactly as it claims a cost. Every
+ * write on this surface writes. What is left below is the smaller set: facts the record does not
+ * carry yet, and acts no route serves.
  *
  * Each gap is named once, as the noun phrase the Soon composition completes into a sentence and a
  * cell hover states on its own. When one starts being served, its entry comes out of this file and
@@ -28,20 +20,9 @@ export interface FeeLedgerGap {
 }
 
 export const FEE_LEDGER_GAPS = {
-  store: {
-    field: "Fees",
-    waitsOn:
-      "the fee work-in-progress store — capture, update, void and delete routes over a fee " +
-      "record carrying its date, timekeeper, description, amount, status and billing " +
-      "disposition, plus the claim path that lets a draft invoice take one up",
-  },
   entryNumber: {
     field: "Entry Number",
     waitsOn: "a matter-scoped entry number on the fee record",
-  },
-  dateEntered: {
-    field: "Date Entered",
-    waitsOn: "the entered date being served on the fee listing",
   },
   attachments: {
     field: "Attachments",
@@ -57,11 +38,9 @@ export const FEE_LEDGER_GAPS = {
   },
   memo: {
     field: "Internal Memo",
-    waitsOn: "an internal memo column on the fee record, kept out of every client-facing read",
-  },
-  invoice: {
-    field: "Invoice",
-    waitsOn: "the invoice a billed fee rides being served on the fee listing",
+    waitsOn:
+      "a read that shows what the memo already holds, so editing it cannot silently overwrite a " +
+      "note the writer never saw — the column and the contract field are both there",
   },
   reclassify: {
     field: "Move to Another Ledger",
@@ -72,10 +51,6 @@ export const FEE_LEDGER_GAPS = {
   matterMove: {
     field: "Matter",
     waitsOn: "a route that refiles a draft onto another matter, which is a write to both ledgers",
-  },
-  deleteDraft: {
-    field: "Delete Draft",
-    waitsOn: "a route that removes a draft that never entered review",
   },
   reviewGate: {
     field: "Review",

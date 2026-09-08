@@ -16,14 +16,15 @@ import {
 } from "../src/lib/billing/fee-columns.ts";
 import {
   countsInTotals,
-  entryNumberTitle,
   feeDraftRefusal,
+  feeMatterText,
   feePosition,
   isClaimable,
   parseAmountMinor,
   submittedCount,
   type FeeRecord,
 } from "../src/lib/billing/fee-record.ts";
+import { recorderText, returnedDraftReason } from "../src/lib/records/work-in-progress-record.ts";
 import {
   LEDGER_RECORD_NAME,
   carryFacts,
@@ -38,9 +39,6 @@ function makeFee(overrides: Partial<FeeRecord> = {}): FeeRecord {
     id: "fee_one",
     matterId: "matter_pemberton",
     serviceDate: "2026-08-22",
-    entryNumber: "F-00014",
-    enteredDate: "2026-08-22",
-    enteredByName: "Adaeze Osei",
     timekeeperName: "Priya Raman",
     timekeeperUserId: "user_raman",
     description: "Site inspection attendance — flat charge",
@@ -48,12 +46,14 @@ function makeFee(overrides: Partial<FeeRecord> = {}): FeeRecord {
     currency: "USD",
     billable: true,
     status: "draft",
-    attachmentCount: null,
+    kickBackReason: null,
     memo: null,
     invoiceId: null,
-    invoiceNumber: null,
-    incomplete: false,
-    provenance: null,
+    createdAt: "2026-08-22T14:05:00.000Z",
+    createdByUserId: "user_osei",
+    createdByName: "Adaeze Osei",
+    matterNumber: "2026-0114",
+    matterTitle: "Pemberton Estate",
     ...overrides,
   };
 }
@@ -64,8 +64,11 @@ describe("the fee ledger's columns", () => {
   it("is exactly round seven's column set, in order", () => {
     expect(COLUMNS.map((column) => column.id)).toEqual([
       FEE_COLUMN_IDENTIFIERS.serviceDate,
+      FEE_COLUMN_IDENTIFIERS.matter,
       FEE_COLUMN_IDENTIFIERS.entryNumber,
       FEE_COLUMN_IDENTIFIERS.dateEntered,
+      FEE_COLUMN_IDENTIFIERS.enteredBy,
+      FEE_COLUMN_IDENTIFIERS.returned,
       FEE_COLUMN_IDENTIFIERS.timekeeper,
       FEE_COLUMN_IDENTIFIERS.description,
       FEE_COLUMN_IDENTIFIERS.amount,
@@ -102,15 +105,48 @@ describe("the fee ledger's columns", () => {
   });
 
   it("hides the columns nothing can fill, and says so rather than showing a blank", () => {
-    expect(isUnservedFeeColumn(FEE_COLUMN_IDENTIFIERS.dateEntered)).toBe(true);
+    expect(isUnservedFeeColumn(FEE_COLUMN_IDENTIFIERS.entryNumber)).toBe(true);
     expect(isUnservedFeeColumn(FEE_COLUMN_IDENTIFIERS.attachments)).toBe(true);
     expect(isUnservedFeeColumn(FEE_COLUMN_IDENTIFIERS.description)).toBe(false);
+    // The store serves these three now, so a cell that said "waiting on" would be the lie.
+    expect(isUnservedFeeColumn(FEE_COLUMN_IDENTIFIERS.dateEntered)).toBe(false);
+    expect(isUnservedFeeColumn(FEE_COLUMN_IDENTIFIERS.enteredBy)).toBe(false);
+    expect(isUnservedFeeColumn(FEE_COLUMN_IDENTIFIERS.returned)).toBe(false);
+  });
+
+  it("reads the entered date, the recorder and a returned draft's reason off the record", () => {
+    const column = (id: string) => COLUMNS.find((candidate) => candidate.id === id);
+    expect(column(FEE_COLUMN_IDENTIFIERS.dateEntered)?.value(makeFee())).toBe(
+      "2026-08-22T14:05:00.000Z",
+    );
+    expect(column(FEE_COLUMN_IDENTIFIERS.enteredBy)?.value(makeFee())).toBe("Adaeze Osei");
+    // A recorded identifier with no name is a departed member, not an unrecorded one.
+    expect(column(FEE_COLUMN_IDENTIFIERS.enteredBy)?.value(makeFee({ createdByName: null }))).toBe(
+      "No longer at the firm",
+    );
+    expect(
+      column(FEE_COLUMN_IDENTIFIERS.enteredBy)?.value(
+        makeFee({ createdByUserId: null, createdByName: null }),
+      ),
+    ).toBe("Not recorded");
+    expect(column(FEE_COLUMN_IDENTIFIERS.returned)?.value(makeFee())).toBeNull();
+    expect(
+      column(FEE_COLUMN_IDENTIFIERS.returned)?.value(
+        makeFee({ kickBackReason: "This is the Harlow engagement." }),
+      ),
+    ).toBe("This is the Harlow engagement.");
   });
 
   it("renders the amount in major units at the boundary and nowhere before it", () => {
     const amount = COLUMNS.find((column) => column.id === FEE_COLUMN_IDENTIFIERS.amount);
     expect(amount?.value(makeFee({ amountMinor: 40_000 }))).toBe(400);
-    expect(amount?.value(makeFee({ amountMinor: null }))).toBeNull();
+    expect(amount?.value(makeFee({ amountMinor: 125_050 }))).toBe(1250.5);
+  });
+
+  it("names the matter on a row that is not standing on one", () => {
+    expect(feeMatterText(makeFee())).toBe("2026-0114 — Pemberton Estate");
+    expect(feeMatterText(makeFee({ matterNumber: null }))).toBe("Pemberton Estate");
+    expect(feeMatterText(makeFee({ matterNumber: null, matterTitle: null }))).toBe("Not resolved");
   });
 });
 
@@ -134,7 +170,7 @@ describe("what a fee is", () => {
     const fees = [
       makeFee({ id: "a", amountMinor: 40_000 }),
       makeFee({ id: "b", amountMinor: 85_000, status: "submitted" }),
-      makeFee({ id: "c", amountMinor: 50_000, status: "billed", invoiceNumber: "00381" }),
+      makeFee({ id: "c", amountMinor: 50_000, status: "billed", invoiceId: "invoice_381" }),
       // A withdrawn charge was never owed, and a non-billable one is never asked for.
       makeFee({ id: "d", amountMinor: 120_000, status: "void" }),
       makeFee({ id: "e", amountMinor: 9_900, billable: false }),
@@ -144,21 +180,34 @@ describe("what a fee is", () => {
     expect(countsInTotals(makeFee({ status: "void" }))).toBe(false);
   });
 
-  it("keeps an incomplete record out of what a bill could claim", () => {
+  it("keeps what a bill cannot take up out of what it could claim", () => {
     expect(isClaimable(makeFee())).toBe(true);
-    expect(isClaimable(makeFee({ incomplete: true }))).toBe(false);
     expect(isClaimable(makeFee({ billable: false }))).toBe(false);
     expect(isClaimable(makeFee({ status: "billed" }))).toBe(false);
     expect(isClaimable(makeFee({ status: "void" }))).toBe(false);
   });
 
-  it("explains a kept number rather than letting a reader trip over its shape", () => {
-    expect(entryNumberTitle(makeFee())).toContain("never reused");
-    const moved = makeFee({
-      provenance: { fromRecordName: "Time Entry", movedOn: "2026-08-24", movedByName: "A. Osei" },
-    });
-    expect(entryNumberTitle(moved)).toContain("Time Entry");
-    expect(entryNumberTitle(moved)).toContain("reference that changes is a reference that lies");
+  /*
+   * The shared work-in-progress readings, over a FEE. They are asserted here as well as on the cost
+   * ledger because the point of hoisting them was that both surfaces answer identically; a test on
+   * one ledger alone would not have caught the second copy that made hoisting necessary.
+   */
+  it("reads a returned draft's reason as a DRAFT fact, whatever a stale row carries", () => {
+    expect(returnedDraftReason(makeFee())).toBeNull();
+    expect(returnedDraftReason(makeFee({ kickBackReason: "   " }))).toBeNull();
+    expect(returnedDraftReason(makeFee({ kickBackReason: "Wrong matter." }))).toBe("Wrong matter.");
+    // Approved with a reason still on the row: no surface may print "sent back because…" over it.
+    expect(
+      returnedDraftReason(makeFee({ status: "approved", kickBackReason: "Wrong matter." })),
+    ).toBeNull();
+  });
+
+  it("tells a departed recorder from one nobody recorded", () => {
+    expect(recorderText(makeFee())).toBe("Adaeze Osei");
+    expect(recorderText(makeFee({ createdByName: null }))).toBe("No longer at the firm");
+    expect(recorderText(makeFee({ createdByUserId: null, createdByName: null }))).toBe(
+      "Not recorded",
+    );
   });
 });
 

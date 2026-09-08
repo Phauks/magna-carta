@@ -1,7 +1,7 @@
 # A matter's money sections
 
-_Time, Costs and Billing are in daily use. Fees and Trust show their screens in full but stand empty
-until the records behind them can be read; each says so at the top of its list._
+_Time, Fees, Costs and Billing are in daily use. Trust shows its screen in full but stands empty
+until the records behind it can be read, and says so at the top of its list._
 
 ## What it does
 
@@ -29,7 +29,7 @@ section. It takes you out of the matter to the same money at the firm's scale �
 for a week, every matter's spending for a month, every client's bills — which is the question a
 matter's own section cannot answer.
 
-Fees and Trust show nothing there, because they have no firm-wide screen yet.
+Trust shows nothing there, because it has no firm-wide screen yet.
 
 ## Clearing filters
 
@@ -53,6 +53,34 @@ density, the choice is remembered on this device and applies to all five money s
 The **New** control at the top of the matter records into the section you are on: New Time, New
 Fee, New Cost, New Bill, New Deposit. Where a section cannot record yet, the control says what it is
 waiting for.
+
+## Fees
+
+A **fee** is a flat charge for professional services: a settlement drafting fee, a fixed amount for a
+document, anything you agreed as a number rather than metered. **New Fee** records one with its date,
+who it is for, what it covers and what it comes to. It saves as a draft, and a draft bill takes it up
+the same way it takes up a cost.
+
+**A fee is never worked out from your time.** The amount is what you decided to charge. On a matter
+billed hourly your hours still bill as hours, and a fee recorded here is a separate charge beside
+them.
+
+The section shows every fee on the matter in every status, with two figures on the counts strip:
+what is still **unbilled**, and what has been **billed**. Both count billable fees only and neither
+counts a withdrawn one — a fee you decided to absorb is never asked for, and a withdrawn charge was
+never owed. A billed fee opens the bill it was charged on, the same way a billed cost does.
+
+### Deleting a draft is not voiding a fee
+
+These are two different acts and the menu offers both.
+
+- **Delete Draft** removes a fee nobody has been shown. It does not come back, and there is nothing
+  to preserve: it was a typing mistake.
+- **Void** withdraws a fee that has gone further than that. The fee freezes, stops counting toward
+  every figure, and stays on the record struck through — because it is something you may be asked to
+  account for.
+
+Choosing the wrong one is refused and says why.
 
 ## Which bills a matter's Billing section shows
 
