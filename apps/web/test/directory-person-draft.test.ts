@@ -5,6 +5,7 @@ import {
   personDraftRefusal,
   personDraftStarted,
   personDraftSummary,
+  personDraftWarning,
   personSectionCounts,
   pronounChoiceFor,
   pronounSetForChoice,
@@ -14,7 +15,14 @@ import {
 
 function filled() {
   const draft = emptyPersonDraft();
-  draft.name = { prefix: "Dr.", given: "Margaret", middle: "", family: "Okafor", suffix: "" };
+  draft.name = {
+    prefix: "Dr.",
+    given: "Margaret",
+    middle: "",
+    family: "Okafor",
+    // Several, on the one line, the way they are written after a name.
+    suffix: "Ph.D., Esq.",
+  };
   draft.otherNames.push({
     id: "n1",
     prefix: "",
@@ -61,13 +69,14 @@ describe("the draft knows what it holds", () => {
     expect(personSectionCounts(draft).map((section) => [section.id, section.count])).toEqual([
       ["names", 2],
       ["contact", 2],
+      ["address", 0],
       ["pronouns", null],
       ["dates", 1],
       ["identifiers", 1],
       ["organizations", 1],
     ]);
     expect(personDraftSummary(draft)).toEqual([
-      { label: "Names", value: "Dr. Margaret Okafor · 1 other name" },
+      { label: "Names", value: "Dr. Margaret Okafor Ph.D., Esq. · 1 other name" },
       { label: "Contact", value: "1 email · 1 number" },
       { label: "Pronouns", value: "she / her / hers" },
       { label: "Dates", value: "Born 1978-03-14" },
@@ -76,15 +85,28 @@ describe("the draft knows what it holds", () => {
     ]);
   });
 
-  it("is refused until it has a given and a family name, and knows when it has been started", () => {
+  it("is refused until it has a first name, and knows when it has been started", () => {
     const draft = emptyPersonDraft();
-    expect(personDraftRefusal(draft)).toBe("Give the person's given name and family name.");
+    expect(personDraftRefusal(draft)).toBe("Give the person's first name.");
     expect(personDraftStarted(draft)).toBe(false);
     draft.name.given = "Margaret";
     expect(personDraftStarted(draft)).toBe(true);
-    expect(personDraftRefusal(draft)).toBeDefined();
-    draft.name.family = "Okafor";
+    // A NAME, NOT TWO NAMES. A person with one name is an ordinary person, and refusing them files
+    // them under a name they do not have.
     expect(personDraftRefusal(draft)).toBeUndefined();
+  });
+
+  it("warns about a missing last name rather than refusing it, and stops warning once one is given", () => {
+    const draft = emptyPersonDraft();
+    // Nothing to warn about yet: the panel is refusing the draft outright.
+    expect(personDraftWarning(draft)).toBeNull();
+
+    draft.name.given = "Prince";
+    expect(personDraftWarning(draft)).toContain("no last name");
+    expect(personDraftRefusal(draft)).toBeUndefined();
+
+    draft.name.family = "Okafor";
+    expect(personDraftWarning(draft)).toBeNull();
   });
 });
 
@@ -113,6 +135,9 @@ describe("the one request", () => {
       family: "Okafor",
       prefix: "Dr.",
       middle: null,
+      // Several suffixes, in the one column, comma-separated — the way they are written on an
+      // envelope and the way `normalizeName` already reads them.
+      suffix: "Ph.D., Esq.",
       dateOfBirth: "1978-03-14",
       pronouns: { subject: "she" },
     });
@@ -143,5 +168,19 @@ describe("the one request", () => {
     ]);
     expect(request.dateOfDeath).toBeUndefined();
     expect(request.addresses).toBeUndefined();
+  });
+});
+
+describe("a person who has one name", () => {
+  it("sends no family name at all, rather than an empty one", () => {
+    const draft = emptyPersonDraft();
+    draft.name.given = "Prince";
+
+    const request = personCreateRequest(draft);
+
+    // Absent, not empty: the contract reads an omitted field as "there is none" and an empty string
+    // as a value that cannot be a name.
+    expect(request.given).toBe("Prince");
+    expect("family" in request).toBe(false);
   });
 });
