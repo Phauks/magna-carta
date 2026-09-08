@@ -39,6 +39,7 @@ import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerFirmNotificationPolicyRoutes } from "./routes/firm-notification-policy.ts";
 import { registerFirmProfileRoutes } from "./routes/firm-profile.ts";
 import { registerFirmReportPolicyRoutes } from "./routes/firm-report-policy.ts";
+import { registerFirmTimePolicyRoutes } from "./routes/firm-time-policy.ts";
 import { registerNotificationPreferencesRoutes } from "./routes/notification-preferences.ts";
 import { registerNotificationsRoutes } from "./routes/notifications.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
@@ -865,6 +866,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFirmNotificationPolicyRoutes(app, chokepoint);
   registerFirmProfileRoutes(app, chokepoint);
   registerFirmReportPolicyRoutes(app, chokepoint);
+  registerFirmTimePolicyRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);

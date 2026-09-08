@@ -102,7 +102,15 @@
   scope: Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety & Scanning as pages whose posture follows the signed-in member's real capability.
   status: partial
   surface: screen
-  evidence: Users and Roles and Permissions (settings.area-ui.member-administration), File Safety & Scanning (settings.area-ui.file-safety) and Firm Profile (settings.area-ui.firm-profile) are real end to end. Billing values are still Preview posture (local storage, governing nothing) pending a firm time-settings write route.
+  evidence: Every page in the band is real end to end - Users and Roles and Permissions (settings.area-ui.member-administration), File Safety & Scanning (settings.area-ui.file-safety), Firm Profile (settings.area-ui.firm-profile) and Billing (settings.area-ui.billing-time-policy). Matter Numbering has its own dedicated section under Practice.
+
+- id: settings.area-ui.billing-time-policy
+  name: Billing (time capture)
+  scope: How the firm measures the time it bills - the increment a captured duration rounds to, and the direction it rounds in.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/routes/(app)/settings/billing/ over GET/PATCH /api/v1/firm/time-policy (apps/api-worker/src/routes/firm-time-policy.ts) behind time:manageSettings, Owner/Admin by seed, staged through the shared server-backed draft. The rounding engine was already live - the timer, the quick-add preview and every capture resolve these two keys - so what was missing was the firm's own door to the firm tier.
+  notes: The route reads and writes the FIRM tier only; a matter, client, timekeeper or location override stands above it and is left alone, which the page states rather than leaving somebody to discover. The server takes any whole number of minutes up to an hour and the select offers the seven firms actually bill at, so a firm holding something else has its value stated rather than a control that cannot express it.
 
 - id: settings.area-ui.file-safety
   name: File Safety & Scanning

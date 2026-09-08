@@ -31459,6 +31459,47 @@
           }
         }
       },
+      "FirmTimePolicyResponse": {
+        "type": "object",
+        "properties": {
+          "incrementMinutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "The firm's minimum billing increment: what a captured duration rounds TO, in minutes. Six — a tenth of an hour — is the prevailing default. It is also what one BILLING UNIT is worth, so a firm on quarter hours and a firm on tenths mean different amounts of work by the same number of units."
+          },
+          "roundingDirection": {
+            "type": "string",
+            "enum": [
+              "up",
+              "nearest",
+              "down"
+            ],
+            "description": "How the firm resolves a duration that falls between increments."
+          }
+        },
+        "required": [
+          "incrementMinutes",
+          "roundingDirection"
+        ]
+      },
+      "PatchFirmTimePolicyRequest": {
+        "type": "object",
+        "properties": {
+          "incrementMinutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 60
+          },
+          "roundingDirection": {
+            "type": "string",
+            "enum": [
+              "up",
+              "nearest",
+              "down"
+            ]
+          }
+        }
+      },
       "ConversionUploadResponse": {
         "type": "object",
         "properties": {
@@ -96449,6 +96490,203 @@
         }
       }
     },
+    "/api/v1/firm/time-policy": {
+      "get": {
+        "description": "Reads the firm's own time-capture policy: the increment a captured duration rounds to and the direction it rounds in. This is the FIRM tier — the value a matter, client, timekeeper or location override would sit above. To ask what a particular capture will actually be billed at, read the resolved policy from the time-entries surface instead.",
+        "operationId": "firmTimePolicy.get",
+        "tags": [
+          "firmTimePolicy"
+        ],
+        "x-mc-operationId": "firmTimePolicy.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:manageSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmTimePolicy"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's time-capture policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmTimePolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks time:manageSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's time-capture policy. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. Time already captured keeps the rounding it was recorded under; the new policy applies to what is captured after it. Returns the policy after the write.",
+        "operationId": "firmTimePolicy.update",
+        "tags": [
+          "firmTimePolicy"
+        ],
+        "x-mc-operationId": "firmTimePolicy.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:manageSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmTimePolicy"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchFirmTimePolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's time-capture policy after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmTimePolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks time:manageSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The increment is not a whole number of minutes between 1 and 60, the direction is not one of the three, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversions/upload": {
       "post": {
         "description": "Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.",
@@ -99579,6 +99817,9 @@
     },
     {
       "name": "firmReportPolicy"
+    },
+    {
+      "name": "firmTimePolicy"
     },
     {
       "name": "firmUsage"

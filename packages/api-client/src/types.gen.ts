@@ -7247,6 +7247,22 @@ export type PatchFirmReportPolicyRequest = {
     };
 };
 
+export type FirmTimePolicyResponse = {
+    /**
+     * The firm's minimum billing increment: what a captured duration rounds TO, in minutes. Six — a tenth of an hour — is the prevailing default. It is also what one BILLING UNIT is worth, so a firm on quarter hours and a firm on tenths mean different amounts of work by the same number of units.
+     */
+    incrementMinutes: number;
+    /**
+     * How the firm resolves a duration that falls between increments.
+     */
+    roundingDirection: 'up' | 'nearest' | 'down';
+};
+
+export type PatchFirmTimePolicyRequest = {
+    incrementMinutes?: number;
+    roundingDirection?: 'up' | 'nearest' | 'down';
+};
+
 export type ConversionUploadResponse = {
     jobId: string;
     uploadUrl: string;
@@ -34160,6 +34176,95 @@ export type FirmReportPolicyUpdateResponses = {
 };
 
 export type FirmReportPolicyUpdateResponse = FirmReportPolicyUpdateResponses[keyof FirmReportPolicyUpdateResponses];
+
+export type FirmTimePolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/time-policy';
+};
+
+export type FirmTimePolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmTimePolicyGetError = FirmTimePolicyGetErrors[keyof FirmTimePolicyGetErrors];
+
+export type FirmTimePolicyGetResponses = {
+    /**
+     * The firm's time-capture policy
+     */
+    200: FirmTimePolicyResponse;
+};
+
+export type FirmTimePolicyGetResponse = FirmTimePolicyGetResponses[keyof FirmTimePolicyGetResponses];
+
+export type FirmTimePolicyUpdateData = {
+    body: PatchFirmTimePolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/time-policy';
+};
+
+export type FirmTimePolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The increment is not a whole number of minutes between 1 and 60, the direction is not one of the three, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmTimePolicyUpdateError = FirmTimePolicyUpdateErrors[keyof FirmTimePolicyUpdateErrors];
+
+export type FirmTimePolicyUpdateResponses = {
+    /**
+     * The firm's time-capture policy after the write
+     */
+    200: FirmTimePolicyResponse;
+};
+
+export type FirmTimePolicyUpdateResponse = FirmTimePolicyUpdateResponses[keyof FirmTimePolicyUpdateResponses];
 
 export type ConversionsUploadData = {
     body?: never;

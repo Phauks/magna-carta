@@ -16,27 +16,27 @@ administering its members ("us"); `/account` is a member administering themselve
 Read this as three columns of truth: what the page renders, what the server can already answer, and
 therefore what the gap is.
 
-| Section                         | Page today                                           | Server today                                                                          | Gap                                            |
-| ------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Theme, Accessibility            | Real, end to end (local preferences, cross-tab sync) | n/a — per-browser by design                                                           | none                                           |
-| Text                            | Four `Soon` seams                                    | n/a                                                                                   | needs font tokens / a text-scale overlay first |
-| Firm Profile                    | Live: the firm's name over `PUT /api/v1/firm/profile` | The session bootstrap already returns the display name, so the read was never missing | none — built                                   |
-| **Users**                       | **Four `Soon` seams — nothing works**                | **Invite + roster exist. Role assignment, deactivation and grants do not**            | **the whole administration surface — slice 1** |
-| Matter Numbering                | Real editor, audited writes                          | Real (`/api/v1/numbering-scheme`)                                                     | none                                           |
-| Calendar                        | Real, server-backed                                  | Real (`/api/v1/calendar/settings`)                                                    | none                                           |
-| Reports                         | Real, server-backed                                  | Real (`/api/v1/firm/reports/policy`)                                                  | none                                           |
-| Event Types, Resources          | Real catalog pages                                   | Real (`/api/v1/calendar/*`)                                                           | none                                           |
-| Matter Plans, Intake Procedures | Real                                                 | Real                                                                                  | none                                           |
-| Billing                         | Two preview rows in local storage                    | Backend setting definitions exist; only a read route (`time-entries/rounding-policy`) | a firm time-settings write route               |
-| File Safety & Scanning          | Three `Soon` seams                                   | **Complete** — `GET/PATCH /api/v1/firm/scan-policy` under `firm:manageScanPolicy`     | wiring only                                    |
-| Downloads                       | Real, server-backed                                  | Real (`/api/v1/downloads/preferences`)                                                | none                                           |
-| Beta Access                     | Two `Soon` seams                                     | `PUT /api/v1/firm/release-channel` exists; no read                                    | a channel read, then wiring                    |
-| Versions                        | Partly real                                          | Partial                                                                               | remaining component endpoints                  |
-| Developer                       | Real (development builds only)                       | n/a                                                                                   | none                                           |
-| **Notifications**               | **No page at all — the nav group renders empty**     | **Complete** — per-member matrix and the firm policy, both routed                     | **the page, and only the page**                |
-| Integrations                    | No page                                              | Credential storage server-side only                                                   | a whole surface                                |
-| Documents & templates           | No page                                              | Document-type and narrative-template routes exist                                     | a surface over existing routes                 |
-| Diagnostics                     | No page                                              | The setting does not exist either                                                     | design first                                   |
+| Section                         | Page today                                                      | Server today                                                                            | Gap                                            |
+| ------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Theme, Accessibility            | Real, end to end (local preferences, cross-tab sync)            | n/a — per-browser by design                                                             | none                                           |
+| Text                            | Four `Soon` seams                                               | n/a                                                                                     | needs font tokens / a text-scale overlay first |
+| Firm Profile                    | Live: the firm's name over `PUT /api/v1/firm/profile`           | The session bootstrap already returns the display name, so the read was never missing   | none — built                                   |
+| **Users**                       | **Four `Soon` seams — nothing works**                           | **Invite + roster exist. Role assignment, deactivation and grants do not**              | **the whole administration surface — slice 1** |
+| Matter Numbering                | Real editor, audited writes                                     | Real (`/api/v1/numbering-scheme`)                                                       | none                                           |
+| Calendar                        | Real, server-backed                                             | Real (`/api/v1/calendar/settings`)                                                      | none                                           |
+| Reports                         | Real, server-backed                                             | Real (`/api/v1/firm/reports/policy`)                                                    | none                                           |
+| Event Types, Resources          | Real catalog pages                                              | Real (`/api/v1/calendar/*`)                                                             | none                                           |
+| Matter Plans, Intake Procedures | Real                                                            | Real                                                                                    | none                                           |
+| Billing                         | Live: the firm tier over `GET`/`PATCH /api/v1/firm/time-policy` | The scoped-setting definitions were already there; only the firm's own door was missing | none — built                                   |
+| File Safety & Scanning          | Three `Soon` seams                                              | **Complete** — `GET/PATCH /api/v1/firm/scan-policy` under `firm:manageScanPolicy`       | wiring only                                    |
+| Downloads                       | Real, server-backed                                             | Real (`/api/v1/downloads/preferences`)                                                  | none                                           |
+| Beta Access                     | Two `Soon` seams                                                | `PUT /api/v1/firm/release-channel` exists; no read                                      | a channel read, then wiring                    |
+| Versions                        | Partly real                                                     | Partial                                                                                 | remaining component endpoints                  |
+| Developer                       | Real (development builds only)                                  | n/a                                                                                     | none                                           |
+| **Notifications**               | **No page at all — the nav group renders empty**                | **Complete** — per-member matrix and the firm policy, both routed                       | **the page, and only the page**                |
+| Integrations                    | No page                                                         | Credential storage server-side only                                                     | a whole surface                                |
+| Documents & templates           | No page                                                         | Document-type and narrative-template routes exist                                       | a surface over existing routes                 |
+| Diagnostics                     | No page                                                         | The setting does not exist either                                                       | design first                                   |
 
 Two facts fall out of that table and set the order.
 
@@ -69,8 +69,9 @@ blocks a firm from actually operating, not merely from configuring.
    inventory assumed: the session bootstrap already answers both the firm's release channel and its
    display name, so Beta Access was pure wiring and Firm Profile needed one write route
    (`PUT /api/v1/firm/profile` behind a new `firm:manageProfile`) and no read at all.
-6. **Billing** (slice 5). Needs a firm time-settings write route before its two preview rows can
-   stop being local storage.
+6. **Billing** (slice 5, built). `GET`/`PATCH /api/v1/firm/time-policy` behind `time:manageSettings`,
+   reading and writing the FIRM tier of the increment and the rounding direction. With it the
+   local-storage settings registry is empty: every row on the surface now has a server behind it.
 7. **Documents & templates**, **Integrations**, **Diagnostics** (later). Each is a new surface
    rather than a gap in an existing one, and Diagnostics needs a design before it needs a page.
 
