@@ -603,6 +603,50 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "pseudonymize-keep",
     note: "who authored the procedure; the reference is replaced at the member tombstone, never dropped",
   },
+  /*
+   * THE PUBLIC INTAKE FORM. A submission is written by an unidentified stranger through an anonymous
+   * endpoint and holds, by construction, exactly what the firm asked them for: their name, an email
+   * address, a telephone number, a postal address, and an account of their problem in their own
+   * words. That last column is the one that matters here — a `matter-description` answer is a
+   * person's narrative of a legal problem they were seeking help with, which is among the most
+   * sensitive text the platform holds and belongs to somebody who may never have become a client.
+   *
+   * `anonymize` rather than `report-manual`, and the reason is the missing retention basis. The
+   * free-text columns that get the manual treatment elsewhere — a trust counterparty, a time-entry
+   * narrative — sit on records the firm is required to keep. A submission the firm declined, or
+   * never triaged, is not a record of the firm's work at all: nobody became a client, no matter
+   * opened, and there is no rule requiring it be kept. Scrubbing the answers at the node is
+   * therefore the right default, and the row itself survives so the firm's own count of what it
+   * received stays true.
+   *
+   * The subject is `self` because the person is IN the answers and nowhere else: a submission
+   * carries no user id, no entity id and no matter — that is the whole point of the anonymous path.
+   * The address it arrived from is deliberately not stored, so there is nothing else to reach.
+   */
+  {
+    table: "intake_form_submission",
+    subjectKey: "self",
+    action: "anonymize",
+    note: "the answers a stranger typed — their name, how to reach them, and their account of their problem — are scrubbed at the node; the row survives so the firm's count of what it received stays true",
+  },
+  {
+    table: "intake_form_submission",
+    subjectKey: "triaged_by",
+    action: "pseudonymize-keep",
+    note: "which member read it and what they decided; the reference is replaced at the member tombstone, never dropped",
+  },
+  {
+    table: "intake_form",
+    subjectKey: "created_by",
+    action: "pseudonymize-keep",
+    note: "who authored the form; the reference is replaced at the member tombstone, never dropped",
+  },
+  {
+    table: "intake_form_version",
+    subjectKey: "published_by",
+    action: "pseudonymize-keep",
+    note: "who put the form on the internet; the reference is replaced at the member tombstone, never dropped",
+  },
   {
     table: "matter_intake_step_record",
     subjectKey: "recorded_by",
@@ -1185,6 +1229,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // consultation of its kind, so one that named a client would be wrong on every matter but one.
   // `reference_id` names a document template or a custom field definition, never a person.
   "intake_procedure_step",
+  // A form's QUESTIONS, on the same line: a question is written once by the firm and asked of
+  // everybody, so one that named a person would be wrong for every visitor but one. The answers are
+  // the other table, and they are classified above.
+  "intake_form_field",
   // The three structured attribute tables that describe an OBJECT and reference no person: a vehicle's
   // make, model, identification number, and plate; a firearm's make, model, calibre, and serial; a
   // digital asset's platform, its public handle, and who holds it. Every identifier on them is public

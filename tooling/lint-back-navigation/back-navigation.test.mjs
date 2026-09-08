@@ -402,6 +402,54 @@ describe("naming where a screen came from", () => {
   });
 });
 
+describe("a way back that leads to one record", () => {
+  /*
+   * The BUILDER form. A screen whose parent is a particular record — a document's editor under its
+   * matter's files, a form's submissions under that form — cannot name a constant, because the path
+   * it returns to carries an id. Before this was recognised, such a screen read as having no way
+   * back at all: the gate reported it as unbuilt while the product had the link, which is the
+   * failure that is worst to have in a governance scan, because the fix looks like adding something
+   * that is already there.
+   */
+  const source = [
+    "export const DEVELOPER_CONSOLE_BACK: BackDestination = {",
+    '  href: "/developer-console",',
+    '  label: "Developer console",',
+    "};",
+    "export function intakeFormBack(formId: string, formName: string): BackDestination {",
+    "  return {",
+    "    href: `/forms/${encodeURIComponent(formId)}`,",
+    "    label: formName,",
+    "  };",
+    "}",
+  ].join("\n");
+
+  it("reads a builder's template-literal href as a route path", () => {
+    const targets = spelledOutBackTargets(source);
+    expect(targets.get("intakeFormBack")).toBe("/forms/[param]");
+  });
+
+  it("still reads the constant form beside it", () => {
+    expect(spelledOutBackTargets(source).get("DEVELOPER_CONSOLE_BACK")).toBe("/developer-console");
+  });
+
+  it("resolves a back that CALLS the builder", () => {
+    const found = backDestinations("<ScreenHeader back={intakeFormBack(formId, name)} />", {
+      destinations: new Map(),
+      spelledOut: spelledOutBackTargets(source),
+    });
+    expect(found).toEqual([{ named: "intakeFormBack()", to: "/forms/[param]" }]);
+  });
+
+  it("does not invent a destination for a builder nobody declared", () => {
+    const found = backDestinations("<ScreenHeader back={somethingElse(id)} />", {
+      destinations: new Map(),
+      spelledOut: spelledOutBackTargets(source),
+    });
+    expect(found).toEqual([]);
+  });
+});
+
 describe("declining", () => {
   it("skips the signed-out subtrees, which carry their own step-back", () => {
     const result = audit(

@@ -1,3 +1,8 @@
+import {
+  appendCursorPredicate,
+  appendCursorPredicateOnColumn,
+  type SortCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   IntakeFormFieldId,
@@ -200,10 +205,28 @@ export function rotatePublicTokenStatement(
     .bind(publicToken, now, id);
 }
 
-export function selectFormsStatement(database: SqlDatabase, limit: number): SqlStatement {
+/**
+ * A page of the firm's forms, newest first.
+ *
+ * Ordered by (created_at, id) rather than by name, so it rides the platform's own two-part cursor:
+ * a keyset over a name would page by a value a firm can edit, and renaming a form mid-walk would
+ * make a page repeat or skip. Fetches one row past the page so the caller can tell "that is all"
+ * from "there is more".
+ */
+export function selectFormsStatement(
+  database: SqlDatabase,
+  options: { readonly limit: number; readonly cursor: SortCursor | undefined },
+): SqlStatement {
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+  appendCursorPredicate(conditions, bindings, options.cursor);
+  const where = conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")} `;
   return database
-    .prepare(`SELECT ${FORM_COLUMNS} FROM ${INTAKE_FORM_TABLE} ORDER BY name ASC, id ASC LIMIT ?1`)
-    .bind(limit);
+    .prepare(
+      `SELECT ${FORM_COLUMNS} FROM ${INTAKE_FORM_TABLE} ${where}` +
+        `ORDER BY created_at DESC, id DESC LIMIT ?`,
+    )
+    .bind(...bindings, options.limit + 1);
 }
 
 export async function readForm(
@@ -480,21 +503,33 @@ export function selectSubmissionsStatement(
     readonly formId: IntakeFormId;
     readonly state: IntakeSubmissionTriageState | null;
     readonly limit: number;
+    readonly cursor: SortCursor | undefined;
   },
 ): SqlStatement {
-  const stateFilter = options.state === null ? "" : "AND submission.triage_state = ?3 ";
-  const statement = database.prepare(
-    `SELECT ${SUBMISSION_COLUMNS.split(", ")
-      .map((column) => `submission.${column}`)
-      .join(", ")} ` +
-      `FROM ${INTAKE_FORM_SUBMISSION_TABLE} AS submission ` +
-      `JOIN ${INTAKE_FORM_VERSION_TABLE} AS version ON version.id = submission.form_version_id ` +
-      `WHERE version.form_id = ?1 ${stateFilter}` +
-      `ORDER BY submission.submitted_at DESC, submission.id DESC LIMIT ?2`,
-  );
-  return options.state === null
-    ? statement.bind(options.formId, options.limit)
-    : statement.bind(options.formId, options.limit, options.state);
+  const conditions: string[] = ["version.form_id = ?"];
+  const bindings: unknown[] = [options.formId];
+  if (options.state !== null) {
+    conditions.push("submission.triage_state = ?");
+    bindings.push(options.state);
+  }
+  // Keyed on the submission's own created_at, which is the instant it arrived — written in the same
+  // statement as submitted_at and from the same value, so the cursor and the display order agree.
+  appendCursorPredicateOnColumn(conditions, bindings, options.cursor, {
+    sortColumn: "submission.created_at",
+    idColumn: "submission.id",
+    ascending: false,
+  });
+  return database
+    .prepare(
+      `SELECT ${SUBMISSION_COLUMNS.split(", ")
+        .map((column) => `submission.${column}`)
+        .join(", ")} ` +
+        `FROM ${INTAKE_FORM_SUBMISSION_TABLE} AS submission ` +
+        `JOIN ${INTAKE_FORM_VERSION_TABLE} AS version ON version.id = submission.form_version_id ` +
+        `WHERE ${conditions.join(" AND ")} ` +
+        `ORDER BY submission.created_at DESC, submission.id DESC LIMIT ?`,
+    )
+    .bind(...bindings, options.limit + 1);
 }
 
 export async function readSubmission(

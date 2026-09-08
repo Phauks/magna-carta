@@ -15659,6 +15659,27 @@
           "rationale"
         ]
       },
+      "IntakeFormPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntakeFormSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
       "IntakeFormSummary": {
         "type": "object",
         "properties": {
@@ -15907,6 +15928,27 @@
           "label"
         ]
       },
+      "IntakeFormSubmissionPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IntakeFormSubmissionSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
+        ]
+      },
       "IntakeFormSubmissionSummary": {
         "type": "object",
         "properties": {
@@ -16021,6 +16063,13 @@
               "null"
             ]
           },
+          "humanVerificationSiteKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The public half of the human-verification widget, or null where none is provisioned. Served here rather than built into the page so activation is a runtime act: set the site key and the secret on the worker and the challenge appears, with no rebuild. Null means the page renders no challenge at all — an honest nothing rather than a box that verifies nothing, which would tell a firm it was protected when it is not."
+          },
           "fields": {
             "type": "array",
             "items": {
@@ -16079,6 +16128,7 @@
         "required": [
           "title",
           "introduction",
+          "humanVerificationSiteKey",
           "fields"
         ]
       },
@@ -66655,7 +66705,7 @@
     },
     "/api/v1/intake-forms": {
       "get": {
-        "description": "Every public intake form this firm has authored, with its status, its live link, whether it has unpublished changes, and how many submissions are waiting on a member.",
+        "description": "A page of the public intake forms this firm has authored, newest first, each with its status, its live link, whether it has unpublished changes, and how many submissions are waiting on a member.",
         "operationId": "intakeForms.list",
         "tags": [
           "intakeForms"
@@ -66673,24 +66723,23 @@
           "intakeForms"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The firm's forms.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/IntakeFormSummary"
-                      }
-                    }
-                  },
-                  "required": [
-                    "data"
-                  ]
+                  "$ref": "#/components/schemas/IntakeFormPage"
                 }
               }
             }
@@ -67930,6 +67979,14 @@
           },
           {
             "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
               "type": "string",
               "enum": [
                 "new",
@@ -67951,18 +68008,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/IntakeFormSubmissionSummary"
-                      }
-                    }
-                  },
-                  "required": [
-                    "data"
-                  ]
+                  "$ref": "#/components/schemas/IntakeFormSubmissionPage"
                 }
               }
             }

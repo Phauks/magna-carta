@@ -9840,10 +9840,7 @@ export const intakeForm = sqliteTable(
     check("intake_form_name_nonempty_check", sql`length(${table.name}) > 0`),
     check("intake_form_title_nonempty_check", sql`length(${table.title}) > 0`),
     check("intake_form_public_token_nonempty_check", sql`length(${table.publicToken}) > 0`),
-    check(
-      "intake_form_status_check",
-      sql`${table.status} IN ('draft', 'published', 'closed')`,
-    ),
+    check("intake_form_status_check", sql`${table.status} IN ('draft', 'published', 'closed')`),
     // A published form must name the version it publishes. A form that says published and serves
     // nothing is the one state the public route could not answer honestly.
     check(

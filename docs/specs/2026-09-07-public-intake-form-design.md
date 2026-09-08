@@ -83,17 +83,17 @@ Four tables in the per-firm database.
 
 ### `intake_form` — the thing a firm authors and hands out
 
-| Column | Meaning |
-| --- | --- |
-| `id` | `intakeForm_` handle |
-| `name` | What the firm calls it internally ("Personal injury enquiry") |
-| `title` | What the visitor sees at the top of the form |
-| `introduction` | Optional prose above the fields |
-| `confirmation_message` | What the visitor is told after submitting. Constrained by section 5 |
-| `public_token` | The URL's second segment. Unique per firm; rotatable |
-| `status` | `draft` \| `published` \| `closed` |
-| `published_version_id` | The version the public route serves. Null while `draft` |
-| `submission_budget` | Optional per-form ceiling on accepted submissions per day; null means the platform limit alone |
+| Column                 | Meaning                                                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------------------- |
+| `id`                   | `intakeForm_` handle                                                                           |
+| `name`                 | What the firm calls it internally ("Personal injury enquiry")                                  |
+| `title`                | What the visitor sees at the top of the form                                                   |
+| `introduction`         | Optional prose above the fields                                                                |
+| `confirmation_message` | What the visitor is told after submitting. Constrained by section 5                            |
+| `public_token`         | The URL's second segment. Unique per firm; rotatable                                           |
+| `status`               | `draft` \| `published` \| `closed`                                                             |
+| `published_version_id` | The version the public route serves. Null while `draft`                                        |
+| `submission_budget`    | Optional per-form ceiling on accepted submissions per day; null means the platform limit alone |
 
 `status` is the whole access model. `draft` and `closed` are unreachable from the public route, and both answer
 exactly as a wrong token does — see section 5.
@@ -105,11 +105,11 @@ A published form is **frozen**. Editing a published form's questions creates a n
 `document_template_version` and the billing arrangement version: a firm that changes its questions must still be
 able to read what an old submission was asked.
 
-| Column | Meaning |
-| --- | --- |
-| `id` | `intakeFormVersion_` handle |
-| `form_id` | Its form |
-| `version_number` | Monotonic within the form, starting at 1 |
+| Column                                 | Meaning                                                            |
+| -------------------------------------- | ------------------------------------------------------------------ |
+| `id`                                   | `intakeFormVersion_` handle                                        |
+| `form_id`                              | Its form                                                           |
+| `version_number`                       | Monotonic within the form, starting at 1                           |
 | `published_at`, `published_by_user_id` | Who published it and when. Both null while it is the working draft |
 
 Exactly one version per form may be unpublished at a time — the working draft. Fields are edited on it freely;
@@ -117,43 +117,43 @@ publishing stamps it and starts a new draft only when the next edit arrives.
 
 ### `intake_form_field` — one question
 
-| Column | Meaning |
-| --- | --- |
-| `id` | `intakeFormField_` handle |
-| `form_version_id` | Its version. Fields belong to a version, never to a form |
-| `position` | Order on the page |
-| `kind` | The bounded vocabulary below, held in a CHECK |
-| `label` | The question as the visitor reads it |
-| `help_text` | Optional, under the field. Never a placeholder — the placeholder rule is a standing correction |
-| `required` | Whether the submission is refused without it |
-| `options_json` | The choices, for `choice` only. Null otherwise, enforced by CHECK |
+| Column            | Meaning                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------------- |
+| `id`              | `intakeFormField_` handle                                                                      |
+| `form_version_id` | Its version. Fields belong to a version, never to a form                                       |
+| `position`        | Order on the page                                                                              |
+| `kind`            | The bounded vocabulary below, held in a CHECK                                                  |
+| `label`           | The question as the visitor reads it                                                           |
+| `help_text`       | Optional, under the field. Never a placeholder — the placeholder rule is a standing correction |
+| `required`        | Whether the submission is refused without it                                                   |
+| `options_json`    | The choices, for `choice` only. Null otherwise, enforced by CHECK                              |
 
 **The bounded vocabulary — seven kinds, held in a CHECK so an eighth is a reviewed migration:**
 
-| Kind | What it collects |
-| --- | --- |
-| `person-name` | The visitor's name, in the parts the Directory holds rather than one string |
-| `organization-name` | A company or organization's name |
-| `email` | An email address |
-| `telephone` | A telephone number, stored as typed |
-| `postal-address` | A street address |
-| `matter-description` | The free-text account of what happened. The field every intake form has |
-| `choice` | A firm-defined picklist over `options_json` |
-| `question` | A firm-defined free-text question |
+| Kind                 | What it collects                                                            |
+| -------------------- | --------------------------------------------------------------------------- |
+| `person-name`        | The visitor's name, in the parts the Directory holds rather than one string |
+| `organization-name`  | A company or organization's name                                            |
+| `email`              | An email address                                                            |
+| `telephone`          | A telephone number, stored as typed                                         |
+| `postal-address`     | A street address                                                            |
+| `matter-description` | The free-text account of what happened. The field every intake form has     |
+| `choice`             | A firm-defined picklist over `options_json`                                 |
+| `question`           | A firm-defined free-text question                                           |
 
 That is eight, and the count is the point: the vocabulary is closed, it is the platform's, and a firm extends its
 form by adding a `question` or a `choice` rather than by reaching into the custom-fields engine.
 
 ### `intake_form_submission` — what arrived
 
-| Column | Meaning |
-| --- | --- |
-| `id` | `intakeFormSubmission_` handle |
-| `form_version_id` | The version it arrived through. **The reason versions exist** |
-| `submitted_at` | When |
-| `answers_json` | The answers, keyed by field id |
-| `triage_state` | `new` \| `accepted` \| `declined` \| `spam` |
-| `triaged_at`, `triaged_by_user_id`, `triage_note` | The member's decision, or null while `new` |
+| Column                                            | Meaning                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------- |
+| `id`                                              | `intakeFormSubmission_` handle                                |
+| `form_version_id`                                 | The version it arrived through. **The reason versions exist** |
+| `submitted_at`                                    | When                                                          |
+| `answers_json`                                    | The answers, keyed by field id                                |
+| `triage_state`                                    | `new` \| `accepted` \| `declined` \| `spam`                   |
+| `triaged_at`, `triaged_by_user_id`, `triage_note` | The member's decision, or null while `new`                    |
 
 `answers_json` is keyed by **field id**, not by label: a version's labels are frozen, but keying by id means a
 submission renders correctly even if a later version reuses a label for a different question.
@@ -276,10 +276,10 @@ forms need an external principal, a grant, and a capability the accepted portal 
 
 ## 8. Owner flags this design raises
 
-| Flag | Question |
-| --- | --- |
+| Flag   | Question                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **P1** | **May a form be deleted, or only closed?** This design ships close-only: a form holds submissions, and submissions are the firm's record of people who asked it for help. Deleting one would take that record with it. Close is reversible, hides the form from the public route, and keeps everything. If a firm genuinely needs a form gone, that is a deletion with a reversal story, and it should be designed rather than assumed. |
-| **P2** | **How long does a firm keep an untriaged submission?** Nothing here expires. A firm that publishes a form and stops reading it accumulates strangers' personal information indefinitely, which is a data-protection posture rather than a storage cost. The platform has an erasure registry; whether a retention window rides it for this table is a decision this slice does not need but the next one might. |
-| **P3** | **Does publishing a form require anything of the firm first?** Today it does not: a firm can publish before it has a conflicts posture, an intake procedure or a matter type. That is probably right — the form only collects — but it is worth stating rather than discovering. |
+| **P2** | **How long does a firm keep an untriaged submission?** Nothing here expires. A firm that publishes a form and stops reading it accumulates strangers' personal information indefinitely, which is a data-protection posture rather than a storage cost. The platform has an erasure registry; whether a retention window rides it for this table is a decision this slice does not need but the next one might.                         |
+| **P3** | **Does publishing a form require anything of the firm first?** Today it does not: a firm can publish before it has a conflicts posture, an intake procedure or a matter type. That is probably right — the form only collects — but it is worth stating rather than discovering.                                                                                                                                                        |
 
 None of the three blocks the build. Each is recorded in the feature ledger so it is asked rather than assumed.

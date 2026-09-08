@@ -30,9 +30,9 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 295 | 44% |
+| Done | shipped | 296 | 45% |
 | Part-built | partial, in-build | 124 | 19% |
-| Ahead | designed, planned, researching, not-started | 204 | 31% |
+| Ahead | designed, planned, researching, not-started | 203 | 30% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **664** | **100%** |
 
@@ -40,13 +40,13 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 295 | 44% |
-| `partial` | 123 | 19% |
+| `shipped` | 296 | 45% |
+| `partial` | 123 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 138 | 21% |
+| `not-started` | 137 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
 | **All statuses** | **664** | **100%** |
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 295 of 664 (44%). Shipped plus partial is 418 (63%).**
+**Shipped alone is 296 of 664 (45%). Shipped plus partial is 419 (63%).**
 
 The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**419 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**420 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 72 | 17% |
+| A person can open it today (`screen`) | 73 | 18% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 169 | 40% |
-| No user surface by nature (`internal`) | 178 | 43% |
+| No user surface by nature (`internal`) | 178 | 42% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **419** | **100%** |
+| **Everything with something built** | **420** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -109,7 +109,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Documents | 63 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 97 | 65% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 19 | 18 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 59 | 32% |
-| Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
+| Client Intake / CRM | 3 | 2 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 8 | 38% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **295** | **123** | **1** | **46** | **15** | **5** | **138** | **38** | **3** | **664** | **44%** |
+| **All areas** | **296** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **664** | **45%** |
 
 ## Where we have been
 
@@ -289,7 +289,7 @@ in this one.
 
 ## Waiting on you
 
-**29 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
+**28 answers would let work start.** Nothing is built behind these yet, and nothing can be until they land.
 
 - **Client-consent model** (`ai.consent`) — **Not built.** Whether client consent for AI is taken once in the engagement letter or per matter. No AI feature reaches a client's data until this is settled.
 - **Feedback board** (`community.board`) — **Not built.** Two calls, both on the open pull request. Whether to ratify a named exception to the firm-scoped data rule, since a shared board is cross-firm by definition; and how a signed-in member's session reaches the community host, which is a different origin from the application.
@@ -303,7 +303,6 @@ in this one.
 - **Fiscal-period close** (`financial.ledger.operating-gl.period-close`) — **Not built.** Five flags, and the first decides whether this sub-slice exists — period close is not in the slice map's scope, and against that, statements nobody can rely on are not worth assembling. Then: who may close, and does closing take a second person the way a trust act does. What an operator may do to a closed period — reopen with a reason and an append-only event, post into it under a permission, or never. Whether the hard lock ever gets a route or stays a column nothing sets until a jurisdiction requires it. And whether the lock is checked inside the posting primitive itself, which is the one with reach: after it, a trust movement or an invoice finalization backdated into a closed period refuses, which is a behaviour change in shipped subsystems and is also the only version of a lock a caller cannot decline to honour. General ledger design, flags G3, G4, G5, G6 and G12.
 - **Accounts payable** (`financial.ledger.operating-gl.accounts-payable`) — **Not built.** May accounts payable pay from anything but the resolved operating account — a firm with two operating banks has a legitimate need the single role cannot express, and the recommendation is a second role rather than a caller-supplied parameter. At what status a bill-originated cost enters the cost store, where draft respects the billability review and a firm whose lawyers never review costs would leave advanced costs unbilled forever. And whether vendor credits are in this pass or their own design, given they are the mirror of billing's credit note and need the same care about attribution. General ledger design, flags G7, G8 and G9.
 - **Financial statements** (`financial.ledger.operating-gl.financial-statements`) — **Not built.** Are trust accounts on the firm's balance sheet? Correct accounting includes them — the firm holds an asset and an equal liability — and some accountants present a firm balance sheet without them; the recommendation is to include them in labelled sections that must net to zero, and to refuse the statement when they do not, because omitting them hides the one relationship an examiner checks. Also whether a derived cash-basis view is in scope here at all, which it is recommended not to be: the book is accrual and cannot be otherwise, and a cash view is not a tax basis and must never be presented as one. And who is seeded the capability to read statements, where a bookkeeper reads them and posts nothing. General ledger design, flags G16, G2 and G14.
-- **Public intake forms** (`intake.public-forms`) — **Not built.** One thing stands in front of an anonymous form: whether it accepts attachments. The value is real (the contract, the letter they were served) and so is the cost, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage expense. A form without attachments is shippable and attachments are additive, so this decides the slice's scope rather than its start. Client intake design flag J3.
 - **Firm-wide note search** (`notes.search.firm-wide`) — **Not built.** Neither existing index can take notes as it stands, and which one grows to fit is an owner call. The natural-language feed reserves work-product as a class its writer must never produce, and a note is exactly that; the keyword index takes a file or a review document fed from R2 objects, and a note is a database row. The third option is a note-only index. The snippet question is already answered (no snippet, notes design flag W6).
 - **Payments port** (`payments.port`) — **Not built.** Can both deposit destinations live inside one connection's credential payload, or must the registry's one-connection-per-category resolution widen? Payments design flag K9.
 - **Manually recorded receipt** (`payments.manual-receipt`) — **Not built.** Does this ship as the first payments slice, ahead of any processor work? Payments design flag K1.
@@ -321,7 +320,7 @@ in this one.
 - **Translation provenance record** (`translation.provenance-record`) — **Not built.** Whether this artifact is offered at all. It is one word away from a certificate of translation accuracy, which is a named person's signed attestation that no machine can hold either half of — and a document reciting an engine and a date under a heading like that will be filed by somebody as though it were one. Recommended yes, in the constrained form: refusing to build it does not remove the risk, it moves it into a document somebody writes in a word processor with no constrained vocabulary, no fitness function and no statement of what it is not. Translation design flag T2.
 - **Translation engines and consent gates** (`translation.engines`) — **Not built.** Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.
 
-**34 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
+**35 are not holding a build still.** Nobody is waiting on these to start writing something: most have code behind them already, and the parked ones are set aside by an earlier decision that an answer would revisit.
 
 - **Embedding pin held open until the first index** (`ai.inference.embedding-pin-window`) — **Built; no screen by nature.** Which embedding model the first index is built with. The pin is unchangeable once vectors exist, so this is decided before the first one is written, not after.
 - **Authentication, access control and encryption** (`auth`) — **A group of capabilities.** The unified-identity design proposes fifteen settings and two of them are commitments rather than knobs. Whether a firm may weaken a platform security default for its own members — the design says no, on the ground that a floor which can be written down is not a floor, and a no means some firm will one day be told it cannot have what it asks for. And whether the platform may administer an account recovery at all: the design permits it only for a sole Owner locked out, two-person, on a full hold, audited, with the billing contact notified — the alternative is that a solo practitioner who loses their factors loses the firm. The other thirteen are windows, caps and enrolment grace periods that ship configurable with the recommended value. Unified identity design, flags F5 and F8.
@@ -348,6 +347,7 @@ in this one.
 - **Corrections after finalization** (`financial.billing.corrections`) — **A group of capabilities.** What becomes of money a client over-pays, which the built mechanism cannot express — client_credit.credit_note_id is NOT NULL and the schema policy forbids the destructive rebuild that would relax it, so a payment larger than the bill cannot open a credit. Three ways out: leave the excess as received-and-unapplied cash and report it, which is safe and leaves the firm holding an unexplained figure; add a nullable payment source beside the credit note with a shape check requiring exactly one; or refuse over-payment at the application boundary and make the firm issue a refund. Payments design flag K4.
 - **Invoice delivery record** (`financial.billing.delivery`) — **Built; no screen yet.** Whether a delivery recorded in error can be corrected. The record is append-only by design and a wrong row cannot be edited or removed, but the design names no correction shape either — unlike a credit note, whose answer is a further credit note. Either a superseding row that names the one it corrects, or the record simply stands. Also unresolved: the design names outcome as a column without enumerating it, so delivered and failed are the built floor rather than an answered vocabulary.
 - **Billing automations** (`financial.billing.automations`) — **A group of capabilities.** Three flags decide what gets built. Whether a recurring schedule may finalize a bill or only draft one — finalizing is irreversible, posts the receivable, locks work in progress, and is what permits money to leave trust. Whether payment reminders ship on or off out of the box and on what cadence, since telling a client they owe money is an act in the firm's voice and a schedule nobody set should be a stated default rather than a silence. And whether a payment plan may ever charge anything, which the design recommends against on three independent grounds rather than deferring. Billing automations design, flags M1, M2 and M3.
+- **Public intake forms** (`intake.public-forms`) — **Built and reachable.** One thing stands in front of an anonymous form: whether it accepts attachments. The value is real (the contract, the letter they were served) and so is the cost, since it is an unidentified stranger writing into the untrusted-ingest and malware-scan pipeline at the firm's quarantine and storage expense. A form without attachments is shippable and attachments are additive, so this decides the slice's scope rather than its start. Client intake design flag J3.
 - **Conflict check at intake** (`intake.conflict-check`) — **Built and reachable.** A professional-conduct question with a build attached: may a decline be recorded before a conflicts check has completed? A firm declining instantly on subject matter — we do not do that kind of work — should not be forced through a check; a firm declining because of a conflict must have the record. The two are indistinguishable to the platform at the moment of the click, so the answer decides whether the decline path gates on the check or merely notes its absence. Client intake design flag J5.
 - **Documents on a note** (`notes.matter-note.documents`) — **Built and reachable.** A note cannot upload a NEW document, only point at one the matter already holds. Whether the note window should also file a document into the matter — which means the presigned upload, the quarantine chokepoint and a scan wait inside a note — is an owner call, not a gap to close quietly.
 - **Scheduled reminders** (`notifications.scheduling`) — **Built; no screen by nature.** Two, both about how much of a firm's overdue work one pass carries. The deadline horizon's lead window — "an open deadline enters the firm's configured lead window" needs a number and a bound, and a lead the platform picks is a lead the firm did not choose. And whether 200 findings per kind per pass is the right ceiling: it is counted rather than silent, but a busy litigation practice can exceed it honestly, and raising it is a firm-observable change in how much gets reported as well as a load question.
@@ -996,13 +996,13 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Client Intake / CRM
 
-[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 8 units of work, 25% shipped. 2 done, 2 part-built, 4 ahead, 0 parked.
+[`roadmap.d/intake.md`](../roadmap.d/intake.md) — 8 units of work, 38% shipped. 3 done, 2 part-built, 3 ahead, 0 parked.
 
 - `intake` · `partial` · **Client intake / CRM** — The intake desk over the matter lifecycle's first two rungs (intake, then consultation), a lead pipeline with stages, public intake forms capturing prospects into the Directory, receptionist call intake, and the per-matter-type intake procedure a consultation clears before it opens.
   - `intake.procedure` · `shipped` · **Intake procedure** — A firm-authored, per-matter-type list of steps a consultation must clear before it opens, each answered by the subsystem that owns the fact or by a member's record, gating the open. _Note: Ten step kinds held by a CHECK. Conflicts, billing, document assembly, trust and custom fields answer their kinds today; identity verification, the client's online forms, a payment and an acknowledgement are a member's record until a subsystem exists, and adding the reader is the whole change. The checklist is derived on every read, never stored. A required step refuses the open; the override is a waiver under intake:waive with a rationale, append-and-flip. The platform seeds no procedure._
   - `intake.desk` · `shipped` · **Intake desk** — The sidebar's Intake: every intake in flight, firm-wide, with who it is for, who carries it and how far it is against the procedure; starting one; resuming one; scheduling the consultation once the intake is complete. _Note: An intake in flight is a matter in the intake status, the first rung of the lifecycle (owner's ruling, 2026-09-05: intake -> consultation -> open -> closed, the second rung renamed from prospective; a hold rung beside open followed on 2026-09-06); the desk lists intakes and consultations and adds no table. The desk is firm-wide (the wider design's flag J4, answered by the owner's workflow); the per-attorney Consultations view is unchanged. Complete Intake is the graduation step: refused with the reason while a required step is outstanding, it draws the consultation number through POST /api/v1/matters/{id}/graduate; Schedule follows on a consultation. The row states counts, never a verdict._
   - `intake.lead-pipeline` · `not-started` · **Lead pipeline** — Pipeline stages and lead lifecycle feeding intakes.
-  - `intake.public-forms` · `not-started` · **Public intake forms** — Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus intakes.
+  - `intake.public-forms` · `shipped` · **Public intake forms** — Workers-served public forms (fields, validation, spam control) landing submissions as Directory prospects plus intakes. _Note: Shipped ahead of the portal's client forms on the owner's 2026-09-07 answer — those need an external principal type, a PortalGrant and an amendment to ADR-0036's closed capability set, none of which exists, while the form definition and its builder are the one component both halves share and are built here. Built WIDGET-FIRST for the same day's second answer: the only anonymous surface with no legacy client to break, so it renders the challenge from its first commit and produces the browser component /register and the redemption screen have been blocked on since 2026-08-15 (docs/deploy-queue.md, step 1 of the activation order). Three things the design names as deliberately out: attachments (flag J3), turning an accepted submission into a directory record and an intake, and a firm-chosen vanity path — the public URL carries the firm handle and a rotatable per-form token, so nothing global is stored and an alias stays additive._
   - `intake.call-intake` · `not-started` · **Receptionist call intake** — Recorded, transcribed inbound calls turned into a Directory prospect plus an intake with the transcript attached.
   - `intake.conflict-check` · `partial` · **Conflict check at intake** — Prospects are conflict-checkable entities from first contact; intake triggers a conflicts check.
   - `intake.crm` · `not-started` · **CRM fields and activities** — CRM-style fields and activity tracking on prospects.

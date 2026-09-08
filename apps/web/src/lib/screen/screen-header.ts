@@ -14,6 +14,7 @@
  */
 import type { Component } from "svelte";
 import Terminal from "@lucide/svelte/icons/terminal";
+import ClipboardPenLine from "@lucide/svelte/icons/clipboard-pen-line";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
 import { destinationById, type DestinationId } from "$lib/navigation/destinations.ts";
 
@@ -55,6 +56,21 @@ export const DEVELOPER_CONSOLE_BACK: BackDestination = {
  * revealed, and that address is the matter's own. The label is the matter's title, so the reader
  * learns which matter the link lands on rather than only that it lands on some files.
  */
+/**
+ * A public intake form's builder — where its submissions screen was opened from.
+ *
+ * Spelled out rather than named by destination id for the same reason the matter's files are: the
+ * way back is to ONE form, and the reader learns which one from its own name rather than from the
+ * word "Forms".
+ */
+export function intakeFormBack(formId: string, formName: string): BackDestination {
+  return {
+    href: `/forms/${encodeURIComponent(formId)}`,
+    label: formName,
+    icon: ClipboardPenLine,
+  };
+}
+
 export function matterFilesBack(
   matterId: string,
   matterTitle: string,

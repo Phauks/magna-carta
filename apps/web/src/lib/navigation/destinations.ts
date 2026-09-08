@@ -332,8 +332,11 @@ const DESTINATION_LIST = [
     icon: ClipboardPenLine,
     description: "Forms your clients fill in, and what comes back.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The public intake form is real end to end — authored, published, answered by a stranger,
+    // triaged. What is not built is the half that needs the portal (the forms a firm sends a client
+    // it already has) and turning an accepted enquiry into a directory record.
+    stage: "alpha",
     defaultStarred: true,
   },
   {

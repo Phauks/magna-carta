@@ -166,6 +166,23 @@ export function spelledOutBackTargets(source) {
   )) {
     targets.set(match[1], match[2]);
   }
+  /*
+   * The BUILDER form, for a way back that leads to one record rather than to a fixed screen: a
+   * document's editor returns to its matter's files, a form's submissions return to that form. Their
+   * href is a template literal because the path carries an id, so the constant form above cannot
+   * express them at all — and without this they read as "no way back" and the screen looks unbuilt
+   * to the gate while being finished in the product.
+   *
+   * The interpolations are folded to `[param]`, which is what a route path looks like, so the
+   * comparison against the parent path is the same comparison every other target gets. Which
+   * parameter it is does not matter here and could not be known: the parent of a dynamic route is
+   * matched on shape.
+   */
+  for (const match of source.matchAll(
+    /export function ([a-z][\w$]*)\([^)]*\)\s*:\s*BackDestination\s*\{[\s\S]*?href:\s*`([^`]+)`/gu,
+  )) {
+    targets.set(match[1], match[2].replaceAll(/\$\{[^}]*\}/gu, "[param]"));
+  }
   return targets;
 }
 
@@ -202,6 +219,12 @@ export function backDestinations(source, { destinations, spelledOut }) {
   for (const match of source.matchAll(/\bback\s*=\s*\{\s*([A-Za-z_$][\w$]*)\s*\}/gu)) {
     const target = spelledOut.get(match[1]);
     if (target !== undefined) found.push({ named: match[1], to: target });
+  }
+  // The builder form: `back={intakeFormBack(formId, name)}`. Named the same way, resolved the same
+  // way; only the call parentheses differ from the constant above.
+  for (const match of source.matchAll(/\bback\s*=\s*\{\s*([A-Za-z_$][\w$]*)\s*\(/gu)) {
+    const target = spelledOut.get(match[1]);
+    if (target !== undefined) found.push({ named: `${match[1]}()`, to: target });
   }
   return found;
 }

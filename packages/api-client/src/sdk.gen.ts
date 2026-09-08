@@ -2544,7 +2544,7 @@ export const intakeWaiveStep = <ThrowOnError extends boolean = false>(options: O
 export const intakeReopenStep = <ThrowOnError extends boolean = false>(options: Options<IntakeReopenStepData, ThrowOnError>): RequestResult<IntakeReopenStepResponses, IntakeReopenStepErrors, ThrowOnError> => (options.client ?? client).delete<IntakeReopenStepResponses, IntakeReopenStepErrors, ThrowOnError>({ url: '/api/v1/matters/{matterId}/intake/steps/{stepId}/record', ...options });
 
 /**
- * Every public intake form this firm has authored, with its status, its live link, whether it has unpublished changes, and how many submissions are waiting on a member.
+ * A page of the public intake forms this firm has authored, newest first, each with its status, its live link, whether it has unpublished changes, and how many submissions are waiting on a member.
  */
 export const intakeFormsList = <ThrowOnError extends boolean = false>(options?: Options<IntakeFormsListData, ThrowOnError>): RequestResult<IntakeFormsListResponses, IntakeFormsListErrors, ThrowOnError> => (options?.client ?? client).get<IntakeFormsListResponses, IntakeFormsListErrors, ThrowOnError>({ url: '/api/v1/intake-forms', ...options });
 

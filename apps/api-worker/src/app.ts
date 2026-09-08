@@ -424,6 +424,14 @@ export type Bindings = {
   // Deliberately NOT in wrangler.jsonc's secrets.required: listing it would make every deploy fail
   // until a credential nobody has provisioned exists. Never logged, never echoed to a caller.
   TURNSTILE_SECRET_KEY?: string;
+  // The Turnstile SITE key — the public half of the same widget, which a browser needs in order to
+  // render a challenge at all. Public by definition (it ships to every visitor), so it is a var
+  // rather than a secret, and it is served to the anonymous form page by the form's own public read
+  // rather than baked into the SPA at build time. That is what makes activation a runtime act: set
+  // this and the secret on the worker and the challenge appears, with no rebuild of the interface.
+  // Absent is the shipped state, and absent means the page renders no challenge — an honest nothing
+  // rather than a box that verifies nothing.
+  TURNSTILE_SITE_KEY?: string;
   // What a protected anonymous endpoint does when no verifier is provisioned: "fail-open" (the
   // default — serve, unprotected, and count it) or "fail-closed" (refuse). Public deployment
   // configuration, not a secret: bound via wrangler.jsonc vars. An unset or unrecognized value takes

@@ -3702,6 +3702,11 @@ export type IntakeWaiveStepRequest = {
     rationale: string;
 };
 
+export type IntakeFormPage = {
+    data: Array<IntakeFormSummary>;
+    nextCursor: string | null;
+};
+
 export type IntakeFormSummary = {
     id: string;
     name: string;
@@ -3772,6 +3777,11 @@ export type IntakeFormFieldRequest = {
     options?: Array<string> | null;
 };
 
+export type IntakeFormSubmissionPage = {
+    data: Array<IntakeFormSubmissionSummary>;
+    nextCursor: string | null;
+};
+
 export type IntakeFormSubmissionSummary = {
     id: string;
     submittedAt: string;
@@ -3799,6 +3809,10 @@ export type IntakeFormSubmissionDetail = IntakeFormSubmissionSummary & {
 export type PublicIntakeForm = {
     title: string;
     introduction: string | null;
+    /**
+     * The public half of the human-verification widget, or null where none is provisioned. Served here rather than built into the page so activation is a runtime act: set the site key and the secret on the worker and the challenge appears, with no rebuild. Null means the page renders no challenge at all — an honest nothing rather than a box that verifies nothing, which would tell a firm it was protected when it is not.
+     */
+    humanVerificationSiteKey: string | null;
     fields: Array<{
         fieldId: string;
         /**
@@ -21604,7 +21618,9 @@ export type IntakeReopenStepResponse = IntakeReopenStepResponses[keyof IntakeReo
 export type IntakeFormsListData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        cursor?: string;
+    };
     url: '/api/v1/intake-forms';
 };
 
@@ -21629,9 +21645,7 @@ export type IntakeFormsListResponses = {
     /**
      * The firm's forms.
      */
-    200: {
-        data: Array<IntakeFormSummary>;
-    };
+    200: IntakeFormPage;
 };
 
 export type IntakeFormsListResponse = IntakeFormsListResponses[keyof IntakeFormsListResponses];
@@ -22113,6 +22127,7 @@ export type IntakeFormsListSubmissionsData = {
         formId: string;
     };
     query?: {
+        cursor?: string;
         /**
          * What a member decided about a submission. `new` is the state it arrives in and is not a decision anyone can record — a member who has looked cannot un-look. Nothing reads this as a gate; it records what a person did and permits nothing.
          */
@@ -22142,9 +22157,7 @@ export type IntakeFormsListSubmissionsResponses = {
     /**
      * The queue.
      */
-    200: {
-        data: Array<IntakeFormSubmissionSummary>;
-    };
+    200: IntakeFormSubmissionPage;
 };
 
 export type IntakeFormsListSubmissionsResponse = IntakeFormsListSubmissionsResponses[keyof IntakeFormsListSubmissionsResponses];

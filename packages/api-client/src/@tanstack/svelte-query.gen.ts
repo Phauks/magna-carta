@@ -5973,7 +5973,7 @@ export const intakeReopenStepMutation = (options?: Partial<Options<IntakeReopenS
 export const intakeFormsListQueryKey = (options?: Options<IntakeFormsListData>) => createQueryKey('intakeFormsList', options);
 
 /**
- * Every public intake form this firm has authored, with its status, its live link, whether it has unpublished changes, and how many submissions are waiting on a member.
+ * A page of the public intake forms this firm has authored, newest first, each with its status, its live link, whether it has unpublished changes, and how many submissions are waiting on a member.
  */
 export const intakeFormsListOptions = (options?: Options<IntakeFormsListData>) => queryOptions<IntakeFormsListResponse, IntakeFormsListError, IntakeFormsListResponse, ReturnType<typeof intakeFormsListQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -5986,6 +5986,33 @@ export const intakeFormsListOptions = (options?: Options<IntakeFormsListData>) =
         return data;
     },
     queryKey: intakeFormsListQueryKey(options)
+});
+
+export const intakeFormsListInfiniteQueryKey = (options?: Options<IntakeFormsListData>): QueryKey<Options<IntakeFormsListData>> => createQueryKey('intakeFormsList', options, true);
+
+/**
+ * A page of the public intake forms this firm has authored, newest first, each with its status, its live link, whether it has unpublished changes, and how many submissions are waiting on a member.
+ */
+export const intakeFormsListInfiniteOptions = (options?: Options<IntakeFormsListData>) => infiniteQueryOptions<IntakeFormsListResponse, IntakeFormsListError, InfiniteData<IntakeFormsListResponse>, QueryKey<Options<IntakeFormsListData>>, string | Pick<QueryKey<Options<IntakeFormsListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+// @ts-ignore
+{
+    queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<QueryKey<Options<IntakeFormsListData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+            query: {
+                cursor: pageParam
+            }
+        };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await intakeFormsList({
+            ...options,
+            ...params,
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: intakeFormsListInfiniteQueryKey(options)
 });
 
 /**
@@ -6175,6 +6202,33 @@ export const intakeFormsListSubmissionsOptions = (options: Options<IntakeFormsLi
         return data;
     },
     queryKey: intakeFormsListSubmissionsQueryKey(options)
+});
+
+export const intakeFormsListSubmissionsInfiniteQueryKey = (options: Options<IntakeFormsListSubmissionsData>): QueryKey<Options<IntakeFormsListSubmissionsData>> => createQueryKey('intakeFormsListSubmissions', options, true);
+
+/**
+ * What strangers sent this form, newest first, across every version of it — a firm reading its queue wants what arrived, not what arrived through the questions it happens to ask this week.
+ */
+export const intakeFormsListSubmissionsInfiniteOptions = (options: Options<IntakeFormsListSubmissionsData>) => infiniteQueryOptions<IntakeFormsListSubmissionsResponse, IntakeFormsListSubmissionsError, InfiniteData<IntakeFormsListSubmissionsResponse>, QueryKey<Options<IntakeFormsListSubmissionsData>>, string | Pick<QueryKey<Options<IntakeFormsListSubmissionsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+// @ts-ignore
+{
+    queryFn: async ({ pageParam, queryKey, signal }) => {
+        // @ts-ignore
+        const page: Pick<QueryKey<Options<IntakeFormsListSubmissionsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+            query: {
+                cursor: pageParam
+            }
+        };
+        const params = createInfiniteParams(queryKey, page);
+        const { data } = await intakeFormsListSubmissions({
+            ...options,
+            ...params,
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: intakeFormsListSubmissionsInfiniteQueryKey(options)
 });
 
 export const intakeFormsReadSubmissionQueryKey = (options: Options<IntakeFormsReadSubmissionData>) => createQueryKey('intakeFormsReadSubmission', options);

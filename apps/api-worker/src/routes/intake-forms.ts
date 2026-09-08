@@ -2,6 +2,11 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
+import {
+  assemblePage,
+  decodeCursor,
+  encodeCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import type {
   IntakeFormFieldId,
@@ -65,6 +70,7 @@ import {
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
@@ -212,6 +218,8 @@ const FormSummary = z
   })
   .openapi("IntakeFormSummary");
 
+const FormPage = paginated(FormSummary).openapi("IntakeFormPage");
+
 const FormDetail = FormSummary.extend({
   introduction: z.string().nullable(),
   confirmationMessage: z.string().nullable(),
@@ -228,6 +236,8 @@ const SubmissionSummary = z
     triageNote: z.string().nullable(),
   })
   .openapi("IntakeFormSubmissionSummary");
+
+const SubmissionPage = paginated(SubmissionSummary).openapi("IntakeFormSubmissionPage");
 
 const SubmissionDetail = SubmissionSummary.extend({
   // The answers BESIDE the questions as they were asked, read from the submission's own version.
@@ -246,6 +256,17 @@ const PublicFormResponse = z
   .object({
     title: z.string(),
     introduction: z.string().nullable(),
+    humanVerificationSiteKey: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "The public half of the human-verification widget, or null where none is provisioned. " +
+          "Served here rather than built into the page so activation is a runtime act: set the site " +
+          "key and the secret on the worker and the challenge appears, with no rebuild. Null means " +
+          "the page renders no challenge at all — an honest nothing rather than a box that verifies " +
+          "nothing, which would tell a firm it was protected when it is not.",
+      }),
     fields: z.array(
       z.object({
         fieldId: z.string(),
@@ -370,12 +391,14 @@ const listFormsRoute = defineOpenAPIRoute(manageMeta("list", false), {
   method: "get",
   path: "/api/v1/intake-forms",
   description:
-    "Every public intake form this firm has authored, with its status, its live link, whether it " +
-    "has unpublished changes, and how many submissions are waiting on a member.",
+    "A page of the public intake forms this firm has authored, newest first, each with its status, " +
+    "its live link, whether it has unpublished changes, and how many submissions are waiting on a " +
+    "member.",
+  request: { query: cursorQuery },
   responses: {
     200: {
       description: "The firm's forms.",
-      content: { "application/json": { schema: z.object({ data: z.array(FormSummary) }) } },
+      content: { "application/json": { schema: FormPage } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -654,12 +677,12 @@ const listSubmissionsRoute = defineOpenAPIRoute(submissionsMeta("listSubmissions
     "queue wants what arrived, not what arrived through the questions it happens to ask this week.",
   request: {
     params: z.object({ formId: identifierPathParam("intakeForm", "formId") }),
-    query: z.object({ state: TriageState.optional() }),
+    query: cursorQuery.extend({ state: TriageState.optional() }),
   },
   responses: {
     200: {
       description: "The queue.",
-      content: { "application/json": { schema: z.object({ data: z.array(SubmissionSummary) }) } },
+      content: { "application/json": { schema: SubmissionPage } },
     },
     401: authErrors[401],
     403: authErrors[403],
@@ -942,13 +965,19 @@ export function registerIntakeFormRoutes(
     { ...listFormsRoute, middleware: chokepointMiddleware(chokepoint, listFormsRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { results } = await selectFormsStatement(
-        firm.firmDatabase,
-        MAX_FORM_PAGE_SIZE,
-      ).all<IntakeFormRow>();
+      const { cursor } = c.req.valid("query");
+      const { results } = await selectFormsStatement(firm.firmDatabase, {
+        limit: MAX_FORM_PAGE_SIZE,
+        cursor: decodeCursor(cursor),
+      }).all<IntakeFormRow>();
+      // One row past the page was fetched; trim before the per-row reads so a page never pays for
+      // the row that only exists to answer "is there more".
+      const hasMore = results.length > MAX_FORM_PAGE_SIZE;
+      const page = hasMore ? results.slice(0, MAX_FORM_PAGE_SIZE) : results;
+      const last = page.at(-1);
       const waiting = await readWaitingCounts(firm.firmDatabase);
       const data = await Promise.all(
-        results.map(async (row) => {
+        page.map(async (row) => {
           const draft = await readDraftVersion(firm.firmDatabase, row.id);
           return {
             id: row.id,
@@ -967,7 +996,13 @@ export function registerIntakeFormRoutes(
           };
         }),
       );
-      return c.json({ data }, 200);
+      return c.json(
+        {
+          data,
+          nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
+        },
+        200,
+      );
     },
   );
 
@@ -1213,15 +1248,19 @@ export function registerIntakeFormRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { formId } = c.req.valid("param");
-      const { state } = c.req.valid("query");
+      const { state, cursor } = c.req.valid("query");
       const form = await readForm(firm.firmDatabase, formId as IntakeFormId);
       if (form === undefined) return notFound(c, "That form is not a form in this firm.");
       const { results } = await selectSubmissionsStatement(firm.firmDatabase, {
         formId: form.id,
         state: state ?? null,
         limit: MAX_SUBMISSION_PAGE_SIZE,
+        cursor: decodeCursor(cursor),
       }).all<IntakeFormSubmissionRow>();
-      return c.json({ data: results.map(submissionSummaryJson) }, 200);
+      // Copied into a mutable array because the response schema owns the wire contract; the
+      // helper's page is readonly so nothing downstream edits a page in place.
+      const page = assemblePage(results, MAX_SUBMISSION_PAGE_SIZE, submissionSummaryJson);
+      return c.json({ data: [...page.data], nextCursor: page.nextCursor }, 200);
     },
   );
 
@@ -1301,6 +1340,7 @@ export function registerIntakeFormRoutes(
         {
           title: resolved.view.title,
           introduction: resolved.view.introduction,
+          humanVerificationSiteKey: c.env.TURNSTILE_SITE_KEY ?? null,
           fields: resolved.view.fields.map((field) => ({
             fieldId: field.fieldId,
             kind: field.kind,
