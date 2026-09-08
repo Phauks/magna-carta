@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Communication } from "$lib/communications/communications-api.ts";
 import {
   draftChannel,
+  draftEndTime,
   draftFromCommunication,
   draftOccurredAt,
   draftStoredNumber,
+  durationFromEnd,
   emptyLogDraft,
   logDraftReady,
   logDraftRequest,
@@ -69,9 +71,9 @@ describe("what a record still needs", () => {
     expect(logDraftReady(rang, NOW)).toBe(true);
   });
 
-  it("refuses a call with neither a description nor a length", () => {
+  it("refuses a call with neither a description nor an end, and names both", () => {
     const empty = draft({ description: "", durationMinutes: "" });
-    expect(logDraftShortfalls(empty, NOW)[0]).toBe("What was said, or how long the call took.");
+    expect(logDraftShortfalls(empty, NOW)[0]).toBe("What was said, or when the call ended.");
   });
 
   it("asks which matter, or why there is none, once an anchor is chosen", () => {
@@ -232,5 +234,42 @@ describe("how a row reads", () => {
     // reads as a gap the platform failed to fill.
     expect(saidText(base)).toBe("No description written");
     expect(saidText({ ...base, channel: "sms", body: "hello" })).toBe("hello");
+  });
+});
+
+describe("a call's length is worked out from its start and its end", () => {
+  /*
+   * The owner's ruling of 2026-09-08: "Length in minutes should be duration, should auto-calculate
+   * off start and stop." The form asks for the two clock times, because that is what somebody who
+   * has just put the phone down knows; the record still stores the length, so the draft keeps the
+   * length as its own field and these two functions are the bridge in each direction.
+   */
+  it("shows the end as the start plus the length", () => {
+    expect(draftEndTime(draft({ occurredTime: "14:30", durationMinutes: "12" }))).toBe("14:42");
+    expect(draftEndTime(draft({ occurredTime: "23:58", durationMinutes: "5" }))).toBe("00:03");
+  });
+
+  it("shows no end where there is no length, rather than inventing one", () => {
+    expect(draftEndTime(draft({ occurredTime: "14:30", durationMinutes: "" }))).toBe("");
+  });
+
+  it("reads a typed end back as whole minutes", () => {
+    expect(durationFromEnd(draft({ occurredTime: "14:30" }), "14:42")).toBe("12");
+    // A call that started and ended on the same minute is a real record: the phone rang.
+    expect(durationFromEnd(draft({ occurredTime: "14:30" }), "14:30")).toBe("0");
+  });
+
+  it("reads an end before the start as a call that ran past midnight", () => {
+    expect(durationFromEnd(draft({ occurredTime: "23:58" }), "00:03")).toBe("5");
+  });
+
+  it("gives no length back for an end that is not a time", () => {
+    expect(durationFromEnd(draft({ occurredTime: "14:30" }), "")).toBe("");
+  });
+
+  it("round-trips a recorded length through the two fields untouched", () => {
+    const recorded = draft({ occurredTime: "09:05", durationMinutes: "45" });
+    const end = draftEndTime(recorded);
+    expect(durationFromEnd(recorded, end)).toBe("45");
   });
 });
