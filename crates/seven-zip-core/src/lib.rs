@@ -664,7 +664,7 @@ fn read_header(
         // header at all, every field zero. The reader this crate drives errors on that rather than
         // answering, so the empty archive is built here — there is nothing to read and nothing to
         // decode, and an archive with no members is a real archive.
-        return Ok(HeaderState::Parsed(Box::new(Archive::default())));
+        return Ok(HeaderState::Parsed(Box::default()));
     }
 
     let Some(next_header) = slice_of(ranges, location.offset, location.size) else {
@@ -790,7 +790,10 @@ pub fn extract(
     }
 
     let (offset, length) = block_range(&archive, folder_index).ok_or(ExtractError::Corrupt)?;
-    if offset.checked_add(length).is_none_or(|end| end > archive_size) {
+    if offset
+        .checked_add(length)
+        .is_none_or(|end| end > archive_size)
+    {
         return Err(ExtractError::Corrupt);
     }
     if slice_of(ranges, offset, length).is_none() {

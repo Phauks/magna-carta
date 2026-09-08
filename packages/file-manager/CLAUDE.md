@@ -26,6 +26,47 @@ runs logic mid-transaction.
 - `src/scan-policy-settings.ts` — the three firm scan-policy `FirmSettingDefinition`s (`scan.policy`, `scan.flagged_treatment`, `scan.step_up_reauth_on_flagged`) + `readFirmScanPolicy` / `readFlaggedTreatment` / `readStepUpReauthOnFlagged` helpers; defaults preserve today's behaviour (`extended/75/block/off`)
 - `src/upload-policy.ts` — per-firm policy checks (presign-time + gate-time) + the mode threshold and the live-download threshold setting definitions (`liveMaxFileCount` / `liveMaxTotalBytes`, superseding `zipAsyncThreshold`)
 - `src/zip-composition.ts` — pure selection → clean-current entries + folder-tree paths, plus the content-addressed `bundleManifestHash` (the async-build dedup/artifact key)
+- `src/archive-members.ts` — **the ONE door into an archive's contents**, for every format at once: the dispatch for both halves (list, and take one member out), one refusal vocabulary, the firm's caps, and the per-attempt accounting. See the section below
+
+## Archives — one door, four formats, two different questions
+
+`src/archive-members.ts` is the only way in. Nothing else may read an archive's contents, and a fifth
+format is a case in its two switches rather than a new path beside them.
+
+- **Listing and extraction are written together and dispatch together.** An extractor locates bytes
+  using facts the listing read, so a member carries its own `ArchiveMemberLocator` — the zip's
+  central-directory entry, the tar's data offset, the 7z's member index — and a caller never
+  assembles one or reads inside one. A listing that forgot a member's offset would be an extractor
+  that cannot find it, which is why they are not separable.
+- **One refusal vocabulary, whatever said so.** "Password-protected inside the archive" is the same
+  fact to a reader whether a zip's general-purpose flag or a 7z's AES coder produced it. A surface
+  that had to learn each format's spelling would show one of them as a generic failure.
+- **The caps are applied in the module, before any format-specific code runs.** A directory or a
+  non-file entry, a member whose own header already exceeds the firm's ceiling, and a member that
+  would carry the request past its shared budget are all refused there — so a new extractor cannot be
+  written that forgets them. What only a format can know (does this stream inflate to what it
+  promised) each extractor checks for itself.
+- **The budget is per REQUEST and does not reopen.** Once it is spent, every later member is refused
+  even if a small one would fit: letting them through would make the result depend on the order
+  somebody clicked. `ArchiveExtraction` holds it, which is why extraction is a session rather than a
+  bare function.
+- **Every attempt is recorded, including refusals the module did not make.** The ingest gate refusing
+  a filed member is still a fact about that member, so the route calls `recordExternalRefusal`. An
+  account of a request that holds only the archive's own refusals is not an account of the request.
+- **An engine-backed format arrives as a PORT.** 7z needs a real decoder for both halves, and under
+  Workers a WebAssembly module is supplied by the bundler at the import site — so this package
+  declares `SevenZipEnginePort` and `apps/api-worker/src/files/seven-zip-engine.ts` fills it, the same
+  seam `MalwareScanPort` uses. This package must never import a WebAssembly artefact: it would carry
+  a binding only one of its consumers could satisfy. An absent engine is a named refusal, never a crash.
+- **Listing and extracting are different questions and a format may answer one and not the other.**
+  `archiveExtractability` settles it once per archive, before any member is named. **rar is
+  deliberately listable and not extractable** — walking its block headers needs no decoder, and
+  decoding its packed data has no memory-safe implementation to build against (golden rule 14), so
+  this is a boundary rather than a gap. Do not "finish" it by pulling in unrar.
+- **A 7z's cost is its BLOCK, not its member.** A solid block is one compressed stream over several
+  members, so reaching the fourth means decoding the three before it. The block ceiling exists
+  because a small member can sit at the end of a block that unpacks to gigabytes; bounding only what
+  the caller keeps bounds the wrong number.
 
 ## Invariants that apply here
 

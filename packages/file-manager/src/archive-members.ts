@@ -440,7 +440,9 @@ export class ArchiveExtraction {
 
   private async takeByFormat(
     member: ArchiveMember,
-  ): Promise<{ kind: "ok"; bytes: Uint8Array } | { kind: "refused"; reason: ArchiveExtractionRefusal }> {
+  ): Promise<
+    { kind: "ok"; bytes: Uint8Array } | { kind: "refused"; reason: ArchiveExtractionRefusal }
+  > {
     const locator = member.locator;
     switch (locator.format) {
       case "zip":
@@ -449,7 +451,12 @@ export class ArchiveExtraction {
           maxExpansionRatio: this.limits.maxExpansionRatio,
         });
       case "tar":
-        return extractTarMember(this.bucket, this.key, locator.dataOffset, member.uncompressedSizeBytes);
+        return extractTarMember(
+          this.bucket,
+          this.key,
+          locator.dataOffset,
+          member.uncompressedSizeBytes,
+        );
       case "sevenZip": {
         const engine = this.engines.sevenZip;
         if (engine === undefined) return { kind: "refused", reason: "unsupported-compression" };
@@ -482,7 +489,9 @@ async function extractTarMember(
   key: string,
   dataOffset: number,
   sizeBytes: number,
-): Promise<{ kind: "ok"; bytes: Uint8Array } | { kind: "refused"; reason: ArchiveExtractionRefusal }> {
+): Promise<
+  { kind: "ok"; bytes: Uint8Array } | { kind: "refused"; reason: ArchiveExtractionRefusal }
+> {
   if (sizeBytes === 0) return { kind: "ok", bytes: new Uint8Array(0) };
   const head = await bucket.head(key);
   if (head === null) return { kind: "refused", reason: "archive-missing" };

@@ -151,14 +151,14 @@
 
 - id: documents.file-manager.archive-extract
   name: Extract an archive's members
-  scope: Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate.
+  scope: Take named members out of a stored zip, tar or 7z by ranged read, and file each on the matter through the ordinary ingest gate. One module owns the dispatch, one refusal vocabulary, the firm's caps and the per-attempt accounting, for every format at once.
   status: shipped
   surface: screen
-  evidence: packages/file-manager/src/zip-member-extract.ts (selective ranged read, DecompressionStream, CRC-32 and length verification, the firm archiveCaps as its bomb guard) + POST /api/v1/files/{id}/archive-extractions + the archive bar's extract control in apps/web/src/lib/file-manager/file-manager.svelte.
+  evidence: packages/file-manager/src/archive-members.ts (the one door - format dispatch, caps applied before any format-specific code runs, the request budget, and the record of what every attempt cost) over zip-member-extract.ts, the tar ranged read, and the 7z engine port filled by apps/api-worker/src/files/seven-zip-engine.ts (crates/seven-zip-core) + POST /api/v1/files/{id}/archive-extractions + the archive bar's extract control in apps/web/src/lib/file-manager/file-manager.svelte.
   audience: public
-  public-name: Taking files out of a zip
-  public-summary: Extract what you need from a zip onto the matter, checked on the way in like any upload.
-  notes: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built.
+  public-name: Taking files out of an archive
+  public-summary: Extract what you need from a zip, tar or 7z onto the matter, checked on the way in like any upload.
+  notes: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Refused by name and never silently: an encrypted member (a 7z locks them one at a time), a packing method no decoder here covers, an entry that is a link or a device rather than a file, and bytes that disagree with what the archive recorded. A rar is deliberately not extractable - listing one needs no decoder and decoding one has no memory-safe implementation to build against - and the control says so rather than refusing after the click. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built.
 
 - id: documents.scanning
   name: Malware scanning

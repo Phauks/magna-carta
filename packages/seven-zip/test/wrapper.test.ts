@@ -5,6 +5,7 @@ import {
   ensureReady,
   listSevenZipBytes,
   readSevenZipListing,
+  readSevenZipMember,
   SevenZipListingError,
   type ArchiveRangeReader,
 } from "../src/index.js";
@@ -157,5 +158,74 @@ describe("@magna-carta/seven-zip wasm wrapper", () => {
         readSevenZipListing(archive.byteLength, short, { maxEntries: 100 }),
       ).rejects.toMatchObject({ code: "malformed" });
     });
+  });
+});
+
+describe("taking one member out", () => {
+  const EXTRACT_LIMITS = { maxEntries: 100, maxMemberBytes: 10 * 1024 * 1024 };
+
+  it("takes a member out by the index the listing gave it", async () => {
+    const archive = fixture("mixed-members.7z");
+    const listing = await listSevenZipBytes(archive, { maxEntries: 100 });
+    const wanted = listing.entries.findIndex((entry) => entry.path === "exhibits/a/deposition.txt");
+    expect(wanted).toBeGreaterThanOrEqual(0);
+
+    const { read } = rangeReader(archive);
+    const bytes = await readSevenZipMember(archive.byteLength, read, wanted, EXTRACT_LIMITS);
+    expect(new TextDecoder().decode(bytes)).toBe("content of a");
+  });
+
+  it("reads the header and one block, never the archive", async () => {
+    const archive = fixture("many-members.7z");
+    const listing = await listSevenZipBytes(archive, { maxEntries: 1000 });
+    const { read, requests } = rangeReader(archive);
+
+    const bytes = await readSevenZipMember(archive.byteLength, read, 0, EXTRACT_LIMITS);
+    expect(new TextDecoder().decode(bytes)).toBe("exhibit 0");
+    expect(listing.entries).toHaveLength(400);
+    // Four ranges at most, and not one of them the whole object.
+    expect(requests.length).toBeLessThanOrEqual(4);
+    expect(requests.every((request) => request.length < archive.byteLength)).toBe(true);
+  });
+
+  it("refuses an encrypted member by name rather than failing to decode it", async () => {
+    const archive = fixture("content-encrypted.7z");
+    const listing = await listSevenZipBytes(archive, { maxEntries: 100 });
+    const encrypted = listing.entries.findIndex((entry) => entry.encrypted && !entry.isDirectory);
+    expect(encrypted).toBeGreaterThanOrEqual(0);
+
+    const { read } = rangeReader(archive);
+    await expect(
+      readSevenZipMember(archive.byteLength, read, encrypted, EXTRACT_LIMITS),
+    ).rejects.toMatchObject({ code: "memberEncrypted" });
+  });
+
+  it("refuses an archive whose file list is encrypted before it can name a member", async () => {
+    const archive = fixture("file-list-encrypted.7z");
+    const { read } = rangeReader(archive);
+    await expect(
+      readSevenZipMember(archive.byteLength, read, 0, EXTRACT_LIMITS),
+    ).rejects.toMatchObject({ code: "headerEncrypted" });
+  });
+
+  it("refuses a member past the caller's ceiling", async () => {
+    const archive = fixture("mixed-members.7z");
+    const listing = await listSevenZipBytes(archive, { maxEntries: 100 });
+    const wanted = listing.entries.findIndex((entry) => entry.path === "exhibits/a/deposition.txt");
+    const { read } = rangeReader(archive);
+    await expect(
+      readSevenZipMember(archive.byteLength, read, wanted, {
+        maxEntries: 100,
+        maxMemberBytes: 4,
+      }),
+    ).rejects.toBeInstanceOf(SevenZipListingError);
+  });
+
+  it("refuses an index the archive does not hold", async () => {
+    const archive = fixture("mixed-members.7z");
+    const { read } = rangeReader(archive);
+    await expect(
+      readSevenZipMember(archive.byteLength, read, 999, EXTRACT_LIMITS),
+    ).rejects.toMatchObject({ code: "memberNotFound" });
   });
 });

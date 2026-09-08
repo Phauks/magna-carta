@@ -186,21 +186,25 @@ broken. Both can still be downloaded.
 
 ### Taking files out
 
-Files can be taken out of a **zip**. The other three formats can be looked inside but not unpacked
-here yet; download one to open it.
+Files can be taken out of a **zip**, a **tar** and a **7z**. A **rar** can be looked inside but not
+unpacked here — the control says so rather than being offered and then refusing — so download a rar
+to open it.
 
 Select what you want and choose **Extract**, or choose **Extract Into This Matter** with nothing
-selected to take out everything in the archive. Files land in the folder the zip itself sits in.
+selected to take out everything in the archive. Files land in the folder the archive itself sits in.
 
 Each extracted file is checked on the way in exactly like a file you upload: it is scanned, its type
 is read from its actual contents rather than from its name inside the archive, and it becomes an
-ordinary document on the matter with its own version history. Extracting never changes the zip,
+ordinary document on the matter with its own version history. Extracting never changes the archive,
 which stays on the matter as it was.
 
 Some members will not come out, and the screen names the reason rather than only counting them:
 
-- **Password-protected inside the archive.** Magna Carta holds no password for it.
-- **Packed in a way the application cannot open.** Most zips use a format it reads; a few do not.
+- **Password-protected inside the archive.** Magna Carta holds no password for it. A 7z can lock its
+  files one at a time, so some members of one archive may come out while others do not.
+- **Packed in a way the application cannot open.** Most archives use a form it reads; a few do not.
+- **Not a file.** Some archives carry entries that are shortcuts to somewhere else, or devices,
+  rather than content. There is nothing in them to take out.
 - **Its contents do not match what the archive recorded.** The zip's own checksum for that file
   disagrees with the file itself, which is what a damaged or altered member looks like. It is
   refused rather than filed.

@@ -104,6 +104,7 @@ export interface DeletedFileSummary {
 export type ExtractionRefusalReason =
   | "archive-missing"
   | "directory"
+  | "not-a-file"
   | "encrypted"
   | "unsupported-compression"
   | "malformed"

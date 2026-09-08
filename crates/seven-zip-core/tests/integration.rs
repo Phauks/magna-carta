@@ -9,8 +9,8 @@ use seven_zip_core::{
     ExtractOutcome, ListError, ListLimits, ListOutcome, SevenZipListing,
 };
 use sevenz_rust2::{
-    lzma::LZMA2Options, AesEncoderOptions, Password, SeqReader, SevenZArchiveEntry,
-    SevenZMethod, SevenZMethodConfiguration, SevenZWriter, SourceReader,
+    lzma::LZMA2Options, AesEncoderOptions, Password, SeqReader, SevenZArchiveEntry, SevenZMethod,
+    SevenZMethodConfiguration, SevenZWriter, SourceReader,
 };
 
 /// One member to write into a fixture.
@@ -602,7 +602,11 @@ impl RangedExtract {
         }
     }
 
-    fn run(&mut self, member_index: usize, limits: &ExtractLimits) -> Result<Vec<u8>, ExtractError> {
+    fn run(
+        &mut self,
+        member_index: usize,
+        limits: &ExtractLimits,
+    ) -> Result<Vec<u8>, ExtractError> {
         let size = self.archive.len() as u64;
         let mut ranges: Vec<ArchiveRange> = Vec::new();
         // The three header ranges a listing needs, plus the one block the member lives in. A fifth
@@ -732,7 +736,9 @@ fn takes_a_member_out_of_an_archive_of_four_hundred() {
 fn reads_the_header_and_one_block_rather_than_the_archive() {
     let (archive, _) = write_many_member_archive(400);
     let mut fetch = RangedExtract::new(archive.clone());
-    let bytes = fetch.run(0, &ExtractLimits::default()).expect("it comes out");
+    let bytes = fetch
+        .run(0, &ExtractLimits::default())
+        .expect("it comes out");
 
     assert_eq!(bytes, b"exhibit 0");
     // The point of the ranged form: what was fetched is the header plus the one block, never the
