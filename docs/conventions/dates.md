@@ -1,8 +1,9 @@
 # Dates, times and zones — the standing rules
 
 **White paper:** _Core domain_ — [`../Magna-Carta-White-Paper.md`](../Magna-Carta-White-Paper.md).
-**Enforced by:** `pnpm run lint:date-handling` ([`tooling/lint-date-handling/`](../../tooling/lint-date-handling/)),
-plus the two package fitness tests named at the end.
+**Enforced by:** `pnpm run lint:date-handling` ([`tooling/lint-date-handling/`](../../tooling/lint-date-handling/))
+for the code, [`date-shape-guards.test.ts`](../../packages/database/test/date-shape-guards.test.ts)
+for the columns, and the two package fitness tests named at the end.
 
 A date is the most-copied thing in this codebase, and every copy of it was correct. That is what
 made the duplication expensive rather than harmless: nothing was broken, so nothing drew attention,
@@ -67,6 +68,35 @@ This is the distinction most worth getting right, and the one a scan cannot make
 
 Picking the wrong one of any pair shows a task as overdue that is not.
 
+## A wrong-shaped date fails by name, and the check is at runtime on purpose
+
+Hand a stored instant to a function that takes a day and you are a whole day out. Both are strings,
+so nothing about the call looks wrong.
+
+Every entry point in `@magna-carta/civil-time` refuses a value that is not its shape and says what
+the value actually is: *"addCalendarDays: the civil date "2026-09-08T12:00:00.000Z" is a stored
+INSTANT, not a day … `zonedReading(Date.parse(value), zone).civilDate` is that reading"*. Before
+this, `civilDateParts` returned `{ year: 2026, month: 9, day: NaN }` **in silence** — every field
+still a number — and everything built on it surfaced as `RangeError: Invalid time value`, a message
+naming no function, no argument and no value, on a request carrying a dozen dates. The failure was
+never the problem; the diagnosis was.
+
+**A compile-time brand was the obvious answer and it is the wrong one here.** It was considered and
+rejected on three counts, recorded so it is not re-proposed:
+
+1. **A brand is erased at runtime, and the bad values arrive at runtime.** They come from a D1
+   column or a request body — and thirty-two civil-date columns still carry no shape `CHECK`, so a
+   civil-date column genuinely *can* hold an instant today. A brand asserts a shape the database does
+   not enforce, and it is wrong in precisely the case that matters: real data that is already wrong.
+2. **Every call site would take a cast to satisfy it** — 162 of them across the six functions whose
+   misuse costs a day — and a cast is a lie that typechecks.
+3. **The runtime check gives the same guarantee for none of that churn.** Nothing unchecked reaches
+   the arithmetic either way; the difference is only where the check is written, and one of the two
+   places can see the value.
+
+The honest version of a brand is "this was checked", not "this came from a trusted column" — and
+that is what the guards already enforce, at the only place the two can be told apart.
+
 ## No date is derived from another date
 
 No business-day rule, no holiday calendar, no service-method offset, no jurisdiction, no chained
@@ -77,6 +107,34 @@ moves such a date in a second and a template cannot know to.
 The reason is not conservatism. A computed deadline that is wrong gets trusted **because** it was
 computed. Deadline derivation waits on a verified jurisdiction-keyed rule catalog, and until that
 exists the platform declines to guess.
+
+## A column that holds a day says so
+
+New civil-date and wall-clock columns take the guards in
+[`packages/database/src/date-shape-checks.ts`](../../packages/database/src/date-shape-checks.ts) —
+`civilDateShape(table.workDate)`, `wallClockTimeShape(table.dueAtTime, true)` — never a glob typed
+out by hand. The globs come from the same shapes the code checks, proven equivalent against a real
+SQLite `CHECK` rather than eyeballed, because eyeballing is how the guard already in the schema came
+to accept `24:00`.
+
+`GLOB` rather than `REGEXP`: SQLite ships glob in every build, and neither D1 nor a Durable Object
+registers the `REGEXP` hook. Glob has character classes and no alternation, so the wall clock needs
+its two alternatives `OR`'d — collapsing them to `[0-2][0-9]:[0-5][0-9]` is the same shape only if
+you do not look at hour 24.
+
+**The gap is recorded, not closed, and that is deliberate.** Nineteen columns across seven recently
+built tables carry a guard; thirty-two older ones across the ledger, time, costs, billing, trust,
+custody and the directory do not, and four of the guards that exist are the loose wall-clock
+spelling. None of it can be fixed in place: adding or narrowing a `CHECK` in SQLite is a table
+rebuild, and a rebuild of a table other tables point at **cannot complete against a firm database
+that holds data** — see
+[`reviewed-rebuilds.ts`](../../packages/database/src/reviewed-rebuilds.ts), which names the day a
+firm's database sat unreachable for one.
+
+So [`date-shape-guards.test.ts`](../../packages/database/test/date-shape-guards.test.ts) records
+every unguarded column, every loosely guarded one, and the single column the naming convention
+catches that holds an instant instead. Those lists may shrink and must never grow — which means the
+only classification still open to a **new** date column is the guard itself.
 
 ## Display
 

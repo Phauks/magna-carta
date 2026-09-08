@@ -15,8 +15,13 @@ this package encodes, and the gate that keeps them the only copy.
 - `src/wall-clock.ts` — the `HH:MM` shape and `isWallClockTime`.
 - `src/instant.ts` — the canonical stored-instant shape (`toISOString`'s exact form, which the
   federated chronology's text sort depends on), `isCanonicalInstant`, `canonicalInstant`.
-- `src/time-zone.ts` — `isResolvableTimeZone`, `viewerTimeZone`, and the zoned arithmetic:
-  `zonedReading`, `instantForCivilDateTime`, `endOfCivilDayInstant`.
+- `src/time-zone.ts` — `isResolvableTimeZone`, `isFixedOffset`, `viewerTimeZone`, and the zoned
+  arithmetic: `zonedReading`, `instantForCivilDateTime`, `endOfCivilDayInstant`.
+- `src/refuse.ts` — what happens when a date is the wrong kind of date. Every entry point above
+  refuses a value that is not its shape and names what the value actually is.
+- `src/sql-shape.ts` — the same shapes as SQLite globs, for the column guards in
+  `packages/database/src/date-shape-checks.ts`. Proven equivalent to the patterns by a test that
+  runs a corpus through a real `CHECK`, not asserted.
 
 ## Local conventions
 
@@ -49,6 +54,15 @@ this package encodes, and the gate that keeps them the only copy.
   `conflicts`, `trust`, `notifications`, `reporting`, `apps/api-worker` and `apps/web`.
 - `packages/calendar` re-exports nothing from here: importers of the zoned arithmetic import
   `@magna-carta/civil-time/time-zone` directly, so there is one import path and the lint can name it.
+
+## Why the shapes are not branded types
+
+It was the obvious answer and it is the wrong one here; `src/refuse.ts` carries the argument and
+[`docs/conventions/dates.md`](../../docs/conventions/dates.md) the ruling. Short version: a brand is
+erased at runtime and the wrong-shaped values arrive at runtime, from columns that (for thirty-two of
+them) carry no shape `CHECK` — so the brand would assert what the database does not enforce and be
+wrong exactly when it mattered. The runtime guard gives the same guarantee, works on real data, and
+costs no call site a cast.
 
 ## Gotchas
 

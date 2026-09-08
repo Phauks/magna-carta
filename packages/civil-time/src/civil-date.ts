@@ -23,6 +23,7 @@
  * UTC so it never shifts under the reader's zone. Shape lives here; display lives there; neither
  * borrows the other's job.
  */
+import { requireCivilDate, requireInstant } from "./refuse.ts";
 
 /** A civil date: the calendar day a record names, as `YYYY-MM-DD`. */
 export type CivilDate = string;
@@ -45,9 +46,18 @@ export interface CivilDateParts {
   readonly day: number;
 }
 
-/** Split a civil date into its numeric parts. Assumes the shape; check it first. */
+/**
+ * Split a civil date into its numeric parts.
+ *
+ * Refuses anything that is not the shape rather than parsing it. This used to assume the shape and
+ * hand back `{ year: 2026, month: 9, day: NaN }` for a stored instant — silently, because every
+ * field is still a number — and the NaN then travelled into whatever was built on it. refuse.ts
+ * says why the check is here at runtime rather than in the type.
+ */
 export function civilDateParts(civilDate: CivilDate): CivilDateParts {
-  const [year, month, day] = civilDate.split("-").map(Number) as [number, number, number];
+  const [year, month, day] = requireCivilDate(civilDate, "civilDateParts", "the civil date")
+    .split("-")
+    .map(Number) as [number, number, number];
   return { year, month, day };
 }
 
@@ -108,8 +118,7 @@ export function isCivilDate(value: unknown): value is CivilDate {
  * interchangeable and the difference is a day.
  */
 export function civilDateOf(instant: Date | number): CivilDate {
-  const date = typeof instant === "number" ? new Date(instant) : instant;
-  return date.toISOString().slice(0, 10);
+  return new Date(requireInstant(instant, "civilDateOf", "the instant")).toISOString().slice(0, 10);
 }
 
 /**
@@ -131,7 +140,9 @@ export function todayInUtc(now: Date | number = Date.now()): CivilDate {
  * counting and a named zone would drag a daylight-saving transition into it.
  */
 export function addCalendarDays(civilDate: CivilDate, days: number): CivilDate {
-  const { year, month, day } = civilDateParts(civilDate);
+  const { year, month, day } = civilDateParts(
+    requireCivilDate(civilDate, "addCalendarDays", "the civil date"),
+  );
   return civilDateOf(utcDateFor({ year, month, day: day + days }));
 }
 

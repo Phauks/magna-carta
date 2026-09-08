@@ -18,6 +18,7 @@
  */
 import { civilDateFromParts, civilDateOf, civilDateParts, type CivilDate } from "./civil-date.ts";
 import type { WallClockTime } from "./wall-clock.ts";
+import { requireCivilDate, requireInstant, requireWallClockTime } from "./refuse.ts";
 
 // A bare UTC offset — "+05:00", "-0800". Named here rather than re-tested at each caller, because
 // the refusal below and any message that EXPLAINS the refusal have to agree about what one is.
@@ -103,7 +104,10 @@ function partsAt(
 const pad = (value: number, width: number): string => String(value).padStart(width, "0");
 
 export function zonedReading(instantMilliseconds: number, timeZone: string): ZonedReading {
-  const parts = partsAt(instantMilliseconds, timeZone);
+  const parts = partsAt(
+    requireInstant(instantMilliseconds, "zonedReading", "the instant"),
+    timeZone,
+  );
   return {
     civilDate: civilDateFromParts(parts),
     wallClockTime: `${pad(parts.hour, 2)}:${pad(parts.minute, 2)}`,
@@ -158,9 +162,15 @@ export function instantForCivilDateTime(
   wallClockTime: WallClockTime | null,
   timeZone: string,
 ): number {
-  const { year, month, day } = civilDateParts(civilDate);
+  const { year, month, day } = civilDateParts(
+    requireCivilDate(civilDate, "instantForCivilDateTime", "the civil date"),
+  );
   const [hour, minute] =
-    wallClockTime === null ? [0, 0] : (wallClockTime.split(":").map(Number) as [number, number]);
+    wallClockTime === null
+      ? [0, 0]
+      : (requireWallClockTime(wallClockTime, "instantForCivilDateTime", "the wall-clock time")
+          .split(":")
+          .map(Number) as [number, number]);
   const naive = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
   const requested = `${pad(hour, 2)}:${pad(minute, 2)}`;
 
@@ -189,7 +199,9 @@ export function instantForCivilDateTime(
 // and America/Havana have both done it): there, the next day begins at 01:00 local and the end of
 // this one is 23:59:59.999 local, which is what the arithmetic above resolves the missing midnight to.
 export function endOfCivilDayInstant(civilDate: CivilDate, timeZone: string): number {
-  const { year, month, day } = civilDateParts(civilDate);
+  const { year, month, day } = civilDateParts(
+    requireCivilDate(civilDate, "endOfCivilDayInstant", "the civil date"),
+  );
   const nextCivilDate = civilDateOf(new Date(Date.UTC(year, month - 1, day + 1)));
   return instantForCivilDateTime(nextCivilDate, "00:00", timeZone) - 1;
 }

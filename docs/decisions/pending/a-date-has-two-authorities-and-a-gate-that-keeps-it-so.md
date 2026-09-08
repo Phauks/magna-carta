@@ -68,6 +68,30 @@ result, because a loosened pattern reorders a text-compared sort without failing
 surface picked the right formatter: `formatDate` and `formatInstantDate` are both correct calls and
 differ by a day, and only a person reading the surface can say which it wanted.
 
+**The storage layer, and why the gap is frozen rather than closed.** The schema had the same
+fragmentation: nineteen columns across seven recently built tables guard the shape of the day or the
+clock they hold, and thirty-two older ones across the ledger, time, costs, billing, trust, custody
+and the directory do not. The wall-clock guards that exist had already drifted the way the zone
+checks had — `[0-2][0-9]:[0-5][0-9]` reads like the shape and accepts 24:00, 25:10 and 29:59, which
+`WALL_CLOCK_TIME_PATTERN` refuses. The guards now derive from the same shapes as SQLite globs,
+proven equivalent by a test running a corpus through a real CHECK; glob rather than regex because
+neither D1 nor a Durable Object registers the REGEXP hook, and glob's lack of alternation is why the
+wall clock needs two alternatives OR'd. The old columns are RECORDED and not retrofitted: adding or
+narrowing a CHECK in SQLite is a table rebuild, and a rebuild of a table other tables point at cannot
+complete against a firm database holding data. The recorded lists may only shrink, so the one
+classification open to a new date column is the guard.
+
+**A wrong-shaped date fails by name, and a compile-time brand was rejected to get there.** Branding
+`CivilDate` and `CanonicalInstant` was the obvious way to catch the confusion the scan cannot make,
+and it is the wrong tool: a brand is erased at runtime, and the wrong-shaped values arrive at runtime
+from D1 columns and request bodies — thirty-two of those columns carrying no shape CHECK, so a
+civil-date column genuinely can hold an instant today. The brand would assert what the database does
+not enforce and be wrong in the one case that matters, while costing 162 call sites a cast, and a
+cast is a lie that typechecks. The check is at runtime instead, at the entry points, where the value
+actually is. It replaces nothing that worked: `civilDateParts` returned a NaN day in silence and its
+consumers surfaced `RangeError: Invalid time value`, naming no function, argument or value. The
+failure was never the problem; the diagnosis was.
+
 **Consequences.** Elapsed time remains banned for a record, with one stated carve-out — the age of a
 live measurement, whose whole subject is how long ago it was taken, and which falls back to the
 absolute instant where it cannot compute an age. The fifteen surfaces still holding a native
