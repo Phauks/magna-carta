@@ -928,6 +928,7 @@ Recording is sequenced last for a legal reason rather than a technical one — c
 **Two smaller things the list asked for.** An **intake** starts from a call's own record, seeded with the caller and filing the call onto the matter it opens — the matters subsystem's own window, given a prefill, rather than this screen learning to open a matter. And the search now matches the matter's title and both its numbers as well as the words and the number dialled, because "what did we say on the Herrera file" is the question people actually bring.
 
 The screen moved from `/communications` to `/messaging`; the sidebar id stays `communications`, because a member's stars are stored under it. 84 tests: 45 in the package, 18 over the routes, 21 over the form's model. |
+| 6·8 — Record Communication: two columns, typed choices, one phone field, and a duration worked out from the clock | [-] | [-] | [-] | [x] | [x] | [-] | [x] | The owner's second round on the deployed form, worked end to end: the panel is Record Communication, laid out as the measurable beside the written, every closed choice a combobox, the country and the number one field shared with the Directory, and the duration worked out from a start and an end rather than typed. The backspace defect behind "I cannot backspace unless I re-enter it" was the as-you-type formatter being fed its own output. |
 
 ## Phase 7 — sliced provisionally (no rows yet)
 
