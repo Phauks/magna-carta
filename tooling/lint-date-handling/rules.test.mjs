@@ -188,7 +188,12 @@ describe("the recorded allowances", () => {
   it("covers a rule for ONE file, never for the rule everywhere", () => {
     // The allowance is a pair. A finding of the same rule in another file is untouched, which is
     // what keeps a recorded exception from quietly becoming a switched-off rule.
-    const elsewhere = { rule: ALLOWANCES[0].rule, file: "apps/web/src/lib/other.ts", line: 3, detail: "e" };
+    const elsewhere = {
+      rule: ALLOWANCES[0].rule,
+      file: "apps/web/src/lib/other.ts",
+      line: 3,
+      detail: "e",
+    };
     const covered = ALLOWANCES.map((allowance) => ({ ...allowance, line: 1, detail: "c" }));
     const { problems } = applyAllowances([...covered, elsewhere]);
     expect(problems).toEqual([elsewhere]);
