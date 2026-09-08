@@ -344,10 +344,21 @@ const DESTINATION_LIST = [
     label: "Discovery",
     href: "/discovery",
     icon: FileSearch,
-    description: "Discovery review and production.",
+    description: "Every review set you can reach, across every matter.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    /*
+     * The register reads and opens; a review set is created from the matter it belongs to, which is
+     * where its access list, its ceiling and its lifecycle are decided. What is alpha rather than
+     * ready is everything past ingest: a document can be listed and narrowed, and coding, the
+     * viewer, search and production are not built.
+     *
+     * Scoped by the per-review-set ACCESS LIST rather than by matter access, which is the row's
+     * whole reason for being at the top level: a reviewer brought in for one production is on that
+     * review set's list and may hold no access to the matter it belongs to, so a register reached
+     * only through matters would hide from them precisely the work they were given.
+     */
+    stage: "alpha",
     defaultStarred: true,
   },
   {

@@ -81,8 +81,8 @@ ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 78 | 19% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 166 | 39% |
+| A person can open it today (`screen`) | 80 | 19% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 164 | 39% |
 | No user surface by nature (`internal`) | 178 | 42% |
 | Not yet classified | 0 | 0% |
 | **Everything with something built** | **422** | **100%** |
@@ -703,7 +703,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `discovery.search.corpus-index` · `shipped` · **Review-set corpus indexing** — A review set as its own search corpus — its own split prefix, its own catalog rows, its own wholesale deletion — and the enqueue that puts a processed review document into it. _Note: Dormant like the rest of the index — with no SEARCH_SERVICE binding every document parks deferred and a later replay drains it into the same derived split, which is what apps/api-worker/test/discovery-corpus-index.test.ts exercises. A review set never feeds the natural-language corpus: that surface's audience is the matter team, and a review set's access list is narrower._
     - `discovery.search.semantic` · `designed` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
   - `discovery.review` · `partial` · **Review workflow** — Filter by date/custodian/party/keyword, tag documents, redact, thread email, detect near-duplicates.
-    - `discovery.review.document-list` · `shipped` · **Review-document list read** — The paged, filtered read of a review set's documents that every review surface sits on, plus the live exception surface, the occurrences a suppressed copy stays reachable through, and what the corpus still owes the index. _Note: Backend only — the list, the filters and the exception surface are deferred to the owner. This read is what 5-2-1 begins on._
+    - `discovery.review.document-list` · `shipped` · **Review-document list read** — The paged, filtered read of a review set's documents that every review surface sits on, plus the live exception surface, the occurrences a suppressed copy stays reachable through, and what the corpus still owes the index. _Note: The list and its five filters now have their screen (the review workspace's Documents), rendered from the narrowing registry in apps/web/src/lib/discovery/criteria.ts so a sixth narrowing is an entry rather than a control change, and the same read is the reviewer's queue. The occurrences read has its panel; the live exception surface still has no screen of its own, because it is a narrowing rather than a destination. This read is what 5-2-1 begins on._
     - `discovery.review.filters` · `partial` · **Review filters** — Filtering the corpus by date, custodian, party, and keyword.
     - `discovery.review.tagging` · `partial` · **Tagging and coding** — Responsive/privileged/confidential document tagging, coded per document, with family and bulk as scopes rather than storage. _Note: Backend only — the coding panel, tag chips and viewer pane are deferred to the owner. Criteria-driven bulk at corpus scale waits on the corpus index read._
     - `discovery.review.redaction` · `partial` · **Redaction** — Applied redactions on documents under review.
