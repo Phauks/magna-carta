@@ -15,15 +15,18 @@ import { EDGE_TYPES } from "./directory-vocabulary.ts";
 import { recordIsOrigin } from "./edge-draft.ts";
 import type { IdentifierDraft } from "./identifier-draft.ts";
 import { identifierRequestFrom } from "./identifier-draft.ts";
-import { storedSuffix } from "./name-affix.ts";
 
 export interface PersonNameDraft {
   prefix: string;
   given: string;
   middle: string;
   family: string;
-  /** As many as the person holds. "Jr." and "Esq." are two facts and both belong on the record. */
-  suffixes: string[];
+  /**
+   * As many as the person holds, comma-separated on the one line — "III, Esq.". That is how they
+   * are written after a name and it is what the column stores; the honorific field
+   * ($lib/names/honorific-field.svelte) is what enters them.
+   */
+  suffix: string;
 }
 
 export interface OtherNameDraft extends PersonNameDraft {
@@ -126,7 +129,7 @@ export interface PersonDraft {
 
 export function emptyPersonDraft(): PersonDraft {
   return {
-    name: { prefix: "", given: "", middle: "", family: "", suffixes: [] },
+    name: { prefix: "", given: "", middle: "", family: "", suffix: "" },
     otherNames: [],
     pronouns: null,
     dateOfBirth: "",
@@ -180,7 +183,7 @@ export function personDraftDisplayName(draft: PersonDraft): string {
 }
 
 function displayName(name: PersonNameDraft): string {
-  return [name.prefix, name.given, name.middle, name.family, storedSuffix(name.suffixes) ?? ""]
+  return [name.prefix, name.given, name.middle, name.family, name.suffix]
     .map((part) => part.trim())
     .filter((part) => part !== "")
     .join(" ");
@@ -318,7 +321,7 @@ export function personCreateRequest(draft: PersonDraft): CreateDirectoryPersonRe
     given: draft.name.given.trim(),
     prefix: optional(draft.name.prefix),
     middle: optional(draft.name.middle),
-    suffix: storedSuffix(draft.name.suffixes),
+    suffix: optional(draft.name.suffix),
   };
   // Absent rather than empty: a person with one name has no family name, which is a different
   // fact from a family name recorded as nothing at all.
@@ -330,7 +333,7 @@ export function personCreateRequest(draft: PersonDraft): CreateDirectoryPersonRe
       nameRole: name.nameRole,
       prefix: optional(name.prefix),
       middle: optional(name.middle),
-      suffix: storedSuffix(name.suffixes),
+      suffix: optional(name.suffix),
     }));
   }
   if (draft.pronouns !== null) request.pronouns = draft.pronouns;

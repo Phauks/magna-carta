@@ -12,13 +12,12 @@
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import HonorificField from "$lib/names/honorific-field.svelte";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { DirectoryNameRole } from "../directory-api.ts";
   import { appendableNameRoles, nameRoleLabel } from "../directory-vocabulary.ts";
-  import { NAME_PREFIXES, NAME_SUFFIXES } from "../name-affix.ts";
   import type { OtherNameDraft, PersonNameDraft } from "../person-draft.ts";
-  import NameAffixField from "./name-affix-field.svelte";
   import SectionHeading from "./section-heading.svelte";
 
   let {
@@ -47,8 +46,8 @@
   let otherFamily = $state("");
   let otherRole = $state<DirectoryNameRole>("former");
 
-  // A name the person also answers to needs something to answer to, and that is all: the same rule
-  // the current name is held to, for the same reason — a one-name alias is a real alias.
+  // A name the person also answers to needs something to answer to, and that is all — the same
+  // rule the current name is held to, and for the same reason: a one-name alias is a real alias.
   const otherReady = $derived(otherGiven.trim() !== "" || otherFamily.trim() !== "");
 
   function addOther(): void {
@@ -58,7 +57,7 @@
       given: otherGiven.trim(),
       middle: "",
       family: otherFamily.trim(),
-      suffixes: [],
+      suffix: "",
       nameRole: otherRole,
     });
     otherGiven = "";
@@ -68,9 +67,8 @@
 
 <section class="flex flex-col gap-16">
   <!-- The three names on one row, in the order a name is written and under the words a person
-       actually uses for them. The prefix and the suffixes are the product's own affix field, over
-       the spellings the firm writes, and they take a row of their own: the suffix field grows as
-       a person's suffixes are added to it, and a growing field cannot sit in a row of fixed ones. -->
+       actually uses for them; the prefix and the suffixes take the row beneath, because the
+       honorific field holds several comma-separated values and grows as they are added. -->
   <div class="grid gap-12 sm:grid-cols-3">
     <LabelledField label="First Name">
       {#snippet children({ props })}
@@ -90,14 +88,16 @@
   </div>
 
   <div class="grid gap-12 sm:grid-cols-2">
-    <NameAffixField label="Prefix" offered={NAME_PREFIXES} bind:value={name.prefix} {disabled} />
-    <NameAffixField
-      label="Suffix"
-      offered={NAME_SUFFIXES}
-      bind:values={name.suffixes}
-      multiple
-      {disabled}
-    />
+    <LabelledField label="Prefix">
+      {#snippet children({ props })}
+        <HonorificField part="prefix" bind:value={name.prefix} {disabled} inputProps={props} />
+      {/snippet}
+    </LabelledField>
+    <LabelledField label="Suffix">
+      {#snippet children({ props })}
+        <HonorificField part="suffix" bind:value={name.suffix} {disabled} inputProps={props} />
+      {/snippet}
+    </LabelledField>
   </div>
 
   <div class="flex flex-col gap-12">

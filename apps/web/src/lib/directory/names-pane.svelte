@@ -31,6 +31,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
+  import HonorificField from "$lib/names/honorific-field.svelte";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleCivilDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import PenLine from "@lucide/svelte/icons/pen-line";
@@ -44,8 +45,6 @@
     type DirectoryNameEntry,
     type DirectoryNameRole,
   } from "./directory-api.ts";
-  import { NAME_PREFIXES, NAME_SUFFIXES, storedSuffix, suffixesFrom } from "./name-affix.ts";
-  import NameAffixField from "./sections/name-affix-field.svelte";
   import { appendableNameRoles, nameRoleLabel } from "./directory-vocabulary.ts";
   import { directoryEntityName, entityDetailIdentifier } from "./entity-presentation.ts";
 
@@ -187,7 +186,7 @@
   let given = $state("");
   let middle = $state("");
   let family = $state("");
-  let suffixes = $state<string[]>([]);
+  let suffix = $state("");
   let legalName = $state("");
   let writeFailure = $state<StatedFailure | null>(null);
 
@@ -212,9 +211,7 @@
    * What the fields hold, as one string, so the guard can ask only when something has changed: the
    * add dialog against empty fields, the change dialog against the name it was seeded with.
    */
-  const draft = $derived(
-    [prefix, given, middle, family, storedSuffix(suffixes) ?? "", legalName].join("\u0000"),
-  );
+  const draft = $derived([prefix, given, middle, family, suffix, legalName].join("\u0000"));
   const EMPTY_DRAFT = ["", "", "", "", "", ""].join("\u0000");
   let seededDraft = $state(EMPTY_DRAFT);
 
@@ -224,7 +221,7 @@
     given = "";
     middle = "";
     family = "";
-    suffixes = [];
+    suffix = "";
     legalName = "";
     writeFailure = null;
   }
@@ -238,13 +235,11 @@
       given = entity.person.given ?? "";
       middle = entity.person.middle ?? "";
       family = entity.person.family ?? "";
-      suffixes = suffixesFrom(entity.person.suffix);
+      suffix = entity.person.suffix ?? "";
     } else {
       legalName = entity.organization.legalName ?? "";
     }
-    seededDraft = [prefix, given, middle, family, storedSuffix(suffixes) ?? "", legalName].join(
-      "\u0000",
-    );
+    seededDraft = [prefix, given, middle, family, suffix, legalName].join("\u0000");
   }
 
   function personFields(): {
@@ -258,7 +253,7 @@
       given: given.trim(),
       prefix: prefix.trim() === "" ? null : prefix.trim(),
       middle: middle.trim() === "" ? null : middle.trim(),
-      suffix: storedSuffix(suffixes),
+      suffix: suffix.trim() === "" ? null : suffix.trim(),
     };
     // Absent rather than empty: a person with one name has no family name, and the contract takes
     // an omitted field as "there is none" and an empty string as a value that cannot be one.
@@ -316,8 +311,20 @@
 
 {#snippet nameFields(busy: boolean)}
   {#if kind === "person"}
-    <!-- The same fields, in the same words, as the New Person panel: a name entered one way and
-         corrected another is how a record ends up with two spellings of one convention. -->
+    <FieldRow>
+      <LabelledField label="Prefix">
+        {#snippet children({ props })}
+          <HonorificField part="prefix" bind:value={prefix} disabled={busy} inputProps={props} />
+        {/snippet}
+      </LabelledField>
+      <LabelledField label="Suffix">
+        {#snippet children({ props })}
+          <HonorificField part="suffix" bind:value={suffix} disabled={busy} inputProps={props} />
+        {/snippet}
+      </LabelledField>
+    </FieldRow>
+    <!-- The same words as the New Person panel: a name entered one way and corrected another is how
+         a record ends up carrying two spellings of one convention. -->
     <FieldRow>
       <LabelledField label="First Name">
         {#snippet children({ props })}
@@ -345,16 +352,6 @@
         <Input {...props} disabled={busy} bind:value={family} placeholder={placeholderOf("Last Name")} />
       {/snippet}
     </LabelledField>
-    <FieldRow>
-      <NameAffixField label="Prefix" offered={NAME_PREFIXES} bind:value={prefix} disabled={busy} />
-      <NameAffixField
-        label="Suffix"
-        offered={NAME_SUFFIXES}
-        bind:values={suffixes}
-        multiple
-        disabled={busy}
-      />
-    </FieldRow>
     {#if warning !== null}
       <Alert.Root variant="warning">
         <Alert.Title>This Name Has No Last Name</Alert.Title>

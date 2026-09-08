@@ -1,0 +1,188 @@
+/*
+ * The firm's scan policy as a settings draft — the four settings the File Safety page renders, and
+ * what each staged value means as a change to send.
+ *
+ * The staging, counting, confirming and saving are the shared server-backed draft's
+ * ($lib/settings/server-backed-draft.svelte.ts); this module is the field mapping and the words.
+ *
+ * WHAT IS DELIBERATELY NOT HERE: a rejected-or-deleted treatment. The server's vocabulary has three
+ * values and none of them destroys a file, which is the design rather than an omission — a firm
+ * that loses a client's document to a false positive has lost the document.
+ */
+import type { SettingDefinition, SettingValue } from "$lib/settings/settings-definitions.ts";
+import {
+  ServerBackedSettingsDraft,
+  type ServerBackedField,
+} from "$lib/settings/server-backed-draft.svelte.ts";
+import {
+  readScanPolicy,
+  updateScanPolicy,
+  type FlaggedTreatment,
+  type ScanPolicyPatch,
+  type ScanPolicySettings,
+  type ScanTier,
+} from "./scan-policy-api.ts";
+
+/** The settings section this draft belongs to (settings-sections.ts). */
+export const FILE_SAFETY_SECTION_ID = "file-safety";
+
+export const SCAN_TIER_DEFINITION: SettingDefinition = {
+  id: "file-safety.scan-tier",
+  sectionId: FILE_SAFETY_SECTION_ID,
+  plateLabel: "What Is Scanned",
+  label: "Scan Depth",
+  description: "How much of the engine's rule set an upload is checked against.",
+  kind: "select",
+  options: [
+    { value: "core", label: "Core — the rules that catch known malware" },
+    { value: "extended", label: "Extended — adds the broader threat rules" },
+    { value: "full", label: "Full — every rule, including the noisiest" },
+  ],
+  defaultValue: "extended",
+  sensitivity: "open",
+  audited: true,
+};
+
+export const SCORE_FLOOR_DEFINITION: SettingDefinition = {
+  id: "file-safety.suspicious-score-floor",
+  sectionId: FILE_SAFETY_SECTION_ID,
+  plateLabel: "What Is Scanned",
+  label: "Suspicion Threshold",
+  description:
+    "How confident a suspicious match must be to count, from 0 to 100. Lower flags more files.",
+  kind: "text",
+  defaultValue: "75",
+  sensitivity: "open",
+  audited: true,
+};
+
+export const FLAGGED_TREATMENT_DEFINITION: SettingDefinition = {
+  id: "file-safety.flagged-treatment",
+  sectionId: FILE_SAFETY_SECTION_ID,
+  plateLabel: "What Happens To A Flagged File",
+  label: "Flagged Files",
+  description: "What the firm can do with a file the scan flagged. It is never deleted.",
+  kind: "select",
+  options: [
+    { value: "block", label: "Hold it — nobody can open it" },
+    { value: "informed-access", label: "Ask first — openable once the risk is acknowledged" },
+    { value: "allow-and-flag", label: "Allow it — openable, marked as flagged" },
+  ],
+  defaultValue: "block",
+  sensitivity: "open",
+  // Consequential: loosening this is the firm deciding that a file its own scanner distrusts may
+  // be opened, so the save flow asks once before it lands.
+  confirm: true,
+  audited: true,
+};
+
+export const STEP_UP_DEFINITION: SettingDefinition = {
+  id: "file-safety.step-up-reauth",
+  sectionId: FILE_SAFETY_SECTION_ID,
+  plateLabel: "What Happens To A Flagged File",
+  label: "Confirm Identity First",
+  description: "Ask a member to sign in again before they open a flagged file.",
+  kind: "switch",
+  defaultValue: false,
+  sensitivity: "open",
+  audited: true,
+};
+
+/** Every definition the page renders, in reading order. */
+export const FILE_SAFETY_DEFINITIONS: readonly SettingDefinition[] = [
+  SCAN_TIER_DEFINITION,
+  SCORE_FLOOR_DEFINITION,
+  FLAGGED_TREATMENT_DEFINITION,
+  STEP_UP_DEFINITION,
+];
+
+const SCAN_TIERS: readonly ScanTier[] = ["core", "extended", "full"];
+const FLAGGED_TREATMENTS: readonly FlaggedTreatment[] = [
+  "block",
+  "informed-access",
+  "allow-and-flag",
+];
+
+function tierFromValue(value: SettingValue): ScanTier | null {
+  return SCAN_TIERS.find((tier) => tier === value) ?? null;
+}
+
+function treatmentFromValue(value: SettingValue): FlaggedTreatment | null {
+  return FLAGGED_TREATMENTS.find((treatment) => treatment === value) ?? null;
+}
+
+/**
+ * The typed threshold, or null for anything that is not a whole number in range. The bound is the
+ * server's own (0-100); refusing here as well is what lets the page say so beside the field rather
+ * than sending a value it knows will come back a 422.
+ */
+export function scoreFloorFromValue(value: SettingValue): number | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!/^\d{1,3}$/.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  return parsed >= 0 && parsed <= 100 ? parsed : null;
+}
+
+/** The policy object a change to either of its two settings has to send whole. */
+function policyWith(
+  patch: ScanPolicyPatch,
+  settings: ScanPolicySettings,
+): { tier: ScanTier; suspiciousScoreFloor: number } {
+  // Whatever an earlier field already folded in, else what the firm holds — the wire shape carries
+  // the tier and the floor together, so neither may be sent without the other's current value.
+  return patch.policy ?? { ...settings.policy };
+}
+
+const FIELDS: readonly ServerBackedField<ScanPolicySettings, ScanPolicyPatch>[] = [
+  {
+    definition: SCAN_TIER_DEFINITION,
+    valueOf: (settings) => settings.policy.tier,
+    applyTo: (patch, value, settings) => {
+      const tier = tierFromValue(value);
+      if (tier === null) return null;
+      return { ...patch, policy: { ...policyWith(patch, settings), tier } };
+    },
+  },
+  {
+    definition: SCORE_FLOOR_DEFINITION,
+    valueOf: (settings) => String(settings.policy.suspiciousScoreFloor),
+    applyTo: (patch, value, settings) => {
+      const suspiciousScoreFloor = scoreFloorFromValue(value);
+      if (suspiciousScoreFloor === null) return null;
+      return { ...patch, policy: { ...policyWith(patch, settings), suspiciousScoreFloor } };
+    },
+    // The one field on this page somebody types into, so the one that can hold a value the server
+    // would refuse. Said at the Save button rather than sent and reported back as a 422.
+    refusalFor: (value) =>
+      scoreFloorFromValue(value) === null
+        ? "The suspicion threshold is a whole number from 0 to 100."
+        : undefined,
+  },
+  {
+    definition: FLAGGED_TREATMENT_DEFINITION,
+    valueOf: (settings) => settings.flaggedTreatment,
+    applyTo: (patch, value) => {
+      const flaggedTreatment = treatmentFromValue(value);
+      if (flaggedTreatment === null) return null;
+      return { ...patch, flaggedTreatment };
+    },
+  },
+  {
+    definition: STEP_UP_DEFINITION,
+    valueOf: (settings) => settings.stepUpReauthOnFlagged,
+    applyTo: (patch, value) =>
+      typeof value === "boolean" ? { ...patch, stepUpReauthOnFlagged: value } : null,
+  },
+];
+
+export function createScanPolicyDraft(
+  fetchImpl: typeof fetch,
+): ServerBackedSettingsDraft<ScanPolicySettings, ScanPolicyPatch> {
+  return new ServerBackedSettingsDraft({
+    sectionId: FILE_SAFETY_SECTION_ID,
+    fields: FIELDS,
+    read: () => readScanPolicy(fetchImpl),
+    write: (patch, idempotencyKey) => updateScanPolicy(fetchImpl, patch, idempotencyKey),
+  });
+}

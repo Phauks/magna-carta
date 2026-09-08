@@ -3166,12 +3166,20 @@
           },
           "name": {
             "type": "string"
+          },
+          "roleName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The role the invitation names, or null where it names none."
           }
         },
         "required": [
           "id",
           "email",
-          "name"
+          "name",
+          "roleName"
         ]
       },
       "InviteMemberRequest": {
@@ -3184,11 +3192,228 @@
           "name": {
             "type": "string",
             "minLength": 1
+          },
+          "roleName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A role of this firm, by name, for the invited member to hold on arrival. A name that is not one of the firm's roles is refused rather than dropped — an invitation quietly landing without the role somebody chose is worse than one that does not land."
           }
         },
         "required": [
           "email",
           "name"
+        ]
+      },
+      "FirmRoleListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FirmRole"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "FirmRole": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The permission keys this role carries, in registry form. Empty where the role carries none, which is a real state rather than a missing answer."
+          },
+          "memberCount": {
+            "type": "integer",
+            "description": "How many ACTIVE members hold this role — who a change to it would reach."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "permissions",
+          "memberCount"
+        ]
+      },
+      "MemberRolesResponse": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "userId",
+          "roleIds"
+        ]
+      },
+      "SetMemberRolesRequest": {
+        "type": "object",
+        "properties": {
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^role_[A-Za-z0-9_-]{21}$"
+            },
+            "maxItems": 50,
+            "description": "The roles this member is to hold, as a whole set rather than a change to it. The server diffs against what they hold now, so a role in both lists is never momentarily removed. An empty array leaves the member holding nothing."
+          }
+        },
+        "required": [
+          "roleIds"
+        ]
+      },
+      "MemberStatusResponse": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "deactivated"
+            ]
+          }
+        },
+        "required": [
+          "userId",
+          "status"
+        ]
+      },
+      "MemberNameResponse": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "type": "object",
+            "properties": {
+              "prefix": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100,
+                "description": "What goes before the name, as the whole line: several honorifics is ordinary, and the line as written is what is printed. Free text — the suggestions a screen offers constrain nothing."
+              },
+              "given": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "middle": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "family": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "suffix": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100,
+                "description": "What follows the name, as the whole line — \"III, Esq.\" is one person's suffix."
+              }
+            },
+            "required": [
+              "prefix",
+              "given",
+              "middle",
+              "family",
+              "suffix"
+            ]
+          },
+          "displayName": {
+            "type": "string",
+            "description": "The line the parts read as, and what the platform prints. Rendered from the parts where the person has stated any; otherwise the name their account was created with."
+          },
+          "partsStated": {
+            "type": "boolean",
+            "description": "Whether the person has ever stated their parts. False means the display name is the one line their account was created with, and a screen may offer a reading of it for them to confirm — never store one on their behalf."
+          }
+        },
+        "required": [
+          "parts",
+          "displayName",
+          "partsStated"
+        ]
+      },
+      "SetMemberNameRequest": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "What goes before the name, as the whole line: several honorifics is ordinary, and the line as written is what is printed. Free text — the suggestions a screen offers constrain nothing."
+          },
+          "given": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "middle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "family": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "suffix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "What follows the name, as the whole line — \"III, Esq.\" is one person's suffix."
+          }
+        },
+        "required": [
+          "prefix",
+          "given",
+          "middle",
+          "family",
+          "suffix"
         ]
       },
       "SetReleaseChannelResponse": {
@@ -3332,6 +3557,14 @@
           "name": {
             "type": "string",
             "minLength": 1,
+            "maxLength": 200
+          },
+          "givenName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "familyName": {
+            "type": "string",
             "maxLength": 200
           },
           "password": {
@@ -32128,6 +32361,32 @@
           }
         }
       },
+      "FirmProfileResponse": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "description": "What the firm is called to its clients — on invoices, in the portal, and on every generated document. Never the provisioning handle behind it."
+          }
+        },
+        "required": [
+          "displayName"
+        ]
+      },
+      "SetFirmProfileRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The firm's human-facing name. Required and non-empty: a firm with no name prints none on the documents it sends."
+          }
+        },
+        "required": [
+          "displayName"
+        ]
+      },
       "FirmReportPolicyResponse": {
         "type": "object",
         "properties": {
@@ -32171,6 +32430,47 @@
                 "$ref": "#/components/schemas/TrustComplianceListing"
               }
             }
+          }
+        }
+      },
+      "FirmTimePolicyResponse": {
+        "type": "object",
+        "properties": {
+          "incrementMinutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "The firm's minimum billing increment: what a captured duration rounds TO, in minutes. Six — a tenth of an hour — is the prevailing default. It is also what one BILLING UNIT is worth, so a firm on quarter hours and a firm on tenths mean different amounts of work by the same number of units."
+          },
+          "roundingDirection": {
+            "type": "string",
+            "enum": [
+              "up",
+              "nearest",
+              "down"
+            ],
+            "description": "How the firm resolves a duration that falls between increments."
+          }
+        },
+        "required": [
+          "incrementMinutes",
+          "roundingDirection"
+        ]
+      },
+      "PatchFirmTimePolicyRequest": {
+        "type": "object",
+        "properties": {
+          "incrementMinutes": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 60
+          },
+          "roundingDirection": {
+            "type": "string",
+            "enum": [
+              "up",
+              "nearest",
+              "down"
+            ]
           }
         }
       },
@@ -40737,7 +41037,619 @@
             }
           },
           "422": {
-            "description": "The email is already in use, or the Idempotency-Key was reused with a different payload",
+            "description": "The email is already in use, the named role is not one of this firm's, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/roles": {
+      "get": {
+        "description": "Lists the firm's roles: what each one is called, the permissions it carries, and how many active members hold it. The reference a person consults before granting one — a role name alone says nothing about what it lets somebody do.",
+        "operationId": "roles.list",
+        "tags": [
+          "roles"
+        ],
+        "x-mc-operationId": "roles.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:readMembers",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "roles"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's roles, ordered by name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmRoleListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is the subject of their own request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or no such member in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/members/{userId}/roles": {
+      "put": {
+        "description": "Sets the roles a member holds, as a whole set. Refused when the actor is the subject, and refused when the change would leave the firm with no active member who can administer its members. Returns the roles held after the write.",
+        "operationId": "members.setRoles",
+        "tags": [
+          "members"
+        ],
+        "x-mc-operationId": "members.setRoles",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageMembers",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "members"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMemberRolesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The roles the member holds after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberRolesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is the subject of their own request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or no such member in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/members/{userId}/deactivation": {
+      "post": {
+        "description": "Deactivates a member: their sessions stop resolving to any capability, and their rows stay. A deactivated member is still the responsible attorney on the matters they carried and the author of what they filed, so the roster keeps listing them. Refused when the actor is the subject, and refused for the last member who can administer the firm.",
+        "operationId": "members.deactivate",
+        "tags": [
+          "members"
+        ],
+        "x-mc-operationId": "members.deactivate",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageMembers",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "members"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's status after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is the subject of their own request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or no such member in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/members/{userId}/reactivation": {
+      "post": {
+        "description": "Returns a deactivated member to active. They hold whatever roles they held when they left — deactivation suspends a member's access rather than stripping what they were given, so a return does not mean re-granting it by hand.",
+        "operationId": "members.reactivate",
+        "tags": [
+          "members"
+        ],
+        "x-mc-operationId": "members.reactivate",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageMembers",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "members"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^user_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's status after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or is the subject of their own request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the session member is deactivated, or no such member in this firm",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/name": {
+      "get": {
+        "description": "The session member's own name: the parts they have stated, the line those parts read as, and whether they have ever stated them. A person who has not reads the single name their account was created with, and their parts read as null — never as a guess at how that line splits.",
+        "operationId": "me.name",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.name",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberNameResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, or the session member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets the session member's own name, as the whole set of parts. The rendered line is composed from them in the same statement, so what the platform prints and what the person stated can never disagree, and the firm's roster is updated to match. Refused when every part is empty: a person always has a name, and clearing it would leave every record they touched unnamed.",
+        "operationId": "me.setName",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.setName",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:editOwnProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMemberNameRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's name after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberNameResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:editOwnProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, or the session member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or every part is empty",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -98492,6 +99404,131 @@
         }
       }
     },
+    "/api/v1/firm/profile": {
+      "put": {
+        "description": "Sets what the firm is called to its clients. The name reaches invoices, the client portal and generated documents from the moment it is saved; documents already produced keep the name they were produced under. Read it from the session bootstrap, which resolves it for every request already.",
+        "operationId": "firmProfile.set",
+        "tags": [
+          "firmProfile"
+        ],
+        "x-mc-operationId": "firmProfile.set",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmProfile"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFirmProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's name after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The name is empty or too long, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/firm/reports/policy": {
       "get": {
         "description": "Reads the firm's report policy: what its trust-compliance document lists. Whether a matter ledger that was at zero throughout the period appears, and whether the member who authorized each payment out of a client ledger is named. Both default to listed and named; the pack reads this policy for every report it produces, so the firm's document reads the same every time.",
@@ -98668,6 +99705,203 @@
           },
           "422": {
             "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/time-policy": {
+      "get": {
+        "description": "Reads the firm's own time-capture policy: the increment a captured duration rounds to and the direction it rounds in. This is the FIRM tier — the value a matter, client, timekeeper or location override would sit above. To ask what a particular capture will actually be billed at, read the resolved policy from the time-entries surface instead.",
+        "operationId": "firmTimePolicy.get",
+        "tags": [
+          "firmTimePolicy"
+        ],
+        "x-mc-operationId": "firmTimePolicy.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:manageSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmTimePolicy"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's time-capture policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmTimePolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks time:manageSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's time-capture policy. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. Time already captured keeps the rounding it was recorded under; the new policy applies to what is captured after it. Returns the policy after the write.",
+        "operationId": "firmTimePolicy.update",
+        "tags": [
+          "firmTimePolicy"
+        ],
+        "x-mc-operationId": "firmTimePolicy.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "time:manageSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmTimePolicy"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchFirmTimePolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's time-capture policy after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmTimePolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks time:manageSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The increment is not a whole number of minutes between 1 and 60, the direction is not one of the three, or the Idempotency-Key was reused with a different body",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -101818,7 +103052,13 @@
       "name": "firmNotificationPolicy"
     },
     {
+      "name": "firmProfile"
+    },
+    {
       "name": "firmReportPolicy"
+    },
+    {
+      "name": "firmTimePolicy"
     },
     {
       "name": "firmUsage"
@@ -101918,6 +103158,9 @@
     },
     {
       "name": "reports"
+    },
+    {
+      "name": "roles"
     },
     {
       "name": "safeBrowse"

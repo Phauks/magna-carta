@@ -7,7 +7,9 @@
    *
    * Instant posture: every choice applies through the shared appearance-axes machinery
    * ($lib/settings/appearance-axes.svelte.ts — the seam the no-FOUC boot script reads) and
-   * appends to this page's own change ledger.
+   * appends to this page's own change ledger. Scroll Edge Markers is the one axis that seam
+   * carries and the boot script does not: nothing paints a scroll-edge rule before the
+   * application mounts, so there is no flash for an inline script to end.
    */
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
@@ -23,6 +25,9 @@
     instantForAxis,
     MOTION_AXIS,
     MOTION_DEFINITION,
+    applyScrollEdgeHints,
+    SCROLL_EDGE_HINTS_DEFINITION,
+    scrollEdgeHintsShown,
   } from "$lib/settings/appearance-axes.svelte.ts";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
   import {
@@ -67,7 +72,7 @@
      identical width. Full canvas width (owner-directed): the table uses the space. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
-  <SettingsDescription>How the interface reads and moves — contrast, motion, and density, yours alone.</SettingsDescription>
+  <SettingsDescription>How the interface reads and moves — contrast, motion, density and the marks it draws at a scroll edge, yours alone.</SettingsDescription>
 
   <SettingsPlate heading="Comfort">
     <SettingsRow
@@ -76,6 +81,13 @@
     />
     <SettingsRow definition={MOTION_DEFINITION} instant={instantForAxis(MOTION_AXIS)} />
     <SettingsRow definition={DENSITY_DEFINITION} instant={instantForAxis(DENSITY_AXIS)} />
+    <SettingsRow
+      definition={SCROLL_EDGE_HINTS_DEFINITION}
+      instant={{
+        value: scrollEdgeHintsShown(),
+        apply: (next) => applyScrollEdgeHints(next === true),
+      }}
+    />
   </SettingsPlate>
   <SettingsPlate heading="Navigation">
     <SettingsRow

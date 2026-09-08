@@ -20,7 +20,8 @@ function filled() {
     given: "Margaret",
     middle: "",
     family: "Okafor",
-    suffixes: ["Ph.D.", "Esq."],
+    // Several, on the one line, the way they are written after a name.
+    suffix: "Ph.D., Esq.",
   };
   draft.otherNames.push({
     id: "n1",
@@ -28,7 +29,7 @@ function filled() {
     given: "Margaret",
     middle: "",
     family: "Adeyemi",
-    suffixes: [],
+    suffix: "",
     nameRole: "maiden",
   });
   draft.pronouns = pronounSetForChoice("she");

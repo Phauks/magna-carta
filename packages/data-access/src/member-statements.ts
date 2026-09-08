@@ -141,3 +141,129 @@ export async function readActiveMemberCount(database: SqlDatabase): Promise<numb
 export function selectMemberStatusStatement(database: SqlDatabase, userId: UserId): SqlStatement {
   return database.prepare(`SELECT status FROM ${MEMBER_TABLE} WHERE user_id = ?1`).bind(userId);
 }
+
+// THE FIRM'S ROLES, each with what it carries and how many people hold it — the read behind the
+// surface a person consults before granting one. Permissions arrive packed into one column on the
+// roster read's reasoning: one row per role keeps the caller from folding, and the ASCII unit
+// separator cannot appear inside a registry key (they are `namespace:action`), so unpacking is
+// total. A role carrying no permission at all packs to NULL, which is a real state — a role the
+// firm has emptied — and reads as no permissions, never as a permission called "".
+//
+// The member count is of ACTIVE members only. The question the number answers is "who would this
+// change reach", and a departed member is not reached by anything.
+
+/** One row of the roles read, exactly as the statement returns it. */
+export interface FirmRoleRow {
+  readonly id: string;
+  readonly name: string;
+  /** The role's permission keys packed with ROLE_NAME_SEPARATOR, or null where it carries none. */
+  readonly permissions: string | null;
+  /** How many ACTIVE members hold this role. */
+  readonly memberCount: number;
+}
+
+export function selectFirmRolesStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT ${ROLE_TABLE}.id AS id, ` +
+      `${ROLE_TABLE}.name AS name, ` +
+      `(SELECT group_concat(${ROLE_PERMISSION_TABLE}.permission, char(31)) FROM ${ROLE_PERMISSION_TABLE} ` +
+      `WHERE ${ROLE_PERMISSION_TABLE}.role_id = ${ROLE_TABLE}.id) AS permissions, ` +
+      `(SELECT COUNT(*) FROM ${MEMBER_ROLE_TABLE} ` +
+      `JOIN ${MEMBER_TABLE} ON ${MEMBER_TABLE}.user_id = ${MEMBER_ROLE_TABLE}.member_user_id ` +
+      `WHERE ${MEMBER_ROLE_TABLE}.role_id = ${ROLE_TABLE}.id AND ${MEMBER_TABLE}.status = 'active') AS memberCount ` +
+      `FROM ${ROLE_TABLE} ORDER BY ${ROLE_TABLE}.name`,
+  );
+}
+
+// The roles one member holds, as handles — what a role change diffs against. Rows: { roleId }.
+export function selectMemberRoleIdsStatement(database: SqlDatabase, userId: UserId): SqlStatement {
+  return database
+    .prepare(`SELECT role_id AS roleId FROM ${MEMBER_ROLE_TABLE} WHERE member_user_id = ?1`)
+    .bind(userId);
+}
+
+// Takes one role off a member. The insert side is insertRoleAssignmentStatement above; a role change
+// is expressed as the removals and the additions its diff names, never as a delete-all-then-insert,
+// so a role the member keeps is never momentarily absent from a concurrent authorization read.
+export function deleteRoleAssignmentStatement(
+  database: SqlDatabase,
+  memberUserId: UserId,
+  roleId: RoleId,
+): SqlStatement {
+  return database
+    .prepare(`DELETE FROM ${MEMBER_ROLE_TABLE} WHERE member_user_id = ?1 AND role_id = ?2`)
+    .bind(memberUserId, roleId);
+}
+
+// Deactivating and reactivating a member. The row STAYS either way — a departed member is still the
+// responsible attorney on the matters they carried and the author of what they filed — so this is a
+// status flip and never a delete. Deactivation needs no further write to stop their access: both
+// authorization reads above join `member.status = 'active'`, so a deactivated member resolves to an
+// empty capability set on their next request.
+export function setMemberStatusStatement(
+  database: SqlDatabase,
+  userId: UserId,
+  status: "active" | "deactivated",
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${MEMBER_TABLE} SET status = ?2 WHERE user_id = ?1`)
+    .bind(userId, status);
+}
+
+// WHO CAN STILL ADMINISTER THE FIRM — the read behind the one invariant that keeps a firm from
+// locking itself out: it must always keep an active member who can administer its members. Both
+// paths to a permission count, because both really confer it: a role the member holds, and an
+// unexpired direct grant.
+//
+// Expiry is compared here rather than left to the resolver, which is the deliberate departure from
+// the note on selectMemberPermissionsStatements. The resolver's boundary rule is reproduced exactly
+// — a grant expiring at `now` is already expired, so the comparison is strictly greater — because
+// this read answers a yes/no question inside a write path rather than composing a capability set,
+// and shipping every grant row to the caller to ask "is anyone left" would read the whole table to
+// answer a question SQL can count.
+export async function readActiveMemberIdsWithPermission(
+  database: SqlDatabase,
+  permission: string,
+  now: string,
+): Promise<readonly string[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${MEMBER_TABLE}.user_id AS userId FROM ${MEMBER_TABLE} ` +
+        `WHERE ${MEMBER_TABLE}.status = 'active' AND (` +
+        `EXISTS (SELECT 1 FROM ${MEMBER_ROLE_TABLE} ` +
+        `JOIN ${ROLE_PERMISSION_TABLE} ON ${ROLE_PERMISSION_TABLE}.role_id = ${MEMBER_ROLE_TABLE}.role_id ` +
+        `WHERE ${MEMBER_ROLE_TABLE}.member_user_id = ${MEMBER_TABLE}.user_id AND ${ROLE_PERMISSION_TABLE}.permission = ?1) ` +
+        `OR EXISTS (SELECT 1 FROM ${DIRECT_GRANT_TABLE} ` +
+        `WHERE ${DIRECT_GRANT_TABLE}.member_user_id = ${MEMBER_TABLE}.user_id AND ${DIRECT_GRANT_TABLE}.permission = ?1 ` +
+        `AND (${DIRECT_GRANT_TABLE}.expires_at IS NULL OR ${DIRECT_GRANT_TABLE}.expires_at > ?2)))`,
+    )
+    .bind(permission, now)
+    .all<{ userId: string }>();
+  return results.map((row) => row.userId);
+}
+
+// Which of the named roles carry a permission — the other half of the same invariant, asked of the
+// role set a member is about to be left holding rather than of the one they hold now. An empty
+// `roleIds` answers false without touching the database: no roles carry nothing.
+export async function rolesCarryPermission(
+  database: SqlDatabase,
+  roleIds: readonly string[],
+  permission: string,
+): Promise<boolean> {
+  if (roleIds.length === 0) return false;
+  const placeholders = roleIds.map((_, index) => `?${index + 2}`).join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT 1 AS carried FROM ${ROLE_PERMISSION_TABLE} ` +
+        `WHERE ${ROLE_PERMISSION_TABLE}.permission = ?1 AND ${ROLE_PERMISSION_TABLE}.role_id IN (${placeholders}) LIMIT 1`,
+    )
+    .bind(permission, ...roleIds)
+    .all<{ carried: number }>();
+  return results.length > 0;
+}
+
+// A role by name — what the invite route resolves a caller-named role against before it lets the
+// invitation through. Rows: { id }, zero rows meaning the firm has no such role.
+export function selectRoleIdByNameStatement(database: SqlDatabase, name: string): SqlStatement {
+  return database.prepare(`SELECT id FROM ${ROLE_TABLE} WHERE name = ?1`).bind(name);
+}
