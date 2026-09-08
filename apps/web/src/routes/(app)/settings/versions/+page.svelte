@@ -36,6 +36,7 @@
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
+  import { formatInstant } from "@magna-carta/design-system/formatters";
 
   // A version number is a question ("what changed?") — when the public changelog site goes
   // live (its href in the ecosystem registry is the light-up switch), every version value on
@@ -105,10 +106,7 @@
 
   void readScanEngineVersion();
 
-  const builtAt = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(BUILD_IDENTITY.builtAt));
+  const builtAt = formatInstant(BUILD_IDENTITY.builtAt);
 </script>
 
 <svelte:head>

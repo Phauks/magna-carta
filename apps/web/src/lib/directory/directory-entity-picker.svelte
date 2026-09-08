@@ -54,6 +54,7 @@
     disabled = false,
     disabledReason,
     allowCreate = true,
+    createBeside = true,
     onSelect,
     onClear,
     class: className,
@@ -72,6 +73,8 @@
     disabledReason?: string;
     /** Whether the field may record what it cannot find. Off for a field over a closed set. */
     allowCreate?: boolean;
+    /** Whether the New control stands beside the field, or only inside its list. */
+    createBeside?: boolean;
     onSelect?: (entity: PickableEntity) => void;
     onClear?: () => void;
     class?: string;
@@ -141,6 +144,7 @@
   {disabledReason}
   onCreate={allowCreate ? create : undefined}
   {createRefusal}
+  {createBeside}
   {onSelect}
   {onClear}
   class={className}

@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { MatterId } from "@magna-carta/identifiers/types";
 import { readMatterClientEntityIds } from "@magna-carta/matters/matter-party";
@@ -156,7 +157,7 @@ export async function readIntakeDesk(
   const threshold = new Date(
     new Date(params.now).getTime() - params.staleAgeDays * MS_PER_DAY,
   ).toISOString();
-  const today = params.now.slice(0, 10);
+  const today = civilDateOf(params.now);
 
   const [clientByMatter, memberNames, typeNames, nextSettings] = await Promise.all([
     readMatterClientEntityIds(database, matterIds),

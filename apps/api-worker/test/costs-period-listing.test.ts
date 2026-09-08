@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -170,7 +171,7 @@ describe("the span", () => {
       // The entered date is an instant, and a distinct fact from the day the money went out: a
       // cost captured weeks late is a different record from one captured the day it was paid.
       expect(row.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-      expect(row.createdAt.slice(0, 10)).not.toBe(row.incurredDate);
+      expect(civilDateOf(row.createdAt)).not.toBe(row.incurredDate);
     }
   });
 

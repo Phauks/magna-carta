@@ -15,6 +15,7 @@
  * record's own access-gated read. That is the backend's rule, not this module's, and it is why a
  * firm-wide grid paints kinds and the window that opens on a press fetches the one row it needs.
  */
+import { viewerTimeZone } from "$lib/dates";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
 /** The permission every calendar read is behind. */
@@ -631,10 +632,16 @@ export function formatWallClock(
   return timeZone === readerZone ? clock : `${clock} (${timeZone})`;
 }
 
-/** The zone the reader's own day is measured in, or an empty string where the runtime cannot say. */
+/**
+ * The zone the reader's own day is measured in, or an empty string where the runtime cannot say.
+ *
+ * The empty answer is this surface's own: a calendar row that cannot name the reader's zone drops
+ * the "(America/Denver)" suffix rather than showing one it guessed. Everywhere else the zone is
+ * required and `viewerTimeZone` is the function.
+ */
 export function readerTimeZone(): string {
   try {
-    return new Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return viewerTimeZone();
   } catch {
     return "";
   }

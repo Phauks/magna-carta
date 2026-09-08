@@ -34,24 +34,34 @@ Email is not here. Mail lives in your own mailbox and is filed onto a matter fro
 
 1. Open **Messaging** in the sidebar and press **New Call**, at the top of the screen beside the
    search. Inside a matter, the same button is at the top of the matter screen and fills the matter
-   in for you.
-2. Choose the **type** — a call or a text — and the **direction**, outgoing or incoming. A text that
+   in for you. The panel is called **Record Communication**, whichever kind you are writing down.
+2. The panel has two sides. The left side is everything measurable about the call; the right side is
+   what was said. Nothing on it moves when you switch between a call and a text.
+3. Every list on the form can be **typed into**: start typing and it narrows to what matches. That is
+   true of the type, the direction, the country and where it belongs.
+4. Choose the **type** — a call or a text — and the **direction**, outgoing or incoming. A text that
    carries a picture is still a text; the record notes what it carried.
-3. Name the **contact** if the person is in your directory. Picking them fills in their number, and
-   it is what lets you start an intake for them later without typing anything twice. You can skip it:
-   a number nobody has recorded yet is exactly the case the queue exists for.
-4. Choose the **country** beside the **number** and type the digits. They group themselves as you
-   type, the way that country writes a number, so an area code lands where you expect it.
-5. Give the **date** and the **time**. Both default to now, which is right for a call you have just
-   put down. A call on Tuesday written up on Thursday belongs on Tuesday, and every list puts it
-   there — change the date and the time says nothing about it.
-6. For a call, give the **length in minutes**, or the **description**, or both. A call with neither is
-   refused — if you have nothing to record, there is nothing to save. A call with only a length is
-   fine: that is a missed call, and it is a real record.
-7. For a text, the **description** is the message itself.
-8. Say what it **belongs to**: a matter, or "not a matter" with a reason, or decide later — which
-   leaves it in the queue. Every matter the firm has is offered, including intakes and consultations.
-9. Press **Save**.
+5. Name the **contact** if the person is in your directory. Picking them fills in their number, and
+   it is what lets you start an intake for them later without typing anything twice. Somebody who is
+   not in the directory yet can be added from the bottom of the same list. You can skip this: a
+   number nobody has recorded yet is exactly the case the queue exists for.
+6. Choose the **country** and type the **number**. The country list carries flags and answers to the
+   dial code, the country's name or its two letters. The digits group themselves as you type, the way
+   that country writes a number, and the greyed shape in the empty field shows you which way that is.
+7. Give the **date**, the **start** and, for a call, the **end**. The date and the start default to
+   now, which is right for a call you have just put down; a call on Tuesday written up on Thursday
+   belongs on Tuesday, and every list puts it there once you change the date. The **duration** works
+   itself out from the two times — a call that ran past midnight is counted properly — and a call
+   that started and ended on the same minute is a missed call, which is a real record. A text has no
+   length, so its end and duration are shown greyed rather than moving the rest of the form around.
+8. Write the **description** on the right. On a text it is the message itself; on a call it is your
+   own account of it. A call needs either a description or an end time; a call with neither is
+   refused, because if you have nothing to record there is nothing to save. A text needs its words.
+9. Say where it **belongs**, in one field: type a matter's name or its number, or pick one of the
+   reasons it is on no matter — spam or a wrong number, firm business, nothing came of it — or leave
+   it as **Decide later**, which puts it in the queue. Every matter the firm has is offered,
+   including intakes and consultations.
+10. Press **Save**.
 
 ## Opening a call or a text
 
@@ -59,7 +69,8 @@ Click any row to open its record. From there you can:
 
 - **Read** the whole description, however long it is, along with who was on the firm's side, who
   wrote the record down, and when.
-- **Correct** it. Press Edit, change anything you mistyped, and Save. A record the carrier wrote is
+- **Correct** it. Press Edit, change anything you mistyped, and Save. The fields are the same
+  fields, in the same places, as the ones you recorded it with. A record the carrier wrote is
   not correctable — it is what the network reported rather than somebody's recollection — and the
   window says so.
 - **Print** it.

@@ -40,6 +40,7 @@
   import { renderTextExport } from "./render-text.ts";
   import { renderXlsxExport } from "./render-xlsx.ts";
   import { exportFilename, saveExport } from "./tabular-export.ts";
+  import { formatTimeOfDay } from "@magna-carta/design-system/formatters";
 
   // How many the tray shows. The tray is a glance, not the register — the page below it is where a
   // member reads the whole shelf.
@@ -167,9 +168,7 @@
     }
   }
 
-  function stamp(value: string): string {
-    return new Date(value).toLocaleTimeString(undefined, { timeStyle: "short" });
-  }
+  const stamp = (value: string): string => formatTimeOfDay(value);
 </script>
 
 <Popover.Root bind:open>

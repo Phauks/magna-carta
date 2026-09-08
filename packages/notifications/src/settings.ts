@@ -7,7 +7,7 @@ import {
 } from "@magna-carta/data-access/setting-statements";
 import { SCOPED_SETTING_TABLE } from "@magna-carta/data-access/scoped-setting-statements";
 import { readLocationTimeZone } from "@magna-carta/calendar/resource-statements";
-import { isResolvableTimeZone } from "@magna-carta/calendar/time-zone";
+import { isResolvableTimeZone } from "@magna-carta/civil-time/time-zone";
 import { firmDefaultLocationDefinition } from "@magna-carta/locations/settings";
 import type { LocationId } from "@magna-carta/identifiers/types";
 import {

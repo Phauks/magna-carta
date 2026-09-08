@@ -379,7 +379,7 @@
         {@render fact("When", formatInstant(record.occurredAt))}
         {@render fact("Number", counterpartyNumberText(record.counterpartyNumber))}
         {#if length !== null}
-          {@render fact("Length", length)}
+          {@render fact("Duration", length)}
         {/if}
         {@render fact("Belongs to", anchorText(record))}
       </dl>

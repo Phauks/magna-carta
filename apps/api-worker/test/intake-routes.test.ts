@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import {
   insertMemberStatement,
@@ -450,7 +451,7 @@ describe("intake procedure routes", () => {
     expect(before.data.some((row) => row.title === "Herrera consultation")).toBe(false);
 
     // The consultation is scheduled: the desk carries the next setting.
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const tomorrow = civilDateOf(new Date(Date.now() + 86_400_000));
     const scheduled = await send("POST", `/api/v1/matters/${matterId}/events`, {
       title: "Consultation with Rosalind Chase",
       startsOn: tomorrow,

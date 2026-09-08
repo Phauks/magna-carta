@@ -12,6 +12,12 @@
    * that corrects a record, so entering a call and correcting one cannot drift into two layouts
    * asking two different sets of questions. This file owns the panel, the readiness and the write.
    *
+   * ONE NAME FOR THE PANEL, WHICHEVER TYPE IS BEING RECORDED (owner ruling, 2026-09-08): Record
+   * Communication. The heading used to change to Record A Text the moment somebody switched the type
+   * — a panel renaming itself under the hand of the person filling it in — and the line under it
+   * ("nothing is sent from here") explained the subsystem to somebody who had already decided to
+   * write a call down. The panel is wide because the fields are in two columns.
+   *
    * A MISSED CALL IS A REAL RECORD. A call with no description and no length is refused, because a
    * member sat down and typed it and an empty one means they abandoned the form — but a call with a
    * length and nothing written is accepted, because the phone rang and that is the whole fact.
@@ -140,12 +146,11 @@
 
 <ActionDialog
   bind:open
-  heading={text ? "Record A Text" : "Record A Call"}
-  subtitle="What happened, and when. The firm's own record of it — nothing is sent from here."
+  heading="Record Communication"
   commitLabel="Save"
   commitBusyLabel="Saving"
   commitRefusal={refusal}
-  width="wide"
+  width="record"
   unsavedChanges={started}
   onOpen={reset}
   onCommit={submit}

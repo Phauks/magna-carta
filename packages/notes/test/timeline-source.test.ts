@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { describe, expect, it } from "vitest";
 import { readTimelinePage } from "@magna-carta/calendar/timeline";
 import { timelineSourceRegistry } from "@magna-carta/calendar/sources/all";
@@ -72,7 +73,7 @@ describe("a note on the matter timeline", () => {
       (entry) => entry.sourceKey === "matterNote",
     );
     // A civil date cut from the created instant, never the instant itself: one column, one shape.
-    expect(entries[0]?.sortKey).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
+    expect(entries[0]?.sortKey).toMatch(CIVIL_DATE_PATTERN);
   });
 
   it("stays ONE entry after an edit, and moves when the edit moves the occurrence", async () => {

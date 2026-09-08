@@ -44,6 +44,7 @@
   } from "$lib/tools/speed-test/speed-test-format.ts";
   import { ABSENT_MARKER } from "$lib/tools/speed-test/absence.ts";
   import { turnUnavailableNote } from "$lib/tools/speed-test/turn-capability.ts";
+  import { formatInstantDate, formatTimeOfDay } from "@magna-carta/design-system/formatters";
 
   const store = createSpeedTestStore();
   onDestroy(() => store.dispose());
@@ -280,7 +281,9 @@
   {#snippet meta()}
     {#if store.finishedAt}
       <span>
-        Run at {store.finishedAt.toLocaleTimeString()} on {store.finishedAt.toLocaleDateString()}
+        Run at {formatTimeOfDay(store.finishedAt, { precision: "second" })} on {formatInstantDate(
+          store.finishedAt,
+        )}
       </span>
     {:else}
       <span>&nbsp;</span>

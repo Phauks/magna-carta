@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -85,7 +86,7 @@ const CreateTimeEntryRequest = z
   .object({
     matterId: identifierField("matter"),
     timekeeperUserId: identifierField("user"),
-    workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    workDate: z.string().regex(CIVIL_DATE_PATTERN),
     rawDurationMinutes: z.number().int().positive(),
     narrative: z.string().min(1),
     billable: z.boolean(),
@@ -121,10 +122,7 @@ const PatchTimeEntryRequest = z
   .object({
     narrative: z.string().min(1).optional(),
     rawDurationMinutes: z.number().int().positive().optional(),
-    workDate: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional(),
+    workDate: z.string().regex(CIVIL_DATE_PATTERN).optional(),
     utbmsTaskCodeId: identifierField("utbmsCode").nullable().optional(),
     utbmsActivityCodeId: identifierField("utbmsCode").nullable().optional(),
     taskId: identifierField("matterTask")
@@ -315,7 +313,7 @@ const GridBatchAck = z
 
 const timeEntryParam = z.object({ id: identifierPathParam("timeEntry", "id") });
 
-const workDateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const workDateField = z.string().regex(CIVIL_DATE_PATTERN);
 
 const listQuery = z.object({
   timekeeperUserId: identifierField("user").optional(),

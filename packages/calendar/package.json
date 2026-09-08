@@ -7,7 +7,6 @@
   "exports": {
     "./types": "./src/types.ts",
     "./validation": "./src/validation.ts",
-    "./time-zone": "./src/time-zone.ts",
     "./overdue": "./src/overdue.ts",
     "./event-shape": "./src/event-shape.ts",
     "./event-statements": "./src/event-statements.ts",
@@ -38,6 +37,7 @@
   },
   "dependencies": {
     "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",

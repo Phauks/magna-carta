@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN, todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import {
   composeAccountRoleConfiguration,
@@ -131,7 +132,7 @@ const CONFIGURE = "billing:configure" as const;
 // as-of date into NaN, which fails every bucket comparison and reports the whole receivable as 90+.
 const civilDate = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .regex(CIVIL_DATE_PATTERN)
   .refine(isValidCalendarDate, { message: "not a calendar date" });
 
 const CreateInvoiceRequest = z
@@ -149,7 +150,7 @@ const CreateInvoiceRequest = z
 
 const ClaimRequest = z
   .object({
-    sourceKind: z.enum(["time_entry", "cost_entry"]),
+    sourceKind: z.enum(["time_entry", "cost_entry", "fee_entry"]),
     sourceId: z.string().min(1),
   })
   .openapi("BillingClaimRequest");
@@ -1901,7 +1902,7 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
   const clockOptions = () => ({
     clock: {
       now: () => new Date().toISOString(),
-      today: () => new Date().toISOString().slice(0, 10),
+      today: () => todayInUtc(),
     },
   });
 
@@ -2317,7 +2318,7 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { asOfDate } = c.req.valid("query");
-      const resolvedAsOfDate = asOfDate ?? new Date().toISOString().slice(0, 10);
+      const resolvedAsOfDate = asOfDate ?? todayInUtc();
       const buckets = await readAccountsReceivableAging(firm.firmDatabase, resolvedAsOfDate);
       return c.json({ asOfDate: resolvedAsOfDate, buckets } as never, 200);
     },

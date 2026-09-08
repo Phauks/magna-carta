@@ -1,7 +1,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { endOfCivilDayInstant, instantForCivilDateTime } from "@magna-carta/calendar/time-zone";
+import {
+  endOfCivilDayInstant,
+  instantForCivilDateTime,
+  zonedReading,
+} from "@magna-carta/civil-time/time-zone";
 import { TASK_NOTIFICATION_EMISSION_POINTS, TASK_OUTBOX_TOPICS } from "../src/notifications.ts";
 import { normalizeTaskDue } from "../src/validation.ts";
 import { migratedDatabase } from "./support.ts";
@@ -27,19 +31,20 @@ function withoutComments(source: string): string {
 }
 
 describe("no code path computes a due date", () => {
-  it("adds calendar days in exactly one named place, and nowhere else", () => {
+  it("shifts a date nowhere at all — the one function it may use is imported", () => {
     // THE SINGLE REVIEWED EXCEPTION. A matter plan's offset adds a whole number of CALENDAR days to
     // a civil date — no business days, no holiday calendar, no service-method offset — and that is
     // not the arithmetic the calendar forbids: deriving a court deadline from a RULE is, and this
-    // does not do that. What makes the exception safe is that it is one function, in one file, that
-    // takes a date and an integer and returns a date, reading no clock and knowing no jurisdiction.
+    // does not do that. What makes the exception safe is that it is one function, taking a date and
+    // an integer and returning a date, reading no clock and knowing no jurisdiction.
     //
-    // A second place that shifted a date would be the beginning of the engine this platform declines
-    // to build, so the scan pins the count rather than the absence.
+    // That function is now `addCalendarDays` in @magna-carta/civil-time, so this package HAND-ROLLS
+    // NO DAY ARITHMETIC AT ALL and the scan asserts the absence rather than a count of one. A
+    // reimplementation here would be the beginning of the engine this platform declines to build.
     const shifters = sourceFiles(SOURCE_DIRECTORY).filter((file) =>
-      /Date\.UTC\([^)]*[+-]/u.test(withoutComments(readFileSync(file, "utf8"))),
+      /Date\.UTC\([^)]*[+-]|setUTCDate\(/u.test(withoutComments(readFileSync(file, "utf8"))),
     );
-    expect(shifters.map((file) => file.split("/").at(-1))).toEqual(["validation.ts"]);
+    expect(shifters.map((file) => file.split("/").at(-1))).toEqual([]);
   });
 
   it("carries no business-day, holiday, or service-offset machinery anywhere", () => {
@@ -64,17 +69,20 @@ describe("no code path computes a due date", () => {
     }
   });
 
-  it("resolves an instant through the calendar's module and reimplements none of it", () => {
+  it("names Intl nowhere — every zone question is asked of the one module", () => {
     // Intl date projection is how a recorded wall-clock time becomes an instant, and it lives in
-    // packages/calendar/src/time-zone.ts. Anywhere here it would be the beginning of a second,
+    // @magna-carta/civil-time/time-zone. Anywhere here it would be the beginning of a second,
     // disagreeing definition of when a thing is due — and the deadline surface and the task surface
     // disagreeing about "Friday" is exactly the failure the one-module rule prevents.
+    //
+    // validation.ts used to be the one exception, because it constructed a formatter to ASK whether
+    // a zone resolves. That copy accepted a fixed offset like "+05:00", which the calendar's own
+    // check refuses — the drift a hand-written second copy always eventually is. It now imports
+    // `isResolvableTimeZone`, so there is no exception left to record.
     const offenders = sourceFiles(SOURCE_DIRECTORY).filter((file) =>
       withoutComments(readFileSync(file, "utf8")).includes("Intl.DateTimeFormat"),
     );
-    // validation.ts uses the constructor to ASK whether a zone resolves, which is a validity check
-    // and not a projection. It is the one file allowed to name it.
-    expect(offenders.map((file) => file.split("/").at(-1))).toEqual(["validation.ts"]);
+    expect(offenders.map((file) => file.split("/").at(-1))).toEqual([]);
   });
 });
 
@@ -129,13 +137,8 @@ describe("a due date is a civil date read in a zone, never an instant", () => {
     const endOfDay = endOfCivilDayInstant(due.dueOn ?? "", due.timeZone ?? "");
     // Still the 1st in its own zone, not the 2nd — and after the whole working day, so a dateless
     // task is not reported as already missed at one minute past midnight.
-    const reading = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Los_Angeles",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date(endOfDay));
-    expect(reading).toBe("2026-11-01");
+    const reading = zonedReading(endOfDay, "America/Los_Angeles");
+    expect(reading.civilDate).toBe("2026-11-01");
   });
 
   it("resolves a task with a time through the same function a deadline uses", () => {

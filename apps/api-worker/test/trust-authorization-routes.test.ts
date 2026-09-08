@@ -1,3 +1,4 @@
+import { todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
@@ -48,7 +49,6 @@ let trustAccountId: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
 const clock = { now: () => new Date().toISOString(), today: () => todayInUtc() };
-const todayInUtc = () => new Date().toISOString().slice(0, 10);
 
 async function mirrorMemberWithDirectGrant(
   userId: UserId,

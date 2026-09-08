@@ -29,14 +29,10 @@
   import { shiftAnchor, todayCivil } from "$lib/calendar/calendar-window.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { sampleMatter, sampleOrganization } from "@magna-carta/design-system/loading-fixtures";
+  import { formatInstantDate } from "@magna-carta/design-system/formatters";
 
   const now = new Date();
-  const today = now.toLocaleDateString(undefined, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const today = formatInstantDate(now, { length: "full" });
 
   /** Today and tomorrow: the span a person checks before the day starts. */
   const TODAY_CARD_DAYS = 2;

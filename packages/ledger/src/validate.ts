@@ -37,8 +37,6 @@ export class LedgerValidationError extends Error {
   }
 }
 
-const ISO_CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 // The exactness cap: the sum of ALL line magnitudes in one entry must stay ≤ 2^53 - 1. Doubles
 // add integers exactly while the true sum stays in that range, so under the cap every partial sum
 // here (the net) AND every per-account delta aggregation in composePostedEntry — a subset of the
@@ -49,14 +47,13 @@ const ISO_CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 // fail loud.
 export const MAX_ENTRY_MAGNITUDE_MINOR = Number.MAX_SAFE_INTEGER;
 
-// A real ISO calendar date — the round-trip catches rollovers like 2026-02-30 without a Temporal
-// dependency (UTC parse, so no zone can shift the date). Year 0000 is excluded explicitly: it
-// round-trips in V8 (astronomical year zero) but is no ledger date, and engines differ on it.
-export function isValidCalendarDate(date: string): boolean {
-  if (!ISO_CALENDAR_DATE.test(date) || date.startsWith("0000")) return false;
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
-}
+// A real ISO calendar date — the shape, and the day actually being on the calendar so a rollover
+// like 2026-02-30 is caught. Both, and the exclusion of year 0000 this package's own validator once
+// carried alone, are @magna-carta/civil-time's; the ledger's name for it is kept because the
+// invariants below and their tests read in the ledger's own vocabulary.
+import { isCivilDate } from "@magna-carta/civil-time/civil-date";
+
+export { isCivilDate as isValidCalendarDate };
 
 // The ledger invariants — what makes the ledger a ledger; consumer rules (trust
 // bounds values, period close) bind elsewhere. Pure: accounts arrive as pre-loaded snapshots.
@@ -71,7 +68,7 @@ export function validateEntry(
   if (input.description.trim().length === 0) {
     throw new LedgerValidationError("empty-description", "an entry needs a description");
   }
-  if (!isValidCalendarDate(input.effectiveDate)) {
+  if (!isCivilDate(input.effectiveDate)) {
     throw new LedgerValidationError(
       "invalid-effective-date",
       `not a calendar date (YYYY-MM-DD): ${input.effectiveDate}`,

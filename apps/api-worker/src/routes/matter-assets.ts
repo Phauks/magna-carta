@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { readCustomFieldValuesForScope } from "@magna-carta/custom-fields/reads";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
@@ -108,7 +109,7 @@ import { loadEffectivePermissions } from "../session-context.ts";
 const READ = "matterAssets:read" as const;
 const MANAGE = "matterAssets:manage" as const;
 
-const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const CIVIL_DATE = CIVIL_DATE_PATTERN;
 const DEFAULT_PAGE = 50;
 
 // ---- request/response contracts ----

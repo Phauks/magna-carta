@@ -29,13 +29,8 @@ import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { CostSummary } from "$lib/matters/cost-api.ts";
 import { costStatusKey } from "$lib/matters/cost-api.ts";
 import { gapCellTitle, type CostLedgerGapName } from "./cost-gaps.ts";
-import {
-  billingLabel,
-  costAmount,
-  payeeText,
-  recorderText,
-  returnedDraftReason,
-} from "./cost-vocabulary.ts";
+import { billingLabel, costAmount, payeeText } from "./cost-vocabulary.ts";
+import { recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const COST_COLUMN_IDENTIFIERS = {

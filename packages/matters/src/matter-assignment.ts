@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import {
   DEFAULT_PAGE_SIZE,
   assembleCompositePage,
@@ -38,7 +39,7 @@ const RESPONSIBLE_ATTORNEY_TOKEN = normalizedAssignmentRoleToken("responsibleAtt
 // stamps valid_to with the ending INSTANT, exclusive from that moment, so "remove them now" means
 // now and not "at the end of today". The staffing read in
 // packages/document-assembly/src/merge-statements.ts distinguishes the two forms by length.
-const CIVIL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+// The shape itself is @magna-carta/civil-time's; imported at the head of this file.
 
 export interface CreateMatterAssignmentInput {
   readonly matterId: MatterId;

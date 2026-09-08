@@ -10,6 +10,7 @@
  * window. The controller keeps the entries it painted by that key, so an activation from the grid
  * comes back to the record it came from.
  */
+import { civilDayOf } from "@magna-carta/civil-time/civil-date";
 import type { CalendarGridEntry } from "@magna-carta/design-system/calendar-grid";
 import {
   deadlineTone,
@@ -80,7 +81,7 @@ export function entryFromTimelineRow(
   context: EntryContext,
 ): CalendarEntry | null {
   if (row.kind === "deadline" || row.kind === "firmEvent") return null;
-  const date = row.sortKey.slice(0, 10);
+  const date = civilDayOf(row.sortKey);
   if (row.kind === "event" || row.kind === "cancelledEvent") {
     // The source says a setting was called off as its own kind, so the firm grid can strike it.
     const cancelled = row.kind === "cancelledEvent";

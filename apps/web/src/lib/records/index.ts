@@ -12,6 +12,15 @@
 export { default as RecordMenu } from "./record-menu.svelte";
 export { default as LedgerPanes } from "./ledger-panes.svelte";
 
+/*
+ * The three acts a ledger performs through a confirmation rather than a click. Each takes the
+ * ledger's noun, the line naming the record, and the write — so the WORDS of the act live here
+ * once and two ledgers cannot end up describing the same act differently.
+ */
+export { default as RecordVoidDialog } from "./record-void-dialog.svelte";
+export { default as RecordKickBackDialog } from "./record-kick-back-dialog.svelte";
+export { default as RecordDeleteDraftDialog } from "./record-delete-draft-dialog.svelte";
+
 export {
   countedLabel,
   commandShortcut,

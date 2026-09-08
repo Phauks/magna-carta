@@ -1,3 +1,4 @@
+import { isFixedOffset, isResolvableTimeZone } from "@magna-carta/civil-time/time-zone";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
@@ -95,17 +96,19 @@ function requireNonEmptyName(name: string): void {
 // changes under us (zones are added, renamed, and merged), and the only question that matters is
 // whether this runtime can render a date in it. A fixed offset is refused outright — an offset is
 // wrong for half the year wherever daylight saving is observed.
+//
+// Both answers come from @magna-carta/civil-time, so this refusal and every other one in the
+// platform agree about what a zone is; only the WORDING is this module's, because a location's form
+// can usefully say which of the two things is wrong.
 function requireResolvableTimeZone(timeZone: string | null): void {
   if (timeZone === null) return;
-  if (/^[+-]\d{2}:?\d{2}$/.test(timeZone)) {
+  if (isFixedOffset(timeZone)) {
     throw new LocationValidationError(
       "unknown-time-zone",
       "a location's time zone is an IANA identifier such as America/Los_Angeles, never a fixed offset",
     );
   }
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone });
-  } catch {
+  if (!isResolvableTimeZone(timeZone)) {
     throw new LocationValidationError(
       "unknown-time-zone",
       `${timeZone} is not a time zone this platform can resolve`,

@@ -1733,7 +1733,7 @@ export type ExtractedArchiveMember = {
 
 export type RefusedArchiveMember = {
     path: string;
-    reason: 'archive-missing' | 'directory' | 'encrypted' | 'unsupported-compression' | 'malformed' | 'too-large' | 'expansion-ratio' | 'corrupt' | 'not-in-archive' | 'policy-size' | 'policy-type';
+    reason: 'archive-missing' | 'directory' | 'not-a-file' | 'encrypted' | 'unsupported-compression' | 'malformed' | 'too-large' | 'expansion-ratio' | 'corrupt' | 'not-in-archive' | 'policy-size' | 'policy-type';
 };
 
 export type ExtractArchiveMembersRequest = {
@@ -5422,6 +5422,61 @@ export type AttachReceiptRequest = {
     fileId: string;
 };
 
+export type FeeAck = {
+    feeEntryId: string;
+};
+
+export type CreateFeeRequest = {
+    matterId: string;
+    serviceDate: string;
+    timekeeperUserId?: string | null;
+    description: string;
+    amountMinor: number;
+    currency: 'USD';
+    billable: boolean;
+    memo?: string | null;
+};
+
+export type FeeListResponse = {
+    data: Array<FeeSummary>;
+    nextCursor: string | null;
+};
+
+export type FeeSummary = {
+    id: string;
+    matterId: string;
+    serviceDate: string;
+    timekeeperUserId: string | null;
+    timekeeperName: string | null;
+    description: string;
+    amountMinor: number;
+    currency: string;
+    billable: boolean;
+    status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    kickBackReason: string | null;
+    invoiceId: string | null;
+    memo: string | null;
+    createdAt: string;
+    createdByUserId: string | null;
+    createdByName: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
+};
+
+export type PatchFeeRequest = {
+    serviceDate?: string;
+    timekeeperUserId?: string | null;
+    description?: string;
+    amountMinor?: number;
+    currency?: 'USD';
+    billable?: boolean;
+    memo?: string | null;
+};
+
+export type FeeKickBackRequest = {
+    reason: string;
+};
+
 export type TrustMovementAck = {
     trustMovementId: string;
     ledgerEntryId: string;
@@ -6258,7 +6313,7 @@ export type BillingAddClaimsRequest = {
 };
 
 export type BillingClaimRequest = {
-    sourceKind: 'time_entry' | 'cost_entry';
+    sourceKind: 'time_entry' | 'cost_entry' | 'fee_entry';
     sourceId: string;
 };
 
@@ -28409,6 +28464,482 @@ export type CostsAttachReceiptResponses = {
 };
 
 export type CostsAttachReceiptResponse = CostsAttachReceiptResponses[keyof CostsAttachReceiptResponses];
+
+export type FeesListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        matterId?: string;
+        /**
+         * The first service date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — what the firm charged for work done in a period, which a per-matter listing cannot answer without walking every matter first.
+         */
+        from?: string;
+        /**
+         * The last service date of a period listing, inclusive. Required alongside `from`.
+         */
+        to?: string;
+        /**
+         * Narrows a listing to the fees that are billable, or to those that are not. Omitted, it answers with both.
+         */
+        billable?: 'true' | 'false';
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    };
+    url: '/api/v1/fees';
+};
+
+export type FeesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesListError = FeesListErrors[keyof FeesListErrors];
+
+export type FeesListResponses = {
+    /**
+     * One page of fee entries
+     */
+    200: FeeListResponse;
+};
+
+export type FeesListResponse = FeesListResponses[keyof FeesListResponses];
+
+export type FeesCreateData = {
+    body: CreateFeeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/fees';
+};
+
+export type FeesCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesCreateError = FeesCreateErrors[keyof FeesCreateErrors];
+
+export type FeesCreateResponses = {
+    /**
+     * The fee entry was recorded
+     */
+    201: FeeAck;
+};
+
+export type FeesCreateResponse = FeesCreateResponses[keyof FeesCreateResponses];
+
+export type FeesDeleteDraftData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}';
+};
+
+export type FeesDeleteDraftErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesDeleteDraftError = FeesDeleteDraftErrors[keyof FeesDeleteDraftErrors];
+
+export type FeesDeleteDraftResponses = {
+    /**
+     * The draft was deleted
+     */
+    200: FeeAck;
+};
+
+export type FeesDeleteDraftResponse = FeesDeleteDraftResponses[keyof FeesDeleteDraftResponses];
+
+export type FeesGetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}';
+};
+
+export type FeesGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesGetError = FeesGetErrors[keyof FeesGetErrors];
+
+export type FeesGetResponses = {
+    /**
+     * The fee entry
+     */
+    200: FeeSummary;
+};
+
+export type FeesGetResponse = FeesGetResponses[keyof FeesGetResponses];
+
+export type FeesUpdateData = {
+    body: PatchFeeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}';
+};
+
+export type FeesUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesUpdateError = FeesUpdateErrors[keyof FeesUpdateErrors];
+
+export type FeesUpdateResponses = {
+    /**
+     * The fee entry was updated
+     */
+    200: FeeAck;
+};
+
+export type FeesUpdateResponse = FeesUpdateResponses[keyof FeesUpdateResponses];
+
+export type FeesSubmitData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}/submit';
+};
+
+export type FeesSubmitErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesSubmitError = FeesSubmitErrors[keyof FeesSubmitErrors];
+
+export type FeesSubmitResponses = {
+    /**
+     * The transition was applied
+     */
+    200: FeeAck;
+};
+
+export type FeesSubmitResponse = FeesSubmitResponses[keyof FeesSubmitResponses];
+
+export type FeesApproveData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}/approve';
+};
+
+export type FeesApproveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesApproveError = FeesApproveErrors[keyof FeesApproveErrors];
+
+export type FeesApproveResponses = {
+    /**
+     * The transition was applied
+     */
+    200: FeeAck;
+};
+
+export type FeesApproveResponse = FeesApproveResponses[keyof FeesApproveResponses];
+
+export type FeesVoidData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}/void';
+};
+
+export type FeesVoidErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesVoidError = FeesVoidErrors[keyof FeesVoidErrors];
+
+export type FeesVoidResponses = {
+    /**
+     * The transition was applied
+     */
+    200: FeeAck;
+};
+
+export type FeesVoidResponse = FeesVoidResponses[keyof FeesVoidResponses];
+
+export type FeesKickBackData = {
+    body: FeeKickBackRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}/kick-back';
+};
+
+export type FeesKickBackErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesKickBackError = FeesKickBackErrors[keyof FeesKickBackErrors];
+
+export type FeesKickBackResponses = {
+    /**
+     * The transition was applied
+     */
+    200: FeeAck;
+};
+
+export type FeesKickBackResponse = FeesKickBackResponses[keyof FeesKickBackResponses];
 
 export type TrustDepositData = {
     body: TrustDepositRequest;

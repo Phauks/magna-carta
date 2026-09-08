@@ -20,6 +20,7 @@
   import { listReviewDocuments, type ReviewDocument } from "./discovery-api.ts";
   import { composeDocumentQuery, type CriteriaSet } from "./criteria.ts";
   import { processingStateEntry } from "./discovery-vocabulary.ts";
+  import { formatInstantDate } from "@magna-carta/design-system/formatters";
 
   let {
     reviewSetId,
@@ -130,7 +131,7 @@
             <span class="flex items-center gap-8">
               <Badge variant={state.tone} title={state.meaning}>{state.label}</Badge>
               <span class="text-text-muted text-sm">
-                {one.sortDate === null ? "No date" : new Date(one.sortDate).toLocaleDateString()}
+                {one.sortDate === null ? "No date" : formatInstantDate(one.sortDate)}
               </span>
             </span>
           </a>

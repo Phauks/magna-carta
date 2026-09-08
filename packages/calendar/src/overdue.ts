@@ -3,7 +3,7 @@ import {
   instantForCivilDateTime,
   isResolvableTimeZone,
   zonedReading,
-} from "./time-zone.ts";
+} from "@magna-carta/civil-time/time-zone";
 
 // Overdue is a COMPARISON, not a column. Nothing in this package writes it, no sweep maintains it,
 // and no state transition records it.

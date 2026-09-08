@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { readReadyInstances } from "@magna-carta/search/natural-language-instance-statements";
 import {
@@ -32,7 +33,7 @@ const KEEP_ALIVE_PAGE_SIZE = 200;
 const nowInstant = () => new Date().toISOString();
 
 function civilDay(instant: string): string {
-  return instant.slice(0, 10);
+  return civilDateOf(instant);
 }
 
 export interface KeepAliveOutcome {

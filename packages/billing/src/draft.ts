@@ -31,6 +31,7 @@ import {
   updateInvoiceLineStatement,
   voidInvoiceStatement,
 } from "./statements.ts";
+import { WORK_IN_PROGRESS_KINDS } from "./types.ts";
 import type {
   BillingServiceOptions,
   InvoiceLineKind,
@@ -131,6 +132,17 @@ interface CostEntryRow {
   utbms_expense_code_id: string | null;
 }
 
+interface FeeEntryRow {
+  id: string;
+  matter_id: string;
+  description: string;
+  currency: string;
+  amount_minor: number;
+  status: string;
+  invoice_id: string | null;
+  billable: number;
+}
+
 const MINUTES_PER_HOUR = 60;
 
 // A claimable work-in-progress row, normalized to what a line needs. The status a claim may be taken
@@ -206,6 +218,46 @@ function costEntryToClaimable(row: CostEntryRow): ClaimableEntry {
   };
 }
 
+/*
+ * A recorded fee composes a `flat_fee` line: an amount with no quantity and no rate, which is what
+ * that line kind already means. It is NOT a `fee` line — that kind carries hours times a rate and
+ * consolidates claimed time, and putting a typed charge on one would state a quantity nobody
+ * entered.
+ *
+ * A NON-BILLABLE FEE IS REFUSED HERE RATHER THAN SILENTLY BILLED. Absorbing a charge is a decision
+ * the ledger keeps visible, and a claim that quietly overrode it would put the client's name on
+ * money the firm had decided to eat. Time's equivalent guard is its null rate; a fee's is this
+ * flag, because a fee has no rate to be missing.
+ */
+function feeEntryToClaimable(row: FeeEntryRow): ClaimableEntry {
+  if (row.status === "billed" || row.status === "void") {
+    throw new BillingValidationError(
+      "work-in-progress-not-billable",
+      `fee entry ${row.id} is ${row.status} and cannot be billed again`,
+    );
+  }
+  if (row.billable !== 1) {
+    throw new BillingValidationError(
+      "work-in-progress-not-billable",
+      `fee entry ${row.id} is recorded as absorbed by the firm and is never charged to the client`,
+    );
+  }
+  return {
+    sourceKind: "fee_entry",
+    sourceId: row.id,
+    matterId: row.matter_id as MatterId,
+    description: row.description,
+    quantityE4: null,
+    rateE4: null,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    lineKind: "flat_fee",
+    utbmsTaskCode: null,
+    utbmsActivityCode: null,
+    utbmsExpenseCode: null,
+  };
+}
+
 // Every entry a claim batch names, in ONE read per store per chunk. A per-entry lookup would put two
 // round-trips on every claimed hour, and a bill covering a month of a busy matter claims hundreds —
 // which is the draft-assembly path the load profile measures. Chunked at D1's bound-parameter cap.
@@ -219,6 +271,9 @@ async function loadClaimableEntries(
     .map((request) => request.sourceId);
   const costEntryIds = requests
     .filter((request) => request.sourceKind === "cost_entry")
+    .map((request) => request.sourceId);
+  const feeEntryIds = requests
+    .filter((request) => request.sourceKind === "fee_entry")
     .map((request) => request.sourceId);
 
   for (let start = 0; start < timeEntryIds.length; start += MAX_BOUND_PARAMETERS) {
@@ -250,10 +305,37 @@ async function loadClaimableEntries(
       byRequestKey.set(claimKey("cost_entry", row.id), costEntryToClaimable(row));
     }
   }
+
+  for (let start = 0; start < feeEntryIds.length; start += MAX_BOUND_PARAMETERS) {
+    const chunk = feeEntryIds.slice(start, start + MAX_BOUND_PARAMETERS);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const { results } = await database
+      .prepare(
+        `SELECT id, matter_id, description, currency, amount_minor, status, invoice_id, billable
+           FROM fee_entry WHERE id IN (${placeholders})`,
+      )
+      .bind(...chunk)
+      .all<FeeEntryRow>();
+    for (const row of results) {
+      byRequestKey.set(claimKey("fee_entry", row.id), feeEntryToClaimable(row));
+    }
+  }
   return byRequestKey;
 }
 
-// The two stores are separate id spaces, so a claim is keyed by the pair rather than the id alone.
+/*
+ * What each store is called when a refusal names it. A Record rather than a ternary, so adding a
+ * fourth kind is a compile error here rather than a message that quietly calls it by the wrong
+ * name — which is exactly what the two-way ternary this replaced did the moment a third kind
+ * existed: a missing fee entry was reported as a missing cost entry.
+ */
+const WORK_IN_PROGRESS_NOUNS: Record<WorkInProgressKind, string> = {
+  time_entry: "time",
+  cost_entry: "cost",
+  fee_entry: "fee",
+};
+
+// The three stores are separate id spaces, so a claim is keyed by the pair rather than the id alone.
 function claimKey(sourceKind: WorkInProgressKind, sourceId: string): string {
   return `${sourceKind}:${sourceId}`;
 }
@@ -349,7 +431,7 @@ export async function addClaimsToDraft(
     if (!entry) {
       throw new BillingValidationError(
         "work-in-progress-not-billable",
-        `no such ${request.sourceKind === "time_entry" ? "time" : "cost"} entry: ${request.sourceId}`,
+        `no such ${WORK_IN_PROGRESS_NOUNS[request.sourceKind]} entry: ${request.sourceId}`,
       );
     }
     const clientEntityId = clientByMatter.get(entry.matterId);
@@ -365,6 +447,15 @@ export async function addClaimsToDraft(
         `matter ${entry.matterId} belongs to client ${clientEntityId}, but this invoice bills ${invoice.clientEntityId}: one invoice bills one client`,
       );
     }
+    /*
+     * TIME ONLY, AND DELIBERATELY SO — do not widen this to every kind.
+     *
+     * The guard exists because a non-hourly arrangement ALREADY PRICES the work: billing the hours
+     * as well would charge twice for one thing. A cost is money advanced rather than work, and a
+     * recorded fee is a charge somebody decided on explicitly — neither is priced by the
+     * arrangement, so neither double-charges, and refusing them would stop a firm billing an
+     * agreed out-of-scope charge on a flat-fee matter.
+     */
     const nonHourly = nonHourlyKindByMatter.get(entry.matterId);
     if (entry.sourceKind === "time_entry" && nonHourly) {
       const remedy =
@@ -556,8 +647,13 @@ export async function voidDraft(
   return {
     statements: [
       releaseAllInvoiceClaimsStatement(database, invoiceId, now),
-      clearWorkInProgressInvoiceMirrorStatement(database, "time_entry", invoiceId, now),
-      clearWorkInProgressInvoiceMirrorStatement(database, "cost_entry", invoiceId, now),
+      // EVERY store, derived from the union rather than listed by hand. Two of these were spelled
+      // out when there were two stores, so adding a third left its mirror pointing at a voided
+      // invoice — a billed-looking fee on a bill that no longer exists. Mapping over the kinds
+      // makes a fourth store impossible to forget.
+      ...WORK_IN_PROGRESS_KINDS.map((kind) =>
+        clearWorkInProgressInvoiceMirrorStatement(database, kind, invoiceId, now),
+      ),
       voidInvoiceStatement(database, invoiceId, reason, voidedBy, now),
     ],
     outboxMessages: [
