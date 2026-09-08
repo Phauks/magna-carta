@@ -2460,7 +2460,7 @@
       },
       "branch": "claude/date-handling-audit-xx8q3o",
       "activeWork": "docs/active-work/claude/date-handling-audit-xx8q3o.md",
-      "next": "Owner call on whether the fifteen surfaces still on a native date input move to the DatePicker",
+      "next": "Answered — every date is entered through the DatePicker (owner, 2026-09-08); what is open now is on the continued slice",
       "links": {
         "spec": null,
         "plan": null,
@@ -2501,8 +2501,8 @@
           "by": "Opus 5"
         }
       },
-      "branch": "claude/date-consolidation-continued",
-      "activeWork": "docs/active-work/claude/date-consolidation-continued.md",
+      "branch": "claude/date-handling-audit-xx8q3o",
+      "activeWork": "docs/active-work/claude/date-handling-audit-xx8q3o.md",
       "next": "Owner call on the picker's own wrapper — thirteen consumers wrap it to keep the label and the field in one grid track, and the wrapper's gap adds to the label's margin, so the label-to-field distance is 8px on some surfaces and 12px on others",
       "links": {
         "spec": null,
