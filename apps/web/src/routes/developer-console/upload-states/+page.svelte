@@ -76,12 +76,12 @@
       // The stand-in reads nothing real: the gallery's files are a few bytes, so it plays the read
       // of the size the fixture declares over one beat, and whether the matter already holds a
       // file is its own answer below.
-      hash: async (file, options) => {
-        const total = SIZES.get(file.name) ?? file.size;
+      digest: async (chosen, options) => {
+        const total = SIZES.get(chosen.file.name) ?? chosen.file.size;
         for (let step = 1; step <= 10; step += 1) {
           await new Promise((resolve) => setTimeout(resolve, beatMilliseconds / 10));
           if (isCancelled(options.signal)) return null;
-          options.onProgress?.(Math.round((total * step) / 10));
+          options.onProgress(Math.round((total * step) / 10));
         }
         return null;
       },

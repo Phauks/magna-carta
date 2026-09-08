@@ -12,10 +12,31 @@
    * the right.
    *
    * NOTHING IS SENT UNTIL UPLOAD IS PRESSED. Choose (dropped anywhere on the source pane, or
-   * through the one Add control, which offers files or a folder), decide where they go, press
-   * Upload. Cancelling before that sends nothing, so there is nothing to un-save — and because
-   * choosing is work, leaving with files chosen asks first, whether the reader leaves by the
-   * panel's own exits or by navigating away from the screen beneath it.
+   * through the one Add control), decide where they go, press Upload. Cancelling before that sends
+   * nothing, so there is nothing to un-save — and because choosing is work, leaving with files
+   * chosen asks first, whether the reader leaves by the panel's own exits or by navigating away
+   * from the screen beneath it.
+   *
+   * ONE ADD CONTROL, AND WHY IT STILL CARRIES A SECOND ASK. Add is ONE press: it opens the file
+   * picker. No engine offers a picker that takes files and folders together — the two are separate
+   * calls in every browser API there is — so the folder ask survives as the chevron beside it and,
+   * better, as the drop: dragging any mix of files and folders onto this pane needs no picker at
+   * all and is the one gesture that genuinely takes both at once. Where the engine has the File
+   * System Access pickers they are used in preference to a hidden `<input>`: an `<input
+   * webkitdirectory>` makes the browser raise its OWN confirmation over ours ("Upload 240 files to
+   * this site?"), a second question about a choice the reader has just made, in a dialog we neither
+   * control nor word. The API's pickers raise none.
+   *
+   * THE READ STARTS AT THE CHOICE, NOT AT THE TURN. A chosen file's digest is what lets the firm
+   * answer "we already hold these bytes" before any of them move, and it is read by the register
+   * (upload-digests.svelte.ts) from the moment the file is chosen — while the reader is still
+   * deciding where it goes. Read inside the upload lane instead, it was a stall with the connection
+   * sitting idle.
+   *
+   * A DOCUMENT TYPE IS A FACT ABOUT A FILE, NOT ABOUT A BATCH. The panel used to carry one
+   * classification for everything in it, which is wrong about every folder a firm actually has:
+   * discovery holds correspondence, pleadings and exhibits together. The type is a COLUMN on the
+   * source table instead, set on whatever rows are selected, so one batch files as many kinds.
    *
    * NOTHING MOVES WHEN UPLOAD IS PRESSED. The earlier panel swapped its left side from the chooser
    * to nothing and its right side from one list to another the moment the transfer began, and the
@@ -31,9 +52,10 @@
   import { beforeNavigate, goto } from "$app/navigation";
   import ActionDialog, { DISCARD_SENTENCE } from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import * as Accordion from "@magna-carta/design-system/accordion";
+  import * as DataTable from "@magna-carta/design-system/data-table";
   import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
-  import * as Select from "@magna-carta/design-system/select";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import Label from "@magna-carta/design-system/label";
@@ -41,14 +63,18 @@
   import {
     entriesFromDataTransfer,
     entriesFromFileList,
+    nativeDirectoryPickerAvailable,
+    nativeFilePickerAvailable,
+    pickFiles,
+    pickFolder,
     type DroppedEntry,
   } from "@magna-carta/design-system/dropzone";
   import Ban from "@lucide/svelte/icons/ban";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import FilePlus2 from "@lucide/svelte/icons/file-plus-2";
   import FolderUp from "@lucide/svelte/icons/folder-up";
   import Plus from "@lucide/svelte/icons/plus";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
+  import Tag from "@lucide/svelte/icons/tag";
   import X from "@lucide/svelte/icons/x";
   import { formatBytes, MatterFileIndex } from "./file-rows.ts";
   import FolderPicker from "./folder-picker.svelte";
@@ -57,11 +83,19 @@
   import {
     addIntakeEntries,
     intakeBytes,
+    intakeEntryKey,
     intakeFolderPaths,
+    intakeKeysOfRows,
     intakePhrase,
     removeIntakeRows,
     type IntakeProgress,
   } from "./upload-intake.ts";
+  import {
+    beginDigests,
+    digestReadBytes,
+    digestSettled,
+    forgetDigests,
+  } from "./upload-digests.svelte.ts";
   import UploadSourceTable from "./upload-source-table.svelte";
   import {
     batchCountsText,
@@ -112,7 +146,24 @@
   let folderChoice = $state<FolderChoice>("here");
   let pickedFolderId = $state<string | null>(null);
   let createdAtBasis = $state<"source" | "upload">("source");
-  let documentTypeId = $state<string | null>(null);
+  /**
+   * Whether the firm is asked, before a byte moves, if it already holds these bytes. On by default,
+   * because the answer usually saves the whole transfer; off is for the reader who wants the file
+   * sent whatever is already there.
+   */
+  let checkDuplicates = $state(true);
+  /** Which Advanced Settings panels are open. Empty is the default: the section starts folded. */
+  let advancedOpen = $state<string[]>([]);
+  /** The document type each chosen file carries, by intake key. Absent is "none", the default. */
+  let documentTypeIds = $state<Map<string, string | null>>(new Map());
+
+  const liveDocumentTypes = $derived(documentTypes.filter((type) => type.deactivatedAt === null));
+  const documentTypeNames = $derived(new Map(documentTypes.map((type) => [type.id, type.name])));
+  /** What one chosen file's classification is called, for the source table's own column. */
+  function documentTypeName(key: string): string {
+    const chosen = documentTypeIds.get(key);
+    return chosen == null ? "" : (documentTypeNames.get(chosen) ?? "");
+  }
 
   /** The other matter's folders and files, read when the destination leaves the matter on screen. */
   let otherIndex = $state<MatterFileIndex | null>(null);
@@ -180,9 +231,35 @@
   let batch = $state<UploadBatch | null>(null);
 
   const started = $derived(batch !== null);
-  const progress = $derived.by(
-    (): ReadonlyMap<string, IntakeProgress> => batch?.progress ?? new Map(),
-  );
+  /*
+   * How each file is doing. Once a batch exists it is the batch's own answer. BEFORE that, it is
+   * the digest register's: a file being read reports the read, in the same Status column and the
+   * same words it will use once the transfer runs, so the reader watches one thing throughout
+   * rather than a column that comes to life only after the press.
+   */
+  const progress = $derived.by((): ReadonlyMap<string, IntakeProgress> => {
+    if (batch !== null) return batch.progress;
+    const reading = new Map<string, IntakeProgress>();
+    if (!checkDuplicates) return reading;
+    for (const entry of entries) {
+      const key = intakeEntryKey(entry);
+      if (digestSettled(key)) continue;
+      const readBytes = digestReadBytes(key);
+      // A file still queued behind the read reports nothing: it is chosen, and that is all.
+      if (readBytes === 0) continue;
+      reading.set(key, { stage: "hashing", hashedBytes: readBytes });
+    }
+    return reading;
+  });
+
+  /*
+   * Reading begins at the CHOICE. The register is idempotent per file, so re-running as the list
+   * grows starts only what is new; turning the duplicate question off asks for no read at all.
+   */
+  $effect(() => {
+    if (!checkDuplicates) return;
+    beginDigests(entries);
+  });
 
   function add(incoming: readonly DroppedEntry[]): void {
     if (started || incoming.length === 0) return;
@@ -196,13 +273,35 @@
 
   function removeSelected(): void {
     if (started) return;
+    // The reads for what is being removed are abandoned: the reader has said these files are not
+    // going, and a read still running for them is work nobody asked for.
+    forgetDigests(intakeKeysOfRows(entries, selectedKeys));
     entries = removeIntakeRows(entries, selectedKeys);
     sourceTable?.clearSelection();
     selectedKeys = [];
   }
 
-  // The two native pickers behind the one Add control. A browser cannot ask for files AND a folder
-  // in one picker, so the control is a menu of the two asks rather than two buttons.
+  /** Set one classification on the selected rows, or on everything when nothing is selected. */
+  function setDocumentType(typeId: string | null): void {
+    if (started) return;
+    const keys =
+      selectedKeys.length === 0
+        ? entries.map(intakeEntryKey)
+        : intakeKeysOfRows(entries, selectedKeys);
+    const next = new Map(documentTypeIds);
+    for (const key of keys) {
+      if (typeId === null) next.delete(key);
+      else next.set(key, typeId);
+    }
+    documentTypeIds = next;
+  }
+
+  /*
+   * The two asks behind the one Add control. The File System Access pickers are preferred where the
+   * engine has them: they raise no confirmation of their own, where a hidden `<input webkitdirectory>`
+   * makes the browser ask a second time about a folder the reader has already chosen. The inputs
+   * remain as the fallback for an engine without the API.
+   */
   let filePicker = $state<HTMLInputElement | null>(null);
   let folderPicker = $state<HTMLInputElement | null>(null);
 
@@ -210,6 +309,22 @@
     const files = event.currentTarget.files;
     if (files !== null) add(entriesFromFileList(files));
     event.currentTarget.value = "";
+  }
+
+  function addFiles(): void {
+    if (nativeFilePickerAvailable()) {
+      void pickFiles().then(add);
+      return;
+    }
+    filePicker?.click();
+  }
+
+  function addFolder(): void {
+    if (nativeDirectoryPickerAvailable()) {
+      void pickFolder().then(add);
+      return;
+    }
+    folderPicker?.click();
   }
 
   // The whole source pane is the drop target. A counter rather than a flag: dragenter and
@@ -254,7 +369,9 @@
     folderChoice = "here";
     pickedFolderId = null;
     createdAtBasis = "source";
-    documentTypeId = null;
+    checkDuplicates = true;
+    advancedOpen = [];
+    documentTypeIds = new Map();
     entries = [...preselected];
     expanded = new Set(intakeFolderPaths(preselected));
     batch = null;
@@ -278,7 +395,8 @@
       destinationLabel,
       entries,
       createdAtBasis,
-      documentTypeId,
+      documentTypeIds,
+      checkDuplicates,
       folders: target.folders,
       files: target.documents,
     });
@@ -305,8 +423,18 @@
     const target = leavingTo;
     leavingTo = null;
     open = false;
-    onDismiss();
+    dismissed();
     if (target !== null) void goto(target);
+  }
+
+  /**
+   * Leaving the panel. A batch that has started keeps its reads — its items still want their
+   * answers — but an intake abandoned before the press takes its reads with it, so a folder chosen
+   * and thought better of does not go on being read in the background.
+   */
+  function dismissed(): void {
+    if (batch === null) forgetDigests(entries.map(intakeEntryKey));
+    onDismiss();
   }
 </script>
 
@@ -320,7 +448,7 @@
   unsavedChanges={!started && entries.length > 0}
   onOpen={reset}
   onCommit={upload}
-  {onDismiss}
+  onDismiss={dismissed}
 >
   <!-- LEFT: the intake — what the files become. Every control stays put once Upload is pressed. -->
   {#snippet fields({ busy, done })}
@@ -371,51 +499,77 @@
       </div>
     </div>
 
-    <div class="flex flex-col gap-8">
-      <FieldLabel as="p">On Arrival</FieldLabel>
-      <div class="flex flex-col gap-8">
-        <Label id="{fieldPrefix}-dating-label">Date Created</Label>
-        <RadioGroup.Root
-          bind:value={() => createdAtBasis, (next) => (createdAtBasis = next as "source" | "upload")}
-          disabled={locked}
-          aria-labelledby="{fieldPrefix}-dating-label"
-        >
-          <div class="flex items-center gap-8">
-            <RadioGroup.Item value="source" id="{fieldPrefix}-dating-source" />
-            <Label for="{fieldPrefix}-dating-source">The File's Own Date</Label>
+    <!-- ADVANCED SETTINGS, FOLDED. Everything under here already has the answer nearly every
+         upload wants, so the section stays shut until a reader has a reason to open it. It was
+         called "On Arrival" and stood permanently open, which put two questions in front of every
+         reader who had no quarrel with either answer. -->
+    <Accordion.Root
+      type="multiple"
+      value={advancedOpen}
+      onValueChange={(next) => (advancedOpen = next)}
+    >
+      <Accordion.Item value="advanced">
+        <Accordion.Trigger>Advanced Settings</Accordion.Trigger>
+        <Accordion.Content>
+          <div class="flex flex-col gap-16 pt-8">
+            <div class="flex flex-col gap-8">
+              <Label id="{fieldPrefix}-dating-label">Date Created</Label>
+              <RadioGroup.Root
+                bind:value={
+                  () => createdAtBasis, (next) => (createdAtBasis = next as "source" | "upload")
+                }
+                disabled={locked}
+                aria-labelledby="{fieldPrefix}-dating-label"
+              >
+                <div class="flex items-center gap-8">
+                  <RadioGroup.Item value="source" id="{fieldPrefix}-dating-source" />
+                  <Label for="{fieldPrefix}-dating-source">The File's Own Date</Label>
+                </div>
+                <div class="flex items-center gap-8">
+                  <RadioGroup.Item value="upload" id="{fieldPrefix}-dating-upload" />
+                  <Label for="{fieldPrefix}-dating-upload">The Upload Date</Label>
+                </div>
+              </RadioGroup.Root>
+            </div>
+
+            <!-- The duplicate question is what the reading in the Status column is FOR, so the
+                 setting that turns the reading off lives beside the setting that explains it. -->
+            <div class="flex flex-col gap-8">
+              <Label id="{fieldPrefix}-duplicates-label">Files the Firm Already Holds</Label>
+              <RadioGroup.Root
+                bind:value={
+                  () => (checkDuplicates ? "reuse" : "send"),
+                  (next) => (checkDuplicates = next === "reuse")
+                }
+                disabled={locked}
+                aria-labelledby="{fieldPrefix}-duplicates-label"
+              >
+                <div class="flex items-center gap-8">
+                  <RadioGroup.Item value="reuse" id="{fieldPrefix}-duplicates-reuse" />
+                  <Label for="{fieldPrefix}-duplicates-reuse">Do Not Send Them Again</Label>
+                </div>
+                <div class="flex items-center gap-8">
+                  <RadioGroup.Item value="send" id="{fieldPrefix}-duplicates-send" />
+                  <Label for="{fieldPrefix}-duplicates-send">Send Every File</Label>
+                </div>
+              </RadioGroup.Root>
+              <p class="text-xs text-text-subtle">
+                Each file is read here before it is sent, so a file this matter already holds is
+                never sent twice and one the firm holds on another matter is copied across rather
+                than uploaded.
+              </p>
+            </div>
+
+            {#if liveDocumentTypes.length > 0}
+              <p class="text-xs text-text-subtle">
+                A document type is set per file, on the Document Type column of the list beside
+                this, so one upload can carry several.
+              </p>
+            {/if}
           </div>
-          <div class="flex items-center gap-8">
-            <RadioGroup.Item value="upload" id="{fieldPrefix}-dating-upload" />
-            <Label for="{fieldPrefix}-dating-upload">The Upload Date</Label>
-          </div>
-        </RadioGroup.Root>
-      </div>
-      <div class="flex flex-col gap-8">
-        <Label id="{fieldPrefix}-type-label">Document Type</Label>
-        <Select.Root
-          type="single"
-          items={[
-            { value: "", label: "None" },
-            ...documentTypes
-              .filter((type) => type.deactivatedAt === null)
-              .map((type) => ({ value: type.id, label: type.name })),
-          ]}
-          allowDeselect={false}
-          disabled={locked}
-          bind:value={() => documentTypeId ?? "", (next) => (documentTypeId = next === "" ? null : next)}
-        >
-          <Select.Trigger aria-labelledby="{fieldPrefix}-type-label">
-            <Select.Value placeholder="None" />
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item value="" label="None" />
-            {#each documentTypes.filter((type) => type.deactivatedAt === null) as type (type.id)}
-              <Select.Item value={type.id} label={type.name} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-    </div>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
   {/snippet}
 
   <!-- RIGHT: the source — the files as they sit on the reader's disk, then how each is doing. -->
@@ -440,6 +594,35 @@
           {started ? runningLine : chosenLine}
         </span>
         <span class="ms-auto flex items-center gap-8">
+          <!-- The way back to the whole list, in the surface's own control row, exactly where every
+               other table in the product carries it. It draws nothing while nothing is filtered. -->
+          {#if sourceTable !== null}
+            <DataTable.ClearFilters grid={sourceTable.grid} />
+          {/if}
+          {#if !started && liveDocumentTypes.length > 0}
+            <!-- The classification, set on what is selected — or on everything, when nothing is.
+                 The Document Type column shows the answer, so a batch can carry several. -->
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger
+                class={buttonClasses({ variant: "ghost", size: "sm" })}
+                title={selectedKeys.length === 0
+                  ? "Set the document type on every file chosen"
+                  : "Set the document type on the selected files"}
+              >
+                <Tag class="size-16" aria-hidden="true" />
+                Document Type
+                <ChevronDown class="size-16" aria-hidden="true" />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+                <DropdownMenu.Item onSelect={() => setDocumentType(null)}>None</DropdownMenu.Item>
+                {#each liveDocumentTypes as type (type.id)}
+                  <DropdownMenu.Item onSelect={() => setDocumentType(type.id)}>
+                    {type.name}
+                  </DropdownMenu.Item>
+                {/each}
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          {/if}
           {#if !started && selectedKeys.length > 0}
             <Button variant="ghost" size="sm" onclick={removeSelected}>
               <X class="size-16" aria-hidden="true" />
@@ -463,27 +646,39 @@
               {finished.failed > 0 ? "Retry Failed" : "Send the Rest"}
             </Button>
           {/if}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger
-              class={buttonClasses({ variant: "secondary", size: "sm" })}
+          <!-- ONE control. Pressing it adds files — the ask nearly every upload makes, now one
+               press rather than a menu. The chevron beside it is the folder ask, which no browser
+               will put in the same picker; the drop, which takes any mix of the two, needs
+               neither. The two parts read as one control: the join between them is unrounded. -->
+          <span class="flex items-center">
+            <Button
+              variant="secondary"
+              size="sm"
+              class="rounded-e-none"
               disabled={locked}
-              title={locked ? "The upload has started." : "Add files or a folder"}
+              title={locked ? "The upload has started." : "Add files — or drop any mix here"}
+              onclick={addFiles}
             >
               <Plus class="size-16" aria-hidden="true" />
               Add
-              <ChevronDown class="size-16" aria-hidden="true" />
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-              <DropdownMenu.Item onSelect={() => filePicker?.click()}>
-                <FilePlus2 class="size-16" aria-hidden="true" />
-                Files
-              </DropdownMenu.Item>
-              <DropdownMenu.Item onSelect={() => folderPicker?.click()}>
-                <FolderUp class="size-16" aria-hidden="true" />
-                A Folder, With Everything Inside It
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+            </Button>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger
+                class={`${buttonClasses({ variant: "secondary", size: "sm" })} rounded-s-none`}
+                disabled={locked}
+                aria-label="Add a folder"
+                title={locked ? "The upload has started." : "Add a folder"}
+              >
+                <ChevronDown class="size-16" aria-hidden="true" />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
+                <DropdownMenu.Item onSelect={addFolder}>
+                  <FolderUp class="size-16" aria-hidden="true" />
+                  A Folder, With Everything Inside It
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          </span>
         </span>
       </div>
 
@@ -498,11 +693,19 @@
           aria-label="Upload progress"
           class="min-w-0 grow"
         />
-        {#if paceLine !== ""}
-          <span class="shrink-0 text-xs text-text-subtle tabular-nums" role="status">
-            {paceLine}
-          </span>
-        {/if}
+        <!-- The pace line's room is RESERVED, filled or not. It reads "1.2 GB of 4.5 GB · 2.4 MB/s
+             · about 20 min left" and every one of those figures changes length as the transfer
+             runs — "9.9 MB" becomes "10.1 MB", "1 min" becomes "about 20 min" — so a line sized to
+             its own text resized the bar beside it several times a second. A fixed measure holds
+             the bar still; what will not fit is clipped rather than allowed to push. -->
+        <span
+          class="shrink-0 truncate text-end text-xs tabular-nums text-text-subtle"
+          style="inline-size: var(--mc-size-transfer-pace)"
+          role="status"
+          title={paceLine}
+        >
+          {paceLine}
+        </span>
       </div>
 
       <UploadSourceTable
@@ -513,6 +716,8 @@
         caption="Files chosen for upload"
         emptyLine="Drop files or folders here, or use Add above. Nothing is sent until Upload is pressed."
         selectable={!started}
+        {documentTypeName}
+        hasDocumentTypes={liveDocumentTypes.length > 0}
         onSelectionChange={(keys) => (selectedKeys = keys)}
       />
 
