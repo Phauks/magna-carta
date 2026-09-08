@@ -1050,6 +1050,12 @@ export function registerConflictsRoutes(app: ConflictsApp, chokepoint: Chokepoin
             matterId: request.matterId,
             subjectEntityIds: request.subjectEntityIds,
             scope: request.scope,
+            // A person asked for this one, and the row has to say so. Left unset, the check is
+            // stored with no trigger source at all — which is the shape of a row written before the
+            // column existed, and reads on the firm's log as "the row does not say what started
+            // it", beside an actor it does in fact name. The re-check route below has always said
+            // it; the deliberate run is the one that has to say it most.
+            triggerSource: "manual",
           },
           {
             clock: { now: () => new Date().toISOString() },

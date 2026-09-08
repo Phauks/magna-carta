@@ -4,7 +4,7 @@
    *
    * The shell ($lib/details-panel) carries the frame, the header grammar and the ruled runs of
    * facts. What stays here is what only Fees knows: that a fee is named by its entry number with
-   * its description underneath, that an incomplete fee says what it is missing, and that a fee
+   * its description underneath, that a returned draft says why it came back, and that a fee
    * already on a finalized bill is evidence rather than something to correct in place.
    *
    * SEVERAL SELECTED OFFERS NOTHING, deliberately. No verb here acts on more than one fee, and a
@@ -22,14 +22,19 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Printer from "@lucide/svelte/icons/printer";
   import * as DetailsPanel from "$lib/details-panel/index.ts";
-  import { gapCellTitle } from "./fee-gaps.ts";
+  import { billHref } from "$lib/money/index.ts";
+  import {
+    GONE_RECORDER_NOTE,
+    recorderState,
+    recorderText,
+    returnedDraftReason,
+  } from "$lib/records/work-in-progress-record.ts";
+  import { FEE_LEDGER_GAPS, gapCellTitle } from "./fee-gaps.ts";
   import {
     billingSentence,
     countsInTotals,
-    entryNumberTitle,
     feePosition,
     feeStatusKey,
-    incompleteNote,
     type FeeRecord,
   } from "./fee-record.ts";
   import { timekeeperText } from "./fee-columns.ts";
@@ -56,18 +61,16 @@
   const live = $derived(fees.filter(countsInTotals));
   const voided = $derived(fees.length - live.length);
 
-  const heading = $derived.by((): string => {
-    const fee = sole;
-    if (fee === null) return "";
-    return fee.entryNumber ?? "Fee";
-  });
+  const recorder = $derived(sole === null ? null : recorderState(sole));
 </script>
 
 <DetailsPanel.Root label="Fee details">
   {#if sole !== null}
     <DetailsPanel.Header>
-      <DetailsPanel.Title title={entryNumberTitle(sole)}>{heading}</DetailsPanel.Title>
-      <DetailsPanel.Subtitle>{sole.description}</DetailsPanel.Subtitle>
+      <DetailsPanel.Title>Fee</DetailsPanel.Title>
+      <DetailsPanel.Subtitle title={gapCellTitle("entryNumber")}>
+        {FEE_LEDGER_GAPS.entryNumber.field} not yet recorded
+      </DetailsPanel.Subtitle>
       {#snippet actions()}
         <DetailsPanel.Close
           label="Let go of this fee and show the matter's position"
@@ -77,6 +80,19 @@
     </DetailsPanel.Header>
 
     <DetailsPanel.Body>
+      <p class="text-sm">{sole.description}</p>
+
+      <!--
+        A RETURNED DRAFT SAYS SO. A fee a reviewer sent back is the same status as one nobody has
+        submitted and looks identical everywhere else, so without this the person who has to fix it
+        is told only that it is a draft.
+      -->
+      {#if returnedDraftReason(sole) !== null}
+        <p class="text-xs text-status-warning-subtle-foreground">
+          Sent back for changes: {returnedDraftReason(sole)}
+        </p>
+      {/if}
+
       <div class="flex flex-wrap gap-8">
         <Button variant="secondary" size="sm" onclick={() => onOpen(sole)}>
           <FolderOpen class="size-16" aria-hidden="true" />
@@ -94,27 +110,33 @@
             {statusEntry(feeStatusKey(sole.status)).label}
           </Badge>
         </DetailsPanel.Fact>
-        <DetailsPanel.Fact label="Date" value={formatDate(sole.feeDate)} />
+        <DetailsPanel.Fact label="Date" value={formatDate(sole.serviceDate)} />
         <DetailsPanel.Fact label="Timekeeper" value={timekeeperText(sole)} />
-        <DetailsPanel.Fact
-          label="Amount"
-          value={sole.amountMinor === null ? "Not recorded" : money(sole.amountMinor)}
-        />
+        <DetailsPanel.Fact label="Amount" value={money(sole.amountMinor)} />
         <DetailsPanel.Fact
           label="Billing"
           value={sole.billable ? "Billable" : "Non-billable"}
           title={billingSentence(sole.billable)}
         />
+        <DetailsPanel.Fact
+          label="Entered By"
+          value={recorderText(sole)}
+          title={recorder?.kind === "gone" ? GONE_RECORDER_NOTE : undefined}
+        />
         <DetailsPanel.Fact label="Attachments" value="—" title={gapCellTitle("attachments")} />
       </DetailsPanel.Facts>
 
-      {#if sole.incomplete}
-        <p class="text-xs text-status-warning-subtle-foreground">{incompleteNote(sole)}</p>
-      {/if}
-      {#if sole.invoiceNumber !== null}
+      {#if sole.status === "billed"}
         <p class="text-xs text-text-muted">
-          Billed on <span class="tabular-nums">{sole.invoiceNumber}</span>. A record on a finalized
-          bill is evidence; the correction is a credit note beside it.
+          {#if sole.invoiceId === null}
+            Billed. Which bill took it up is not recorded on this fee, so there is nothing to open
+            from here.
+          {:else}
+            Billed. <a
+              class="underline underline-offset-2"
+              href={billHref(sole.matterId, sole.invoiceId)}>Open the bill this fee is charged on</a
+            >. A record on a finalized bill is evidence; the correction is a credit note beside it.
+          {/if}
         </p>
       {/if}
     </DetailsPanel.Body>

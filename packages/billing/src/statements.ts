@@ -46,6 +46,7 @@ import type {
 const WORK_IN_PROGRESS_TABLES: Record<WorkInProgressKind, string> = {
   time_entry: "time_entry",
   cost_entry: "cost_entry",
+  fee_entry: "fee_entry",
 };
 
 export interface InsertInvoiceInput {

@@ -76,6 +76,25 @@ async function get(path: string, cookie: string): Promise<Response> {
   return SELF.fetch(`https://example.test${path}`, { headers: { cookie } });
 }
 
+async function remove(path: string, cookie: string): Promise<Response> {
+  return SELF.fetch(`https://example.test${path}`, {
+    method: "DELETE",
+    headers: { cookie, "idempotency-key": crypto.randomUUID() },
+  });
+}
+
+async function patch(path: string, cookie: string, body: unknown): Promise<Response> {
+  return SELF.fetch(`https://example.test${path}`, {
+    method: "PATCH",
+    headers: {
+      cookie,
+      "content-type": "application/json",
+      "idempotency-key": crypto.randomUUID(),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 /** Log a call and hand back its id, failing loudly rather than returning an undefined handle. */
 async function logCall(cookie: string, body: Record<string, unknown> = {}): Promise<string> {
   const response = await post("/api/v1/communications", cookie, {
@@ -296,5 +315,105 @@ describe("taking a row back off a matter", () => {
     const row = await readJson<{ matterId: string | null; summary: string }>(read);
     expect(row.matterId).toBeNull();
     expect(row.summary).toBe("Asked whether we act in probate.");
+  });
+});
+
+describe("a call that belongs to no matter at all", () => {
+  // Not every call a firm takes is about a case. Spam, the landlord, an enquiry that never came to
+  // anything: none of them can be filed, and before they could be SET ASIDE they sat in the queue
+  // forever. A queue nobody can empty is a queue nobody works.
+  it("leaves the queue without being filed, and comes back", async () => {
+    const id = await logCall(ownerCookie);
+
+    const aside = await post(`/api/v1/communications/${id}/disposition`, ownerCookie, {
+      disposition: "spam",
+    });
+    expect(aside.status).toBe(200);
+
+    const read = await get(`/api/v1/communications/${id}`, ownerCookie);
+    const row = await readJson<{ disposition: string | null; summary: string }>(read);
+    expect(row.disposition).toBe("spam");
+    // Nothing was destroyed by the decision.
+    expect(row.summary).toBe("Asked whether we act in probate.");
+
+    const queue = await get("/api/v1/communications?scope=unrouted", ownerCookie);
+    expect((await readJson<PageResponse>(queue)).data).toHaveLength(0);
+    const setAside = await get("/api/v1/communications?scope=setAside", ownerCookie);
+    expect((await readJson<PageResponse>(setAside)).data).toHaveLength(1);
+
+    const back = await remove(`/api/v1/communications/${id}/disposition`, ownerCookie);
+    expect(back.status).toBe(200);
+    const requeued = await get("/api/v1/communications?scope=unrouted", ownerCookie);
+    expect((await readJson<PageResponse>(requeued)).data).toHaveLength(1);
+  });
+
+  it("is refused to a member who may not work the queue", async () => {
+    const id = await logCall(ownerCookie);
+    // Setting a row aside READS an unrouted row on its way, exactly as filing one does, so it is
+    // gated by the same key that reveals the queue at all.
+    const refused = await post(`/api/v1/communications/${id}/disposition`, attorneyCookie, {
+      disposition: "spam",
+    });
+    expect(refused.status).toBe(403);
+    // And so is asking for the set-aside rows in the first place.
+    const listing = await get("/api/v1/communications?scope=setAside", attorneyCookie);
+    expect(listing.status).toBe(403);
+  });
+
+  it("refuses a reason that is not in the vocabulary", async () => {
+    const id = await logCall(ownerCookie);
+    const refused = await post(`/api/v1/communications/${id}/disposition`, ownerCookie, {
+      disposition: "because",
+    });
+    expect(refused.status).toBe(422);
+  });
+
+  it("refuses a record claiming both a matter and a reason", async () => {
+    const refused = await post("/api/v1/communications", ownerCookie, {
+      channel: "voice",
+      direction: "inbound",
+      counterpartyNumber: "(702) 555-0143",
+      occurredAt: anHourAgo(),
+      durationSeconds: 60,
+      summary: "Both at once.",
+      matterId: OPEN_MATTER,
+      disposition: "spam",
+    });
+    expect(refused.status).toBe(422);
+  });
+});
+
+describe("correcting a record somebody typed", () => {
+  it("changes what it names and leaves the anchor alone", async () => {
+    const id = await logCall(ownerCookie, { matterId: OPEN_MATTER });
+
+    const corrected = await patch(`/api/v1/communications/${id}`, ownerCookie, {
+      counterpartyNumber: "+17025559999",
+      summary: "Asked whether we act in probate. Calling back Thursday.",
+    });
+    expect(corrected.status).toBe(200);
+
+    const read = await get(`/api/v1/communications/${id}`, ownerCookie);
+    const row = await readJson<{
+      counterpartyNumber: string;
+      summary: string;
+      matterId: string | null;
+      durationSeconds: number | null;
+    }>(read);
+    expect(row.counterpartyNumber).toBe("+17025559999");
+    expect(row.summary).toBe("Asked whether we act in probate. Calling back Thursday.");
+    // Untouched fields keep what the record holds, and the matter is not this operation's to move.
+    expect(row.durationSeconds).toBe(300);
+    expect(row.matterId).toBe(OPEN_MATTER);
+  });
+
+  it("cannot reach an unfiled row without the queue capability", async () => {
+    const id = await logCall(ownerCookie);
+    const refused = await patch(`/api/v1/communications/${id}`, attorneyCookie, {
+      direction: "outbound",
+    });
+    // Not found rather than forbidden: an id-addressed write must not become a way to learn that a
+    // row a member cannot list exists.
+    expect(refused.status).toBe(404);
   });
 });

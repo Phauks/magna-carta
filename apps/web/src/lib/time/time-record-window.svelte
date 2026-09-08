@@ -1576,12 +1576,16 @@
           {#each attachableFiles as file (file.id)}
             <Combobox.Item value={file.id} label={file.name} />
           {/each}
+          <!-- The heading sits inside a group: a bare one has no identity to label and throws when
+               the listbox opens, which is invisible until somebody clicks the field. -->
           {#if attachableFiles.length === 0}
-            <Combobox.GroupHeading>
-              {matterFiles === null
-                ? "Reading the matter's documents"
-                : "Every document on this matter is already attached."}
-            </Combobox.GroupHeading>
+            <Combobox.Group>
+              <Combobox.GroupHeading>
+                {matterFiles === null
+                  ? "Reading the matter's documents"
+                  : "Every document on this matter is already attached."}
+              </Combobox.GroupHeading>
+            </Combobox.Group>
           {/if}
         </Combobox.Content>
       </Combobox.Root>

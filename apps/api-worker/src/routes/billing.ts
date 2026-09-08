@@ -150,7 +150,7 @@ const CreateInvoiceRequest = z
 
 const ClaimRequest = z
   .object({
-    sourceKind: z.enum(["time_entry", "cost_entry"]),
+    sourceKind: z.enum(["time_entry", "cost_entry", "fee_entry"]),
     sourceId: z.string().min(1),
   })
   .openapi("BillingClaimRequest");

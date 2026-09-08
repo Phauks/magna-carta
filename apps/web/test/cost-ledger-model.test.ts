@@ -43,9 +43,9 @@ import {
   countsInTotals,
   payeeState,
   payeeText,
-  returnedDraftReason,
   sourceLabel,
 } from "../src/lib/costs/cost-vocabulary.ts";
+import { returnedDraftReason } from "../src/lib/records/work-in-progress-record.ts";
 import type { CostLedgerEntry } from "../src/lib/costs/cost-operations.ts";
 import { costDraftRefusal, parseAmountMinor } from "../src/lib/costs/cost-operations.ts";
 import { costRecordMenu, type CostMenuRecord } from "../src/lib/costs/cost-record-menu.ts";
@@ -78,7 +78,10 @@ function cost(overrides: Partial<CostLedgerEntry> = {}): CostLedgerEntry {
 
 const noLabels = (): string | null => null;
 const word = (status: CostSummary["status"]) => statusEntry(status).label;
-const columns = costLedgerColumns({ currency: "USD", expenseCodeLabels: noLabels });
+const columns = costLedgerColumns({
+  currency: "USD",
+  expenseCodeLabels: noLabels,
+});
 const columnById = (identifier: string) => {
   const found = columns.find((column) => column.id === identifier);
   if (found === undefined) throw new Error(`no column ${identifier}`);
@@ -110,7 +113,10 @@ describe("the ledger's columns", () => {
     // where a reader picks a row out by its matter.
     const inMatter = columns.find((column) => column.id === COST_COLUMN_IDENTIFIERS.matter);
     expect(inMatter?.hidden).toBe(true);
-    const firm = firmCostColumns({ currency: "USD", expenseCodeLabels: noLabels });
+    const firm = firmCostColumns({
+      currency: "USD",
+      expenseCodeLabels: noLabels,
+    });
     expect(firm.find((column) => column.id === COST_COLUMN_IDENTIFIERS.matter)?.hidden).toBe(false);
     // Nothing else moves, so a column means the same thing on both screens.
     expect(firm.map((column) => column.id)).toEqual(columns.map((column) => column.id));
@@ -426,7 +432,9 @@ describe("the row menu", () => {
   // The gate reads off until the firm setting is served, so nothing solicits a submission.
   it("leaves the review vocabulary out entirely with the gate off", () => {
     const target = menuRecord();
-    const menu = costRecordMenu([target], target, { reviewGateEnabled: REVIEW_GATE_ENABLED });
+    const menu = costRecordMenu([target], target, {
+      reviewGateEnabled: REVIEW_GATE_ENABLED,
+    });
     expect(REVIEW_GATE_ENABLED).toBe(false);
     for (const identifier of ["submit", "approve", "kickBack"]) {
       expect(menuItem(menu, identifier)).toBeNull();
@@ -438,12 +446,16 @@ describe("the row menu", () => {
 
   it("offers Delete Draft only on a draft, and never instead of Void", () => {
     const draft = menuRecord();
-    const draftMenu = costRecordMenu([draft], draft, { reviewGateEnabled: true });
+    const draftMenu = costRecordMenu([draft], draft, {
+      reviewGateEnabled: true,
+    });
     expect(menuItem(draftMenu, "deleteDraft")).not.toBeNull();
     expect(menuItem(draftMenu, "void")).not.toBeNull();
 
     const billed = menuRecord({ status: "billed" });
-    const billedMenu = costRecordMenu([billed], billed, { reviewGateEnabled: true });
+    const billedMenu = costRecordMenu([billed], billed, {
+      reviewGateEnabled: true,
+    });
     // A cost that has been in review is voided, never deleted.
     expect(menuItem(billedMenu, "deleteDraft")).toBeNull();
   });

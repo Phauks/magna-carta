@@ -50,6 +50,7 @@ import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
+import HandCoins from "@lucide/svelte/icons/hand-coins";
 
 export type DestinationGroup = "top" | "money" | "firm";
 
@@ -298,10 +299,12 @@ const DESTINATION_LIST = [
     // Calls and texts — the two channels a conversation only exists in if the platform records it.
     // Email is deliberately NOT here: mail already lives in the firm's own mailbox and is FILED onto
     // a matter from there, so a second reader for it would compete with the client a member already
-    // has open. The id stays "communications" because a member's sidebar stars are stored under it.
+    // has open. The id stays "communications" because a member's sidebar stars are stored under it —
+    // the PATH is /messaging, which is what the row has always been called (owner ruling,
+    // 2026-09-08): a URL naming the subsystem rather than the screen is one nobody can guess.
     id: "communications",
     label: "Messaging",
-    href: "/communications",
+    href: "/messaging",
     icon: MessageSquare,
     description: "Calls and texts with clients, logged against their matters.",
     group: "top",
@@ -375,7 +378,8 @@ const DESTINATION_LIST = [
     stage: "alpha",
     defaultStarred: true,
   },
-  // Money (draft order: Time, Billing, Trust)
+  // Money — in the order the money moves: hours and flat charges are recorded, disbursements are
+  // advanced, then a bill claims all three and trust settles it.
   {
     // The period ledger: the firm's time over a span of days, across every matter. It is the read
     // surface, distinct from the top bar's Time Sheet, which is capture and opens over whatever
@@ -388,6 +392,27 @@ const DESTINATION_LIST = [
     description: "Every hour recorded, across matters and timekeepers, for the days you choose.",
     group: "money",
     shipped: true,
+    stage: "alpha",
+    defaultStarred: true,
+  },
+  {
+    // The firm's fee record over a period, across every matter — the flat charges it made for work
+    // done, and how much of that is still waiting on a bill. Fees was absent from this group for the
+    // same structural reason Costs was: nothing served the record. It was not a Soon row, it was not
+    // a row, and the fee work-in-progress store is what made adding it honest.
+    //
+    // It sits between Time and Costs because that is the order a matter's own Money group reads: the
+    // two things a firm charges FOR its work, then the money it laid out doing it.
+    id: "fees",
+    label: "Fees",
+    href: "/fees",
+    icon: HandCoins,
+    description: "Flat charges the firm made for its work, and what is still waiting on a bill.",
+    group: "money",
+    shipped: true,
+    // The period reads, narrows and opens any fee in the shared record window. A fee's entry number
+    // and the files riding it are still to come, and the firm's review setting is not served, so the
+    // review verbs are absent rather than offered.
     stage: "alpha",
     defaultStarred: true,
   },

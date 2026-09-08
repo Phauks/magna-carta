@@ -39,6 +39,7 @@
     "@magna-carta/encryption": "workspace:*",
     "@magna-carta/export-document": "workspace:*",
     "@magna-carta/feature-flags": "workspace:*",
+    "@magna-carta/fees": "workspace:*",
     "@magna-carta/file-integrity": "workspace:*",
     "@magna-carta/file-manager": "workspace:*",
     "@magna-carta/file-type": "workspace:*",

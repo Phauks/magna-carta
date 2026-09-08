@@ -4,6 +4,7 @@ import type { CommunicationId, MatterId, UserId } from "@magna-carta/identifiers
 import type {
   CommunicationChannel,
   CommunicationDirection,
+  CommunicationDisposition,
   CommunicationProducer,
   CommunicationScope,
 } from "./types.ts";
@@ -41,6 +42,9 @@ export interface CommunicationRow {
   readonly channel: CommunicationChannel;
   readonly direction: CommunicationDirection;
   readonly matter_id: MatterId | null;
+  // The other anchor: why this row belongs to no matter, where somebody has said so. Null on a row
+  // that is on a matter and on one nobody has decided about yet.
+  readonly disposition: CommunicationDisposition | null;
   readonly counterparty_number: string;
   readonly counterparty_entity_id: string | null;
   readonly member_user_id: UserId | null;
@@ -72,6 +76,7 @@ const COLUMNS = [
   "channel",
   "direction",
   "matter_id",
+  "disposition",
   "counterparty_number",
   "counterparty_entity_id",
   "member_user_id",
@@ -107,6 +112,10 @@ export interface InsertCommunicationInput {
   readonly durationSeconds: number | null;
   readonly body: string | null;
   readonly summary: string | null;
+  // Why it belongs to no matter, where the person recording it already knows — a wrong number is
+  // spam the moment it is written down, and making somebody file it first and set it aside second
+  // would be two acts for one fact.
+  readonly disposition: CommunicationDisposition | null;
   readonly loggedByUserId: UserId;
   readonly now: string;
 }
@@ -122,8 +131,8 @@ export function insertCommunicationStatement(
     .prepare(
       `INSERT INTO ${COMMUNICATION_TABLE} (id, channel, direction, matter_id, counterparty_number, ` +
         `counterparty_entity_id, member_user_id, occurred_at, duration_seconds, body, summary, ` +
-        `producer, logged_by_user_id, carrier_reference, created_at, updated_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'member', ?12, NULL, ?13, ?13)`,
+        `disposition, producer, logged_by_user_id, carrier_reference, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'member', ?13, NULL, ?14, ?14)`,
     )
     .bind(
       input.id,
@@ -137,6 +146,7 @@ export function insertCommunicationStatement(
       input.durationSeconds,
       input.body,
       input.summary,
+      input.disposition,
       input.loggedByUserId,
       input.now,
     );
@@ -156,7 +166,9 @@ export function routeCommunicationStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${COMMUNICATION_TABLE} SET matter_id = ?1, updated_at = ?2 ` +
+      // The disposition goes with it: a row on a matter is not also set aside, and filing one that
+      // was is how a firm decides a call it had written off is real work after all.
+      `UPDATE ${COMMUNICATION_TABLE} SET matter_id = ?1, disposition = NULL, updated_at = ?2 ` +
         `WHERE id = ?3 AND matter_id IS NULL`,
     )
     .bind(input.matterId, input.now, input.id);
@@ -174,6 +186,74 @@ export function unrouteCommunicationStatement(
         `WHERE id = ?2 AND matter_id IS NOT NULL`,
     )
     .bind(input.now, input.id);
+}
+
+// SETTING IT ASIDE — the other way a row leaves the queue. It names the row's current matter state
+// in its WHERE for the same reason filing does: two people deciding about one message in the same
+// instant must not both succeed, and the second UPDATE matching nothing is what the service reads
+// back. Passing null clears the disposition and returns the row to the queue.
+export function setCommunicationDispositionStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: CommunicationId;
+    readonly disposition: CommunicationDisposition | null;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${COMMUNICATION_TABLE} SET disposition = ?1, updated_at = ?2 ` +
+        `WHERE id = ?3 AND matter_id IS NULL`,
+    )
+    .bind(input.disposition, input.now, input.id);
+}
+
+// CORRECTING ONE. Every field a member could have mistyped, written in one statement rather than a
+// patch builder: the columns are few, the CHECKs are paired, and a builder that emitted a partial
+// SET would let a channel change land without the content change that has to accompany it (a body on
+// a call and a duration on a text are both refused by the database). So the caller resolves the
+// whole row first and this writes all of it.
+//
+// The ANCHOR is not here. A matter and a disposition move a row between queues and each has its own
+// concurrency-safe statement above; folding them in would make a correction to a summary able to
+// silently re-file a message somebody else had just filed.
+export interface UpdateCommunicationInput {
+  readonly id: CommunicationId;
+  readonly channel: CommunicationChannel;
+  readonly direction: CommunicationDirection;
+  readonly counterpartyNumber: string;
+  readonly counterpartyEntityId: string | null;
+  readonly memberUserId: UserId | null;
+  readonly occurredAt: string;
+  readonly durationSeconds: number | null;
+  readonly body: string | null;
+  readonly summary: string | null;
+  readonly now: string;
+}
+
+export function updateCommunicationStatement(
+  database: SqlDatabase,
+  input: UpdateCommunicationInput,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${COMMUNICATION_TABLE} SET channel = ?1, direction = ?2, counterparty_number = ?3, ` +
+        `counterparty_entity_id = ?4, member_user_id = ?5, occurred_at = ?6, duration_seconds = ?7, ` +
+        `body = ?8, summary = ?9, updated_at = ?10 WHERE id = ?11`,
+    )
+    .bind(
+      input.channel,
+      input.direction,
+      input.counterpartyNumber,
+      input.counterpartyEntityId,
+      input.memberUserId,
+      input.occurredAt,
+      input.durationSeconds,
+      input.body,
+      input.summary,
+      input.now,
+      input.id,
+    );
 }
 
 export function selectCommunicationStatement(
@@ -220,12 +300,19 @@ function searchConditionFor(
   // turn every following character into a match-anything.
   const escaped = term.replaceAll(/[\\%_]/gu, (character) => `\\${character}`);
   const pattern = `%${escaped}%`;
+  // The MATTER is in the search too, and it is the half people reach for first: "what did we say on
+  // the Whitfield file" is a question about a case, not about a phrase. The joined columns are safe
+  // to name here because every read composes the visible-matter predicate before this one — a walled
+  // matter's title can never be matched, because its rows are not in the result to begin with.
   return {
     condition:
       `(${COMMUNICATION_TABLE}.body LIKE ? ESCAPE '\\' ` +
       `OR ${COMMUNICATION_TABLE}.summary LIKE ? ESCAPE '\\' ` +
-      `OR ${COMMUNICATION_TABLE}.counterparty_number LIKE ? ESCAPE '\\')`,
-    bindings: [pattern, pattern, pattern],
+      `OR ${COMMUNICATION_TABLE}.counterparty_number LIKE ? ESCAPE '\\' ` +
+      `OR matter.title LIKE ? ESCAPE '\\' ` +
+      `OR matter.matter_number LIKE ? ESCAPE '\\' ` +
+      `OR matter.consultation_number LIKE ? ESCAPE '\\')`,
+    bindings: [pattern, pattern, pattern, pattern, pattern, pattern],
   };
 }
 
@@ -258,9 +345,16 @@ export function selectCommunicationsStatement(
     conditions.push(`${COMMUNICATION_TABLE}.matter_id = ?`);
     bindings.push(options.matterId);
   } else if (options.scope === "unrouted") {
-    conditions.push(`${COMMUNICATION_TABLE}.matter_id IS NULL`);
+    // The QUEUE, and it excludes what somebody has already set aside. A wrong number will never
+    // belong to a matter, so a queue that kept it would be a queue nobody can empty — which is the
+    // whole reason a disposition exists.
+    conditions.push(
+      `${COMMUNICATION_TABLE}.matter_id IS NULL AND ${COMMUNICATION_TABLE}.disposition IS NULL`,
+    );
   } else if (options.scope === "routed") {
     conditions.push(`${COMMUNICATION_TABLE}.matter_id IS NOT NULL`);
+  } else if (options.scope === "setAside") {
+    conditions.push(`${COMMUNICATION_TABLE}.disposition IS NOT NULL`);
   }
 
   if (options.channel !== undefined) {
@@ -308,7 +402,8 @@ export function selectCommunicationsStatement(
 // to empty is not an answer.
 export function countUnroutedCommunicationsStatement(database: SqlDatabase): SqlStatement {
   return database.prepare(
-    `SELECT COUNT(*) AS count FROM ${COMMUNICATION_TABLE} WHERE matter_id IS NULL`,
+    `SELECT COUNT(*) AS count FROM ${COMMUNICATION_TABLE} ` +
+      `WHERE matter_id IS NULL AND disposition IS NULL`,
   );
 }
 
