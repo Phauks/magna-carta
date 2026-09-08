@@ -51,3 +51,39 @@ export function instantFromLocalParts(date: string, time: string): string {
   const parsed = new Date(`${day}T${clock}`);
   return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
 }
+
+/** The minutes in a day, which is what a call that ran past midnight is measured against. */
+const MINUTES_PER_DAY = 24 * 60;
+
+/** A `time` input's value as minutes since midnight, or null where it is not one. */
+function clockMinutes(time: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(time.trim());
+  if (match === null) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+/**
+ * How long a call ran, from the two clock times a person typed.
+ *
+ * AN END BEFORE A START IS A CALL THAT RAN PAST MIDNIGHT, not a mistake. 23:58 to 00:03 is five
+ * minutes, and it is the one case where reading the numbers straight gives a negative answer; the
+ * alternative — asking for the end DATE as well — would put a fourth field on the row to serve the
+ * handful of calls a firm takes at midnight.
+ */
+export function minutesBetweenClockTimes(start: string, end: string): number | null {
+  const from = clockMinutes(start);
+  const to = clockMinutes(end);
+  if (from === null || to === null) return null;
+  return to >= from ? to - from : to + MINUTES_PER_DAY - from;
+}
+
+/** The clock time a call of this length ended at, from the one it started at. */
+export function clockTimeAfter(start: string, minutes: number): string {
+  const from = clockMinutes(start);
+  if (from === null || !Number.isFinite(minutes) || minutes < 0) return "";
+  const at = (from + Math.round(minutes)) % MINUTES_PER_DAY;
+  return `${pad(Math.floor(at / 60))}:${pad(at % 60)}`;
+}

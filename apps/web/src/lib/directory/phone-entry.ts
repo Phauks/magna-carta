@@ -15,9 +15,13 @@ import {
   AsYouType,
   getCountries,
   getCountryCallingCode,
+  getExampleNumber,
   parsePhoneNumberFromString,
   type CountryCode,
 } from "libphonenumber-js/min";
+// One example number per country, 4 KB of it, which is what lets a number field show the grouping
+// the country it is set to actually uses rather than the firm's own.
+import phoneExamples from "libphonenumber-js/examples.mobile.json";
 
 export interface PhoneCountry {
   /** The two-letter region code the record stores (`countryRegionCode`). */
@@ -120,4 +124,77 @@ export function formatStoredPhone(entry: {
   return entry.extension === null || entry.extension === ""
     ? shown
     : `${shown} ext. ${entry.extension}`;
+}
+
+/**
+ * Where a country's flag is served from.
+ *
+ * An `<img>` against a vendored SVG rather than the flag CHARACTER: the regional-indicator pairs are
+ * emoji, which this product does not use anywhere (root CLAUDE.md, golden rule 2) and which Windows
+ * does not draw at all — a reader there would see two letters in a box where the flag should be. The
+ * files are static assets, so a list of two hundred countries costs the bundle nothing and the
+ * browser fetches only the rows it draws.
+ *
+ * THE FILES ARE VENDORED, NOT A DEPENDENCY: `apps/web/static/flags/`, the 3x2 set from
+ * country-flag-icons 1.6.20 (MIT, whose LICENSE is beside them), copied in rather than imported so
+ * nothing resolves two hundred assets through a bundler at build time or ships them in a chunk.
+ * apps/web/test/directory-phone-entry.test.ts asserts a file exists for every country this module
+ * offers — a country with no file behind it renders as a broken image, which nothing but opening the
+ * list would show.
+ */
+export function phoneCountryFlag(region: string): string {
+  return `/flags/${region}.svg`;
+}
+
+/** What a digit reads as in a number field's ghost text. */
+const PLACEHOLDER_DIGIT = "X";
+
+/** The shape worked out for a country, kept because it never changes and the list is long. */
+const numberPlaceholders = new Map<string, string>();
+
+/**
+ * The ghost text for a number field in a given country: the country's own national form with every
+ * digit written as an X — `(XXX) XXX-XXXX` in the United States, `XXXXX XXXXXX` in the United
+ * Kingdom.
+ *
+ * This is the ONE placeholder in the product that is not simply its field's name (the rule and its
+ * reasoning live in the design system's formatters/placeholder.ts). A number's grouping is not
+ * information a person can be given anywhere else: it is what tells them the field expects a
+ * national number rather than a `+1` one, and it changes with the country beside it. The shape is
+ * derived from libphonenumber's own example number for the country, so it is right for every
+ * country rather than right for the firm's own.
+ */
+export function phoneNumberPlaceholder(region: CountryCode): string {
+  const held = numberPlaceholders.get(region);
+  if (held !== undefined) return held;
+  const example = getExampleNumber(region, phoneExamples);
+  const shape =
+    example === undefined ? "" : example.formatNational().replaceAll(/\d/g, PLACEHOLDER_DIGIT);
+  numberPlaceholders.set(region, shape);
+  return shape;
+}
+
+/**
+ * The field's text after a keystroke, when the keystroke may have been a deletion.
+ *
+ * A formatter that regroups on every input CANNOT be fed its own output blindly. Backspace over a
+ * grouping character deletes a character the formatter puts straight back — `(702) ` becomes
+ * `(702)` becomes `(702) ` again — so the key does nothing at all, and the only way to shorten a
+ * number is to clear the field and start over. That is what people hit, and it reads as a field
+ * that has stopped responding.
+ *
+ * So a deletion that removed no digit deletes the last DIGIT instead, which is what the person was
+ * reaching for. Everything else formats as it always did.
+ */
+export function formatPhoneAfterEdit(region: CountryCode, previous: string, typed: string): string {
+  const digitsBefore = digitsOf(previous);
+  const digitsNow = digitsOf(typed);
+  const deletedOnlyGrouping =
+    typed.length < previous.length && digitsNow === digitsBefore && digitsNow !== "";
+  return formatPhoneAsTyped(region, deletedOnlyGrouping ? digitsNow.slice(0, -1) : typed);
+}
+
+/** Just the digits, which is what "did this keystroke remove one" is answered against. */
+function digitsOf(text: string): string {
+  return text.replaceAll(/\D/g, "");
 }

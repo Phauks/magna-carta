@@ -7,9 +7,14 @@
  * questions from the entry would be a second place to learn what a call record IS.
  *
  * A CALL AND A TEXT ASK THE SAME QUESTIONS (owner ruling, 2026-09-08). One type control, one
- * direction, one number, one date, one time, one description. The single field a call has that a
- * text does not is its length in minutes, because a text has no length in seconds and the database
- * refuses one outright.
+ * direction, one number, one date, one start, one description. The only fields a call has that a
+ * text does not are its end and the length worked out from it, because a text has no length in
+ * seconds and the database refuses one outright.
+ *
+ * THE LENGTH IS DERIVED FROM TWO CLOCK TIMES, AND STORED AS A LENGTH (owner ruling, 2026-09-08). The
+ * form asks when the call started and when it ended; the record holds seconds. `draftEndTime` and
+ * `durationFromEnd` are the bridge, and the draft keeps the LENGTH rather than the two times so a
+ * record read back and saved untouched writes exactly the seconds it held.
  *
  * WHAT IS REQUIRED IS STILL DIFFERENT PER TYPE, and that is not cosmetic. A text needs the words: a
  * text with no words is not a text. A call needs neither its words nor its length in principle — a
@@ -29,9 +34,11 @@ import type {
   CommunicationDisposition,
 } from "./communications-api.ts";
 import {
+  clockTimeAfter,
   instantFromLocalParts,
   localDateValue,
   localTimeValue,
+  minutesBetweenClockTimes,
   MOST_RECENT_FIRST_TOLERANCE_MINUTES,
 } from "./occurred-at.ts";
 
@@ -79,7 +86,17 @@ export interface LogDraft {
   occurredDate: string;
   /** The clock time it happened, in the reader's own zone. */
   occurredTime: string;
-  /** Whole minutes as typed, for a call. Converted to seconds on the way out. */
+  /**
+   * How long a call ran, in whole minutes. Converted to seconds on the way out.
+   *
+   * IT IS THE STORED FACT, AND THE END TIME IS DERIVED FROM IT (owner ruling, 2026-09-08: a duration
+   * "should auto-calculate off start and stop"). The form asks for a start and an end, because that
+   * is what somebody who has just put the phone down actually knows, and the duration follows —
+   * `draftEndTime` renders the end, `durationFromEnd` reads one back. The record stores the length
+   * rather than the two times, so keeping the length as the draft's own field is what makes a
+   * correction round-trip exactly: a record read back, rendered and saved untouched writes the same
+   * seconds it held, with nothing recomputed through a clock on the way.
+   */
   durationMinutes: string;
   /** What was said — the member's account of a call, or the words of a text. One field for both. */
   description: string;
@@ -126,6 +143,28 @@ export function draftOccurredAt(draft: LogDraft): string {
 }
 
 /**
+ * The clock time the call ended at: its start plus its length.
+ *
+ * Empty where either half is missing, which is the ordinary state of a form somebody is still
+ * filling in — a call whose length nobody recorded has no end to show, and a made-up one would read
+ * as a fact.
+ */
+export function draftEndTime(draft: LogDraft): string {
+  const minutes = Number(draft.durationMinutes.trim());
+  if (draft.durationMinutes.trim() === "" || !Number.isFinite(minutes)) return "";
+  return clockTimeAfter(draft.occurredTime, minutes);
+}
+
+/**
+ * The length a typed end time means, as the draft's own field holds it: whole minutes, or the empty
+ * string where the two clock times do not make one.
+ */
+export function durationFromEnd(draft: LogDraft, end: string): string {
+  const minutes = minutesBetweenClockTimes(draft.occurredTime, end);
+  return minutes === null ? "" : String(minutes);
+}
+
+/**
  * Everything still missing, in the order a person meets it. The form shows the FIRST one beside the
  * control it refuses, rather than hiding the control: being told which answer is missing beats
  * hunting for it.
@@ -162,7 +201,7 @@ export function logDraftShortfalls(draft: LogDraft, now: string): readonly strin
   if (isTextDraft(draft)) {
     if (draft.description.trim() === "") shortfalls.push("What the text said.");
   } else if (draft.description.trim() === "" && draft.durationMinutes.trim() === "") {
-    shortfalls.push("What was said, or how long the call took.");
+    shortfalls.push("What was said, or when the call ended.");
   }
 
   if (!isTextDraft(draft) && draft.durationMinutes.trim() !== "") {

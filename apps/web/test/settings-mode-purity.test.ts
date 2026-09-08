@@ -4,19 +4,56 @@
  * on its page, mode follows scope, and a page never mixes instant-apply controls with
  * draft-then-save controls. Runs under node against the pure-data registries; no browser, no
  * storage.
+ *
+ * IT CHECKS THE SURFACE, NOT ONE REGISTRY. SETTING_DEFINITIONS is empty — every settings row now
+ * has a server behind it and declares itself beside the draft that reads and writes it — so a check
+ * over that array alone would pass by having nothing to check. The definitions are gathered from
+ * where they actually live, and the non-vacuity guard below is what stops this file quietly
+ * becoming decoration again if the next surface forgets to add itself here.
  */
 
 import { describe, expect, it } from "vitest";
-import { SETTING_DEFINITIONS } from "../src/lib/settings/settings-definitions.ts";
+import { WEEK_STARTS_ON_DEFINITION } from "../src/lib/calendar/calendar-settings-draft.svelte.ts";
+import { FILE_SAFETY_DEFINITIONS } from "../src/lib/file-manager/scan-policy-draft.svelte.ts";
+import { BILLING_DEFINITIONS } from "../src/lib/settings/firm-time-policy-draft.svelte.ts";
+import {
+  SETTING_DEFINITIONS,
+  type SettingDefinition,
+} from "../src/lib/settings/settings-definitions.ts";
 import { SETTINGS_SECTIONS, type SettingsSection } from "../src/lib/settings/settings-sections.ts";
+
+// Every definition the settings surface renders through a shared SettingsRow, wherever it is
+// declared. Beta Access and Firm Profile are deliberately absent: each declares its one definition
+// inside its own page component, which a node test cannot import, and each is a single row on a
+// page whose mode the section registry already fixes.
+const SURFACE_DEFINITIONS: readonly SettingDefinition[] = [
+  ...SETTING_DEFINITIONS,
+  WEEK_STARTS_ON_DEFINITION,
+  ...FILE_SAFETY_DEFINITIONS,
+  ...BILLING_DEFINITIONS,
+];
 
 function sectionForDefinition(sectionId: string): SettingsSection | undefined {
   return SETTINGS_SECTIONS.find((section) => section.id === sectionId);
 }
 
 describe("settings mode purity", () => {
+  // The guard against vacuity: every assertion below iterates SURFACE_DEFINITIONS, so an empty
+  // gather would make all of them pass by checking nothing.
+  it("gathers the settings surface (so the assertions below are not vacuous)", () => {
+    expect(SURFACE_DEFINITIONS.length).toBeGreaterThanOrEqual(7);
+    expect(new Set(SURFACE_DEFINITIONS.map((definition) => definition.sectionId))).toEqual(
+      new Set(["calendar", "file-safety", "billing"]),
+    );
+  });
+
+  it("every definition id is unique across the surface", () => {
+    const ids = SURFACE_DEFINITIONS.map((definition) => definition.id);
+    expect(ids.length).toBe(new Set(ids).size);
+  });
+
   it("every definition attaches to a registered section", () => {
-    for (const definition of SETTING_DEFINITIONS) {
+    for (const definition of SURFACE_DEFINITIONS) {
       expect(
         sectionForDefinition(definition.sectionId),
         `definition "${definition.id}" names unknown section "${definition.sectionId}"`,
@@ -25,7 +62,7 @@ describe("settings mode purity", () => {
   });
 
   it("no definition attaches to a read-only section", () => {
-    for (const definition of SETTING_DEFINITIONS) {
+    for (const definition of SURFACE_DEFINITIONS) {
       const section = sectionForDefinition(definition.sectionId);
       expect(
         section?.readOnly,
@@ -36,7 +73,7 @@ describe("settings mode purity", () => {
 
   it("mode follows scope on every section that has definitions", () => {
     for (const section of SETTINGS_SECTIONS) {
-      const definitions = SETTING_DEFINITIONS.filter(
+      const definitions = SURFACE_DEFINITIONS.filter(
         (definition) => definition.sectionId === section.id,
       );
       if (definitions.length === 0) continue;
@@ -50,7 +87,7 @@ describe("settings mode purity", () => {
 
   it("confirm appears only on definitions whose section is draft mode", () => {
     // A confirmation step needs a save flow to live in; an instant-apply control has none.
-    for (const definition of SETTING_DEFINITIONS) {
+    for (const definition of SURFACE_DEFINITIONS) {
       if (definition.confirm !== true) continue;
       const section = sectionForDefinition(definition.sectionId);
       expect(
@@ -61,7 +98,7 @@ describe("settings mode purity", () => {
   });
 
   it("every default value is representable by its definition", () => {
-    for (const definition of SETTING_DEFINITIONS) {
+    for (const definition of SURFACE_DEFINITIONS) {
       switch (definition.kind) {
         case "select": {
           const optionValues = (definition.options ?? []).map((option) => option.value);
@@ -94,7 +131,7 @@ describe("settings mode purity", () => {
   it("every firm section with definitions declares an edit permission area", () => {
     for (const section of SETTINGS_SECTIONS) {
       if (section.scope !== "firm") continue;
-      const definitions = SETTING_DEFINITIONS.filter(
+      const definitions = SURFACE_DEFINITIONS.filter(
         (definition) => definition.sectionId === section.id,
       );
       if (definitions.length === 0) continue;

@@ -3,53 +3,68 @@
    * What a call or a text IS, as fields — the one layout, shared by the window that records one and
    * the window that corrects one.
    *
-   * A CALL AND A TEXT LOOK THE SAME (owner ruling, 2026-09-08), and that is what this file exists to
-   * guarantee rather than to remember. Type, direction, who it was with, the number, the date, the
-   * time, where it belongs, and a description: the same questions in the same places whichever type
-   * is chosen. The only field a call has that a text does not is its length in minutes, because a
-   * text has no length in seconds and the database refuses one outright.
+   * TWO COLUMNS: THE MEASURABLE AND THE WRITTEN (owner ruling, 2026-09-08). The left side is
+   * everything about the call that is a quantity or a fact somebody could look up — type, direction,
+   * who, which number, when it started, when it ended, how long it ran, where it belongs. The right
+   * side is what was actually said. They are different kinds of answer and they are answered at
+   * different moments: the left is filled in from the phone's own record of the call in a few
+   * seconds, and the right is written. Putting the description beside the facts rather than under
+   * them also leaves the right side room to become tabs — the text, a transcript, the recording —
+   * which is where this screen is going once the carrier is connected.
    *
-   * EVERY CLOSED CHOICE PASSES ITS OWN `items`. Bits resolves a select's label from that list, and a
-   * select without one renders its raw stored value — `voice`, `outbound` — until the listbox has
-   * been opened once. That is what the screen was doing.
+   * A CALL AND A TEXT LOOK THE SAME (owner ruling, 2026-09-08), and switching between them MOVES
+   * NOTHING. Every field a call has, a text has: the length of a text is simply not a fact, so its
+   * end and its duration stand refused rather than vanishing. A control that disappears reflows the
+   * form under the hand of the person filling it in, which is worse than a control that is plainly
+   * unavailable.
    *
-   * THE NUMBER CARRIES ITS COUNTRY, which is what makes an area code group correctly and what lets
-   * the record store the international form. The knowledge is the Directory's
-   * ($lib/directory/phone-entry.ts), reused here rather than re-derived: one place in the product
-   * knows how a country writes its numbers.
+   * A DURATION IS NOT TYPED, IT IS WORKED OUT. The form asks when the call started and when it
+   * ended, because that is what somebody who has just put the phone down knows; the length follows
+   * from the two (log-draft.ts). The three sit together, because they are one answer in three parts.
    *
-   * THE CONTACT IS A DIRECTORY RECORD, AND PICKING ONE FILLS THE NUMBER. A firm knows who it is
-   * talking to more reliably than it remembers the digits, so the field that names the person comes
-   * first and the number follows from it — while staying editable, because the number somebody
-   * actually called is a fact about the call and not about the contact's record.
+   * EVERY CHOICE IS TYPED INTO. Type, direction, the country, where it belongs: each is a combobox
+   * over a closed set ($lib/components/choice-picker.svelte), never a select. A reader should not
+   * have to find out which lists accept typing.
    *
-   * WHERE IT BELONGS IS ONE ANSWER WITH THREE SHAPES. A matter; or a reason it is on no matter —
-   * spam, the firm's own business, a prospect nothing came of; or nothing yet, which leaves it in
-   * the queue. The third is a real answer a receptionist gives all day, and the second is what makes
-   * the queue emptiable at all.
+   * THE NUMBER AND ITS COUNTRY ARE ONE FIELD, and it is the Directory's
+   * ($lib/directory/phone-number-field.svelte) — the same field the firm's contact records are
+   * entered in. One place in the product knows how a country writes its numbers.
+   *
+   * WHERE IT BELONGS IS ONE FIELD WITH EVERY ANSWER IN IT. A matter, searched by number or name; or
+   * a reason it is on no matter — spam, the firm's own business, a prospect nothing came of; or
+   * nothing yet, which leaves it in the queue. All of them in the common matter picker, because
+   * asking the category first and the matter second made a receptionist answer one question twice.
    */
-  import * as Select from "@magna-carta/design-system/select";
   import Input from "@magna-carta/design-system/input";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import type { CountryCode } from "libphonenumber-js/min";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
+  import type { ChoiceOption } from "$lib/components/choice-picker.ts";
   import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
+  import PhoneNumberField from "$lib/directory/phone-number-field.svelte";
   import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
-  import {
-    formatPhoneAsTyped,
-    phoneCountries,
-    phoneCountryShortLabel,
-  } from "$lib/directory/phone-entry.ts";
+  import { formatPhoneAsTyped } from "$lib/directory/phone-entry.ts";
   import {
     entityKindFromIdentifier,
     readDirectoryContactPoints,
   } from "$lib/directory/directory-api.ts";
   import MatterPicker from "$lib/time/matter-picker.svelte";
   import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
-  import { DISPOSITION_CHOICES } from "./communication-vocabulary.ts";
-  import type { CommunicationDisposition } from "./communications-api.ts";
-  import { isTextDraft, type AnchorChoice, type LogDraft } from "./log-draft.ts";
+  import { DISPOSITION_CHOICES, durationText } from "./communication-vocabulary.ts";
+  import type {
+    CommunicationDirection,
+    CommunicationDisposition,
+  } from "./communications-api.ts";
+  import {
+    draftEndTime,
+    durationFromEnd,
+    isTextDraft,
+    type LogDraft,
+    type LogKind,
+  } from "./log-draft.ts";
 
   let {
     draft = $bindable(),
@@ -69,8 +84,8 @@
     /**
      * Whether the matter is settled rather than merely suggested.
      *
-     * True inside a matter, where the decision is already made — and there the anchor controls are
-     * not disabled, they are ABSENT. A disabled control implies a choice is being withheld, and an
+     * True inside a matter, where the decision is already made — and there the anchor control is
+     * not disabled, it is ABSENT. A disabled control implies a choice is being withheld, and an
      * empty one implies the row is on no matter, which is the opposite of what is true. The matter
      * is stated in a line instead.
      */
@@ -86,39 +101,38 @@
     showAnchor?: boolean;
   } = $props();
 
+  const identity = $props.id();
   const text = $derived(isTextDraft(draft));
 
-  // Mutable arrays, because that is the shape bits' `items` takes; the lists themselves are fixed.
-  const TYPE_ITEMS: { value: string; label: string }[] = [
+  const TYPE_OPTIONS: readonly ChoiceOption[] = [
     { value: "call", label: "Call" },
     { value: "text", label: "Text" },
   ];
 
-  const DIRECTION_ITEMS: { value: string; label: string }[] = [
-    { value: "outbound", label: "Outgoing" },
-    { value: "inbound", label: "Incoming" },
+  const DIRECTION_OPTIONS: readonly ChoiceOption[] = [
+    { value: "outbound", label: "Outgoing", keywords: ["out"] },
+    { value: "inbound", label: "Incoming", keywords: ["in"] },
   ];
 
-  const ANCHOR_ITEMS: { value: string; label: string }[] = [
-    { value: "matter", label: "A matter" },
-    { value: "setAside", label: "Not a matter" },
-    { value: "undecided", label: "Decide later" },
-  ];
-
-  const DISPOSITION_ITEMS = DISPOSITION_CHOICES.map((choice) => ({
+  /** The answers to "where does this belong" that are not matters. */
+  const DISPOSITION_OPTIONS = DISPOSITION_CHOICES.map((choice) => ({
     value: choice.value,
     label: choice.label,
     meaning: choice.meaning,
   }));
 
-  const countryItems = phoneCountries().map((country) => ({
-    value: country.region,
-    label: phoneCountryShortLabel(country),
-    name: country.name,
-  }));
+  /** Why the length of a text is refused rather than asked for. */
+  const NO_LENGTH_ON_A_TEXT = "A text has no length.";
+
+  const endTime = $derived(draftEndTime(draft));
+  const lengthShown = $derived.by(() => {
+    const minutes = Number(draft.durationMinutes.trim());
+    if (draft.durationMinutes.trim() === "" || !Number.isFinite(minutes)) return "";
+    return durationText(Math.round(minutes) * 60) ?? "";
+  });
 
   /*
-   * The selection the field shows at rest.
+   * The selection the contact field shows at rest.
    *
    * The kind comes from the handle's own prefix rather than from a read: a directory handle is minted
    * `directoryPerson_…` or `directoryOrganization_…`, so the glyph beside the name is right without
@@ -170,225 +184,172 @@
     draft.counterpartyEntityId = null;
     draft.counterpartyName = null;
   }
+
+  /** A matter chosen, or the row that leaves it in the queue. Either clears a set-aside reason. */
+  function anchorToMatter(matterId: string | null): void {
+    draft.matterId = matterId;
+    draft.disposition = null;
+    draft.anchor = matterId === null ? "undecided" : "matter";
+  }
+
+  /** A reason chosen. It is never a matter, so the matter goes with it. */
+  function anchorToReason(reason: string): void {
+    draft.matterId = null;
+    draft.disposition = reason as CommunicationDisposition;
+    draft.anchor = "setAside";
+  }
 </script>
 
-<div class="grid gap-16 sm:grid-cols-2">
-  <div class="flex flex-col gap-8">
-    <Label id="communication-type-label">Type</Label>
-    <Select.Root
-      type="single"
-      items={TYPE_ITEMS}
-      allowDeselect={false}
-      disabled={busy}
-      bind:value={draft.kind}
-    >
-      <Select.Trigger aria-labelledby="communication-type-label">
-        <Select.Value placeholder={placeholderOf("Type")} />
-      </Select.Trigger>
-      <Select.Content>
-        {#each TYPE_ITEMS as item (item.value)}
-          <Select.Item value={item.value} label={item.label} />
-        {/each}
-      </Select.Content>
-    </Select.Root>
-  </div>
+<!-- The container is a WRAPPER rather than the grid itself: a container query answers about an
+     ancestor's width and never the element's own, so a `@container` on the grid would silently never
+     match. The query is on the fields' own box rather than the viewport, which is what lets the
+     record window's narrower pane stack the two columns without a second layout. -->
+<div class="@container">
+  <div class="grid gap-24 @3xl:grid-cols-2">
+    <!-- The facts of the call: what it was, who it was with, when, and where it belongs. -->
+    <div class="@container flex flex-col gap-16">
+      <div class="grid gap-12 @sm:grid-cols-2">
+        <LabelledField label="Type" id="{identity}-type">
+          {#snippet children({ props })}
+            <ChoicePicker
+              inputId={props.id}
+              label="Type"
+              options={TYPE_OPTIONS}
+              disabled={busy}
+              bind:value={() => draft.kind, (chosen) => (draft.kind = chosen as LogKind)}
+            />
+          {/snippet}
+        </LabelledField>
 
-  <div class="flex flex-col gap-8">
-    <Label id="communication-direction-label">Direction</Label>
-    <Select.Root
-      type="single"
-      items={DIRECTION_ITEMS}
-      allowDeselect={false}
-      disabled={busy}
-      bind:value={draft.direction}
-    >
-      <Select.Trigger aria-labelledby="communication-direction-label">
-        <Select.Value placeholder={placeholderOf("Direction")} />
-      </Select.Trigger>
-      <Select.Content>
-        {#each DIRECTION_ITEMS as item (item.value)}
-          <Select.Item value={item.value} label={item.label} />
-        {/each}
-      </Select.Content>
-    </Select.Root>
-  </div>
+        <LabelledField label="Direction" id="{identity}-direction">
+          {#snippet children({ props })}
+            <ChoicePicker
+              inputId={props.id}
+              label="Direction"
+              options={DIRECTION_OPTIONS}
+              disabled={busy}
+              bind:value={
+                () => draft.direction,
+                (chosen) => (draft.direction = chosen as CommunicationDirection)
+              }
+            />
+          {/snippet}
+        </LabelledField>
+      </div>
 
-  <div class="flex flex-col gap-8 sm:col-span-2">
-    <Label for="communication-contact">Contact</Label>
-    <!-- The Directory record at the other end. Optional: a number nobody has recorded is exactly the
-         case the queue exists for, and demanding a contact first would put a lookup in front of the
-         one act this form exists to make quick. -->
-    <DirectoryEntityPicker
-      inputId="communication-contact"
-      label="Contact"
-      disabled={busy}
-      value={contactSelection}
-      onSelect={chooseContact}
-      onClear={clearContact}
-    />
-  </div>
+      <LabelledField label="Contact" id="{identity}-contact">
+        {#snippet children({ props })}
+          <!-- The Directory record at the other end. Optional: a number nobody has recorded is exactly
+               the case the queue exists for, and demanding a contact first would put a lookup in front
+               of the one act this form exists to make quick. A record that is not there yet is made
+               from inside the list, which is why no New control stands beside the field. -->
+          <DirectoryEntityPicker
+            inputId={props.id}
+            label="Contact"
+            disabled={busy}
+            createBeside={false}
+            value={contactSelection}
+            onSelect={chooseContact}
+            onClear={clearContact}
+          />
+        {/snippet}
+      </LabelledField>
 
-  <div class="flex min-w-0 gap-8">
-    <div class="flex shrink-0 flex-col gap-8" style="width: 8.5rem">
-      <Label id="communication-country-label">Country</Label>
-      <Select.Root
-        type="single"
-        items={countryItems}
-        allowDeselect={false}
+      <PhoneNumberField
+        bind:region={draft.region}
+        bind:number={draft.counterpartyNumber}
+        countryInputId="{identity}-country"
+        numberInputId="{identity}-number"
         disabled={busy}
-        bind:value={draft.region}
-      >
-        <Select.Trigger aria-labelledby="communication-country-label">
-          <Select.Value placeholder={placeholderOf("Country")} />
-        </Select.Trigger>
-        <Select.Content>
-          {#each countryItems as item (item.value)}
-            <Select.Item value={item.value} label={item.label}>
-              <span class="flex items-baseline gap-8">
-                <span class="tabular-nums">{item.label}</span>
-                <span class="text-xs text-text-muted">{item.name}</span>
-              </span>
-            </Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
+      />
+
+      <div class="grid gap-12 @sm:grid-cols-2 @lg:grid-cols-4">
+        <!-- The wall clock, read in the reader's own zone in both directions: the person typing it is
+             saying what their own clock said. The day is its own field, because changing the day of a
+             call recorded this morning must not mean stepping through a combined control. -->
+        <LabelledField label="Date" id="{identity}-date">
+          {#snippet children({ props })}
+            <Input {...props} type="date" disabled={busy} bind:value={draft.occurredDate} />
+          {/snippet}
+        </LabelledField>
+
+        <LabelledField label="Start" id="{identity}-start">
+          {#snippet children({ props })}
+            <Input {...props} type="time" disabled={busy} bind:value={draft.occurredTime} />
+          {/snippet}
+        </LabelledField>
+
+        <LabelledField label="End" id="{identity}-end">
+          {#snippet children({ props })}
+            <Input
+              {...props}
+              type="time"
+              disabled={busy || text}
+              title={text ? NO_LENGTH_ON_A_TEXT : undefined}
+              value={endTime}
+              oninput={(event) => {
+                draft.durationMinutes = durationFromEnd(draft, event.currentTarget.value);
+              }}
+            />
+          {/snippet}
+        </LabelledField>
+
+        <LabelledField label="Duration" id="{identity}-duration">
+          {#snippet children({ props })}
+            <!-- Worked out, never typed: it is the distance between the two fields beside it, and a
+                 length that disagreed with them would be a third answer to one question. -->
+            <Input
+              {...props}
+              readonly
+              class="tabular-nums"
+              disabled={busy || text}
+              title={text ? NO_LENGTH_ON_A_TEXT : "Worked out from the start and the end."}
+              value={lengthShown}
+            />
+          {/snippet}
+        </LabelledField>
+      </div>
+
+      {#if showAnchor && !matterFixed}
+        <LabelledField label="Belongs to" id="{identity}-anchor">
+          {#snippet children({ props })}
+            <!-- One field, every answer: a matter — including the unnumbered ones, since an intake and
+                 a consultation are where a first contact lands — or a reason there is no matter, or
+                 the row left in the queue for somebody to decide later. -->
+            <MatterPicker
+              {matters}
+              capped={mattersCapped}
+              disabled={busy}
+              inputId={props.id}
+              noMatterLabel="Decide later"
+              extraChoices={DISPOSITION_OPTIONS}
+              extraHeading="Not a matter"
+              extraValue={draft.anchor === "setAside" ? draft.disposition : null}
+              value={draft.anchor === "matter" ? draft.matterId : null}
+              onpick={anchorToMatter}
+              onpickExtra={anchorToReason}
+            />
+          {/snippet}
+        </LabelledField>
+      {:else if matterFixed && matterName !== null}
+        <p class="text-xs text-text-muted">Recorded on {matterName}.</p>
+      {/if}
     </div>
-    <div class="flex min-w-0 flex-auto flex-col gap-8">
-      <Label for="communication-number">Number</Label>
-      <!-- Grouped as it is typed, in the chosen country's own national form, so an area code lands
-           where the eye expects it. The record stores the international form composed from the two. -->
-      <Input
-        id="communication-number"
-        type="tel"
-        inputmode="tel"
-        autocomplete="off"
-        class="tabular-nums"
+
+    <!-- What was said. One word for both types: on a text it is the message, on a call it is what the
+         member wrote down. The record keeps the two in different columns so a read never has to ask
+         which it is holding, and the person typing does not have to care. -->
+    <div class="flex min-h-0 flex-col gap-8">
+      <Label for="{identity}-description">Description</Label>
+      <Textarea
+        id="{identity}-description"
+        class="min-h-0 flex-auto"
+        rows={10}
+        resizable={false}
         disabled={busy}
-        placeholder={placeholderOf("Number")}
-        value={draft.counterpartyNumber}
-        oninput={(event) => {
-          const typed = formatPhoneAsTyped(draft.region as CountryCode, event.currentTarget.value);
-          event.currentTarget.value = typed;
-          draft.counterpartyNumber = typed;
-        }}
+        placeholder={placeholderOf("Description")}
+        bind:value={draft.description}
       />
     </div>
   </div>
-
-  <div class="flex min-w-0 gap-8">
-    <div class="flex min-w-0 flex-auto flex-col gap-8">
-      <Label for="communication-date">Date</Label>
-      <!-- The wall clock, read in the reader's own zone in both directions: the person typing it is
-           saying what their own clock said. Two fields rather than one, because changing the day of
-           a call recorded this morning must not mean stepping through a combined control. -->
-      <Input id="communication-date" type="date" disabled={busy} bind:value={draft.occurredDate} />
-    </div>
-    <div class="flex shrink-0 flex-col gap-8" style="width: 9rem">
-      <Label for="communication-time">Time</Label>
-      <Input id="communication-time" type="time" disabled={busy} bind:value={draft.occurredTime} />
-    </div>
-  </div>
-
-  {#if !text}
-    <div class="flex flex-col gap-8">
-      <Label for="communication-length">Length in minutes</Label>
-      <Input
-        id="communication-length"
-        inputmode="numeric"
-        class="tabular-nums"
-        disabled={busy}
-        placeholder={placeholderOf("Length in minutes")}
-        bind:value={draft.durationMinutes}
-      />
-    </div>
-  {/if}
-
-  {#if showAnchor && !matterFixed}
-    <div class="flex flex-col gap-8">
-      <Label id="communication-anchor-label">Belongs to</Label>
-      <Select.Root
-        type="single"
-        items={ANCHOR_ITEMS}
-        allowDeselect={false}
-        disabled={busy}
-        bind:value={
-          () => draft.anchor,
-          (chosen) => {
-            draft.anchor = chosen as AnchorChoice;
-            // The answer not given is cleared rather than kept out of sight: a matter left behind on
-            // a row somebody has just called firm business would be sent, and the server refuses a
-            // record carrying both.
-            if (draft.anchor !== "matter") draft.matterId = null;
-            if (draft.anchor !== "setAside") draft.disposition = null;
-          }
-        }
-      >
-        <Select.Trigger aria-labelledby="communication-anchor-label">
-          <Select.Value placeholder={placeholderOf("Belongs to")} />
-        </Select.Trigger>
-        <Select.Content>
-          {#each ANCHOR_ITEMS as item (item.value)}
-            <Select.Item value={item.value} label={item.label} />
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-
-    {#if draft.anchor === "matter"}
-      <div class="flex flex-col gap-8">
-        <Label for="communication-matter">Matter</Label>
-        <!-- Every anchor, not only the numbered ones: an intake and a consultation are where a
-             first contact lands, so a picker filtered to open matters would refuse the common
-             case. -->
-        <MatterPicker
-          {matters}
-          capped={mattersCapped}
-          disabled={busy}
-          inputId="communication-matter"
-          value={draft.matterId}
-          onpick={(picked) => (draft.matterId = picked)}
-        />
-      </div>
-    {:else if draft.anchor === "setAside"}
-      <div class="flex flex-col gap-8">
-        <Label id="communication-disposition-label">Why</Label>
-        <Select.Root
-          type="single"
-          items={DISPOSITION_ITEMS}
-          disabled={busy}
-          bind:value={
-            () => draft.disposition ?? "",
-            (chosen) => (draft.disposition = (chosen as CommunicationDisposition) || null)
-          }
-        >
-          <Select.Trigger aria-labelledby="communication-disposition-label">
-            <Select.Value placeholder={placeholderOf("Why")} />
-          </Select.Trigger>
-          <Select.Content>
-            {#each DISPOSITION_ITEMS as item (item.value)}
-              <Select.Item value={item.value} label={item.label} title={item.meaning} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-    {/if}
-  {/if}
-</div>
-
-{#if matterFixed && matterName !== null}
-  <p class="text-xs text-text-muted">Recorded on {matterName}.</p>
-{/if}
-
-<div class="flex flex-col gap-8">
-  <Label for="communication-description">Description</Label>
-  <!-- One word for both types. On a text it is what the message said; on a call it is what the
-       member wrote down. The record keeps the two in different columns so a read never has to ask
-       which it is holding, and the person typing does not have to care. -->
-  <Textarea
-    id="communication-description"
-    rows={4}
-    disabled={busy}
-    placeholder={placeholderOf("Description")}
-    bind:value={draft.description}
-  />
 </div>
