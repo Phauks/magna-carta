@@ -15,6 +15,7 @@ import CheckSubject from "$lib/conflicts/check-subject.svelte";
 import { CheckDraft } from "$lib/conflicts/check-draft.svelte.ts";
 import { OPENING_DRAFT, checkPlan } from "$lib/conflicts/check-request.ts";
 import type { FirmConflictsPolicy } from "$lib/conflicts/conflicts-api.ts";
+import { sourceVocabulary } from "$lib/conflicts/conflicts-vocabulary.ts";
 
 const POLICY: FirmConflictsPolicy = {
   floorSources: ["party"],
@@ -50,12 +51,33 @@ const text = (within: HTMLElement): string => within.textContent ?? "";
 const placeholders = (within: HTMLElement): string[] =>
   [...within.querySelectorAll("input")].map((input) => input.getAttribute("placeholder") ?? "");
 
+const realFetch = globalThis.fetch;
+
 beforeEach(() => {
+  /*
+   * These tests are about what the panes DRAW. The directory picker reaches for the firm's records
+   * as it mounts, and an unstubbed fetch under happy-dom resolves the relative path against
+   * localhost:3000 and throws a connect error into whichever test is running at the time — a
+   * failure that names neither the component that asked nor the test that would have caught it.
+   *
+   * It answers 503 rather than an empty success, because an empty success is a LIE with a shape:
+   * a caller that reads a field off the body gets undefined and dies somewhere unrelated, which is
+   * what a `{ data: [] }` stub did here through the session's permissions. A refusal is a state
+   * every one of these callers already handles.
+   */
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(JSON.stringify({ title: "Nothing is served in a test" }), {
+        status: 503,
+        headers: { "content-type": "application/json" },
+      }),
+    )) as typeof fetch;
   target = document.createElement("div");
   document.body.append(target);
 });
 
 afterEach(() => {
+  globalThis.fetch = realFetch;
   if (instance !== undefined) void unmount(instance);
   instance = undefined;
   flushSync();
@@ -66,14 +88,17 @@ describe("the engine settings pane", () => {
   it("says what every source searches, in the page rather than on a hover", () => {
     const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
     const shown = text(rendered);
-    // The four labels, in the words the log's own columns use.
-    expect(shown).toContain("Name or identifier");
-    expect(shown).toContain("Relationship");
-    expect(shown).toContain("The firm's own people");
-    expect(shown).toContain("Documents and messages");
-    // And each one's sentence, drawn rather than left to a title attribute.
-    expect(shown).toContain("matched on name and on sealed identifiers");
-    expect(shown).toContain("by identity, never by name");
+    // And each one's sentence, drawn rather than left to a title attribute. Read off the
+    // vocabulary rather than retyped: a test holding its own copy of the words is a test that
+    // stops describing the screen the first time somebody improves one of them.
+    for (const source of ["party", "graph", "imputation"]) {
+      expect(shown).toContain(sourceVocabulary(source).label);
+      expect(shown).toContain(sourceVocabulary(source).meaning);
+    }
+    // The fourth is a Soon control, and its line is the one thing a Soon control owes: what it
+    // waits on. Its label is still drawn, so the source is reported rather than left out.
+    expect(shown).toContain(sourceVocabulary("content").label);
+    expect(shown).toContain("index over document text");
   });
 
   it("names sound-alike matching, which the old wording never did", () => {
