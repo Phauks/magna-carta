@@ -21,6 +21,14 @@ export type DensityPreference = "comfortable" | "compact";
  * two-state switch, never a three-option list.
  */
 export type ContrastPreference = "standard" | "high" | "system";
+/**
+ * Whether the gilt scroll-edge rule is drawn (components/scroll-edge-hint). Shown by default: it
+ * is the one affordance saying "there is more this way" where a surface hides its scrollbar or
+ * cannot show one on that axis. A thin gold line that draws itself in at the edge of the chrome is
+ * also movement in the corner of the eye, which is exactly what some people need less of, so it is
+ * a preference rather than a fixture.
+ */
+export type ScrollEdgeHintPreference = "shown" | "hidden";
 
 // Exported so the boot-script mirror test (test/boot-script-mirror.test.ts) can pin the literals
 // the inline app.html script must contain — the keys are part of the persistence contract.
@@ -29,12 +37,14 @@ export const MODE_STORAGE_KEY = "magna-carta.mode";
 export const MOTION_STORAGE_KEY = "magna-carta.motion";
 export const DENSITY_STORAGE_KEY = "magna-carta.density";
 export const CONTRAST_STORAGE_KEY = "magna-carta.contrast";
+export const SCROLL_EDGE_HINTS_STORAGE_KEY = "magna-carta.scrollEdgeHints";
 
 export const DEFAULT_THEME = "chancery";
 const DEFAULT_MODE: Mode = "system";
 const DEFAULT_MOTION: MotionPreference = "system";
 const DEFAULT_DENSITY: DensityPreference = "comfortable";
 const DEFAULT_CONTRAST: ContrastPreference = "system";
+const DEFAULT_SCROLL_EDGE_HINTS: ScrollEdgeHintPreference = "shown";
 
 function isMode(value: string | null): value is Mode {
   return value === "light" || value === "dark" || value === "system";
@@ -52,6 +62,10 @@ function isContrastPreference(value: string | null): value is ContrastPreference
   return value === "standard" || value === "high" || value === "system";
 }
 
+function isScrollEdgeHintPreference(value: string | null): value is ScrollEdgeHintPreference {
+  return value === "shown" || value === "hidden";
+}
+
 /**
  * Reads the persisted appearance preferences. Unset or unrecognized stored values fall back to
  * the defaults (theme "chancery", mode "system", motion "system", density "comfortable",
@@ -63,17 +77,22 @@ export function readThemePreference(): {
   motion: MotionPreference;
   density: DensityPreference;
   contrast: ContrastPreference;
+  scrollEdgeHints: ScrollEdgeHintPreference;
 } {
   const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
   const storedMotion = localStorage.getItem(MOTION_STORAGE_KEY);
   const storedDensity = localStorage.getItem(DENSITY_STORAGE_KEY);
   const storedContrast = localStorage.getItem(CONTRAST_STORAGE_KEY);
+  const storedScrollEdgeHints = localStorage.getItem(SCROLL_EDGE_HINTS_STORAGE_KEY);
   return {
     theme: localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME,
     mode: isMode(storedMode) ? storedMode : DEFAULT_MODE,
     motion: isMotionPreference(storedMotion) ? storedMotion : DEFAULT_MOTION,
     density: isDensityPreference(storedDensity) ? storedDensity : DEFAULT_DENSITY,
     contrast: isContrastPreference(storedContrast) ? storedContrast : DEFAULT_CONTRAST,
+    scrollEdgeHints: isScrollEdgeHintPreference(storedScrollEdgeHints)
+      ? storedScrollEdgeHints
+      : DEFAULT_SCROLL_EDGE_HINTS,
   };
 }
 
@@ -151,6 +170,29 @@ export function applyContrastToDocument(contrast: ContrastPreference): void {
   else root.dataset.contrast = resolved;
 }
 
+/**
+ * Applies the scroll-edge-hint preference to the document WITHOUT persisting anything: sets
+ * `data-scroll-edge-hints` on `<html>`, which the ScrollEdgeHint recipe keys on to stop drawing.
+ * "shown" removes the attribute (the primitive truth needs no overlay), exactly as a resolved
+ * "full" motion and a "comfortable" density do.
+ *
+ * NO OS SIGNAL RESOLVES THIS ONE, and that is deliberate: `prefers-reduced-motion` already
+ * shortens the rule's draw to instant (the recipe does that itself), and a person who wants less
+ * movement has not thereby said they want less information about where a list ends. So this axis
+ * is a plain two-state choice with no "system" encoding to seed from.
+ *
+ * IT IS ALSO THE ONE APPEARANCE AXIS THE NO-FOUC BOOT SCRIPT DOES NOT MIRROR. The boot script
+ * exists to dress the FIRST PAINT, and nothing paints a scroll-edge rule before the application
+ * mounts: the hint is a component that renders only once its scrollport reports there is more
+ * content that way. There is no flash to end, so adding it to the inline script would widen the
+ * duplicated surface the MIRROR RULE above governs for no gain.
+ */
+export function applyScrollEdgeHintsToDocument(preference: ScrollEdgeHintPreference): void {
+  const root = document.documentElement;
+  if (preference === "shown") delete root.dataset.scrollEdgeHints;
+  else root.dataset.scrollEdgeHints = preference;
+}
+
 /*
  * CROSS-TAB FOLLOW. The browser fires "storage" in every OTHER same-origin tab when a
  * localStorage key changes, so re-reading and re-applying here makes a theme/mode/motion/density
@@ -168,16 +210,18 @@ const APPEARANCE_STORAGE_KEYS: readonly string[] = [
   MOTION_STORAGE_KEY,
   DENSITY_STORAGE_KEY,
   CONTRAST_STORAGE_KEY,
+  SCROLL_EDGE_HINTS_STORAGE_KEY,
 ];
 
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key !== null && !APPEARANCE_STORAGE_KEYS.includes(event.key)) return;
-    const { theme, mode, motion, density, contrast } = readThemePreference();
+    const { theme, mode, motion, density, contrast, scrollEdgeHints } = readThemePreference();
     applyThemeToDocument(theme, mode);
     applyMotionToDocument(motion);
     applyDensityToDocument(density);
     applyContrastToDocument(contrast);
+    applyScrollEdgeHintsToDocument(scrollEdgeHints);
   });
 }
 
@@ -191,14 +235,17 @@ export function applyThemePreference(
   motion: MotionPreference = "system",
   density: DensityPreference = "comfortable",
   contrast: ContrastPreference = "standard",
+  scrollEdgeHints: ScrollEdgeHintPreference = "shown",
 ): void {
   localStorage.setItem(THEME_STORAGE_KEY, theme);
   localStorage.setItem(MODE_STORAGE_KEY, mode);
   localStorage.setItem(MOTION_STORAGE_KEY, motion);
   localStorage.setItem(DENSITY_STORAGE_KEY, density);
   localStorage.setItem(CONTRAST_STORAGE_KEY, contrast);
+  localStorage.setItem(SCROLL_EDGE_HINTS_STORAGE_KEY, scrollEdgeHints);
   applyThemeToDocument(theme, mode);
   applyMotionToDocument(motion);
   applyDensityToDocument(density);
   applyContrastToDocument(contrast);
+  applyScrollEdgeHintsToDocument(scrollEdgeHints);
 }

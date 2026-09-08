@@ -21,6 +21,7 @@ import {
   DENSITY_STORAGE_KEY,
   MODE_STORAGE_KEY,
   MOTION_STORAGE_KEY,
+  SCROLL_EDGE_HINTS_STORAGE_KEY,
   THEME_STORAGE_KEY,
 } from "../src/lib/internal/theme-preference.ts";
 
@@ -61,6 +62,17 @@ describe("apps/web/src/app.html inline boot script mirrors theme-preference.ts",
 
   it("resolves system contrast via the same media query", () => {
     expect(appHtml).toContain('"(prefers-contrast: more)"');
+  });
+
+  /*
+   * The scroll-edge-hint axis is DELIBERATELY not mirrored, and this asserts that rather than
+   * leaving its absence to read as an oversight. The boot script exists to dress the FIRST PAINT;
+   * nothing paints a scroll-edge rule before the application mounts, because the hint is a
+   * component that renders only once its scrollport reports there is more content that way. There
+   * is no flash to end, so mirroring it would widen the duplicated surface for no gain.
+   */
+  it("does not mirror the scroll-edge-hint axis, which paints nothing before the app mounts", () => {
+    expect(appHtml).not.toContain(SCROLL_EDGE_HINTS_STORAGE_KEY);
   });
 
   // The one write in the boot script that is not about our own cascade. styles/base.css declares
