@@ -307,7 +307,7 @@ platform's only self-serve front door.**
    - Keep the **site key** (public — it goes in the client) and the **secret key** (never leaves the
      dashboard and the Worker).
 3. **Set the secret AND the site key on the app worker** — `wrangler secret put
-   TURNSTILE_SECRET_KEY` for the secret half, and `TURNSTILE_SITE_KEY` as a plain var (it is public;
+TURNSTILE_SECRET_KEY` for the secret half, and `TURNSTILE_SITE_KEY` as a plain var (it is public;
    it ships to every visitor). Setting the secret is what switches enforcement on; there is no other
    flag. Setting the site key is what makes a challenge appear: the public intake form is served its
    value by its own public read rather than having it built into the interface, so the two together

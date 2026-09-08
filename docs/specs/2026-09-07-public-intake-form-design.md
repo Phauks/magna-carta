@@ -50,8 +50,13 @@ with no session at all. What is missing is only how an anonymous caller names th
 **The public URL carries both halves, and nothing global is stored.**
 
 ```
-/intake/{firmId}/{formToken}
+/enquiry/{firmId}/{formToken}
 ```
+
+`/enquiry` rather than `/intake`, decided while building: the staff-side Intake desk already holds `/intake` inside
+the application, and one word cannot address both a member's workspace and a stranger's form. It is also the
+better word for whoever reads it — somebody arriving here is making an enquiry and has no reason to know what the
+firm calls the process at its end.
 
 `firmId` is the firm's own `frm_` handle. `formToken` is a CSPRNG token minted per form, unique within that firm.
 Resolution is: address the firm's database by the id in the path, then read the form by the token in the path.
@@ -283,3 +288,23 @@ forms need an external principal, a grant, and a capability the accepted portal 
 | **P3** | **Does publishing a form require anything of the firm first?** Today it does not: a firm can publish before it has a conflicts posture, an intake procedure or a matter type. That is probably right — the form only collects — but it is worth stating rather than discovering.                                                                                                                                                        |
 
 None of the three blocks the build. Each is recorded in the feature ledger so it is asked rather than assumed.
+
+---
+
+## 9. What the build changed, against this design
+
+Three things moved while this was built, and each is recorded here rather than left for a reader to notice the
+disagreement.
+
+- **The public path is `/enquiry`, not `/intake`** (section 2), because the staff-side Intake desk already holds
+  `/intake` inside the application.
+- **The submission's daily-budget window is UTC**, not the firm's own day. It is an abuse control rather than a
+  report, and a per-firm boundary is a thing a flood can aim at.
+- **The site key reaches the page from the server**, in the public form's own read, rather than being built into
+  the interface. That was not in this design and it is what makes activation a runtime act: setting the secret and
+  the site key on the worker turns verification on with no rebuild and no redeploy of the interface. An absent or
+  empty key renders no challenge at all — never a widget against a key Cloudflare does not know.
+
+And one thing this design named that the build did NOT need: a per-firm uniqueness constraint on the public token
+is a plain `UNIQUE` index, because the token lives in the firm's own database and there is no cross-firm namespace
+to police. The decision that there is no global table is [`an-anonymous-caller-reaches-one-firm-by-the-id-in-its-own-url`](../decisions/pending/an-anonymous-caller-reaches-one-firm-by-the-id-in-its-own-url.md).
