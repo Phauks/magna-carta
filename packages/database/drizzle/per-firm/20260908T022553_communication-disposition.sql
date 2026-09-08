@@ -1,0 +1,2 @@
+ALTER TABLE `communication` ADD `disposition` text;--> statement-breakpoint
+CREATE INDEX `communication_disposition_index` ON `communication` (`disposition`) WHERE "communication"."disposition" IS NOT NULL;

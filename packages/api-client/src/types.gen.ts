@@ -3309,6 +3309,7 @@ export type CommunicationDetail = {
     matterStatus: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    disposition: 'spam' | 'firmBusiness' | 'noAction' | null;
     counterpartyNumber: string;
     counterpartyEntityId: string | null;
     memberUserId: string | null;
@@ -3341,6 +3342,7 @@ export type LogCommunicationRequest = {
     durationSeconds?: number | null;
     body?: string | null;
     summary?: string | null;
+    disposition?: 'spam' | 'firmBusiness' | 'noAction' | null;
 };
 
 export type CommunicationAcknowledged = {
@@ -3349,6 +3351,22 @@ export type CommunicationAcknowledged = {
 
 export type RouteCommunicationRequest = {
     matterId: string;
+};
+
+export type SetCommunicationDispositionRequest = {
+    disposition: 'spam' | 'firmBusiness' | 'noAction';
+};
+
+export type UpdateCommunicationRequest = {
+    channel?: 'voice' | 'sms' | 'mms';
+    direction?: 'inbound' | 'outbound';
+    counterpartyNumber?: string;
+    counterpartyEntityId?: string | null;
+    memberUserId?: string | null;
+    occurredAt?: string;
+    durationSeconds?: number | null;
+    body?: string | null;
+    summary?: string | null;
 };
 
 export type MatterSearchAnswer = {
@@ -19309,7 +19327,7 @@ export type CommunicationsListData = {
     path?: never;
     query?: {
         cursor?: string;
-        scope?: 'all' | 'routed' | 'unrouted';
+        scope?: 'all' | 'routed' | 'unrouted' | 'setAside';
         channel?: 'voice' | 'sms' | 'mms';
         search?: string;
     };
@@ -19517,6 +19535,60 @@ export type CommunicationsGetResponses = {
 
 export type CommunicationsGetResponse = CommunicationsGetResponses[keyof CommunicationsGetResponses];
 
+export type CommunicationsUpdateData = {
+    body: UpdateCommunicationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        communicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/communications/{communicationId}';
+};
+
+export type CommunicationsUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsUpdateError = CommunicationsUpdateErrors[keyof CommunicationsUpdateErrors];
+
+export type CommunicationsUpdateResponses = {
+    /**
+     * Corrected
+     */
+    200: CommunicationAcknowledged;
+};
+
+export type CommunicationsUpdateResponse = CommunicationsUpdateResponses[keyof CommunicationsUpdateResponses];
+
 export type CommunicationsUnrouteFromMatterData = {
     body?: never;
     headers: {
@@ -19624,6 +19696,114 @@ export type CommunicationsRouteToMatterResponses = {
 };
 
 export type CommunicationsRouteToMatterResponse = CommunicationsRouteToMatterResponses[keyof CommunicationsRouteToMatterResponses];
+
+export type CommunicationsClearDispositionData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        communicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/communications/{communicationId}/disposition';
+};
+
+export type CommunicationsClearDispositionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsClearDispositionError = CommunicationsClearDispositionErrors[keyof CommunicationsClearDispositionErrors];
+
+export type CommunicationsClearDispositionResponses = {
+    /**
+     * Back in the queue
+     */
+    200: CommunicationAcknowledged;
+};
+
+export type CommunicationsClearDispositionResponse = CommunicationsClearDispositionResponses[keyof CommunicationsClearDispositionResponses];
+
+export type CommunicationsSetDispositionData = {
+    body: SetCommunicationDispositionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        communicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/communications/{communicationId}/disposition';
+};
+
+export type CommunicationsSetDispositionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsSetDispositionError = CommunicationsSetDispositionErrors[keyof CommunicationsSetDispositionErrors];
+
+export type CommunicationsSetDispositionResponses = {
+    /**
+     * Set aside
+     */
+    200: CommunicationAcknowledged;
+};
+
+export type CommunicationsSetDispositionResponse = CommunicationsSetDispositionResponses[keyof CommunicationsSetDispositionResponses];
 
 export type MatterSearchSearchData = {
     body?: never;

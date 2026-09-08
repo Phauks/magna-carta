@@ -298,10 +298,12 @@ const DESTINATION_LIST = [
     // Calls and texts — the two channels a conversation only exists in if the platform records it.
     // Email is deliberately NOT here: mail already lives in the firm's own mailbox and is FILED onto
     // a matter from there, so a second reader for it would compete with the client a member already
-    // has open. The id stays "communications" because a member's sidebar stars are stored under it.
+    // has open. The id stays "communications" because a member's sidebar stars are stored under it —
+    // the PATH is /messaging, which is what the row has always been called (owner ruling,
+    // 2026-09-08): a URL naming the subsystem rather than the screen is one nobody can guess.
     id: "communications",
     label: "Messaging",
-    href: "/communications",
+    href: "/messaging",
     icon: MessageSquare,
     description: "Calls and texts with clients, logged against their matters.",
     group: "top",

@@ -1,10 +1,12 @@
 import {
   MAX_CALL_DURATION_SECONDS,
+  isCommunicationDisposition,
   MAX_COMMUNICATION_BODY_LENGTH,
   MAX_COMMUNICATION_SUMMARY_LENGTH,
   MAX_COUNTERPARTY_NUMBER_LENGTH,
   isTextChannel,
   type CommunicationChannel,
+  type CommunicationDisposition,
 } from "./types.ts";
 
 // Every refusal this subsystem raises, as a code the route maps to a problem type. Codes — never
@@ -33,7 +35,15 @@ export type CommunicationValidationCode =
   | "communication-unknown-matter"
   | "communication-matter-closed"
   | "communication-already-routed"
-  | "communication-not-routed";
+  | "communication-not-routed"
+  // The anchor is ONE thing. A row is on a matter, or set aside as something that belongs to no
+  // matter, or waiting while nobody has decided — never two of those at once.
+  | "communication-invalid-disposition"
+  | "communication-anchor-conflict"
+  | "communication-not-set-aside"
+  // A carrier's row is what the network reported. A member editing it would turn an observation into
+  // a recollection wearing an observation's badge, which is the one thing `producer` exists against.
+  | "communication-not-editable";
 
 export class CommunicationValidationError extends Error {
   constructor(
@@ -63,7 +73,7 @@ const NUMBER_ALLOWED = /^[+0-9 ()\-.x#*]+$/u;
 export function normalizeCounterpartyNumber(value: string): string {
   const collapsed = value.trim().replaceAll(/\s+/gu, " ");
   if (collapsed.length === 0) {
-    refuse("communication-empty-number", "a call or a message needs the number at the other end");
+    refuse("communication-empty-number", "the number at the other end is missing");
   }
   if (collapsed.length > MAX_COUNTERPARTY_NUMBER_LENGTH) {
     refuse(
@@ -174,6 +184,38 @@ export function normalizeContent(input: CommunicationContentInput): Communicatio
 // accepts it puts a row at the top of every list, above everything real, until the date arrives.
 // A small tolerance rides along so a client clock that is a minute fast is not an error.
 const FUTURE_TOLERANCE_MILLISECONDS = 60_000;
+
+// The set-aside reason as it will be stored, or null for a row that has none.
+//
+// Checked here as well as at the route's own enum, because this vocabulary has no CHECK behind it in
+// SQLite: the column was added to a populated table, and SQLite cannot add a CHECK to one without
+// the destructive rebuild the expand-contract rule forbids. So this function is the constraint, and
+// every write path goes through it.
+export function normalizeDisposition(
+  value: string | null | undefined,
+): CommunicationDisposition | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  if (!isCommunicationDisposition(trimmed)) {
+    refuse("communication-invalid-disposition", "that is not a reason a call can be set aside");
+  }
+  return trimmed;
+}
+
+// A row has ONE anchor. "This is spam AND it is on the Whitfield matter" is not a fact anybody can
+// act on, and a row carrying both would make every read decide which of the two to believe.
+export function assertOneAnchor(
+  matterId: string | null,
+  disposition: CommunicationDisposition | null,
+): void {
+  if (matterId !== null && disposition !== null) {
+    refuse(
+      "communication-anchor-conflict",
+      "a call is either on a matter or set aside, never both",
+    );
+  }
+}
 
 export function normalizeOccurredAt(value: string, now: string): string {
   const occurred = Date.parse(value);

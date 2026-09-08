@@ -1,6 +1,7 @@
 import { migrationsFromJournal, type Migration } from "@magna-carta/database/migration";
 import perFirmJournal from "@magna-carta/database/drizzle/per-firm/meta/_journal.json";
 import baselineSql from "@magna-carta/database/drizzle/per-firm/20260908T000000_baseline.sql";
+import communicationDispositionSql from "@magna-carta/database/drizzle/per-firm/20260908T022553_communication-disposition.sql";
 
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
 // add the new import alongside its journal entry, keyed by its monotonic timestamp id. The test
@@ -8,6 +9,7 @@ import baselineSql from "@magna-carta/database/drizzle/per-firm/20260908T000000_
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
     "20260908T000000_baseline": baselineSql,
+    "20260908T022553_communication-disposition": communicationDispositionSql,
   });
 }
 

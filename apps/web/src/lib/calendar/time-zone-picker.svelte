@@ -98,12 +98,16 @@
     {#each matching as option (option.value)}
       <Combobox.Item value={option.value} label={option.label} />
     {/each}
+    <!-- The heading sits inside a group: a bare one has no identity to label and throws when the
+         listbox opens, which is invisible until somebody clicks the field. -->
     {#if matching.length === 0}
-      <Combobox.GroupHeading>
-        {options.length === 0
-          ? "This browser cannot list its time zones."
-          : `No time zone matches "${query.trim()}".`}
-      </Combobox.GroupHeading>
+      <Combobox.Group>
+        <Combobox.GroupHeading>
+          {options.length === 0
+            ? "This browser cannot list its time zones."
+            : `No time zone matches "${query.trim()}".`}
+        </Combobox.GroupHeading>
+      </Combobox.Group>
     {/if}
   </Combobox.Content>
 </Combobox.Root>

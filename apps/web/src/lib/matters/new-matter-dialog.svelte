@@ -111,6 +111,7 @@
   let {
     open = $bindable(false),
     purpose = "matter",
+    prefill = null,
     session,
     matterTypes,
     locations,
@@ -121,6 +122,15 @@
     open?: boolean;
     /** What the window is for: a matter in any creatable status, or an intake (always consultation). */
     purpose?: "matter" | "intake";
+    /**
+     * What is already known about the work, from wherever the window was opened.
+     *
+     * The case it exists for: a receptionist takes a call, records it, and starts an intake from the
+     * record they are looking at. The caller is already a Directory record by then, and asking them
+     * to find that person again in this window is how a first contact stops being recorded at all.
+     * Both fields stay editable — a prefill is an answer offered, never one imposed.
+     */
+    prefill?: { client?: PickableEntity | null; title?: string } | null;
     /** Who is asking. The responsible attorney defaults to them, and can be changed. */
     session: SessionBootstrap;
     matterTypes: readonly MatterTypeSummary[];
@@ -328,9 +338,9 @@
   // Seeded at every opening rather than at construction, so a window reopened after a create starts
   // from the same place a first one does.
   function reset(): void {
-    title = "";
+    title = prefill?.title ?? "";
     startingStatus = purpose === "intake" ? "intake" : "open";
-    client = null;
+    client = prefill?.client ?? null;
     checkOutcome = null;
     checkFailure = null;
     matterTypeId = null;
