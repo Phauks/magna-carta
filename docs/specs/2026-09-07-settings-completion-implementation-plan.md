@@ -172,6 +172,13 @@ changes when authentication ships is therefore settled in advance:
   admissions, which is what a signature block needs;
 - the invitation collects them too, since that is where a member's name is first written.
 
+Prefix and suffix are also no longer free text boxes. They are one control — the product's own
+combobox with its add row — over a suggestion list in `packages/directory/src/honorifics.ts`, used by
+the Directory's person forms and this surface alike. The lists constrain nothing: the stored columns
+are free text and stay free text, because a closed list would refuse a person their own name. What
+they prevent is the drift a name record cannot afford, where "Jr", "Jr.", "JR" and "junior" are one
+suffix spelled four ways that read as four on a letter.
+
 The security half of the account surface — password, two-factor, sessions — is unchanged and stays
 seams. It is worth recording what is missing from it beyond wiring, so the design is not discovered
 late: recovery codes and their regeneration, a "sign out everywhere" act distinct from ending one

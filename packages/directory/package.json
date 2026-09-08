@@ -11,6 +11,7 @@
     "./match-key": "./src/match-key.ts",
     "./name-index-backfill": "./src/name-index-backfill.ts",
     "./nickname": "./src/nickname.ts",
+    "./honorifics": "./src/honorifics.ts",
     "./person": "./src/person.ts",
     "./person-record": "./src/person-record.ts",
     "./pronouns": "./src/pronouns.ts",

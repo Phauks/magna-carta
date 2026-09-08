@@ -12,6 +12,7 @@
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import HonorificField from "$lib/names/honorific-field.svelte";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { DirectoryNameRole } from "../directory-api.ts";
@@ -66,7 +67,7 @@
   <div class="grid gap-12" style="grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 4.5rem">
     <LabelledField label="Prefix">
       {#snippet children({ props })}
-        <Input {...props} bind:value={name.prefix} {disabled} placeholder={placeholderOf("Prefix")} />
+        <HonorificField part="prefix" bind:value={name.prefix} {disabled} inputProps={props} />
       {/snippet}
     </LabelledField>
     <LabelledField label="Given">
@@ -86,7 +87,7 @@
     </LabelledField>
     <LabelledField label="Suffix">
       {#snippet children({ props })}
-        <Input {...props} bind:value={name.suffix} {disabled} placeholder={placeholderOf("Suffix")} />
+        <HonorificField part="suffix" bind:value={name.suffix} {disabled} inputProps={props} />
       {/snippet}
     </LabelledField>
   </div>

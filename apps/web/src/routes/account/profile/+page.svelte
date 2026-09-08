@@ -30,6 +30,7 @@
   import AccountMasthead from "$lib/account/components/account-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
+  import HonorificField from "$lib/names/honorific-field.svelte";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
 
   // Page-local seam definitions: rendering through SettingsRow keeps the shared table grid. The
@@ -50,6 +51,9 @@
   // The five parts, in the order a name is read. Prefix and suffix are optional in practice and
   // still their own rows: a suffix is part of a person's legal name and belongs on a pleading, and
   // folding either into an adjacent box is how they end up inside a surname.
+  //
+  // Those two take the honorific control rather than a box, the same one the Directory's person
+  // forms take, so the seam shows the shape that is coming rather than a shape it will not have.
   const PREFIX_DEFINITION = nameField(
     "prefix",
     "Prefix",
@@ -102,13 +106,16 @@
     sensitivity: "open",
   };
 
-  const NAME_PARTS: readonly SettingDefinition[] = [
-    PREFIX_DEFINITION,
+  const TYPED_NAME_PARTS: readonly SettingDefinition[] = [
     FIRST_NAME_DEFINITION,
     MIDDLE_NAME_DEFINITION,
     LAST_NAME_DEFINITION,
-    SUFFIX_DEFINITION,
   ];
+
+  // Nothing is stored yet, so the honorific controls have nowhere to write; the bindings are local
+  // and inert, which is what the disabled state and the Soon badge already say.
+  let prefix = $state("");
+  let suffix = $state("");
 </script>
 
 <svelte:head>
@@ -120,7 +127,14 @@
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
     <SettingsPlate heading="Name">
-      {#each NAME_PARTS as definition (definition.id)}
+      <SettingsRow definition={PREFIX_DEFINITION}>
+        {#snippet control()}
+          <Badge variant="neutral">Soon</Badge>
+          <HonorificField part="prefix" bind:value={prefix} disabled />
+        {/snippet}
+      </SettingsRow>
+
+      {#each TYPED_NAME_PARTS as definition (definition.id)}
         <SettingsRow {definition}>
           {#snippet control()}
             <Badge variant="neutral">Soon</Badge>
@@ -132,6 +146,13 @@
           {/snippet}
         </SettingsRow>
       {/each}
+
+      <SettingsRow definition={SUFFIX_DEFINITION}>
+        {#snippet control()}
+          <Badge variant="neutral">Soon</Badge>
+          <HonorificField part="suffix" bind:value={suffix} disabled />
+        {/snippet}
+      </SettingsRow>
 
       <SettingsRow definition={DISPLAY_NAME_DEFINITION}>
         {#snippet control()}
