@@ -27,8 +27,8 @@
   import type { AddressParts } from "@magna-carta/design-system/address-fields";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import Label from "@magna-carta/design-system/label";
-  import * as Select from "@magna-carta/design-system/select";
+  import LabelledField from "@magna-carta/design-system/labelled-field";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
   import Ban from "@lucide/svelte/icons/ban";
   import Check from "@lucide/svelte/icons/check";
   import MapPin from "@lucide/svelte/icons/map-pin";
@@ -74,9 +74,9 @@
     onPermitted?: (row: ContactRow, permitted: boolean) => void;
   } = $props();
 
-  const identity = $props.id();
-  const useLabelId = `${identity}-use`;
-  const typeLabelId = `${identity}-type`;
+  // The two closed choices this section asks, as the product's one typed picker takes them.
+  const useOptions = ADDRESS_USES.map((entry) => ({ value: entry.value, label: entry.label }));
+  const typeOptions = ADDRESS_TYPES.map((entry) => ({ value: entry.value, label: entry.label }));
 
   // The country list is the phone field's, which is every country the number formatter knows —
   // one list, so a record's address and its number never offer different sets of countries.
@@ -264,39 +264,35 @@
          than left to a default because personal service turns on it: a post office box cannot be
          served, and an affidavit that says otherwise is a problem. -->
     <div class="flex flex-wrap items-end gap-8">
-      <div class="flex flex-col gap-8" style="width: 10rem">
-        <Label id={useLabelId}>Use</Label>
-        <Select.Root
-          type="single"
-          items={[...ADDRESS_USES]}
-          bind:value={() => draft.use, (chosen) => (draft = { ...draft, use: chosen as DirectoryAddressUse })}
-          allowDeselect={false}
-          disabled={!canEdit}
-        >
-          <Select.Trigger aria-labelledby={useLabelId}><Select.Value /></Select.Trigger>
-          <Select.Content>
-            {#each ADDRESS_USES as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
+      <div style="width: 10rem">
+        <LabelledField label="Use">
+          {#snippet children({ props })}
+            <ChoicePicker
+              options={useOptions}
+              inputId={props.id}
+              label="Use"
+              disabled={!canEdit}
+              bind:value={
+                () => draft.use, (chosen) => (draft = { ...draft, use: chosen as DirectoryAddressUse })
+              }
+            />
+          {/snippet}
+        </LabelledField>
       </div>
-      <div class="flex flex-col gap-8" style="width: 11rem">
-        <Label id={typeLabelId}>Type</Label>
-        <Select.Root
-          type="single"
-          items={[...ADDRESS_TYPES]}
-          bind:value={() => draft.type, (chosen) => (draft = { ...draft, type: chosen as DirectoryAddressType })}
-          allowDeselect={false}
-          disabled={!canEdit}
-        >
-          <Select.Trigger aria-labelledby={typeLabelId}><Select.Value /></Select.Trigger>
-          <Select.Content>
-            {#each ADDRESS_TYPES as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
+      <div style="width: 12rem">
+        <LabelledField label="Type">
+          {#snippet children({ props })}
+            <ChoicePicker
+              options={typeOptions}
+              inputId={props.id}
+              label="Type"
+              disabled={!canEdit}
+              bind:value={
+                () => draft.type, (chosen) => (draft = { ...draft, type: chosen as DirectoryAddressType })
+              }
+            />
+          {/snippet}
+        </LabelledField>
       </div>
       {#if correcting !== null}
         <Button

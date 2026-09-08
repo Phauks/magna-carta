@@ -7,7 +7,9 @@
    * the kind first — Email, Telephone, Fax — and the kind decides the fields; each kind checks its
    * own shape before the plus is live, by the rule the API applies (contact-draft.ts). A number is
    * entered in the product's one number field (../phone-number-field.svelte), the same one the call
-   * log uses, so the country and the digits are one control everywhere.
+   * log uses, so the country and the digits are one control everywhere; the kind and the use are the
+   * product's one typed picker ($lib/components/choice-picker.svelte), because every closed choice
+   * takes typing.
    *
    * A POSTAL ADDRESS IS NOT ONE OF THESE, and it used to be. An address is not a field, it is a form
    * of six to nine boxes whose shape is the country's; standing it under the same kind dropdown as a
@@ -31,10 +33,9 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
-  import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
-  import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
   import Ban from "@lucide/svelte/icons/ban";
   import Check from "@lucide/svelte/icons/check";
   import Mail from "@lucide/svelte/icons/mail";
@@ -97,9 +98,6 @@
     onPermitted?: (row: ContactRow, permitted: boolean) => void;
   } = $props();
 
-  const identity = $props.id();
-  const kindLabelId = `${identity}-kind`;
-  const useLabelId = `${identity}-use`;
 
   let draft = $state<ContactDraft>(emptyContactDraft("email"));
   /** The recorded row being corrected, or null while the entry row is adding a new one. */
@@ -269,24 +267,21 @@
     <!-- The entry row: the last line of the same list, under the same rule. The kind first; the
          fields it decides; the commit live once the value fits. -->
     <li class="flex flex-wrap items-end gap-8 py-8">
-      <div class="flex flex-col gap-8" style="width: 8rem">
-        <Label id={kindLabelId}>Kind</Label>
-        <Select.Root
-          type="single"
-          items={kindItems}
-          bind:value={() => draft.kind, (chosen) => startDraft(chosen as ContactKind)}
-          allowDeselect={false}
-          disabled={!canEdit || correcting !== null}
-        >
-          <Select.Trigger aria-labelledby={kindLabelId}>
-            <Select.Value />
-          </Select.Trigger>
-          <Select.Content>
-            {#each kindItems as item (item.value)}
-              <Select.Item value={item.value} label={item.label} />
-            {/each}
-          </Select.Content>
-        </Select.Root>
+      <div style="width: 8rem">
+        <LabelledField label="Kind">
+          {#snippet children({ props })}
+            <ChoicePicker
+              options={kindItems}
+              inputId={props.id}
+              label="Kind"
+              disabled={!canEdit || correcting !== null}
+              title={correcting === null
+                ? undefined
+                : "A correction changes the value, not what kind of thing it is."}
+              bind:value={() => draft.kind, (chosen) => startDraft(chosen as ContactKind)}
+            />
+          {/snippet}
+        </LabelledField>
       </div>
 
       {#if draft.kind === "email"}
@@ -337,24 +332,20 @@
 
       {#if draft.kind !== "address"}
         {@const chosenUse = draft.use}
-        <div class="flex flex-col gap-8" style="width: 7.5rem">
-          <Label id={useLabelId}>Use</Label>
-          <Select.Root
-            type="single"
-            items={useItems}
-            bind:value={() => chosenUse, (chosen) => patch({ use: chosen as DirectoryContactUse })}
-            allowDeselect={false}
-            disabled={!canEdit}
-          >
-            <Select.Trigger aria-labelledby={useLabelId}>
-              <Select.Value />
-            </Select.Trigger>
-            <Select.Content>
-              {#each useItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
+        <div style="width: 8rem">
+          <LabelledField label="Use">
+            {#snippet children({ props })}
+              <ChoicePicker
+                options={useItems}
+                inputId={props.id}
+                label="Use"
+                disabled={!canEdit}
+                bind:value={
+                  () => chosenUse, (chosen) => patch({ use: chosen as DirectoryContactUse })
+                }
+              />
+            {/snippet}
+          </LabelledField>
         </div>
         {#if correcting !== null}
           <Button

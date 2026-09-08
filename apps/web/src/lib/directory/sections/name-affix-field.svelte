@@ -16,6 +16,11 @@
    * control as their own rows, each removable, and the control adds another; the prefix takes one,
    * because which courtesy title a letter uses is a fact about the letter rather than the record.
    *
+   * NOT `$lib/components/choice-picker.svelte`, and the difference is the whole reason this exists.
+   * That field is for a CLOSED set — a set the firm did not write and cannot add to — and says so;
+   * these two are open by design, so they take the Combobox with `AddOption` at the end of the list.
+   * Both are the same primitive and the same gesture; only the add row separates them.
+   *
    * The data-safe combobox pattern is the design system's documented one: the consumer owns the
    * input text, the typed query drives the filter, a pick writes the chosen value back, and closing
    * the listbox settles the text on what is actually held — so typed-but-unchosen text is never

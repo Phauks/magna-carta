@@ -21,13 +21,19 @@
    * still the address it holds; whether half of one is enough for whatever the caller is doing is
    * the caller's rule to state, beside its own commit.
    *
+   * THE COUNTRY FIELD IS TYPED INTO, NOT SCROLLED THROUGH. Two hundred countries in a select is a
+   * list nobody can use, and the standing rule is that every closed choice takes typing whatever its
+   * length (docs/conventions/design-corrections.md, "Every closed choice is a combobox, never a
+   * select"). It follows this package's own documented data-safe pattern: the query drives the
+   * filter, a pick writes the value back, and closing the listbox settles the text on the country
+   * actually held — so typed-but-unchosen text is never mistaken for one.
+   *
    * DOMAIN-BLIND, like every component here. It takes the parts, the country and the list of
    * countries to offer, and hands back the parts. It knows nothing about who an address belongs to.
    */
+  import * as Combobox from "../combobox/index.ts";
   import Input from "../input/index.ts";
-  import Label from "../label/index.ts";
   import LabelledField from "../labelled-field/index.ts";
-  import * as Select from "../select/index.ts";
   import { placeholderOf } from "../../formatters/placeholder.ts";
   import { addressFormatFor, type AddressFieldKey } from "./address-format.ts";
   import type { AddressCountry, AddressParts } from "./types.ts";
@@ -47,10 +53,29 @@
     error?: string;
   } = $props();
 
-  const identity = $props.id();
-  const countryLabelId = `${identity}-country`;
-
   const format = $derived(addressFormatFor(value.country));
+
+  /** What has been typed into the country field, and whether it is being searched at all. */
+  let countryQuery = $state("");
+  let searchingCountry = $state(false);
+  const chosenCountry = $derived(
+    countries.find((country) => country.code === value.country)?.name ?? "",
+  );
+  const matchingCountries = $derived.by(() => {
+    const needle = searchingCountry ? countryQuery.trim().toLowerCase() : "";
+    if (needle === "") return countries;
+    // A person types the name or the code, because those are the two things they have in their head.
+    return countries.filter(
+      (country) =>
+        country.name.toLowerCase().includes(needle) || country.code.toLowerCase().includes(needle),
+    );
+  });
+
+  /** Back to reading the country the address is in, rather than searching for another. */
+  function settleCountry(): void {
+    searchingCountry = false;
+    countryQuery = "";
+  }
   const shown = $derived(new Set(format.lines.flat().map((field) => field.key)));
 
   /**
@@ -81,27 +106,63 @@
 </script>
 
 <div class="flex flex-col gap-12">
-  <div class="flex flex-col gap-8">
-    <Label id={countryLabelId}>Country</Label>
-    <Select.Root
-      type="single"
-      items={countries.map((country) => ({ value: country.code, label: country.name }))}
-      bind:value={
-        () => value.country ?? "", (chosen) => (value = { ...value, country: chosen })
-      }
-      allowDeselect={false}
-      {disabled}
-    >
-      <Select.Trigger aria-labelledby={countryLabelId}>
-        <Select.Value />
-      </Select.Trigger>
-      <Select.Content>
-        {#each countries as country (country.code)}
-          <Select.Item value={country.code} label={country.name} />
-        {/each}
-      </Select.Content>
-    </Select.Root>
-  </div>
+  <LabelledField label="Country">
+    {#snippet children({ props })}
+      <Combobox.Root
+        type="single"
+        {disabled}
+        allowDeselect={false}
+        items={matchingCountries.map((country) => ({
+          value: country.code,
+          label: country.name,
+        }))}
+        value={value.country ?? ""}
+        inputValue={searchingCountry ? countryQuery : chosenCountry}
+        onValueChange={(picked) => {
+          const chosen = Array.isArray(picked) ? (picked[0] ?? "") : picked;
+          settleCountry();
+          // A country is never taken back off: an address always sits in one, and the form beneath
+          // this field is a function of it, so a deselect settles back on what is held.
+          if (chosen !== "") value = { ...value, country: chosen };
+        }}
+        onOpenChange={(open) => {
+          if (!open) settleCountry();
+        }}
+      >
+        <Combobox.Input
+          {...props}
+          fieldName="Country"
+          autocomplete="off"
+          spellcheck={false}
+          onfocus={() => {
+            // Arriving in the field is asking to choose again, so the whole world is on offer
+            // rather than the one country whose name happens to be sitting in it.
+            searchingCountry = true;
+            countryQuery = "";
+          }}
+          onblur={settleCountry}
+          oninput={(event) => {
+            searchingCountry = true;
+            countryQuery = event.currentTarget.value;
+          }}
+        />
+        <Combobox.Content>
+          {#each matchingCountries as country (country.code)}
+            <Combobox.Item value={country.code} label={country.name} />
+          {/each}
+          {#if matchingCountries.length === 0}
+            <!-- The heading needs a group: a bare one has no identity to label and throws when the
+                 listbox opens, which nothing but narrowing a list to nothing would show. -->
+            <Combobox.Group>
+              <Combobox.GroupHeading>
+                Nothing matches "{countryQuery.trim()}".
+              </Combobox.GroupHeading>
+            </Combobox.Group>
+          {/if}
+        </Combobox.Content>
+      </Combobox.Root>
+    {/snippet}
+  </LabelledField>
 
   {#each format.lines as line, index (index)}
     <div class="grid gap-8" style="grid-template-columns: {templateFor(line.map((field) => field.span ?? 1))}">

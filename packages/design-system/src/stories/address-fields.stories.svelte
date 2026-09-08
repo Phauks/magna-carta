@@ -151,7 +151,10 @@
     await step("The stranded value is stated rather than silently dropped", async () => {
       expect(canvas.getByLabelText("District or Neighbourhood")).toHaveValue("Copacabana");
 
+      // The country field is a combobox, so it is typed into rather than scrolled through — the
+      // standing rule for every closed choice, and the only usable shape for two hundred countries.
       await userEvent.click(canvas.getByLabelText("Country"));
+      await userEvent.type(canvas.getByLabelText("Country"), "United Sta");
       await userEvent.click(await body.findByRole("option", { name: "United States" }));
       // The panel scale-fades out, and the exiting node is still in the tree while it does; the
       // per-story axe check runs after this play, so the settle is waited for rather than raced.

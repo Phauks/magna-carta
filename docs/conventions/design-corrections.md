@@ -1009,6 +1009,11 @@ Local to this surface, and not promoted:
 - The name parts start hidden and the assembled name leads, because the assembled name is what a
   book of names is read by; the parts exist so it can be SORTED by surname, which the assembled name
   cannot do.
+- The address form's country field, and the address section's Use and Type, are comboboxes rather
+  than selects — the ruling from the call-log round the same day, applied to the code this round
+  wrote. The country field is the case that ruling names: two hundred rows in a select is a list
+  nobody can use. The prefix and suffix fields are NOT that control: `ChoicePicker` is for a set the
+  firm cannot add to, and these two are open by design, so they are the Combobox with the add row.
 
 ### 2026-09-08 — Record Communication: two columns, typed choices, and a number that can be shortened
 
