@@ -141,9 +141,11 @@
 
 - id: settings.area-ui.notifications-category
   name: Notification preferences category
-  scope: Per-user type/category-by-channel routing matrix with locked mandatory categories.
-  status: not-started
-  evidence: No notifications settings surface, and the page is the only thing missing. The notification type registry is shipped (packages/notifications/src/registry.ts), and so is everything this page would render — GET and PATCH /api/v1/notifications/preferences resolve the per-category matrix, report which in-app switches are locked and by whom, and hold the firm floor's two asymmetries: a firm may raise the in-app floor for a category and may never raise a member's email cadence. The firm band of the same page is GET and PATCH /api/v1/firm/notifications/policy under firm:manageNotificationPolicy — the floor itself, plus the retention window and the digest hour.
+  scope: Per-user type/category-by-channel routing matrix with locked mandatory categories, and the firm's own tier beside it.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/routes/(app)/settings/notifications/ over GET and PATCH /api/v1/notifications/preferences (the member's matrix, instant, notifications:read), and apps/web/src/routes/(app)/settings/notification-policy/ over GET and PATCH /api/v1/firm/notifications/policy (the firm's category tiers, the retention window and the digest hour, instant, firm:manageNotificationPolicy). Both are tables rather than the settings row anatomy: one subject with two independent answers per category.
+  notes: Neither page composes the two tiers — resolveCategoryPreference in @magna-carta/notifications stays the one place that happens, and the member rows arrive resolved with inAppLockedBy saying whether a switch may be moved and who decided. The member page renders the server's suppression tallies beside the switch that caused them, so a silenced category says what it has held back. The wire vocabulary is mirrored by hand in apps/web/src/lib/notifications/category-vocabulary.ts and checked against the emitted contract by apps/web/test/notification-category-vocabulary.test.ts; the web app deliberately does not depend on @magna-carta/notifications, whose closure would reshape the gate's computed lint scope.
 
 - id: settings.area-ui.documents-templates-category
   name: Documents & templates category

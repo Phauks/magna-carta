@@ -30,9 +30,9 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 298 | 45% |
+| Done | shipped | 299 | 45% |
 | Part-built | partial, in-build | 120 | 18% |
-| Ahead | designed, planned, researching, not-started | 203 | 31% |
+| Ahead | designed, planned, researching, not-started | 202 | 31% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **662** | **100%** |
 
@@ -40,13 +40,13 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 298 | 45% |
+| `shipped` | 299 | 45% |
 | `partial` | 119 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 137 | 21% |
+| `not-started` | 136 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
 | **All statuses** | **662** | **100%** |
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 298 of 662 (45%). Shipped plus partial is 417 (63%).**
+**Shipped alone is 299 of 662 (45%). Shipped plus partial is 418 (63%).**
 
 The 119 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**418 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**419 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 70 | 17% |
+| A person can open it today (`screen`) | 71 | 17% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 169 | 40% |
 | No user surface by nature (`internal`) | 179 | 43% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **418** | **100%** |
+| **Everything with something built** | **419** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -123,10 +123,10 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
 | Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
-| Settings & Configuration | 9 | 4 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 17 | 53% |
+| Settings & Configuration | 10 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 17 | 59% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **298** | **119** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **662** | **45%** |
+| **All areas** | **299** | **119** | **1** | **46** | **15** | **5** | **136** | **38** | **3** | **662** | **45%** |
 
 ## Where we have been
 
@@ -1355,7 +1355,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Settings & Configuration
 
-[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 17 units of work, 53% shipped. 9 done, 4 part-built, 4 ahead, 0 parked.
+[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 17 units of work, 59% shipped. 10 done, 4 part-built, 3 ahead, 0 parked.
 
 - `settings` · `partial` · **Settings & configuration framework** — Declarative settings registry, scope-chain resolution, role-gated access enforced in the data-access layer, storage placement per tenancy, and the registry-driven Settings area.
   - `settings.registry` · `partial` · **Declarative settings registry** — Each setting declared once (key, type, scope, default, access, validation, audited/effective-dated flags).
@@ -1376,7 +1376,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `settings.area-ui.platform-band` · `partial` · **Platform band (Beta Access, Versions, Developer)** — Firm release-channel stance, versioned-component ledger, developer master switch and console.
     - `settings.area-ui.integrations-category` · `not-started` · **Integrations settings category** — Plugin credential management UI per firm.
     - `settings.area-ui.diagnostics-category` · `not-started` · **Diagnostics settings category** — UI for the diagnostics consent/level setting.
-    - `settings.area-ui.notifications-category` · `not-started` · **Notification preferences category** — Per-user type/category-by-channel routing matrix with locked mandatory categories.
+    - `settings.area-ui.notifications-category` · `shipped` · **Notification preferences category** — Per-user type/category-by-channel routing matrix with locked mandatory categories, and the firm's own tier beside it. _Note: Neither page composes the two tiers — resolveCategoryPreference in @magna-carta/notifications stays the one place that happens, and the member rows arrive resolved with inAppLockedBy saying whether a switch may be moved and who decided. The member page renders the server's suppression tallies beside the switch that caused them, so a silenced category says what it has held back. The wire vocabulary is mirrored by hand in apps/web/src/lib/notifications/category-vocabulary.ts and checked against the emitted contract by apps/web/test/notification-category-vocabulary.test.ts; the web app deliberately does not depend on @magna-carta/notifications, whose closure would reshape the gate's computed lint scope._
     - `settings.area-ui.documents-templates-category` · `not-started` · **Documents & templates category** — Settings surface for document types and templates.
 
 ### Tasks and Workflows / Matter Plans

@@ -207,6 +207,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     editPermissionArea: "firm",
     shipped: true,
   },
+  // Notifications
+  {
+    // What THIS member hears, category by category. A matrix rather than a page of rows: one
+    // subject with two independent answers (a feed row, and a line in a summary mail), and the
+    // server resolves how the member's tier and the firm's compose before the page renders either.
+    // Instant, and its own scope: a Save button between a person and their own mail settings is
+    // ceremony over their own business.
+    id: "notifications",
+    label: "Notifications",
+    href: "/settings/notifications",
+    group: "notifications",
+    scope: "user",
+    commitMode: defaultCommitModeForScope("user"),
+    shipped: true,
+  },
   // Firm
   {
     // The firm administering its members ("us"). A member's OWN identity and credentials live
@@ -314,6 +329,26 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "instant",
     editPermissionArea: "calendar",
+    shipped: true,
+  },
+  {
+    // The firm's side of what the platform tells people: which categories reach everybody whatever
+    // they choose, how long a member's feed keeps what it was told, and when the summary mail
+    // lands. Its member-facing twin is the Notifications section under My Settings, and the two
+    // are separate surfaces because one binds the person reading it and the other binds everybody
+    // else — the permissions differ for the same reason (firm:manageNotificationPolicy here,
+    // notifications:read there).
+    //
+    // Instant rather than draft, the departure Users makes and for the same reason: it is a matrix
+    // of twelve rows plus two scalars, every one of them independently meaningful and separately
+    // audited, and staging twenty-six of them behind one Save would make the pending count
+    // meaningless and its recap unreadable.
+    id: "notification-policy",
+    label: "Notification Policy",
+    href: "/settings/notification-policy",
+    group: "practice",
+    scope: "firm",
+    commitMode: "instant",
     shipped: true,
   },
   {
