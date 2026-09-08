@@ -50,7 +50,9 @@ async function listAll(
 
 async function log(
   database: ReturnType<typeof fresh>,
-  input: ReturnType<typeof callInput>,
+  // Both channels, because the service takes both and half these cases log a text. Inferring the
+  // parameter from `callInput` alone typed this helper voice-only.
+  input: ReturnType<typeof callInput> | ReturnType<typeof textInput>,
   serviceOptions = options,
 ): Promise<CommunicationId> {
   const { communicationId, effect } = await logCommunication(

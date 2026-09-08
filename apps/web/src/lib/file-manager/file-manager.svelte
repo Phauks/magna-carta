@@ -95,6 +95,8 @@
     archivePathSegments,
     type ArchiveRow,
   } from "./archive-browse.ts";
+  import { looksLikeBrowsableArchive } from "./archive-names.ts";
+  import { extractionSentence, runExtraction } from "./archive-extraction.ts";
   import { uploadIntoFolder } from "./file-upload.ts";
   import { matterUploadRevision, startUploadBatch } from "./upload-queue.svelte.ts";
   import {
@@ -470,9 +472,12 @@
       manager.openFolder(row.folder.id);
       return;
     }
-    // A zip with bytes opens INTO itself: what somebody wants from an archive is what is in it,
-    // and the central directory answers that without extracting anything.
-    if (isZip(row.file.name, row.file.sniffedContentType) && row.file.currentVersionId !== null) {
+    // An archive with bytes opens INTO itself: what somebody wants from one is what is in it, and
+    // every format this reads answers that from its header alone, without unpacking anything.
+    if (
+      looksLikeBrowsableArchive(row.file.name, row.file.sniffedContentType) &&
+      row.file.currentVersionId !== null
+    ) {
       enterArchive({
         fileId: row.file.id,
         fileName: row.file.name,
@@ -1352,10 +1357,10 @@
     rows: () => (manager.view === "deleted" ? [...deletedFiles] : []),
     rowKey: (row) => row.id,
     itemNoun: { singular: "deleted file", plural: "deleted files" },
-    // A deleted zip still browses — reading its directory restores nothing — so opening one looks
+    // A deleted archive still browses — reading its header restores nothing — so opening one looks
     // inside it; everything else opens the restore question, which is the only act it has.
     onActivate: (row) =>
-      isZip(row.name, row.sniffedContentType) && row.currentVersionId !== null
+      looksLikeBrowsableArchive(row.name, row.sniffedContentType) && row.currentVersionId !== null
         ? enterArchive({ fileId: row.id, fileName: row.name, deleted: true, unscanned: false })
         : beginRestore(row),
   });
@@ -1420,11 +1425,6 @@
   let archiveLoading = $state(false);
   let archiveFailure = $state<string | null>(null);
 
-  /** What the row's own facts say: sniffed as a zip, or named one when nothing was sniffed. */
-  function isZip(name: string, sniffedContentType: string | null): boolean {
-    return sniffedContentType === "application/zip" || name.toLowerCase().endsWith(".zip");
-  }
-
   function enterArchive(target: ArchiveBrowseState): void {
     archiveBrowse = target;
     archivePath = "";
@@ -1463,6 +1463,58 @@
     void manager.place;
     leaveArchive();
   });
+
+  /*
+   * Taking members out of the archive and onto the matter.
+   *
+   * The destination is the folder the archive itself sits in, which is the ruling's default for a
+   * live archive: a member comes out beside the container it came from. What comes out is a
+   * decision the reader already made — the members they selected, or every file in the archive
+   * when they asked for the whole thing from the archive bar.
+   *
+   * Every extracted member re-enters through the scan gate, so this is not a way around the checks
+   * and the files appear as the gate settles them. The list is re-read either way, so what the
+   * reader sees afterwards is what actually landed rather than what was asked for.
+   */
+  let extracting = $state(false);
+
+  async function extract(paths: readonly string[]): Promise<void> {
+    const archive = archiveBrowse;
+    if (archive === null || extracting) return;
+    if (paths.length === 0) {
+      actionFailure = "Select something inside the archive to extract first.";
+      return;
+    }
+    actionFailure = null;
+    extracting = true;
+    const outcome = await runExtraction(fetch, {
+      fileId: archive.fileId,
+      paths,
+      folderId: archiveDestinationFolderId(),
+    });
+    extracting = false;
+    if (outcome.kind === "nothing-asked") return;
+    if (outcome.kind !== "done") {
+      actionFailure = "Nothing could be extracted from the archive.";
+      return;
+    }
+    // Stated whether or not anything was refused: a member that did not come out is the reader's
+    // to know about, and a count alone would not tell them what to do next.
+    actionFailure = extractionSentence(outcome.result);
+    reload();
+  }
+
+  /** Where an extracted member lands: the folder the archive itself sits in. */
+  function archiveDestinationFolderId(): string | null {
+    const archive = archiveBrowse;
+    if (archive === null) return null;
+    return files?.find((file) => file.id === archive.fileId)?.folderId ?? null;
+  }
+
+  /** Every file inside the archive, at any depth. Directories have no bytes and never come out. */
+  function everyArchiveMemberPath(): readonly string[] {
+    return archiveEntriesHeld.filter((entry) => !entry.isDirectory).map((entry) => entry.path);
+  }
 
   const archiveGrid = DataTable.createDataTableGrid<ArchiveRow>({
     columns: () => archiveColumns(),
@@ -2097,10 +2149,28 @@
 {/snippet}
 
 {#snippet archiveActions()}
-  <Button variant="secondary" size="sm" disabled title={waitingReason("archive-extract")}>
-    Extract Into This Matter
-    <Badge variant="neutral">Soon</Badge>
-  </Button>
+  {#if archiveGrid.selectedKeys.length > 0}
+    <Button
+      variant="secondary"
+      size="sm"
+      disabled={extracting}
+      onclick={() => void extract(archiveGrid.selectedKeys)}
+    >
+      {extracting ? "Extracting" : `Extract ${countPhrase(archiveGrid.selectedKeys.length, "Item")}`}
+    </Button>
+  {:else}
+    <Button
+      variant="secondary"
+      size="sm"
+      disabled={extracting || archiveLoading || everyArchiveMemberPath().length === 0}
+      title={everyArchiveMemberPath().length === 0
+        ? "This archive holds no files to extract."
+        : undefined}
+      onclick={() => void extract(everyArchiveMemberPath())}
+    >
+      {extracting ? "Extracting" : "Extract Into This Matter"}
+    </Button>
+  {/if}
   <Button
     variant="ghost"
     size="icon"

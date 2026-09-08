@@ -11,6 +11,9 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 
 ## Key files / entry points
 
+- `report-catalogue.ts` — the registry projected into the shared catalogue vocabulary
+  ([`$lib/catalogue`](../catalogue/CLAUDE.md)), which the `/reports` screen renders through. It is
+  the same framework the Tools screen uses; adding a report never touches it.
 - `report-registry.ts` — every report as data: family, name, the question it answers, its
   `reports:*` permission, its temporal contract, its scope controls, and (for a built report) the
   read and the presenter paired under one payload type by `built()`. A `soon` report has no ports.
@@ -23,7 +26,8 @@ over [`docs/specs/2026-08-13-financial-reporting-design.md`](../../../../../docs
 ## Local conventions
 
 - **Adding a report is one registry entry plus a presenter.** Never a route of its own. The run
-  screen draws the controls the declaration names and nothing else.
+  screen draws the controls the declaration names and nothing else, and the catalogue picks the
+  report up from the registry with no edit of its own.
 - **A presenter computes nothing.** Every figure printed is the payload's; a presenter formats
   and arranges. Its test asserts the printed figures are the payload's and that every entry reaches
   a row. A presenter that sums a column has become a second answer to a ledger question.

@@ -105,7 +105,7 @@ except the refusals the design makes hard.
       `(due_back_on)` partial on open check-outs, `(parent_location_id)` on locations.
 - [ ] The same migration adds the append-only triggers on `custody_movement` — `BEFORE UPDATE`,
       `BEFORE DELETE`, and the `BEFORE INSERT … WHEN EXISTS` replace-guard — copied in shape from
-      `packages/database/drizzle/per-firm/20260709T120000_conflicts.sql`.
+      `packages/database/drizzle/per-firm/20260908T000000_baseline.sql`.
 - [ ] Register the migration in `apps/worker/src/per-firm-migrations.ts`.
 - [ ] Classify `custody_packet` (depositor), `custody_owner` (owner entity), and `custody_movement`
       (borrower entity **and** borrower name — a value-keyed subject key, the frozen-address

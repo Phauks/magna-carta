@@ -157,8 +157,8 @@ export const TOOL_ICONS: Record<string, Component> = {
 // Both lookups are keyed by a plain string (Record<string, T>), so an indexed read types as
 // possibly-undefined under this project's noUncheckedIndexedAccess — even though the
 // completeness test above guarantees every catalog tool resolves both. These two accessors are
-// the one place that guarantee is asserted, so call sites (tool-tile.svelte, tool-row.svelte,
-// the /tools page) read a plain ToolPresentation/Component, never an optional.
+// the one place that guarantee is asserted, so call sites (tool-catalogue.ts, and through it the
+// /tools screen) read a plain ToolPresentation/Component, never an optional.
 
 /** A catalog tool's presentation entry. Throws only if the catalog outran this module's table. */
 export function toolPresentation(tool: ToolManifest): ToolPresentation {
@@ -176,6 +176,42 @@ export function toolIcon(tool: ToolManifest): Component {
     throw new Error(`No icon component for icon "${tool.icon}".`);
   }
   return icon;
+}
+
+/*
+ * Lay search synonyms — words a member is likely to type that a tool's name and one-line
+ * descriptor do not literally contain (a speed test hunted as "bandwidth", a WHOIS lookup as
+ * "registrant"). Search-only, never shown, and deliberately PARTIAL: a tool absent here is still
+ * findable by its name, its descriptor and its subject group, so a newly added catalog tool never
+ * becomes invisible for lacking an entry — this map only widens the net. Keyed by catalog id.
+ *
+ * It lives in the presentation layer because two surfaces search the same tools and must find them
+ * by the same words: the command palette (navigation/tool-destinations.ts) and the Tools catalogue
+ * itself (tool-catalogue.ts). One map, both nets.
+ */
+const TOOL_SEARCH_SYNONYMS: Record<string, readonly string[]> = {
+  "network-speed-test": ["bandwidth", "throughput", "ping", "latency", "internet", "connection"],
+  "whois-lookup": ["registrant", "registration", "dns", "nameserver", "domain owner"],
+  "safe-website-viewer": [
+    "phishing",
+    "suspicious link",
+    "screenshot",
+    "redirect",
+    "url preview",
+    "sandbox",
+  ],
+};
+
+/**
+ * The extra words a tool is findable by, beyond what a surface already shows: the contexts it runs
+ * in, and its lay synonyms. A caller adds whatever it displays — the name, the descriptor, the
+ * group heading — rather than receiving them twice.
+ */
+export function toolSearchKeywords(tool: ToolManifest): readonly string[] {
+  return [
+    ...tool.contextTags.filter((tag) => tag !== "none"),
+    ...(TOOL_SEARCH_SYNONYMS[tool.id] ?? []),
+  ];
 }
 
 // The page's data: permitted tools grouped by subject in the catalog's fixed order, empty

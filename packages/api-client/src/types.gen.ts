@@ -47,6 +47,7 @@ export type MeResponse = {
         [key: string]: boolean;
     };
     joining?: JoiningState;
+    membership?: Membership;
 };
 
 export type JoiningState = {
@@ -54,6 +55,40 @@ export type JoiningState = {
      * What this person still has to do: choose how they join a firm, or wait while the firm they asked for is built.
      */
     state: 'chooseFirm' | 'firmProvisioning';
+    build?: FirmBuildProgress;
+};
+
+/**
+ * Present only while a firm is being built; how far it has got.
+ */
+export type FirmBuildProgress = {
+    /**
+     * The firm's own record exists.
+     */
+    firmRecord: boolean;
+    /**
+     * Its file storage has been allocated.
+     */
+    fileStorage: boolean;
+    /**
+     * Its encryption key has been minted.
+     */
+    encryptionKey: boolean;
+    /**
+     * The firm is active and its owner is recorded — the last step.
+     */
+    activated: boolean;
+    /**
+     * The build stopped and is no longer being retried. Reported because it is the one state on a waiting screen that will not clear by waiting.
+     */
+    stalled: boolean;
+};
+
+export type Membership = {
+    /**
+     * Whether this account's member record has reached the firm's own database. `provisioning` is a wait, not a permission somebody has to grant; `stalled` is that write having been given up on, which waiting will not fix; `unknown` is a read that did not answer, which is not a verdict about the account.
+     */
+    state: 'active' | 'provisioning' | 'stalled' | 'unknown';
 };
 
 export type MetaVersionsResponse = {
@@ -1684,6 +1719,28 @@ export type ArchiveEntry = {
     modifiedAt: string | null;
 };
 
+export type ExtractArchiveMembersResponse = {
+    extracted: Array<ExtractedArchiveMember>;
+    refused: Array<RefusedArchiveMember>;
+};
+
+export type ExtractedArchiveMember = {
+    path: string;
+    fileId: string;
+    versionId: string;
+    name: string;
+};
+
+export type RefusedArchiveMember = {
+    path: string;
+    reason: 'archive-missing' | 'directory' | 'encrypted' | 'unsupported-compression' | 'malformed' | 'too-large' | 'expansion-ratio' | 'corrupt' | 'not-in-archive' | 'policy-size' | 'policy-type';
+};
+
+export type ExtractArchiveMembersRequest = {
+    paths: Array<string>;
+    folderId?: string | null;
+};
+
 export type FileHistoryResponse = {
     data: Array<FileHistoryItem>;
     nextCursor: string | null;
@@ -2519,6 +2576,20 @@ export type ConflictsPolicyResponse = {
     closureCap: number;
     candidateCap: number;
     balancedNameRoles: Array<string>;
+};
+
+export type ConflictsPolicyRequest = {
+    floorSources?: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    floorStrictness?: 'balanced' | 'over_inclusive';
+    defaultDepth?: number;
+    edgeClassBudgets?: {
+        control?: number;
+        family?: number;
+        representation?: number;
+    };
+    closureCap?: number;
+    candidateCap?: number;
+    balancedNameRoles?: Array<string>;
 };
 
 export type CreatedConflictsRecheckResponse = {
@@ -14056,6 +14127,57 @@ export type FilesArchiveEntriesResponses = {
 
 export type FilesArchiveEntriesResponse = FilesArchiveEntriesResponses[keyof FilesArchiveEntriesResponses];
 
+export type FilesExtractArchiveMembersData = {
+    body: ExtractArchiveMembersRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/archive-extractions';
+};
+
+export type FilesExtractArchiveMembersErrors = {
+    /**
+     * The request body is absent or is not JSON
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No such file in this firm, its stored bytes are gone, or the destination folder is unknown
+     */
+    404: Problem;
+    /**
+     * The file has no committed version yet, so there are no bytes to extract from
+     */
+    409: Problem;
+    /**
+     * The file is not a zip archive, or the request names no paths (or more than the cap)
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesExtractArchiveMembersError = FilesExtractArchiveMembersErrors[keyof FilesExtractArchiveMembersErrors];
+
+export type FilesExtractArchiveMembersResponses = {
+    /**
+     * Accepted: each extracted member's rows and audit were committed and its bytes were written. Every version is pending until the ingest gate commits or quarantines it. Members that could not be taken out are reported in refused, by reason.
+     */
+    202: ExtractArchiveMembersResponse;
+};
+
+export type FilesExtractArchiveMembersResponse = FilesExtractArchiveMembersResponses[keyof FilesExtractArchiveMembersResponses];
+
 export type FilesHistoryData = {
     body?: never;
     path: {
@@ -16611,6 +16733,54 @@ export type ConflictsFirmPolicyResponses = {
 };
 
 export type ConflictsFirmPolicyResponse = ConflictsFirmPolicyResponses[keyof ConflictsFirmPolicyResponses];
+
+export type ConflictsSetFirmPolicyData = {
+    body: ConflictsPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/conflicts-policy';
+};
+
+export type ConflictsSetFirmPolicyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsSetFirmPolicyError = ConflictsSetFirmPolicyErrors[keyof ConflictsSetFirmPolicyErrors];
+
+export type ConflictsSetFirmPolicyResponses = {
+    /**
+     * The firm's conflicts policy as stored, after normalization
+     */
+    200: ConflictsPolicyResponse;
+};
+
+export type ConflictsSetFirmPolicyResponse = ConflictsSetFirmPolicyResponses[keyof ConflictsSetFirmPolicyResponses];
 
 export type ConflictsRecheckMatterData = {
     body?: never;

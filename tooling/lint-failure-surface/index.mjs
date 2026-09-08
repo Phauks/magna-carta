@@ -18,6 +18,13 @@
 //      only way they had to surface the handle at all. The band carries it as a copyable chip, so
 //      the sentence goes back to being a sentence.
 //
+//   3. The failure RECORD interpolated into markup as text. Svelte renders an object by stringifying
+//      it, so the screen reads "[object Object]" where the sentence belongs — and the Error ID,
+//      the remedy and the retry all go with it. Three screens shipped this (the docket, the
+//      directory, a matter's time), and each one was reported by somebody looking at it in
+//      production. Unlike a surface that renders only PART of a record, this is never a design
+//      choice: there is no reading of it that was intended.
+//
 // WHAT IT DELIBERATELY DOES NOT CATCH: a surface that holds the record and then renders only part
 // of it. That is a design question a reader has to answer, not a string a scanner can find. This
 // rule is about the shape of the plumbing, which is what actually decayed.
@@ -49,6 +56,47 @@ const ALLOWED = [
 const FLATTENED_DETAIL = /\.problem\.detail\s*\?\?/;
 const ERROR_ID_IN_STRING = /`[^`]*\$\{[^}]*\.problem\.errorId[^}]*\}[^`]*`/;
 
+// Names bound to a failure RECORD in this file: `const x = $derived(y.failure)`, or a `$state`
+// declared as one. Those are the values that render as "[object Object]".
+const RECORD_BINDINGS = [
+  /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*\$derived\(\s*[\w.$]+\.failure\s*\)/g,
+  /let\s+([A-Za-z_$][\w$]*)\s*=\s*\$state<\s*Failure\b/g,
+];
+
+/**
+ * Every name in this component that holds a failure record. Read from the component's own script,
+ * so the check is about what THIS file bound rather than what a name looks like.
+ */
+function failureRecordNames(source) {
+  const names = new Set();
+  for (const pattern of RECORD_BINDINGS) {
+    for (const match of source.matchAll(pattern)) names.add(match[1]);
+  }
+  return names;
+}
+
+/**
+ * Rendered as TEXT, rather than handed to a component.
+ *
+ * The distinction is POSITION, not formatting. `failure={name}` and the `{name}` prop shorthand both
+ * sit INSIDE a tag; text sits in element content. Both can be alone on a line — the screens that
+ * shipped this bug had the record on its own line inside an <Alert.Description>, which is exactly
+ * what a prop shorthand looks like — so the check asks whether the last angle bracket before the
+ * interpolation opened a tag or closed one.
+ */
+function rendersRecordAsText(markup, name) {
+  const interpolation = new RegExp(`\\{\\s*${name}\\s*\\}`, "g");
+  for (const match of markup.matchAll(interpolation)) {
+    if (markup[match.index - 1] === "=") continue;
+    const opened = markup.lastIndexOf("<", match.index);
+    const closed = markup.lastIndexOf(">", match.index);
+    // Inside a tag (an unclosed `<` is nearer than the last `>`) → a prop. Otherwise → content.
+    if (opened > closed) continue;
+    return true;
+  }
+  return false;
+}
+
 function walk(directory, out = []) {
   for (const entry of readdirSync(directory)) {
     if (SKIP.has(entry)) continue;
@@ -64,6 +112,18 @@ for (const file of walk(join(ROOT, SWEPT))) {
   const relativePath = relative(ROOT, file).replaceAll("\\", "/");
   if (ALLOWED.some((prefix) => relativePath.startsWith(prefix))) continue;
   const source = readFileSync(file, "utf8");
+  if (relativePath.endsWith(".svelte")) {
+    const scriptEnd = source.indexOf("</script>");
+    const markup = scriptEnd === -1 ? source : source.slice(scriptEnd + "</script>".length);
+    for (const name of failureRecordNames(source)) {
+      if (!rendersRecordAsText(markup, name)) continue;
+      problems.push(
+        `${relativePath} [record-as-text] \`{${name}}\` renders a failure RECORD as text — Svelte ` +
+          'stringifies it, so the screen reads "[object Object]" and the Error ID, the remedy and ' +
+          "the retry never reach the reader; hand the record to FailureNotice instead",
+      );
+    }
+  }
   source.split("\n").forEach((line, index) => {
     const where = `${relativePath}:${index + 1}`;
     if (FLATTENED_DETAIL.test(line)) {

@@ -28,6 +28,7 @@
   import ConfirmRegistrationScreen from "$lib/auth/screens/confirm-registration-screen.svelte";
   import FoundFirmScreen from "$lib/auth/screens/found-firm-screen.svelte";
   import RedeemInvitationScreen from "$lib/auth/screens/redeem-invitation-screen.svelte";
+  import { firmBuildSteps, firmBuiltReading } from "$lib/auth/firm-build-progress.ts";
   import FirmBuildingScreen from "$lib/auth/screens/firm-building-screen.svelte";
   import JoiningChoiceScreen from "$lib/auth/screens/joining-choice-screen.svelte";
   import RegisterAccountScreen from "$lib/auth/screens/register-account-screen.svelte";
@@ -559,16 +560,85 @@
 
       <ScreenSpecimen
         name="Building your workspace"
-        note="No progress bar: nothing here measures a fraction of anything, and a bar at a made-up percentage is a claim about how far along the work is."
+        note="The named steps, not a spinner: each one leaves its own mark on the firm's record, so the sequence is read from the server rather than counted here. No progress bar — the steps are of wildly unequal length, and a bar at a made-up percentage is a claim about how far along the work is."
       >
-        <FirmBuildingScreen firmName="Goldsmith and Associates" onCheckAgain={noop} />
+        <FirmBuildingScreen
+          firmName="Goldsmith and Associates"
+          steps={firmBuildSteps({
+            firmRecord: true,
+            fileStorage: true,
+            encryptionKey: false,
+            activated: false,
+            stalled: false,
+            memberRecord: false,
+            memberRecordStalled: false,
+          })}
+          onCheckAgain={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="The last step"
+        note="The firm exists and the account cannot use it yet — the gap that used to drop somebody into a workspace where every screen refused. The wait now runs one step past the firm being made, and admits when it is running long."
+      >
+        <FirmBuildingScreen
+          firmName="Goldsmith and Associates"
+          steps={firmBuildSteps(firmBuiltReading({ memberRecord: false }))}
+          slow
+          onCheckAgain={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="Joining a firm that already exists"
+        note="Redeeming an invitation queues the same member record and leaves the same gap, so the same screen holds that person — on the one step that is theirs, and under a heading that does not tell somebody joining a working firm that their workspace is being built."
+      >
+        <FirmBuildingScreen
+          firmName="Goldsmith and Associates"
+          kind="joining"
+          steps={firmBuildSteps(firmBuiltReading({ memberRecord: false }), "joining")}
+          onCheckAgain={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="A build that stopped"
+        note="Dead-lettered work is the one state waiting will not clear, so the step it stopped on says so instead of pretending to still be in flight."
+      >
+        <FirmBuildingScreen
+          firmName="Goldsmith and Associates"
+          steps={firmBuildSteps({
+            firmRecord: true,
+            fileStorage: true,
+            encryptionKey: true,
+            activated: false,
+            stalled: true,
+            memberRecord: false,
+            memberRecordStalled: false,
+          })}
+          stalled
+          onCheckAgain={noop}
+        />
       </ScreenSpecimen>
 
       <ScreenSpecimen
         name="Still checking"
         note="The manual check disables itself while it is in flight, so a second press cannot stack a second request behind the poll."
       >
-        <FirmBuildingScreen firmName="Goldsmith and Associates" checking onCheckAgain={noop} />
+        <FirmBuildingScreen
+          firmName="Goldsmith and Associates"
+          steps={firmBuildSteps({
+            firmRecord: true,
+            fileStorage: true,
+            encryptionKey: false,
+            activated: false,
+            stalled: false,
+            memberRecord: false,
+            memberRecordStalled: false,
+          })}
+          checking
+          onCheckAgain={noop}
+        />
       </ScreenSpecimen>
     </section>
 

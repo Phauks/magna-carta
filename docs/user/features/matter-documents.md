@@ -117,6 +117,16 @@ The **status** column is worth reading:
   deliberately, so a document that did not make it is visible rather than quietly missing. A rejected
   document has no readable content and cannot be opened.
 
+### Where you are in the folders
+
+The strip above the list is the path to the folder you are in, starting at the home icon. Home is
+always there, beside the back, forward and up buttons, so the top of the matter is one press away
+however deep you have gone.
+
+A path too long for the strip folds its middle away behind an ellipsis (**…**). The folder you are
+in, the one it sits in, and the first folder under Home stay visible; pressing the ellipsis lists the
+folders it stands for, and choosing one opens it.
+
 ## Opening a document
 
 Select a document's row and the details panel describes it: its details, its preview, its versions,
@@ -155,6 +165,48 @@ Every committed version of the document, newest first, with its number, its size
 committed, and the start of its **content hash**. The hash is a fingerprint of the exact bytes: two
 versions with the same hash are byte-for-byte the same file, and a version's hash never changes once
 it is recorded.
+
+## Archives
+
+Open a zip, a tar, a 7z or a rar and it shows what is inside it, folder by folder, without
+unpacking anything or downloading it. The bar above the list names the archive you are in; use the
+crumbs to move through its folders, and close it to return to the matter's own files.
+
+What the archive is called does not decide this — its actual contents do. An archive somebody sent
+you under the wrong name still opens, and a file named `.zip` that is not one is told to you as
+what it is.
+
+A very large archive lists as quickly as a small one. Only the part of the file that records what is
+inside it is ever read.
+
+Two archives will not open their lists. One whose list of files is itself password-protected —
+possible with 7z, which can lock the names as well as the contents — cannot be shown without that
+password. One packed in a way the application does not read is named as that rather than reported as
+broken. Both can still be downloaded.
+
+### Taking files out
+
+Files can be taken out of a **zip**. The other three formats can be looked inside but not unpacked
+here yet; download one to open it.
+
+Select what you want and choose **Extract**, or choose **Extract Into This Matter** with nothing
+selected to take out everything in the archive. Files land in the folder the zip itself sits in.
+
+Each extracted file is checked on the way in exactly like a file you upload: it is scanned, its type
+is read from its actual contents rather than from its name inside the archive, and it becomes an
+ordinary document on the matter with its own version history. Extracting never changes the zip,
+which stays on the matter as it was.
+
+Some members will not come out, and the screen names the reason rather than only counting them:
+
+- **Password-protected inside the archive.** Magna Carta holds no password for it.
+- **Packed in a way the application cannot open.** Most zips use a format it reads; a few do not.
+- **Its contents do not match what the archive recorded.** The zip's own checksum for that file
+  disagrees with the file itself, which is what a damaged or altered member looks like. It is
+  refused rather than filed.
+- **Too large, or it expands far enough to be treated as unsafe.** Your firm sets both limits.
+
+The rest of the selection still arrives. If nothing comes out at all, you are told why that was.
 
 ## Reading a PDF
 

@@ -549,16 +549,15 @@
       </p>
     </LoadingRegion>
   {:else if listFailure !== null}
-    <Alert.Root variant="danger">
-      <Alert.Title>The Directory Could Not Be Read</Alert.Title>
-      <Alert.Description>
-        {listFailure}
-        <Button variant="secondary" class="mt-8" onclick={rereadIndex}>
-          <RotateCcw class="size-16" aria-hidden="true" />
-          Try again
-        </Button>
-      </Alert.Description>
-    </Alert.Root>
+    <!-- Through the standard failure surface. The Alert here interpolated the failure RECORD, so a
+         reader got "[object Object]" where the sentence belonged, and no Error ID to report. -->
+    <FailureNotice
+      failure={listFailure}
+      title="The Directory Could Not Be Read"
+      fallback="The firm's directory could not be read."
+      whenSilent="Nothing answered when the directory was asked for."
+      onRetry={rereadIndex}
+    />
   {:else}
     <!-- The table holds the height it would hold when full, so the screen does not reflow as the
          directory grows or a filter narrows it. -->

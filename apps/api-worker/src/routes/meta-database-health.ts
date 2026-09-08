@@ -178,19 +178,20 @@ export interface ControlPlaneReader {
  * to run, which would answer "current" for a firm whose migration threw.
  */
 async function readSchemaState(
-  firmDatabase: FirmContext["firmDatabase"],
+  migrationState: FirmContext["migrationState"],
   expectedHead: string,
 ): Promise<z.infer<typeof SchemaCheck>> {
+  // Asked through the migration read rather than a statement. This used to SELECT from _migrations
+  // like any other query, which meant the one check that could name a stuck lineage was the check a
+  // stuck lineage silenced: the durable object refused every statement, this fell to its catch, and
+  // the panel said "Not read" — the least informative thing available, about the very subject the
+  // row exists for.
   try {
-    const { results } = await firmDatabase
-      .prepare("SELECT tag FROM _migrations ORDER BY tag")
-      .bind()
-      .all<{ tag: string }>();
-    const appliedHead = results.length === 0 ? null : (results[results.length - 1]?.tag ?? null);
+    const state = await migrationState();
     return {
-      state: appliedHead === expectedHead ? "current" : "behind",
-      appliedCount: results.length,
-      appliedHead,
+      state: state.appliedHead === expectedHead ? "current" : "behind",
+      appliedCount: state.appliedCount,
+      appliedHead: state.appliedHead,
       expectedHead,
     };
   } catch {
@@ -323,7 +324,7 @@ export async function collectDatabaseHealth(input: {
   // The three data reads run together: they are independent questions of two different databases,
   // and asking them serially would make a panel that exists to explain a delay into a source of one.
   const [schema, membership, provisioning] = await Promise.all([
-    readSchemaState(firmDatabase, input.expectedHead),
+    readSchemaState(input.firmContext.migrationState, input.expectedHead),
     readMembershipState(firmDatabase, input.userId),
     readProvisioningBacklog(input.controlPlane, input.firmId),
   ]);
