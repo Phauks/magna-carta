@@ -53,7 +53,13 @@ answer worth acting on.
 ## Saying whose records these are
 
 Before or while you load, name the **Custodians of Record** — the people or organizations whose files
-and mailboxes the material came from.
+and mailboxes the material came from. Both acts live on the review set's **Loads** screen, under the
+one **New** control at the top: **New Load** and **New Custodian of Record**. If either is not
+available to you — you may load but not manage the set, or the set is locked — it says so rather than
+disappearing.
+
+Beside it is the search. It narrows the loads on the screen by what their rows show, which on a set
+with a dozen deliveries is how you find the one you are looking for without reading the column.
 
 Always the full phrase: "Custodian of Record". The firm's safe custody register also has custodians,
 and they are a completely different thing (the person a physical original belongs to). You will meet
@@ -159,8 +165,9 @@ leaves a record of when you did and who decided to.
   matter and not the set, that is the system working — and a set you are not on does not appear at
   all rather than appearing and refusing you.
 - **`/discovery` in the sidebar is the screen to live on if reviewing is most of your work.** It
-  lists every review set you can open across every case, with the case named on the row. A case you
-  have no access to shows as unnamed, which is the same rule running the other way.
+  lists every review set you can open across every case, with the case named on the row, and it
+  searches: type a set's name or a case's and the list narrows to it. A case you have no access to
+  shows as unnamed, which is the same rule running the other way.
 - **A large selection of files takes several passes.** The platform adds documents in batches; if it
   stops partway, opening the same load again continues from where it got to rather than adding
   anything twice.

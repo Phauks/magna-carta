@@ -132,6 +132,20 @@ are shown rather than hidden so the shape of the finished screen is visible now.
 Whatever you have narrowed to is in the address bar, so a narrowed list is a link you can send to
 somebody else on the review set — they will see the same documents in the same order.
 
+## Searching the list
+
+Beside **Narrow** is the magnifier every list screen in the product carries. It searches the
+documents already on the list, by what you can see on their rows: a document's name, its path, its
+format, whose records it is, which delivery it came on. Type and the list narrows as you go; the X at
+the end of the field, or Escape, clears it, and **Show Everything** brings back what a search and a
+narrowing were both holding out.
+
+It is deliberately not the same thing as searching inside your documents. Words in a document's
+**text** are **Keyword**, in the Narrow control, and Keyword is waiting on the search engine — so
+until it arrives, this field reaches the rows and not their contents. The field says as much when you
+open it, because believing you have searched a corpus when you have searched a page of it is the one
+misunderstanding this screen cannot afford.
+
 ## Reading one document
 
 Open a row. What you get is three regions, and they are the same read the list was: the **queue** on
@@ -174,9 +188,11 @@ and unavailable, each saying what it waits on.
 - **Coding a document.** The panel is listed beside the others and says what it waits on.
 - **Seeing the original.** You get the text the engine read, which is what a review is decided on;
   the document as it was produced comes through the file viewer, and is named on the screen.
-- **Searching itself.** The pipeline that makes a set searchable is built and the engine that answers
-  the queries is switched on at deployment. Until then every read document shows _Not searchable yet_,
-  which is the platform's own work outstanding and never appears on anything you hand over.
+- **Searching the documents' text.** The pipeline that makes a set searchable is built and the
+  engine that answers the queries is switched on at deployment. Until then every read document shows
+  _Not searchable yet_, which is the platform's own work outstanding and never appears on
+  anything you hand over. The field above the list is a different thing and works today — see
+  [Searching the list](#searching-the-list).
 - **Searching by meaning.** Keyword search across a review set is what is built. Searching by meaning
   rather than by word is a separate, deliberately unmade decision — it is expensive to run on a
   quarter-million documents and nobody has yet shown that it finds responsive documents a keyword

@@ -31,6 +31,7 @@
   let {
     matterId = null,
     matterTitles = new Map(),
+    search = "",
     caption,
     emptyTitle,
     emptyBody,
@@ -44,6 +45,14 @@
     matterId?: string | null;
     /** Matter titles by identifier, for the firm-wide surface's Matter column. */
     matterTitles?: MatterTitles;
+    /**
+     * What the surface's search field holds, narrowing the rows in hand.
+     *
+     * The control lives in the surface's own action row — that is where every list screen keeps it
+     * — and the matching lives in the design system, so both surfaces that show a review set narrow
+     * it by the same rule and neither owns a copy of the grammar.
+     */
+    search?: string;
     caption: string;
     emptyTitle: string;
     emptyBody: Snippet;
@@ -90,9 +99,13 @@
     void list.load(read);
   };
 
+  const columns = $derived(reviewSetColumns({ showMatter: matterId === null, matterTitles }));
+
   grid = DataTable.createDataTableGrid<ReviewSet>({
-    columns: () => reviewSetColumns({ showMatter: matterId === null, matterTitles }),
-    rows: () => reviewSets ?? [],
+    columns: () => columns,
+    // Searching narrows what has been READ, which is the scope the grid's own column filters
+    // already run at; the footer strip is what says how many that is.
+    rows: () => DataTable.gridRowsMatchingSearch(columns, reviewSets ?? [], search),
     rowKey: (set) => set.id,
     initialSort: REVIEW_SET_INITIAL_SORT,
     itemNoun: { singular: "review set", plural: "review sets" },
@@ -133,9 +146,10 @@
       loading={reviewSets === null}
     >
       {#snippet empty()}
-        {#if (ownGrid?.activeFilterCount ?? 0) > 0}
+        {#if (ownGrid?.activeFilterCount ?? 0) > 0 || search.trim() !== ""}
           <EmptyState title="Nothing Matches That">
-            No review set here answers to what is asked. Widening the filters brings them back.
+            No review set here answers to what is asked. Widening the search or the filters brings
+            them back.
           </EmptyState>
         {:else}
           <EmptyState title={emptyTitle} actions={emptyActions}>{@render emptyBody()}</EmptyState>

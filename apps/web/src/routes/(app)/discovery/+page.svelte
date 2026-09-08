@@ -17,8 +17,17 @@
    * IT IS ONE TABLE AT THE FULL WIDTH. The matter is a column with its own filter, narrowed the way
    * the state is; there is no rail and no tab strip, because everything this register could be
    * narrowed by is a property of a row.
+   *
+   * AND IT SEARCHES THE WAY EVERY OTHER LIST SCREEN DOES — ScreenSearch in the action row, which is
+   * the product's one control for searching within the screen you are on. A reviewer holding four
+   * corpora finds one by typing its name or its matter, and does it with the same gesture the
+   * custody register and the docket take. It narrows the review sets already read: this listing is
+   * cursor-paged and the server has no search of its own, which is the same scope the grid's column
+   * filters run at, and the footer strip says how many that is.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { goto } from "$app/navigation";
   import { resolveMatterRecord } from "$lib/matters/matter-record.ts";
@@ -54,7 +63,15 @@
     matterTitles = next;
   }
 
-  const narrowed = $derived((grid?.activeFilterCount ?? 0) > 0);
+  let searchText = $state("");
+
+  const searching = $derived(searchText.trim() !== "");
+  const narrowed = $derived((grid?.activeFilterCount ?? 0) > 0 || searching);
+
+  function showEverything(): void {
+    searchText = "";
+    grid?.clearAllFilters();
+  }
 </script>
 
 <svelte:head><title>Discovery · Magna Carta</title></svelte:head>
@@ -62,12 +79,21 @@
 <div class="flex h-full flex-col gap-16">
   <ScreenHeader title="Discovery">
     {#snippet actions()}
+      <!-- The search, then the way back to the whole register. The rows are already here, so the
+           query answers on the keystroke and nothing leaves the machine. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search the review sets"
+        placeholder={placeholderOf("Search the review sets")}
+        fieldClass="w-2xs sm:w-xs"
+      />
+
       <DataTable.ClearFilters
         grid={grid ?? undefined}
         narrowing={{
           narrowed,
           summary: "Show every review set",
-          clear: () => grid?.clearAllFilters(),
+          clear: showEverything,
         }}
       />
     {/snippet}
@@ -76,6 +102,7 @@
   <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-16">
     <ReviewSetList
       {matterTitles}
+      search={searchText}
       bind:grid
       onOpen={(reviewSetId) => void goto(`/discovery/review-sets/${reviewSetId}`)}
       onRows={(rows) => void nameMatters(rows)}

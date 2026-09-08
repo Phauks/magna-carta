@@ -18,9 +18,21 @@
    * filtering what has been loaded would answer confidently about a fraction of the corpus. The
    * grid's own per-column filters do run over the rows in hand, and the footer strip says what its
    * counts are counting.
+   *
+   * THE SEARCH IS THAT SAME SCOPE, AND SAYS SO. ScreenSearch is the product's one control for
+   * searching within the screen you are on, and every list screen carries it; this one reaches the
+   * rows already read, by what those rows SHOW — a document's name, its path, its format, whose
+   * records it is, which delivery it came on. That is not keyword search of a document's text, and
+   * on this screen of all screens the difference is worth a sentence rather than a guess: a
+   * reviewer who thinks they have searched a corpus and has searched a page of it is the mistake
+   * this surface can least afford. Keyword is declared in criteria.ts, waiting on the search
+   * engine, and it will compose into the index rather than into this list — so it arrives in the
+   * Narrow control beside this one, and the panel below says where it lives until then.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import { page } from "$app/state";
   import { goto, replaceState } from "$app/navigation";
@@ -136,9 +148,15 @@
 
   const narrowed = $derived(criteriaAreSet(criteria));
 
+  /** What the search field holds. It narrows the rows already read, never the server's answer. */
+  let searchText = $state("");
+  const searching = $derived(searchText.trim() !== "");
+
+  const columns = $derived(reviewDocumentColumns(vocabulary));
+
   const grid = DataTable.createDataTableGrid<ReviewDocument>({
-    columns: () => reviewDocumentColumns(vocabulary),
-    rows: () => documents ?? [],
+    columns: () => columns,
+    rows: () => DataTable.gridRowsMatchingSearch(columns, documents ?? [], searchText),
     rowKey: (document) => document.id,
     initialSort: REVIEW_DOCUMENT_INITIAL_SORT,
     itemNoun: { singular: "document", plural: "documents" },
@@ -181,15 +199,34 @@
 {/snippet}
 
 <div class="flex min-h-0 flex-1 flex-col gap-16">
-  <!-- One compact action row: everything above the data that is not the data. -->
+  <!-- One compact action row: everything above the data that is not the data. The search takes the
+       inline end (it grows toward the inline start, so nothing after it moves when it opens) and
+       the way back to the whole list sits at the row's end, where the narrowing was set. -->
   <div class="flex items-center gap-8">
     <NarrowControl {criteria} context={{ recordCustodians: custodians, loads }} onChange={narrow} />
+
+    <ScreenSearch
+      bind:value={searchText}
+      label="Search these documents"
+      placeholder={placeholderOf("Search these documents")}
+      fieldClass="w-2xs sm:w-xs"
+      class="ms-auto"
+    >
+      {#snippet panel()}
+        <p class="text-text-muted w-2xs p-8 text-sm sm:w-xs">
+          Reaches the documents already read onto this list, by what the rows show. Words inside a
+          document are Keyword, under Narrow.
+        </p>
+      {/snippet}
+    </ScreenSearch>
+
     <DataTable.ClearFilters
       {grid}
       narrowing={{
-        narrowed,
+        narrowed: narrowed || searching,
         summary: narrowed ? "Showing part of this review set" : "Show every document",
         clear: () => {
+          searchText = "";
           narrow({});
           grid.clearAllFilters();
         },
@@ -216,10 +253,10 @@
       loading={documents === null}
     >
       {#snippet empty()}
-        {#if narrowed || grid.activeFilterCount > 0}
+        {#if narrowed || searching || grid.activeFilterCount > 0}
           <EmptyState title="Nothing Matches That">
-            No document in this review set answers to what is asked. Widening the narrowing brings
-            them back.
+            No document in this review set answers to what is asked. Widening the narrowing or the
+            search brings them back.
           </EmptyState>
         {:else}
           <EmptyState title="Nothing Has Been Loaded Yet">
