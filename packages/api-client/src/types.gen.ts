@@ -22368,9 +22368,9 @@ export type IntakeFormsReadSubmissionResponse = IntakeFormsReadSubmissionRespons
 export type IntakeFormsTriageData = {
     body: {
         /**
-         * What a member decided about a submission. `new` is the state it arrives in and is not a decision anyone can record — a member who has looked cannot un-look. Nothing reads this as a gate; it records what a person did and permits nothing.
+         * A decision that creates nothing. Accepting is not here: it goes through the acceptance operation, which writes this state itself once the records exist.
          */
-        state: 'new' | 'accepted' | 'declined' | 'spam';
+        state: 'declined' | 'spam';
         note?: string | null;
     };
     headers: {

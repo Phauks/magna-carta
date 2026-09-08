@@ -128,6 +128,18 @@ const TriageState = z.enum(INTAKE_SUBMISSION_TRIAGE_STATES).openapi({
     "gate; it records what a person did and permits nothing.",
 });
 
+/**
+ * The states the triage operation may WRITE, which is not the same list as the states a submission
+ * may be IN. `accepted` is reachable only by accepting — an act that creates a contact and a matter
+ * and links them to the submission — so a submission could otherwise be marked accepted having
+ * created nothing, and the queue would hold rows claiming a matter that does not exist.
+ */
+const RecordableTriageState = z.enum(["declined", "spam"]).openapi({
+  description:
+    "A decision that creates nothing. Accepting is not here: it goes through the acceptance " +
+    "operation, which writes this state itself once the records exist.",
+});
+
 const FormRequest = z
   .object({
     name: z.string().min(1).max(MAX_FORM_NAME_LENGTH).openapi({
@@ -818,11 +830,13 @@ const triageRoute = defineOpenAPIRoute(submissionsMeta("triage", true), {
   method: "put",
   path: "/api/v1/intake-forms/{formId}/submissions/{submissionId}/triage",
   description:
-    "Record what a member decided about a submission. ACCEPTING CREATES NOTHING — no person, no " +
-    "organization, no matter, no intake. It records that a member looked and decided to take it " +
-    "further; turning that into a directory record is a separate act with its own preconditions. A " +
-    "decision can be changed, because a submission marked spam that turns out to be a real enquiry " +
-    "is exactly the mistake a queue produces.",
+    "Record a decision that CREATES NOTHING — declining a submission, or marking it as spam. " +
+    "Accepting is a different act and a different operation: it puts somebody into a directory " +
+    "that is kept for good, so it takes the values a member confirmed rather than a state string. " +
+    "A decision recorded here can be changed, because a submission marked spam that turns out to " +
+    "be a real enquiry is exactly the mistake a queue produces. A submission that has been " +
+    "accepted takes no further decision — it holds the contact and the matter it created, and " +
+    "neither un-creates.",
   request: {
     params: z.object({
       formId: identifierPathParam("intakeForm", "formId"),
@@ -833,7 +847,7 @@ const triageRoute = defineOpenAPIRoute(submissionsMeta("triage", true), {
       content: {
         "application/json": {
           schema: z.object({
-            state: TriageState,
+            state: RecordableTriageState,
             note: z.string().max(MAX_TRIAGE_NOTE_LENGTH).nullable().optional(),
           }),
         },

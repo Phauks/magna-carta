@@ -386,3 +386,29 @@ untouched by this.
 It does not merge into an existing Directory record. A stranger whose name matches somebody the firm already
 holds is a duplicate-detection question with its own surface, and guessing at it here would be the platform
 asserting a relationship between a firm and somebody who filled in a web form.
+
+### The review sheet, and the two rules it forced on triage
+
+**Added 2026-09-08**, with the screen that makes acceptance reachable.
+
+The proposal reaches a member as `accept-enquiry-dialog.svelte`: the mapped values pre-filled, **every one of them
+editable**, and **what the visitor actually wrote kept on screen beside them** for the whole edit. Hiding the raw
+answers behind the parsed fields would hide the thing being checked — somebody correcting `jonh` to `John` has to
+be able to see that `jonh` is what arrived, and that nothing else in the enquiry contradicts the correction. The
+name split shows as three boxes rather than as an answer, because it is a guess and the code that makes it says
+so. The responsible member is a picker defaulting to the reader: the member who clears the queue is routinely not
+the member the work belongs to.
+
+Wiring it revealed that the triage operation, written before acceptance existed, had become two defects:
+
+- **`accepted` was still a state triage could write.** A member could mark a submission accepted having created
+  nothing, and the queue would then hold rows claiming a matter existed for them with nothing to point at. Triage
+  now takes `declined` and `spam` only — a narrowed request enum, refused again in the service — and `accepted` is
+  reachable only by having created the records.
+- **Triaging an already-accepted submission hit the row's own CHECK.** `intake_form_submission_accepted_state_check`
+  makes an accepted handle imply `triage_state = 'accepted'`, so marking such a row spam produced a constraint
+  error and an Error ID for a rule the member had no way to read. It is now a 409 that says what happened.
+
+The second one also settles what "a decision can be changed" means. Declining and spam are records of what a
+person concluded, and either can be revised. Acceptance is not a decision of that kind: it created a contact and a
+matter, and neither un-creates. Reversing it is work on those records, where it belongs.

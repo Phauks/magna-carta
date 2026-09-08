@@ -153,7 +153,11 @@ async function readJson<T>(response: Response): Promise<T> {
  * nothing. Everything else has to match, and that is the assertion worth making.
  */
 async function comparableProblem(response: Response): Promise<string> {
-  const problem = await readJson<{ type: string; title: string; detail?: string }>(response);
+  const problem = await readJson<{
+    type: string;
+    title: string;
+    detail?: string;
+  }>(response);
   return `${String(response.status)} ${problem.type} ${problem.title} ${problem.detail ?? ""}`;
 }
 
@@ -184,33 +188,52 @@ interface FormDetail {
  * budget and starts reading 429s as failures. Ask for the second question only where a test reads
  * it.
  */
-async function authorPublishedForm(name: string, withStory = false): Promise<FormDetail> {
-  const created = await send("POST", "/api/v1/intake-forms", {
-    name,
-    title: "Tell us what happened",
-  });
+async function authorPublishedForm(
+  name: string,
+  withStory = false,
+  cookie = ownerCookie,
+): Promise<FormDetail> {
+  const created = await send(
+    "POST",
+    "/api/v1/intake-forms",
+    {
+      name,
+      title: "Tell us what happened",
+    },
+    cookie,
+  );
   expect(created.status).toBe(201);
   const { id } = await readJson<{ id: string }>(created);
 
-  const addedName = await send("POST", `/api/v1/intake-forms/${id}/fields`, {
-    kind: "person-name",
-    label: "Your name",
-    required: true,
-  });
+  const addedName = await send(
+    "POST",
+    `/api/v1/intake-forms/${id}/fields`,
+    {
+      kind: "person-name",
+      label: "Your name",
+      required: true,
+    },
+    cookie,
+  );
   expect(addedName.status).toBe(201);
 
   if (withStory) {
-    const addedStory = await send("POST", `/api/v1/intake-forms/${id}/fields`, {
-      kind: "matter-description",
-      label: "What happened",
-    });
+    const addedStory = await send(
+      "POST",
+      `/api/v1/intake-forms/${id}/fields`,
+      {
+        kind: "matter-description",
+        label: "What happened",
+      },
+      cookie,
+    );
     expect(addedStory.status).toBe(201);
   }
 
-  const published = await send("POST", `/api/v1/intake-forms/${id}/publication`, undefined);
+  const published = await send("POST", `/api/v1/intake-forms/${id}/publication`, undefined, cookie);
   expect(published.status).toBe(200);
 
-  return readJson<FormDetail>(await get(`/api/v1/intake-forms/${id}`));
+  return readJson<FormDetail>(await get(`/api/v1/intake-forms/${id}`, cookie));
 }
 
 describe("what the anonymous routes refuse to distinguish", () => {
@@ -282,7 +305,9 @@ describe("what the anonymous routes refuse to distinguish", () => {
 
   it("refuses a closed form's submission as though the form never existed", async () => {
     const form = await authorPublishedForm("Closing form");
-    await send("PUT", `/api/v1/intake-forms/${form.id}/closed`, { closed: true });
+    await send("PUT", `/api/v1/intake-forms/${form.id}/closed`, {
+      closed: true,
+    });
 
     const refused = await anonymous(
       "POST",
@@ -360,21 +385,51 @@ describe("what a stranger may be told about their own input", () => {
   });
 });
 
+/*
+ * Acceptance seeds its OWN firm, on the calendar suite's precedent.
+ *
+ * Authenticated requests are rate-limited by FIRM — one bucket of a hundred a minute for everybody
+ * in it — and every test in this block authors a form, publishes it, sends an enquiry and then acts
+ * on it. Sharing the pool firm's bucket with the blocks above spends their window, and a suite that
+ * collects 429s is reading the limiter working as though the routes were broken.
+ */
 describe("accepting an enquiry — the firm verifies before anything becomes a record", () => {
+  let acceptingFirmId: FirmId;
+  let acceptingCookie: string;
+  let acceptingOwnerUserId: UserId;
+
+  beforeAll(async () => {
+    // No bucket is named for this firm, and none is needed: acceptance writes a directory record,
+    // a matter and a party link, none of which touches object storage. `firm.bucket_name` is unique
+    // anyway, so a second firm claiming the pool's binding name would fail here rather than later.
+    acceptingFirmId = (await seedFirm({ name: "Acceptance Test Firm" })).firmId;
+    const owner = await seedCredentialedUser("acceptance-owner@example.com", {
+      userName: "Acceptance Owner",
+      firmId: acceptingFirmId,
+    });
+    acceptingOwnerUserId = owner.userId;
+    await mirrorMemberWithOwnerRole(owner.userId, "Acceptance Owner", acceptingFirmId);
+    acceptingCookie = await signInForSessionCookie("acceptance-owner@example.com");
+  });
+
+  function published(name: string, withStory = false): Promise<FormDetail> {
+    return authorPublishedForm(name, withStory, acceptingCookie);
+  }
+
   async function submittedTo(form: FormDetail, answers: Record<string, string>): Promise<string> {
     await anonymous(
       "POST",
-      `/api/v1/public/intake-forms/${poolFirmId}/${form.publicToken}/submissions`,
+      `/api/v1/public/intake-forms/${acceptingFirmId}/${form.publicToken}/submissions`,
       { answers },
     );
     const queue = await readJson<{ data: { id: string }[] }>(
-      await get(`/api/v1/intake-forms/${form.id}/submissions`),
+      await get(`/api/v1/intake-forms/${form.id}/submissions`, acceptingCookie),
     );
     return queue.data[0]!.id;
   }
 
   it("proposes what acceptance would create, and writes nothing", async () => {
-    const form = await authorPublishedForm("Proposal form", true);
+    const form = await published("Proposal form", true);
     const nameField = form.fields.find((one) => one.kind === "person-name")!;
     const storyField = form.fields.find((one) => one.kind === "matter-description")!;
     const submissionId = await submittedTo(form, {
@@ -388,11 +443,18 @@ describe("accepting an enquiry — the firm verifies before anything becomes a r
       matterTitle: string;
       answers: { label: string; value: string }[];
     }>(
-      await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance-proposal`),
+      await get(
+        `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance-proposal`,
+        acceptingCookie,
+      ),
     );
 
     expect(proposal.suggestedEntityKind).toBe("person");
-    expect(proposal.personName).toEqual({ given: "Rowan", family: "Ashcroft", middle: null });
+    expect(proposal.personName).toEqual({
+      given: "Rowan",
+      family: "Ashcroft",
+      middle: null,
+    });
     expect(proposal.answers.map((answer) => answer.value)).toContain(
       "A neighbour has built over the boundary.",
     );
@@ -400,16 +462,18 @@ describe("accepting an enquiry — the firm verifies before anything becomes a r
     // The whole point of a proposal: asking for one changes nothing. The submission is still
     // waiting, and no directory entity was created behind the reader's back.
     const stillWaiting = await readJson<{ triageState: string }>(
-      await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}`),
+      await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}`, acceptingCookie),
     );
     expect(stillWaiting.triageState).toBe("new");
   });
 
   it("writes what the MEMBER confirmed, not what the visitor typed", async () => {
-    const form = await authorPublishedForm("Correction form");
+    const form = await published("Correction form");
     const nameField = form.fields.find((one) => one.kind === "person-name")!;
     // Typed in a hurry. This is the spelling that must NOT reach a permanent conflicts corpus.
-    const submissionId = await submittedTo(form, { [nameField.id]: "jonh smtih" });
+    const submissionId = await submittedTo(form, {
+      [nameField.id]: "jonh smtih",
+    });
 
     const accepted = await send(
       "POST",
@@ -419,11 +483,15 @@ describe("accepting an enquiry — the firm verifies before anything becomes a r
         given: "John",
         family: "Smith",
         matterTitle: "Smith — boundary dispute",
-        responsibleMemberId: ownerUserId,
+        responsibleMemberId: acceptingOwnerUserId,
       },
+      acceptingCookie,
     );
     expect(accepted.status).toBe(201);
-    const { entityId, matterId } = await readJson<{ entityId: string; matterId: string }>(accepted);
+    const { entityId, matterId } = await readJson<{
+      entityId: string;
+      matterId: string;
+    }>(accepted);
 
     expect(entityId).not.toBe("");
 
@@ -432,16 +500,18 @@ describe("accepting an enquiry — the firm verifies before anything becomes a r
     const detail = await readJson<{
       answers: { value: string | null }[];
       triageState: string;
-    }>(await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}`));
+    }>(await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}`, acceptingCookie));
     expect(detail.answers.map((answer) => answer.value)).toContain("jonh smtih");
     expect(detail.triageState).toBe("accepted");
 
     // The matter exists, is an intake, and carries the client — which proves two things at once:
     // the corrected name is what reached the Directory, and the party link was written in the same
     // batch, so the matter is not readable without the person it is for.
-    const matter = await readJson<{ status: string; title: string; clientDisplayName: string }>(
-      await get(`/api/v1/matters/${matterId}`),
-    );
+    const matter = await readJson<{
+      status: string;
+      title: string;
+      clientDisplayName: string;
+    }>(await get(`/api/v1/matters/${matterId}`, acceptingCookie));
     expect(matter.status).toBe("intake");
     expect(matter.title).toBe("Smith — boundary dispute");
     expect(matter.clientDisplayName).toContain("Smith");
@@ -450,21 +520,24 @@ describe("accepting an enquiry — the firm verifies before anything becomes a r
   });
 
   it("refuses a second acceptance rather than creating a second person", async () => {
-    const form = await authorPublishedForm("Double-click form");
+    const form = await published("Double-click form");
     const nameField = form.fields.find((one) => one.kind === "person-name")!;
-    const submissionId = await submittedTo(form, { [nameField.id]: "Once Only" });
+    const submissionId = await submittedTo(form, {
+      [nameField.id]: "Once Only",
+    });
 
     const body = {
       entityKind: "person" as const,
       given: "Once",
       family: "Only",
       matterTitle: "Only — enquiry",
-      responsibleMemberId: ownerUserId,
+      responsibleMemberId: acceptingOwnerUserId,
     };
     const first = await send(
       "POST",
       `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance`,
       body,
+      acceptingCookie,
     );
     expect(first.status).toBe(201);
 
@@ -474,20 +547,24 @@ describe("accepting an enquiry — the firm verifies before anything becomes a r
       "POST",
       `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance`,
       body,
+      acceptingCookie,
     );
     expect(second.status).toBe(409);
 
     // And the proposal refuses too, so the surface cannot offer a second acceptance.
     const proposal = await get(
       `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance-proposal`,
+      acceptingCookie,
     );
     expect(proposal.status).toBe(409);
   });
 
   it("refuses an entity with no name at all", async () => {
-    const form = await authorPublishedForm("Nameless form");
+    const form = await published("Nameless form");
     const nameField = form.fields.find((one) => one.kind === "person-name")!;
-    const submissionId = await submittedTo(form, { [nameField.id]: "Somebody" });
+    const submissionId = await submittedTo(form, {
+      [nameField.id]: "Somebody",
+    });
 
     const refused = await send(
       "POST",
@@ -497,11 +574,45 @@ describe("accepting an enquiry — the firm verifies before anything becomes a r
         given: "  ",
         family: "  ",
         matterTitle: "No name",
-        responsibleMemberId: ownerUserId,
+        responsibleMemberId: acceptingOwnerUserId,
       },
+      acceptingCookie,
     );
     // A row in a permanent conflicts corpus that nothing can ever match against.
     expect(refused.status).toBe(422);
+  });
+
+  it("takes no further decision on a submission that has been accepted", async () => {
+    const form = await published("Settled form");
+    const nameField = form.fields.find((one) => one.kind === "person-name")!;
+    const submissionId = await submittedTo(form, {
+      [nameField.id]: "Already Here",
+    });
+
+    const accepted = await send(
+      "POST",
+      `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance`,
+      {
+        entityKind: "person",
+        given: "Already",
+        family: "Here",
+        matterTitle: "Here — enquiry",
+        responsibleMemberId: acceptingOwnerUserId,
+      },
+      acceptingCookie,
+    );
+    expect(accepted.status).toBe(201);
+
+    const refused = await send(
+      "PUT",
+      `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/triage`,
+      { state: "spam" },
+      acceptingCookie,
+    );
+    // The contact and the matter it created do not un-create, so there is no decision left to
+    // record here. Refusing it is what keeps a member from getting an Error ID for the row's own
+    // constraint.
+    expect(refused.status).toBe(409);
   });
 });
 
@@ -530,9 +641,9 @@ describe("the firm's side", () => {
     const queue = await readJson<{ data: { id: string }[] }>(
       await get(`/api/v1/intake-forms/${form.id}/submissions`),
     );
-    const detail = await readJson<{ answers: { label: string; value: string | null }[] }>(
-      await get(`/api/v1/intake-forms/${form.id}/submissions/${queue.data[0]!.id}`),
-    );
+    const detail = await readJson<{
+      answers: { label: string; value: string | null }[];
+    }>(await get(`/api/v1/intake-forms/${form.id}/submissions/${queue.data[0]!.id}`));
     expect(detail.answers.map((answer) => answer.label)).toContain("Your name");
     expect(detail.answers.map((answer) => answer.label)).not.toContain("Full legal name");
   });
@@ -569,9 +680,9 @@ describe("the firm's side", () => {
       { answers: { [nameField.id]: "Someone Real" } },
     );
 
-    const queue = await readJson<{ data: { id: string; triageState: string }[] }>(
-      await get(`/api/v1/intake-forms/${form.id}/submissions`),
-    );
+    const queue = await readJson<{
+      data: { id: string; triageState: string }[];
+    }>(await get(`/api/v1/intake-forms/${form.id}/submissions`));
     const submissionId = queue.data[0]!.id;
     expect(queue.data[0]!.triageState).toBe("new");
 
@@ -583,20 +694,44 @@ describe("the firm's side", () => {
     );
     expect(spam.status).toBe(200);
 
-    // The mistake a queue produces: something marked spam that turns out to be a real enquiry.
+    // The mistake a queue produces: something marked spam that turns out to be worth a reply.
     const corrected = await send(
       "PUT",
       `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/triage`,
-      { state: "accepted", note: "Real enquiry, mis-marked" },
+      { state: "declined", note: "Real enquiry, mis-marked" },
       paralegalCookie,
     );
     expect(corrected.status).toBe(200);
 
-    const after = await readJson<{ triageState: string; triageNote: string | null }>(
-      await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}`),
-    );
-    expect(after.triageState).toBe("accepted");
+    const after = await readJson<{
+      triageState: string;
+      triageNote: string | null;
+    }>(await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}`));
+    expect(after.triageState).toBe("declined");
     expect(after.triageNote).toBe("Real enquiry, mis-marked");
+  });
+
+  it("refuses to mark a submission accepted without accepting it", async () => {
+    const form = await authorPublishedForm("Shortcut form");
+    const nameField = form.fields.find((one) => one.kind === "person-name")!;
+    await anonymous(
+      "POST",
+      `/api/v1/public/intake-forms/${poolFirmId}/${form.publicToken}/submissions`,
+      { answers: { [nameField.id]: "Not This Way" } },
+    );
+    const queue = await readJson<{ data: { id: string }[] }>(
+      await get(`/api/v1/intake-forms/${form.id}/submissions`),
+    );
+
+    const refused = await send(
+      "PUT",
+      `/api/v1/intake-forms/${form.id}/submissions/${queue.data[0]!.id}/triage`,
+      { state: "accepted" },
+    );
+    // `accepted` is a state a submission may only ARRIVE in, by having created a contact and a
+    // matter. Writing it from a bare state string would leave the queue holding rows that claim a
+    // matter exists for them with nothing to point at.
+    expect(refused.status).toBe(422);
   });
 
   it("refuses to return a submission to the state it arrived in", async () => {

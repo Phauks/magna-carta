@@ -8,14 +8,19 @@
    * with this month's wording, because the difference between "were you injured" and "describe your
    * injuries" changes what an answer means.
    *
-   * DECIDING CREATES NOTHING. Accepted, declined and spam record that a member looked and what they
-   * concluded; no person, no organization, no matter and no intake follows from any of them. Turning
-   * an accepted enquiry into a directory record is a separate act with its own preconditions, and it
-   * is not built yet — so this screen says what it does rather than implying more.
+   * THIS SCREEN IS WHERE THE FIRM VERIFIES. A form is a way for somebody outside the firm to put
+   * information in, and nothing they typed is a record until a person here has read it. So the two
+   * halves of a decision are deliberately not the same gesture: DECLINING AND SPAM CREATE NOTHING and
+   * are recorded from here in one press, while ACCEPTING OPENS A REVIEW SHEET where every value the
+   * stranger typed is shown, pre-filled, and editable before any of it is committed. The reason is
+   * that the directory is effectively permanent — a name mistyped on a web form would be in the
+   * firm's conflicts corpus for good — so acceptance is the one decision that must not be a button.
    *
    * A DECISION CAN BE CHANGED, and the screen offers that plainly: an enquiry marked spam that turns
    * out to be real is exactly the mistake a queue produces, and a first decision that could not be
-   * revised would make the firm's record a record of what it thought first.
+   * revised would make the firm's record a record of what it thought first. Acceptance is the
+   * exception, and the screen says so rather than failing at the press: what it created is a person
+   * and a matter, and un-creating those is not a decision this queue can take back.
    */
   import { page } from "$app/state";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -29,6 +34,8 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { triageStateLabel } from "$lib/intake-forms/field-kinds.ts";
+  import AcceptEnquiryDialog from "$lib/intake-forms/accept-enquiry-dialog.svelte";
+  import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import {
     listIntakeSubmissions,
     newWriteKey,
@@ -46,17 +53,23 @@
   let form = $state<IntakeFormDetail | null>(null);
   let submissions = $state<SubmissionSummary[] | null>(null);
   let opened = $state<SubmissionDetail | null>(null);
+  let session = $state<SessionBootstrap | null>(null);
   let failure = $state<StatedFailure | null>(null);
   let busy = $state(false);
   let note = $state("");
+  let accepting = $state(false);
+  /** What the last acceptance created, so the member can walk straight to the matter it opened. */
+  let created = $state<{ entityId: string; matterId: string } | null>(null);
 
   async function read(): Promise<void> {
     if (formId === "") return;
-    const [detail, queue] = await Promise.all([
+    const [detail, queue, who] = await Promise.all([
       readIntakeForm(fetch, formId),
       listIntakeSubmissions(fetch, formId),
+      readSession(fetch),
     ]);
     if (detail.kind === "ok") form = detail.value;
+    if (who.kind === "ok") session = who.value;
     if (queue.kind !== "ok") {
       failure = stated(queue.failure, "This form's submissions could not be read.");
       return;
@@ -77,9 +90,11 @@
     }
     opened = outcome.value;
     note = outcome.value.triageNote ?? "";
+    created = null;
   }
 
-  async function decide(state: Exclude<TriageState, "new">): Promise<void> {
+  /** The decisions that create nothing. Accepting does not come through here, and cannot. */
+  async function decide(state: Exclude<TriageState, "new" | "accepted">): Promise<void> {
     if (opened === null) return;
     busy = true;
     const outcome = await triageIntakeSubmission(
@@ -97,6 +112,13 @@
     const reopened = opened.id;
     await read();
     await open(reopened);
+  }
+
+  async function accepted(made: { entityId: string; matterId: string }): Promise<void> {
+    const reopened = opened?.id ?? null;
+    await read();
+    if (reopened !== null) await open(reopened);
+    created = made;
   }
 
   const waiting = $derived(
@@ -172,7 +194,27 @@
             </div>
 
             <div class="flex flex-col gap-8 border-t border-border-subtle pt-16">
-              {#if opened.triageState !== "new"}
+              {#if created !== null}
+                <Alert.Root variant="info">
+                  <Alert.Title>The Contact And The Intake Are Open.</Alert.Title>
+                  <Alert.Description>
+                    What you confirmed is now a contact in the directory and a matter in intake. The
+                    conflicts check runs there, where it can be recorded against the matter.
+                  </Alert.Description>
+                </Alert.Root>
+                <div>
+                  <Button variant="secondary" href="/matters/{created.matterId}/intake">
+                    Open The Intake
+                  </Button>
+                </div>
+              {:else if opened.triageState === "accepted"}
+                <Alert.Root variant="info">
+                  <Alert.Description>
+                    Accepted. This enquiry is on the matter it opened, and accepting it again would
+                    put the same person in the directory twice.
+                  </Alert.Description>
+                </Alert.Root>
+              {:else if opened.triageState !== "new"}
                 <Alert.Root variant="info">
                   <Alert.Description>
                     Recorded as {triageStateLabel(opened.triageState).toLowerCase()}. You can record
@@ -181,28 +223,41 @@
                 </Alert.Root>
               {/if}
 
-              <Textarea
-                rows={2}
-                bind:value={note}
-                disabled={busy}
-                aria-label="A note about this decision"
-              />
-              <p class="text-xs text-text-muted">Optional. Only members see this.</p>
+              {#if opened.triageState !== "accepted"}
+                <Textarea
+                  rows={2}
+                  bind:value={note}
+                  disabled={busy}
+                  aria-label="A note about this decision"
+                />
+                <p class="text-xs text-text-muted">Optional. Only members see this.</p>
 
-              <div class="flex gap-8">
-                <Button disabled={busy} onclick={() => void decide("accepted")}>Accept</Button>
-                <Button variant="secondary" disabled={busy} onclick={() => void decide("declined")}>
-                  Decline
-                </Button>
-                <Button variant="secondary" disabled={busy} onclick={() => void decide("spam")}>
-                  Spam
-                </Button>
-              </div>
-              <p class="text-xs text-text-muted">
-                Recording a decision does not create anything. Accepting says a member read this and
-                wants to take it further; putting the person into the directory and starting an
-                intake is still done from Intake.
-              </p>
+                <div class="flex gap-8">
+                  <Button
+                    disabled={busy || session === null}
+                    onclick={() => {
+                      accepting = true;
+                    }}
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onclick={() => void decide("declined")}
+                  >
+                    Decline
+                  </Button>
+                  <Button variant="secondary" disabled={busy} onclick={() => void decide("spam")}>
+                    Spam
+                  </Button>
+                </div>
+                <p class="text-xs text-text-muted">
+                  Declining and spam record what a member concluded and create nothing. Accepting
+                  opens what the stranger typed for you to check first — what you confirm there
+                  becomes a contact and an intake.
+                </p>
+              {/if}
             </div>
           {/if}
         </div>
@@ -210,3 +265,13 @@
     {/if}
   {/if}
 </LoadingRegion>
+
+{#if session !== null}
+  <AcceptEnquiryDialog
+    bind:open={accepting}
+    {formId}
+    submissionId={opened?.id ?? null}
+    responsibleMemberId={session.user.id}
+    onAccepted={(made) => void accepted(made)}
+  />
+{/if}

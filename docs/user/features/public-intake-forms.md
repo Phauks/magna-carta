@@ -96,13 +96,32 @@ it was asked.
 
 Record what you decided:
 
-- **Accept** — you read it and want to take it further.
 - **Decline** — you are not acting on it.
 - **Spam** — it is not a real enquiry.
 
-**None of these creates anything.** Accepting records that a member looked and decided; putting the person into
-your directory and starting an intake is still done from **Intake**. You can change a decision later — an enquiry
-marked spam that turns out to be real is exactly the mistake a queue produces.
+Neither of those creates anything, and you can change either later — an enquiry marked spam that turns out to be
+real is exactly the mistake a queue produces.
+
+### Accepting one
+
+**Accept** is different, because it is the only decision that puts somebody into your records. It opens a sheet
+showing what the visitor typed, already sorted into the fields the record needs — their name in its parts, the
+matter's title, who will carry it — **and every one of those is yours to correct before anything is written.**
+
+Check them. Your directory is kept for good so that a conflicts check can still find what is in it, which means a
+name that arrives misspelled stays misspelled. The name split is a guess in particular: we split what they typed
+on the spaces, which is right for many names and wrong for plenty of others, so move the parts if they landed in
+the wrong boxes. What the visitor actually wrote stays on screen beside the fields the whole time.
+
+When you accept, three things happen together — the contact goes into your directory, a matter opens in intake
+with that contact as the client, and the enquiry is marked accepted and linked to what it created. Either all
+three happen or none does.
+
+Accepting **does not** run a conflicts check. That runs on the intake, where the result can be recorded against
+the matter — the screen offers you the way straight there.
+
+An accepted enquiry cannot be accepted a second time, and its decision cannot be changed. Everything it created
+is an ordinary contact and an ordinary matter from that point, edited where you would edit any other.
 
 ## Keeping out the rubbish
 
@@ -121,8 +140,10 @@ directory, your matters or your conflicts records** until somebody at the firm p
 
 - **Attachments.** A visitor cannot send you a file — the contract, the letter they were served. It is a real gap
   and it is waiting on a decision about the cost of accepting files from people nobody has identified.
-- **Turning an accepted enquiry into a matter in one step.** Today you read the enquiry and start the intake from
-  **Intake** yourself.
+- **A conflicts check on the enquiry itself.** The check runs on the intake that accepting opens, not on the
+  enquiry sitting in the queue, so you find out after you have accepted rather than before.
+- **Reading an enquiry against contacts you already have.** Accepting always adds a new contact; if the person is
+  already in your directory, you will have two of them to merge.
 - **Forms for people who are already your clients.** These need the client portal, which is not built.
 
 ## Who can do what

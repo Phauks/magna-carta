@@ -137,17 +137,20 @@ export async function recordSubmission(
 }
 
 /**
- * Record a member's decision about one submission.
+ * Record a member's decision about one submission — the decisions that CREATE NOTHING.
  *
- * ACCEPTING CREATES NOTHING. It records that a member looked and decided to take it further, and
- * stops there — turning an accepted submission into a Directory entity and an intake is a separate
- * act with its own preconditions in the Directory, the conflicts engine and the matter lifecycle.
- * What ships here is the fact the firm needs first, and the one the anonymous path is forbidden from
- * producing: that a person made a decision, and which person.
+ * Declining and marking as spam are records of what a person concluded and nothing else, which is
+ * why they are one gesture. Accepting is not here and cannot be reached from here: it puts somebody
+ * into a Directory that is effectively permanent, so it goes through `acceptSubmission`, where the
+ * member confirms every value first. A path that could write `accepted` from a bare state string
+ * would be a way to mark an enquiry accepted having created nothing — the queue would then hold rows
+ * claiming a matter exists for them, and nothing to point at.
  *
  * A decision can be changed. A submission marked spam that turns out to be a real enquiry is exactly
  * the mistake a queue produces, and making the first decision final would mean the firm's record of
- * what it did is a record of what it did first.
+ * what it did is a record of what it did first. AN ACCEPTED SUBMISSION IS THE EXCEPTION: it holds
+ * the entity and the matter it created, and neither un-creates. Reversing it is work on those
+ * records, where it belongs, not a state change on the enquiry that led to them.
  */
 export async function recordTriageDecision(
   database: SqlDatabase,
@@ -165,12 +168,22 @@ export async function recordTriageDecision(
       `no such submission: ${input.submissionId}`,
     );
   }
-  if (!isTriageState(input.state) || input.state === "new") {
+  if (submission.accepted_entity_id !== null) {
+    // Refused here rather than left to the row's own CHECK, which would answer a member's press with
+    // an Error ID for a constraint they have no way to read.
+    throw new IntakeFormValidationError(
+      "submission-already-accepted",
+      "this enquiry has already been accepted; it is on the matter it created",
+    );
+  }
+  if (!isTriageState(input.state) || input.state === "new" || input.state === "accepted") {
     // "new" is the state a submission is BORN in, not one a member may return it to: a member who
     // has looked cannot un-look, and a queue that can be reset is a queue whose count means nothing.
+    // "accepted" is refused for the opposite reason — it is a state a submission may only ARRIVE in
+    // by having created a contact and a matter, so it is written by acceptance and by nothing else.
     throw new IntakeFormValidationError(
       "triage-unknown-state",
-      `${JSON.stringify(input.state)} is not a decision a member can record`,
+      `${JSON.stringify(input.state)} is not a decision this operation can record`,
     );
   }
 

@@ -91,6 +91,31 @@ export interface SubmissionAnswer {
   value: string | null;
 }
 
+export interface AcceptanceProposal {
+  submissionId: string;
+  /** A starting point for the member, never a verdict — a form cannot know which it is. */
+  suggestedEntityKind: "person" | "organization";
+  personName: { given: string; family: string; middle: string | null } | null;
+  organizationName: string | null;
+  email: string | null;
+  telephone: string | null;
+  postalAddress: string | null;
+  matterTitle: string;
+  answers: { label: string; kind: string; value: string }[];
+}
+
+export interface AcceptanceInput {
+  entityKind: "person" | "organization";
+  given?: string | null;
+  family?: string | null;
+  middle?: string | null;
+  legalName?: string | null;
+  matterTitle: string;
+  responsibleMemberId: string;
+  matterTypeId?: string | null;
+  note?: string | null;
+}
+
 export interface SubmissionDetail extends SubmissionSummary {
   /** The answers BESIDE the questions as they were asked, from the submission's own version. */
   answers: SubmissionAnswer[];
@@ -251,12 +276,44 @@ export function readIntakeSubmission(
   );
 }
 
-/** Record what a member decided. Accepting creates nothing — it records that somebody looked. */
+/**
+ * What accepting this enquiry WOULD create. Reads only — asking changes nothing.
+ *
+ * The values come from somebody the firm has not met, so every one is editable before it is
+ * committed. That is the only thing between a typo on a web form and a permanent directory record.
+ */
+export function proposeAcceptance(
+  fetchImpl: typeof fetch,
+  formId: string,
+  submissionId: string,
+): Promise<ApiOutcome<AcceptanceProposal>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/intake-forms/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(submissionId)}/acceptance-proposal`,
+  );
+}
+
+/** Create the directory record and the intake, from what the member confirmed. */
+export function acceptSubmission(
+  fetchImpl: typeof fetch,
+  formId: string,
+  submissionId: string,
+  input: AcceptanceInput,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ entityId: string; matterId: string }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/intake-forms/${encodeURIComponent(formId)}/submissions/${encodeURIComponent(submissionId)}/acceptance`,
+    { method: "POST", body: input, idempotencyKey },
+  );
+}
+
+/** Record a decision that creates nothing — declining, or marking as spam. */
 export function triageIntakeSubmission(
   fetchImpl: typeof fetch,
   formId: string,
   submissionId: string,
-  decision: { state: Exclude<TriageState, "new">; note?: string | null },
+  decision: { state: Exclude<TriageState, "new" | "accepted">; note?: string | null },
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ acknowledged: true }>> {
   return requestJson(

@@ -908,6 +908,10 @@ Recording is sequenced last for a legal reason rather than a technical one — c
 
 The human-verification widget (`apps/web/src/lib/human-verification/human-verification-widget.svelte`) is the browser half the activation order has been waiting on since 2026-08-15, and the site key is served by the form's own public read rather than baked into the SPA — so switching verification on is setting two values on the worker, with no rebuild of the interface. Absent, the page renders no challenge at all rather than a box that verifies nothing.
 
+**Accepting is the one decision that writes, and it is propose-and-confirm.** The owner's framing settled the shape: a form is a vector for somebody outside the firm to put information in, and what arrives is verified by a person before it becomes a record. `GET .../acceptance-proposal` maps the answers onto the record a member would create and commits nothing; `POST .../acceptance` writes the Directory entity, the intake and the client party link in ONE batch from what the member confirmed — one batch because the Directory is soft-delete only and a merged-away alias stays in the corpus, so an entity written by a sequence that then failed to write its matter would be in the firm's permanent conflicts corpus forever with nothing to show for it. The review sheet keeps what the visitor actually wrote on screen beside the fields being corrected, because hiding it would hide the thing being checked.
+
+Wiring that screen found two defects in the triage operation, which predated acceptance: `accepted` was still a state a bare state string could write (leaving rows that claim a matter exists with nothing to point at), and triaging an already-accepted submission hit the row's own CHECK and answered a member with an Error ID. Triage now takes `declined` and `spam` only, and refuses any decision on an accepted submission with a 409.
+
 `lint:back-navigation` gained the builder form of a back target: a screen whose parent is one record cannot name a constant, and before this such a screen read as having no way back at all. |
 
 ## Phase 7 — sliced provisionally (no rows yet)

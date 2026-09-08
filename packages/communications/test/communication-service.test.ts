@@ -3,6 +3,7 @@ import {
   logCommunication,
   routeCommunication,
   unrouteCommunication,
+  type LogCommunicationInput,
 } from "../src/communication-service.ts";
 import {
   countUnroutedCommunicationsStatement,
@@ -50,7 +51,9 @@ async function listAll(
 
 async function log(
   database: ReturnType<typeof fresh>,
-  input: ReturnType<typeof callInput>,
+  // The service's own input type, not one helper's return: this file logs calls AND texts through
+  // the same helper, and pinning it to the call shape made every text argument a type error.
+  input: LogCommunicationInput,
   serviceOptions = options,
 ): Promise<CommunicationId> {
   const { communicationId, effect } = await logCommunication(

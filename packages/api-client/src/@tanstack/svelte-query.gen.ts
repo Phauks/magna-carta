@@ -6284,7 +6284,7 @@ export const intakeFormsReadSubmissionOptions = (options: Options<IntakeFormsRea
 });
 
 /**
- * Record what a member decided about a submission. ACCEPTING CREATES NOTHING — no person, no organization, no matter, no intake. It records that a member looked and decided to take it further; turning that into a directory record is a separate act with its own preconditions. A decision can be changed, because a submission marked spam that turns out to be a real enquiry is exactly the mistake a queue produces.
+ * Record a decision that CREATES NOTHING — declining a submission, or marking it as spam. Accepting is a different act and a different operation: it puts somebody into a directory that is kept for good, so it takes the values a member confirmed rather than a state string. A decision recorded here can be changed, because a submission marked spam that turns out to be a real enquiry is exactly the mistake a queue produces. A submission that has been accepted takes no further decision — it holds the contact and the matter it created, and neither un-creates.
  */
 export const intakeFormsTriageMutation = (options?: Partial<Options<IntakeFormsTriageData>>): MutationOptions<IntakeFormsTriageResponse, IntakeFormsTriageError, Options<IntakeFormsTriageData>> => {
     const mutationOptions: MutationOptions<IntakeFormsTriageResponse, IntakeFormsTriageError, Options<IntakeFormsTriageData>> = {
