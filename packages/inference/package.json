@@ -17,6 +17,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/integrations": "workspace:*",

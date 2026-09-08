@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN, todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -86,7 +87,7 @@ const BankMovementMethod = z.enum(["check", "cash", "wire", "electronic_transfer
 // do (a backdated entry that is still in the future in UTC) surface as the 422 the contract declares.
 const civilDate = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .regex(CIVIL_DATE_PATTERN)
   .refine(isValidCalendarDate, { message: "not a calendar date" });
 
 const DepositRequest = z
@@ -1219,7 +1220,6 @@ export function registerTrustRoutes(app: TrustApp, chokepoint: Chokepoint): void
 // The ledger's future-dating check compares against a civil date. The Worker has no user time zone
 // on a request, so UTC is the resolution — and it is the same resolution the rest of the platform
 // uses for a server-side "today".
-const todayInUtc = (): string => new Date().toISOString().slice(0, 10);
 
 // The trust package reads no wall clock of its own, so every composer takes one. Built per request
 // rather than once at module scope so a long-lived isolate cannot freeze "now".

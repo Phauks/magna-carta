@@ -1,3 +1,4 @@
+import { todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -18,7 +19,7 @@ import { resolveReasoningTier } from "../src/reasoning-tier.ts";
 // a function of the date, so a check frozen at a fixture date would pass forever while the fact it
 // asserts quietly stopped being true.
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayInUtc();
 const repositoryRoot = join(import.meta.dirname, "..", "..", "..");
 
 // Comments describe what code WILL do; only code does it. Stripping them is what keeps this scan a

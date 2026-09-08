@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { COST_ENTRY_TABLE } from "@magna-carta/costs/cost-entry-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -53,7 +54,7 @@ const RECOVERY_CATEGORIES = ["postage", "e-filing", "messaging"] as const;
 function addDays(plainDate: string, days: number): string {
   const at = new Date(`${plainDate}T00:00:00.000Z`);
   at.setUTCDate(at.getUTCDate() + days);
-  return at.toISOString().slice(0, 10);
+  return civilDateOf(at);
 }
 
 // Composes the full cost_entry row directly (status included): the capture statement hardcodes 'draft',

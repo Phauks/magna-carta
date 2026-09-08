@@ -1,10 +1,15 @@
+import { readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   checkPhoneEntry,
+  formatPhoneAfterEdit,
   formatPhoneAsTyped,
   formatStoredPhone,
   phoneCountries,
   phoneCountry,
+  phoneCountryFlag,
+  phoneNumberPlaceholder,
 } from "../src/lib/directory/phone-entry.ts";
 
 describe("a number carries its country", () => {
@@ -42,5 +47,51 @@ describe("a number carries its country", () => {
     expect(
       formatStoredPhone({ number: "not a number", countryRegionCode: null, extension: null }),
     ).toBe("not a number");
+  });
+});
+
+describe("a number can be shortened", () => {
+  /*
+   * The defect this is here for: backspace over a grouping character deleted a character the
+   * formatter put straight back, so the key did nothing and the only way to shorten a number was to
+   * clear the field and start over. Reported on the deployed call log, 2026-09-08.
+   */
+  it("deletes the digit behind a grouping character rather than putting the character back", () => {
+    // The field holds "(312)"; backspace leaves "(312", which the formatter would regroup to "(312)".
+    expect(formatPhoneAfterEdit("US", "(312)", "(312")).toBe("31");
+  });
+
+  it("deletes a digit the ordinary way", () => {
+    expect(formatPhoneAfterEdit("US", "(312) 555-0148", "(312) 555-014")).toBe("(312) 555-014");
+  });
+
+  it("regroups what is typed when the keystroke added something", () => {
+    expect(formatPhoneAfterEdit("US", "(312) 555-014", "(312) 555-0148")).toBe("(312) 555-0148");
+    expect(formatPhoneAfterEdit("US", "", "3125550148")).toBe("(312) 555-0148");
+  });
+
+  it("empties a field that is being cleared rather than leaving one digit behind", () => {
+    expect(formatPhoneAfterEdit("US", "(3", "")).toBe("");
+  });
+});
+
+describe("a number field shows the grouping its own country uses", () => {
+  it("writes the country's national form with every digit as an X", () => {
+    expect(phoneNumberPlaceholder("US")).toBe("(XXX) XXX-XXXX");
+    expect(phoneNumberPlaceholder("GB")).toMatch(/^[X ]+$/);
+  });
+
+  it("names a flag file, and one is shipped for every country the picker offers", () => {
+    // The flags are static assets rather than the flag CHARACTERS, which are emoji (golden rule 2)
+    // and which Windows draws as two boxed letters. A country in the list with no file behind it
+    // would render as a broken image, and there is no way to see that short of opening the list.
+    expect(phoneCountryFlag("US")).toBe("/flags/US.svg");
+    const shipped = new Set(
+      readdirSync(fileURLToPath(new URL("../static/flags", import.meta.url))),
+    );
+    const missing = phoneCountries()
+      .map((country) => country.region)
+      .filter((region) => !shipped.has(`${region}.svg`));
+    expect(missing).toEqual([]);
   });
 });

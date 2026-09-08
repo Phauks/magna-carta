@@ -20,7 +20,7 @@ import type { CalendarServiceOptions } from "./event-service.ts";
 import { readMatterEvent } from "./event-statements.ts";
 import { readFirmEvent } from "./firm-event-statements.ts";
 import { readFirmResource, readLocationTimeZone } from "./resource-statements.ts";
-import { endOfCivilDayInstant, instantForCivilDateTime } from "./time-zone.ts";
+import { endOfCivilDayInstant, instantForCivilDateTime } from "@magna-carta/civil-time/time-zone";
 import {
   CalendarValidationError,
   assertCivilDate,

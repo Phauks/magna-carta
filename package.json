@@ -12,6 +12,7 @@
     "build": "vp build",
     "generate-client": "pnpm --filter @magna-carta/api-client run generate",
     "lint:process-refs": "node tooling/lint-process-references.mjs",
+    "lint:date-handling": "node tooling/lint-date-handling/index.mjs",
     "lint:control-characters": "node tooling/lint-control-characters.mjs",
     "lint:icon-sizes": "node tooling/lint-icon-sizes.mjs",
     "lint:back-navigation": "node tooling/lint-back-navigation/index.mjs",

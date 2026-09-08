@@ -22,6 +22,9 @@
       "path": "../calendar/tsconfig.build.json"
     },
     {
+      "path": "../civil-time/tsconfig.build.json"
+    },
+    {
       "path": "../conflicts/tsconfig.build.json"
     },
     {

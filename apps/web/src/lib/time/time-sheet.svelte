@@ -120,6 +120,7 @@
     type SheetScope,
   } from "./time-sheet-scope.ts";
   import { TimeSheetStore } from "./time-sheet-store.svelte.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 
   let {
     open = $bindable(false),
@@ -171,7 +172,7 @@
    */
   const FIRST_WEEKDAY_OF_THE_FIRMS_WEEK = 1;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = civilDateOf(new Date());
 
   let announcement = $state<string | null>(null);
 

@@ -66,10 +66,10 @@ const ARTEFACTS = [
     bindings: "email_core.js",
   },
   {
-    crate: "seven-zip-listing-core",
-    pkg: "packages/seven-zip-listing",
-    wasm: "seven_zip_listing_core_bg.wasm",
-    bindings: "seven_zip_listing_core.js",
+    crate: "seven-zip-core",
+    pkg: "packages/seven-zip",
+    wasm: "seven_zip_core_bg.wasm",
+    bindings: "seven_zip_core.js",
   },
 ];
 

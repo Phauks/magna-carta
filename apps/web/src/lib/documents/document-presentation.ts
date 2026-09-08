@@ -3,6 +3,7 @@
  * unit-testable without a DOM, and so the list, the version history, and the detail panel cannot
  * drift into three answers for the same question.
  */
+import { formatInstant } from "@magna-carta/design-system/formatters";
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
 import type { Problem, DocumentStatus, DocumentSummary } from "./document-api.ts";
 import {
@@ -23,21 +24,12 @@ export function formatDocumentSize(sizeBytes: number | null): string {
 }
 
 /**
- * Format an ISO 8601 timestamp for display. An unparseable value is returned unchanged rather than
- * hidden — showing exactly what the server sent is more honest than dropping a field we could not
- * parse. An absent one reads as an em dash, not as a blank cell.
+ * A document's timestamp for display. Absent reads as an em dash, not as a blank cell; anything
+ * unparseable comes back unchanged, which is `formatInstant`'s own rule — showing exactly what the
+ * server sent is more honest than dropping a field we could not parse.
  */
 export function formatDocumentTimestamp(iso: string | null): string {
-  if (iso === null || iso === "") return "—";
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return iso;
-  return parsed.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return iso === null || iso === "" ? "—" : formatInstant(iso);
 }
 
 /**

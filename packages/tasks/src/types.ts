@@ -26,8 +26,8 @@ export const MAX_TASK_DOCUMENT_COUNT = 50;
 // chain costs a request handler everything.
 export const MAX_BLOCKING_CHAIN_DEPTH = 50;
 
-export const CIVIL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
-export const WALL_CLOCK_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/u;
+// The civil-date and wall-clock shapes are @magna-carta/civil-time's, not restated here. Import
+// them from there: a local copy is a shape that can be loosened on its own.
 
 // Four values with an inherent order, so a list sorts by urgency without a join and a notification's
 // facts can carry a value its reader knows. There is deliberately no `none`: `normal` IS the absence

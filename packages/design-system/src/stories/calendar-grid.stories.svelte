@@ -18,6 +18,7 @@
   import * as CalendarGrid from "../lib/components/calendar-grid/index.ts";
   import CalendarGridMonth from "../lib/components/calendar-grid/calendar-grid-month.svelte";
   import type { CalendarGridEntry } from "../lib/components/calendar-grid/index.ts";
+  import { formatCivilDateLong, parseCivilDate } from "../lib/components/calendar-grid/civil-date.ts";
 
   const { Story } = defineMeta({
     title: "Data Display/CalendarGrid",
@@ -47,17 +48,13 @@
 
   const activate = fn();
 
-  /** The agenda heading, pinned to en-US on a UTC date built from the civil parts. */
-  function pinnedDayHeading(date: string): string {
-    const [year, month, day] = date.split("-").map(Number) as [number, number, number];
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone: "UTC",
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date(Date.UTC(year, month - 1, day)));
-  }
+  /*
+   * The agenda heading. The grid's OWN formatter, pinned to en-US so the story renders the same
+   * words on every machine — a story that formatted the day itself would be showing something the
+   * component does not do, which is the one thing a catalog entry must never do.
+   */
+  const pinnedDayHeading = (date: string): string =>
+    formatCivilDateLong(parseCivilDate(date), "en-US");
 
   // September 2026 begins on a Tuesday. The 15th carries six entries so the month folds it; the
   // trial runs Friday to Sunday, across the Sunday-start week boundary; the hearing on the 22nd

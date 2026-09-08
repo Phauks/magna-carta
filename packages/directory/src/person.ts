@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -73,7 +74,7 @@ export class InvalidPersonLifeDatesError extends Error {
 
 // A plain calendar date and nothing else. No time, no zone: a date of birth has no instant, and
 // storing one would make two records of the same birthday compare unequal across a zone boundary.
-const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const CALENDAR_DATE = CIVIL_DATE_PATTERN;
 
 function validCalendarDate(value: string | null | undefined, field: string): string | null {
   if (value === undefined || value === null) return null;

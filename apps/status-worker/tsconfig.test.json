@@ -16,6 +16,9 @@
       "path": "../../packages/build-identity/tsconfig.build.json"
     },
     {
+      "path": "../../packages/civil-time/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/status/tsconfig.build.json"
     }
   ],

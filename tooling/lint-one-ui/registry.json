@@ -134,6 +134,14 @@
     {
       "name": "LoadingRegion",
       "home": "packages/design-system/src/lib/components/loading-region"
+    },
+    {
+      "name": "ChoicePicker",
+      "home": "apps/web/src/lib/components"
+    },
+    {
+      "name": "PhoneNumberField",
+      "home": "apps/web/src/lib/directory"
     }
   ],
   "modalShellsComment": [

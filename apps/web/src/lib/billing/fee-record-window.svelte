@@ -57,6 +57,7 @@
   } from "$lib/records/work-in-progress-record.ts";
   import { FEE_LEDGER_GAPS, gapCellTitle, gapReason, REVIEW_GATE_ENABLED } from "./fee-gaps.ts";
   import { feeEntrySheet } from "./fee-print-sheet.ts";
+  import { todayInUtc } from "@magna-carta/civil-time/civil-date";
   import { createFee, patchFee, writeKey } from "./fee-operations.ts";
   import {
     billingSentence,
@@ -171,7 +172,7 @@
     }
     if (seededFor === identity) return;
     seededFor = identity;
-    serviceDateText = fee?.serviceDate ?? new Date().toISOString().slice(0, 10);
+    serviceDateText = fee?.serviceDate ?? todayInUtc();
     amountText = fee === null ? "" : (fee.amountMinor / 100).toFixed(2);
     descriptionText = fee?.description ?? "";
     memoText = fee?.memo ?? "";

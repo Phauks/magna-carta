@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import {
@@ -539,7 +540,7 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
       const narrative = state.narrative ?? "";
       const utbmsTaskCodeId = state.utbmsTaskCodeId;
       const startedAt = state.startedAt;
-      const workDate = startedAt.slice(0, 10);
+      const workDate = civilDateOf(startedAt);
       const timeEntryId = deriveTimeEntryHandle(liveRunId);
 
       // All commit paths derive the chokepoint key from the live run id (not the client-supplied

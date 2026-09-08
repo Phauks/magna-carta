@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { loadEffectivePermissions } from "../session-context.ts";
 import {
@@ -1832,7 +1833,7 @@ const SetPersonLifeDatesRequest = z
   .object({
     dateOfBirth: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .regex(CIVIL_DATE_PATTERN)
       .nullish()
       .openapi({
         description:
@@ -1840,10 +1841,7 @@ const SetPersonLifeDatesRequest = z
           "birth is a range — is this client a minor, has a limitation period tolled — and a range " +
           "query over ciphertext is not a query.",
       }),
-    dateOfDeath: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .nullish(),
+    dateOfDeath: z.string().regex(CIVIL_DATE_PATTERN).nullish(),
     deceased: z
       .boolean()
       .optional()

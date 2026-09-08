@@ -16,6 +16,7 @@
     "directory": "tsx scripts/build-directory-data.mts && start mockups/directory.html"
   },
   "devDependencies": {
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "tsx": "^4.23.1",

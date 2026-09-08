@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z } from "zod";
 import type { InferenceModelId } from "./port.ts";
 
@@ -120,7 +121,7 @@ export interface CatalogEntry {
   readonly indexVersion?: string;
 }
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const isoDate = z.string().regex(CIVIL_DATE_PATTERN);
 
 // True when snapshotId is exactly referenceId plus a -YYYYMMDD suffix. Built from string operations
 // rather than a regex composed around referenceId, because a reference id legitimately contains regex

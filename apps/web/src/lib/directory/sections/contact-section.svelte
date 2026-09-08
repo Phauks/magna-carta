@@ -5,7 +5,9 @@
    * Every way to reach a person is one line: the kind as a glyph, the value formatted, the use
    * beside it, the record's marks after, and the row's own controls at the end. The entry row asks
    * the kind first — Email, Telephone, Fax — and the kind decides the fields; each kind checks its
-   * own shape before the plus is live, by the rule the API applies (contact-draft.ts).
+   * own shape before the plus is live, by the rule the API applies (contact-draft.ts). A number is
+   * entered in the product's one number field (../phone-number-field.svelte), the same one the call
+   * log uses, so the country and the digits are one control everywhere.
    *
    * A POSTAL ADDRESS IS NOT ONE OF THESE, and it used to be. An address is not a field, it is a form
    * of six to nine boxes whose shape is the country's; standing it under the same kind dropdown as a
@@ -45,7 +47,6 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import X from "@lucide/svelte/icons/x";
-  import type { CountryCode } from "libphonenumber-js/min";
   import {
     CONTACT_KINDS,
     REACHABLE_KINDS,
@@ -60,7 +61,7 @@
   } from "../contact-draft.ts";
   import type { DirectoryContactUse } from "../directory-api.ts";
   import { EMAIL_USES } from "../directory-vocabulary.ts";
-  import { formatPhoneAsTyped, phoneCountries, phoneCountryShortLabel } from "../phone-entry.ts";
+  import PhoneNumberField from "../phone-number-field.svelte";
   import SectionHeading from "./section-heading.svelte";
 
   let {
@@ -99,7 +100,6 @@
   const identity = $props.id();
   const kindLabelId = `${identity}-kind`;
   const useLabelId = `${identity}-use`;
-  const countryLabelId = `${identity}-country`;
 
   let draft = $state<ContactDraft>(emptyContactDraft("email"));
   /** The recorded row being corrected, or null while the entry row is adding a new one. */
@@ -121,11 +121,6 @@
   /** The refusal, on the field it is about, once something has been typed. */
   const fieldError = $derived(started && refusal !== null ? refusal : undefined);
   const kindItems = REACHABLE_KINDS.map((entry) => ({ value: entry.value, label: entry.label }));
-  const countryItems = phoneCountries().map((country) => ({
-    value: country.region,
-    label: phoneCountryShortLabel(country),
-    name: country.name,
-  }));
   const useItems = $derived([
     ...(draft.kind === "email" ? EMAIL_USES : draft.kind === "fax" ? FAX_USES : TELEPHONE_USES),
   ]);
@@ -311,51 +306,17 @@
         </LabelledField>
       {:else if draft.kind === "telephone" || draft.kind === "fax"}
         {@const number = draft}
-        <div class="flex flex-col gap-8" style="width: 9.5rem">
-          <Label id={countryLabelId}>Country</Label>
-          <Select.Root
-            type="single"
-            items={countryItems}
-            bind:value={() => number.region, (chosen) => patch({ region: chosen })}
-            allowDeselect={false}
+        <!-- The country and the digits are ONE field, and it is the same one the call log enters a
+             number in (../phone-number-field.svelte). Two hand-built copies of this pair is how the
+             two came to format a deletion differently. -->
+        <div class="min-w-0 flex-auto">
+          <PhoneNumberField
+            bind:region={() => number.region, (chosen) => patch({ region: chosen })}
+            bind:number={() => number.number, (typed) => patch({ number: typed })}
             disabled={!canEdit}
-          >
-            <Select.Trigger aria-labelledby={countryLabelId}>
-              <Select.Value />
-            </Select.Trigger>
-            <Select.Content>
-              {#each countryItems as item (item.value)}
-                <Select.Item value={item.value} label={item.label}>
-                  <span class="flex items-baseline gap-8">
-                    <span class="tabular-nums">{item.label}</span>
-                    <span class="text-xs text-text-muted">{item.name}</span>
-                  </span>
-                </Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
+            error={fieldError}
+          />
         </div>
-        <LabelledField label="Number" class="min-w-0 flex-auto" error={fieldError}>
-          {#snippet children({ props })}
-            <Input
-              {...props}
-              type="tel"
-              inputmode="tel"
-              autocomplete="off"
-              class="tabular-nums"
-              value={number.number}
-              disabled={!canEdit}
-              placeholder={placeholderOf("Number")}
-              oninput={(event) => {
-                // Formats as it is typed, in the country's national form; the field shows the
-                // grouping and the draft keeps it, so a retyped digit lands where the eye expects.
-                const typed = formatPhoneAsTyped(number.region as CountryCode, event.currentTarget.value);
-                event.currentTarget.value = typed;
-                patch({ number: typed });
-              }}
-            />
-          {/snippet}
-        </LabelledField>
         <div style="width: 6rem">
           <LabelledField label="Extension">
             {#snippet children({ props })}

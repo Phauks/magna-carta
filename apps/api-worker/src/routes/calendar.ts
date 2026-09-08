@@ -1,3 +1,5 @@
+import { CIVIL_DATE_PATTERN, civilDateOf, todayInUtc } from "@magna-carta/civil-time/civil-date";
+import { WALL_CLOCK_TIME_PATTERN } from "@magna-carta/civil-time/wall-clock";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -138,8 +140,8 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 const READ = "calendar:read" as const;
 const MANAGE = "calendar:manage" as const;
 
-const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const WALL_CLOCK_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const CIVIL_DATE = CIVIL_DATE_PATTERN;
+const WALL_CLOCK_TIME = WALL_CLOCK_TIME_PATTERN;
 
 // ---- request/response contracts ----
 
@@ -2200,7 +2202,7 @@ async function readOverdueCutoffs(
   // so a deadline dated tomorrow in UTC terms can already have fallen due there. Anything later
   // cannot be overdue in any zone, which makes this an index-friendly coarse bound the per-zone
   // clauses then narrow exactly.
-  const throughDate = new Date(Date.parse(now) + 86_400_000).toISOString().slice(0, 10);
+  const throughDate = civilDateOf(new Date(Date.parse(now) + 86_400_000));
   const { timeZones } = await readOpenDeadlineTimeZones(database, {
     throughDate,
     limit: MAX_OVERDUE_ZONES,
@@ -2254,12 +2256,7 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const firm = requireChokepointFirmContext(c);
       const { matterId } = c.req.valid("param");
       const query = c.req.valid("query");
-      const bounds = directionBounds(
-        query.direction,
-        query.from,
-        query.to,
-        new Date().toISOString().slice(0, 10),
-      );
+      const bounds = directionBounds(query.direction, query.from, query.to, todayInUtc());
       try {
         const page = await readTimelinePage({
           database: firm.firmDatabase,
