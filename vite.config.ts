@@ -226,18 +226,19 @@ export default defineConfig({
       // Cloudflare Workers Builds: the build environment needs only Docker (which the Workers Builds
       // runner provides — the same way the scan/bundle/convert container images build), never Rust or
       // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
-      // each host package dir (the import paths packages/{pdf,decryption,email}/src expect). All three
-      // are built because build-all bundles all of the consumers: the SPA imports pdf-core (the
-      // in-browser PDF reader), and apps/api-worker imports pdf-core, decryption-core (the
-      // decryption/recovery routes' strip_with_key/extract_hash/verify_guess) and email-core —
-      // omitting any makes the worker or SPA bundle fail with ENOENT on the missing .wasm. Build
+      // each host package dir (the import paths packages/{pdf,decryption,email,seven-zip-listing}/src
+      // expect). All four are built because build-all bundles all of the consumers: the SPA imports
+      // pdf-core (the in-browser PDF reader), and apps/api-worker imports pdf-core, decryption-core
+      // (the decryption/recovery routes' strip_with_key/extract_hash/verify_guess), email-core and
+      // seven-zip-listing-core (the archive browse route's 7z reader) — omitting any makes the worker
+      // or SPA bundle fail with ENOENT on the missing .wasm. Build
       // context is crates/. Like the container workers, this requires Docker available locally.
       // --network=host: the Workers Builds runner's Docker isolates RUN-step networking (image pulls
       // work, but RUN-step DNS fails), so the rustup/cargo downloads need the host network — which the
       // bare runner has (it clones the repo + runs pnpm install). Harmless locally.
       //
       // Each crate also has its OWN task, because a Worker that imports one of them should not pay to
-      // compile the other two: `magna-carta-web` (the interface Worker, and so the build that runs most
+      // compile the others: `magna-carta-web` (the interface Worker, and so the build that runs most
       // often) needs pdf-core alone, and its build script asks for exactly that. The composite below is
       // still what the app-worker deploy and CI's wasm job (.github/workflows/gate.yml) ask for, and it
       // is a chain of nested `vp run`s so each crate keeps its own cache entry rather than one
@@ -247,6 +248,7 @@ export default defineConfig({
           "vp run rust-wasm-build-pdf",
           "vp run rust-wasm-build-decryption",
           "vp run rust-wasm-build-email",
+          "vp run rust-wasm-build-seven-zip-listing",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -261,7 +263,11 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
       },
-      // DEV-ONLY, Docker-free fallback for the same three wasm artefacts, built with the host Rust
+      "rust-wasm-build-seven-zip-listing": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/seven-zip-listing/src/pkg -f crates/seven-zip-listing-core/wasm.Dockerfile crates",
+      },
+      // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that
       // cannot pull the base image (e.g. a cloud session whose egress policy blocks Docker Hub /
       // ghcr blob pulls). It is NOT authoritative — the host rustc may emit different wasm bytes

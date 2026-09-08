@@ -140,14 +140,14 @@
   evidence: The ingest path stores an archive unexpanded; ADR-0027 records the posture. What has changed since this node was written is that expansion now EXISTS in two asked-for lanes rather than nowhere — the discovery processing lane (crates/discovery-core archive.rs) and, on a member a person names, the file manager (packages/file-manager/src/zip-member-extract.ts). Neither runs on arrival, which is what opacity meant.
 
 - id: documents.file-manager.archive-browse
-  name: Browse inside a zip
-  scope: Read an archive's entry listing from its central directory over ranged reads, without inflating a byte, for a live or a soft-deleted archive alike.
+  name: Browse inside an archive
+  scope: Read an archive's entry listing over ranged reads of its headers, without unpacking a byte, for a live or a soft-deleted archive alike. Four formats, each decided from the object's own signature rather than its name - zip, tar, 7z and rar.
   status: shipped
   surface: screen
-  evidence: packages/file-manager/src/zip-central-directory.ts + GET /api/v1/files/{id}/archive-entries + the archive view in apps/web/src/lib/file-manager (archive-browse.ts, archiveColumns).
+  evidence: packages/file-manager/src/{archive-format,zip-central-directory,tar-listing,rar-listing}.ts + packages/seven-zip-listing (crates/seven-zip-listing-core to WebAssembly) + GET /api/v1/files/{id}/archive-entries + the archive view in apps/web/src/lib/file-manager (archive-browse.ts, archiveColumns).
   audience: public
-  public-name: Looking inside a zip
-  public-summary: See what a zip holds without extracting it or downloading it first.
+  public-name: Looking inside an archive
+  public-summary: See what a zip, tar, 7z or rar holds without extracting it or downloading it first.
 
 - id: documents.file-manager.archive-extract
   name: Extract an archive's members

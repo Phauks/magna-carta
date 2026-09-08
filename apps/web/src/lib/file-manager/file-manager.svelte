@@ -95,6 +95,7 @@
     archivePathSegments,
     type ArchiveRow,
   } from "./archive-browse.ts";
+  import { looksLikeBrowsableArchive } from "./archive-names.ts";
   import { extractionSentence, runExtraction } from "./archive-extraction.ts";
   import { uploadIntoFolder } from "./file-upload.ts";
   import { matterUploadRevision, startUploadBatch } from "./upload-queue.svelte.ts";
@@ -471,9 +472,12 @@
       manager.openFolder(row.folder.id);
       return;
     }
-    // A zip with bytes opens INTO itself: what somebody wants from an archive is what is in it,
-    // and the central directory answers that without extracting anything.
-    if (isZip(row.file.name, row.file.sniffedContentType) && row.file.currentVersionId !== null) {
+    // An archive with bytes opens INTO itself: what somebody wants from one is what is in it, and
+    // every format this reads answers that from its header alone, without unpacking anything.
+    if (
+      looksLikeBrowsableArchive(row.file.name, row.file.sniffedContentType) &&
+      row.file.currentVersionId !== null
+    ) {
       enterArchive({
         fileId: row.file.id,
         fileName: row.file.name,
@@ -1353,10 +1357,10 @@
     rows: () => (manager.view === "deleted" ? [...deletedFiles] : []),
     rowKey: (row) => row.id,
     itemNoun: { singular: "deleted file", plural: "deleted files" },
-    // A deleted zip still browses — reading its directory restores nothing — so opening one looks
+    // A deleted archive still browses — reading its header restores nothing — so opening one looks
     // inside it; everything else opens the restore question, which is the only act it has.
     onActivate: (row) =>
-      isZip(row.name, row.sniffedContentType) && row.currentVersionId !== null
+      looksLikeBrowsableArchive(row.name, row.sniffedContentType) && row.currentVersionId !== null
         ? enterArchive({ fileId: row.id, fileName: row.name, deleted: true, unscanned: false })
         : beginRestore(row),
   });
@@ -1420,11 +1424,6 @@
   let archiveTruncated = $state(false);
   let archiveLoading = $state(false);
   let archiveFailure = $state<string | null>(null);
-
-  /** What the row's own facts say: sniffed as a zip, or named one when nothing was sniffed. */
-  function isZip(name: string, sniffedContentType: string | null): boolean {
-    return sniffedContentType === "application/zip" || name.toLowerCase().endsWith(".zip");
-  }
 
   function enterArchive(target: ArchiveBrowseState): void {
     archiveBrowse = target;
