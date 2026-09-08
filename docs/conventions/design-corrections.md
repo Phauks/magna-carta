@@ -1013,7 +1013,9 @@ Local to this surface, and not promoted:
   than selects — the ruling from the call-log round the same day, applied to the code this round
   wrote. The country field is the case that ruling names: two hundred rows in a select is a list
   nobody can use. The prefix and suffix fields are NOT that control: `ChoicePicker` is for a set the
-  firm cannot add to, and these two are open by design, so they are the Combobox with the add row.
+  firm cannot add to, and those two are open by design, so they are the Combobox with the add row —
+  which is `apps/web/src/lib/names/honorific-field.svelte`, built for the settings round on the same
+  day and used here rather than copied.
 
 ### 2026-09-08 — Record Communication: two columns, typed choices, and a number that can be shortened
 

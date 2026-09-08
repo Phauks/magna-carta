@@ -50,8 +50,8 @@
   status: partial
   surface: screen
   slices: 1-3-directory
-  evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts; apps/web/src/lib/directory/names-pane.svelte and sections/names-section.svelte, over the shared prefix/suffix field at sections/name-affix-field.svelte and the offered spellings in name-affix.ts
-  notes: Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. A person is recorded with a first name and no more required — a mononym is indexed from the given name — and may carry several suffixes in the one column (owner ruling, 2026-09-08). display_text and the legal/preferred roles remain.
+  evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts; apps/web/src/lib/directory/names-pane.svelte and sections/names-section.svelte, over the shared honorific field at apps/web/src/lib/names/honorific-field.svelte
+  notes: Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. A person is recorded with a first name and no more required — a mononym is indexed from the given name — and carries as many suffixes as they hold, comma-separated in the one column (owner ruling, 2026-09-08). display_text and the legal/preferred roles remain.
 
 - id: directory.pronouns
   name: Pronouns on a person

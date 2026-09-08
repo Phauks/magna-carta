@@ -20,9 +20,9 @@ own set filter was already doing its whole job, and the way back to the whole bo
 On the record panel: a person is recorded with a first name and nothing more required — a mononym is
 an ordinary name, the domain already indexes one from the given name, and the missing last name is
 stated as a warning above the commit rather than as a refusal. The name fields read First, Middle and
-Last. The prefix and the suffixes moved off free-text inputs onto the product's own
-combobox-with-add over the spellings a firm writes, and a person may hold as many suffixes as they
-have. The Contact and Identifiers entry rows lost the box around them and are the last row of their
+Last. The prefix and the suffixes moved off free-text inputs onto the product's own honorific
+field (`apps/web/src/lib/names/honorific-field.svelte`, which the settings round built the same day),
+so a person carries as many suffixes as they hold. The Contact and Identifiers entry rows lost the box around them and are the last row of their
 own list; the identifier row wraps instead of running off the right edge of the panel. A recorded
 email, number or address can now be corrected in place instead of only deleted and retyped. The
 postal address moved out of the Contact kind dropdown onto its own rail section, over a new
