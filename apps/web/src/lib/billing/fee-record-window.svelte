@@ -47,6 +47,8 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import { billHref } from "$lib/money/index.ts";
+  import MatterPicker from "$lib/time/matter-picker.svelte";
+  import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
   import {
     GONE_RECORDER_NOTE,
     recorderState,
@@ -71,6 +73,8 @@
     matterId,
     matterTitle,
     matterNumber = null,
+    matters = [],
+    mattersCapped = false,
     currency,
     canWorkDraft,
     onSaved,
@@ -84,10 +88,22 @@
      * straight into its fields.
      */
     editing?: boolean;
-    /** The matter a NEW fee is written against. Every fee is a charge on exactly one. */
+    /** The matter a NEW fee is written against, where the surface stands on one. */
     matterId: string;
     matterTitle: string;
     matterNumber?: string | null;
+    /**
+     * The firm's matters, for a NEW fee written from a surface that stands on none.
+     *
+     * Empty is the matter ledger's case and the default: the matter is already decided, the field
+     * is absent, and `matterId` above is what a new fee is written against. Non-empty is the firm's
+     * own period screen, where the reader picks the matter per fee — the same arrangement the cost
+     * window and the Time Sheet have, and for the same reason: a charge with no matter has nobody
+     * to bill it to, so the choice is made at capture rather than left for somebody to file later.
+     */
+    matters?: readonly SheetMatter[];
+    /** Whether the list above is a page of the record rather than all of it. */
+    mattersCapped?: boolean;
     currency: string;
     /** Whether this account may work this draft, and why not when it may not. */
     canWorkDraft: (fee: FeeRecord) => { allowed: boolean; reason: string };
@@ -97,6 +113,21 @@
 
   const creating = $derived(fee === null);
   const fieldPrefix = $props.id();
+
+  /*
+   * Which matter a NEW fee is written against.
+   *
+   * On a surface standing in a matter it is that matter and the picker is absent. On one standing
+   * in none it starts unchosen: a fee pre-filled with whichever matter happened to be first would
+   * be a wrong answer arriving faster than no answer, and a charge lands on the wrong client's bill
+   * exactly once before somebody stops trusting the ledger.
+   */
+  const picksItsMatter = $derived(matters.length > 0);
+  let chosenMatterId = $state<string | null>(null);
+  const writingAgainst = $derived(picksItsMatter ? chosenMatterId : matterId);
+  const chosenMatterTitle = $derived(
+    matters.find((candidate) => candidate.id === chosenMatterId)?.title ?? null,
+  );
 
   let serviceDateText = $state("");
   let amountText = $state("");
@@ -182,7 +213,13 @@
   );
 
   const refusal = $derived(
-    editing ? feeDraftRefusal({ amountText, description: descriptionText }) : null,
+    editing
+      ? // The matter leads the refusals for a new fee on a matterless surface: it is the one field
+        // whose absence makes the record meaningless rather than merely incomplete.
+        (creating && picksItsMatter && writingAgainst === null
+          ? "Name the matter this fee charges."
+          : feeDraftRefusal({ amountText, description: descriptionText }))
+      : null,
   );
 
   /** Why the change cannot be committed as it stands. A save in flight is one of those reasons. */
@@ -204,7 +241,7 @@
         ? await createFee(
             fetch,
             {
-              matterId,
+              matterId: writingAgainst ?? matterId,
               serviceDate: serviceDateText,
               timekeeperUserId: null,
               description: descriptionText.trim(),
@@ -278,7 +315,10 @@
 
 {#snippet subtitle()}
   {#if fee === null}
-    <span>{matterTitle}</span>
+    <!-- On a matterless surface the subtitle follows the pick, so the window's own heading answers
+         "which matter" as soon as it has been decided rather than standing empty above a filled
+         form. -->
+    <span>{picksItsMatter ? (chosenMatterTitle ?? "No matter chosen yet") : matterTitle}</span>
   {:else}
     <span title={gapCellTitle("entryNumber")}>
       {FEE_LEDGER_GAPS.entryNumber.field} not yet recorded
@@ -311,6 +351,23 @@
       </Alert.Root>
     {/if}
 
+    {#if creating && picksItsMatter}
+      <!-- First, because a fee is a fact about a matter before it is a fact about an amount, and
+           because the refusal that names it leads the others. -->
+      <div class="flex flex-col gap-4">
+        <Label for="{fieldPrefix}-pick-matter">Matter</Label>
+        <MatterPicker
+          {matters}
+          value={chosenMatterId}
+          inputId="{fieldPrefix}-pick-matter"
+          disabled={readOnly}
+          capped={mattersCapped}
+          title="The matter this fee charges. A charge with no matter has nobody to bill it to."
+          onpick={(picked) => (chosenMatterId = picked)}
+        />
+      </div>
+    {/if}
+
     <!-- The description leads: it is the line the client reads, and it grows to fit. -->
     <div class="flex flex-col gap-4">
       <Label for="{fieldPrefix}-description">Description</Label>
@@ -335,7 +392,11 @@
         <Label for="{fieldPrefix}-matter">Matter</Label>
         <Input
           id="{fieldPrefix}-matter"
-          value={matterNumber === null ? matterTitle : `${matterNumber} — ${matterTitle}`}
+          value={matterTitle === ""
+            ? "Not resolved"
+            : matterNumber === null
+              ? matterTitle
+              : `${matterNumber} — ${matterTitle}`}
           title={gapCellTitle("matterMove")}
           disabled
         />

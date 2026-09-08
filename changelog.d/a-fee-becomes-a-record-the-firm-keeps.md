@@ -39,6 +39,18 @@ confirmations moved there too, and **delete-draft** joins them — Fees is the f
 DELETE route, so `deletesDraft` sits beside `opensTheBill` in the shared row menu. Deleting is not
 voiding, and the refusal on the wrong one is where the difference is taught.
 
+**`/fees` takes the row Fees never had.** It was absent from the sidebar's Money group for exactly
+the reason Costs was — structurally, not by oversight: nothing served the record, so it was not a
+Soon row, it was not a row. The period screen is the Costs template throughout, deliberately, because
+the two answer the same shape of question: the scope in the address, the period arithmetic reused
+from the Time Sheet rather than written a third time, and the matter ledger's own columns with Matter
+brought forward (`firmFeeColumns`) so a fee carries the same words whichever screen found it. The fee
+record window gained the matter picker the cost window has, and leads with it unfilled.
+
+`moneySectionFirmDestination("fees")` stops answering null, so **All fees** appears on the matter
+toolbar with no second declaration — the way out derives from the sidebar's registry. Four of the
+five money sections now have a firm-wide twin.
+
 ## Public
 
 **Flat charges are now recorded the way your hours and your costs are.**
@@ -62,4 +74,11 @@ nobody has been shown; it does not come back, and there is no record to preserve
 anything further along: the fee freezes, stops counting toward every figure, and stays on the record
 struck through, because it is something you may be asked to account for.
 
-Updated guide: [A matter's money sections](docs/user/features/matter-money-sections.md).
+**Fees is now in the sidebar too.** It shows every flat charge across every matter for the days you
+choose, the same way Costs shows what the firm laid out — where a month gets read back before
+billing. Each row's matter is a link to that matter's own Fees section, and **New Fee** works from
+there too: because the screen is not standing on a matter, the first field is the matter, and nothing
+is pre-filled.
+
+New guide: [The firm's fees](docs/user/features/the-firms-fees.md). Updated guide: [A matter's money
+sections](docs/user/features/matter-money-sections.md).

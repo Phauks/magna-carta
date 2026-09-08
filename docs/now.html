@@ -149,8 +149,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   can reach one is a separate fact from how complete it is, and no status holds it: a backend nobody
   can open and a screen somebody uses every day are both shipped. The ledger records it separately.</p>
   <div class="band">
-    <div class="k g"><span>Reachable</span><b>77</b><em>A person can open it in the application today.</em></div>
-    <div class="k y"><span>Waiting on a screen</span><b>167</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
+    <div class="k g"><span>Reachable</span><b>78</b><em>A person can open it in the application today.</em></div>
+    <div class="k y"><span>Waiting on a screen</span><b>166</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
     <div class="k b"><span>Under the floor</span><b>179</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Every one of them is classified. The middle figure is the interface debt stated directly rather than guessed at from
@@ -2875,7 +2875,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Recorded fees (flat charges for professional services)</span>
 <code>financial.fees</code>
 <p>Per-matter fee entries for a flat charge somebody decided on — neither an hourly matter's time value nor a flat-fee arrangement's amount — staying unbilled work in progress until a draft invoice claims one.</p>
-<p class="note">This REVERSES the 2026-08-26 fee-surface ruling that Fees is not a work-in-progress surface. That design rested on pairing the fee agreement with the invoice lines a bill had composed from it; the owner moved the arrangement into the matter's status window on 2026-09-03, which removed the pairing and left the pure invoice view the design had itself rejected. A ledger of lines can show nothing that is still unbilled. Partial because the firm-wide period screen and the sidebar row are not built, and because the review gate the routes honour is not served to the app.</p>
+<p class="note">This REVERSES the 2026-08-26 fee-surface ruling that Fees is not a work-in-progress surface. That design rested on pairing the fee agreement with the invoice lines a bill had composed from it; the owner moved the arrangement into the matter's status window on 2026-09-03, which removed the pairing and left the pure invoice view the design had itself rejected. A ledger of lines can show nothing that is still unbilled. Both surfaces read it now — the matter's own Fees section and the firm's period across every matter. Partial because the review gate the routes honour is not served to the app, and because a fee's entry number, its attached files and its recorded history are not on the record yet.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">A draft invoice claims a fee</span>
@@ -2893,7 +2893,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">The firm's fee record over a period</span>
 <code>financial.fees.firm-period</code>
 <p>What the firm charged for work done across every matter over a span of service dates, and what is still waiting on a bill.</p>
-<p class="note">The listing half is built and tested — the period shape, the billable narrowing, and the matter name and number on every row — so what is missing is the screen and the destination. Costs is the working template.</p>
+<p class="note">Fees was absent from the sidebar's Money group for the same structural reason Costs was — nothing served the record, so it was not a Soon row, it was not a row — and the work-in-progress store is what made adding it honest. Partial because it does not yet approve a submitted fee across matters, and because the firm's review setting is not served so the review verbs are absent rather than offered. The record window takes the firm's matters and leads with an unfilled matter picker, the arrangement the cost window and the Time Sheet already have; a fee pre-filled with whichever matter came first would be a wrong answer arriving faster than no answer.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Costs and expenses (disbursements)</span>

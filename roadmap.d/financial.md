@@ -565,7 +565,7 @@
   audience: public
   public-name: Recorded fees
   public-summary: Record a flat charge for professional services on a matter, and bill it like any other work in progress.
-  notes: This REVERSES the 2026-08-26 fee-surface ruling that Fees is not a work-in-progress surface. That design rested on pairing the fee agreement with the invoice lines a bill had composed from it; the owner moved the arrangement into the matter's status window on 2026-09-03, which removed the pairing and left the pure invoice view the design had itself rejected. A ledger of lines can show nothing that is still unbilled. Partial because the firm-wide period screen and the sidebar row are not built, and because the review gate the routes honour is not served to the app.
+  notes: This REVERSES the 2026-08-26 fee-surface ruling that Fees is not a work-in-progress surface. That design rested on pairing the fee agreement with the invoice lines a bill had composed from it; the owner moved the arrangement into the matter's status window on 2026-09-03, which removed the pairing and left the pure invoice view the design had itself rejected. A ledger of lines can show nothing that is still unbilled. Both surfaces read it now — the matter's own Fees section and the firm's period across every matter. Partial because the review gate the routes honour is not served to the app, and because a fee's entry number, its attached files and its recorded history are not on the record yet.
 
 - id: financial.fees.claim
   name: A draft invoice claims a fee
@@ -593,10 +593,13 @@
   name: The firm's fee record over a period
   scope: What the firm charged for work done across every matter over a span of service dates, and what is still waiting on a bill.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: 3-3-costs-expenses-disbursements
-  evidence: the from/to span is already served on GET /api/v1/fees with the matter resolved beside each record; no screen reads it and the sidebar's Money group has no Fees destination
-  notes: The listing half is built and tested — the period shape, the billable narrowing, and the matter name and number on every row — so what is missing is the screen and the destination. Costs is the working template.
+  evidence: the from/to span on GET /api/v1/fees (apps/api-worker/src/routes/fees.ts) over the fee_entry service-date index, and apps/web/src/routes/(app)/fees/+page.svelte on the matter ledger's own column declaration with its Matter column brought forward (firmFeeColumns); the sidebar destination is shipped at stage alpha
+  audience: public
+  public-name: What the firm charged for its work
+  public-summary: See every flat charge the firm made in a month, across all its matters, and how much is still waiting on a bill.
+  notes: Fees was absent from the sidebar's Money group for the same structural reason Costs was — nothing served the record, so it was not a Soon row, it was not a row — and the work-in-progress store is what made adding it honest. Partial because it does not yet approve a submitted fee across matters, and because the firm's review setting is not served so the review verbs are absent rather than offered. The record window takes the firm's matters and leads with an unfilled matter picker, the arrangement the cost window and the Time Sheet already have; a fee pre-filled with whichever matter came first would be a wrong answer arriving faster than no answer.
 
 - id: financial.costs
   name: Costs and expenses (disbursements)

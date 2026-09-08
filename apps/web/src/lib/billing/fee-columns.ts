@@ -93,8 +93,9 @@ export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecor
       value: (fee) => fee.serviceDate,
     },
     /*
-     * The matter a charge is against. Absent from a matter's own ledger, where every row is the
-     * same matter, and the reason the firm-wide period listing resolves it beside the record.
+     * The matter a charge is against. Hidden on a matter's own ledger, where every row is the same
+     * matter and the column would be one repeated phrase; the firm's own screen brings it forward
+     * (firmFeeColumns below), which is the reason the period listing resolves it beside the record.
      */
     {
       id: FEE_COLUMN_IDENTIFIERS.matter,
@@ -204,4 +205,18 @@ export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecor
       value: (fee) => statusEntry(feeStatusKey(fee.status)).label,
     },
   ];
+}
+
+/**
+ * The same columns, arranged for the firm's own period screen.
+ *
+ * ONE DECLARATION, TWO ARRANGEMENTS. The firm-wide screen differs from the matter's by exactly one
+ * thing — a fee read across every matter has to say which one it charges — so it takes the ledger's
+ * own columns with Matter brought forward rather than declaring a set of its own. Two declarations
+ * is two chances for a fee to carry different words depending on which screen found it.
+ */
+export function firmFeeColumns(currency: string): readonly GridColumn<FeeRecord>[] {
+  return feeLedgerColumns(currency).map((column) =>
+    column.id === FEE_COLUMN_IDENTIFIERS.matter ? { ...column, hidden: false } : column,
+  );
 }

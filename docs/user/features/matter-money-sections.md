@@ -23,9 +23,9 @@ the row of sections beneath the matter's title reaches the same five places.
 
 ## Leaving the matter for the firm's whole record
 
-Three of the five money sections have a firm-wide twin, and the end of that same row is the way to
-it: **All time**, **All costs**, **All billing**, past a short rule so it never reads as a sixth
-section. It takes you out of the matter to the same money at the firm's scale — every matter's hours
+Four of the five money sections have a firm-wide twin, and the end of that same row is the way to
+it: **All time**, **All fees**, **All costs**, **All billing**, past a short rule so it never reads
+as a sixth section. It takes you out of the matter to the same money at the firm's scale — every matter's hours
 for a week, every matter's spending for a month, every client's bills — which is the question a
 matter's own section cannot answer.
 
@@ -116,5 +116,6 @@ section is empty for now and says so.
 ## Related
 
 - [`matter-documents.md`](matter-documents.md) — the Files section, whose layout the money sections share.
+- [`the-firms-fees.md`](the-firms-fees.md) — the firm's fees across every matter, for a period.
 - [`billing-fee-arrangements.md`](billing-fee-arrangements.md) — how a matter is billed.
 - [`correcting-a-bill.md`](correcting-a-bill.md) — credit notes, write-offs and client credits.

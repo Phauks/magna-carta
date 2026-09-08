@@ -11,7 +11,7 @@ load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
 branch: main
 active-work: docs/active-work/claude/billing-uui-consolidation-5l2kiu.md
-next: The firm's fee period at /fees and its sidebar row; approving a submitted cost from the firm-wide period; a record's entry number and attached files on both ledgers
+next: Approving a submitted record from either firm-wide period; a record's entry number, its attached files and its recorded history on both ledgers; the firm's review setting being served so the chain verbs stop being absent
 link-spec:
 link-plan:
 adrs:
@@ -35,3 +35,5 @@ And a billed record now names the bill that took it up. `cost_entry.invoice_id` 
 `GET/POST /api/v1/fees` serves both listing shapes on billing's own permissions — reading a fee is reading unbilled work in progress, which `billing:read` already names — and the matter's Fees section reads the per-matter shape whole, in every status, paged. **Nothing computes a fee from time entries**, and the non-hourly-arrangement guard stays scoped to `time_entry` so a recorded fee on a flat-fee matter is a separate charge rather than a second billing of the same agreement.
 
 What the second ledger shares with the first was hoisted rather than copied, which is the point of doing it at the second surface: `$lib/records/work-in-progress-record.ts` is the one home for the readings every ledger makes of a record, and the void and kick-back confirmations moved beside it. Fees is the first ledger with a DELETE route, so **delete-draft** joins them and `deletesDraft` sits beside `opensTheBill` as a declaration on the shared row menu — deleting is not voiding, and the refusal on the wrong one is where the difference gets taught. The nullable-amount branch the built surface carried came out: the table's CHECK makes it unreachable and the cross-ledger move that would produce it does not exist, so "Needs an amount" was a state no reader could ever meet.
+
+`/fees` is the period across every matter, and it takes the row Fees never had — absent from the sidebar's Money group for exactly the reason Costs was, structurally rather than by oversight, because nothing served the record. Its columns are the matter ledger's own declaration with Matter brought forward (`firmFeeColumns`), so a fee carries the same words on both screens; its period arithmetic is the Time Sheet's, reused a third time rather than written again, because three money screens computing "last month" separately is three chances to disagree about where a month starts. The record window gained the matter picker the cost window has, on the same reasoning: a fee pre-filled with whichever matter came first would be a wrong answer arriving faster than no answer. Four of the five money sections now have a firm-wide twin, and the toolbar's way out derives from the sidebar's own registry, so **All fees** appeared with no second declaration.
