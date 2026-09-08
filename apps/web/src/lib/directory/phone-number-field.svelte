@@ -14,6 +14,14 @@
    * because those are the four things a person has in their head. It carries the flag as well, which
    * is what makes the right row findable at a glance once the list is narrowed to a handful.
    *
+   * THE EXTENSION IS PART OF THIS FIELD, not a control somebody remembers to put beside it. The
+   * Directory built its own next to this one, and the call log had none at all — which is how a
+   * direct dial typed onto the end of a number silently stopped the grouping (owner ruling,
+   * 2026-09-08: "for numbers longer than expected length of phone number, don't drop formatting,
+   * show as extension instead, or allow a special extension field"). Both, in the end: the extra
+   * digits ROLL INTO the extension as they are typed, and the extension stands as its own field for
+   * somebody who knows the two halves apart already.
+   *
    * THE GHOST TEXT IS THE COUNTRY'S OWN GROUPING — `(XXX) XXX-XXXX` here, `XXXXX XXXXXX` in Britain.
    * It is the one placeholder in the product that is not its field's name (phone-entry.ts says why),
    * and it is derived rather than written, so it is right in every country.
@@ -31,14 +39,18 @@
     phoneCountries,
     phoneCountryShortLabel,
     phoneNumberPlaceholder,
+    splitTypedExtension,
   } from "./phone-entry.ts";
 
   let {
     region = $bindable(),
     number = $bindable(),
+    extension = $bindable(""),
+    withExtension = true,
     label = "Number",
     countryInputId,
     numberInputId,
+    extensionInputId,
     disabled = false,
     error,
   }: {
@@ -46,10 +58,22 @@
     region: string;
     /** The number as typed, grouped in that country's national form. Bindable. */
     number: string;
+    /** The direct dial behind it, digits only. Bindable, and filled by overflow as well as by hand. */
+    extension?: string;
+    /**
+     * Whether the extension half is asked for at all.
+     *
+     * True everywhere today. It is a prop rather than an assumption because a surface that wants a
+     * bare mobile number should be able to say so — and because turning it off has to also turn off
+     * the overflow roll, since digits that have nowhere to go must stay in the number rather than
+     * being quietly dropped.
+     */
+    withExtension?: boolean;
     /** What the number half is called. The country half is always Country. */
     label?: string;
     countryInputId?: string;
     numberInputId?: string;
+    extensionInputId?: string;
     disabled?: boolean;
     /** What is wrong with the number, said under it. */
     error?: string;
@@ -78,6 +102,21 @@
   function regroup(): void {
     if (number.trim() === "") return;
     number = formatPhoneAsTyped(region as CountryCode, number);
+  }
+
+  /**
+   * A keystroke in the number half, with anything past the country's own length moved to the
+   * extension.
+   *
+   * The roll only ever ADDS to the extension: an extension already typed by hand is left alone,
+   * because the person who typed it knows something the digit count does not.
+   */
+  function numberTyped(typed: string): string {
+    const formatted = formatPhoneAfterEdit(region as CountryCode, number, typed);
+    if (!withExtension) return formatted;
+    const split = splitTypedExtension(region as CountryCode, formatted);
+    if (split.extension !== "" && extension.trim() === "") extension = split.extension;
+    return split.extension === "" ? formatted : split.number;
   }
 </script>
 
@@ -125,15 +164,36 @@
         placeholder={ghostText}
         value={number}
         oninput={(event) => {
-          const typed = formatPhoneAfterEdit(
-            region as CountryCode,
-            number,
-            event.currentTarget.value,
-          );
+          const typed = numberTyped(event.currentTarget.value);
           event.currentTarget.value = typed;
           number = typed;
         }}
       />
     {/snippet}
   </LabelledField>
+
+  {#if withExtension}
+    <!-- Narrow, and last: a direct dial is three or four digits and it is the half a reader's eye
+         skips. Digits only, because "ext." is what the label already says. -->
+    <div class="shrink-0" style="inline-size: 6rem">
+      <LabelledField label="Extension" id={extensionInputId}>
+        {#snippet children({ props })}
+          <Input
+            {...props}
+            inputmode="numeric"
+            autocomplete="off"
+            class="tabular-nums"
+            {disabled}
+            placeholder={placeholderOf("Extension")}
+            value={extension}
+            oninput={(event) => {
+              const digits = event.currentTarget.value.replaceAll(/\D/gu, "");
+              event.currentTarget.value = digits;
+              extension = digits;
+            }}
+          />
+        {/snippet}
+      </LabelledField>
+    </div>
+  {/if}
 </div>

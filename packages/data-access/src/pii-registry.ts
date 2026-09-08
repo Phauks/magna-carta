@@ -1102,6 +1102,10 @@ export const NO_PII_TABLES: readonly string[] = [
   // value. Nothing about any person.
   "invoice_number_counter",
   "invoice_number_allocation",
+  // The call log's own sequence: a day, and how many calls that day has numbered. A count of the
+  // firm's traffic and nothing about anybody in it — the invoice_number_counter precedent, with no
+  // allocation table beside it because the number a draw renders carries its whole scope.
+  "communication_number_counter",
   // Which of the firm's own ledger accounts plays each posting role — the firm's chart of accounts
   // by another name, and configuration rather than personal data (the line `rate_card` sits on).
   "firm_account_role",

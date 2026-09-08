@@ -3302,6 +3302,7 @@ export type CommunicationPage = {
 
 export type CommunicationDetail = {
     id: string;
+    referenceNumber: string | null;
     channel: 'voice' | 'sms' | 'mms';
     direction: 'inbound' | 'outbound';
     matterId: string | null;
@@ -3314,6 +3315,7 @@ export type CommunicationDetail = {
     counterpartyEntityId: string | null;
     memberUserId: string | null;
     occurredAt: string;
+    endedAt: string | null;
     durationSeconds: number | null;
     body: string | null;
     summary: string | null;
@@ -3325,6 +3327,10 @@ export type CommunicationDetail = {
 
 export type UnroutedCommunicationCount = {
     count: number;
+};
+
+export type NextCommunicationNumber = {
+    referenceNumber: string;
 };
 
 export type LoggedCommunication = {
@@ -3339,6 +3345,7 @@ export type LogCommunicationRequest = {
     counterpartyEntityId?: string | null;
     memberUserId?: string | null;
     occurredAt: string;
+    endedAt?: string | null;
     durationSeconds?: number | null;
     body?: string | null;
     summary?: string | null;
@@ -3364,6 +3371,7 @@ export type UpdateCommunicationRequest = {
     counterpartyEntityId?: string | null;
     memberUserId?: string | null;
     occurredAt?: string;
+    endedAt?: string | null;
     durationSeconds?: number | null;
     body?: string | null;
     summary?: string | null;
@@ -19507,6 +19515,45 @@ export type CommunicationsUnroutedCountResponses = {
 };
 
 export type CommunicationsUnroutedCountResponse = CommunicationsUnroutedCountResponses[keyof CommunicationsUnroutedCountResponses];
+
+export type CommunicationsNextNumberData = {
+    body?: never;
+    path?: never;
+    query?: {
+        occurredAt?: string;
+    };
+    url: '/api/v1/communications/next-number';
+};
+
+export type CommunicationsNextNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsNextNumberError = CommunicationsNextNumberErrors[keyof CommunicationsNextNumberErrors];
+
+export type CommunicationsNextNumberResponses = {
+    /**
+     * The number the next record would draw
+     */
+    200: NextCommunicationNumber;
+};
+
+export type CommunicationsNextNumberResponse = CommunicationsNextNumberResponses[keyof CommunicationsNextNumberResponses];
 
 export type CommunicationsListForMatterData = {
     body?: never;

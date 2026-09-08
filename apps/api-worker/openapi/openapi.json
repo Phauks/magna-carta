@@ -13662,6 +13662,12 @@
           "id": {
             "type": "string"
           },
+          "referenceNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "channel": {
             "type": "string",
             "enum": [
@@ -13737,6 +13743,12 @@
           "occurredAt": {
             "type": "string"
           },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "durationSeconds": {
             "type": [
               "number",
@@ -13777,6 +13789,7 @@
         },
         "required": [
           "id",
+          "referenceNumber",
           "channel",
           "direction",
           "matterId",
@@ -13789,6 +13802,7 @@
           "counterpartyEntityId",
           "memberUserId",
           "occurredAt",
+          "endedAt",
           "durationSeconds",
           "body",
           "summary",
@@ -13808,6 +13822,17 @@
         },
         "required": [
           "count"
+        ]
+      },
+      "NextCommunicationNumber": {
+        "type": "object",
+        "properties": {
+          "referenceNumber": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "referenceNumber"
         ]
       },
       "LoggedCommunication": {
@@ -13868,6 +13893,13 @@
           },
           "occurredAt": {
             "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
           "durationSeconds": {
@@ -13994,6 +14026,13 @@
           },
           "occurredAt": {
             "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time"
           },
           "durationSeconds": {
@@ -61704,6 +61743,91 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UnroutedCommunicationCount"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the row is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/communications/next-number": {
+      "get": {
+        "description": "The reference number the next call or text recorded for that day would carry, so somebody still on the telephone can write it down before the record exists. A preview and not a reservation: nothing is drawn, and a call recorded first takes it.",
+        "operationId": "communications.nextNumber",
+        "tags": [
+          "communications"
+        ],
+        "x-mc-operationId": "communications.nextNumber",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "communications:log",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "communications"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "occurredAt",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The number the next record would draw",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextCommunicationNumber"
                 }
               }
             }

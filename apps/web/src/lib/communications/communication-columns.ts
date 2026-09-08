@@ -3,8 +3,12 @@
  * texts a firm has made and taken. Pure: it takes what the surface knows and returns columns, so
  * what a column IS has one home and one test, and the screens own only fetching and rendering.
  *
- * Four decisions worth stating, because each is about not inventing:
+ * Five decisions worth stating, because each is about not inventing:
  *
+ *   - THE NUMBER LEADS. Every call and text carries one — the day it happened and that day's own
+ *     sequence — and it is what a firm quotes out loud, so it is the first thing on the row and the
+ *     first thing the search matches. A row recorded before the sequence existed says so rather
+ *     than rendering blank, because a blank there reads as a column that failed to fill.
  *   - WHEN anchors the row and leads it. A log is read in time order, and every question anybody
  *     brings to it — did we call them back, when did they last text — is a question about when.
  *   - WHO is the number, and it stays the number even where the Directory resolved it. A person
@@ -26,7 +30,7 @@ import {
   counterpartyNumberText,
   directionEntry,
   durationText,
-  saidText,
+  NOT_NUMBERED_TEXT,
 } from "./communication-vocabulary.ts";
 
 /** What a counterparty handle resolves to, by handle. Empty until the Directory read lands. */
@@ -76,6 +80,13 @@ export function communicationColumns(
 ): GridColumn<Communication>[] {
   const columns: GridColumn<Communication>[] = [
     {
+      id: "referenceNumber",
+      label: "Number",
+      // Not filtered as a set: every value is distinct, so a checkbox list of them would be the
+      // table again. The screen's own search is what finds one, and it matches this first.
+      value: (communication) => communication.referenceNumber ?? NOT_NUMBERED_TEXT,
+    },
+    {
       id: "occurredAt",
       label: "When",
       type: "date",
@@ -118,21 +129,19 @@ export function communicationColumns(
     });
   }
 
-  columns.push(
-    {
-      id: "said",
-      // The DESCRIPTION, for a call and a text alike: what a member wrote down about the call, or
-      // the words of the message. One word for one column.
-      label: "Description",
-      value: (communication) => saidText(communication),
-    },
-    {
-      id: "duration",
-      label: "Duration",
-      // Blank on a message, which has no length in seconds. Not a gap: a text does not have one.
-      value: (communication) => durationText(communication.durationSeconds) ?? "",
-    },
-  );
+  // THE DESCRIPTION IS NOT A COLUMN (owner ruling, 2026-09-08: "the description should be in a line
+  // beneath the other information, consider how we do that for time entries"). It is prose, and
+  // usually far longer than every other fact on the row put together — as a column it was either
+  // truncated to a few words, which is not a description, or wide enough to push the facts off the
+  // screen. It is the row's SECOND LINE instead, with the row's whole width to wrap in, through the
+  // one table's own row-detail (communication-log.svelte), which is the same mechanism the time
+  // sheet's description sits in.
+  columns.push({
+    id: "duration",
+    label: "Duration",
+    // Blank on a message, which has no length in seconds. Not a gap: a text does not have one.
+    value: (communication) => durationText(communication.durationSeconds) ?? "",
+  });
 
   return columns;
 }

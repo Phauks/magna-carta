@@ -21,6 +21,7 @@ import {
   counterpartyNumberText,
   directionEntry,
   durationText,
+  spanText,
 } from "./communication-vocabulary.ts";
 
 /** Everything the sheet needs that is not the record itself. */
@@ -43,10 +44,18 @@ export function communicationSheet(
 ): PrintSheetDocument {
   const carried = attachmentNote(communication.channel);
   const length = durationText(communication.durationSeconds);
+  const span = spanText(communication.occurredAt, communication.endedAt);
   const description = communication.body ?? communication.summary ?? "";
   return {
     heading: channelEntry(communication.channel).label === "Call" ? "Call Record" : "Text Record",
-    subtitle: anchorText(communication),
+    // The NUMBER leads the subtitle: a printed record of a call is quoted back by its number, in a
+    // fee dispute and on a message slip alike, and a sheet that carried only the matter would leave
+    // the reader nothing to name it by. A row from before the sequence existed falls back to the
+    // anchor, which is what the sheet said before.
+    subtitle:
+      communication.referenceNumber === null
+        ? anchorText(communication)
+        : `${communication.referenceNumber} · ${anchorText(communication)}`,
     sections: [
       {
         id: "what",
@@ -63,6 +72,9 @@ export function communicationSheet(
             ...(context.counterpartyName === null ? {} : { secondary: context.counterpartyName }),
           },
           ...(length === null ? [] : [{ label: "Duration", value: length }]),
+          // The span the line was open, and only where it DIFFERS from the length: a caller put on
+          // hold makes the two different facts, and a reader of a fee dispute is owed both.
+          ...(span === null || span === length ? [] : [{ label: "On the line", value: span }]),
           ...(carried === null ? [] : [{ label: "Carried", value: carried }]),
         ],
       },

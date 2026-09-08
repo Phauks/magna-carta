@@ -259,32 +259,19 @@
         </LabelledField>
       {:else if draft.kind === "telephone" || draft.kind === "fax"}
         {@const number = draft}
-        <!-- The country and the digits are ONE field, and it is the same one the call log enters a
-             number in (../phone-number-field.svelte). Two hand-built copies of this pair is how the
-             two came to format a deletion differently. -->
+        <!-- The country, the digits AND the extension are ONE field, and it is the same one the call
+             log enters a number in (../phone-number-field.svelte). Two hand-built copies of this
+             pair is how the two came to format a deletion differently; the extension was the last
+             half still built here, and building it here is why typing a direct dial onto the end of
+             a number stopped the grouping instead of rolling into it. -->
         <div class="min-w-0 flex-auto">
           <PhoneNumberField
             bind:region={() => number.region, (chosen) => patch({ region: chosen })}
             bind:number={() => number.number, (typed) => patch({ number: typed })}
+            bind:extension={() => number.extension, (typed) => patch({ extension: typed })}
             disabled={!canEdit}
             error={fieldError}
           />
-        </div>
-        <div style="width: 6rem">
-          <LabelledField label="Extension">
-            {#snippet children({ props })}
-              <Input
-                {...props}
-                inputmode="numeric"
-                autocomplete="off"
-                class="tabular-nums"
-                value={number.extension}
-                disabled={!canEdit}
-                placeholder={placeholderOf("Extension")}
-                oninput={(event) => patch({ extension: event.currentTarget.value })}
-              />
-            {/snippet}
-          </LabelledField>
         </div>
       {/if}
 

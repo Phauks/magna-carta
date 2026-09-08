@@ -90,6 +90,16 @@ export const DISPOSITION_CHOICES: readonly {
 export const NOT_FILED_TEXT = "Not filed";
 
 /**
+ * What the Number column says for a row that carries none.
+ *
+ * Only rows recorded before the sequence existed reach this, and the migration that added the column
+ * numbered every one of them — so in practice it is what a row written by something that has not
+ * been taught to draw a number would say. Stated rather than left blank, because a blank in a column
+ * of numbers reads as a column that failed to fill rather than as a record that has no number.
+ */
+export const NOT_NUMBERED_TEXT = "No number";
+
+/**
  * How the anchor reads on a row.
  *
  * A ROW HAS ONE ANCHOR: a matter, a reason it is on none, or nothing while nobody has decided. This
@@ -165,6 +175,22 @@ export function durationText(seconds: number | null): string | null {
 }
 
 /**
+ * How long the line was OPEN, from the two instants — which is not how long the call took.
+ *
+ * A caller left on hold occupies the span without spending it (owner ruling, 2026-09-08), so a
+ * record can carry an hour on the line and twenty minutes of call, and both are true. Null where
+ * nobody recorded an end, which is most rows: a length is the fact people write down, and the span
+ * is the one a carrier will supply.
+ */
+export function spanText(occurredAt: string, endedAt: string | null): string | null {
+  if (endedAt === null) return null;
+  const started = Date.parse(occurredAt);
+  const ended = Date.parse(endedAt);
+  if (Number.isNaN(started) || Number.isNaN(ended) || ended < started) return null;
+  return durationText(Math.round((ended - started) / 1000));
+}
+
+/**
  * The number at the other end, grouped the way its own country writes it.
  *
  * ONLY A CANONICAL NUMBER IS REFORMATTED, and the leading `+` is the test. The column holds two
@@ -181,13 +207,13 @@ export function counterpartyNumberText(number: string): string {
 }
 
 /**
- * The one line a row shows of what was said.
+ * What a row shows of what was said — the whole of it, on the row's own second line.
  *
  * For a text it is the message; for a call it is what the member wrote down. Both are called the
  * DESCRIPTION on every surface (owner ruling, 2026-09-08): a call and a text read the same, and two
- * words for one column is two things for a reader to learn. A call with neither is a row that
- * records only that the phone rang, which is a real thing to record — a missed call — and it says so
- * rather than rendering an empty cell.
+ * words for one thing is two things for a reader to learn. A call with neither is a row that records
+ * only that the phone rang, which is a real thing to record — a missed call — and it says so rather
+ * than rendering nothing, which would read as a row the platform failed to fill.
  */
 export function saidText(communication: Communication): string {
   const said = communication.body ?? communication.summary ?? "";

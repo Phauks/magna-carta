@@ -138,6 +138,21 @@ is usually the fastest way to understand the rule.
   say so, and both were found by measuring rather than looking: the cell's own inline padding, and
   the transparent border every row's first cell reserves for the selection rail. _(every list
   surface, 2026-09-02)_
+- **Prose is the row's second line, never a column.** A description, a narrative, a message: the one
+  field on a row that is far longer than everything beside it put together. As a column it is either
+  truncated to a few words — which is not a description — or wide enough to push the facts off the
+  screen, and both are worse than the answer, which is the row's own full width underneath the facts,
+  wrapping there. The mechanism is the one table's `rowDetail`, so a surface adopting it inherits the
+  hover, the selection and the pinned columns rather than building a second row. _(the time sheet;
+  reissued for the call log, 2026-09-08: "the description should be in a line beneath the other
+  information, consider how we do that for time entries")_
+- **A record a person quotes out loud carries a NUMBER, and the number is a column.** A handle is
+  what the platform joins on; it is not something anybody can read back down a telephone or write on
+  a slip. Where a record is referred to out loud — a matter, an entry, an invoice, a call — it draws
+  a human number, that number leads the row, and the screen's search matches it first. A number that
+  carries the day it belongs to is legible without a lookup, and scoping its sequence to that day is
+  what keeps it short enough to say. _(the call log, 2026-09-08: "all calls and logs should have a
+  number, which we can identify in the log ... should incorporate date")_
 - **A control that undoes a state exists only while that state is in play.** The clear-filters
   control appears when something is narrowing the view and is absent otherwise, so its absence is
   itself the answer to "is anything hidden". _(matters docket, 2026-08-30)_
@@ -194,6 +209,20 @@ is usually the fastest way to understand the rule.
   window opens with nothing in it and its fields already open. A form that unfolds inside the list
   it will join is a second place to learn where a record's fields live, and the list loses its own
   shape while somebody is typing. _(matter notes, 2026-09-01)_
+  - **Sharing the FIELDS is not sharing the window.** A dialog that renders the same field component
+    the record window renders still disagrees with it about everything around the fields — tabs,
+    printing, where the commit sits, what the heading says — and every one of those is a thing a
+    reader has to learn twice. The two states differ in what the window opened WITH, and in nothing
+    else: a record being made opens in its fields and asks the questions that are only asked once
+    (where it belongs); a record already stored opens in its values, and the acts that move it
+    between queues live in the action bar. _(the call log, 2026-09-08: "we now have two modals for
+    creating a call which is weird")_
+  - **A record that is quoted out loud is identified BEFORE it is saved.** Where a record carries a
+    reference number a person reads back — to a caller, onto a message slip — the window states the
+    number the next one would draw while it is still being filled in, and says that it is a preview
+    rather than a reservation. The save is too late for the sentence the person entering it is in the
+    middle of. _(the call log, 2026-09-08: "all calls and logs should have a number, which we can
+    identify in the log, before it has been created")_
 - **A field's label is the plain word for what it holds.** "Date", not "When It Happened"; a label
   that reads as a sentence is a question the surface is asking rather than a name for the value. A
   field whose meaning genuinely needs a sentence gets the sentence beside it, and keeps the plain
@@ -264,10 +293,17 @@ is usually the fastest way to understand the rule.
   to new places. This is the narrow exception to "a disabled control implies a choice is being
   withheld" — here the fact itself does not exist (a text has no length), which is what the hover
   says. _(the call log's duration, switching between a call and a text, 2026-09-08)_
-- **A value the form can work out is shown, not asked for.** A call gives its start and its end, and
-  the duration follows from them; a field that accepted a third answer to the same question is a
-  field that can disagree with the two beside it. The derived field sits with the fields it is
-  derived from. _(the call log, 2026-09-08)_
+- **A value the form can work out is OFFERED, not imposed — and only where it really is the same
+  question.** A form that can compute an answer fills the empty field with it and never overwrites
+  one somebody typed. The rule was written the other way round on 2026-09-08 (the call's duration
+  derived from its start and its end, read-only) and the owner reversed it the same week: "you
+  should be able to type in the length of time for the call, and this doesn't need to match
+  calculation, considering people can be put on hold." The lesson generalizes past the call. Before
+  deriving one field from two, ask whether the two really answer the same question — an hour on the
+  line and twenty minutes of call are two true facts about one call, and a form that computes either
+  from the other asserts they are the same number. Where they can honestly differ, store both, and
+  say what the difference MEANS in a line beneath them rather than warning about it. _(the call
+  log's duration, 2026-09-08, correcting the same round)_
 - **One question is one field, however many kinds of answer it has.** "Where does this belong" is a
   matter, or a reason there is no matter, or nobody has decided — so it is ONE searchable field
   carrying all three, not a category control that reveals a second field once it is answered.
@@ -896,6 +932,43 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-08 — the call log, third round: one window, a typed length, and a number every call has
+
+The owner's third round on the deployed Messaging screen. Their list, worked end to end:
+double-clicking a row should open the same window that records one; a length that can be typed and
+need not match the clock; the provenance tab as History on the right; an intake startable from the
+form; one modal rather than two; the description beneath the other information the way a time entry
+does it; an extension where a number runs past its country's length; and a number on every call,
+visible before the record exists and carrying the date. What binds:
+
+- **Two modals for one record is the defect, even when they share their fields.** Both are promoted
+  into _Data entry_ under "A record is MADE in the same window it is read in", along with the rule
+  that a record quoted out loud is identified before it is saved.
+- **A typed length beside a computed span reverses last week's derived-value rule**, and the reversal
+  is written into that rule rather than beside it. What generalizes is the question to ask first: do
+  the two fields really answer the same question? An hour on the line and twenty minutes of call do
+  not.
+- **The description goes under the row, and the number goes in front of it.** Both promoted into
+  _Lists and tables_.
+- **Digits past the end of a number are an extension, not a formatting failure.** `AsYouType` stops
+  formatting silently once the digits exceed what a country holds, so a direct dial typed onto the
+  end of a number turned a grouped number into a run of digits under the cursor. The overflow rolls
+  into an extension the shared phone field now owns — and the split is the longest prefix
+  libphonenumber calls possible, not the country's digit count, because a North American number typed
+  with its trunk 1 is eleven digits and perfectly valid. Generalizes to every as-you-type formatter:
+  when input exceeds what the formatter can shape, the answer is to understand the excess, never to
+  stop shaping. The Directory's contact rows had built their own extension input beside the shared
+  field; that was the last half of that pair still built twice.
+- **The number's date is the UTC day, and that is a deliberate trade rather than an oversight.** A
+  reference number is a key before it is a sentence, so it must read the same in every office
+  (`docs/conventions/dates.md`, "the UTC day, for a query key"). It can therefore name a different
+  day from the record's own When for a call taken late in the evening west of Greenwich. The firm's
+  own time zone is what would close that, and the platform does not have one yet; the record's When
+  field stays the authority on the local day.
+- **Local, and not promoted:** Save And Start An Intake records the call first and hands the saved row
+  up. An intake with no account of the call that caused it is the thing the control exists to prevent,
+  which is why it commits rather than carrying a draft across.
 
 ### 2026-09-08 — Record Communication: two columns, typed choices, and a number that can be shortened
 
