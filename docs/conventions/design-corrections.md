@@ -669,6 +669,15 @@ surface, which is most of the product.
   sentence under it, cost three rows of a screen whose subject is a list. Where a screen would carry
   a button per variant of one action ("New person", "New organization"), it carries ONE primary
   action with a menu instead. _(matters list, 2026-08-30)_
+- **A control that WIDENS the list does not sit in the row that narrows it.** The row above a list
+  holds the acts a reader arrives wanting — searching, and making a new record — and the one way
+  back to everything. Asking to see what is CLOSED (done, cancelled, archived, closed out) adds
+  records rather than holding them back, so it belongs at the foot of the list, met after
+  everything the list is actually for has been read, and undone by its own label ("Show Done"
+  becoming "Hide Done") rather than by the clear control. The task list carried Done and Cancelled
+  as two boxes over its rows, where they took the space the search was reached for in and made the
+  clear control appear because MORE was on screen, which answers the wrong question.
+  _(tasks, 2026-09-08)_
 - **The table holds the vertical space it would occupy when full.** The list region takes the
   remaining height and keeps it, so the screen does not reflow as rows arrive, as a filter narrows
   them, or as an empty state replaces them. In practice: the page is a full-height column and the
@@ -955,6 +964,24 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-08 — the tasks screen: the closed work moves to the foot
+
+The owner, on the tasks screen: "remove the done and cancelled boxes. this should be handled in the
+lower area, make sure that the search and new icons are in the same place as they would be on other
+screen." What binds:
+
+- **The Done and Cancelled boxes are gone from the row above the list.** What is closed is asked for
+  below the rows, by two controls that name the act and then name its undo. Generalizes, and is
+  promoted into _List screens_ above: a control that widens a list does not sit in the row that
+  narrows it.
+- **A screen with a masthead seats its search and its create control in the masthead's action
+  row**, at the position every other main screen keeps them, rather than in a second row the
+  content below draws for itself. Tasks was drawing its own band under the header because the list
+  component owned the controls; the component now hands them to its host to seat, so a matter's
+  Tasks section — which has no masthead of its own — still draws the row under its heading. This is
+  the placement half of the standing compact-action-row rule, and where a shared component is
+  involved the placement is the HOST's decision, never the component's.
 
 ### 2026-09-08 — the Directory: the index's columns, and the record panel
 

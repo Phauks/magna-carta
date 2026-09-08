@@ -1,9 +1,14 @@
 <script lang="ts">
   /*
    * THE task surface. One component, two screens: the matter's Tasks section and the member's own
-   * work list. They differ by two props — which matter a new task lands on, and whether the rows
-   * name their matter — and by nothing else, because a task is one record and a reader moving
-   * between the two screens should not have to learn a second layout.
+   * work list. They differ by which matter a new task lands on, whether the rows name their matter,
+   * and where the host seats this list's controls — and by nothing else, because a task is one
+   * record and a reader moving between the two screens should not have to learn a second layout.
+   *
+   * WHAT IS OWED IS THE LIST; WHAT IS CLOSED IS ASKED FOR AT THE FOOT. Open work is all the list
+   * shows until somebody says otherwise, and done and cancelled work is added by a control below
+   * the rows rather than by a filter above them. The row above the list is for the acts a reader
+   * arrives wanting — searching, and making a new task.
    *
    * WHAT IS DUE NEXT IS FIRST, and everything nobody has scheduled is last. That ordering is the
    * server's and is the same on both screens, so a task does not move when you change surface.
@@ -19,14 +24,13 @@
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import Checkbox from "@magna-carta/design-system/checkbox";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import Textarea from "@magna-carta/design-system/textarea";
-  import { formatDate } from "@magna-carta/design-system/data-table";
+  import * as DataTable from "@magna-carta/design-system/data-table";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -40,7 +44,6 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Paperclip from "@lucide/svelte/icons/paperclip";
   import X from "@lucide/svelte/icons/x";
-  import FunnelX from "@lucide/svelte/icons/funnel-x";
   import {
     describeTimeLogged,
     externalSystemLabel,
@@ -71,6 +74,7 @@
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
   import type { ApiOutcome, Page } from "$lib/api/request.ts";
+  import type { Snippet } from "svelte";
   import { permissionRefusal } from "$lib/access/refusal.ts";
 
   interface Props {
@@ -98,6 +102,13 @@
      * Omitted where the screen's own header already states it, so the name is not said twice.
      */
     heading?: string;
+    /**
+     * The band above the list, drawn by the host and handed this list's controls to seat in it.
+     * A screen with a masthead of its own passes one and puts the controls in its action row, so
+     * the search and the create control sit where every other main screen keeps them; a matter's
+     * Tasks section passes nothing and this list draws its own row under its heading.
+     */
+    screenHeader?: Snippet<[Snippet]>;
     /** What to say when the record is genuinely empty, as opposed to filtered empty. */
     emptyTitle: string;
     emptyDescription: string;
@@ -112,6 +123,7 @@
     isSample = false,
     ownNewButton = true,
     heading,
+    screenHeader,
     emptyTitle,
     emptyDescription,
   }: Props = $props();
@@ -128,8 +140,9 @@
   let session = $state<SessionBootstrap | null>(null);
   let matterFiles = $state<MatterFile[] | null>(null);
 
-  // The filters. `showDone` is the only one on by default being off: a task list whose job is to say
-  // what is owed starts by showing what is owed.
+  // What is CLOSED, and whether it has been asked for. Off by default, because a task list whose job
+  // is to say what is owed starts by showing what is owed; asking for either is a disclosure at the
+  // foot of the list rather than a filter above it (see the closed-work controls in the markup).
   let showDone = $state(false);
   let showCancelled = $state(false);
   // ScreenSearch owns the field and the pause before a query leaves the machine; this holds only
@@ -140,17 +153,13 @@
   const states = $derived<readonly TaskState[]>(
     ["open", ...(showDone ? (["done"] as const) : []), ...(showCancelled ? (["cancelled"] as const) : [])],
   );
-  // Anything narrowing the view. Its truth is what draws the clear control, so the control's absence
-  // is itself the answer to "is anything hidden".
-  const narrowed = $derived(appliedSearch !== "" || showDone || showCancelled);
+  // What is NARROWING the view, which is the search and nothing else. Its truth is what draws the
+  // clear control, so the control's absence is itself the answer to "is anything hidden". Asking for
+  // done or cancelled work WIDENS the list and is undone by its own control, so neither belongs
+  // here: a clear control that appeared because more was shown would answer the wrong question.
+  const narrowed = $derived(appliedSearch !== "");
   // What the clear control says it will undo, so pressing it is never a guess.
-  const narrowingSummary = $derived(
-    [
-      ...(appliedSearch === "" ? [] : [`searching "${appliedSearch}"`]),
-      ...(showDone ? ["showing done"] : []),
-      ...(showCancelled ? ["showing cancelled"] : []),
-    ].join(", "),
-  );
+  const narrowingSummary = $derived(appliedSearch === "" ? "" : `searching "${appliedSearch}"`);
 
   const filters = $derived<TaskListFilters>({
     states,
@@ -210,6 +219,8 @@
     attachingTaskId = null;
     searchText = "";
     appliedSearch = "";
+    showDone = false;
+    showCancelled = false;
     writeFailure = null;
     matterFiles = null;
     if (isSample) {
@@ -276,8 +287,6 @@
   function clearNarrowing(): void {
     searchText = "";
     appliedSearch = "";
-    showDone = false;
-    showCancelled = false;
     reload();
   }
 
@@ -401,8 +410,8 @@
   // When it is due, as one line. Null where nobody has scheduled it.
   function dueText(task: MatterTask): string | null {
     if (task.dueOn === null) return null;
-    if (task.dueAtTime === null) return formatDate(task.dueOn);
-    return `${formatDate(task.dueOn)}, ${task.dueAtTime}${
+    if (task.dueAtTime === null) return DataTable.formatDate(task.dueOn);
+    return `${DataTable.formatDate(task.dueOn)}, ${task.dueAtTime}${
       task.timeZone === null ? "" : ` (${task.timeZone})`
     }`;
   }
@@ -436,84 +445,56 @@
   ];
 </script>
 
+<!-- The search, then the create control, then the way back to everything: the same three, in the
+     same order, as the docket and the custody register. The search grows toward the inline start as
+     it opens, so what follows it never moves. WHERE they sit is the host's, not this list's — a
+     screen with a masthead seats them in its action row, which is where every other main screen
+     keeps them, and a matter's Tasks section seats them in the row under its own heading. -->
+{#snippet controls()}
+  <ScreenSearch
+    bind:value={searchText}
+    label="Search tasks"
+    placeholder={placeholderOf("Search tasks")}
+    searchOn="pause"
+    fieldClass="w-2xs sm:w-xs"
+    disabled={isSample}
+    onsearch={applySearch}
+  />
+  {#if ownNewButton}
+    <!-- The one create control, the design system's, so this list reads like every other screen. It
+         stays put while the composer is open — the control never leaves its place in the row, and
+         abandoning a draft is asked for in the draft, where the draft is. -->
+    <CreateControl
+      noun="Task"
+      title="Add a task, with whose it is and when it is due."
+      refusal={isSample
+        ? "This is a sample matter. There is no firm record behind it, so nothing can be recorded against it."
+        : canWrite
+          ? undefined
+          : permissionRefusal("Adding a task", "tasks:write")}
+      onpress={openNew}
+    />
+  {/if}
+  <!-- Present only while something is narrowing the list, so its absence answers "is anything
+       hidden". -->
+  <DataTable.ClearFilters narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }} />
+{/snippet}
+
 <section class="flex min-h-0 flex-1 flex-col gap-16">
-  <div class="flex flex-wrap items-center justify-between gap-16 border-b border-border-strong pb-8">
-    <div class="flex flex-wrap items-center gap-16">
+  {#if screenHeader !== undefined}
+    {@render screenHeader(controls)}
+  {:else}
+    <div class="flex flex-wrap items-center justify-between gap-16 border-b border-border-strong pb-8">
       {#if heading !== undefined}
         <FieldLabel as="h2">
           {heading}
         </FieldLabel>
       {/if}
-      <div class="flex items-center gap-12 text-xs">
-        <label class="flex items-center gap-4">
-          <Checkbox
-            checked={showDone}
-            disabled={isSample}
-            onCheckedChange={(value) => {
-              showDone = value === true;
-              applyFilters();
-            }}
-          />
-          Done
-        </label>
-        <label class="flex items-center gap-4">
-          <Checkbox
-            checked={showCancelled}
-            disabled={isSample}
-            onCheckedChange={(value) => {
-              showCancelled = value === true;
-              applyFilters();
-            }}
-          />
-          Cancelled
-        </label>
+      <div class="flex flex-wrap items-center gap-8">
+        {@render controls()}
       </div>
     </div>
-    <div class="flex flex-wrap items-center gap-8">
-      <!-- The search, then the create control, then the clear: the same three, in the same order,
-           as the docket and the custody register. The search grows toward the inline start as it
-           opens, so what follows it never moves. -->
-      <ScreenSearch
-        bind:value={searchText}
-        label="Search tasks"
-        placeholder={placeholderOf("Search tasks")}
-        searchOn="pause"
-        fieldClass="w-2xs sm:w-xs"
-        disabled={isSample}
-        onsearch={applySearch}
-      />
-      {#if composing}
-        <Button variant="secondary" disabled={saving} onclick={resetComposer}>Cancel</Button>
-      {:else if ownNewButton}
-        <!-- The one create control, the design system's, so this list reads like every other
-             screen. -->
-        <CreateControl
-          noun="Task"
-          title="Add a task, with whose it is and when it is due."
-          refusal={isSample
-            ? "This is a sample matter. There is no firm record behind it, so nothing can be recorded against it."
-            : canWrite
-              ? undefined
-              : permissionRefusal("Adding a task", "tasks:write")}
-          onpress={openNew}
-        />
-      {/if}
-      <!-- Present only while something is narrowing the list, so its absence answers "is anything
-           hidden". -->
-      {#if narrowed}
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Show every task: {narrowingSummary}"
-          title={narrowingSummary}
-          class="text-accent-default"
-          onclick={clearNarrowing}
-        >
-          <FunnelX class="size-16" aria-hidden="true" />
-        </Button>
-      {/if}
-    </div>
-  </div>
+  {/if}
 
   {#if writeFailure !== null}
     <FailureNotice
@@ -593,7 +574,8 @@
         {/if}
       </div>
 
-      <div class="flex justify-end">
+      <div class="flex justify-end gap-8">
+        <Button variant="secondary" disabled={saving} onclick={resetComposer}>Cancel</Button>
         <Button onclick={saveTask} disabled={saving || draftTitle.trim().length === 0}>
           Create Task
         </Button>
@@ -1036,4 +1018,42 @@
       {/if}
     {/if}
   </LoadingRegion>
+
+  <!-- WHAT IS CLOSED IS ASKED FOR WHERE THE OPEN WORK ENDS. Done and cancelled tasks are not what
+       this list is for, so they are not two boxes over it competing with the search for the row a
+       reader searches from: they are two disclosures at the foot, met after everything still owed
+       has been read. Each is undone by its own label, which is why neither draws the clear control
+       — a control that says "Show Everything" because MORE is on screen answers the wrong
+       question. Absent while the list has not settled, so nothing offers to widen a list that is
+       not there yet. -->
+  {#if tasks !== null && !firstReadFailed && !isSample}
+    <div class="flex flex-wrap items-center justify-center gap-8 border-t border-border-subtle pt-12">
+      <Button
+        variant="ghost"
+        size="sm"
+        class={showDone ? "text-accent-default" : "text-text-muted"}
+        title={showDone ? "Leave the done work out of the list" : "Add the work already done to the list"}
+        onclick={() => {
+          showDone = !showDone;
+          applyFilters();
+        }}
+      >
+        {showDone ? "Hide Done" : "Show Done"}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        class={showCancelled ? "text-accent-default" : "text-text-muted"}
+        title={showCancelled
+          ? "Leave the cancelled work out of the list"
+          : "Add the work the firm decided not to do to the list"}
+        onclick={() => {
+          showCancelled = !showCancelled;
+          applyFilters();
+        }}
+      >
+        {showCancelled ? "Hide Cancelled" : "Show Cancelled"}
+      </Button>
+    </div>
+  {/if}
 </section>

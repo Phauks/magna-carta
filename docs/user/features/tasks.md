@@ -87,10 +87,14 @@ belongs to a matter.
 ## Finding Things
 
 The search box matches what a task says — its title and its detail — on the list you are looking at.
+It sits at the top of the screen with **New Task**, in the same place as the search on every other
+screen. Whenever the search is narrowing the list, a **Show Everything** control appears beside it;
+when it is not there, nothing is hidden.
 
-By default a list shows what is still open, which is what a task list is for. Tick **Done** or
-**Cancelled** to bring the rest back. Whenever anything is narrowing the list, a **Clear** control
-appears; when it is not there, nothing is hidden.
+By default a list shows what is still open, which is what a task list is for. Below the list, past
+everything still owed, **Show Done** and **Show Cancelled** add the closed work to it; each then
+reads **Hide Done** or **Hide Cancelled**, so what is showing is always the control that puts it
+away again.
 
 ## Tasks in the Sidebar
 
