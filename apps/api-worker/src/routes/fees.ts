@@ -52,7 +52,16 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
  * the same act as drafting the bill it will land on. Approval rides `billing:finalize`, on the
  * reasoning the costs slice used for its own split: the reviewer who may turn work into an
  * evidentiary record is the reviewer who may clear it for billing.
+ *
+ * AND THAT DECIDES THE RESOURCE, WHICH IS NOT WHAT THIS RECORD LOOKS LIKE. Every fee is a charge on
+ * exactly one matter, so `matter` reads as the obvious binding and is wrong: the permission registry
+ * binds the whole `billing` namespace to `firm`, and the conformance suite refuses a route that
+ * disagrees. It is right that it does — the binding describes what the PERMISSION governs, not what
+ * the row happens to name, and a member holding `billing:read` may read unbilled work across every
+ * matter, which is exactly the firm-wide period listing below. A `matter` binding would claim these
+ * routes are scoped per file when nothing about them is.
  */
+const FEE_RESOURCE = "firm" as const;
 
 const READ = "billing:read" as const;
 const RECORD = "billing:draft" as const;
@@ -211,7 +220,7 @@ function writeMeta(operationId: string, permission: typeof RECORD | typeof APPRO
     surface: "app",
     authenticated: true,
     permission,
-    resource: "matter",
+    resource: FEE_RESOURCE,
     audited: true,
     idempotency: "required",
     idempotencyStore: "firm",
@@ -248,7 +257,7 @@ const listMeta: RouteMeta = {
   surface: "app",
   authenticated: true,
   permission: READ,
-  resource: "matter",
+  resource: FEE_RESOURCE,
   audited: false,
   idempotency: "optional",
   rateLimit: "default",
@@ -259,7 +268,7 @@ const getMeta: RouteMeta = {
   surface: "app",
   authenticated: true,
   permission: READ,
-  resource: "matter",
+  resource: FEE_RESOURCE,
   audited: false,
   idempotency: "optional",
   rateLimit: "default",
