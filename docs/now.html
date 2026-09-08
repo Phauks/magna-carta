@@ -149,8 +149,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   can reach one is a separate fact from how complete it is, and no status holds it: a backend nobody
   can open and a screen somebody uses every day are both shipped. The ledger records it separately.</p>
   <div class="band">
-    <div class="k g"><span>Reachable</span><b>78</b><em>A person can open it in the application today.</em></div>
-    <div class="k y"><span>Waiting on a screen</span><b>166</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
+    <div class="k g"><span>Reachable</span><b>80</b><em>A person can open it in the application today.</em></div>
+    <div class="k y"><span>Waiting on a screen</span><b>164</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
     <div class="k b"><span>Under the floor</span><b>178</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Every one of them is classified. The middle figure is the interface debt stated directly rather than guessed at from
@@ -1690,7 +1690,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Review-document list read</span>
 <code>discovery.review.document-list</code>
 <p>The paged, filtered read of a review set's documents that every review surface sits on, plus the live exception surface, the occurrences a suppressed copy stays reachable through, and what the corpus still owes the index.</p>
-<p class="note">Backend only — the list, the filters and the exception surface are deferred to the owner. This read is what 5-2-1 begins on.</p>
+<p class="note">The list and its five filters now have their screen (the review workspace's Documents), rendered from the narrowing registry in apps/web/src/lib/discovery/criteria.ts so a sixth narrowing is an entry rather than a control change, and the same read is the reviewer's queue. The occurrences read has its panel; the live exception surface still has no screen of its own, because it is a narrowing rather than a destination. This read is what 5-2-1 begins on.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Review filters</span>

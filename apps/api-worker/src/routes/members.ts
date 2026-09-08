@@ -57,11 +57,30 @@ const FirmMemberSummary = z
   .object({
     userId: z.string(),
     displayName: z.string(),
+    /*
+     * REPORTED HERE, SET NOWHERE. Nothing in the platform writes `deactivated` yet — the column
+     * exists, every permission read gates on it, and this listing prints it, but the route that
+     * turns a member off has not been built.
+     *
+     * WHEN IT IS, IT MUST RUN A PRECONDITION FIRST, and this is the place a person building it
+     * will be standing. `readReviewSetsHeldOnlyBy` in @magna-carta/discovery/review-set-access-statements
+     * answers "which review sets is this member the only active person on the list for". A
+     * non-empty answer means deactivating them makes those corpora unreachable by everybody,
+     * permanently: a deactivated member keeps their access row and is absent to every read, so
+     * nothing is revoked and nothing refuses, and the list is fail-closed with no operator
+     * override and no Owner bypass. The deactivation is refused until somebody else is added to
+     * each one, and the refusal names them.
+     *
+     * That read is the only precondition discovery needs; another subsystem may add its own, and
+     * the matter-close preconditions in @magna-carta/matters/close-preconditions are the shape to
+     * copy if more than one ever exists.
+     */
     status: z.enum(["active", "deactivated"]).openapi({
       description:
         "A deactivated member is still listed: they remain the responsible attorney on matters " +
         "they carried and the author of what they filed, and dropping the row would print those " +
-        "cells as an unfilled gap rather than as the person who is no longer here.",
+        "cells as an unfilled gap rather than as the person who is no longer here. Nothing sets " +
+        "this yet; no route deactivates a member.",
     }),
     roleNames: z.array(z.string()).openapi({
       description: "The names of the roles this member holds; empty where they hold none.",
