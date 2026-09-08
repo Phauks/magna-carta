@@ -1,6 +1,8 @@
-import { MAX_BATCH_STATEMENTS } from "@magna-carta/data-access/effect-batch";
+import { MAX_BATCH_STATEMENTS, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { conflictsAuditStatement, type ConflictsWriteOptions } from "./audit.ts";
 import { BUDGETED_EDGE_CLASSES, type BudgetedEdgeClass } from "./edge-classes.ts";
+import { runConflictsEffect } from "./run-conflicts-effect.ts";
 import { SOURCE_CLASSES, STRICTNESS_LEVELS, type SourceClass, type Strictness } from "./types.ts";
 
 // A hop budget per budgeted edge class. Corporate family carries no entry: it is traversed
@@ -232,29 +234,26 @@ export function resolveScope(policy: ConflictsPolicy, request: ScopeRequest): Re
   };
 }
 
-// Reads the firm's policy from the flat firm-level setting table, falling back to the in-code default
-// when the firm has never configured one.
-export async function readConflictsPolicy(database: SqlDatabase): Promise<ConflictsPolicy> {
-  const { results } = await database
-    .prepare(`SELECT value FROM setting WHERE key = ?1`)
-    .bind(SETTING_KEY)
-    .all<{ value: string }>();
-
-  const row = results[0];
-  if (row === undefined) return DEFAULT_CONFLICTS_POLICY;
-
-  let parsed: Partial<ConflictsPolicy>;
-  try {
-    parsed = JSON.parse(row.value) as Partial<ConflictsPolicy>;
-  } catch {
-    // A corrupt row must not crash every conflicts check — fall back to the default posture.
-    return DEFAULT_CONFLICTS_POLICY;
-  }
-
+// EVERY GUARD THIS SUBSYSTEM PLACES ON A POLICY, IN ONE FUNCTION — and why it is not inlined in the
+// read.
+//
+// The read has always repaired what it loads: party unioned back into the floor, `current` unioned
+// into the name roles, caps clamped, a corrupt number replaced by the shipped default. That is the
+// right posture for a value the platform did not write. But it means a STORED policy and the policy
+// that actually runs are two different objects whenever the stored one is unsound, and a settings
+// screen makes that gap visible and dangerous: an administrator who deselects every source would
+// save `[]`, see `[]` when the screen reloads, and be shown a floor the platform would never run.
+// The screen would be lying, and it would be lying by faithfully echoing what was stored.
+//
+// So the write normalizes through this same function and stores the RESULT. What is in the row is
+// what runs, the screen can read the row back and believe it, and the read's repairs become a
+// backstop against corruption and hand edits rather than a routine correction of the platform's own
+// writes. Read and write cannot drift, because there is one implementation and both call it.
+export function normalizeConflictsPolicy(parsed: Partial<ConflictsPolicy>): ConflictsPolicy {
   // A missing, non-array, or emptied-out floorSources is treated as "use the default"; `??` alone
   // does not catch an empty array. Then — regardless of what was stored — party is unioned back in:
   // it is the firm-wide floor, not a firm-configurable choice, so no stored value (corrupted,
-  // hand-edited, or produced by a future settings UI that lets an admin deselect everything) may
+  // hand-edited, or sent by a settings screen that let an administrator deselect everything) may
   // ever drop it.
   const storedFloorSources = parsed.floorSources;
   const baseFloorSources =
@@ -292,6 +291,28 @@ export async function readConflictsPolicy(database: SqlDatabase): Promise<Confli
   };
 }
 
+// Reads the firm's policy from the flat firm-level setting table, falling back to the in-code default
+// when the firm has never configured one.
+export async function readConflictsPolicy(database: SqlDatabase): Promise<ConflictsPolicy> {
+  const { results } = await database
+    .prepare(`SELECT value FROM setting WHERE key = ?1`)
+    .bind(SETTING_KEY)
+    .all<{ value: string }>();
+
+  const row = results[0];
+  if (row === undefined) return DEFAULT_CONFLICTS_POLICY;
+
+  let parsed: Partial<ConflictsPolicy>;
+  try {
+    parsed = JSON.parse(row.value) as Partial<ConflictsPolicy>;
+  } catch {
+    // A corrupt row must not crash every conflicts check — fall back to the default posture.
+    return DEFAULT_CONFLICTS_POLICY;
+  }
+
+  return normalizeConflictsPolicy(parsed);
+}
+
 // A firm that configured `defaultDepth` before the typed budgets existed still means that number for
 // every class, so a stored row with no `edgeClassBudgets` resolves to the depth it does carry — never
 // to the shipped default. Falling back to the shipped default here would silently NARROW the search
@@ -326,4 +347,55 @@ function parseBalancedNameRoles(stored: unknown): readonly string[] {
       : [];
   const roles = base.length > 0 ? base : DEFAULT_CONFLICTS_POLICY.balancedNameRoles;
   return [...new Set(["current", ...roles])].toSorted();
+}
+
+// WRITING THE FIRM'S FLOOR.
+//
+// This is the one path by which a firm changes what its checks must search. It is a governance act
+// rather than an ordinary edit: raising the floor widens every future check and makes a shortfall
+// appear on every matter whose last check no longer covers it, and lowering it narrows what the firm
+// will look at from here on. So it is audited like any other conflicts write, under its own
+// permission, and the row it writes is the row every later check reads.
+//
+// WHAT IS STORED IS WHAT RUNS. The value is normalized through `normalizeConflictsPolicy` — the same
+// function the read repairs with — and the NORMALIZED result is what goes in the row and what comes
+// back to the caller. A screen therefore never has to model the platform's repairs to predict its own
+// behaviour: it sends what an administrator chose, and it is told what took effect. Where the two
+// differ (a floor with every source deselected, a candidate cap above what one atomic batch can
+// carry) the difference is visible in the response rather than discovered on the next check.
+//
+// It deliberately does NOT refuse an unsound policy. The guards here are invariants a firm cannot opt
+// out of rather than mistakes it might have meant — `party` is in the floor because conflicts impute
+// across the whole firm, and `current` is in the name roles because a check that did not compare the
+// name a party goes by today is not a conflicts check. Refusing the save would leave the firm with
+// its old policy and an error; unioning the guard back in and saying so leaves it with a sound policy
+// and the truth about it.
+export async function writeConflictsPolicy(
+  database: BatchDatabase,
+  input: Partial<ConflictsPolicy>,
+  options: ConflictsWriteOptions,
+): Promise<ConflictsPolicy> {
+  const policy = normalizeConflictsPolicy(input);
+  const now = options.clock.now();
+  const value = JSON.stringify(policy);
+
+  return runConflictsEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      database
+        .prepare(
+          `INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+        )
+        .bind(SETTING_KEY, value, now),
+      // The subject is the setting key rather than a minted handle: there is exactly one conflicts
+      // policy per firm and it has no identity of its own, so the key is what a reader of the audit
+      // log would search for. Successive changes are successive rows on the same subject, which is
+      // what makes "when did this firm widen its floor" answerable.
+      conflictsAuditStatement(database, options, "conflicts.policy.changed", SETTING_KEY),
+    ],
+    outboxMessages: [],
+    responseCode: 200,
+    responseBody: policy,
+    value: policy,
+    fromBody: (body) => body as ConflictsPolicy,
+  }));
 }

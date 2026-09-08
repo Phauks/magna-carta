@@ -114,7 +114,6 @@
   function stepHref(step: IntakeChecklistStep): string | null {
     const slug = intakeStepKindVocabulary(step.kind).sectionSlug;
     if (slug === null) return null;
-    if (slug === "conflicts") return `/conflicts/matters/${encodeURIComponent(matter.id)}`;
     return `/matters/${encodeURIComponent(matter.id)}/${slug}`;
   }
 
@@ -313,8 +312,21 @@
                     </div>
                   </div>
                   <div class="flex flex-wrap gap-4">
-                    {#if href !== null && step.record === null}
-                      <Button variant="ghost" size="sm" {href} title="Where this step's fact is made">
+                    <!-- Offered whether or not the step is recorded. The way through is to where
+                         this step's fact LIVES, and a recorded step is precisely when somebody
+                         wants to read it: "we checked" is answered by the record, months later,
+                         by a reader who was not here when the box was ticked. Hiding it on
+                         completion made the record hardest to reach at the only moment it
+                         mattered. -->
+                    {#if href !== null}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        {href}
+                        title={step.record === null
+                          ? "Where this step's fact is made"
+                          : "Where this step's fact is recorded"}
+                      >
                         <ExternalLink class="size-16" aria-hidden="true" />
                         {intakeStepKindVocabulary(step.kind).sectionSlug === "conflicts"
                           ? "Conflicts"

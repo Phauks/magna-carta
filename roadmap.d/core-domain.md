@@ -607,7 +607,7 @@
   surface: awaiting-screen
   slices: 4-3-matter-assets
   spec: docs/specs/2026-08-05-matter-assets-design.md
-  evidence: matter_asset_valuation with BEFORE UPDATE / BEFORE DELETE / replace-guard triggers in packages/database/drizzle/per-firm/20260806T020000_matter-assets.sql; packages/matter-assets/src/{valuation-service,as-of}.ts.
+  evidence: matter_asset_valuation with BEFORE UPDATE / BEFORE DELETE / replace-guard triggers in packages/database/drizzle/per-firm/20260908T000000_baseline.sql; packages/matter-assets/src/{valuation-service,as-of}.ts.
   notes: A date before an asset's first valuation resolves to nothing rather than to the earliest figure; no route edits or deletes a recorded value.
 
 - id: matter-assets.interests

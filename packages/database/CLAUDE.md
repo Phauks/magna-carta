@@ -24,6 +24,9 @@ migrations_ section of [`docs/conventions/operations.md`](../../docs/conventions
 - `src/protected-columns.ts` — the registry of encrypted-at-rest columns
 - `scripts/timestamp-latest-migration.mjs` — renames a fresh `NNNN_slug` migration to a timestamp id
 - `scripts/refresh-snapshot.mjs` — re-derives a lineage's snapshot from the schema (below)
+- `scripts/collapse-baseline.mjs` — folds a whole chain into one baseline, and proves it: the file is
+  DUMPED from a database built by applying the chain, never written by hand, and `--verify` applies
+  both and compares every object and every seeded row
 
 ## Local conventions
 
@@ -76,7 +79,19 @@ a review step.
 ## Invariants that apply here
 
 - **A migration is immutable once committed.** Firms have already applied it. Corrections are new
-  migrations, never edits to an existing `.sql` or a renumbered journal entry.
+  migrations, never edits to an existing `.sql` or a renumbered journal entry. A baseline COLLAPSE is
+  the one thing that retires committed migrations, and it does not edit them: it replaces the chain
+  with the schema the chain produced and records the retired ids in `LEGACY_BASELINES`, so a database
+  carrying them reconciles rather than being read as a newer schema.
+- **A table other tables point at cannot be rebuilt.** The `__new_X` copy/drop/rename pattern drops
+  the table it replaces, and a durable object enforces foreign keys at the statement AND at the
+  commit — `PRAGMA foreign_keys` is a no-op inside a migration's execution context, which Cloudflare
+  documents for D1 in the same terms ("user queries cannot change this during a query or migration").
+  `defer_foreign_keys` holds the violation to the commit and the commit still rejects it. Four
+  approaches were tried against real durable-object storage and all four fail; the probes are
+  `apps/api-worker/test/durable-object-pragma-context.test.ts`. `tooling/migration-integrity` refuses
+  the shape outright, so widening a CHECK or dropping a column on a parent table needs a different
+  answer — not a cleverer rebuild.
 - **The journal is the apply order.** `idx` is dense from 0, every entry has its `.sql`, and every
   snapshot maps to a journal idx — asserted by `tooling/migration-integrity/`, which also applies the
   whole chain to a fresh SQLite and rejects any unreviewed destructive table rebuild. It lives outside

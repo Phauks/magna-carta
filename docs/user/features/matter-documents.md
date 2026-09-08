@@ -1,9 +1,9 @@
 # A matter's documents
 
 _The documents screen is early. Uploading files and folders, saving new versions, folders, the
-version history, and editing text documents all work today. Editing a Word document in the browser
-opens a real editing session but needs the editor service running, so on some installations the
-editor stays blank; the screen tells you when that is the case._
+version history, reading PDFs, and editing text documents all work today. Editing a Word document in
+the browser opens a real editing session but needs the editor service running, so on some
+installations the editor stays blank; the screen tells you when that is the case._
 
 ## What it does
 
@@ -126,6 +126,7 @@ Double-click a row, press Enter on it, or choose **Open** from its right-click m
 - A **Word document** (`.docx`, `.doc`, `.odt`, `.rtf`) opens in the browser editor, in a new tab.
 - A **text document** (`.txt`, `.md`, `.log`, and other plain-text files such as `.json` or
   `.html`) opens in the text editor, in a new tab.
+- A **PDF** opens in the reader, in a new tab.
 - A **folder** opens itself, and a **zip archive** opens to show what is inside it.
 - **Everything else** opens its preview in the details panel. A document that is still being
   checked, one the check refused, or one with a safety finding open opens its preview too, where
@@ -154,6 +155,50 @@ Every committed version of the document, newest first, with its number, its size
 committed, and the start of its **content hash**. The hash is a fingerprint of the exact bytes: two
 versions with the same hash are byte-for-byte the same file, and a version's hash never changes once
 it is recorded.
+
+## Zip files
+
+Open a zip and it shows what is inside it, folder by folder, without extracting anything or
+downloading it. The bar above the list names the archive you are in; use the crumbs to move through
+its folders, and close it to return to the matter's own files.
+
+### Taking files out
+
+Select what you want and choose **Extract**, or choose **Extract Into This Matter** with nothing
+selected to take out everything in the archive. Files land in the folder the zip itself sits in.
+
+Each extracted file is checked on the way in exactly like a file you upload: it is scanned, its type
+is read from its actual contents rather than from its name inside the archive, and it becomes an
+ordinary document on the matter with its own version history. Extracting never changes the zip,
+which stays on the matter as it was.
+
+Some members will not come out, and the screen names the reason rather than only counting them:
+
+- **Password-protected inside the archive.** Magna Carta holds no password for it.
+- **Packed in a way the application cannot open.** Most zips use a format it reads; a few do not.
+- **Its contents do not match what the archive recorded.** The zip's own checksum for that file
+  disagrees with the file itself, which is what a damaged or altered member looks like. It is
+  refused rather than filed.
+- **Too large, or it expands far enough to be treated as unsafe.** Your firm sets both limits.
+
+The rest of the selection still arrives. If nothing comes out at all, you are told why that was.
+
+## Reading a PDF
+
+Open a PDF and it appears in a new tab, a page at a time. Scroll to move through it; the toolbar
+says which page you are on and how many there are. **Plus** and **minus** change the zoom, and
+**Download** saves the file if you would rather work on it elsewhere.
+
+The document is drawn by Magna Carta itself rather than handed to the browser's own PDF viewer.
+Pages are drawn as you reach them, so a long document opens straight away instead of making you wait
+for the end of it.
+
+Some PDFs will not open. One that is larger than the reader holds, one whose contents cannot be
+read, and one built in a way that is unsafe to open all say so on the screen and offer you the
+download instead. The file is stored either way, and nothing about it is changed by trying.
+
+A PDF is read-only here. There is no editing, and nothing you do in the reader changes the document
+or adds a version.
 
 ## Editing in the browser
 
@@ -184,9 +229,12 @@ replaced; every save is a new version alongside the ones before it.
 
 If you try to close the tab or leave the page with unsaved changes, you are asked first.
 
-A text document larger than the editor holds (a little over two million characters) does not open
-for editing; the tab says so and offers a download instead. Edit it on your computer and save it
-back as a new version.
+Two kinds of text document do not open for editing, and each says so and offers you the download
+instead. One is a document larger than the editor holds, a little over two million characters. The
+other is a document written in an older character set, which happens with files carrying curly
+quotes, dashes or accented names that came from an earlier system: opening it would show some of
+those characters wrongly, and saving would store them that way, so the editor stands aside rather
+than risk the document. Edit either one on your computer and save it back as a new version.
 
 ### Who can edit, and who decides between two copies
 

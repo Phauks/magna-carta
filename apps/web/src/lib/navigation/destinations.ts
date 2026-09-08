@@ -273,8 +273,12 @@ const DESTINATION_LIST = [
     icon: ShieldAlert,
     description: "Conflict checks run at intake and on demand.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The runner, the firm's check history, one check read back with its candidates and their
+    // adjudications, where a matter stands, and the firm's own floor under Settings. What is still
+    // short of the whole act is the assembled report a firm could hand a court: printing gives a
+    // sheet rather than a document filed onto the matter.
+    stage: "alpha",
     defaultStarred: true,
   },
   {

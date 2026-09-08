@@ -4,6 +4,8 @@ import {
   editorKindOf,
   openDestinationOf,
   textContentTypeOf,
+  viewerHref,
+  viewerKindOf,
   type EditableFileFacts,
 } from "../src/lib/documents/editable-documents.ts";
 
@@ -43,7 +45,7 @@ describe("editorKindOf", () => {
     expect(editorKindOf({ name: "page.html", sniffedContentType: "text/html" })).toBe("text");
   });
 
-  it("names no editor for everything else", () => {
+  it("names no editor for everything else, the portable document included", () => {
     expect(editorKindOf({ name: "scan.pdf", sniffedContentType: "application/pdf" })).toBeNull();
     expect(editorKindOf({ name: "photo.jpg", sniffedContentType: "image/jpeg" })).toBeNull();
     expect(editorKindOf({ name: "budget.xlsx", sniffedContentType: null })).toBeNull();
@@ -53,6 +55,19 @@ describe("editorKindOf", () => {
 
   it("lets the sniffed content type overrule a misleading name", () => {
     expect(editorKindOf({ name: "notes.txt", sniffedContentType: "application/pdf" })).toBeNull();
+  });
+});
+
+describe("viewerKindOf", () => {
+  it("names the reader for a portable document, by content type or by name", () => {
+    expect(viewerKindOf({ name: "scan.pdf", sniffedContentType: "application/pdf" })).toBe("pdf");
+    expect(viewerKindOf({ name: "scan.pdf", sniffedContentType: null })).toBe("pdf");
+  });
+
+  it("names no reader for a format the editors already take, or for anything else", () => {
+    expect(viewerKindOf({ name: "brief.docx", sniffedContentType: null })).toBeNull();
+    expect(viewerKindOf({ name: "notes.txt", sniffedContentType: null })).toBeNull();
+    expect(viewerKindOf({ name: "photo.jpg", sniffedContentType: "image/jpeg" })).toBeNull();
   });
 });
 
@@ -78,17 +93,41 @@ describe("openDestinationOf", () => {
     expect(openDestinationOf(clean({ scanVerdict: "flagged" }))).toEqual({ kind: "preview" });
   });
 
-  it("previews a document with no editor", () => {
+  it("opens the reader for a clean, committed portable document", () => {
     expect(
       openDestinationOf(clean({ name: "scan.pdf", sniffedContentType: "application/pdf" })),
-    ).toEqual({ kind: "preview" });
+    ).toEqual({ kind: "viewer", viewer: "pdf", href: "/documents/file_01/view" });
+  });
+
+  it("previews a portable document whose bytes are withheld, like any other", () => {
+    const withheld = { name: "scan.pdf", sniffedContentType: "application/pdf" };
+    expect(openDestinationOf(clean({ ...withheld, scanVerdict: "flagged" }))).toEqual({
+      kind: "preview",
+    });
+    expect(openDestinationOf(clean({ ...withheld, status: "pending" }))).toEqual({
+      kind: "preview",
+    });
+  });
+
+  it("previews a document with neither an editor nor a reader", () => {
+    expect(openDestinationOf(clean({ name: "budget.xlsx", sniffedContentType: null }))).toEqual({
+      kind: "preview",
+    });
+    expect(openDestinationOf(clean({ name: "bundle.zip", sniffedContentType: null }))).toEqual({
+      kind: "preview",
+    });
   });
 });
 
-describe("editorHref", () => {
-  it("is one address per document, with the identifier escaped", () => {
+describe("editorHref and viewerHref", () => {
+  it("are one address per document each, with the identifier escaped", () => {
     expect(editorHref("file_01")).toBe("/documents/file_01/edit");
     expect(editorHref("a b")).toBe("/documents/a%20b/edit");
+    expect(viewerHref("file_01")).toBe("/documents/file_01/view");
+  });
+
+  it("never send a document to the same address twice, so the promise each makes is distinct", () => {
+    expect(editorHref("file_01")).not.toBe(viewerHref("file_01"));
   });
 });
 

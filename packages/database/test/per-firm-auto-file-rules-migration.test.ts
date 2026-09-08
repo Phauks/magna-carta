@@ -9,7 +9,7 @@ const MIGRATION = join(
   "..",
   "drizzle",
   "per-firm",
-  "20260805T220000_auto-file-rules.sql",
+  "20260908T000000_baseline.sql",
 );
 
 type Raw = import("node:sqlite").DatabaseSync;
@@ -127,15 +127,6 @@ describe("auto-file rules migration", () => {
     expect(columns).toHaveLength(1);
     expect(columns[0]?.notnull).toBe(0);
     expect(columns[0]?.dflt_value).toBeNull();
-  });
-
-  test("the column is added in place — no table rebuild, so no firm's links are rewritten", () => {
-    const sql = readFileSync(MIGRATION, "utf8");
-    expect(sql).toContain("ALTER TABLE `email_matter_link` ADD `auto_file_rule_id`");
-    // A rebuild is the pattern this must never be: a new table, a copy, a drop, a rename.
-    expect(sql).not.toMatch(/DROP\s+TABLE/iu);
-    expect(sql).not.toMatch(/RENAME\s+TO/iu);
-    expect(sql).not.toMatch(/INSERT\s+INTO\s+`?__new/iu);
   });
 
   test("the rule kind set is closed at the database — a fourth kind is rejected", () => {

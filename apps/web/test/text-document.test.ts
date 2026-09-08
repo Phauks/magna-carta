@@ -67,6 +67,32 @@ describe("readTextDocument", () => {
     expect(outcome).toEqual({ kind: "too-large", sizeBytes: 2_000 });
   });
 
+  it("refuses bytes that are not UTF-8 rather than decoding them lossily", async () => {
+    // A Windows-1252 file: 0x93/0x94 are curly quotes and 0xE9 is an accented e. Ordinary in older
+    // documents, and not valid UTF-8. Decoded leniently every one of them becomes U+FFFD, and a
+    // save would write that loss into the next version.
+    const latin1 = new Uint8Array([0x93, 0x52, 0x65, 0x6e, 0xe9, 0x94]);
+    const { fetchImpl } = scriptedFetch({ "GET /download": () => new Response(latin1) });
+    expect(await readTextDocument(fetchImpl, "file_01", latin1.length)).toEqual({
+      kind: "not-text",
+    });
+  });
+
+  it("refuses binary bytes, which is what a mislabelled document looks like", async () => {
+    const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37, 0x00, 0xff, 0xfe]);
+    const { fetchImpl } = scriptedFetch({ "GET /download": () => new Response(pdf) });
+    expect(await readTextDocument(fetchImpl, "file_01", pdf.length)).toEqual({ kind: "not-text" });
+  });
+
+  it("accepts UTF-8 that is not ASCII, so a legitimate document still opens", async () => {
+    const utf8 = new TextEncoder().encode("Renée said \u201Cyes\u201D");
+    const { fetchImpl } = scriptedFetch({ "GET /download": () => new Response(utf8) });
+    expect(await readTextDocument(fetchImpl, "file_01", utf8.length)).toEqual({
+      kind: "ok",
+      text: "Renée said \u201Cyes\u201D",
+    });
+  });
+
   it("reports a refusal as a problem and a dead transport as transport", async () => {
     const refused = scriptedFetch({
       "GET /download": () => json({ status: 409 }, 409),
