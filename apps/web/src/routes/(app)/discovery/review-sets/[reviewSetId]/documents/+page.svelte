@@ -23,7 +23,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import { page } from "$app/state";
-  import { replaceState } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import NarrowControl from "$lib/discovery/narrow-control.svelte";
@@ -41,7 +41,6 @@
     criteriaAreSet,
     criteriaFromSearchParameters,
     criteriaToSearchParameters,
-    withCriterion,
     type CriteriaSet,
   } from "$lib/discovery/criteria.ts";
   import {
@@ -143,12 +142,20 @@
     rowKey: (document) => document.id,
     initialSort: REVIEW_DOCUMENT_INITIAL_SORT,
     itemNoun: { singular: "document", plural: "documents" },
-    // Opening a document narrows to its family, which is the one thing this surface can do with one
-    // today and is genuinely what a reviewer wants next: a message and its attachments, or an
-    // archive and its entries, are read together or not understood at all. The viewer and the
-    // coding panel arrive with the review surface.
-    onActivate: (document) => narrow(withCriterion(criteria, "family", document.familyId)),
+    /*
+     * Opening a row opens the REVIEWER on that document, carrying whatever this list is narrowed to.
+     * That is what makes the two presentations one screen: the queue the reviewer walks is this
+     * list, in this order, and going back returns to it still narrowed.
+     */
+    onActivate: (document) => void goto(documentHref(document.id)),
   });
+
+  /** One document's address in the reviewer, carrying the narrowing this list is on. */
+  function documentHref(id: string): string {
+    const search = criteriaToSearchParameters(criteria).toString();
+    const base = `/discovery/review-sets/${reviewSet.id}/documents/${id}`;
+    return search === "" ? base : `${base}?${search}`;
+  }
 </script>
 
 {#snippet documentCell({ row, column, text }: DataTable.GridCellContext<ReviewDocument>)}

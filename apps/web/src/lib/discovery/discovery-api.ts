@@ -331,6 +331,72 @@ export function listReviewDocuments(
   );
 }
 
+/** One document as the reviewer's pane reads it: the list row, plus what only this question needs. */
+export interface ReviewDocumentDetail extends ReviewDocument {
+  reviewSetId: string;
+  sourceKind: "file_version" | "email_message" | "email_attachment";
+  dedupGroupId: string | null;
+  contentSha256: string | null;
+  contentMd5: string | null;
+  contentSha1: string | null;
+  textFingerprint: string | null;
+  /**
+   * Whether the engine extracted any text. The object's key never leaves the server — an internal
+   * address is something a client can only misuse — so this boolean is how a pane knows whether to
+   * ask for the text at all.
+   */
+  hasExtractedText: boolean;
+  exceptions: {
+    id: string;
+    stage: ReviewDocumentExceptionStage;
+    code: ReviewDocumentExceptionCode;
+    detail: string | null;
+    createdAt: string;
+  }[];
+}
+
+export function readReviewDocument(
+  fetchImpl: typeof fetch,
+  reviewSetId: string,
+  reviewDocumentId: string,
+): Promise<ApiOutcome<ReviewDocumentDetail>> {
+  return requestJson(fetchImpl, `/api/v1/review-sets/${reviewSetId}/documents/${reviewDocumentId}`);
+}
+
+/**
+ * The address the extracted text is read from.
+ *
+ * Served through the discovery routes and gated by the review set's own access list, NOT by the file
+ * permissions the native bytes are gated by — a reviewer brought in for one production is on that
+ * list and may hold no file permission at all, and the extracted text is exactly what they need to
+ * code a document. The native file stays behind its own gate, where it belongs.
+ */
+export function reviewDocumentTextUrl(reviewSetId: string, reviewDocumentId: string): string {
+  return `/api/v1/review-sets/${reviewSetId}/documents/${reviewDocumentId}/text`;
+}
+
+/** Every other copy of this document the review set holds, and who held each. */
+export interface ReviewDocumentOccurrence {
+  id: string;
+  primaryReviewDocumentId: string;
+  duplicateReviewDocumentId: string;
+  recordCustodianId: string;
+  discoveryLoadId: string;
+  createdAt: string;
+}
+
+export function listOccurrences(
+  fetchImpl: typeof fetch,
+  reviewSetId: string,
+  reviewDocumentId: string,
+  cursor?: string,
+): Promise<ApiOutcome<Page<ReviewDocumentOccurrence>>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/review-sets/${reviewSetId}/documents/${reviewDocumentId}/occurrences${query({ cursor })}`,
+  );
+}
+
 // ---- the exceptions ----------------------------------------------------------------------------
 
 export interface ReviewSetException {

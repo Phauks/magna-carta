@@ -9,7 +9,7 @@
   scope: E-discovery for moderate scale (thousands to tens of thousands of docs per matter) with seams for larger scale; ingest, OCR, index, review, production.
   status: partial
   adrs: ADR-0012, ADR-0060, ADR-0167
-  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing). Ingest and processing are complete end to end and a review set is now its own search corpus; the keyword index and the discovery engine are both built and dormant behind unbound services. THE SURFACE OVER THE INGEST HALF IS BUILT — the matter's Discovery section, the firm-wide register scoped by the access list rather than by matter access, and the review workspace with its document list and its loads — so a firm can now create a corpus, name its Custodians of Record, declare a load, put the matter's own files in it with no byte moved, watch every document reach a terminal state, and download the manifest and the exception report. Tagging and coding are still built API-side with no screens, as is the reviewer's own reading pane. The semantic half is deferred on an open owner flag, and production — Bates, rendering, load files, the privilege log — does not exist.
+  evidence: Engine substrates shipped (OCR engine, PDF redaction/Bates, file hashing). Ingest and processing are complete end to end and a review set is now its own search corpus; the keyword index and the discovery engine are both built and dormant behind unbound services. THE SURFACE IS BUILT THROUGH READING — the matter's Discovery section, the firm-wide register scoped by the access list rather than by matter access, the review workspace with its document list and its loads, and the reviewer: a queue over whatever the list was narrowed to, the extracted text served behind the access list rather than behind file permissions, and a panel stack whose first three panels are the document's facts and digests, its family, and the other copies of it the corpus holds. So a firm can now create a corpus, name its Custodians of Record, declare a load, put the matter's own files in it with no byte moved, watch every document reach a terminal state, read any of them, and download the manifest and the exception report. Tagging and coding are still built API-side with no screens. The semantic half is deferred on an open owner flag, and production — Bates, rendering, load files, the privilege log — does not exist.
   audience: public
   public-summary: Load what the other side produced, process it, and work through it at the volumes litigation actually produces.
   notes: The search index has its stateful-service spec (docs/specs/2026-07-17-discovery-search-index-stateful-service-design.md), the design ADR-0167 deferred; the white paper defers several remaining engine questions to the subsystem.
@@ -160,7 +160,7 @@
   slices: 5-2-discovery-review-workflow
   adrs: ADR-0262
   spec: docs/specs/2026-08-07-discovery-5-2-review-workflow.md
-  evidence: Redaction engine shipped; tagging and coding plus the fail-closed per-review-set access list are built API-side (packages/discovery, fourteen routes); filters, threading, near-duplicate surfacing and every review UI are unbuilt.
+  evidence: Redaction engine shipped; tagging and coding plus the fail-closed per-review-set access list are built API-side (packages/discovery, fourteen routes). The reviewer's shell is now built — the queue over the narrowed corpus, the extracted-text pane behind the access list rather than behind file permissions, and a panel registry whose three reading panels ship (facts and digests, family, other copies) and whose five writing ones render disabled with what each waits on — so the coding panel is one entry and one component. Threading and near-duplicate surfacing are unbuilt.
   audience: public
   public-name: Review and coding
   public-summary: Tag documents for responsiveness and privilege, with each reviewer seeing only the set they have been given.
@@ -174,7 +174,7 @@
   slices: 5-1-discovery-ingest-and-processing
   spec: docs/specs/2026-08-05-discovery-5-1-design.md
   evidence: packages/discovery/src/review-reads.ts and four routes in apps/api-worker/src/routes/discovery-review-reads.ts, filtered by Custodian of Record, load, family, processing state and exception code. Keyset-paged over (sort_date, id) in two segments so the documents a production gave no date for are last and still reachable, with a row-value comparison rather than the equivalent OR — measured at 0.26 ms per page against 10.3 ms for the OR form at the 250,000-document ceiling (packages/fixtures/src/load-profile/discovery-measurements.ts). Every builder composes the review-set access predicate in SQL ahead of the LIMIT, proved for all nine from the same table-driven pass the coding reads use.
-  notes: The list and its five filters now have their screen (the review workspace's Documents), rendered from the narrowing registry in apps/web/src/lib/discovery/criteria.ts so a sixth narrowing is an entry rather than a control change. The live exception surface and the occurrences read still have none. This read is what 5-2-1 begins on.
+  notes: The list and its five filters now have their screen (the review workspace's Documents), rendered from the narrowing registry in apps/web/src/lib/discovery/criteria.ts so a sixth narrowing is an entry rather than a control change, and the same read is the reviewer's queue. The occurrences read has its panel; the live exception surface still has no screen of its own, because it is a narrowing rather than a destination. This read is what 5-2-1 begins on.
 
 - id: discovery.review.filters
   name: Review filters
@@ -182,7 +182,7 @@
   status: partial
   surface: awaiting-screen
   slices: 5-1-discovery-ingest-and-processing
-  evidence: Five filters are built into the list read (Custodian of Record, load, family, processing state, exception code) and each has its own sort-bearing index so the page never falls to a temporary b-tree, and all five are now reachable from the workspace's one narrowing control. Date and keyword are not: date is the read's ORDER BY rather than a filter, and keyword narrowing waits on the search engine being deployed. Both are declared in the narrowing registry and render visible and disabled with what each waits on, so lighting keyword up is a binding plus a stage flip rather than a change to the control.
+  evidence: Five filters are built into the list read (Custodian of Record, load, family, processing state, exception code) and each has its own sort-bearing index so the page never falls to a temporary b-tree, and all five are now reachable from the workspace's one narrowing control, which is also the queue the reviewer walks. Date and keyword are not: date is the read's ORDER BY rather than a filter, and keyword narrowing waits on the search engine being deployed. Both are declared in the narrowing registry and render visible and disabled with what each waits on, so lighting keyword up is a binding plus a stage flip rather than a change to the control.
 
 - id: discovery.review.tagging
   name: Tagging and coding

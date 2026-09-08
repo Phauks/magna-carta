@@ -3076,7 +3076,7 @@
               "active",
               "deactivated"
             ],
-            "description": "A deactivated member is still listed: they remain the responsible attorney on matters they carried and the author of what they filed, and dropping the row would print those cells as an unfilled gap rather than as the person who is no longer here."
+            "description": "A deactivated member is still listed: they remain the responsible attorney on matters they carried and the author of what they filed, and dropping the row would print those cells as an unfilled gap rather than as the person who is no longer here. Nothing sets this yet; no route deactivates a member."
           },
           "roleNames": {
             "type": "array",
@@ -21226,6 +21226,255 @@
           "tagCounts",
           "uncodedDocumentIds",
           "splitFamilyIds"
+        ]
+      },
+      "ReviewDocumentDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reviewSetId": {
+            "type": "string"
+          },
+          "recordCustodianId": {
+            "type": "string"
+          },
+          "discoveryLoadId": {
+            "type": "string"
+          },
+          "sourceKind": {
+            "type": "string",
+            "enum": [
+              "file_version",
+              "email_message",
+              "email_attachment"
+            ]
+          },
+          "familyId": {
+            "type": "string"
+          },
+          "familyRole": {
+            "type": "string",
+            "enum": [
+              "standalone",
+              "parent",
+              "attachment",
+              "container-child"
+            ]
+          },
+          "familySequence": {
+            "type": "number"
+          },
+          "sourceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourcePath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sizeBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pageCount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "formatIdentified": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortDateSource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "processingState": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "processed",
+              "excepted"
+            ]
+          },
+          "processingDeferredReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indexState": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "indexed",
+              "deferred",
+              "failed",
+              null
+            ]
+          },
+          "isDedupPrimary": {
+            "type": "boolean"
+          },
+          "dedupGroupId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "extractionRoute": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pagesRecognized": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "contentSha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contentMd5": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contentSha1": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "textFingerprint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasExtractedText": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "exceptions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "stage": {
+                  "type": "string",
+                  "enum": [
+                    "load",
+                    "identify",
+                    "extract",
+                    "deduplicate",
+                    "family",
+                    "index"
+                  ]
+                },
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "unsupported-format",
+                    "corrupt",
+                    "encrypted",
+                    "password-protected",
+                    "encrypted-container-entry",
+                    "container-not-expanded",
+                    "container-guard-tripped",
+                    "oversize",
+                    "extraction-timeout",
+                    "no-text-extracted",
+                    "malware-flagged",
+                    "conversion-failed",
+                    "recognition-failed",
+                    "load-file-metadata-mismatch",
+                    "source-bytes-missing"
+                  ]
+                },
+                "detail": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "stage",
+                "code",
+                "detail",
+                "createdAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "reviewSetId",
+          "recordCustodianId",
+          "discoveryLoadId",
+          "sourceKind",
+          "familyId",
+          "familyRole",
+          "familySequence",
+          "sourceName",
+          "sourcePath",
+          "sizeBytes",
+          "pageCount",
+          "formatIdentified",
+          "sortDate",
+          "sortDateSource",
+          "processingState",
+          "processingDeferredReason",
+          "indexState",
+          "isDedupPrimary",
+          "dedupGroupId",
+          "extractionRoute",
+          "pagesRecognized",
+          "contentSha256",
+          "contentMd5",
+          "contentSha1",
+          "textFingerprint",
+          "hasExtractedText",
+          "createdAt",
+          "exceptions"
         ]
       },
       "ReviewDocumentPage": {
@@ -75849,6 +76098,214 @@
           },
           "409": {
             "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}": {
+      "get": {
+        "description": "One document as the reviewer reads it: what it was called where it came from, whose records it was, the delivery it arrived on, the family it arrived in, how far it got, the digests recorded for it, and every named reason it could not be read. A document in a review set the member is not on the list for is absent, not refused.",
+        "operationId": "discovery.getReviewDocument",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getReviewDocument",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewDocument_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewDocumentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDocumentDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or there is no such review set the member may reach",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/text": {
+      "get": {
+        "description": "The text the discovery engine extracted from this document, as plain text. 404 while none exists, which is the ordinary state of a document that has not been read yet and the permanent state of one that could not be. SERVED THROUGH THIS ROUTE RATHER THAN AS A REDIRECT TO THE OBJECT, and gated by the review set's own access list rather than by the file permissions the native bytes are gated by: a reviewer brought in for one production is on that list and may hold no file permission at all, and the extracted text is exactly what they need to code a document. The native file stays behind its own gate, where it belongs.",
+        "operationId": "discovery.getReviewDocumentText",
+        "tags": [
+          "discovery"
+        ],
+        "x-mc-operationId": "discovery.getReviewDocumentText",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "discovery:read",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "discovery"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewSet_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewSetId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^reviewDocument_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reviewDocumentId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The extracted text",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the discovery permission this route requires",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or there is no such review set the member may reach",
             "content": {
               "application/problem+json": {
                 "schema": {
