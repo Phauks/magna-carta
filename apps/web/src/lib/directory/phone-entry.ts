@@ -127,6 +127,19 @@ export function formatStoredPhone(entry: {
 }
 
 /**
+ * A stored number back in the form it was typed in — the country's national grouping.
+ *
+ * The record keeps the international form (`+17755550148`) because that is what a dialler and a
+ * parser want; a person correcting a digit wants the number as they wrote it, grouped the way the
+ * field groups it as they type. A number the parser cannot split comes back exactly as stored,
+ * which is still the number the person gave.
+ */
+export function nationalFormOf(stored: string, region: CountryCode): string {
+  const parsed = parsePhoneNumberFromString(stored, region);
+  return parsed === undefined ? stored : parsed.formatNational();
+}
+
+/**
  * Where a country's flag is served from.
  *
  * An `<img>` against a vendored SVG rather than the flag CHARACTER: the regional-indicator pairs are

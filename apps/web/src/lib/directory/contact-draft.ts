@@ -7,6 +7,13 @@
  * an address is its lines and what it is used for. Each kind checks its own shape before the row can
  * be added, by the same rules the API applies, so a refusal never arrives after the fact.
  *
+ * A POSTAL ADDRESS IS ONE OF THE KINDS HERE AND IT IS ENTERED SOMEWHERE ELSE. It belongs in this
+ * module because it is a contact point on the record and shares every one of a contact point's
+ * facts — the permission, the preference, the verification, the channel default. It is entered on
+ * its own section because it is not one field: it is a form of six to nine boxes whose shape is the
+ * country's, and squeezing that under a kind dropdown beside a one-line email made the kinds look
+ * alike when only one of them is a form. Both halves are here so a screen never has to decide.
+ *
  * The LIST is one line per contact point, whatever its kind: the kind as a glyph, the value formatted,
  * the use beside it, the record's marks after. Three tables, one per channel, each with its own
  * heading, was the previous shape; it spent a screen on what fits in four rows.
@@ -14,14 +21,23 @@
 import { EMAIL_ADDRESS_REFUSAL, isEmailAddress } from "@magna-carta/directory/email-address";
 import type { CountryCode } from "libphonenumber-js/min";
 import type {
+  DirectoryAddressEntry,
   DirectoryAddressType,
   DirectoryAddressUse,
   DirectoryContactPointState,
   DirectoryContactPoints,
   DirectoryContactUse,
+  DirectoryEmailEntry,
+  DirectoryPhoneEntry,
 } from "./directory-api.ts";
+import type { updateDirectoryContactPoint } from "./directory-api.ts";
 import { addressLines, addressUseLabel, contactUseLabel } from "./directory-vocabulary.ts";
-import { checkPhoneEntry, DEFAULT_PHONE_REGION, formatStoredPhone } from "./phone-entry.ts";
+import {
+  checkPhoneEntry,
+  DEFAULT_PHONE_REGION,
+  formatStoredPhone,
+  nationalFormOf,
+} from "./phone-entry.ts";
 
 export type ContactKind = "email" | "telephone" | "fax" | "address";
 
@@ -31,6 +47,10 @@ export const CONTACT_KINDS: readonly { value: ContactKind; label: string }[] = [
   { value: "fax", label: "Fax" },
   { value: "address", label: "Address" },
 ];
+
+/** The kinds the one-line Contact section enters. An address has a form and a section of its own. */
+export const REACHABLE_KINDS: readonly { value: ContactKind; label: string }[] =
+  CONTACT_KINDS.filter((entry) => entry.value !== "address");
 
 export function contactKindLabel(kind: ContactKind): string {
   return CONTACT_KINDS.find((entry) => entry.value === kind)?.label ?? kind;
@@ -65,20 +85,46 @@ export interface NumberDraft {
   readonly use: DirectoryContactUse;
 }
 
+/**
+ * A postal address as it is drafted: the WHOLE international field set, not the American subset.
+ *
+ * Every line the record can hold is here, because which of them a country uses is the address
+ * form's business (`@magna-carta/design-system/address-fields`) and not this draft's. A draft that
+ * carried only street, city, region and postal could not hold a Brazilian neighbourhood or a French
+ * CEDEX at all, so the form could offer the box and the value would be dropped on its way out.
+ */
 export interface AddressDraft {
   readonly kind: "address";
+  readonly recipient: string;
+  readonly organizationName: string;
   readonly street: string;
   readonly streetTwo: string;
+  readonly dependentLocality: string;
   readonly city: string;
   readonly region: string;
   readonly postal: string;
-  /** Two-letter country code. */
+  readonly sortingCode: string;
+  /** Two-letter country code. The field that decides what every field above is called. */
   readonly country: string;
   readonly use: DirectoryAddressUse;
   readonly type: DirectoryAddressType;
 }
 
 export type ContactDraft = EmailDraft | NumberDraft | AddressDraft;
+
+/** The address lines, in the order an address is written. The country is not one of them: it is
+ * always set, so a draft carrying only a country holds no address yet. */
+const ADDRESS_PARTS = [
+  "recipient",
+  "organizationName",
+  "street",
+  "streetTwo",
+  "dependentLocality",
+  "city",
+  "region",
+  "postal",
+  "sortingCode",
+] as const;
 
 export function emptyContactDraft(kind: ContactKind): ContactDraft {
   switch (kind) {
@@ -91,11 +137,15 @@ export function emptyContactDraft(kind: ContactKind): ContactDraft {
     case "address":
       return {
         kind,
+        recipient: "",
+        organizationName: "",
         street: "",
         streetTwo: "",
+        dependentLocality: "",
         city: "",
         region: "",
         postal: "",
+        sortingCode: "",
         country: DEFAULT_PHONE_REGION,
         use: "business",
         type: "physical",
@@ -112,9 +162,7 @@ export function contactDraftStarted(draft: ContactDraft): boolean {
     case "fax":
       return draft.number.trim() !== "" || draft.extension.trim() !== "";
     case "address":
-      return [draft.street, draft.streetTwo, draft.city, draft.region, draft.postal].some(
-        (part) => part.trim() !== "",
-      );
+      return ADDRESS_PARTS.some((part) => draft[part].trim() !== "");
   }
 }
 
@@ -129,7 +177,11 @@ export function contactDraftRefusal(draft: ContactDraft): string | null {
       return checked.ok ? null : checked.reason;
     }
     case "address":
-      return draft.street.trim() === "" && draft.city.trim() === "" ? "A street or a city." : null;
+      // One line of it is enough. An address a firm holds half of is still the address it holds,
+      // and refusing it sends it into a note where no envelope and no duplicate check can reach it.
+      return ADDRESS_PARTS.some((part) => draft[part].trim() !== "")
+        ? null
+        : "At least one line of the address.";
   }
 }
 
@@ -147,11 +199,15 @@ export interface ContactRequests {
     countryRegionCode: string;
   }[];
   readonly addresses: {
+    recipient: string | null;
+    organizationName: string | null;
     street: string | null;
     streetTwo: string | null;
+    dependentLocality: string | null;
     city: string | null;
     region: string | null;
     postal: string | null;
+    sortingCode: string | null;
     country: string | null;
     addressUse: DirectoryAddressUse;
     addressType: DirectoryAddressType;
@@ -185,11 +241,15 @@ export function contactRequestsFrom(drafts: readonly ContactDraft[]): ContactReq
       }
       case "address":
         requests.addresses.push({
+          recipient: part(draft.recipient),
+          organizationName: part(draft.organizationName),
           street: part(draft.street),
           streetTwo: part(draft.streetTwo),
+          dependentLocality: part(draft.dependentLocality),
           city: part(draft.city),
           region: part(draft.region),
           postal: part(draft.postal),
+          sortingCode: part(draft.sortingCode),
           country: part(draft.country),
           addressUse: draft.use,
           addressType: draft.type,
@@ -295,20 +355,118 @@ export function contactRowFromDraft(draft: ContactDraft, id: string): ContactRow
         id,
         kind: "address",
         value: addressLines({
-          recipient: null,
-          organizationName: null,
+          recipient: part(draft.recipient),
+          organizationName: part(draft.organizationName),
           street: part(draft.street),
           streetTwo: part(draft.streetTwo),
-          dependentLocality: null,
+          dependentLocality: part(draft.dependentLocality),
           city: part(draft.city),
           region: part(draft.region),
           postal: part(draft.postal),
-          sortingCode: null,
+          sortingCode: part(draft.sortingCode),
           country: part(draft.country),
         }).join(", "),
         use: addressUseLabel(draft.use),
         state,
         isPrimary: false,
+      };
+  }
+}
+
+/*
+ * ---- editing what is already recorded ----------------------------------------------------------
+ *
+ * A recorded contact point used to be correctable only by deleting it and typing it again — which
+ * is not a correction: the removal is itself a fact the record keeps, the permission and preference
+ * attached to the value are lost with it, and a mistyped digit becomes two rows where there was one
+ * way to reach somebody. The write path has taken a changed VALUE from the beginning; nothing on
+ * screen ever asked for one.
+ *
+ * These turn a recorded row back into the draft its own add row edits, so a correction is entered in
+ * exactly the fields the value was entered in.
+ */
+
+/** A recorded email, as the draft its own field edits. */
+export function emailDraftFrom(entry: DirectoryEmailEntry): EmailDraft {
+  return { kind: "email", address: entry.address, use: entry.contactUse ?? "work" };
+}
+
+/**
+ * A recorded number, as the draft its own fields edit.
+ *
+ * The number is put back in the country's NATIONAL form, because that is the form it was typed in
+ * and the form the field formats as it is typed; the stored international form is what the record
+ * keeps, and re-deriving it on the way out is `checkPhoneEntry`'s job.
+ */
+export function numberDraftFrom(entry: DirectoryPhoneEntry): NumberDraft {
+  const region = (entry.countryRegionCode as CountryCode | null) ?? DEFAULT_PHONE_REGION;
+  return {
+    kind: entry.contactSystem === "fax" ? "fax" : "telephone",
+    region,
+    number: nationalFormOf(entry.number, region),
+    extension: entry.extension ?? "",
+    use: entry.contactUse ?? (entry.contactSystem === "fax" ? "work" : "mobile"),
+  };
+}
+
+/** A recorded address, as the draft the address form edits. Every line, including the empty ones. */
+export function addressDraftFrom(entry: DirectoryAddressEntry): AddressDraft {
+  return {
+    kind: "address",
+    recipient: entry.recipient ?? "",
+    organizationName: entry.organizationName ?? "",
+    street: entry.street ?? "",
+    streetTwo: entry.streetTwo ?? "",
+    dependentLocality: entry.dependentLocality ?? "",
+    city: entry.city ?? "",
+    region: entry.region ?? "",
+    postal: entry.postal ?? "",
+    sortingCode: entry.sortingCode ?? "",
+    country: entry.country ?? DEFAULT_PHONE_REGION,
+    use: entry.addressUse ?? "business",
+    type: entry.addressType,
+  };
+}
+
+/** What a correction sends: the fields of whichever channel the value belongs to. */
+export type ContactPointUpdate = Parameters<typeof updateDirectoryContactPoint>[3];
+
+/**
+ * The body of the update request one draft makes, in the shape its channel's route takes.
+ *
+ * Null for a number the parser will not accept — the caller has already refused that draft, and a
+ * write built from it would send the record something it cannot store.
+ */
+export function contactUpdateFrom(draft: ContactDraft): ContactPointUpdate | null {
+  switch (draft.kind) {
+    case "email":
+      return { address: draft.address.trim(), contactUse: draft.use };
+    case "telephone":
+    case "fax": {
+      const checked = checkPhoneEntry(draft.region, draft.number);
+      if (!checked.ok) return null;
+      return {
+        number: checked.number,
+        contactSystem: draft.kind === "fax" ? "fax" : "voice",
+        contactUse: draft.use,
+        extension: part(draft.extension),
+        countryRegionCode: checked.region,
+      };
+    }
+    case "address":
+      return {
+        recipient: part(draft.recipient),
+        organizationName: part(draft.organizationName),
+        street: part(draft.street),
+        streetTwo: part(draft.streetTwo),
+        dependentLocality: part(draft.dependentLocality),
+        city: part(draft.city),
+        region: part(draft.region),
+        postal: part(draft.postal),
+        sortingCode: part(draft.sortingCode),
+        country: part(draft.country),
+        addressUse: draft.use,
+        addressType: draft.type,
       };
   }
 }

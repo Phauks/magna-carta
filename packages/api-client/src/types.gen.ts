@@ -1976,7 +1976,7 @@ export type CreatedDirectoryEntityResponse = {
 
 export type CreateDirectoryPersonRequest = {
     given: string;
-    family: string;
+    family?: string;
     prefix?: string | null;
     middle?: string | null;
     suffix?: string | null;
@@ -2241,9 +2241,45 @@ export type DirectoryEntityListing = {
      */
     legalName: string | null;
     /**
+     * A person's first name. Null for an organization.
+     */
+    givenName: string | null;
+    /**
+     * A person's middle name, where the firm recorded one.
+     */
+    middleName: string | null;
+    /**
+     * A person's last name. Null for an organization, and null for a person who has one name — a record with no family name is one the firm keeps, not one it refuses.
+     */
+    familyName: string | null;
+    /**
+     * The record's default email address — the primary row where one is marked, else the oldest. Null where the firm holds none. Not a contact register: the record's own contact-points read is where every channel lives.
+     */
+    emailAddress: string | null;
+    /**
+     * The record's default number, exactly as it was entered and never rewritten.
+     */
+    phoneNumber: string | null;
+    /**
+     * The locality of the record's default address.
+     */
+    city: string | null;
+    /**
+     * The administrative area of the default address — state, province, prefecture — where the country has one.
+     */
+    region: string | null;
+    /**
+     * The default address's country, ISO 3166-1 alpha-2.
+     */
+    country: string | null;
+    /**
      * When the firm wrote the record down.
      */
     recordedAt: string;
+    /**
+     * When the record itself last changed. A change to something hanging off it — a name appended, an address added — does not move this.
+     */
+    changedAt: string;
 };
 
 export type DirectoryEntityDisplayNamesResponse = {
