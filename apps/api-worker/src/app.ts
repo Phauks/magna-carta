@@ -37,6 +37,7 @@ import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categ
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerFirmNotificationPolicyRoutes } from "./routes/firm-notification-policy.ts";
+import { registerFirmProfileRoutes } from "./routes/firm-profile.ts";
 import { registerFirmReportPolicyRoutes } from "./routes/firm-report-policy.ts";
 import { registerNotificationPreferencesRoutes } from "./routes/notification-preferences.ts";
 import { registerNotificationsRoutes } from "./routes/notifications.ts";
@@ -862,6 +863,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // and the local hour the summary email lands. A firm-administration act, so it carries its own
   // permission rather than the member key beside it.
   registerFirmNotificationPolicyRoutes(app, chokepoint);
+  registerFirmProfileRoutes(app, chokepoint);
   registerFirmReportPolicyRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.

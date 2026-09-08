@@ -102,7 +102,7 @@
   scope: Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety & Scanning as pages whose posture follows the signed-in member's real capability.
   status: partial
   surface: screen
-  evidence: Pages exist with draft-ledger staging; Firm Profile and Billing values are still Preview posture (local storage, governing nothing). Users and Roles and Permissions are real end to end (settings.area-ui.member-administration), and so is File Safety & Scanning (settings.area-ui.file-safety).
+  evidence: Users and Roles and Permissions (settings.area-ui.member-administration), File Safety & Scanning (settings.area-ui.file-safety) and Firm Profile (settings.area-ui.firm-profile) are real end to end. Billing values are still Preview posture (local storage, governing nothing) pending a firm time-settings write route.
 
 - id: settings.area-ui.file-safety
   name: File Safety & Scanning
@@ -111,6 +111,14 @@
   surface: screen
   evidence: apps/web/src/routes/(app)/settings/file-safety/ over GET/PATCH /api/v1/firm/scan-policy through apps/web/src/lib/file-manager/scan-policy-draft.svelte.ts, gated on firm:manageScanPolicy from the session. The same policy the ingest consumer and the download route already read, so a save reaches both without re-ingest.
   notes: The suspicion threshold is a typed number. The engine publishes the score distribution of its own rule corpus (/api/v1/firm/scan-policy/score-histogram), which is what would make the threshold answerable rather than a number in a vacuum; that plotted control is its own piece of work and the plain field stands until it lands.
+
+- id: settings.area-ui.firm-profile
+  name: Firm Profile
+  scope: What the firm is called to its clients — the name on an invoice, in the portal, and on every generated document.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/routes/(app)/settings/firm-profile/ over PUT /api/v1/firm/profile (apps/api-worker/src/routes/firm-profile.ts) behind firm:manageProfile, Owner/Admin by seed. The read is the session bootstrap, which resolves the firm's display name for every request already, so the page has one write and no read of its own; the session is re-read after a save because the name is on the chrome around the page too.
+  notes: The write reaches firm.display_name and never firm.name, which is the UNIQUE provisioning handle a crashed provisioning run resumes by. Instant with its own Save rather than the firm scope's draft footer — one field, and the staged-count-and-recap anatomy over a single row is more machinery than the act. An address, a telephone number and a letterhead root belong to an office and stay under Offices rather than becoming a second firm-wide answer no letterhead reads.
 
 - id: settings.area-ui.member-administration
   name: Users and Roles and Permissions

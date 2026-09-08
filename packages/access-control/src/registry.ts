@@ -31,6 +31,12 @@ export const PERMISSIONS = [
   // the floor and shorten retention for everybody. Owner/Admin only, mirroring firm:manageScanPolicy.
   "firm:manageNotificationPolicy", // read and update the firm's notification policy: the in-app floor, retention window, and digest hour
   "firm:manageReportPolicy", // read and update the firm's report policy: what its trust-compliance document lists
+  // The firm's own identity as it is PRINTED — the name on an invoice, in the client portal, and on
+  // every generated document. Its own key rather than a corner of firm:manageMembers, on the
+  // reasoning the three policy keys above already carry: administering who works here and deciding
+  // what the firm is called to a client are different acts, and the second one reaches paper that
+  // has already left the building. Owner/Admin only by seed.
+  "firm:manageProfile", // read and update the firm's identity: the name it is known to clients by
   // The member acting on their OWN record — today their name, and the natural home for the
   // per-member analytics opt-out and self-service professional profile that sit in the same gap.
   //

@@ -7217,6 +7217,20 @@ export type PatchFirmNotificationPolicyRequest = {
     digestLocalHour?: number;
 };
 
+export type FirmProfileResponse = {
+    /**
+     * What the firm is called to its clients — on invoices, in the portal, and on every generated document. Never the provisioning handle behind it.
+     */
+    displayName: string;
+};
+
+export type SetFirmProfileRequest = {
+    /**
+     * The firm's human-facing name. Required and non-empty: a firm with no name prints none on the documents it sends.
+     */
+    displayName: string;
+};
+
 export type FirmReportPolicyResponse = {
     trustCompliance: {
         zeroBalanceLedgers: TrustComplianceListing;
@@ -34005,6 +34019,58 @@ export type FirmNotificationPolicyUpdateResponses = {
 };
 
 export type FirmNotificationPolicyUpdateResponse = FirmNotificationPolicyUpdateResponses[keyof FirmNotificationPolicyUpdateResponses];
+
+export type FirmProfileSetData = {
+    body: SetFirmProfileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/profile';
+};
+
+export type FirmProfileSetErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileSetError = FirmProfileSetErrors[keyof FirmProfileSetErrors];
+
+export type FirmProfileSetResponses = {
+    /**
+     * The firm's name after the write
+     */
+    200: FirmProfileResponse;
+};
+
+export type FirmProfileSetResponse = FirmProfileSetResponses[keyof FirmProfileSetResponses];
 
 export type FirmReportPolicyGetData = {
     body?: never;

@@ -31387,6 +31387,32 @@
           }
         }
       },
+      "FirmProfileResponse": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "description": "What the firm is called to its clients — on invoices, in the portal, and on every generated document. Never the provisioning handle behind it."
+          }
+        },
+        "required": [
+          "displayName"
+        ]
+      },
+      "SetFirmProfileRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The firm's human-facing name. Required and non-empty: a firm with no name prints none on the documents it sends."
+          }
+        },
+        "required": [
+          "displayName"
+        ]
+      },
       "FirmReportPolicyResponse": {
         "type": "object",
         "properties": {
@@ -96101,6 +96127,131 @@
         }
       }
     },
+    "/api/v1/firm/profile": {
+      "put": {
+        "description": "Sets what the firm is called to its clients. The name reaches invoices, the client portal and generated documents from the moment it is saved; documents already produced keep the name they were produced under. Read it from the session bootstrap, which resolves it for every request already.",
+        "operationId": "firmProfile.set",
+        "tags": [
+          "firmProfile"
+        ],
+        "x-mc-operationId": "firmProfile.set",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmProfile"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFirmProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's name after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The name is empty or too long, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/firm/reports/policy": {
       "get": {
         "description": "Reads the firm's report policy: what its trust-compliance document lists. Whether a matter ledger that was at zero throughout the period appears, and whether the member who authorized each payment out of a client ledger is named. Both default to listed and named; the pack reads this policy for every report it produces, so the firm's document reads the same every time.",
@@ -99422,6 +99573,9 @@
     },
     {
       "name": "firmNotificationPolicy"
+    },
+    {
+      "name": "firmProfile"
     },
     {
       "name": "firmReportPolicy"

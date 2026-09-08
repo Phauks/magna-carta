@@ -20,7 +20,7 @@ therefore what the gap is.
 | ------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | Theme, Accessibility            | Real, end to end (local preferences, cross-tab sync) | n/a — per-browser by design                                                           | none                                           |
 | Text                            | Four `Soon` seams                                    | n/a                                                                                   | needs font tokens / a text-scale overlay first |
-| Firm Profile                    | One preview row in local storage                     | Firm name lives on the control plane; no member-reachable read or write               | a firm-profile read/write endpoint             |
+| Firm Profile                    | Live: the firm's name over `PUT /api/v1/firm/profile` | The session bootstrap already returns the display name, so the read was never missing | none — built                                   |
 | **Users**                       | **Four `Soon` seams — nothing works**                | **Invite + roster exist. Role assignment, deactivation and grants do not**            | **the whole administration surface — slice 1** |
 | Matter Numbering                | Real editor, audited writes                          | Real (`/api/v1/numbering-scheme`)                                                     | none                                           |
 | Calendar                        | Real, server-backed                                  | Real (`/api/v1/calendar/settings`)                                                    | none                                           |
@@ -65,8 +65,10 @@ blocks a firm from actually operating, not merely from configuring.
    cheapest proof that the registry-driven page composition works against a real server.
 4. **Notifications** (slice 3). The largest missing surface with a complete backend behind it —
    the per-member routing matrix plus the firm floor. Two pages, one in each band.
-5. **Beta Access** and **Firm Profile** (slice 4). Each needs one read endpoint the server does not
-   expose yet; small backend work, then wiring.
+5. **Beta Access** and **Firm Profile** (slice 4, built). Neither needed the read endpoint this
+   inventory assumed: the session bootstrap already answers both the firm's release channel and its
+   display name, so Beta Access was pure wiring and Firm Profile needed one write route
+   (`PUT /api/v1/firm/profile` behind a new `firm:manageProfile`) and no read at all.
 6. **Billing** (slice 5). Needs a firm time-settings write route before its two preview rows can
    stop being local storage.
 7. **Documents & templates**, **Integrations**, **Diagnostics** (later). Each is a new surface

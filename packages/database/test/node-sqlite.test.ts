@@ -63,6 +63,13 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       { role_id: ownerAdmin?.id, permission: "firm:manageMembers" },
     ]);
     expect(grantsFor("Attorney")).not.toContain("firm:manageMembers");
+    // firm:manageProfile is Owner/Admin ONLY, and separately from firm:manageMembers: what the firm
+    // is called reaches every invoice and every generated document, so administering who works here
+    // does not carry it.
+    expect(grants.filter((grant) => grant.permission === "firm:manageProfile")).toEqual([
+      { role_id: ownerAdmin?.id, permission: "firm:manageProfile" },
+    ]);
+    expect(grantsFor("Attorney")).not.toContain("firm:manageProfile");
     // firm:reportIncident is seeded onto EVERY default role — any member may file a diagnostic
     // incident.
     expect(

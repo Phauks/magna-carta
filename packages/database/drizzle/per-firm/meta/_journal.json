@@ -729,6 +729,13 @@
       "when": 1788771601000,
       "tag": "20260908T020000_seed-edit-own-profile",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "6",
+      "when": 1788771602000,
+      "tag": "20260908T030000_seed-manage-profile",
+      "breakpoints": true
     }
   ]
 }

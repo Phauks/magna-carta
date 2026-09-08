@@ -198,12 +198,20 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   // Firm
   {
+    // What the firm is called to its clients. The read is the session — every request resolves the
+    // firm's display name already — so the page has one write and no read of its own.
+    //
+    // Instant rather than the firm scope's draft default: it is one field, and the footer's
+    // staged-count-and-recap anatomy over a single row would be more machinery than the act. The
+    // rest of "identity" — an address, a telephone number, a letterhead root — belongs to an
+    // office, which has its own page, rather than being a second firm-wide answer no letterhead
+    // reads.
     id: "firm-profile",
     label: "Firm Profile",
     href: "/settings/firm-profile",
     group: "firm",
     scope: "firm",
-    commitMode: "draft",
+    commitMode: "instant",
     editPermissionArea: "firm",
     shipped: true,
   },

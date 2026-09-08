@@ -1143,6 +1143,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "firm.setReleaseChannel",
       "firmNotificationPolicy.get",
       "firmNotificationPolicy.update",
+      "firmProfile.set",
       "firmReportPolicy.get",
       "firmReportPolicy.update",
       "firmUsage.get",
