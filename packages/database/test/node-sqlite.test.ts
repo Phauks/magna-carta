@@ -92,6 +92,17 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .map((grant) => grant.role_id)
         .toSorted(),
     ).toEqual(roles.map((row) => row.id).toSorted());
+    // firm:editOwnProfile joins that universal set on the same reasoning, and is the platform's one
+    // self-scoped mutation: it exists because the chokepoint refuses an authenticated write naming
+    // no permission, and every statement behind it is scoped to the session's own user id. Writing
+    // one's own name is not a privilege — a member who cannot correct the spelling of their own
+    // name is the state this closed.
+    expect(
+      grants
+        .filter((grant) => grant.permission === "firm:editOwnProfile")
+        .map((grant) => grant.role_id)
+        .toSorted(),
+    ).toEqual(roles.map((row) => row.id).toSorted());
     // The matters/locations/files grants extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
     // Configuring the machine that files mail is narrower than filing mail: the two roles that own
@@ -232,6 +243,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "emails:read",
         "files:organize",
         "files:upload",
+        // Writing one's own name reaches every seat, Read-only included: it is the platform's
+        // one self-scoped mutation, and every statement behind it is scoped to the session's
+        // own user id.
+        "firm:editOwnProfile",
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
@@ -321,6 +336,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // whoever collects it.
         "downloads:shelf",
         "emails:read",
+        // Writing one's own name reaches every seat, Read-only included: it is the platform's
+        // one self-scoped mutation, and every statement behind it is scoped to the session's
+        // own user id.
+        "firm:editOwnProfile",
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
@@ -369,6 +388,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "custody:read",
         "downloads:shelf",
         "emails:read",
+        // Writing one's own name reaches every seat, Read-only included: it is the platform's
+        // one self-scoped mutation, and every statement behind it is scoped to the session's
+        // own user id.
+        "firm:editOwnProfile",
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",

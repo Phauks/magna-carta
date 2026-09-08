@@ -53,6 +53,7 @@ describe("permission registry", () => {
       "firm:manageReleaseChannel",
       "firm:manageNotificationPolicy",
       "firm:manageReportPolicy",
+      "firm:editOwnProfile",
     ]);
   });
 
