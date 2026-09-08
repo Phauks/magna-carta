@@ -59,9 +59,11 @@ const TYPE_GNU_LONG_NAME = "L";
 
 /**
  * The type flag, read as what the entry is. "0" and NUL are both a regular file — the NUL spelling
- * predates the field being defined and is still written by older tars. "5" is a directory, "1" and
- * "2" are a hard and a symbolic link, and "3" through "7" are device nodes, pipes and the contiguous
- * file nobody writes any more; none of those holds content.
+ * predates the field being defined and is still written by older tars. "7" is the contiguous file,
+ * a pre-allocated-on-disk variant nobody writes any more but which still carries real data, so it
+ * is a file too. "5" is a directory, "1" and "2" are a hard and a symbolic link, and "3" through
+ * "6" are device nodes and pipes, which name something outside themselves rather than holding
+ * content of their own.
  */
 function kindOfTypeFlag(typeFlag: string, path: string): TarEntryKind {
   if (typeFlag === "5" || path.endsWith("/")) return "directory";
