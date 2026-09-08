@@ -186,6 +186,29 @@ const REBUILD_CASES: Record<string, RebuildCase> = {
     childrenAtSeed: countMatterParties,
     childrenAfterRebuild: countMatterParties,
   },
+
+  /*
+   * THE ONE CASE WHERE THE ARROW POINTS THE OTHER WAY. Nothing in the schema references
+   * `invoice_wip_claim` — it is a leaf, and it is the claim that points OUT, at the invoice and the
+   * line it was composed into. So the pairing here is the claim against the line it names, which
+   * asks the same question this harness exists to ask: after the copy, does the row still resolve
+   * to what it resolved to before? A rebuild that re-keyed its rows would complete and lose the
+   * link between a billed entry and the line the client was actually charged on.
+   *
+   * The invoice is FINALIZED rather than draft, which is not incidental. Two `RAISE(ABORT)`
+   * triggers freeze a finalized invoice's claims and neither is in the Drizzle schema, so a
+   * generated rebuild would drop them and leave every finalized bill's claims editable with nothing
+   * about the database looking wrong. `invoice-wip-claim-rebuild-migration.test.ts` is where those
+   * triggers are proved to still fire; this case is the population half.
+   */
+  "20260907T221500_invoice-wip-claim-admits-a-fee": {
+    lineage: "per-firm",
+    rebuilt: "invoice_wip_claim",
+    child: "invoice_line",
+    seed: seedFinalizedInvoiceWithClaim,
+    childrenAtSeed: countClaimsResolvingToTheirLine,
+    childrenAfterRebuild: countClaimsResolvingToTheirLine,
+  },
 };
 
 /** The member a matter must name, and the matter itself. `open` is legal at every point below. */
@@ -234,10 +257,56 @@ function countIntakeStepRecords(raw: DatabaseSync): number {
   );
 }
 
+/**
+ * A finalized invoice with one line and one claim against it.
+ *
+ * The invoice carries its number, its two dates and its finalized instant because four paired
+ * CHECKs on `invoice` tie all of them to `status = 'final'` — a finalized invoice with any of them
+ * missing is not a state the schema will hold, so a thinner seed would be testing a row that cannot
+ * exist. No time entry sits behind the claim: `source_id` carries no foreign key, because it names
+ * a row in one of three tables and SQLite cannot express that, so the rebuild's behaviour does not
+ * depend on the source row existing.
+ */
+function seedFinalizedInvoiceWithClaim(raw: DatabaseSync): void {
+  seedMatter(raw);
+  raw
+    .prepare(
+      `INSERT INTO invoice (id, client_entity_id, status, currency, invoice_number, number_scope_key,
+                            number_drawn_value, issue_date, due_date, finalized_at, created_at, updated_at)
+       VALUES ('invoice_seed', 'directoryEntity_seed', 'final', 'USD', 'INV-0001', 'firm', 1,
+               '2026-09-02', '2026-10-02', ?, ?, ?)`,
+    )
+    .run(NOW, NOW, NOW);
+  raw
+    .prepare(
+      `INSERT INTO invoice_line (id, invoice_id, line_index, matter_id, kind, description,
+                                 amount_minor, currency, tax_treatment, created_at)
+       VALUES ('invoiceLine_seed', 'invoice_seed', 0, 'matter_seed', 'fee', 'Seeded line',
+               10000, 'USD', 'exempt', ?)`,
+    )
+    .run(NOW);
+  raw
+    .prepare(
+      `INSERT INTO invoice_wip_claim (id, invoice_id, source_kind, source_id, invoice_line_id,
+                                      claimed_amount_minor, claimed_at)
+       VALUES ('invoiceWipClaim_seed', 'invoice_seed', 'time_entry', 'timeEntry_seed',
+               'invoiceLine_seed', 10000, ?)`,
+    )
+    .run(NOW);
+}
+
 function countMatterParties(raw: DatabaseSync): number {
   return countJoin(
     raw,
     "SELECT COUNT(*) AS n FROM matter_party JOIN matter ON matter.id = matter_party.matter_id",
+  );
+}
+
+function countClaimsResolvingToTheirLine(raw: DatabaseSync): number {
+  return countJoin(
+    raw,
+    `SELECT COUNT(*) AS n FROM invoice_wip_claim
+     JOIN invoice_line ON invoice_line.id = invoice_wip_claim.invoice_line_id`,
   );
 }
 
