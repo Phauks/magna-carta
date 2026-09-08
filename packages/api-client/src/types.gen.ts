@@ -6200,7 +6200,7 @@ export type BillingAddClaimsRequest = {
 };
 
 export type BillingClaimRequest = {
-    sourceKind: 'time_entry' | 'cost_entry';
+    sourceKind: 'time_entry' | 'cost_entry' | 'fee_entry';
     sourceId: string;
 };
 

@@ -27037,7 +27037,8 @@
             "type": "string",
             "enum": [
               "time_entry",
-              "cost_entry"
+              "cost_entry",
+              "fee_entry"
             ]
           },
           "sourceId": {
