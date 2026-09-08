@@ -11,11 +11,15 @@
    * read and the state set.
    */
   import * as Alert from "@magna-carta/design-system/alert";
+  import Button from "@magna-carta/design-system/button";
   import { readSession } from "$lib/matters/matters-api.ts";
   import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
+  import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
+  import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
   import FeeLedger from "$lib/billing/fee-ledger.svelte";
+  import { listMatterFeeLedger } from "$lib/billing/fee-operations.ts";
   import { MatterBilling } from "$lib/billing/matter-billing.svelte.ts";
   import type { FeeRecord } from "$lib/billing/fee-record.ts";
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
@@ -28,6 +32,15 @@
   const billing = new MatterBilling();
   const rows = $derived(billing.rows);
   const failure = $derived(billing.failure);
+
+  /*
+   * The matter's fees, read whole: every status, so a matter that has been billing for a year shows
+   * its billed charges beside its drafts. Narrowing to one status answers the work-in-progress
+   * question a bill composer asks, not the question a fee ledger is for.
+   */
+  const list = new PagedList<FeeRecord>("The fees on this matter could not be read.");
+  const fees = $derived(list.items);
+  const feeFailure = $derived(list.failure);
 
   let permissions = $state<readonly string[] | null>(null);
   let reportOpen = $state(false);
@@ -70,23 +83,63 @@
     void billing.load(fetch, matterId, subject);
   });
 
+  $effect(() => {
+    const matterId = matter.id;
+    const subject = `${matterId}:${String(reloadToken)}`;
+    if (list.showing(subject)) return;
+    list.reset(subject);
+    if (isSample) {
+      list.settleEmpty();
+      return;
+    }
+    void list.load((cursor) => listMatterFeeLedger(fetch, matterId, cursor));
+  });
+
+  function loadMore(): void {
+    void list.loadMore((cursor) => listMatterFeeLedger(fetch, matter.id, cursor));
+  }
+
   /* The currency the matter's own bills are written in; the firm's default until one is read. */
   const currency = $derived(rows?.[0]?.summary.currency ?? "USD");
 
-  /*
-   * The matter's fees. A fee is a first-class work-in-progress record, and no route serves one
-   * yet. The ledger is therefore handed an empty set and says on the screen what it is waiting
-   * for, rather than being handed the matter's invoice LINES, which is what a bill does to a fee
-   * and not what a fee is.
-   */
-  const fees: readonly FeeRecord[] = [];
 </script>
+
+<!-- The next page is asked for on the surface's line directly above the counts strip, and the line
+     exists only while there is a next page: the surface draws the band whenever it is handed the
+     snippet, so the page hands it over only then. -->
+{#snippet beneath()}
+  <div class="flex flex-col items-start gap-8">
+    <Button variant="secondary" onclick={loadMore} disabled={list.loadingMore}>
+      {list.loadingMore ? "Loading" : "Load more fees"}
+    </Button>
+    <p class="text-xs text-text-muted">
+      Showing the {(fees ?? []).length} most recent by service date. The figures below cover only what
+      is loaded, so they are not the matter&rsquo;s whole fee record until every page is read.
+    </p>
+  </div>
+{/snippet}
 
 <svelte:head>
   <title>Fees · {matter.title} · Magna Carta</title>
 </svelte:head>
 
-{#if failure !== null}
+{#if feeFailure !== null}
+  <FailureScreen
+    failure={feeFailure}
+    scale="screen"
+    subject="The fees"
+    fallback={list.failureMessage ?? undefined}
+    reassurance="The record itself is unaffected: nothing was changed by this failure, and every
+      recorded fee is still on the firm's record."
+    onRetry={() => (reloadToken += 1)}
+    onReport={() => (reportOpen = true)}
+  />
+  <ReportDialog
+    bind:open={reportOpen}
+    errorId={list.failureErrorId}
+    route={feeFailure.request}
+  />
+{:else if failure !== null}
   <FailureScreen
     failure={failure.failure}
     scale="screen"
@@ -116,12 +169,15 @@
 {:else}
   <FeeLedger
     bind:this={ledger}
-    {fees}
-    loading={rows === null}
+    fees={fees ?? []}
+    openFeeId={entryFromUrl()}
+    loading={fees === null}
     matterId={matter.id}
     matterTitle={matter.title}
     matterNumber={matter.matterNumber}
     {currency}
     {permissions}
+    onChanged={() => (reloadToken += 1)}
+    beneath={list.nextCursor !== null ? beneath : undefined}
   />
 {/if}

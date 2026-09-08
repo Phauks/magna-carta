@@ -18,6 +18,7 @@ import {
   options,
   readOneRow,
   seedCostEntry,
+  seedFeeEntry,
   seedMatter,
   seedTimeEntry,
 } from "./support.ts";
@@ -370,5 +371,106 @@ describe("voiding a draft", () => {
     await expect(
       voidDraft(fixture.database, invoiceId, "abandoned again", fixture.memberUserId, options),
     ).rejects.toMatchObject({ code: "invoice-not-draft" });
+  });
+});
+
+describe("a draft invoice claims a recorded fee", () => {
+  it("composes a flat_fee line — an amount with no quantity and no rate", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedMatter(fixture, ACME, "Acme");
+    const feeEntryId = await seedFeeEntry(fixture, matterId, {
+      amountMinor: 75_000,
+      description: "Settlement agreement, drafting",
+    });
+    const invoiceId = await draftFor(fixture, ACME);
+
+    await commit(
+      fixture.database,
+      (
+        await addClaimsToDraft(
+          fixture.database,
+          invoiceId,
+          [{ sourceKind: "fee_entry", sourceId: feeEntryId }],
+          options,
+        )
+      ).effect,
+    );
+
+    const lines = await readInvoiceLines(fixture.database, invoiceId);
+    expect(lines).toHaveLength(1);
+    // NOT a `fee` line: that kind carries hours times a rate and consolidates claimed time, so a
+    // typed charge on one would state a quantity nobody entered.
+    expect(lines[0]?.kind).toBe("flat_fee");
+    expect(lines[0]?.amountMinor).toBe(75_000);
+    expect(lines[0]?.quantityE4).toBeNull();
+    expect(lines[0]?.rateE4).toBeNull();
+    expect(lines[0]?.description).toBe("Settlement agreement, drafting");
+
+    const mirror = await readOneRow<{ invoice_id: string | null; status: string }>(
+      fixture.database,
+      "SELECT invoice_id, status FROM fee_entry WHERE id = ?1",
+      feeEntryId,
+    );
+    expect(mirror?.invoice_id).toBe(invoiceId);
+    // As with time and costs, the status does not move at claim — finalization locks it.
+    expect(mirror?.status).toBe("draft");
+  });
+
+  it("refuses a fee the firm decided to absorb rather than billing it quietly", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedMatter(fixture, ACME, "Acme");
+    const absorbed = await seedFeeEntry(fixture, matterId, { billable: 0 });
+    const invoiceId = await draftFor(fixture, ACME);
+
+    // Absorbing is a decision the ledger keeps visible; a claim that overrode it would put the
+    // client's name on money the firm had decided to eat. Time's equivalent guard is its null
+    // rate — a fee has no rate to be missing, so the flag is what carries it.
+    await expect(
+      addClaimsToDraft(
+        fixture.database,
+        invoiceId,
+        [{ sourceKind: "fee_entry", sourceId: absorbed }],
+        options,
+      ),
+    ).rejects.toThrow(/absorbed/);
+  });
+
+  it("clears a fee's invoice mirror when the draft is voided", async () => {
+    const fixture = await billingFixture();
+    const matterId = await seedMatter(fixture, ACME, "Acme");
+    const feeEntryId = await seedFeeEntry(fixture, matterId);
+    const invoiceId = await draftFor(fixture, ACME);
+    await commit(
+      fixture.database,
+      (
+        await addClaimsToDraft(
+          fixture.database,
+          invoiceId,
+          [{ sourceKind: "fee_entry", sourceId: feeEntryId }],
+          options,
+        )
+      ).effect,
+    );
+
+    await commit(
+      fixture.database,
+      await voidDraft(
+        fixture.database,
+        invoiceId,
+        "Raised in error",
+        fixture.memberUserId,
+        options,
+      ),
+    );
+
+    // The mirror clearing was two hand-written calls when there were two stores, so a third would
+    // have been left pointing at a voided invoice — a fee reading as billed on a bill that no
+    // longer exists. It is derived from the kind union now.
+    const mirror = await readOneRow<{ invoice_id: string | null }>(
+      fixture.database,
+      "SELECT invoice_id FROM fee_entry WHERE id = ?1",
+      feeEntryId,
+    );
+    expect(mirror?.invoice_id).toBeNull();
   });
 });

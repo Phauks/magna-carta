@@ -36,7 +36,22 @@ export type InvoiceApplicationKind =
 
 // The two work-in-progress stores an invoice draws from. Both were built with an invoice_id column
 // that nothing set until this package existed.
-export type WorkInProgressKind = "time_entry" | "cost_entry";
+// The three stores a draft invoice can claim from. Widening this union is what makes the compiler
+// name every site that must handle a new kind — the claim table's own CHECK was widened to match in
+// 20260907T221500_invoice-wip-claim-admits-a-fee.
+export type WorkInProgressKind = "time_entry" | "cost_entry" | "fee_entry";
+
+/**
+ * Every store, as a value — for the places that must act on all of them.
+ *
+ * `satisfies` ties it to the union, so a kind added to the type without being added here is a
+ * compile error rather than a store quietly skipped by whatever iterates this.
+ */
+export const WORK_IN_PROGRESS_KINDS = [
+  "time_entry",
+  "cost_entry",
+  "fee_entry",
+] as const satisfies readonly WorkInProgressKind[];
 
 // How a bill reached a client. The closed set, carried in the schema's CHECK from the start for the
 // reason `InvoiceApplicationKind` is: SQLite cannot widen a CHECK without a destructive table

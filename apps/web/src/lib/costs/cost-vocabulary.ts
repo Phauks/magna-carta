@@ -13,7 +13,6 @@
  * WHAT A WORD MEANS RIDES A HOVER, NEVER A PRINTED SENTENCE. The status words themselves come from
  * the product's one status register, not from a second spelling here.
  */
-import { personName } from "@magna-carta/design-system/formatters";
 import type { CostStatus, CostSummary } from "$lib/matters/cost-api.ts";
 
 /** Who the money went to, in the only three shapes the record can honestly be in. */
@@ -47,72 +46,6 @@ export function payeeText(cost: CostSummary): string {
       return state.name;
   }
 }
-
-/** Who wrote a cost down, in the three shapes that record can honestly be in. */
-export type RecorderState =
-  | { readonly kind: "unrecorded" }
-  | { readonly kind: "gone" }
-  | { readonly kind: "named"; readonly name: string };
-
-/**
- * The member who recorded a cost.
- *
- * The same two-field reading the payee takes, for the same reason: `createdByName` is null both
- * when nobody was recorded — a cost written by a system import, or one from before the column was
- * filled — and when the member row behind a recorded identifier is gone. `createdByUserId` tells
- * those apart. The identifier is deliberately not a foreign key on the table, because who wrote a
- * disbursement down is a fact about the past that outlives that person's membership.
- */
-export function recorderState(cost: CostSummary): RecorderState {
-  const identifier = cost.createdByUserId ?? null;
-  if (identifier === null) return { kind: "unrecorded" };
-  // Through the product's own name reading, so a blank display name and a first-person stand-in
-  // read as an absent name here rather than being printed at somebody.
-  const name = personName(cost.createdByName, { whenUnrecorded: "" });
-  return name === "" ? { kind: "gone" } : { kind: "named", name };
-}
-
-/** What the recorder reads as in a cell, a filter list and a printed sheet: one wording, one home. */
-export function recorderText(cost: CostSummary): string {
-  const state = recorderState(cost);
-  switch (state.kind) {
-    case "unrecorded":
-      return "Not recorded";
-    case "gone":
-      return "No longer at the firm";
-    default:
-      return state.name;
-  }
-}
-
-/**
- * Why a draft came back, or null where it did not.
- *
- * A returned draft and a draft nobody has submitted are the same status and look identical on a
- * ledger, which leaves the person who has to fix the cost with nothing to go on. The reason is the
- * only thing that tells them apart.
- *
- * The status guard is belt-and-braces rather than a correction: the server clears the reason on
- * the next submission, so a non-draft cannot carry one. Reading it as a DRAFT fact anyway means a
- * surface can never print "returned because..." over a cost that has since been approved, whatever
- * a future transition forgets to clear.
- */
-export function returnedDraftReason(cost: CostSummary): string | null {
-  if (cost.status !== "draft") return null;
-  const reason = cost.kickBackReason?.trim() ?? "";
-  return reason === "" ? null : reason;
-}
-
-/**
- * Why a recorder has no name.
- *
- * The identifier is on the record and the member row it names is not, which is the shape a
- * departure leaves behind. It is not a hole in the record: `created_by` is deliberately not a
- * foreign key precisely so that who wrote a disbursement down outlives that person's membership.
- */
-export const GONE_RECORDER_NOTE =
-  "The member who recorded this cost is no longer at the firm, so there is no name to show. The " +
-  "record itself is unaffected — who wrote it down is still on the cost.";
 
 /**
  * Why a payee has no name.

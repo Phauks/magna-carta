@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 806 nodes of the feature ledger in
+is the complete register rather than a digest: all 810 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,27 +21,27 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**806 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **666 that are units of work**, for the reason set out under [What a roll-up is
+**810 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 141 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **669 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 299 | 45% |
-| Part-built | partial, in-build | 123 | 18% |
-| Ahead | designed, planned, researching, not-started | 203 | 31% |
+| Done | shipped | 301 | 45% |
+| Part-built | partial, in-build | 124 | 19% |
+| Ahead | designed, planned, researching, not-started | 203 | 30% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **666** | **100%** |
+| **All units of work** | | **669** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 299 | 45% |
-| `partial` | 122 | 18% |
+| `shipped` | 301 | 45% |
+| `partial` | 123 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 137 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **666** | **100%** |
+| **All statuses** | **669** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 806 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**141 of the 810 nodes are parents, and 110 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 299 of 666 (45%). Shipped plus partial is 421 (63%).**
+**Shipped alone is 301 of 669 (45%). Shipped plus partial is 424 (63%).**
 
-The 122 units between those two numbers are work that is engineered and paid for and is not
+The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**422 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**425 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 80 | 19% |
+| A person can open it today (`screen`) | 82 | 19% |
 | Built — the screen is the only thing missing (`awaiting-screen`) | 164 | 39% |
-| No user surface by nature (`internal`) | 178 | 42% |
+| No user surface by nature (`internal`) | 179 | 42% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **422** | **100%** |
+| **Everything with something built** | **425** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -108,7 +108,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
 | Documents | 66 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 100 | 66% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
-| Financial Core | 19 | 18 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 59 | 32% |
+| Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **299** | **122** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **666** | **45%** |
+| **All areas** | **301** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **669** | **45%** |
 
 ## Where we have been
 
@@ -870,7 +870,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 59 units of work, 32% shipped. 19 done, 18 part-built, 19 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 62 units of work, 34% shipped. 21 done, 19 part-built, 19 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -935,9 +935,13 @@ to change a line here, edit the node in its area file and re-run the build.
       - `financial.billing.automations.reminders` · `designed` · **Payment reminders** — A comparison over unpaid finalized invoices past their due date, recorded as a durable billing decision and surfaced through the notifications subsystem. _Note: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member and the client portal is not started. The delivery record it needed is now built (financial.billing.delivery), so a reminder can state whether the bill was ever recorded as given to the client; it still cannot deliver one._
       - `financial.billing.automations.payment-plans` · `designed` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied. _Note: The record half is buildable now; charging is unreachable on three independent grounds — no payment rail, no stored method, and no principal an unattended charge could be checked against._
       - `financial.billing.automations.replenishment` · `designed` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
+  - `financial.fees` · `partial` · **Recorded fees (flat charges for professional services)** — Per-matter fee entries for a flat charge somebody decided on — neither an hourly matter's time value nor a flat-fee arrangement's amount — staying unbilled work in progress until a draft invoice claims one. _Note: This REVERSES the 2026-08-26 fee-surface ruling that Fees is not a work-in-progress surface. That design rested on pairing the fee agreement with the invoice lines a bill had composed from it; the owner moved the arrangement into the matter's status window on 2026-09-03, which removed the pairing and left the pure invoice view the design had itself rejected. A ledger of lines can show nothing that is still unbilled. Both surfaces read it now — the matter's own Fees section and the firm's period across every matter. Partial because the review gate the routes honour is not served to the app, and because a fee's entry number, its attached files and its recorded history are not on the record yet._
+    - `financial.fees.claim` · `shipped` · **A draft invoice claims a fee** — The third work-in-progress kind admitted to the shared claim table, so one draft cannot bill a fee two bills have taken up. _Note: The rebuild is hand-written rather than generated because the two triggers freezing a finalized invoice's claims are not in the Drizzle schema; a generated rebuild would have dropped them and unfrozen every finalized bill's claims in the fleet. It is also the first rebuild written since the durable-object finding, and it is appliable for the reason parentRebuildViolations tests for rather than by exemption: invoice_wip_claim is a LEAF, nothing in the schema references it, so the drop has no child row to orphan — the claim points out, at the invoice and the line it was composed into. That is proved rather than reasoned, in a durable object, because node:sqlite does not reproduce the commit-time enforcement that made the finding. The non-hourly-arrangement guard stays scoped to time_entry deliberately — a recorded fee on a flat-fee matter is a separate charge, not a second billing of the same agreement._
+    - `financial.fees.matter-ledger` · `shipped` · **The matter's fee record** — One screen reading every fee on a matter in every status, paged, with what is unbilled and what has been billed, and every verb writing: record, edit, submit, approve, kick back, delete a draft, void. _Note: The surface was built whole against the record a fee IS while nothing served one; wiring it was a read, not a redesign. What it shares with Costs was hoisted rather than copied — the readings every ledger makes of a record (apps/web/src/lib/records/work-in-progress-record.ts) and the void, kick-back and delete-draft confirmations — because canWorkDraft had already been written twice byte-identical before anybody noticed. Fees is the first ledger with a DELETE route, so deletesDraft joins opensTheBill as a declaration on the shared row menu._
+    - `financial.fees.firm-period` · `partial` · **The firm's fee record over a period** — What the firm charged for work done across every matter over a span of service dates, and what is still waiting on a bill. _Note: Fees was absent from the sidebar's Money group for the same structural reason Costs was — nothing served the record, so it was not a Soon row, it was not a row — and the work-in-progress store is what made adding it honest. Partial because it does not yet approve a submitted fee across matters, and because the firm's review setting is not served so the review verbs are absent rather than offered. The record window takes the firm's matters and leads with an unfilled matter picker, the arrangement the cost window and the Time Sheet already have; a fee pre-filled with whichever matter came first would be a wrong answer arriving faster than no answer._
   - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Two registers read it — the matter's own Costs section and the firm's period across every matter; cost-to-A/R conversion and LEDES belong to the billing slice._
     - `financial.costs.firm-period` · `partial` · **The firm's cost record over a period** — What the firm advanced across every matter over a span of incurred dates, and what is still waiting on a bill. _Note: Partial because it does not yet approve a submitted cost across matters. It reads, opens a cost, and records one — the record window takes the firm's matters and leads with an unfilled matter picker, on the arrangement the Time Sheet already has. The listing answered one matter entire and returned an empty list for anything else, which is why Costs was absent from the sidebar's Money group while the matter carried it — the two disagreed about what Money holds for a structural reason rather than an oversight._
-    - `financial.costs.billed-record-to-bill` · `shipped` · **A billed record names its bill** — The invoice that took a cost or a time entry up, on its own listing row and reachable from it. _Note: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently — and Fees declares no opensTheBill, because an unbilled fee record has no table behind it yet._
+    - `financial.costs.billed-record-to-bill` · `shipped` · **A billed record names its bill** — The invoice that took a cost or a time entry up, on its own listing row and reachable from it. _Note: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently. Fees declared no opensTheBill while it had no table behind it; it declares one now, off fee_entry.invoice_id, on the same seam._
     - `financial.costs.entry-model` · `partial` · **Cost entry anatomy** — Per-matter entries with type, Directory-linked vendor, date, hard/soft, billable flag, optional UTBMS expense (E-) code with e-billing validation. _Note: Backend shipped; entry UI not built._
     - `financial.costs.hard` · `partial` · **Hard costs as client receivable** — Firm-advanced third-party costs (filing, recording, service, experts, postage/shipping) advanced as a client receivable and billed back. _Note: Capture shipped, and the receivable posting is shipped with it — packages/billing/src/finalize.ts credits client costs advanced for a hard cost, keeping it an asset the firm is repaid rather than income. The cost entry screens are not built._
     - `financial.costs.soft` · `partial` · **Soft/in-house costs** — In-house costs (printing, copies) tracked separately from hard costs. _Note: Backend shipped; UI not built._

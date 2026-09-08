@@ -22,6 +22,7 @@ import { registerAssembliesRoutes } from "./routes/assemblies.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerCostsRoutes } from "./routes/costs.ts";
+import { registerFeesRoutes } from "./routes/fees.ts";
 import { registerBillingRoutes } from "./routes/billing.ts";
 import { registerReportsRoutes } from "./routes/reports.ts";
 import { registerTrustFirmFundsRoutes } from "./routes/trust-firm-funds.ts";
@@ -818,6 +819,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerCustomFieldsRoutes(app, chokepoint);
   // Costs / disbursements — the cost-entry WIP store, composed through the same chokepoint.
   registerCostsRoutes(app, chokepoint);
+  registerFeesRoutes(app, chokepoint);
   // Trust accounting movements: client money into a matter's trust ledger, out of it, and
   // reallocated between two matters of one client, plus the client ledger those movements build.
   registerTrustRoutes(app, chokepoint);

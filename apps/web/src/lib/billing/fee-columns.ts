@@ -15,20 +15,25 @@
  * flexible column and everything narrow and fixed sits around it.
  *
  * A COLUMN THE LISTING CANNOT FILL STILL EXISTS. Its label is real, it is in the columns menu, and
- * its cells say what they wait on instead of showing a value nobody recorded. Entry Number, Date
- * Entered, Billable and Attachments start hidden, because a column of identical gap marks in front
- * of every reader is noise rather than honesty.
+ * its cells say what they wait on instead of showing a value nobody recorded. Entry Number and
+ * Attachments are the two left, and they start hidden, because a column of identical gap marks in
+ * front of every reader is noise rather than honesty. Date Entered, Entered By and Returned start
+ * hidden for the opposite reason: they carry real values that nearly every reader can ignore.
  */
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import { gapCellTitle, type FeeLedgerGapName } from "./fee-gaps.ts";
-import { billingLabel, feeStatusKey, type FeeRecord } from "./fee-record.ts";
+import { recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
+import { billingLabel, feeMatterText, feeStatusKey, type FeeRecord } from "./fee-record.ts";
 
 /** Column ids, spelled in full, so a test and a stored layout name the same thing as the code. */
 export const FEE_COLUMN_IDENTIFIERS = {
-  feeDate: "feeDate",
+  serviceDate: "serviceDate",
+  matter: "matter",
   entryNumber: "entryNumber",
   dateEntered: "dateEntered",
+  enteredBy: "enteredBy",
+  returned: "returned",
   timekeeper: "timekeeper",
   description: "description",
   amount: "amount",
@@ -39,14 +44,13 @@ export const FEE_COLUMN_IDENTIFIERS = {
 
 /** The ledger opens on the most recent charge, which is where the work is. */
 export const FEE_LEDGER_INITIAL_SORT = {
-  columnId: FEE_COLUMN_IDENTIFIERS.feeDate,
+  columnId: FEE_COLUMN_IDENTIFIERS.serviceDate,
   direction: "descending",
 } as const;
 
 /** Which columns carry a value the listing does not serve, and which gap each of them names. */
 export const UNSERVED_FEE_COLUMNS: Readonly<Record<string, FeeLedgerGapName>> = {
   [FEE_COLUMN_IDENTIFIERS.entryNumber]: "entryNumber",
-  [FEE_COLUMN_IDENTIFIERS.dateEntered]: "dateEntered",
   [FEE_COLUMN_IDENTIFIERS.attachments]: "attachments",
 };
 
@@ -82,11 +86,25 @@ export function timekeeperText(fee: FeeRecord): string {
 export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecord>[] {
   return [
     {
-      id: FEE_COLUMN_IDENTIFIERS.feeDate,
+      id: FEE_COLUMN_IDENTIFIERS.serviceDate,
       label: "Date",
       type: "date",
       anchored: true,
-      value: (fee) => fee.feeDate,
+      value: (fee) => fee.serviceDate,
+    },
+    /*
+     * The matter a charge is against. Hidden on a matter's own ledger, where every row is the same
+     * matter and the column would be one repeated phrase; the firm's own screen brings it forward
+     * (firmFeeColumns below), which is the reason the period listing resolves it beside the record.
+     */
+    {
+      id: FEE_COLUMN_IDENTIFIERS.matter,
+      label: "Matter",
+      type: "text",
+      filter: "set",
+      hidden: true,
+      fitExtra: 30,
+      value: (fee) => feeMatterText(fee),
     },
     {
       id: FEE_COLUMN_IDENTIFIERS.entryNumber,
@@ -94,17 +112,48 @@ export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecor
       type: "text",
       hidden: true,
       filter: "none",
-      value: (fee) => fee.entryNumber,
-      text: (fee) => fee.entryNumber ?? "",
+      value: () => null,
+      text: () => "",
     },
+    /*
+     * When the charge was written down, which is not the day the work was done. A fee captured
+     * three weeks late is a different record from one captured as it happened, and only Date and
+     * this one together say which of the two a reader is looking at.
+     */
     {
       id: FEE_COLUMN_IDENTIFIERS.dateEntered,
       label: "Date Entered",
       type: "date",
       hidden: true,
       filter: "none",
-      value: (fee) => fee.enteredDate,
-      text: () => "",
+      value: (fee) => fee.createdAt,
+    },
+    /*
+     * Who wrote it down. It is not a permission fact — a fee belongs to the matter it charges and
+     * not to its recorder — it is who to ask about a figure that looks wrong.
+     */
+    {
+      id: FEE_COLUMN_IDENTIFIERS.enteredBy,
+      label: "Entered By",
+      type: "text",
+      hidden: true,
+      filter: "set",
+      fitExtra: 30,
+      value: (fee) => recorderText(fee),
+    },
+    /*
+     * Why a draft came back. Empty on nearly every row and hidden for that reason, but the column
+     * exists because it is the one fact that tells a returned draft from one nobody has submitted —
+     * and a reviewer who sent back six fees wants to see all six reasons at once rather than
+     * opening six records.
+     */
+    {
+      id: FEE_COLUMN_IDENTIFIERS.returned,
+      label: "Returned",
+      type: "text",
+      hidden: true,
+      filter: "none",
+      value: (fee) => returnedDraftReason(fee),
     },
     {
       id: FEE_COLUMN_IDENTIFIERS.timekeeper,
@@ -127,7 +176,7 @@ export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecor
       currency,
       total: "sum",
       filterNote: "In the matter's currency, the charge exactly as recorded.",
-      value: (fee) => (fee.amountMinor === null ? null : fee.amountMinor / 100),
+      value: (fee) => fee.amountMinor / 100,
     },
     {
       id: FEE_COLUMN_IDENTIFIERS.billable,
@@ -156,4 +205,18 @@ export function feeLedgerColumns(currency: string): readonly GridColumn<FeeRecor
       value: (fee) => statusEntry(feeStatusKey(fee.status)).label,
     },
   ];
+}
+
+/**
+ * The same columns, arranged for the firm's own period screen.
+ *
+ * ONE DECLARATION, TWO ARRANGEMENTS. The firm-wide screen differs from the matter's by exactly one
+ * thing — a fee read across every matter has to say which one it charges — so it takes the ledger's
+ * own columns with Matter brought forward rather than declaring a set of its own. Two declarations
+ * is two chances for a fee to carry different words depending on which screen found it.
+ */
+export function firmFeeColumns(currency: string): readonly GridColumn<FeeRecord>[] {
+  return feeLedgerColumns(currency).map((column) =>
+    column.id === FEE_COLUMN_IDENTIFIERS.matter ? { ...column, hidden: false } : column,
+  );
 }

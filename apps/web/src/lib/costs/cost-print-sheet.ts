@@ -23,10 +23,10 @@ import {
   billingSentence,
   costAmount,
   payeeText,
-  recorderText,
   sourceLabel,
   type CostCaptureSource,
 } from "./cost-vocabulary.ts";
+import { recorderText } from "$lib/records/work-in-progress-record.ts";
 
 /** Everything the sheet needs that is not the cost itself. */
 export interface CostSheetContext {
@@ -66,7 +66,10 @@ export function costEntrySheet(cost: CostSummary, context: CostSheetContext): Pr
         id: "standing",
         kind: "fields",
         fields: [
-          { label: "Status", value: statusEntry(costStatusKey(cost.status)).label },
+          {
+            label: "Status",
+            value: statusEntry(costStatusKey(cost.status)).label,
+          },
           { label: "Date Incurred", value: context.date(cost.incurredDate) },
           { label: "Date Entered", value: context.instant(cost.createdAt) },
           { label: "Payee", value: payeeText(cost) },
@@ -79,7 +82,10 @@ export function costEntrySheet(cost: CostSummary, context: CostSheetContext): Pr
         fields: [
           { label: "Amount", value: context.money(costAmount(cost)) },
           { label: "Billing", value: billingSentence(cost.billable) },
-          { label: "Expense Code", value: expenseCode === "" ? "—" : expenseCode },
+          {
+            label: "Expense Code",
+            value: expenseCode === "" ? "—" : expenseCode,
+          },
           { label: "Attachments", value: NOT_SERVED("attachments") },
           {
             label: "Source",
@@ -97,7 +103,12 @@ export function costEntrySheet(cost: CostSummary, context: CostSheetContext): Pr
           },
         ],
       },
-      { id: "description", kind: "text", title: "Description", text: cost.description },
+      {
+        id: "description",
+        kind: "text",
+        title: "Description",
+        text: cost.description,
+      },
       { id: "history", kind: "history", title: "History", events: [] },
     ],
     footer: `Magna Carta · printed ${context.printedAt}`,
