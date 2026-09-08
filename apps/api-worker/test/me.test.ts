@@ -186,6 +186,11 @@ describe("GET /api/v1/me", () => {
         "intake:read",
         "intake:record",
         "intake:waive",
+        // Both public-form keys reach Owner/Admin. Authoring one puts a page on the open internet
+        // under the firm's name, which is why intakeForms:manage stops here; reading what strangers
+        // sent reaches Attorney and Paralegal too.
+        "intakeForms:manage",
+        "intakeForms:readSubmissions",
         "locations:manage",
         // Both assistant keys reach Owner/Admin: magnus:converse is seeded to the seats that do
         // legal work (Owner/Admin, Attorney, Paralegal), and magnus:readAllConversations — reading

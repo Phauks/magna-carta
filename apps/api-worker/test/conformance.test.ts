@@ -65,6 +65,10 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
     "Presents the emailed confirmation token, which is itself the only credential the caller can hold at this point — a session would require the account this confirms into existence. Unknown, spent and expired tokens answer one identical refusal.",
   "invitations.redeem":
     "Redeemed by someone who has no account yet, which is the point of an invitation. The code plus the invitee's surname and date of birth are the credential; every unsuccessful combination answers one identical refusal, and the invitation spends its own attempt budget beside the IP-keyed one.",
+  "intakeForms.readPublic":
+    "A firm's published intake form, rendered for somebody who is not a client and has no account — a session is the one thing this caller cannot have. The token in the URL is the only credential, and the read is filtered on published status INSIDE its SQL so a draft form, a closed form, a rotated token and a token that never existed resolve to one identical refusal rather than four a caller could tell apart. It returns the firm's own questions and nothing else about the firm: no name, no member, no matter type, no count.",
+  "intakeForms.submitPublic":
+    "The first anonymous write into a FIRM's database rather than the control plane, and the only one. It performs no lookup against firm data — not the Directory, not conflicts, not duplicate detection — because a read whose duration varies with what the visitor typed hands a probing script an oracle from the clock; every submission it accepts answers one identical 202 whatever it contains. It creates a row and nothing else: no person, no organization, no matter, no intake, so a spam run past the IP-keyed limit and the human-verification gate fills a queue a member clears rather than reaching the conflicts corpus.",
 };
 
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
@@ -224,6 +228,12 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // intake:* governs two things at two roots: the firm's procedures (firm configuration, the
   // matter-plan posture) and one matter's checklist and records, which are that matter's.
   intake: ["firm", "matter"],
+  // intakeForms:* governs the firm's public forms and what strangers sent them. It binds the FIRM
+  // and only the firm, which is the whole point of the subsystem: a submission belongs to no matter
+  // by construction, because nothing on the anonymous path may create one. If a submission ever
+  // names the matter a member's acceptance created, that is still a fact recorded ON the submission
+  // rather than a second tenancy root, and this binding does not move.
+  intakeForms: "firm",
   // downloads:* governs a member's own shelf of what the platform produced for them. It binds the
   // FIRM rather than the matter, on the custody:* reasoning: a shelf spans every matter a member
   // bundled or exported from, and an export that ran outside any matter (the Firm Usage report) has
@@ -1096,6 +1106,22 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "intake.retireStep",
       "intake.setProcedureActive",
       "intake.waiveStep",
+      "intakeForms.addField",
+      "intakeForms.create",
+      "intakeForms.edit",
+      "intakeForms.editField",
+      "intakeForms.list",
+      "intakeForms.listSubmissions",
+      "intakeForms.publish",
+      "intakeForms.read",
+      "intakeForms.readPublic",
+      "intakeForms.readSubmission",
+      "intakeForms.removeField",
+      "intakeForms.reorderFields",
+      "intakeForms.rotateToken",
+      "intakeForms.setClosed",
+      "intakeForms.submitPublic",
+      "intakeForms.triage",
       "invitations.issue",
       "invitations.redeem",
       "locations.assignMember",

@@ -33,10 +33,12 @@ import {
 // 2. IT CREATES NOTHING BUT A ROW. No person, no organization, no matter, no intake. That is what
 //    keeps a spam run out of the firm's corpus no matter how much of it gets past the rate limit and
 //    the challenge: the worst outcome is a queue a member clears.
-// 3. IT WRITES NO AUDIT ROW. Every other write in the platform names its actor, and here there is
-//    none — an audit row whose actor is "somebody on the internet" says nothing the submission does
-//    not already say, and would double the write cost of the one endpoint an attacker can call for
-//    free. The submission IS the record. Triage, which has an actor, audits normally.
+// 3. IT AUDITS WITH A NULL ACTOR, which is the honest shape rather than an omission. Every write
+//    into a firm's database is recorded, and nobody on this path has identified themselves — so the
+//    row says the firm received something, when, and through which form, and names no actor because
+//    there is none. It carries NOTHING the stranger typed: an audit row is read by people who are
+//    not reading the submission, and somebody's account of their legal problem is not audit
+//    metadata. Triage, which does have an actor, audits normally beside it.
 
 export interface SubmissionServiceOptions {
   readonly clock: { now(): string };
@@ -116,6 +118,17 @@ export async function recordSubmission(
           formVersionId: input.form.published_version_id,
           answersJson: JSON.stringify(answers),
           now,
+        }),
+        domainAuditStatement(database, {
+          event: "intakeFormSubmission.received",
+          subjectId: submissionId,
+          // Null, and it stays null: nobody has said who they are, and inventing an actor here
+          // would be the one place this platform asserts something about a stranger.
+          actorUserId: null,
+          clock: options.clock,
+          randomSource: options.randomSource,
+          // The form it came through, and not one word of what was written in it.
+          metadata: { formId: input.form.id },
         }),
       ],
       outboxMessages: [],

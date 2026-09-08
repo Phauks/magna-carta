@@ -379,7 +379,11 @@ function publicMeta(action: string, mutating: boolean): RouteMeta {
     // and RBAC gates on a public surface entirely, so this names the tenancy the route is ABOUT — and
     // the route resolves that firm from its own path, since there is no session to resolve one from.
     resource: "firm",
-    audited: false,
+    // A submission is a write into a firm's own database, so it is recorded like every other one.
+    // The actor is null and stays null — nobody has identified themselves — which is the honest
+    // shape rather than an omission: the row says the firm received something, when, and through
+    // which form, and the registration route takes the same posture on the same reasoning.
+    audited: mutating,
     idempotency: "optional",
     rateLimit: "auth",
   };

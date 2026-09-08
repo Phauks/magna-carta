@@ -353,6 +353,11 @@ describe("end-to-end", () => {
         "intake:read",
         "intake:record",
         "intake:waive",
+        // Both public-form keys reach Owner/Admin. Authoring one puts a page on the open internet
+        // under the firm's name, which is why intakeForms:manage stops here; reading what strangers
+        // sent reaches Attorney and Paralegal too.
+        "intakeForms:manage",
+        "intakeForms:readSubmissions",
         "locations:manage",
         // Both assistant keys reach Owner/Admin: magnus:converse is seeded to the seats that do
         // legal work (Owner/Admin, Attorney, Paralegal), and magnus:readAllConversations — reading
@@ -565,6 +570,33 @@ const ANONYMOUS_JOINING_OPERATIONS: ReadonlySet<string> = new Set([
   "invitations.redeem",
 ]);
 
+/*
+ * The second anonymous population, and it is genuinely different from the joining set above — which
+ * is why it is a second set rather than three more lines in that one. Every sentence of that set's
+ * comment would become false if these were folded into it: these DO carry a firm id, they DO read
+ * firm data, and they create nothing in the control plane.
+ *
+ * What they are is a firm's public intake form: a page a firm publishes for people who are not its
+ * clients, and the submission that comes back. They reach a firm's own database — the only
+ * unauthenticated writes in the platform that do — by the id in their own path, because there is no
+ * session to resolve a firm from.
+ *
+ * What holds them is asserted below and is narrower than it sounds. The read is filtered on
+ * published status inside its SQL, so a draft form, a closed form and a token that never existed
+ * are one identical refusal. The write performs no lookup against firm data at all, and creates a
+ * row and nothing else — no person, no organization, no matter, no intake — so nothing a stranger
+ * sends reaches the conflicts corpus until a member puts it there. Both ride the tightest bucket
+ * and sit behind the human-verification gate. Their justifications are recorded in
+ * conformance.test.ts's PUBLIC_ALLOW_LIST beside the joining set's.
+ *
+ * Adding a third member here is a decision about letting an unidentified stranger reach a firm's
+ * database, not a line to append quietly.
+ */
+const ANONYMOUS_FIRM_OPERATIONS: ReadonlySet<string> = new Set([
+  "intakeForms.readPublic",
+  "intakeForms.submitPublic",
+]);
+
 interface EmittedOperation {
   readonly path: string;
   readonly method: string;
@@ -631,7 +663,10 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // No mutating /v1 route is reachable without authentication metadata, EXCEPT the enumerated
       // joining set — this, with the narrow platform-admin pin below, is what keeps the contract
       // free of an accidental public signup hole.
-      if (ANONYMOUS_JOINING_OPERATIONS.has(operation["operationId"] as string)) {
+      if (
+        ANONYMOUS_JOINING_OPERATIONS.has(operation["operationId"] as string) ||
+        ANONYMOUS_FIRM_OPERATIONS.has(operation["operationId"] as string)
+      ) {
         // An anonymous route must name NO permission: the chokepoint never reads one for a caller
         // it did not authenticate, so naming one would be a contract that misleads its next reader
         // into thinking something is enforced. defineOpenAPIRoute refuses it at startup; this is
@@ -681,7 +716,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       (entry) => entry.operation["x-mc-surface"] === "public",
     );
     const platformAdminSurface = publicSurface.filter(
-      (entry) => !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string),
+      (entry) =>
+        !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string) &&
+        !ANONYMOUS_FIRM_OPERATIONS.has(entry.operation["operationId"] as string),
     );
     expect(platformAdminSurface.map((entry) => entry.operation["operationId"]).sort()).toEqual([
       "firms.provision",
@@ -735,10 +772,15 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       }
     }
     // And no mutating operation ANYWHERE in the document is emitted as unauthenticated except the
-    // enumerated joining set — an unauthenticated user-creating POST cannot appear in this
-    // contract without this literal being edited in the same change.
+    // two enumerated anonymous populations — an unauthenticated user-creating POST cannot appear in
+    // this contract without one of these literals being edited in the same change. The firm-scoped
+    // set is admitted here for the same reason the joining set is, and on a stricter fact: it
+    // creates no user, no account and no credential of any kind. It writes one row of text into one
+    // firm's own database, and a member has to act before that row becomes anybody.
     for (const { operation, label } of emittedOperations(document, MUTATING_METHODS)) {
-      if (ANONYMOUS_JOINING_OPERATIONS.has(operation["operationId"] as string)) continue;
+      const operationId = operation["operationId"] as string;
+      if (ANONYMOUS_JOINING_OPERATIONS.has(operationId)) continue;
+      if (ANONYMOUS_FIRM_OPERATIONS.has(operationId)) continue;
       expect(operation["x-mc-authenticated"], label).toBe(true);
     }
   });
