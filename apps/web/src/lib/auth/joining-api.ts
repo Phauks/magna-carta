@@ -65,8 +65,15 @@ export interface StartRegistrationInput {
   /** Omitted by the account door, which is what this surface sends. */
   readonly role?: RegistrationRole;
   readonly email: string;
-  /** The person's own name, as one string — one display name is what the row holds. */
+  /** The person's own name, as one line — what the row holds and what a screen prints. */
   readonly name: string;
+  /**
+   * The same name as its parts. The screen asks for a first and a last name separately, so both are
+   * sent rather than only their join: a line cannot be split back into parts without guessing, and
+   * the guessing would fall on the person later, on their own profile.
+   */
+  readonly givenName?: string;
+  readonly familyName?: string;
   /**
    * The password being chosen. Sent verbatim — never trimmed, never normalised: whitespace is part
    * of a password, and altering it here would set a credential the person did not type. Required by

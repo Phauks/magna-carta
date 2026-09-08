@@ -70,9 +70,16 @@
   name: My Account (identity & security)
   scope: Person-scoped /account secure shell: profile (name, email, avatar) and security (password, 2FA, sessions), no app chrome.
   status: partial
-  surface: screen
   spec: docs/specs/2026-07-10-account-settings-surface-design.md
-  evidence: apps/web/src/routes/account/ — its own layout outside the app chrome, with profile and security pages behind it. Surface, rail and flow are live; every control is an honest seam activating when the authentication UI ships.
+  evidence: apps/web/src/routes/account/ — its own layout outside the app chrome, with profile and security pages behind it. The NAME is live end to end (see settings.area-ui.my-account.name); email, avatar and the whole security page are honest seams activating when the authentication UI ships.
+
+- id: settings.area-ui.my-account.name
+  name: A member's own name
+  scope: The member's name as five parts (prefix, given, middle, family, suffix) with the printed line rendered from them, editable on Account · Profile and mirrored into the firm's roster.
+  status: shipped
+  surface: screen
+  evidence: apps/api-worker/src/routes/me-name.ts over the five nullable columns added to the control-plane user row (packages/database/drizzle/control-plane/20260908T013359_user-name-parts.sql), with packages/directory/src/person-name.ts owning the join for both the server and the screen, and apps/web/src/routes/account/profile/ over it. Behind firm:editOwnProfile, seeded to every default role — the platform's first self-scoped mutation, closing the gap apps/api-worker/src/routes/member-profiles.ts named in its own header.
+  notes: Nothing splits an existing single-line name on the server. An account that predates the columns answers partsStated false with null parts, and the screen offers splitNameForReview as a form seed the person confirms; registration carries the parts it already collects so an account created from today never meets that path.
 
 - id: settings.area-ui.personal-preferences
   name: Personal preferences (Theme, Accessibility, Text)

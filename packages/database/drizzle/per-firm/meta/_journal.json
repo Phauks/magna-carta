@@ -722,6 +722,13 @@
       "when": 1788771600000,
       "tag": "20260907T090000_seed-report-policy-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "6",
+      "when": 1788771601000,
+      "tag": "20260908T020000_seed-edit-own-profile",
+      "breakpoints": true
     }
   ]
 }

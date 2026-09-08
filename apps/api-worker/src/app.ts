@@ -114,6 +114,7 @@ import { devControlPlaneMigrationMiddleware } from "./dev-control-plane-bootstra
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMetaDatabaseHealthRoute } from "./routes/meta-database-health.ts";
 import { registerMetaVersionsRoute } from "./routes/meta-versions.ts";
+import { registerMeNameRoutes } from "./routes/me-name.ts";
 import { registerMemberAdministrationRoutes } from "./routes/member-administration.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerInvitationRoutes } from "./routes/invitations.ts";
@@ -714,6 +715,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerMemberAdministrationRoutes(app, chokepoint);
+  registerMeNameRoutes(app, chokepoint);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   // Joining the platform: the anonymous registration pair and the invitation pair (one issued

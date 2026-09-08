@@ -1,41 +1,52 @@
 <script lang="ts">
   /*
-   * Account · Profile — the member's identity within Magna Carta. Every row is an honest Soon
-   * seam: profile identity is a person-scoped credential surface, and none of it can function
-   * before authentication ships a member profile. Each row swaps its seam for a live control
-   * when that arrives; until then the disabled control + Soon badge states the coming choice
-   * without faking a value. The seam device (disabled control + Soon) is the same one the
-   * settings Text and Beta Access pages use.
+   * Account · Profile — the member's identity within Magna Carta.
    *
-   * A NAME IS PARTS, NOT A STRING. This surface asks for the parts a person's name actually has —
-   * first, middle, last, with the prefix and suffix beside them — rather than one "Name" box, and
-   * that is a decision about the record rather than about this form. The platform already models a
-   * person that way everywhere else it names one: a Directory person is prefix / given / middle /
-   * family / suffix with a rendered display name over it (packages/directory/src/person.ts), and a
-   * member's own name is the one the firm's letterhead, pleading signature blocks and generated
-   * documents print. A single string cannot be sorted by surname, cannot address a letter, and
-   * cannot be split back into parts afterwards without guessing — "Mary Anne van der Berg III" has
-   * no rule that recovers it. So the parts are what is collected, and the display name is rendered
-   * FROM them rather than typed beside them.
+   * THE NAME IS LIVE. It is read from and written to the account's own record: five parts, and the
+   * one line they read as. Email and avatar are still honest Soon seams — both are credential-shaped
+   * changes (an address change has to prove the new mailbox; an avatar needs a store that does not
+   * exist), and neither is what a person comes to this page to fix.
    *
-   * The store behind this does not exist yet: the control-plane user row carries one `name`, and
-   * the per-firm member row mirrors it as `display_name` (packages/database/src/per-firm-schema.ts).
-   * Both grow the parts when the authentication surface lands, which is the same moment these rows
-   * stop being seams.
+   * A NAME IS PARTS, NOT A STRING. The parts are what letterhead, a pleading's signature block and
+   * every generated document print, and what a roster sorts by. A single string cannot be sorted by
+   * surname, cannot address a letter, and cannot be split back into parts afterwards without
+   * guessing — "Mary Anne van der Berg III" has no rule that recovers it. So the parts are what is
+   * collected, and the display name is composed FROM them rather than typed beside them.
+   *
+   * WHICH IS WHY THE SPLIT ON THIS PAGE IS A SUGGESTION AND NEVER A SAVE. An account created before
+   * the parts existed holds only the one line its owner typed at registration. The form seeds itself
+   * from a reading of that line — first word given, last word family — and says so, so the person
+   * confirms or corrects their own name before anything is stored. Nothing writes that reading on
+   * their behalf: an account created from today carries real parts from registration and never meets
+   * this path at all.
+   *
+   * SAVE IS PER PLATE, not per page. The account surface has no commit footer — that is settings
+   * vocabulary — so the Name plate carries its own Save and Discard, the matter-numbering editor's
+   * precedent.
    */
   import * as Avatar from "@magna-carta/design-system/avatar";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import { renderPersonName, splitNameForReview } from "@magna-carta/directory/person-name";
+  import type { Failure } from "$lib/api/request.ts";
   import AccountMasthead from "$lib/account/components/account-masthead.svelte";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import HonorificField from "$lib/names/honorific-field.svelte";
+  import {
+    readMemberName,
+    writeMemberName,
+    type MemberName,
+    type MemberNameParts,
+  } from "$lib/names/member-name-api.ts";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
-  import HonorificField from "$lib/names/honorific-field.svelte";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
 
-  // Page-local seam definitions: rendering through SettingsRow keeps the shared table grid. The
-  // kind/defaultValue fields are inert here (the control snippet renders instead), set to honest
-  // neutral values.
+  // Page-local definitions: rendering through SettingsRow keeps the shared table grid. The
+  // kind/defaultValue fields are inert here (the control snippet renders instead).
   function nameField(part: string, label: string, description: string): SettingDefinition {
     return {
       id: `account.profile.name.${part}`,
@@ -48,16 +59,10 @@
     };
   }
 
-  // The five parts, in the order a name is read. Prefix and suffix are optional in practice and
-  // still their own rows: a suffix is part of a person's legal name and belongs on a pleading, and
-  // folding either into an adjacent box is how they end up inside a surname.
-  //
-  // Those two take the honorific control rather than a box, the same one the Directory's person
-  // forms take, so the seam shows the shape that is coming rather than a shape it will not have.
   const PREFIX_DEFINITION = nameField(
     "prefix",
     "Prefix",
-    "How you are addressed — Ms., Dr., Hon. Optional.",
+    "How you are addressed. Several is fine: Hon., Dr. Optional.",
   );
   const FIRST_NAME_DEFINITION = nameField("first", "First Name", "Your given name.");
   const MIDDLE_NAME_DEFINITION = nameField(
@@ -73,18 +78,8 @@
   const SUFFIX_DEFINITION = nameField(
     "suffix",
     "Suffix",
-    "What follows your name — Jr., III, Esq. Optional.",
+    "What follows your name. Several is fine: III, Esq. Optional.",
   );
-
-  const DISPLAY_NAME_DEFINITION: SettingDefinition = {
-    id: "account.profile.display-name",
-    sectionId: "account-profile",
-    label: "Display Name",
-    description: "The name shown across Magna Carta, composed from the parts above.",
-    kind: "text",
-    defaultValue: "",
-    sensitivity: "open",
-  };
 
   const EMAIL_DEFINITION: SettingDefinition = {
     id: "account.profile.email",
@@ -106,16 +101,117 @@
     sensitivity: "open",
   };
 
-  const TYPED_NAME_PARTS: readonly SettingDefinition[] = [
-    FIRST_NAME_DEFINITION,
-    MIDDLE_NAME_DEFINITION,
-    LAST_NAME_DEFINITION,
-  ];
+  // ---- the name, read and edited ---------------------------------------------------------------
 
-  // Nothing is stored yet, so the honorific controls have nowhere to write; the bindings are local
-  // and inert, which is what the disabled state and the Soon badge already say.
-  let prefix = $state("");
-  let suffix = $state("");
+  interface NameDraft {
+    prefix: string;
+    given: string;
+    middle: string;
+    family: string;
+    suffix: string;
+  }
+
+  const EMPTY_DRAFT: NameDraft = { prefix: "", given: "", middle: "", family: "", suffix: "" };
+
+  let name = $state<MemberName | null>(null);
+  let readFailure = $state<Failure | null>(null);
+  let rereading = $state(false);
+  let saveFailure = $state<StatedFailure | null>(null);
+  let saving = $state(false);
+  let draft = $state<NameDraft>({ ...EMPTY_DRAFT });
+  let since = $state<NameDraft>({ ...EMPTY_DRAFT });
+  /** True while the form is showing a READING of the old single line rather than stored parts. */
+  let seededFromReading = $state(false);
+
+  function draftFrom(parts: MemberNameParts): NameDraft {
+    return {
+      prefix: parts.prefix ?? "",
+      given: parts.given ?? "",
+      middle: parts.middle ?? "",
+      family: parts.family ?? "",
+      suffix: parts.suffix ?? "",
+    };
+  }
+
+  function seed(read: MemberName): void {
+    if (read.partsStated) {
+      seededFromReading = false;
+      draft = draftFrom(read.parts);
+      since = draftFrom(read.parts);
+      return;
+    }
+    // No parts on file: offer a reading of the one line the account was created with, and say so.
+    // Nothing is stored until the person presses Save on it — `since` stays empty, so the form
+    // reads as changed and the reading is something to confirm rather than something already true.
+    const guessed = splitNameForReview(read.displayName);
+    seededFromReading = true;
+    draft = draftFrom({
+      prefix: null,
+      given: guessed.given ?? null,
+      middle: guessed.middle ?? null,
+      family: guessed.family ?? null,
+      suffix: null,
+    });
+    since = { ...EMPTY_DRAFT };
+  }
+
+  async function load(): Promise<void> {
+    readFailure = null;
+    rereading = true;
+    const outcome = await readMemberName(fetch);
+    rereading = false;
+    if (outcome.kind !== "ok") {
+      readFailure = outcome.failure;
+      return;
+    }
+    name = outcome.value;
+    seed(outcome.value);
+  }
+
+  $effect(() => {
+    void load();
+  });
+
+  const changed = $derived(JSON.stringify(draft) !== JSON.stringify(since));
+  /** What the name will read as once saved — the server's own rule, from the module that holds it. */
+  const preview = $derived(
+    renderPersonName({
+      prefix: draft.prefix,
+      given: draft.given,
+      middle: draft.middle,
+      family: draft.family,
+      suffix: draft.suffix,
+    }),
+  );
+
+  function discard(): void {
+    draft = { ...since };
+    saveFailure = null;
+  }
+
+  async function save(): Promise<void> {
+    if (preview === "") return;
+    saveFailure = null;
+    saving = true;
+    const outcome = await writeMemberName(fetch, {
+      prefix: draft.prefix.trim() === "" ? null : draft.prefix.trim(),
+      given: draft.given.trim() === "" ? null : draft.given.trim(),
+      middle: draft.middle.trim() === "" ? null : draft.middle.trim(),
+      family: draft.family.trim() === "" ? null : draft.family.trim(),
+      suffix: draft.suffix.trim() === "" ? null : draft.suffix.trim(),
+    });
+    saving = false;
+    if (outcome.kind === "ok") {
+      name = outcome.value;
+      seed(outcome.value);
+      return;
+    }
+    saveFailure = stated(
+      outcome.failure,
+      "Your name was not saved.",
+      "Nothing answered, so nothing changed; pressing Save again tries once more.",
+    );
+  }
 </script>
 
 <svelte:head>
@@ -127,42 +223,94 @@
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
     <SettingsPlate heading="Name">
-      <SettingsRow definition={PREFIX_DEFINITION}>
-        {#snippet control()}
-          <Badge variant="neutral">Soon</Badge>
-          <HonorificField part="prefix" bind:value={prefix} disabled />
-        {/snippet}
-      </SettingsRow>
-
-      {#each TYPED_NAME_PARTS as definition (definition.id)}
-        <SettingsRow {definition}>
-          {#snippet control()}
-            <Badge variant="neutral">Soon</Badge>
-            <Input
-              disabled
-              placeholder="—"
-              aria-label="{definition.label} (arrives with authentication)"
+      <LoadingRegion
+        loading={name === null && readFailure === null}
+        failed={readFailure !== null && name === null}
+        refreshing={rereading && name !== null}
+        label="Reading your name"
+        onRetry={() => void load()}
+        class="flex flex-col"
+      >
+        {#snippet failure()}
+          {#if readFailure !== null}
+            <FailureNotice
+              failure={readFailure}
+              title="Your Name Could Not Be Read"
+              fallback="Your account's name was not read."
+              onRetry={() => void load()}
             />
+          {/if}
+        {/snippet}
+
+        {#if seededFromReading && name !== null}
+          <p class="py-12 text-sm text-text-muted">
+            Your account was created with one name, {name.displayName}. Below is how it reads as
+            parts. Check it and press Save, or correct it first — nothing is stored until you do.
+          </p>
+        {/if}
+
+        {#if saveFailure !== null}
+          <FailureNotice
+            failure={saveFailure.failure}
+            fallback={saveFailure.fallback}
+            whenSilent={saveFailure.whenSilent}
+          />
+        {/if}
+
+        <SettingsRow definition={PREFIX_DEFINITION}>
+          {#snippet control()}
+            <HonorificField part="prefix" bind:value={draft.prefix} disabled={saving} />
           {/snippet}
         </SettingsRow>
-      {/each}
 
-      <SettingsRow definition={SUFFIX_DEFINITION}>
-        {#snippet control()}
-          <Badge variant="neutral">Soon</Badge>
-          <HonorificField part="suffix" bind:value={suffix} disabled />
-        {/snippet}
-      </SettingsRow>
+        <SettingsRow definition={FIRST_NAME_DEFINITION}>
+          {#snippet control()}
+            <Input bind:value={draft.given} disabled={saving} aria-label="First name" />
+          {/snippet}
+        </SettingsRow>
 
-      <SettingsRow definition={DISPLAY_NAME_DEFINITION}>
-        {#snippet control()}
-          <Badge variant="neutral">Soon</Badge>
-          <!-- Composed, never typed: a display name a member can edit apart from the parts is a
-               second answer to what they are called, and the two disagree the first time one of
-               them is corrected. -->
-          <Input disabled placeholder="—" aria-label="Display name (composed from the name parts)" />
-        {/snippet}
-      </SettingsRow>
+        <SettingsRow definition={MIDDLE_NAME_DEFINITION}>
+          {#snippet control()}
+            <Input bind:value={draft.middle} disabled={saving} aria-label="Middle name" />
+          {/snippet}
+        </SettingsRow>
+
+        <SettingsRow definition={LAST_NAME_DEFINITION}>
+          {#snippet control()}
+            <Input bind:value={draft.family} disabled={saving} aria-label="Last name" />
+          {/snippet}
+        </SettingsRow>
+
+        <SettingsRow definition={SUFFIX_DEFINITION}>
+          {#snippet control()}
+            <HonorificField part="suffix" bind:value={draft.suffix} disabled={saving} />
+          {/snippet}
+        </SettingsRow>
+
+        <!-- What the parts read as, stated rather than editable: a display name a person can edit
+             apart from its parts is a second answer to what they are called. -->
+        <div class="flex items-baseline justify-between gap-16 border-t border-border-subtle py-12">
+          <span class="text-sm text-text-muted">You will appear as</span>
+          <span class="text-sm font-medium">{preview === "" ? "—" : preview}</span>
+        </div>
+
+        <div class="flex items-center justify-end gap-8 py-12">
+          {#if preview === "" && changed}
+            <span class="me-auto text-sm text-text-muted">Give at least one part of your name.</span>
+          {/if}
+          <Button variant="secondary" size="sm" disabled={!changed || saving} onclick={discard}>
+            Discard
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!changed || saving || preview === ""}
+            onclick={() => void save()}
+          >
+            {saving ? "Saving" : "Save"}
+          </Button>
+        </div>
+      </LoadingRegion>
     </SettingsPlate>
 
     <SettingsPlate heading="Identity">

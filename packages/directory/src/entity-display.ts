@@ -1,4 +1,5 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { renderPersonName } from "./person-name.ts";
 import type { EntityKind } from "./types.ts";
 
 // Naming a page of entities, in one read.
@@ -58,16 +59,15 @@ export function displayNameFromRow(row: {
   if (display !== "") return display;
   const legal = row.legal_name?.trim() ?? "";
   if (legal !== "") return legal;
-  const assembled = [
-    row.name_prefix,
-    row.name_given,
-    row.name_middle,
-    row.name_family,
-    row.name_suffix,
-  ]
-    .map((part) => part?.trim() ?? "")
-    .filter((part) => part !== "")
-    .join(" ");
+  // The join itself is person-name.ts's rule, so a person assembled here and a member assembled
+  // from the control-plane columns read as the same person.
+  const assembled = renderPersonName({
+    prefix: row.name_prefix,
+    given: row.name_given,
+    middle: row.name_middle,
+    family: row.name_family,
+    suffix: row.name_suffix,
+  });
   return assembled === "" ? null : assembled;
 }
 

@@ -1246,6 +1246,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matters.setEstate",
       "matters.update",
       "me.get",
+      "me.name",
+      "me.setName",
       "members.deactivate",
       "members.invite",
       "members.list",

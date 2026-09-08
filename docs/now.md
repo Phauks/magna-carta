@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 800 nodes of the feature ledger in
+is the complete register rather than a digest: all 801 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,8 +21,8 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**800 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
+**801 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 141 of them are roll-up parents — a node another node sits beneath — and the totals here
 count the **660 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 295 | 45% |
-| Part-built | partial, in-build | 121 | 18% |
+| Done | shipped | 296 | 45% |
+| Part-built | partial, in-build | 120 | 18% |
 | Ahead | designed, planned, researching, not-started | 203 | 31% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **660** | **100%** |
@@ -40,8 +40,8 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 295 | 45% |
-| `partial` | 120 | 18% |
+| `shipped` | 296 | 45% |
+| `partial` | 119 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -53,7 +53,7 @@ not](#what-a-roll-up-is-not).
 
 ### What a roll-up is not
 
-**140 of the 800 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**141 of the 801 nodes are parents, and 110 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 295 of 660 (45%). Shipped plus partial is 415 (63%).**
+**Shipped alone is 296 of 660 (45%). Shipped plus partial is 415 (63%).**
 
-The 120 units between those two numbers are work that is engineered and paid for and is not
+The 119 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -123,10 +123,10 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
 | Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
-| Settings & Configuration | 6 | 5 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 15 | 40% |
+| Settings & Configuration | 7 | 4 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 15 | 47% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **295** | **120** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **660** | **45%** |
+| **All areas** | **296** | **119** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **660** | **45%** |
 
 ## Where we have been
 
@@ -1355,7 +1355,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Settings & Configuration
 
-[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 15 units of work, 40% shipped. 6 done, 5 part-built, 4 ahead, 0 parked.
+[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 15 units of work, 47% shipped. 7 done, 4 part-built, 4 ahead, 0 parked.
 
 - `settings` · `partial` · **Settings & configuration framework** — Declarative settings registry, scope-chain resolution, role-gated access enforced in the data-access layer, storage placement per tenancy, and the registry-driven Settings area.
   - `settings.registry` · `partial` · **Declarative settings registry** — Each setting declared once (key, type, scope, default, access, validation, audited/effective-dated flags).
@@ -1367,6 +1367,7 @@ to change a line here, edit the node in its area file and re-run the build.
   - `settings.change-discipline` · `partial` · **Audited & effective-dated changes** — Settings writes through the data-access layer; financial/security/firm settings audited; effective-dated where it matters.
   - `settings.area-ui` · `partial` · **The Settings area** — Banded settings navigation (My / Firm / Platform), posture badges, draft staging with confirmation recap, change-history pull-out, command-palette listing.
     - `settings.area-ui.my-account` · `partial` · **My Account (identity & security)** — Person-scoped /account secure shell: profile (name, email, avatar) and security (password, 2FA, sessions), no app chrome.
+      - `settings.area-ui.my-account.name` · `shipped` · **A member's own name** — The member's name as five parts (prefix, given, middle, family, suffix) with the printed line rendered from them, editable on Account · Profile and mirrored into the firm's roster. _Note: Nothing splits an existing single-line name on the server. An account that predates the columns answers partsStated false with null parts, and the screen offers splitNameForReview as a form seed the person confirms; registration carries the parts it already collects so an account created from today never meets that path._
     - `settings.area-ui.personal-preferences` · `shipped` · **Personal preferences (Theme, Accessibility, Text)** — Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast axis. _Note: The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one._
     - `settings.area-ui.firm-band` · `partial` · **Firm settings band** — Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety & Scanning as pages whose posture follows the signed-in member's real capability.
     - `settings.area-ui.member-administration` · `shipped` · **Users and Roles and Permissions** — The firm's roster with its three acts (invite naming a role, change what a member holds, withdraw and restore access), and the read-only surface stating what each role allows. _Note: Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing._

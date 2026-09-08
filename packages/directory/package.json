@@ -14,6 +14,7 @@
     "./honorifics": "./src/honorifics.ts",
     "./person": "./src/person.ts",
     "./person-record": "./src/person-record.ts",
+    "./person-name": "./src/person-name.ts",
     "./pronouns": "./src/pronouns.ts",
     "./organization": "./src/organization.ts",
     "./name-history": "./src/name-history.ts",

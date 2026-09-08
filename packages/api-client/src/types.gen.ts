@@ -774,6 +774,44 @@ export type MemberStatusResponse = {
     status: 'active' | 'deactivated';
 };
 
+export type MemberNameResponse = {
+    parts: {
+        /**
+         * What goes before the name, as the whole line: several honorifics is ordinary, and the line as written is what is printed. Free text — the suggestions a screen offers constrain nothing.
+         */
+        prefix: string | null;
+        given: string | null;
+        middle: string | null;
+        family: string | null;
+        /**
+         * What follows the name, as the whole line — "III, Esq." is one person's suffix.
+         */
+        suffix: string | null;
+    };
+    /**
+     * The line the parts read as, and what the platform prints. Rendered from the parts where the person has stated any; otherwise the name their account was created with.
+     */
+    displayName: string;
+    /**
+     * Whether the person has ever stated their parts. False means the display name is the one line their account was created with, and a screen may offer a reading of it for them to confirm — never store one on their behalf.
+     */
+    partsStated: boolean;
+};
+
+export type SetMemberNameRequest = {
+    /**
+     * What goes before the name, as the whole line: several honorifics is ordinary, and the line as written is what is printed. Free text — the suggestions a screen offers constrain nothing.
+     */
+    prefix: string | null;
+    given: string | null;
+    middle: string | null;
+    family: string | null;
+    /**
+     * What follows the name, as the whole line — "III, Esq." is one person's suffix.
+     */
+    suffix: string | null;
+};
+
 export type SetReleaseChannelResponse = {
     channel: 'stable' | 'beta';
 };
@@ -813,6 +851,8 @@ export type StartRegistrationRequest = {
     role?: 'account' | 'clientOfFirm' | 'firmMember' | 'foundFirm';
     email: string;
     name: string;
+    givenName?: string;
+    familyName?: string;
     /**
      * The password the person is choosing, 8-128 characters. Required for the doors that create an account (`account`, `foundFirm`); ignored by the two invitation doors, which create nothing.
      */
@@ -10656,6 +10696,80 @@ export type MembersReactivateResponses = {
 };
 
 export type MembersReactivateResponse = MembersReactivateResponses[keyof MembersReactivateResponses];
+
+export type MeNameData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/name';
+};
+
+export type MeNameErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, or the session member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeNameError = MeNameErrors[keyof MeNameErrors];
+
+export type MeNameResponses = {
+    /**
+     * The member's name
+     */
+    200: MemberNameResponse;
+};
+
+export type MeNameResponse = MeNameResponses[keyof MeNameResponses];
+
+export type MeSetNameData = {
+    body: SetMemberNameRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/name';
+};
+
+export type MeSetNameErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:editOwnProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the session member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request body is invalid, or every part is empty
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeSetNameError = MeSetNameErrors[keyof MeSetNameErrors];
+
+export type MeSetNameResponses = {
+    /**
+     * The member's name after the write
+     */
+    200: MemberNameResponse;
+};
+
+export type MeSetNameResponse = MeSetNameResponses[keyof MeSetNameResponses];
 
 export type FirmSetReleaseChannelData = {
     body: SetReleaseChannelRequest;

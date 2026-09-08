@@ -3243,6 +3243,122 @@
           "status"
         ]
       },
+      "MemberNameResponse": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "type": "object",
+            "properties": {
+              "prefix": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100,
+                "description": "What goes before the name, as the whole line: several honorifics is ordinary, and the line as written is what is printed. Free text — the suggestions a screen offers constrain nothing."
+              },
+              "given": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "middle": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "family": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              },
+              "suffix": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100,
+                "description": "What follows the name, as the whole line — \"III, Esq.\" is one person's suffix."
+              }
+            },
+            "required": [
+              "prefix",
+              "given",
+              "middle",
+              "family",
+              "suffix"
+            ]
+          },
+          "displayName": {
+            "type": "string",
+            "description": "The line the parts read as, and what the platform prints. Rendered from the parts where the person has stated any; otherwise the name their account was created with."
+          },
+          "partsStated": {
+            "type": "boolean",
+            "description": "Whether the person has ever stated their parts. False means the display name is the one line their account was created with, and a screen may offer a reading of it for them to confirm — never store one on their behalf."
+          }
+        },
+        "required": [
+          "parts",
+          "displayName",
+          "partsStated"
+        ]
+      },
+      "SetMemberNameRequest": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "What goes before the name, as the whole line: several honorifics is ordinary, and the line as written is what is printed. Free text — the suggestions a screen offers constrain nothing."
+          },
+          "given": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "middle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "family": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "suffix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100,
+            "description": "What follows the name, as the whole line — \"III, Esq.\" is one person's suffix."
+          }
+        },
+        "required": [
+          "prefix",
+          "given",
+          "middle",
+          "family",
+          "suffix"
+        ]
+      },
       "SetReleaseChannelResponse": {
         "type": "object",
         "properties": {
@@ -3384,6 +3500,14 @@
           "name": {
             "type": "string",
             "minLength": 1,
+            "maxLength": 200
+          },
+          "givenName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "familyName": {
+            "type": "string",
             "maxLength": 200
           },
           "password": {
@@ -40329,6 +40453,162 @@
           },
           "422": {
             "description": "A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/name": {
+      "get": {
+        "description": "The session member's own name: the parts they have stated, the line those parts read as, and whether they have ever stated them. A person who has not reads the single name their account was created with, and their parts read as null — never as a guess at how that line splits.",
+        "operationId": "me.name",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.name",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The member's name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberNameResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, or the session member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets the session member's own name, as the whole set of parts. The rendered line is composed from them in the same statement, so what the platform prints and what the person stated can never disagree, and the firm's roster is updated to match. Refused when every part is empty: a person always has a name, and clearing it would leave every record they touched unnamed.",
+        "operationId": "me.setName",
+        "tags": [
+          "me"
+        ],
+        "x-mc-operationId": "me.setName",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:editOwnProfile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "me"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMemberNameRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The member's name after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberNameResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:editOwnProfile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, or the session member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or every part is empty",
             "content": {
               "application/problem+json": {
                 "schema": {
