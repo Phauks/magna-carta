@@ -693,3 +693,25 @@ The owner's words this round: "the file manager area is really good."
 - S21 leaves `manager.searchScope` and the include-deleted option where they were. They belong to
   the results view, not to a field, and the matter search carries its own copies of both (S18, S19)
   — reconciling the two is the follow-up S22 leaves open.
+
+## R21 — round eighteen: the folder path holds still
+
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Status  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| N35 | **Home is pinned beside back, forward and up, and never scrolls away.** It stays the head of the path and it stays the home icon (N4, T3), but it sits outside the part that scrolls: under a deep path it was the first crumb to leave the screen, and the way back to the top of a matter is not something a reader should have to scroll for. Its hover box still matches the toolbar buttons exactly (N25), which is now what it is measured against rather than a coincidence.                                                                                                                                                                                                                                                                                                                                                                                                    | settled |
+| N36 | **A path deeper than its room folds its middle behind an ellipsis, and the toolbar never changes height.** The fold keeps the folder under Home and the last two — where the reader is, and what it sits in — and pressing the ellipsis opens the folded folders as a menu, one press to any of them. It is the design system's one collapse rule (`collapseBreadcrumb`), so the file manager's path and the `Breadcrumb` component cannot fold differently. What still does not fit scrolls, and the strip hides its scrollbar (`mc-scrollbar-hidden`) and draws the gilt edge rule instead: a scrollbar that arrives with a deep path and leaves with a shallow one takes its own height out of the row every time, which is the reflow the owner reported. The strip holds itself at its far end, so the folder the reader is standing in is never the crumb scrolled out of sight. | settled |
+
+**Notes recorded this round:**
+
+- **Reserving the scrollbar's space was the other way to stop the reflow, and it costs the row's
+  height.** A gutter reserved at all times is eight points of toolbar that are empty whenever the
+  path fits, and a gutter that keeps the crumbs optically level with the buttons beside them costs
+  the same eight points again in padding — the row cannot both reserve the space and stay the height
+  the owner approved. Hiding the scrollbar keeps the row exactly as it is at every depth, and the
+  fold means a path that needs scrolling at all is now the exception rather than the deep case. The
+  rail's nav list already hides its own for the same reason, so this is the second consumer of one
+  recipe rather than a new idea.
+- The fold is not the `Breadcrumb` component: this path's crumbs are ghost buttons on the folder
+  tree (N25), not links, and revealing the folded folders in place would only make the strip longer
+  again. What both surfaces share is the rule that decides which segments survive, which is why it
+  moved into `collapse.ts` rather than being written twice.
