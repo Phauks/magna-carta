@@ -29,6 +29,48 @@ export interface CostSummary {
   status: CostStatus;
   /** Resolved by the listing; null when no vendor was recorded or its directory entry is gone. */
   vendorName?: string | null;
+  /**
+   * The matter's own name and number, resolved by the listing for the same reason the vendor's is.
+   *
+   * A firm-wide period listing prints the matter on every row, and resolving it a row at a time
+   * would be a lookup per disbursement to fill one column.
+   */
+  matterNumber?: string | null;
+  matterTitle?: string | null;
+  /**
+   * The invoice that took this cost up, or null while nothing has.
+   *
+   * It is what puts a billed cost one click from the bill that billed it — without it, a reader who
+   * wants to see what the client was actually charged has to go looking through the matter's whole
+   * billing register for the document that happens to carry this line.
+   */
+  invoiceId?: string | null;
+  /**
+   * When the cost was written down — a moment, not a day, and not the day the money went out.
+   *
+   * A disbursement captured three weeks after the fact is a different record from one captured the
+   * day it was paid, and only this and `incurredDate` together say which of the two a reader has.
+   */
+  createdAt: string;
+  /**
+   * Who wrote it down, as an identifier and as a name.
+   *
+   * Both, because they answer different questions: the name is what a reader is shown, and a null
+   * name over a present identifier means the member row is gone rather than that nobody recorded
+   * it. It is not a permission fact — a cost belongs to the matter and not to its recorder, so
+   * nothing about a cost is scoped by this.
+   */
+  createdByUserId: string | null;
+  createdByName?: string | null;
+  /**
+   * Why a reviewer sent this cost back, or null.
+   *
+   * The lifecycle makes this a single, unambiguous fact rather than a note that lingers: the
+   * kick-back transition sets it and returns the cost to draft, and the next submission clears it.
+   * So a non-null value means "this draft came back and has not been sent again", and there is no
+   * state in which a stale reason sits on a cost that has moved on.
+   */
+  kickBackReason: string | null;
 }
 
 /**

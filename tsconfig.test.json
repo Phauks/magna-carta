@@ -62,6 +62,12 @@
       "path": "packages/calendar/tsconfig.test.json"
     },
     {
+      "path": "packages/civil-time/tsconfig.test.json"
+    },
+    {
+      "path": "packages/communications/tsconfig.test.json"
+    },
+    {
       "path": "packages/conflicts/tsconfig.test.json"
     },
     {
@@ -114,6 +120,9 @@
     },
     {
       "path": "packages/feature-flags/tsconfig.test.json"
+    },
+    {
+      "path": "packages/fees/tsconfig.test.json"
     },
     {
       "path": "packages/file-integrity/tsconfig.test.json"
@@ -201,6 +210,9 @@
     },
     {
       "path": "packages/sequence-numbering/tsconfig.test.json"
+    },
+    {
+      "path": "packages/seven-zip/tsconfig.test.json"
     },
     {
       "path": "packages/shipping/tsconfig.test.json"

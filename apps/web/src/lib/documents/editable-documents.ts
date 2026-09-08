@@ -54,15 +54,41 @@ export function editorKindOf(
   return null;
 }
 
+/**
+ * The reader a file's FORMAT calls for where the file can be READ but not written, or null where
+ * the format has no reader. Today that is the portable document: the firm's own engine draws its
+ * pages, and nothing this application has can edit one.
+ */
+export function viewerKindOf(
+  file: Pick<EditableFileFacts, "name" | "sniffedContentType">,
+): "pdf" | null {
+  const category = resolveFileCategory({
+    contentType: file.sniffedContentType ?? undefined,
+    fileName: file.name,
+  });
+  return category === "pdf" ? "pdf" : null;
+}
+
 /** Where a file's editor lives. One address per document, opened beside the reader's work. */
 export function editorHref(fileId: string): string {
   return `/documents/${encodeURIComponent(fileId)}/edit`;
+}
+
+/**
+ * Where a file's reader lives. A separate address from the editor's, because the two are different
+ * promises: one invites a change and the other cannot take one, and an address that says `edit`
+ * over a document nobody can edit is a lie the reader finds out by trying.
+ */
+export function viewerHref(fileId: string): string {
+  return `/documents/${encodeURIComponent(fileId)}/view`;
 }
 
 /** What the one Open gesture does for a file. */
 export type OpenDestination =
   /** Open the editor, beside the reader's work. */
   | { readonly kind: "editor"; readonly editor: EditorKind; readonly href: string }
+  /** Open the read-only viewer, beside the reader's work. */
+  | { readonly kind: "viewer"; readonly viewer: "pdf"; readonly href: string }
   /** Open the preview panel — which, for a file with nothing to show, says why. */
   | { readonly kind: "preview" };
 
@@ -76,10 +102,12 @@ export function openDestinationOf(
   file: EditableFileFacts & { readonly id: string },
 ): OpenDestination {
   const editor = editorKindOf(file);
-  if (editor === null) return { kind: "preview" };
+  const viewer = viewerKindOf(file);
+  if (editor === null && viewer === null) return { kind: "preview" };
   if (file.currentVersionId === null || file.status !== "clean") return { kind: "preview" };
   if (file.scanVerdict === "flagged") return { kind: "preview" };
-  return { kind: "editor", editor, href: editorHref(file.id) };
+  if (editor !== null) return { kind: "editor", editor, href: editorHref(file.id) };
+  return { kind: "viewer", viewer: "pdf", href: viewerHref(file.id) };
 }
 
 /**

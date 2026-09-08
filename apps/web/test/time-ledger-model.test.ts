@@ -9,6 +9,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { statusEntry, STATUS_VOCABULARIES } from "@magna-carta/design-system/status-register";
+import { ledgerRecordMenu, type LedgerRecord } from "../src/lib/records/ledger-record-menu.ts";
+import { isEnabled, menuItem } from "../src/lib/records/record-menu-model.ts";
 import type { TimeEntrySummary } from "../src/lib/matters/time-api.ts";
 import { statusLabel } from "../src/lib/matters/time-api.ts";
 import {
@@ -228,5 +230,57 @@ describe("the status vocabulary is the product's one register", () => {
     for (const key of STATUS_VOCABULARIES.workflowChain) {
       expect(statusLabel(key)).toBe(statusEntry(key).label);
     }
+  });
+});
+
+describe("the bill a billed record reached", () => {
+  /** One ledger row as the shared catalogue speaks for it, whichever surface it came from. */
+  function record(overrides: Partial<LedgerRecord> = {}): LedgerRecord {
+    return {
+      identifier: "timeEntry_one",
+      status: "draft",
+      entryNumber: null,
+      description: "Attended to the matter",
+      amount: "$250.00",
+      ...overrides,
+    };
+  }
+
+  const asTime = (target: LedgerRecord) =>
+    ledgerRecordMenu([target], target, {
+      recordNoun: { singular: "Time Entry", plural: "Time Entries" },
+      reviewGateEnabled: false,
+      opensTheBill: true,
+    });
+
+  it("is one verb in the shared catalogue, not one per ledger", () => {
+    // Built on the cost ledger first and lifted rather than copied: two menus answering one
+    // question is two chances to word the refusal differently.
+    const billed = record({ status: "billed", invoiceId: "invoice_one" });
+    const verb = menuItem(asTime(billed), "openBill");
+    expect(verb).not.toBeNull();
+    expect(verb === null ? false : isEnabled(verb)).toBe(true);
+  });
+
+  it("stays on an unbilled entry, refused, rather than appearing and disappearing", () => {
+    const verb = menuItem(asTime(record()), "openBill");
+    expect(verb).not.toBeNull();
+    expect(verb === null ? true : isEnabled(verb)).toBe(false);
+    // The refusal is worded in the surface's own noun, from the shared catalogue's one sentence.
+    expect(verb?.kind === "action" ? verb.disabledReason : undefined).toContain("time entry");
+  });
+
+  it("is absent entirely on a ledger that has nowhere to send a reader", () => {
+    // The Fees ledger declares no opensTheBill, because an unbilled fee record has no table behind
+    // it yet. A menu that advertised an act the surface cannot perform is worse than one that does
+    // not mention it — the same rule the move and the restore already follow.
+    const fees = ledgerRecordMenu([record()], record(), {
+      recordNoun: { singular: "Fee", plural: "Fees" },
+      reviewGateEnabled: false,
+    });
+    expect(menuItem(fees, "openBill")).toBeNull();
+    // Everything else the ledger shares is untouched by the absence.
+    expect(menuItem(fees, "open")).not.toBeNull();
+    expect(menuItem(fees, "void")).not.toBeNull();
   });
 });

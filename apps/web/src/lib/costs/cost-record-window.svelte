@@ -39,13 +39,20 @@
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { costStatusKey } from "$lib/matters/cost-api.ts";
+  // The picker and the matter shape it takes are the Time Sheet's: pure narrowing over a list of
+  // matters, with no knowledge of time entries in it. A second combobox over the same list would be
+  // two chances to disagree about which half of a matter finds it.
+  import MatterPicker from "$lib/time/matter-picker.svelte";
+  import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
   import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
   import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
   import { entityKindFromIdentifier } from "$lib/directory/directory-api.ts";
   import type { ExpenseCodeCatalogue } from "./cost-expense-codes.svelte.ts";
+  import { billHref } from "$lib/money/index.ts";
   import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { costEntrySheet } from "./cost-print-sheet.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
   import {
     costDraftRefusal,
     createCost,
@@ -55,6 +62,7 @@
     type CostLedgerEntry,
   } from "./cost-operations.ts";
   import { billingSentence, payeeText } from "./cost-vocabulary.ts";
+import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
 
   let {
     open = $bindable(false),
@@ -63,6 +71,8 @@
     matterId,
     matterTitle,
     matterNumber = null,
+    matters = [],
+    mattersCapped = false,
     currency,
     expenseCodes,
     canWorkDraft,
@@ -80,6 +90,18 @@
     matterId: string;
     matterTitle: string;
     matterNumber?: string | null;
+    /**
+     * The firm's matters, for a NEW cost written from a surface that stands on none.
+     *
+     * Empty is the matter ledger's case and the default: the matter is already decided, the field
+     * is absent, and `matterId` above is what a new cost is written against. Non-empty is the
+     * firm's own period screen, where the reader picks the matter per cost — the same arrangement
+     * the Time Sheet has, for the same reason: a cost captured with no matter has nowhere to be
+     * recovered from, so the choice is made at capture rather than left for somebody to file later.
+     */
+    matters?: readonly SheetMatter[];
+    /** Whether the list above is a page of the record rather than all of it. */
+    mattersCapped?: boolean;
     currency: string;
     expenseCodes: ExpenseCodeCatalogue;
     /** Whether this account may work this draft, and why not when it may not. */
@@ -89,6 +111,21 @@
 
   const creating = $derived(entry === null);
   const fieldPrefix = $props.id();
+
+  /**
+   * Which matter a NEW cost is written against.
+   *
+   * On a surface standing in a matter it is that matter and the picker is absent. On one standing
+   * in none it starts unchosen: a cost pre-filled with whichever matter happened to be first would
+   * be a wrong answer arriving faster than no answer, and a cost is filed against the wrong matter
+   * exactly once before somebody stops trusting the ledger.
+   */
+  const picksItsMatter = $derived(matters.length > 0);
+  let chosenMatterId = $state<string | null>(null);
+  const writingAgainst = $derived(picksItsMatter ? chosenMatterId : matterId);
+  const chosenMatterTitle = $derived(
+    matters.find((candidate) => candidate.id === chosenMatterId)?.title ?? null,
+  );
 
   let incurredDateText = $state("");
   let amountText = $state("");
@@ -138,7 +175,7 @@
     if (seededFor === identity) return;
     seededFor = identity;
     saveFailure = null;
-    incurredDateText = entry?.incurredDate ?? new Date().toISOString().slice(0, 10);
+    incurredDateText = entry?.incurredDate ?? civilDateOf(new Date());
     amountText = entry === null ? "" : (entry.amountMinor / 100).toFixed(2);
     descriptionText = entry?.description ?? "";
     billingChoice = entry === null || entry.billable ? "billable" : "absorbed";
@@ -194,7 +231,13 @@
   );
 
   const refusal = $derived(
-    editing ? costDraftRefusal({ amountText, description: descriptionText }) : null,
+    editing
+      ? // The matter leads the refusals for a new cost on a matterless surface: it is the one field
+        // whose absence makes the record meaningless rather than merely incomplete.
+        (creating && picksItsMatter && writingAgainst === null
+          ? "Name the matter this cost was advanced for."
+          : costDraftRefusal({ amountText, description: descriptionText }))
+      : null,
   );
 
   /** Why the change cannot be committed as it stands. A save in flight is one of those reasons. */
@@ -227,6 +270,7 @@
           matterNumber,
           money: (amount) => formatMoney(amount, { currency: entry.currency }),
           date: (isoDate) => formatDate(isoDate),
+          instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
           expenseCodeLabels: expenseCodes.labelFor,
           source: entry.source,
@@ -260,7 +304,7 @@
         ? await createCost(
             fetch,
             {
-              matterId,
+              matterId: writingAgainst ?? matterId,
               vendorId,
               incurredDate: incurredDateText,
               amountMinor: minor,
@@ -312,7 +356,10 @@
 
 {#snippet subtitle()}
   {#if entry === null}
-    <span>{matterTitle}</span>
+    <!-- On a matterless surface the subtitle follows the pick, so the window's own heading answers
+         "which matter" as soon as it has been decided rather than standing empty above a filled
+         form. -->
+    <span>{picksItsMatter ? (chosenMatterTitle ?? "No matter chosen yet") : matterTitle}</span>
   {:else}
     <span title={gapCellTitle("entryNumber")}>
       {COST_LEDGER_GAPS.entryNumber.field} not yet recorded
@@ -336,6 +383,41 @@
         <Alert.Title>Not Saved</Alert.Title>
         <Alert.Description>{saveFailure}</Alert.Description>
       </Alert.Root>
+    {/if}
+
+    <!--
+      A RETURNED DRAFT SAYS SO, ABOVE THE FIELDS IT WANTS CHANGED. A cost a reviewer sent back is
+      the same status as one nobody has submitted and looks identical everywhere else, so without
+      this the person who has to fix it is told only that it is a draft. The reason leads the pane
+      because it is the instruction: it says which of the fields below is wrong.
+
+      It appears whether or not this firm runs review, unlike the review VERBS, and the two are
+      different kinds of thing. A Submit control on a firm that has never been asked about review
+      would be soliciting a workflow; a reason that is already written on the record is a fact about
+      this cost, and hiding it would lose the one explanation the record carries.
+    -->
+    {#if entry !== null && returnedDraftReason(entry) !== null}
+      <Alert.Root variant="warning">
+        <Alert.Title>Sent Back For Changes</Alert.Title>
+        <Alert.Description>{returnedDraftReason(entry)}</Alert.Description>
+      </Alert.Root>
+    {/if}
+
+    {#if creating && picksItsMatter}
+      <!-- First, because a cost is a fact about a matter before it is a fact about an amount, and
+           because the refusal that names it leads the others. -->
+      <div class="flex flex-col gap-4">
+        <Label for="{fieldPrefix}-matter">Matter</Label>
+        <MatterPicker
+          {matters}
+          value={chosenMatterId}
+          inputId="{fieldPrefix}-matter"
+          disabled={readOnly}
+          capped={mattersCapped}
+          title="The matter this cost was advanced for. A cost has nowhere to be recovered from without one."
+          onpick={(picked) => (chosenMatterId = picked)}
+        />
+      </div>
     {/if}
 
     <div class="grid gap-12 sm:grid-cols-2">
@@ -486,6 +568,25 @@
         {/snippet}
       </SoonAffordance>
     </div>
+
+    <!--
+      WHERE THE RECORD CAME FROM, UNDER THE FIELDS AND NEVER AMONG THEM. Who wrote the cost down
+      and when are facts ABOUT the record rather than parts of it: nobody edits them, and putting
+      them in the form would invite somebody to try. They stay visible while the fields are open,
+      because the question they answer — who should I ask about this figure — is at its sharpest
+      exactly when a reader is about to change it.
+
+      Entered By is not a permission. A cost belongs to the matter it was advanced for, not to
+      whoever typed it, so this is who to ask and never a gate.
+    -->
+    {#if entry !== null}
+      <p class="text-xs text-text-muted">
+        Recorded by <span title={recorderState(entry).kind === "gone" ? GONE_RECORDER_NOTE : undefined}
+          >{recorderText(entry)}</span
+        >
+        on {formatInstant(entry.createdAt)}. The cost was incurred {formatDate(entry.incurredDate)}.
+      </p>
+    {/if}
   </div>
 {/snippet}
 
@@ -501,8 +602,8 @@
   <EventRail
     events={[]}
     label="This cost's history"
-    emptyMessage="Not built yet. Waiting on {gapReason('history')}. Who recorded it and when are the
-      first events this rail will carry."
+    emptyMessage="Not built yet. Waiting on {gapReason('history')}. Who recorded this cost and when
+      are under the fields on Details; what happened to it afterwards is what this rail will carry."
   />
 {/snippet}
 
@@ -524,7 +625,16 @@
         <Info class="size-16 shrink-0" aria-hidden="true" />
         <span>
           {#if entry.status === "billed"}
-            Billed. Which invoice took it up is not served yet: waiting on {gapReason("invoice")}.
+            {#if entry.invoiceId == null}
+              Billed. Which bill took it up is not recorded on this cost, so there is nothing to
+              open from here.
+            {:else}
+              Billed. <a
+                class="underline underline-offset-2"
+                href={billHref(entry.matterId, entry.invoiceId)}
+                >Open the bill this cost was charged on</a
+              >, on the matter it charges.
+            {/if}
           {:else if entry.status === "void"}
             Withdrawn. A void cost stays on the record and counts toward nothing.
           {:else}

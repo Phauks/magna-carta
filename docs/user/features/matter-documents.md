@@ -1,9 +1,9 @@
 # A matter's documents
 
 _The documents screen is early. Uploading files and folders, saving new versions, folders, the
-version history, and editing text documents all work today. Editing a Word document in the browser
-opens a real editing session but needs the editor service running, so on some installations the
-editor stays blank; the screen tells you when that is the case._
+version history, reading PDFs, and editing text documents all work today. Editing a Word document in
+the browser opens a real editing session but needs the editor service running, so on some
+installations the editor stays blank; the screen tells you when that is the case._
 
 ## What it does
 
@@ -117,6 +117,16 @@ The **status** column is worth reading:
   deliberately, so a document that did not make it is visible rather than quietly missing. A rejected
   document has no readable content and cannot be opened.
 
+### Where you are in the folders
+
+The strip above the list is the path to the folder you are in, starting at the home icon. Home is
+always there, beside the back, forward and up buttons, so the top of the matter is one press away
+however deep you have gone.
+
+A path too long for the strip folds its middle away behind an ellipsis (**…**). The folder you are
+in, the one it sits in, and the first folder under Home stay visible; pressing the ellipsis lists the
+folders it stands for, and choosing one opens it.
+
 ## Opening a document
 
 Select a document's row and the details panel describes it: its details, its preview, its versions,
@@ -126,6 +136,7 @@ Double-click a row, press Enter on it, or choose **Open** from its right-click m
 - A **Word document** (`.docx`, `.doc`, `.odt`, `.rtf`) opens in the browser editor, in a new tab.
 - A **text document** (`.txt`, `.md`, `.log`, and other plain-text files such as `.json` or
   `.html`) opens in the text editor, in a new tab.
+- A **PDF** opens in the reader, in a new tab.
 - A **folder** opens itself, and a **zip archive** opens to show what is inside it.
 - **Everything else** opens its preview in the details panel. A document that is still being
   checked, one the check refused, or one with a safety finding open opens its preview too, where
@@ -154,6 +165,74 @@ Every committed version of the document, newest first, with its number, its size
 committed, and the start of its **content hash**. The hash is a fingerprint of the exact bytes: two
 versions with the same hash are byte-for-byte the same file, and a version's hash never changes once
 it is recorded.
+
+## Archives
+
+Open a zip, a tar, a 7z or a rar and it shows what is inside it, folder by folder, without
+unpacking anything or downloading it. The bar above the list names the archive you are in; use the
+crumbs to move through its folders, and close it to return to the matter's own files.
+
+What the archive is called does not decide this — its actual contents do. An archive somebody sent
+you under the wrong name still opens, and a file named `.zip` that is not one is told to you as
+what it is.
+
+A very large archive lists as quickly as a small one. Only the part of the file that records what is
+inside it is ever read.
+
+Two archives will not open their lists. One whose list of files is itself password-protected —
+possible with 7z, which can lock the names as well as the contents — cannot be shown without that
+password. One packed in a way the application does not read is named as that rather than reported as
+broken. Both can still be downloaded.
+
+### Taking files out
+
+Files can be taken out of a **zip**, a **tar** and a **7z**. A **rar** can be looked inside but not
+unpacked here — the control says so rather than being offered and then refusing — so download a rar
+to open it.
+
+Select what you want and choose **Extract**, or choose **Extract Into This Matter** with nothing
+selected to take out everything in the archive. Files land in the folder the archive itself sits in.
+
+Each extracted file is checked on the way in exactly like a file you upload: it is scanned, its type
+is read from its actual contents rather than from its name inside the archive, and it becomes an
+ordinary document on the matter with its own version history. Extracting never changes the archive,
+which stays on the matter as it was.
+
+Some members will not come out, and the screen names the reason rather than only counting them:
+
+- **Password-protected inside the archive.** Magna Carta holds no password for it. A 7z can lock its
+  files one at a time, so some members of one archive may come out while others do not.
+- **Packed in a way the application cannot open.** Most archives use a form it reads; a few do not.
+- **Not a file.** Some archives carry entries that are shortcuts to somewhere else, or devices,
+  rather than content. There is nothing in them to take out.
+- **Its contents do not match what the archive recorded.** The zip's own checksum for that file
+  disagrees with the file itself, which is what a damaged or altered member looks like. It is
+  refused rather than filed.
+- **Too large, or it expands far enough to be treated as unsafe.** Your firm sets both limits.
+
+The rest of the selection still arrives. If nothing comes out at all, you are told why that was.
+
+## Reading a PDF
+
+Open a PDF and it appears in a new tab, a page at a time. Scroll to move through it; the toolbar
+says which page you are on and how many there are. **Plus** and **minus** change the zoom, and
+**Download** saves the file if you would rather work on it elsewhere.
+
+The document is drawn by Magna Carta itself rather than handed to the browser's own PDF viewer.
+Pages are drawn as you reach them, so a long document opens straight away instead of making you wait
+for the end of it.
+
+Some PDFs will not open. One that is larger than the reader holds, one whose contents cannot be
+read, and one built in a way that is unsafe to open all say so on the screen and offer you the
+download instead. The file is stored either way, and nothing about it is changed by trying.
+
+A password-protected PDF asks for its password right there instead of failing outright — type it
+and the document opens normally. The password is checked in this browser and never sent anywhere.
+If you do not have it, the reader points you to File Unlock & Password Recovery in Tools, which can
+search for a common or predictable one.
+
+A PDF is read-only here. There is no editing, and nothing you do in the reader changes the document
+or adds a version.
 
 ## Editing in the browser
 
@@ -184,9 +263,12 @@ replaced; every save is a new version alongside the ones before it.
 
 If you try to close the tab or leave the page with unsaved changes, you are asked first.
 
-A text document larger than the editor holds (a little over two million characters) does not open
-for editing; the tab says so and offers a download instead. Edit it on your computer and save it
-back as a new version.
+Two kinds of text document do not open for editing, and each says so and offers you the download
+instead. One is a document larger than the editor holds, a little over two million characters. The
+other is a document written in an older character set, which happens with files carrying curly
+quotes, dashes or accented names that came from an earlier system: opening it would show some of
+those characters wrongly, and saving would store them that way, so the editor stands aside rather
+than risk the document. Edit either one on your computer and save it back as a new version.
 
 ### Who can edit, and who decides between two copies
 

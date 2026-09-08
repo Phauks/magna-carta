@@ -1,6 +1,7 @@
-// DEV-ONLY, Docker-free build of the three WebAssembly artefacts the app consumes — pdf-core into
-// packages/pdf/src/pkg, decryption-core into packages/decryption/src/pkg, and email-core into
-// packages/email/src/pkg — using the host Rust toolchain + wasm-pack directly, no container.
+// DEV-ONLY, Docker-free build of the WebAssembly artefacts the app consumes — pdf-core into
+// packages/pdf/src/pkg, decryption-core into packages/decryption/src/pkg, email-core into
+// packages/email/src/pkg, and seven-zip-core into packages/seven-zip/src/pkg —
+// using the host Rust toolchain + wasm-pack directly, no container.
 //
 // This exists for environments that cannot run the canonical Docker build (`rust-wasm-build` in
 // vite.config.ts, which builds each crate in the pinned crates/<crate>/wasm.Dockerfile): a cloud
@@ -33,6 +34,7 @@ const CRATES = [
   { crate: "pdf-core", pkg: "pdf" },
   { crate: "decryption-core", pkg: "decryption" },
   { crate: "email-core", pkg: "email" },
+  { crate: "seven-zip-core", pkg: "seven-zip" },
 ];
 
 function run(command, args) {
@@ -74,4 +76,4 @@ for (const { crate, pkg } of CRATES) {
   ]);
 }
 
-console.log("\nDocker-free wasm build complete: pdf-core, decryption-core, email-core.");
+console.log(`\nDocker-free wasm build complete: ${CRATES.map(({ crate }) => crate).join(", ")}.`);

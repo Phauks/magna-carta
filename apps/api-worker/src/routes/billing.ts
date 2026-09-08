@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN, todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import {
   composeAccountRoleConfiguration,
@@ -131,7 +132,7 @@ const CONFIGURE = "billing:configure" as const;
 // as-of date into NaN, which fails every bucket comparison and reports the whole receivable as 90+.
 const civilDate = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .regex(CIVIL_DATE_PATTERN)
   .refine(isValidCalendarDate, { message: "not a calendar date" });
 
 const CreateInvoiceRequest = z
@@ -149,7 +150,7 @@ const CreateInvoiceRequest = z
 
 const ClaimRequest = z
   .object({
-    sourceKind: z.enum(["time_entry", "cost_entry"]),
+    sourceKind: z.enum(["time_entry", "cost_entry", "fee_entry"]),
     sourceId: z.string().min(1),
   })
   .openapi("BillingClaimRequest");
@@ -341,6 +342,10 @@ const InvoiceListItem = z
   .object({
     id: z.string(),
     clientEntityId: z.string(),
+    // The client's name as the directory holds it, resolved by the listing. Null both where no
+    // directory entry answers to the identifier and where the entry behind one is gone;
+    // clientEntityId tells those two apart. Never the identifier standing in for a name.
+    clientName: z.string().nullable(),
     currency: z.string(),
     status: z.enum(["draft", "final", "void"]),
     invoiceNumber: z.string().nullable(),
@@ -350,6 +355,14 @@ const InvoiceListItem = z
     appliedMinor: z.number().int(),
     unpaidMinor: z.number().int(),
     createdAt: z.string(),
+    // One matter's share of this bill, present only when the listing named a matter. Three fields
+    // rather than one because a draft and a finalized bill hold the fact in different places:
+    // matterLinesMinor is the sum of the matter's own lines and exists from the moment a claim
+    // composes one, while the other two come from the matter's balance row, which finalization
+    // creates — so both are null on a draft, and a null there means "not owed yet", never zero.
+    matterLinesMinor: z.number().int().optional(),
+    matterTotalMinor: z.number().int().nullable().optional(),
+    matterAppliedMinor: z.number().int().nullable().optional(),
   })
   .openapi("BillingInvoiceListItem");
 
@@ -383,6 +396,13 @@ const InvoiceDetailResponse = InvoiceListItem.extend({
       id: z.string(),
       lineIndex: z.number().int(),
       matterId: z.string(),
+      // The line's matter, named. A bill belongs to a client and may charge several of that
+      // client's matters, so a surface showing what it charges has to name them — a list of
+      // identifiers asks a reader to choose between strings they cannot read. Null where no matter
+      // answers to the identifier: an honest gap, never the handle standing in for a name. Carried
+      // on the LINES as well as the balances because a draft has lines and no balance rows.
+      matterNumber: z.string().nullable(),
+      matterTitle: z.string().nullable(),
       kind: z.string(),
       description: z.string(),
       amountMinor: z.number().int(),
@@ -391,6 +411,8 @@ const InvoiceDetailResponse = InvoiceListItem.extend({
   matterBalances: z.array(
     z.object({
       matterId: z.string(),
+      matterNumber: z.string().nullable(),
+      matterTitle: z.string().nullable(),
       totalMinor: z.number().int(),
       appliedMinor: z.number().int(),
       unpaidMinor: z.number().int(),
@@ -837,6 +859,10 @@ const clientParam = z.object({ clientEntityId: z.string().min(1) });
 const retainerStatusQuery = z.object({ trustAccountId: identifierField("trustAccount") });
 const listQuery = z.object({
   clientEntityId: z.string().min(1).optional(),
+  matterId: z.string().min(1).optional().openapi({
+    description:
+      "Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.",
+  }),
   status: z.enum(["draft", "final", "void"]).optional(),
   cursor: z.string().optional(),
 });
@@ -1210,7 +1236,7 @@ const listInvoicesRoute = defineOpenAPIRoute(readMeta("billing.listInvoices"), {
   method: "get",
   path: "/api/v1/billing/invoices",
   description:
-    "Lists invoices newest first, with each one's total, what has been applied to it, and what is still unpaid. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them.",
+    "Lists invoices newest first, with each one's total, what has been applied to it, what is still unpaid, and the client's name. The unpaid figure is derived from the per-matter balances rather than stored, so it can never drift from them. Unnarrowed it answers for the whole firm, which is what the firm's billing register reads; narrowed to a client it answers that client's bills, and narrowed to a matter it answers the bills that charge that matter and carries the matter's own share of each — the figure a matter's register states, which it used to reach by reading every bill's detail one at a time.",
   request: { query: listQuery },
   responses: {
     200: {
@@ -1876,7 +1902,7 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
   const clockOptions = () => ({
     clock: {
       now: () => new Date().toISOString(),
-      today: () => new Date().toISOString().slice(0, 10),
+      today: () => todayInUtc(),
     },
   });
 
@@ -2292,7 +2318,7 @@ export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { asOfDate } = c.req.valid("query");
-      const resolvedAsOfDate = asOfDate ?? new Date().toISOString().slice(0, 10);
+      const resolvedAsOfDate = asOfDate ?? todayInUtc();
       const buckets = await readAccountsReceivableAging(firm.firmDatabase, resolvedAsOfDate);
       return c.json({ asOfDate: resolvedAsOfDate, buckets } as never, 200);
     },

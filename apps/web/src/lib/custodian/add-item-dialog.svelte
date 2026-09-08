@@ -27,7 +27,8 @@
   import Textarea from "@magna-carta/design-system/textarea";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import { parseDate, type DateValue } from "@internationalized/date";
+  import type { DateValue } from "@internationalized/date";
+  import { civilDateText, civilDateValue } from "$lib/dates";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { addCustodyItem, listCustodyItemTypes, type CustodyItemType } from "./custody-api.ts";
@@ -86,17 +87,10 @@
   );
 
   /** The instrument date as a calendar date, or undefined while it is empty or half-entered. */
-  const instrumentDateValue = $derived.by(() => {
-    if (draft.instrumentDate === null) return undefined;
-    try {
-      return parseDate(draft.instrumentDate);
-    } catch {
-      return undefined;
-    }
-  });
+  const instrumentDateValue = $derived(civilDateValue(draft.instrumentDate));
 
   function recordInstrumentDate(next: DateValue | undefined): void {
-    draft.instrumentDate = next ? next.toString() : null;
+    draft.instrumentDate = civilDateText(next);
   }
 
   /*

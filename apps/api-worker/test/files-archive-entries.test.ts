@@ -117,6 +117,65 @@ interface ArchiveEntriesBody {
   truncated: boolean;
 }
 
+// A minimal ustar tar, assembled here rather than committed as a fixture: this file is testing that
+// the route DISPATCHES on the format it sniffed, not that the tar walker is correct — that is tested
+// against real `tar` output in packages/file-manager/test/tar-listing.test.ts.
+function tarOf(members: readonly { name: string; body: string }[]): Uint8Array {
+  const BLOCK = 512;
+  const encoder = new TextEncoder();
+  const blocks: Uint8Array[] = [];
+  for (const member of members) {
+    const body = encoder.encode(member.body);
+    const header = new Uint8Array(BLOCK);
+    header.set(encoder.encode(member.name), 0);
+    // mode, uid, gid — octal text, as tar writes every numeric field.
+    header.set(encoder.encode("000644 \0"), 100);
+    header.set(encoder.encode("000000 \0"), 108);
+    header.set(encoder.encode("000000 \0"), 116);
+    header.set(encoder.encode(`${body.byteLength.toString(8).padStart(11, "0")}\0`), 124);
+    header.set(encoder.encode("00000000000\0"), 136);
+    header.set(encoder.encode("0"), 156);
+    header.set(encoder.encode("ustar\0" + "00"), 257);
+    // The checksum is computed with its own field read as spaces, then written back as octal.
+    header.set(encoder.encode("        "), 148);
+    let sum = 0;
+    for (const byte of header) sum += byte;
+    header.set(encoder.encode(`${sum.toString(8).padStart(6, "0")}\0 `), 148);
+    blocks.push(header);
+    const padded = new Uint8Array(Math.ceil(body.byteLength / BLOCK) * BLOCK);
+    padded.set(body);
+    blocks.push(padded);
+  }
+  // Two blocks of NULs end a tar.
+  blocks.push(new Uint8Array(BLOCK * 2));
+  const total = blocks.reduce((bytes, block) => bytes + block.byteLength, 0);
+  const archive = new Uint8Array(total);
+  let at = 0;
+  for (const block of blocks) {
+    archive.set(block, at);
+    at += block.byteLength;
+  }
+  return archive;
+}
+
+// `crates/seven-zip-core/tests/fixtures/mixed-members.7z`, inlined because the workerd pool
+// cannot read the host source tree. Written by sevenz-rust2's own encoder — see that directory's
+// README for what it holds and how to regenerate it. Four members, and a file list the encoder
+// compressed, so listing it is the three-ranged-read path.
+const MIXED_MEMBERS_SEVEN_ZIP_BASE64 =
+  "N3q8ryccAAL8907l2wAAAAAAAAAvAAAAAAAAALEviJMBAARoZWxsbwABAAtjb250ZW50IG9mIGEAAQAcY29udGVudCBv" +
+  "ZiBiLCB3aGljaCBpcyBsb25nZXIAAACBMweuT69tsr2bkI5avUFiFoDohHio+p5Z8gdDpTTT3TVOt3+RMj2g6ql6/7yE" +
+  "R7ev9n7V+gREyTST9UZ4RF028W/J63xbu/5huuiTVWP8EnPpNJMaWfrBGwmWp29O2vSVd9TLA6MkVBdmCGj3Hi9vJ55b" +
+  "2DR87lfoBYkKzRpf92sTQDKeG0SJOcBCqNJ8Afc4mHUtaa29EVTPBoWThsYXBjoBCYChCgFkGuBJAAcLAQABIwMBAQVd" +
+  "AACAAAyA8woBJ4ZVUQAIDQEJCgEAAA==";
+
+function base64Bytes(text: string): Uint8Array {
+  const binary = atob(text);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
 describe("GET /api/v1/files/{id}/archive-entries", () => {
   it("lists a seeded zip's entries from the central directory", async () => {
     const matterId = await seedMatter("Archive Listing Matter");
@@ -170,6 +229,67 @@ describe("GET /api/v1/files/{id}/archive-entries", () => {
       .bind(fileId)
       .first<{ deleted_at: string | null }>();
     expect(row?.deleted_at).not.toBeNull();
+  });
+
+  it("lists a tar's members, which the zip reader would never have found", async () => {
+    const matterId = await seedMatter("Archive Tar Matter");
+    const { fileId } = await seedCleanFileWithBytes(
+      matterId,
+      "production.tar",
+      "application/x-tar",
+      tarOf([
+        { name: "readme.txt", body: "read me" },
+        { name: "docs/brief.txt", body: "In the matter of Renee Chase" },
+      ]),
+    );
+    const response = await get(`/api/v1/files/${fileId}/archive-entries`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as ArchiveEntriesBody;
+    expect(body.entries.map((entry) => entry.path)).toEqual(["readme.txt", "docs/brief.txt"]);
+    expect(body.truncated).toBe(false);
+  });
+
+  it("lists a 7z's members, header bytes only, no archive fetched and nothing unpacked", async () => {
+    const matterId = await seedMatter("Archive Seven Zip Matter");
+    const { fileId } = await seedCleanFileWithBytes(
+      matterId,
+      "exhibits.7z",
+      "application/x-7z-compressed",
+      base64Bytes(MIXED_MEMBERS_SEVEN_ZIP_BASE64),
+    );
+    const response = await get(`/api/v1/files/${fileId}/archive-entries`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as ArchiveEntriesBody;
+    expect(body.entries.map((entry) => entry.path)).toEqual([
+      "readme.txt",
+      "exhibits",
+      "exhibits/a/deposition.txt",
+      "exhibits/b/transcript.txt",
+    ]);
+    expect(body.entries[1]?.isDirectory).toBe(true);
+    expect(body.entries[2]?.uncompressedSizeBytes).toBe("content of a".length);
+  });
+
+  it("answers a rar signature over bytes that are not a rar without faulting", async () => {
+    // The rar branch of the dispatch, reached by a file whose front says rar and whose body says
+    // nothing. A recognised format that will not parse is a 422 the caller can act on, never a 500.
+    const matterId = await seedMatter("Archive Broken Rar Matter");
+    const rarSignature = new Uint8Array([
+      0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ]);
+    const { fileId } = await seedCleanFileWithBytes(
+      matterId,
+      "bundle.rar",
+      "application/vnd.rar",
+      rarSignature,
+    );
+    const response = await get(`/api/v1/files/${fileId}/archive-entries`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as ArchiveEntriesBody;
+    expect(body.entries).toEqual([]);
+    // The walk ended where the headers stopped making sense, and says so rather than presenting an
+    // empty archive as a complete reading of one.
+    expect(body.truncated).toBe(true);
   });
 
   it("422s a file that is not a zip", async () => {

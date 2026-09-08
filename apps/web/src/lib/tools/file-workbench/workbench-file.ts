@@ -57,6 +57,15 @@ export interface WorkbenchFile {
   readonly preview: PreviewState;
   /** Keyed by capability id. Read it through `outcomeFor`, which types the result. */
   readonly outcomes: Readonly<Record<string, CapabilityOutcome<unknown>>>;
+  /**
+   * Read the whole file, for a capability that has to send it somewhere — Unlock and Metadata both
+   * need the actual bytes, not a reading already taken from them. A function rather than the bytes
+   * themselves, so a file nobody has asked to send anywhere never holds a second copy in memory:
+   * this host closes over the browser's own `File`, which does not duplicate until read, and a
+   * matter host would close over a fetch of the stored version instead. Rejects once the file has
+   * been discarded from the workbench.
+   */
+  readonly readBytes: () => Promise<Uint8Array>;
 }
 
 /**

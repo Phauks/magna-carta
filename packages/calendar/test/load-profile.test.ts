@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { FirmResourceId, MatterEventId } from "@magna-carta/identifiers/types";
@@ -70,7 +71,7 @@ beforeAll(async () => {
   // a handful of all-members entries.
   const weekOne = Date.parse("2026-01-05T00:00:00.000Z");
   for (let week = 0; week < 52; week += 1) {
-    const startsOn = new Date(weekOne + week * 7 * 86_400_000).toISOString().slice(0, 10);
+    const startsOn = civilDateOf(new Date(weekOne + week * 7 * 86_400_000));
     raw.exec(
       `INSERT INTO firm_event (id, title, status, starts_on, starts_at_time, time_zone, audience, recorded_at, created_at, updated_at)
          VALUES ('firmEvent_weekly${String(week).padStart(17, "0")}', 'Weekly staff meeting', 'scheduled', '${startsOn}', '09:00', 'America/Los_Angeles', 'participants', '${at}', '${at}', '${at}')`,
@@ -106,7 +107,7 @@ beforeAll(async () => {
     const overlapping = index % 3 === 2;
     raw.exec(
       `INSERT INTO firm_resource_booking (id, resource_id, matter_event_id, starts_on, starts_at_time, ends_at_time, time_zone, recorded_at, created_at, updated_at)
-         VALUES ('firmResourceBooking_${String(index).padStart(13, "0")}', '${ROOM_A}', '${eventId}', '${overlapping ? new Date(Date.parse(`${day}T00:00:00.000Z`) - 3 * 86_400_000).toISOString().slice(0, 10) : day}', '${overlapping ? "10:00" : "08:30"}', '${overlapping ? "11:00" : "12:00"}', 'America/Los_Angeles', '${at}', '${at}', '${at}')`,
+         VALUES ('firmResourceBooking_${String(index).padStart(13, "0")}', '${ROOM_A}', '${eventId}', '${overlapping ? civilDateOf(new Date(Date.parse(`${day}T00:00:00.000Z`) - 3 * 86_400_000)) : day}', '${overlapping ? "10:00" : "08:30"}', '${overlapping ? "11:00" : "12:00"}', 'America/Los_Angeles', '${at}', '${at}', '${at}')`,
     );
   }
 

@@ -67,6 +67,7 @@
   import { ledgerCurrency, periodTotals } from "$lib/time/time-figures.ts";
   import { matterDisplay } from "$lib/time/time-sheet-model.ts";
   import { listTimeEntriesInPeriod } from "$lib/time/time-operations.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
   import {
     PERIOD_PRESET_IDENTIFIERS,
     customRangeOutcome,
@@ -90,7 +91,7 @@
    */
   const FIRST_WEEKDAY_OF_THE_FIRMS_WEEK = 1;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = civilDateOf(new Date());
 
   // ---- who is asking -----------------------------------------------------------------------------
 

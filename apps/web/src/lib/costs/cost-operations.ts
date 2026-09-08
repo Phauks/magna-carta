@@ -3,16 +3,20 @@
  *
  * The design gives this ledger a fuller verb set than the calls below: attach a file from the
  * matter's own documents, return a submitted cost to draft, delete a draft that never entered
- * review, write an internal memo, open the invoice a billed cost rides. Attaching has a route and
- * no picker to feed it a file identifier; the rest have no route at all. None of them is called from here — they are rendered where the
- * design puts them, disabled, saying what they wait on, so the difference between "designed" and
- * "working" is a difference a reader of this file can see.
+ * review, write an internal memo. Attaching has a route and no picker to feed it a file
+ * identifier; the rest have no route at all. None of them is called from here — they are rendered
+ * where the design puts them, disabled, saying what they wait on, so the difference between
+ * "designed" and "working" is a difference a reader of this file can see.
  *
  * Every call goes through the one transport seam, so a dead network is an outcome rather than a
  * thrown error, and the surface can say something true about it.
  */
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 import type { CostSummary } from "$lib/matters/cost-api.ts";
+// The chain's own rule about who may change a record, from the one home the three ledgers
+// share. Re-exported rather than re-imported by every caller: this module is where the cost
+// surfaces already ask what they may do to a cost.
+export { canWorkDraft } from "$lib/records/work-in-progress-record.ts";
 import type { CostCaptureSource } from "./cost-vocabulary.ts";
 
 /**
@@ -39,7 +43,42 @@ export function listMatterCostLedger(
   matterId: string,
   cursor?: string,
 ): Promise<ApiOutcome<Page<CostLedgerEntry>>> {
-  const query = new URLSearchParams({ matterId, ...(cursor === undefined ? {} : { cursor }) });
+  const query = new URLSearchParams({
+    matterId,
+    ...(cursor === undefined ? {} : { cursor }),
+  });
+  return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
+}
+
+/** How a period listing is narrowed beyond its span. */
+export interface CostPeriodScope {
+  /** The first incurred date, inclusive. */
+  readonly from: string;
+  /** The last incurred date, inclusive. */
+  readonly to: string;
+  readonly matterId?: string;
+  readonly status?: CostSummary["status"];
+  /** True for the billable costs, false for the firm's own; omitted, the listing answers both. */
+  readonly billable?: boolean;
+  readonly cursor?: string;
+}
+
+/**
+ * The firm's costs over a span of incurred dates, across every matter.
+ *
+ * The listing's second shape, and the one the firm's Costs screen is built on: the per-matter read
+ * above cannot answer "what did the firm advance this month" without walking every matter first.
+ * Each row names its own matter, resolved by the listing, so this screen never looks one up.
+ */
+export function listCostLedgerInPeriod(
+  fetchImpl: typeof fetch,
+  scope: CostPeriodScope,
+): Promise<ApiOutcome<Page<CostLedgerEntry>>> {
+  const query = new URLSearchParams({ from: scope.from, to: scope.to });
+  if (scope.matterId !== undefined) query.set("matterId", scope.matterId);
+  if (scope.status !== undefined) query.set("status", scope.status);
+  if (scope.billable !== undefined) query.set("billable", scope.billable ? "true" : "false");
+  if (scope.cursor !== undefined) query.set("cursor", scope.cursor);
   return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
 }
 
@@ -160,7 +199,9 @@ export function kickBackCost(
   reason: string,
   idempotencyKey: string,
 ): Promise<ApiOutcome<CostAcknowledgement>> {
-  return transition(fetchImpl, costEntryId, "kick-back", idempotencyKey, { reason });
+  return transition(fetchImpl, costEntryId, "kick-back", idempotencyKey, {
+    reason,
+  });
 }
 
 /** Withdraw a cost. It freezes, counts toward nothing, and stays on the record. */

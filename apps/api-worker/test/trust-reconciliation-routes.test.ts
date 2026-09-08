@@ -1,3 +1,4 @@
+import { todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
@@ -30,7 +31,6 @@ let trustAccountId: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
 const clock = { now: () => new Date().toISOString(), today: () => todayInUtc() };
-const todayInUtc = () => new Date().toISOString().slice(0, 10);
 // The ledger refuses a future effective date, so every recorded movement below is dated today and
 // the statement period is the single day that contains them.
 const PERIOD = () => ({ periodStart: todayInUtc(), periodEnd: todayInUtc() });

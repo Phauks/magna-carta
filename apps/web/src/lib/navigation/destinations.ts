@@ -38,6 +38,7 @@ import FileText from "@lucide/svelte/icons/file-text";
 import ClipboardPenLine from "@lucide/svelte/icons/clipboard-pen-line";
 import Inbox from "@lucide/svelte/icons/inbox";
 import Clock from "@lucide/svelte/icons/clock";
+import Coins from "@lucide/svelte/icons/coins";
 import Landmark from "@lucide/svelte/icons/landmark";
 import ReceiptText from "@lucide/svelte/icons/receipt-text";
 import FileSearch from "@lucide/svelte/icons/file-search";
@@ -49,6 +50,7 @@ import MessageSquare from "@lucide/svelte/icons/message-square";
 import ChartColumn from "@lucide/svelte/icons/chart-column";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
+import HandCoins from "@lucide/svelte/icons/hand-coins";
 
 export type DestinationGroup = "top" | "money" | "firm";
 
@@ -272,8 +274,12 @@ const DESTINATION_LIST = [
     icon: ShieldAlert,
     description: "Conflict checks run at intake and on demand.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    // The runner, the firm's check history, one check read back with its candidates and their
+    // adjudications, where a matter stands, and the firm's own floor under Settings. What is still
+    // short of the whole act is the assembled report a firm could hand a court: printing gives a
+    // sheet rather than a document filed onto the matter.
+    stage: "alpha",
     defaultStarred: true,
   },
   {
@@ -293,10 +299,12 @@ const DESTINATION_LIST = [
     // Calls and texts — the two channels a conversation only exists in if the platform records it.
     // Email is deliberately NOT here: mail already lives in the firm's own mailbox and is FILED onto
     // a matter from there, so a second reader for it would compete with the client a member already
-    // has open. The id stays "communications" because a member's sidebar stars are stored under it.
+    // has open. The id stays "communications" because a member's sidebar stars are stored under it —
+    // the PATH is /messaging, which is what the row has always been called (owner ruling,
+    // 2026-09-08): a URL naming the subsystem rather than the screen is one nobody can guess.
     id: "communications",
     label: "Messaging",
-    href: "/communications",
+    href: "/messaging",
     icon: MessageSquare,
     description: "Calls and texts with clients, logged against their matters.",
     group: "top",
@@ -337,10 +345,21 @@ const DESTINATION_LIST = [
     label: "Discovery",
     href: "/discovery",
     icon: FileSearch,
-    description: "Discovery review and production.",
+    description: "Every review set you can reach, across every matter.",
     group: "top",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    /*
+     * The register reads and opens; a review set is created from the matter it belongs to, which is
+     * where its access list, its ceiling and its lifecycle are decided. What is alpha rather than
+     * ready is everything past ingest: a document can be listed and narrowed, and coding, the
+     * viewer, search and production are not built.
+     *
+     * Scoped by the per-review-set ACCESS LIST rather than by matter access, which is the row's
+     * whole reason for being at the top level: a reviewer brought in for one production is on that
+     * review set's list and may hold no access to the matter it belongs to, so a register reached
+     * only through matters would hide from them precisely the work they were given.
+     */
+    stage: "alpha",
     defaultStarred: true,
   },
   {
@@ -359,7 +378,8 @@ const DESTINATION_LIST = [
     stage: "alpha",
     defaultStarred: true,
   },
-  // Money (draft order: Time, Billing, Trust)
+  // Money — in the order the money moves: hours and flat charges are recorded, disbursements are
+  // advanced, then a bill claims all three and trust settles it.
   {
     // The period ledger: the firm's time over a span of days, across every matter. It is the read
     // surface, distinct from the top bar's Time Sheet, which is capture and opens over whatever
@@ -376,14 +396,64 @@ const DESTINATION_LIST = [
     defaultStarred: true,
   },
   {
+    // The firm's fee record over a period, across every matter — the flat charges it made for work
+    // done, and how much of that is still waiting on a bill. Fees was absent from this group for the
+    // same structural reason Costs was: nothing served the record. It was not a Soon row, it was not
+    // a row, and the fee work-in-progress store is what made adding it honest.
+    //
+    // It sits between Time and Costs because that is the order a matter's own Money group reads: the
+    // two things a firm charges FOR its work, then the money it laid out doing it.
+    id: "fees",
+    label: "Fees",
+    href: "/fees",
+    icon: HandCoins,
+    description: "Flat charges the firm made for its work, and what is still waiting on a bill.",
+    group: "money",
+    shipped: true,
+    // The period reads, narrows and opens any fee in the shared record window. A fee's entry number
+    // and the files riding it are still to come, and the firm's review setting is not served, so the
+    // review verbs are absent rather than offered.
+    stage: "alpha",
+    defaultStarred: true,
+  },
+  {
+    // The firm's cost record over a period, across every matter — what was advanced, what is still
+    // waiting on a bill, and what the firm decided to absorb. Costs was absent from this group
+    // entirely while the matter's own Money group carried it, so the sidebar and the matter
+    // disagreed about what Money holds; the reason was structural rather than an oversight, and
+    // the listing's from/to span is what closed it.
+    //
+    // It sits between Time and Billing because that is the order the money moves: hours and
+    // disbursements accrue, then a bill claims them. The matter's own Money group reads the same
+    // way, with its Fees section between them.
+    id: "costs",
+    label: "Costs",
+    href: "/costs",
+    icon: Coins,
+    description: "What the firm advanced for its matters, and what is still waiting on a bill.",
+    group: "money",
+    shipped: true,
+    // The period reads, narrows and opens any cost in the shared record window. Approving a
+    // submitted cost across matters, and the recorder each row is missing, are still to come.
+    stage: "alpha",
+    defaultStarred: true,
+  },
+  {
+    // The firm's own billing register: every bill for every client, newest first, with the
+    // receivables aging over it. It is the read a matter's Billing section cannot give — a matter
+    // knows its own account and no amount of visiting matters adds up to what the firm is owed.
+    //
+    // Alpha, not ready: the register reads, narrows by state, and opens any bill in the same window
+    // the matter opens it in. The acts that move ONE matter's money are refused here by design and
+    // say where they live; batch and recurring runs belong to the billing-automations slice.
     id: "billing",
     label: "Billing",
     href: "/billing",
     icon: ReceiptText,
     description: "Invoices, rates, and what the firm is owed.",
     group: "money",
-    shipped: false,
-    announced: true,
+    shipped: true,
+    stage: "alpha",
     defaultStarred: true,
   },
   {

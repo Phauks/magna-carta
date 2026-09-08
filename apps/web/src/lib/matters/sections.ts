@@ -102,7 +102,6 @@ export interface MatterSection {
  * missing from both this map and every section's `timelineSources`.
  */
 export const UNSECTIONED_TIMELINE_SOURCES: Readonly<Record<string, string>> = {
-  conflictsCheck: "No matter section holds a conflicts check yet",
   firmEvent: "Firm-anchored: a firm event belongs to no matter and never appears on one",
 };
 
@@ -159,6 +158,27 @@ export const matterSections: readonly MatterSection[] = [
     // to one consultation would be a requirement the firm's procedure does not know about.
     createNoun: null,
     createWaitingOn: "Steps come from the firm's intake procedure, written under Settings",
+  },
+  {
+    slug: "conflicts",
+    timelineSources: ["conflictsCheck"],
+    label: "Conflicts",
+    stage: "alpha",
+    description:
+      "Whether this matter was checked for conflicts, and what the check found \u2014 the search " +
+      "that ran, the candidates it surfaced, and who answered each one. A check is run once at the " +
+      "start and re-run when the parties or the firm's records move; every one of them stays on " +
+      "the record.",
+    // The record here is the firm's append-only conflicts log, and it holds no prose about this
+    // matter for a search to find: a check row records WHAT WAS SEARCHED, and the names on its
+    // hits are the Directory's own, already searchable in their own right. A source here would
+    // return the Directory twice over and land a reader on a search instead of on a party.
+    searchSource: null,
+    searchWaitingOn:
+      "A check records what was searched; the names it holds are the Directory's, searched there",
+    // Running a check IS the create act on this section, and it writes a new row in an append-only
+    // log rather than editing the last one.
+    createNoun: "Check",
   },
   {
     slug: "files",
@@ -303,6 +323,39 @@ export const matterSections: readonly MatterSection[] = [
     createNoun: "Packet",
   },
   {
+    slug: "discovery",
+    timelineSources: [],
+    label: "Discovery",
+    stage: "alpha",
+    description:
+      "The corpora this matter is reviewing \u2014 the firm's own collection, a production another " +
+      "party served, each with its own documents, its own record of what arrived, and its own list " +
+      "of who may open it.",
+    /*
+     * NEVER A SEARCH SOURCE, and this is a permanent answer rather than an unbuilt one.
+     *
+     * A review set is its own corpus by construction: the search index's split catalog is keyed by
+     * corpus rather than by matter, so a matter search is STRUCTURALLY unable to name a review
+     * set's splits. That is not a performance decision. Material an opposing party produced is
+     * under a protective order, it is not the firm's work product, and a control that could return
+     * both in one list is the failure the key shape exists to prevent. The review set's own search,
+     * behind its own access list, is where that corpus is asked anything.
+     *
+     * So the disabled scope option must NOT read like the ones waiting on wiring. There is nothing
+     * to wire.
+     */
+    searchSource: null,
+    searchWaitingOn:
+      "A review set is a separate corpus behind its own access list; the matter's search never " +
+      "reaches it",
+    /*
+     * Two kinds, so the control reads the bare "New" and the menu names them: a review set, and a
+     * load into one that exists. It is also the one section where a noun would not have fit — the
+     * domain's own term is two words, and the label grammar carries one.
+     */
+    createNoun: CREATE_SEVERAL_KINDS,
+  },
+  {
     slug: "parties",
     timelineSources: [],
     label: "Parties",
@@ -360,7 +413,14 @@ export type MatterStripEntry =
  * is the front of the file: what a consultation must clear before it is a matter at all, read
  * before anything else on a new file and rarely after. It stands on the row rather than in a group
  * because it belongs to neither neighbourhood — it is not money the matter moved and not a record
- * the matter accumulated — and a group of one is forbidden below. Activity leads the Record group
+ * the matter accumulated — and a group of one is forbidden below. Conflicts follows Intake, and
+ * stands on the row BESIDE it rather than folded into it (the owner's ruling, 2026-09-07): the two
+ * are separate destinations in the global sidebar for the reason they are separate here — running
+ * a check is not one of the intake procedure's steps, it is the act a step ASKS ABOUT, and the
+ * record it writes outlives the intake that prompted it. It sits this high for the same reason
+ * Intake does, and for one more: a check is run once at the front of a file, and after that the
+ * question is only ever "was it done, and what did it say", which is a lookup a reader should not
+ * have to open a menu for. Activity leads the Record group
  * because it is the record read in order: the chronology of everything the group's other sections
  * hold, one click from Overview's own recent-activity tile. Files stands alone because it
  * is the section members are in most — putting the busiest destination behind a menu would spend a
@@ -369,13 +429,20 @@ export type MatterStripEntry =
  * shared would have held Parties by itself, which the rule below forbids. Tasks sits beside
  * Calendar for the same reason and emphatically not in Record: Record is what the matter has
  * accumulated, and what the firm still owes is not one of those. Magnus stands alone because it is
- * not one of the matter's records; it is the way to ask about them.
+ * not one of the matter's records; it is the way to ask about them. Discovery closes the Record
+ * group beside Custodian, which is the pairing the sidebar already makes: both are material the
+ * firm holds and must account for, one electronic and one physical. It goes in a group rather than
+ * on the row because the row is full at seven and a review set is opened at the start of a review
+ * and then worked from its own screen, not checked on every visit the way the dates are.
  *
  * The order is also the fold order — the backstop folds from the tail — so what folds first is what
  * a member can most afford to reach through a menu: Magnus (asked once in a while, not read on
  * every visit), then the Record group (three of its four are stubs), then the work owed, the dates
  * and the people. Money stays on the row longest of the
- * folding candidates, because all five of its sections are live working surfaces.
+ * folding candidates, because all five of its sections are live working surfaces. Conflicts is the
+ * tenth top-level entry and so spends some of that backstop's headroom; it is placed knowing that,
+ * because what folds under the pressure it adds is the tail — the section asked once in a while,
+ * then the group of stubs — and never Conflicts itself.
  */
 const ARRANGEMENT: readonly (
   | string
@@ -383,12 +450,16 @@ const ARRANGEMENT: readonly (
 )[] = [
   "overview",
   "intake",
+  "conflicts",
   "files",
   { label: "Money", slugs: ["time", "fees", "costs", "billing", "trust"] },
   "parties",
   "calendar",
   "tasks",
-  { label: "Record", slugs: ["activity", "notes", "emails", "messaging", "custodian"] },
+  {
+    label: "Record",
+    slugs: ["activity", "notes", "emails", "messaging", "custodian", "discovery"],
+  },
   "magnus",
 ];
 

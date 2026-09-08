@@ -11,6 +11,7 @@
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import { createDeveloperConsoleStorage } from "./developer-console-storage.ts";
+  import { formatInstant } from "@magna-carta/design-system/formatters";
 
   type Corner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
   const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"] as const;
@@ -36,16 +37,10 @@
     return () => clearInterval(id);
   });
 
-  const clockFormat = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "medium",
-  });
-  const builtAtFormat = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-  const clock = $derived(clockFormat.format(now));
-  const builtAt = builtAtFormat.format(new Date(BUILD_IDENTITY.builtAt));
+  // The clock reads to the second because it is a clock; the build stamp is a record, so it reads
+  // to the minute like every other recorded moment on every other surface.
+  const clock = $derived(formatInstant(now, { precision: "second" }));
+  const builtAt = formatInstant(BUILD_IDENTITY.builtAt);
 
   // Positioning: fixed, anchored to the chosen corner with a uniform inset. During a pointer drag
   // the badge follows the pointer via a transform on top of that anchor (direct manipulation, so

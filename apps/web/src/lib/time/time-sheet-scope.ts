@@ -15,6 +15,7 @@
  * Everything here is pure. The surface holds the current scope and renders it; the arithmetic and
  * the wording of a span live here so a test can hold them still.
  */
+import { civilDateOf, endOfCivilMonth } from "@magna-carta/civil-time/civil-date";
 
 /** A span of days the sheet is showing, and how the sheet names it. */
 export interface SheetScope {
@@ -71,7 +72,7 @@ const MONTH_NAMES = [
 export function shiftDays(isoDate: string, days: number): string {
   const moment = new Date(`${isoDate}T00:00:00Z`);
   moment.setUTCDate(moment.getUTCDate() + days);
-  return moment.toISOString().slice(0, 10);
+  return civilDateOf(moment);
 }
 
 /** "Aug 26" — the short form a span is written in. */
@@ -119,7 +120,7 @@ export function scopePreset(
     const first = `${String(wantedYear)}-${String(wanted).padStart(2, "0")}-01`;
     // Day zero of the NEXT month is the last day of this one, so no month-length table is needed
     // and February gets its leap years right for free.
-    const last = new Date(Date.UTC(wantedYear, wanted, 0)).toISOString().slice(0, 10);
+    const last = endOfCivilMonth(wantedYear, wanted);
     return {
       from: first,
       to: last,

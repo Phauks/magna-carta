@@ -16,8 +16,10 @@ import {
   COST_COLUMN_IDENTIFIERS,
   UNSERVED_COST_COLUMNS,
   costLedgerColumns,
+  costMatterText,
   expenseCodeFromIdentifier,
   expenseCodeText,
+  firmCostColumns,
   isUnservedColumn,
   unservedCellTitle,
 } from "../src/lib/costs/cost-columns.ts";
@@ -43,6 +45,7 @@ import {
   payeeText,
   sourceLabel,
 } from "../src/lib/costs/cost-vocabulary.ts";
+import { returnedDraftReason } from "../src/lib/records/work-in-progress-record.ts";
 import type { CostLedgerEntry } from "../src/lib/costs/cost-operations.ts";
 import { costDraftRefusal, parseAmountMinor } from "../src/lib/costs/cost-operations.ts";
 import { costRecordMenu, type CostMenuRecord } from "../src/lib/costs/cost-record-menu.ts";
@@ -65,13 +68,20 @@ function cost(overrides: Partial<CostLedgerEntry> = {}): CostLedgerEntry {
     vendorName: "Eighth Judicial District Court Clerk",
     source: "manual",
     recoveryCategory: null,
+    createdAt: "2026-07-02T14:05:00.000Z",
+    createdByUserId: "user_paralegal",
+    createdByName: "Imogen Vance",
+    kickBackReason: null,
     ...overrides,
   };
 }
 
 const noLabels = (): string | null => null;
 const word = (status: CostSummary["status"]) => statusEntry(status).label;
-const columns = costLedgerColumns({ currency: "USD", expenseCodeLabels: noLabels });
+const columns = costLedgerColumns({
+  currency: "USD",
+  expenseCodeLabels: noLabels,
+});
 const columnById = (identifier: string) => {
   const found = columns.find((column) => column.id === identifier);
   if (found === undefined) throw new Error(`no column ${identifier}`);
@@ -82,9 +92,11 @@ describe("the ledger's columns", () => {
   it("keeps every column the design names, including the ones nothing fills yet", () => {
     expect(columns.map((column) => column.label)).toEqual([
       "Date",
+      "Matter",
       "Entry Number",
       "Date Entered",
       "Entered By",
+      "Returned",
       "Description",
       "Payee",
       "Expense Code",
@@ -93,6 +105,33 @@ describe("the ledger's columns", () => {
       "Billing",
       "Status",
     ]);
+  });
+
+  it("hides the Matter column inside a matter and brings it forward across the firm", () => {
+    // One declaration, two arrangements: inside a matter every row is on the same one and the
+    // column would be one repeated phrase, so it arrives hidden; the firm's own period screen is
+    // where a reader picks a row out by its matter.
+    const inMatter = columns.find((column) => column.id === COST_COLUMN_IDENTIFIERS.matter);
+    expect(inMatter?.hidden).toBe(true);
+    const firm = firmCostColumns({
+      currency: "USD",
+      expenseCodeLabels: noLabels,
+    });
+    expect(firm.find((column) => column.id === COST_COLUMN_IDENTIFIERS.matter)?.hidden).toBe(false);
+    // Nothing else moves, so a column means the same thing on both screens.
+    expect(firm.map((column) => column.id)).toEqual(columns.map((column) => column.id));
+  });
+
+  it("names a row's matter from the row itself, and stays blank rather than printing a handle", () => {
+    expect(
+      costMatterText(cost({ matterNumber: "CP-0007", matterTitle: "Harlow Acquisition" })),
+    ).toBe("CP-0007 — Harlow Acquisition");
+    // A matter with no number reads as its title alone rather than as a dangling dash.
+    expect(costMatterText(cost({ matterNumber: null, matterTitle: "Harlow Acquisition" }))).toBe(
+      "Harlow Acquisition",
+    );
+    // The listing resolved nothing, so the cell has its own blank to render — never the identifier.
+    expect(costMatterText(cost({}))).toBe("");
   });
 
   it("carries no hard/soft class column: the distinction does not exist on the record", () => {
@@ -164,6 +203,34 @@ describe("the payee, in its three honest states", () => {
 
   it("uses the name where there is one", () => {
     expect(payeeText(cost())).toBe("Eighth Judicial District Court Clerk");
+  });
+});
+
+describe("a draft that came back", () => {
+  it("says why, which is the only thing telling it from a draft nobody submitted", () => {
+    const untouched = cost({ status: "draft" });
+    expect(returnedDraftReason(untouched)).toBeNull();
+
+    const returned = cost({
+      status: "draft",
+      kickBackReason: "Wrong matter — this is the Harlow filing fee.",
+    });
+    expect(returnedDraftReason(returned)).toBe("Wrong matter — this is the Harlow filing fee.");
+  });
+
+  it("reads the reason as a draft fact, so a cost that moved on cannot still say it came back", () => {
+    // The server clears the reason on the next submission, so this state should not occur. Reading
+    // it as a draft fact anyway is what stops "returned because..." ever printing over an approved
+    // cost if some later transition forgets to clear it.
+    const approved = cost({
+      status: "approved",
+      kickBackReason: "stale reason from an earlier round",
+    });
+    expect(returnedDraftReason(approved)).toBeNull();
+  });
+
+  it("treats a blank reason as no reason rather than an empty explanation", () => {
+    expect(returnedDraftReason(cost({ status: "draft", kickBackReason: "   " }))).toBeNull();
   });
 });
 
@@ -321,6 +388,37 @@ describe("the row menu", () => {
     expect(menuItem(menu, "print")).not.toBeNull();
   });
 
+  it("offers the bill on every cost, refused where nothing has billed it", () => {
+    // On every cost rather than only on billed ones: a verb that appears and disappears with a
+    // row's state teaches a reader the menu has a mind of its own.
+    const unbilled = menuRecord();
+    const offered = menuItem(
+      costRecordMenu([unbilled], unbilled, { reviewGateEnabled: true }),
+      "openBill",
+    );
+    expect(offered).not.toBeNull();
+    expect(offered === null ? true : isEnabled(offered)).toBe(false);
+
+    const billed = menuRecord({ status: "billed", invoiceId: "invoice_one" });
+    const reachable = menuItem(
+      costRecordMenu([billed], billed, { reviewGateEnabled: true }),
+      "openBill",
+    );
+    expect(reachable === null ? false : isEnabled(reachable)).toBe(true);
+  });
+
+  it("refuses a billed cost whose bill was not read with it, rather than guessing one", () => {
+    // The claim is the truth about who holds a cost and invoiceId is its mirror; a row that lost it
+    // is a read to fix, never a bill to invent.
+    const billed = menuRecord({ status: "billed", invoiceId: null });
+    const verb = menuItem(
+      costRecordMenu([billed], billed, { reviewGateEnabled: true }),
+      "openBill",
+    );
+    expect(verb === null ? true : isEnabled(verb)).toBe(false);
+    expect(verb?.kind === "action" ? verb.disabledReason : undefined).toContain("was not read");
+  });
+
   it("shows the attach verb on every cost as designed but not served", () => {
     const target = menuRecord();
     const menu = costRecordMenu([target], target, { reviewGateEnabled: true });
@@ -334,7 +432,9 @@ describe("the row menu", () => {
   // The gate reads off until the firm setting is served, so nothing solicits a submission.
   it("leaves the review vocabulary out entirely with the gate off", () => {
     const target = menuRecord();
-    const menu = costRecordMenu([target], target, { reviewGateEnabled: REVIEW_GATE_ENABLED });
+    const menu = costRecordMenu([target], target, {
+      reviewGateEnabled: REVIEW_GATE_ENABLED,
+    });
     expect(REVIEW_GATE_ENABLED).toBe(false);
     for (const identifier of ["submit", "approve", "kickBack"]) {
       expect(menuItem(menu, identifier)).toBeNull();
@@ -346,12 +446,16 @@ describe("the row menu", () => {
 
   it("offers Delete Draft only on a draft, and never instead of Void", () => {
     const draft = menuRecord();
-    const draftMenu = costRecordMenu([draft], draft, { reviewGateEnabled: true });
+    const draftMenu = costRecordMenu([draft], draft, {
+      reviewGateEnabled: true,
+    });
     expect(menuItem(draftMenu, "deleteDraft")).not.toBeNull();
     expect(menuItem(draftMenu, "void")).not.toBeNull();
 
     const billed = menuRecord({ status: "billed" });
-    const billedMenu = costRecordMenu([billed], billed, { reviewGateEnabled: true });
+    const billedMenu = costRecordMenu([billed], billed, {
+      reviewGateEnabled: true,
+    });
     // A cost that has been in review is voided, never deleted.
     expect(menuItem(billedMenu, "deleteDraft")).toBeNull();
   });

@@ -26,6 +26,7 @@
   import { gapCellTitle } from "./cost-gaps.ts";
   import { approveCost, writeKey, type CostLedgerEntry } from "./cost-operations.ts";
   import { billingLabel, payeeText } from "./cost-vocabulary.ts";
+import { GONE_RECORDER_NOTE, recorderState, recorderText } from "$lib/records/work-in-progress-record.ts";
 
   let {
     open = $bindable(false),
@@ -114,7 +115,11 @@
             : expenseCodeText(current, expenseCodeLabels),
         )}
         {@render fact("Attachments", "Not served", gapCellTitle("attachments"))}
-        {@render fact("Entered By", "Not served", gapCellTitle("enteredBy"))}
+        {@render fact(
+          "Entered By",
+          recorderText(current),
+          recorderState(current).kind === "gone" ? GONE_RECORDER_NOTE : undefined,
+        )}
       </dl>
       <p class="text-sm">{current.description}</p>
 

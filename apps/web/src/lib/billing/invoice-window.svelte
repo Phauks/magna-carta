@@ -32,10 +32,11 @@
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
-  import { formatInstant } from "@magna-carta/design-system/formatters";
+  import { formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import Calendar from "@lucide/svelte/icons/calendar";
+  import ArrowUpRight from "@lucide/svelte/icons/arrow-up-right";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CreditCard from "@lucide/svelte/icons/credit-card";
   import FileMinus from "@lucide/svelte/icons/file-minus";
@@ -45,6 +46,7 @@
   import X from "@lucide/svelte/icons/x";
   import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import { billHref } from "$lib/money/index.ts";
   import type { CostSummary } from "$lib/matters/cost-api.ts";
   import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
   import type { ClientCredit, InvoiceDelivery, InvoiceLine } from "./billing-api.ts";
@@ -90,8 +92,16 @@
     open?: boolean;
     /** The bill the window is showing, or null while nothing is open. */
     row: InvoiceRow | null;
-    matterId: string;
-    matterTitle: string;
+    /**
+     * The matter the reader is standing in, or null on the firm's own register.
+     *
+     * With one, the window states this matter's share of the bill and marks the lines that belong
+     * to it. Without one it states the document's own figures and nothing else — a bill may charge
+     * several matters, and naming one of them because a reader happened to arrive from the firm's
+     * register would be inventing a fact.
+     */
+    matterId: string | null;
+    matterTitle: string | null;
     matterNumber: string | null;
     clientName: string;
     currency: string;
@@ -147,7 +157,39 @@
   const openedCredits = $derived(
     clientCredits.filter((credit) => creditNotes.some((note) => note.id === credit.creditNoteId)),
   );
-  const share = $derived(row === null ? null : matterShareMinor(row, matterId));
+  const share = $derived(
+    row === null || matterId === null ? null : matterShareMinor(row, matterId),
+  );
+  /**
+   * Which matters the bill charges, named — the firm register's answer.
+   *
+   * The lines rather than the balances, because a DRAFT has lines and no balance row: balances are
+   * created at finalization, so reading the balances would say a draft charges nobody. Both carry
+   * the name, so either would do on a finalized bill and only one works on both.
+   *
+   * A matter the read could not name still appears, under a phrase that says so. Dropping it would
+   * make a bill look like it charges fewer matters than it does, which is a worse answer than an
+   * unnamed row — and the link still works, because the identifier is what the address needs.
+   */
+  const chargedMatters = $derived.by(() => {
+    const seen = new Map<string, { identifier: string; name: string; named: boolean }>();
+    for (const line of lines) {
+      if (seen.has(line.matterId)) continue;
+      const title = line.matterTitle;
+      seen.set(line.matterId, {
+        identifier: line.matterId,
+        name:
+          title === null
+            ? "A matter this read could not name"
+            : line.matterNumber === null
+              ? title
+              : `${line.matterNumber} — ${title}`,
+        named: title !== null,
+      });
+    }
+    return [...seen.values()];
+  });
+  const matterCount = $derived(chargedMatters.length);
   const credited = $derived(row === null ? 0 : creditedMinor(row));
   const late = $derived(row === null ? 0 : overdueDays(row, today));
 
@@ -224,6 +266,7 @@
           clientName,
           money: (amount) => formatMoney(amount, { currency }),
           date: (isoDate) => formatDate(isoDate),
+          instantDate: (instant) => formatInstantDate(instant),
           printedAt: formatInstant(new Date()),
         }),
   );
@@ -287,10 +330,20 @@
 
       <dl class="flex flex-col gap-4 text-sm">
         {@render fact("Client", clientName)}
-        {@render fact(
-          "Matter",
-          matterNumber === null ? matterTitle : `${matterNumber} — ${matterTitle}`,
-        )}
+        {#if matterTitle !== null}
+          {@render fact(
+            "Matter",
+            matterNumber === null ? matterTitle : `${matterNumber} — ${matterTitle}`,
+          )}
+        {:else if matterCount > 0}
+          <!-- Across the firm the bill answers for itself: how many matters it charges, from its
+               own lines. One is stated as one so a reader is never left to wonder. -->
+          {@render fact(
+            "Matters",
+            matterCount === 1 ? "One matter" : `${matterCount} matters`,
+            "A bill belongs to a client and may charge several of that client's matters; each one is named below with the way into it.",
+          )}
+        {/if}
         {#if share !== null}
           {@render fact(
             "This Matter",
@@ -320,13 +373,15 @@
               </dd>
             </div>
           {/if}
-          {@render fact(
-            "Unpaid, this matter",
-            (() => {
-              const owed = matterUnpaidMinor(row, matterId);
-              return owed === null ? "—" : money(owed);
-            })(),
-          )}
+          {#if matterId !== null}
+            {@render fact(
+              "Unpaid, this matter",
+              (() => {
+                const owed = matterUnpaidMinor(row, matterId);
+                return owed === null ? "—" : money(owed);
+              })(),
+            )}
+          {/if}
         {/if}
         {@render fact("Created", formatDate(row.summary.createdAt))}
         {@render fact(
@@ -335,6 +390,35 @@
           "Who drew the number is on the firm's audit trail; the invoice read does not carry it.",
         )}
       </dl>
+
+      <!-- The way into the matter, from a bill met outside one. Standing in a matter there is
+           nowhere to go; standing across the firm this is where the acts on this bill live, and
+           where the work behind its lines is. -->
+      {#if matterId === null && chargedMatters.length > 0}
+        <section class="flex flex-col gap-8 border-t border-border-default pt-12">
+          <FieldLabel as="h3">
+            {chargedMatters.length === 1 ? "The Matter This Bills" : "The Matters This Bills"}
+          </FieldLabel>
+          <!-- One link per matter, each named. A bill that charges three of a client's matters has
+               three places its acts could be taken from, and which one a reader wants is a choice
+               only they can make — so the window offers all of them rather than picking. -->
+          <ul class="flex flex-col items-start gap-4">
+            {#each chargedMatters as charged (charged.identifier)}
+              <li>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  href={billHref(charged.identifier, row.summary.id)}
+                  title="Open this bill on this matter's own Billing section, where the acts against it live."
+                >
+                  <ArrowUpRight class="size-16" aria-hidden="true" />
+                  <span class:text-text-muted={!charged.named}>{charged.name}</span>
+                </Button>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
 
       {#if isFinal}
         <!-- The lines, each disclosing the work behind it. -->
@@ -411,8 +495,11 @@
                 >
                   <span class="min-w-0 flex-1">
                     {line.description}
+                    <!-- The marker says which lines are NOT the reader's matter, which is only a
+                         question when a reader is standing in one. Across the firm every line is
+                         the bill's own and the note would be on all of them or none. -->
                     <span class="block text-xs text-text-subtle">
-                      {line.kind}{line.matterId === matterId
+                      {line.kind}{matterId === null || line.matterId === matterId
                         ? ""
                         : " · another matter of this client"}
                     </span>

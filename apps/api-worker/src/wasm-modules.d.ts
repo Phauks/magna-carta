@@ -17,3 +17,7 @@ declare module "@magna-carta/pdf/src/pkg/pdf_core_bg.wasm" {
   const wasm: WebAssembly.Module;
   export default wasm;
 }
+declare module "@magna-carta/seven-zip/src/pkg/seven_zip_core_bg.wasm" {
+  const wasm: WebAssembly.Module;
+  export default wasm;
+}

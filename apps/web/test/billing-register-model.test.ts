@@ -32,15 +32,18 @@ const THIS_MATTER = "matter_pemberton";
 const OTHER_MATTER = "matter_escrow";
 
 const COLUMNS = billColumns({
-  matterId: THIS_MATTER,
-  clientName: "Eleanor Pemberton",
+  scope: { kind: "matter", matterId: THIS_MATTER, clientName: "Eleanor Pemberton" },
   currency: "USD",
 });
+
+/** The same declaration from the firm's own register, where no matter stands behind the rows. */
+const FIRM_COLUMNS = billColumns({ scope: { kind: "firm" }, currency: "USD" });
 
 function makeRow(summary: Partial<InvoiceListItem>, detail?: Partial<InvoiceDetail>): InvoiceRow {
   const base: InvoiceListItem = {
     id: summary.id ?? "invoice_one",
     clientEntityId: "entity_pemberton",
+    clientName: "Pemberton Holdings",
     currency: "USD",
     status: "final",
     invoiceNumber: "00413",
@@ -68,6 +71,8 @@ function makeRow(summary: Partial<InvoiceListItem>, detail?: Partial<InvoiceDeta
           id: "invoiceLine_one",
           lineIndex: 0,
           matterId: THIS_MATTER,
+          matterNumber: null,
+          matterTitle: null,
           kind: "fee",
           description: "Professional services",
           amountMinor: base.totalMinor,
@@ -76,6 +81,8 @@ function makeRow(summary: Partial<InvoiceListItem>, detail?: Partial<InvoiceDeta
       matterBalances: [
         {
           matterId: THIS_MATTER,
+          matterNumber: null,
+          matterTitle: null,
           totalMinor: base.totalMinor,
           appliedMinor: base.appliedMinor,
           unpaidMinor: base.totalMinor - base.appliedMinor,
@@ -109,13 +116,15 @@ describe("the register's columns", () => {
     expect(BILL_REGISTER_INITIAL_SORT.direction).toBe("descending");
   });
 
-  it("states THIS MATTER'S share and offers no column for the whole document", () => {
+  it("leads with THIS MATTER'S share and keeps the document's own total out of the way", () => {
     const share = column(BILL_COLUMN_IDENTIFIERS.matterShare);
     expect(share.label).toBe("This Matter");
-    expect(share.hidden).toBeUndefined();
-    // The whole document's total is a fact about the document. A matter's own register that carried
-    // it would invite a reader to add up a column that is not theirs.
-    expect(COLUMNS.some((candidate) => candidate.label === "Total (all matters)")).toBe(false);
+    expect(share.hidden).toBe(false);
+    // The whole document's total is a fact about the document, so inside a matter it arrives hidden
+    // and named for what it covers — a reader who turns it on is asking about the difference.
+    const whole = column(BILL_COLUMN_IDENTIFIERS.billTotal);
+    expect(whole.label).toBe("Total (all matters)");
+    expect(whole.hidden).toBe(true);
 
     const shared = makeRow(
       { totalMinor: 300_000 },
@@ -123,24 +132,36 @@ describe("the register's columns", () => {
         matterBalances: [
           {
             matterId: THIS_MATTER,
+            matterNumber: null,
+            matterTitle: null,
             totalMinor: 200_000,
             appliedMinor: 0,
             unpaidMinor: 200_000,
           },
-          { matterId: OTHER_MATTER, totalMinor: 100_000, appliedMinor: 0, unpaidMinor: 100_000 },
+          {
+            matterId: OTHER_MATTER,
+            matterNumber: null,
+            matterTitle: null,
+            totalMinor: 100_000,
+            appliedMinor: 0,
+            unpaidMinor: 100_000,
+          },
         ],
       },
     );
     expect(share.value(shared)).toBe(2000);
+    expect(whole.value(shared)).toBe(3000);
   });
 
-  it("sums exactly the three money columns and nothing else", () => {
+  it("sums every money column and nothing else", () => {
     const summed = COLUMNS.filter((candidate) => candidate.total === "sum").map(
       (candidate) => candidate.id,
     );
     expect(summed).toEqual([
       BILL_COLUMN_IDENTIFIERS.matterShare,
       BILL_COLUMN_IDENTIFIERS.matterUnpaid,
+      BILL_COLUMN_IDENTIFIERS.billTotal,
+      BILL_COLUMN_IDENTIFIERS.billUnpaid,
       BILL_COLUMN_IDENTIFIERS.credited,
     ]);
   });
@@ -152,6 +173,41 @@ describe("the register's columns", () => {
     expect(column(BILL_COLUMN_IDENTIFIERS.matterShare).value(voided)).toBeNull();
     expect(column(BILL_COLUMN_IDENTIFIERS.matterUnpaid).value(voided)).toBeNull();
     expect(absentShareTitle(voided)).toContain("never owed");
+  });
+
+  it("swaps the money and the client over when the register is the firm's own", () => {
+    const firm = (id: string) => {
+      const found = FIRM_COLUMNS.find((candidate) => candidate.id === id);
+      if (found === undefined) throw new Error(`The firm register has no ${id} column.`);
+      return found;
+    };
+    // The same declaration, with the pair that can only be answered inside a matter put away and
+    // the pair the document answers for itself brought forward.
+    expect(firm(BILL_COLUMN_IDENTIFIERS.matterShare).hidden).toBe(true);
+    expect(firm(BILL_COLUMN_IDENTIFIERS.matterUnpaid).hidden).toBe(true);
+    expect(firm(BILL_COLUMN_IDENTIFIERS.billTotal).hidden).toBe(false);
+    expect(firm(BILL_COLUMN_IDENTIFIERS.billTotal).label).toBe("Total");
+    // The client is one repeated word inside a matter and the identifying fact across the firm.
+    expect(column(BILL_COLUMN_IDENTIFIERS.client).hidden).toBe(true);
+    expect(firm(BILL_COLUMN_IDENTIFIERS.client).hidden).toBe(false);
+  });
+
+  it("never answers the matter's question with the document's figure", () => {
+    const firmShare = FIRM_COLUMNS.find(
+      (candidate) => candidate.id === BILL_COLUMN_IDENTIFIERS.matterShare,
+    );
+    // A wrong answer is worse than no answer: outside a matter there is no share to state, and the
+    // whole bill's total put in that column would read as one matter's charge.
+    expect(firmShare?.value(makeRow({ totalMinor: 300_000 }))).toBeNull();
+  });
+
+  it("names the client on a firm row from the bill itself, and says so when the directory cannot", () => {
+    const firmClient = FIRM_COLUMNS.find(
+      (candidate) => candidate.id === BILL_COLUMN_IDENTIFIERS.client,
+    );
+    expect(firmClient?.value(makeRow({ clientName: "Redwood Holdings" }))).toBe("Redwood Holdings");
+    // Never the identifier standing in for a name.
+    expect(firmClient?.value(makeRow({ clientName: null }))).toBe("Unnamed client");
   });
 
   it("filters Delivered on the question a firm asks, not on one date per bill", () => {
@@ -203,6 +259,8 @@ describe("the register's footer figures", () => {
             id: "dl1",
             lineIndex: 0,
             matterId: THIS_MATTER,
+            matterNumber: null,
+            matterTitle: null,
             kind: "fee",
             description: "Deposition preparation",
             amountMinor: 85_000,

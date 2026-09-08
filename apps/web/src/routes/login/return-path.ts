@@ -3,7 +3,7 @@
  * only reasoned about. The login page reads `next` off the query string and hands the raw value
  * here; only a LOCAL same-origin path is honoured, so a crafted `next` can never bounce a
  * just-authenticated user off-site. Kept beside the login route (its only caller) as a plain module,
- * following the tools-view-preference split (pure `.ts` for the logic, `.svelte` for the surface).
+ * on the split this app uses throughout: the pure `.ts` carries the logic, the `.svelte` the surface.
  */
 
 /** Where sign-in lands when there is no usable return path. */

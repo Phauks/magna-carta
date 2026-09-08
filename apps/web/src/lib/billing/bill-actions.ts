@@ -62,8 +62,20 @@ export type BillActionIdentifier =
   | "exportLedes";
 
 export interface BillActionContext {
-  /** The matter the register is standing in: the trust ceiling and the write-off are its own. */
-  readonly matterId: string;
+  /**
+   * The matter the register is standing in, or null on the firm's own register.
+   *
+   * NULL MEANS THIS SURFACE READS AND DOES NOT ACT, and every verb that writes says so rather than
+   * disappearing. Two reasons converge on the same answer. Some of these acts are a MATTER'S by
+   * nature — a firm applies a client's trust funds to what one matter was charged, writes off what
+   * one matter still owes, and credits one matter's lines — and none of them has a meaning without
+   * one. The rest simply live where the work does: a bill is finalized, voided or recorded as
+   * delivered from the matter whose work it claims, which is also where the reader who does it is
+   * standing. Refused, a verb tells somebody where the act lives; absent, it teaches them the menu
+   * has a mind of its own, and an enabled control on a screen with no dialog behind it is worse
+   * than either.
+   */
+  readonly matterId: string | null;
   /**
    * The capabilities the session holds, or null where they have not been read. Null means nothing
    * is refused on permission grounds — the server still refuses, in its own words, and inventing a
@@ -140,7 +152,13 @@ export function billActions(
   const isDraft = invoice.status === "draft";
   const isFinal = invoice.status === "final";
   const unpaid = isFinal ? billUnpaidMinor(row) : 0;
-  const matterUnpaid = matterUnpaidMinor(row, context.matterId) ?? 0;
+  const matterId = context.matterId;
+  const matterUnpaid = matterId === null ? 0 : (matterUnpaidMinor(row, matterId) ?? 0);
+  /** The one refusal every act that WRITES shares on the firm's register. */
+  const noMatterHere =
+    matterId === null
+      ? "The firm's register reads bills; the acts against one live on the matter it charges. Open the bill there."
+      : null;
   const detailUnread = row.detail === null;
   const standingWord = isDraft ? "a draft" : invoice.status === "void" ? "a voided draft" : "final";
 
@@ -171,13 +189,15 @@ export function billActions(
     identifier: "finalize",
     label: "Finalize…",
     icon: Stamp,
-    ...(!isDraft
-      ? { disabledReason: `Only a draft finalizes. This invoice is ${standingWord}.` }
-      : lacks(context, BILLING_PERMISSIONS.finalize)
-        ? { disabledReason: permissionRefusal("Finalizing a bill", BILLING_PERMISSIONS.finalize) }
-        : detailUnread
-          ? { disabledReason: "This draft's lines have not been read yet." }
-          : {}),
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : !isDraft
+        ? { disabledReason: `Only a draft finalizes. This invoice is ${standingWord}.` }
+        : lacks(context, BILLING_PERMISSIONS.finalize)
+          ? { disabledReason: permissionRefusal("Finalizing a bill", BILLING_PERMISSIONS.finalize) }
+          : detailUnread
+            ? { disabledReason: "This draft's lines have not been read yet." }
+            : {}),
   });
 
   actions.push({
@@ -185,14 +205,16 @@ export function billActions(
     identifier: "voidDraft",
     label: "Void Draft…",
     icon: Ban,
-    ...(!isDraft
-      ? {
-          disabledReason:
-            "Only a draft can be voided — a finalized bill is corrected by a credit note beside it.",
-        }
-      : lacks(context, BILLING_PERMISSIONS.draft)
-        ? { disabledReason: permissionRefusal("Voiding a draft bill", BILLING_PERMISSIONS.draft) }
-        : {}),
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : !isDraft
+        ? {
+            disabledReason:
+              "Only a draft can be voided — a finalized bill is corrected by a credit note beside it.",
+          }
+        : lacks(context, BILLING_PERMISSIONS.draft)
+          ? { disabledReason: permissionRefusal("Voiding a draft bill", BILLING_PERMISSIONS.draft) }
+          : {}),
   });
 
   /*
@@ -215,11 +237,13 @@ export function billActions(
     identifier: "recordDelivery",
     label: "Record Delivery…",
     icon: Send,
-    ...(!isFinal
-      ? { disabledReason: "Only a finalized bill can be delivered." }
-      : lacks(context, BILLING_PERMISSIONS.draft)
-        ? { disabledReason: permissionRefusal("Recording delivery", BILLING_PERMISSIONS.draft) }
-        : {}),
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : !isFinal
+        ? { disabledReason: "Only a finalized bill can be delivered." }
+        : lacks(context, BILLING_PERMISSIONS.draft)
+          ? { disabledReason: permissionRefusal("Recording delivery", BILLING_PERMISSIONS.draft) }
+          : {}),
   });
 
   actions.push({
@@ -227,13 +251,20 @@ export function billActions(
     identifier: "applyTrust",
     label: "Apply Trust Funds…",
     icon: Shield,
-    ...(!isFinal
-      ? { disabledReason: "Only a finalized bill takes an application." }
-      : unpaid <= 0
-        ? { disabledReason: "This bill is settled: there is nothing left to apply against." }
-        : lacks(context, BILLING_PERMISSIONS.apply)
-          ? { disabledReason: permissionRefusal("Applying trust funds", BILLING_PERMISSIONS.apply) }
-          : {}),
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : !isFinal
+        ? { disabledReason: "Only a finalized bill takes an application." }
+        : unpaid <= 0
+          ? { disabledReason: "This bill is settled: there is nothing left to apply against." }
+          : lacks(context, BILLING_PERMISSIONS.apply)
+            ? {
+                disabledReason: permissionRefusal(
+                  "Applying trust funds",
+                  BILLING_PERMISSIONS.apply,
+                ),
+              }
+            : {}),
   });
 
   actions.push({
@@ -253,13 +284,19 @@ export function billActions(
         ? "Apply Client Credit"
         : `Apply Client Credit (${context.money(openCredit)})`,
     icon: HandCoins,
-    ...(openCredit === null || openCredit <= 0
-      ? { disabledReason: "The client holds no open credit." }
-      : !isFinal || unpaid <= 0
-        ? { disabledReason: "Nothing is owed on this bill." }
-        : lacks(context, BILLING_PERMISSIONS.apply)
-          ? { disabledReason: permissionRefusal("Recording a payment", BILLING_PERMISSIONS.apply) }
-          : {}),
+    // The scope refusal leads, because outside a matter the credits were never read: saying the
+    // client holds none would be a claim this surface cannot make.
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : openCredit === null || openCredit <= 0
+        ? { disabledReason: "The client holds no open credit." }
+        : !isFinal || unpaid <= 0
+          ? { disabledReason: "Nothing is owed on this bill." }
+          : lacks(context, BILLING_PERMISSIONS.apply)
+            ? {
+                disabledReason: permissionRefusal("Recording a payment", BILLING_PERMISSIONS.apply),
+              }
+            : {}),
   });
 
   actions.push({
@@ -267,11 +304,18 @@ export function billActions(
     identifier: "writeOff",
     label: "Write Off…",
     icon: FileMinus,
-    ...(matterUnpaid <= 0
-      ? { disabledReason: "This matter owes nothing on this bill." }
-      : lacks(context, BILLING_PERMISSIONS.credit)
-        ? { disabledReason: permissionRefusal("Writing off a balance", BILLING_PERMISSIONS.credit) }
-        : {}),
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : matterUnpaid <= 0
+        ? { disabledReason: "This matter owes nothing on this bill." }
+        : lacks(context, BILLING_PERMISSIONS.credit)
+          ? {
+              disabledReason: permissionRefusal(
+                "Writing off a balance",
+                BILLING_PERMISSIONS.credit,
+              ),
+            }
+          : {}),
   });
 
   actions.push({
@@ -279,16 +323,19 @@ export function billActions(
     identifier: "creditNote",
     label: "Credit Note…",
     icon: Undo2,
-    ...(!isFinal
-      ? { disabledReason: "A correction stands beside a finalized bill; a draft simply changes." }
-      : lacks(context, BILLING_PERMISSIONS.credit)
-        ? {
-            disabledReason: permissionRefusal(
-              "Recording a credit note",
-              BILLING_PERMISSIONS.credit,
-            ),
-          }
-        : {}),
+    // A credit note credits one matter's LINES, so it is anchored the same way the write-off is.
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : !isFinal
+        ? { disabledReason: "A correction stands beside a finalized bill; a draft simply changes." }
+        : lacks(context, BILLING_PERMISSIONS.credit)
+          ? {
+              disabledReason: permissionRefusal(
+                "Recording a credit note",
+                BILLING_PERMISSIONS.credit,
+              ),
+            }
+          : {}),
   });
 
   actions.push({

@@ -208,12 +208,16 @@
               {/if}
             </Combobox.Item>
           {/each}
+          <!-- The heading sits inside a group: a bare one has no identity to label and throws when
+               the listbox opens, which is invisible until somebody clicks the field. -->
           {#if offeredMembers.length === 0}
-            <Combobox.GroupHeading>
-              {members.length === 0
-                ? "The roster could not be read."
-                : "Nobody on the roster matches."}
-            </Combobox.GroupHeading>
+            <Combobox.Group>
+              <Combobox.GroupHeading>
+                {members.length === 0
+                  ? "The roster could not be read."
+                  : "Nobody on the roster matches."}
+              </Combobox.GroupHeading>
+            </Combobox.Group>
           {/if}
         </Combobox.Content>
       </Combobox.Root>

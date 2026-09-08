@@ -1,10 +1,62 @@
 # Conflicts reports: what a check tells you, and what it does not
 
-_The conflicts search, its record, and the per-matter report behind them are built, along with the API
-that serves them. The screens — the matter's conflicts panel and the reviewer's queue — are authored
-when those surfaces ship. Automatic re-checks when your directory changes are built and have their own
-guide: [automatic conflicts re-checks](automatic-conflicts-rechecks.md). The printable conflicts report
-you could hand to a court is not built yet._
+_The conflicts search, its record, the per-matter report behind them, and the screens that read and
+configure them are all built. Automatic re-checks when your directory changes are built and have
+their own guide: [automatic conflicts re-checks](automatic-conflicts-rechecks.md). One thing is not
+built yet: the printable conflicts report you could hand to a court, which is why the print option
+gives you the check as a printed sheet rather than a filed document._
+
+## Where to find it
+
+**Conflicts Check in the sidebar** is your firm's whole picture: the log of every check your firm has
+run, across every matter, newest first. Each row says when the check ran, what set it going, who
+asked for it if anybody did, whether it was filed against a matter or against named parties with no
+matter yet, which band it reached, whether your firm's floor widened it, and how many candidates it
+turned up. Open a row to read that check in full. Narrow the log from any column's own heading — by
+trigger, by who asked, by band — and clear the narrowing from the control beside New Check.
+
+**New Check**, at the top right of that screen, opens the form: which matter if any, the parties to
+search for, what to search, and how far. Nothing runs until you press Run Check, because choosing
+the scope is part of the act.
+
+**The Conflicts tab on a matter**, next to Intake, is that one matter's record: when it was last
+checked and under what settings, anything nobody has answered yet, and whether your firm has since
+widened what a check must cover. **New Check** at the top of the matter opens the same form with the
+matter already filled in, and **Re-check now** beside the standing runs your firm's floor without
+asking you anything. It is also where the intake checklist sends you, and it keeps working after the
+intake step is marked done — the record is most often wanted long after the box is ticked.
+
+A conflicts check also appears on the matter's activity history, and opens the check it refers to.
+
+**Settings, Conflicts** is where your firm decides what every check must cover — see below.
+
+## What your firm decides, and what it cannot switch off
+
+Under **Settings, Conflicts** an owner or administrator sets your firm's floor: the minimum every
+check searches, whoever runs it. Somebody running a check can search wider than the floor; a narrower
+request is raised back up to it before it runs, and the check records that this happened. Nobody can
+search below what your firm requires.
+
+The floor covers what a check searches (the party register, the relationship graph, your own
+members), which band it must reach, which of a person's names the narrower band compares — current,
+former, maiden, alias, and two more your firm can add — how far it follows each kind of relationship,
+and the two limits on how much one check may do.
+
+Two things are shown but cannot be turned off, and the screen says why on each. **The party register**
+is always searched, because conflicts apply across your whole firm. And the **current name** is always
+compared, because a check that skipped the name someone goes by today would not be a conflicts check.
+
+Three things worth knowing before you change it:
+
+- **Changing the floor re-runs nothing.** No check already on your record is altered or repeated. What
+  happens instead is that any matter whose last check no longer covers what you now require will say
+  so on its own Conflicts tab, worked out fresh each time it is read.
+- **Narrowing the floor reduces what your firm will look at from then on**, and no individual check
+  records that somebody chose that. This is why the change is kept in your firm's audit trail and why
+  only owners and administrators can make it.
+- **What you save is what you are shown.** If you ask for something the platform cannot store as
+  given — a limit above what one operation can carry, for instance — it is adjusted on save and the
+  screen tells you exactly what was adjusted, rather than leaving you to notice a box that moved.
 
 ## What it does
 

@@ -8,7 +8,47 @@
 // This lives in the database package rather than beside the sentinel because both the sentinel
 // (tooling/migration-integrity/) and the lineage tests read it, and a second list would let a
 // rebuild be acceptable to one and not the other.
+// Rebuilds of a table that OTHER TABLES POINT AT, which is a shape that cannot run in production and
+// must never be written again.
+//
+// A rebuild drops the table it replaces. In a Cloudflare durable object, foreign keys are enforced
+// at the statement AND at the commit, and `PRAGMA foreign_keys=OFF` does nothing inside the single
+// execution context a migration runs in — SQLite honours that pragma only outside a transaction and
+// reports success either way. Four ways around it were tried against real durable-object storage
+// (the pragma, yielding between the pragma and the drop, `defer_foreign_keys`, and rename-aside
+// under `legacy_alter_table`); all four fail, and workerd resets the object rather than allow the
+// violation. The probes are in apps/api-worker/test/durable-object-pragma-context.test.ts.
+//
+// So a `DROP TABLE` on a parent with children cannot complete against any firm database that holds
+// data. It completes against an empty one, which is the only place it was ever tried.
+//
+// THESE SIX ARE DEBT, NOT PERMISSION. Each was written before that was understood, and each is
+// unappliable to a firm whose rebuilt table has children — one of them is why a firm's database sat
+// unreachable for a day. They are listed so the guard can tell an old mistake from a new one; the
+// list must never grow. Widening a CHECK or dropping a column on a parent table needs a different
+// answer, and choosing one is an open decision rather than something to work around here.
+export const PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING: ReadonlySet<string> =
+  new Set<string>(["20260829T101500_firmless-account"]);
+
 export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
+  // `invoice_wip_claim`.`source_kind` widened from two work-in-progress kinds to three, so a draft
+  // invoice can claim a recorded fee the way it already claims an hour and a disbursement. A CHECK
+  // cannot be widened in place, so this is a rebuild — and it is listed here rather than beside the
+  // grandfathered parent rebuilds because `invoice_wip_claim` IS A LEAF: nothing in the schema
+  // references it, so the DROP that cannot run against a parent fires no violation here, which is
+  // exactly the condition parentRebuildViolations tests for. The claim points OUT, at the invoice
+  // and the line it was composed into, and dropping a child is not what a durable object refuses.
+  // Audited: the copy is column-for-column over the whole table — seven columns, in the order the
+  // replacement declares them, with no WHERE and no expression between source and target — so every
+  // claim carries across unchanged, and the CHECK cannot reject a copied row because the change only
+  // ADDS a value to the set. The partial unique index that makes the claim the concurrency control,
+  // and the two indexes beside it, are recreated after the rename; so are the two RAISE(ABORT)
+  // triggers that freeze a finalized invoice's claims, which are NOT in the Drizzle schema and would
+  // therefore have been dropped and never put back by a generated rebuild — the single worst thing
+  // this migration could have done silently. The reasoning is written out in the migration's own
+  // `-- contract:` header, and the durable-object case is proved rather than assumed in
+  // apps/api-worker/test/leaf-rebuild-in-durable-object.test.ts.
+  "20260908T040000_invoice-wip-claim-admits-a-fee",
   // `user`.`firm_id` widened to nullable, so an account can exist before it belongs to a firm.
   // Audited: the copy is column-for-column over the whole table, the foreign key and the unique
   // index on `email` are both carried across, and no row loses a value — the reasoning is written
@@ -21,7 +61,6 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // take NULL, which each CHECK accepts. Retracted notes are deliberately NOT carried — the new
   // model has no state that could hold one, and copying its body would restore withdrawn text to
   // every surface. The reasoning is written out in the migration's own `-- contract:` header.
-  "20260901T120000_matter-notes-edit-and-delete",
   // `tasks` joins the notification category vocabulary and `matterTask` its subject kinds, which are
   // CHECK constraints on `notification_event` and `notification_in_app_suppression` and so cannot be
   // widened in place. Audited: both copies are column-for-column over the whole table — eleven
@@ -33,7 +72,6 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the replacement
   // takes the original name, so every referencing row resolves to the row it resolved to before and
   // nothing is re-keyed. The reasoning is written out in the migration's own `-- contract:` header.
-  "20260901T150000_tasks",
   // The intake procedure's step kinds gain `client-forms` and `payment`, a CHECK constraint on
   // `intake_procedure_step` that cannot be widened in place. Audited: the copy is column-for-column
   // over the whole table — eleven columns, in the order the replacement declares them, with no WHERE
@@ -44,7 +82,6 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // the swap in PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the
   // replacement takes the original name, so every member's record resolves to the step it resolved
   // to before. The reasoning is written out in the migration's own `-- contract:` header.
-  "20260905T195543_intake-step-kinds-client-forms-and-payment",
   // The matter lifecycle gains `intake` and renames `prospective` to `consultation`, a CHECK
   // constraint on `matter` that cannot be widened in place. Audited: the copy is column-for-column
   // over the whole table — nineteen columns, in the order the replacement declares them, with no
@@ -60,10 +97,8 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the replacement
   // takes the original name, so every referencing row resolves to the row it resolved to before. The
   // reasoning is written out in the migration's own `-- contract:` header.
-  "20260906T013304_matter-status-intake-and-consultation",
   // Widens matter_status_check with `hold` and adds the two hold columns (held_at, hold_reason) with
   // their paired-nullability CHECK. The copy is exhaustive over every existing column and NULL for
   // the two new ones; ids are preserved verbatim under PRAGMA foreign_keys=OFF/ON. The reasoning is
   // in the migration's own `-- contract:` header.
-  "20260906T030014_matter-hold-status",
 ]);

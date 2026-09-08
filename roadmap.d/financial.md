@@ -272,7 +272,7 @@
   status: shipped
   surface: awaiting-screen
   slices: 3-2-trust-accounting-jurisdiction-compliance
-  evidence: packages/trust/src/authorization-policy.ts (versioned append-only policy, the shared requires-second-person predicate, the authority assertion, resolveLoneTrustManagerException, resolveTrustAuthorizationDisposition); composeTrustDisbursementSubmission in packages/trust/src/disbursement-authorization.ts (proposal plus solo release, one batch); the seeded version-1 posture in packages/database/drizzle/per-firm/20260808T020000_trust-authority-default-posture.sql; policy-aware decision and transfer triggers in the per-firm migration; billing's applyEarnedFeesUnderAuthorizationPolicy in packages/billing/src/apply-authorization.ts; routes for the policy read/change, the disbursement submission, and the application submit/approve
+  evidence: packages/trust/src/authorization-policy.ts (versioned append-only policy, the shared requires-second-person predicate, the authority assertion, resolveLoneTrustManagerException, resolveTrustAuthorizationDisposition); composeTrustDisbursementSubmission in packages/trust/src/disbursement-authorization.ts (proposal plus solo release, one batch); the seeded version-1 posture in packages/database/drizzle/per-firm/20260908T000000_baseline.sql; policy-aware decision and transfer triggers in the per-firm migration; billing's applyEarnedFeesUnderAuthorizationPolicy in packages/billing/src/apply-authorization.ts; routes for the policy read/change, the disbursement submission, and the application submit/approve
   notes: Owner-directed. UI deferred. Flagged, not decided - whether the lone-holder exception should count trust:authorize rather than trust:manage (it would relax a firm with several managers and one authority holder), whether a posture relaxation itself takes a second person, and whether matter-to-matter reallocations fall under the policy.
 
 - id: financial.trust.firm-funds
@@ -360,7 +360,7 @@
   public-name: Billing and invoices
   public-summary: Raise a bill on any fee arrangement, apply trust money to it, correct it afterwards without editing it, and send it out.
   awaiting-owner: Whether a credit note draws its own number from the invoice sequence or a sequence of its own.
-  notes: The slice map serializes this after time and costs, which are both on main.
+  notes: The slice map serializes this after time and costs, which are both on main. Two registers now read it — the matter's own Billing section and the firm's whole register — and the acts against a bill live on the first of them.
 
 - id: financial.billing.fee-models
   name: Fee models
@@ -430,6 +430,28 @@
   slices: 3-4-billing-and-invoicing
   evidence: packages/billing/src/draft.ts composes an invoice from claimed time and cost work-in-progress over the invoice, invoice_line and invoice_wip_claim tables in packages/database/src/per-firm-schema.ts, each line carrying its kind and tax treatment, behind the draft and line routes in apps/api-worker/src/routes/billing.ts.
   notes: Partial because tax is a declared line kind and a posting role with nothing computing it — a rate table and a jurisdiction resolution have to land before a bill can carry tax it worked out itself. Backend only, no screen.
+
+- id: financial.billing.firm-register
+  name: The firm's billing register
+  scope: Every bill the firm has raised, narrowable by state, with the receivables aging over it.
+  status: partial
+  surface: screen
+  slices: 3-4-billing-and-invoicing
+  spec: docs/specs/2026-09-07-firm-money-surfaces-design.md
+  evidence: apps/web/src/routes/(app)/billing/+page.svelte over the unnarrowed GET /api/v1/billing/invoices and GET /api/v1/billing/receivables/aging, both of which were shipped routes with no consumer; the bill columns, invoice window and record sheet in apps/web/src/lib/billing take a matter or take none, so one component set serves this and the matter's own section
+  audience: public
+  public-name: All your bills in one place
+  public-summary: See every bill the firm has raised, what is still owed, and how far past due it is.
+  notes: Partial because it reads and does not act — every verb that writes is refused here by name and says where it lives, and batch and recurring runs belong to the billing-automations slice. The aging is read from the server over every finalized bill rather than summed from the page on screen, so the figure never grows as a reader scrolls. A bill met here finds its matters: the detail names them beside every line and every balance, so the window offers one link per matter rather than a list of handles.
+
+- id: financial.billing.matter-register
+  name: A matter's bill register
+  scope: The bills that charge one matter, drafts included, each carrying that matter's own share.
+  status: shipped
+  surface: screen
+  slices: 3-4-billing-and-invoicing
+  evidence: the matterId narrowing on GET /api/v1/billing/invoices, whose predicate is over invoice_line rather than the balance row so drafts are not dropped, and which carries the matter's share as three figures because a draft's share is its lines and a finalized bill's is its balance; consumed by apps/web/src/lib/billing/matter-billing.svelte.ts and bill-register.svelte
+  notes: The register read the CLIENT's whole billing history and then read every one of those bills' details to work out this matter's share, which stated the client's account under the matter's heading at a request per bill. Closes gaps 1 and 6 of the matter Billing tab's screen design; the client's display name is resolved in the listing and the detail, so neither register prints an identifier.
 
 - id: financial.billing.delivery
   name: Invoice delivery record
@@ -533,6 +555,52 @@
   slices: 3-7-billing-automations
   evidence: designed in docs/specs/2026-08-16-billing-automations-design.md; readRetainerStatus and requestRetainerReplenishment ship in packages/billing/src/retainer.ts with the billing.retainer.replenishment_requested topic, and nothing calls them on a schedule or subscribes to the topic
 
+- id: financial.fees
+  name: Recorded fees (flat charges for professional services)
+  scope: Per-matter fee entries for a flat charge somebody decided on — neither an hourly matter's time value nor a flat-fee arrangement's amount — staying unbilled work in progress until a draft invoice claims one.
+  status: partial
+  slices: 3-3-costs-expenses-disbursements
+  spec: docs/specs/2026-09-07-fee-work-in-progress-store-design.md
+  evidence: the fee_entry table and its two indexes in packages/database/src/per-firm-schema.ts; packages/fees (capture, update, the whole chain over @magna-carta/billing-core's assertTransition, and the draft delete); apps/api-worker/src/routes/fees.ts serving both listing shapes; feeEntryToClaimable in packages/billing/src/draft.ts composing the flat_fee line
+  audience: public
+  public-name: Recorded fees
+  public-summary: Record a flat charge for professional services on a matter, and bill it like any other work in progress.
+  notes: This REVERSES the 2026-08-26 fee-surface ruling that Fees is not a work-in-progress surface. That design rested on pairing the fee agreement with the invoice lines a bill had composed from it; the owner moved the arrangement into the matter's status window on 2026-09-03, which removed the pairing and left the pure invoice view the design had itself rejected. A ledger of lines can show nothing that is still unbilled. Both surfaces read it now — the matter's own Fees section and the firm's period across every matter. Partial because the review gate the routes honour is not served to the app, and because a fee's entry number, its attached files and its recorded history are not on the record yet.
+
+- id: financial.fees.claim
+  name: A draft invoice claims a fee
+  scope: The third work-in-progress kind admitted to the shared claim table, so one draft cannot bill a fee two bills have taken up.
+  status: shipped
+  surface: internal
+  slices: 3-3-costs-expenses-disbursements
+  evidence: the invoice_wip_claim source_kind CHECK widened by a hand-written rebuild (packages/database/drizzle/per-firm/20260908T040000_invoice-wip-claim-admits-a-fee.sql, on the reviewed-rebuild allowlist), WORK_IN_PROGRESS_KINDS in packages/billing/src/types.ts replacing the two-way ternaries, the row-preservation case in packages/database/test/rebuilds-over-populated-data.test.ts, and apps/api-worker/test/leaf-rebuild-in-durable-object.test.ts replaying the drop over a populated table inside a real durable object
+  notes: The rebuild is hand-written rather than generated because the two triggers freezing a finalized invoice's claims are not in the Drizzle schema; a generated rebuild would have dropped them and unfrozen every finalized bill's claims in the fleet. It is also the first rebuild written since the durable-object finding, and it is appliable for the reason parentRebuildViolations tests for rather than by exemption: invoice_wip_claim is a LEAF, nothing in the schema references it, so the drop has no child row to orphan — the claim points out, at the invoice and the line it was composed into. That is proved rather than reasoned, in a durable object, because node:sqlite does not reproduce the commit-time enforcement that made the finding. The non-hourly-arrangement guard stays scoped to time_entry deliberately — a recorded fee on a flat-fee matter is a separate charge, not a second billing of the same agreement.
+
+- id: financial.fees.matter-ledger
+  name: The matter's fee record
+  scope: One screen reading every fee on a matter in every status, paged, with what is unbilled and what has been billed, and every verb writing: record, edit, submit, approve, kick back, delete a draft, void.
+  status: shipped
+  surface: screen
+  slices: 3-3-costs-expenses-disbursements
+  spec: docs/specs/2026-09-07-fee-work-in-progress-store-design.md
+  evidence: apps/web/src/routes/(app)/matters/[id]/fees/+page.svelte over listMatterFeeLedger, and apps/web/src/lib/billing/fee-ledger.svelte on the shared money surface
+  audience: public
+  public-name: A matter's fees
+  public-summary: See every flat charge recorded on a matter, what is still unbilled, and what a bill has already taken up.
+  notes: The surface was built whole against the record a fee IS while nothing served one; wiring it was a read, not a redesign. What it shares with Costs was hoisted rather than copied — the readings every ledger makes of a record (apps/web/src/lib/records/work-in-progress-record.ts) and the void, kick-back and delete-draft confirmations — because canWorkDraft had already been written twice byte-identical before anybody noticed. Fees is the first ledger with a DELETE route, so deletesDraft joins opensTheBill as a declaration on the shared row menu.
+
+- id: financial.fees.firm-period
+  name: The firm's fee record over a period
+  scope: What the firm charged for work done across every matter over a span of service dates, and what is still waiting on a bill.
+  status: partial
+  surface: screen
+  slices: 3-3-costs-expenses-disbursements
+  evidence: the from/to span on GET /api/v1/fees (apps/api-worker/src/routes/fees.ts) over the fee_entry service-date index, and apps/web/src/routes/(app)/fees/+page.svelte on the matter ledger's own column declaration with its Matter column brought forward (firmFeeColumns); the sidebar destination is shipped at stage alpha
+  audience: public
+  public-name: What the firm charged for its work
+  public-summary: See every flat charge the firm made in a month, across all its matters, and how much is still waiting on a bill.
+  notes: Fees was absent from the sidebar's Money group for the same structural reason Costs was — nothing served the record, so it was not a Soon row, it was not a row — and the work-in-progress store is what made adding it honest. Partial because it does not yet approve a submitted fee across matters, and because the firm's review setting is not served so the review verbs are absent rather than offered. The record window takes the firm's matters and leads with an unfilled matter picker, the arrangement the cost window and the Time Sheet already have; a fee pre-filled with whichever matter came first would be a wrong answer arriving faster than no answer.
+
 - id: financial.costs
   name: Costs and expenses (disbursements)
   scope: Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced.
@@ -543,7 +611,29 @@
   audience: public
   public-name: Costs and disbursements
   public-summary: Record what the firm has laid out on a matter, from a filing fee to postage, and recover it on the bill.
-  notes: Backend shipped; cost-entry UI not built; cost-to-A/R conversion and LEDES belong to the billing slice.
+  notes: Two registers read it — the matter's own Costs section and the firm's period across every matter; cost-to-A/R conversion and LEDES belong to the billing slice.
+
+- id: financial.costs.firm-period
+  name: The firm's cost record over a period
+  scope: What the firm advanced across every matter over a span of incurred dates, and what is still waiting on a bill.
+  status: partial
+  surface: screen
+  slices: 3-3-costs-expenses-disbursements
+  spec: docs/specs/2026-09-07-firm-money-surfaces-design.md
+  evidence: the from/to span on GET /api/v1/costs (apps/api-worker/src/routes/costs.ts) over the new cost_entry incurred-date index, and apps/web/src/routes/(app)/costs/+page.svelte on the matter ledger's own column declaration with its Matter column brought forward
+  audience: public
+  public-name: What the firm has laid out
+  public-summary: See every cost the firm advanced in a month, across all its matters, and how much is still waiting on a bill.
+  notes: Partial because it does not yet approve a submitted cost across matters. It reads, opens a cost, and records one — the record window takes the firm's matters and leads with an unfilled matter picker, on the arrangement the Time Sheet already has. The listing answered one matter entire and returned an empty list for anything else, which is why Costs was absent from the sidebar's Money group while the matter carried it — the two disagreed about what Money holds for a structural reason rather than an oversight.
+
+- id: financial.costs.billed-record-to-bill
+  name: A billed record names its bill
+  scope: The invoice that took a cost or a time entry up, on its own listing row and reachable from it.
+  status: shipped
+  surface: screen
+  slices: 3-3-costs-expenses-disbursements, 3-1-time-tracking-wip-rate-engine
+  evidence: cost_entry.invoice_id on the CostSummary contract, time_entry.invoice_id already on TimeEntrySummary, and one Open The Bill verb in apps/web/src/lib/records/ledger-record-menu.ts behind an opensTheBill declaration, landing on the matter's Billing section with that bill open through the invoice address both registers honour
+  notes: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently. Fees declared no opensTheBill while it had no table behind it; it declares one now, off fee_entry.invoice_id, on the same seam.
 
 - id: financial.costs.entry-model
   name: Cost entry anatomy

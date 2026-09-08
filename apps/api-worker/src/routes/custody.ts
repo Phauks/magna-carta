@@ -1,3 +1,4 @@
+import { todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
@@ -2606,7 +2607,7 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
       const { asOf, cursor } = c.req.valid("query");
       const page = await readOverdueCustodyCheckoutsPage(
         firm.firmDatabase,
-        asOf ?? new Date().toISOString().slice(0, 10),
+        asOf ?? todayInUtc(),
         cursor === undefined ? {} : { cursor },
       );
       return c.json(page as never, 200);
@@ -2640,10 +2641,7 @@ export function registerCustodyRoutes(app: CustodyApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { asOf } = c.req.valid("query");
-      const due = await collectCustodyReminders(
-        firm.firmDatabase,
-        asOf ?? new Date().toISOString().slice(0, 10),
-      );
+      const due = await collectCustodyReminders(firm.firmDatabase, asOf ?? todayInUtc());
       return c.json({ data: due.reminders, capped: due.capped } as never, 200);
     },
   );

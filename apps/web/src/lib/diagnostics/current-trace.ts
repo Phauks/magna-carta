@@ -8,6 +8,7 @@
  */
 import type { Failure } from "$lib/api/problem.ts";
 import { buildIdentityLine } from "$lib/build-identity.ts";
+import { viewerTimeZone } from "$lib/dates";
 import { breadcrumbs } from "./breadcrumbs.ts";
 import { buildFailureTrace, type TraceEnvironment } from "./failure-trace.ts";
 
@@ -21,7 +22,7 @@ export function currentEnvironment(route?: string): TraceEnvironment {
   const hasNavigator = typeof navigator !== "undefined";
   let timeZone = "(unknown)";
   try {
-    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "(unknown)";
+    timeZone = viewerTimeZone() || "(unknown)";
   } catch {
     // An environment without a resolvable zone still gets a trace.
   }

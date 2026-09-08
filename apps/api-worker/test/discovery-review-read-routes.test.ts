@@ -296,6 +296,48 @@ describe("the review-document list page", () => {
   });
 });
 
+describe("one document, as the reviewer reads it", () => {
+  it("answers with the document, its family placing, and every reason it could not be read", async () => {
+    const response = await get(`/api/v1/review-sets/${reviewSetId}/documents/${corpus.excepted}`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      id: string;
+      familyRole: string;
+      processingState: string;
+      hasExtractedText: boolean;
+      exceptions: { code: string; stage: string }[];
+    };
+    expect(body.id).toBe(corpus.excepted);
+    expect(body.processingState).toBe("excepted");
+    expect(body.familyRole).toBe("standalone");
+    // The named reason travels WITH the document, so a reviewer deciding what to do about it does
+    // not have to find it in the set-wide report.
+    expect(body.exceptions.map((one) => one.code)).toEqual(["encrypted"]);
+    expect(body.exceptions[0]?.stage).toBe("extract");
+    expect(body.hasExtractedText).toBe(false);
+  });
+
+  it("never hands over an object key", async () => {
+    const response = await get(
+      `/api/v1/review-sets/${reviewSetId}/documents/${corpus.familyParent}`,
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+    // An object key is an internal address, and a client holding one has been handed something it
+    // can only misuse. Whether text exists leaves; where it lives does not.
+    expect(Object.keys(body)).not.toContain("textR2Key");
+    expect(Object.keys(body)).not.toContain("metadataR2Key");
+    expect(JSON.stringify(body)).not.toContain("discovery/");
+  });
+
+  it("answers 404 for text a document has none of", async () => {
+    const response = await get(
+      `/api/v1/review-sets/${reviewSetId}/documents/${corpus.excepted}/text`,
+    );
+    // A document that could not be read has no text and never will. That is an absence, not a fault.
+    expect(response.status).toBe(404);
+  });
+});
+
 describe("the exception read", () => {
   it("leads with the counts by reason and then lists them", async () => {
     const response = await get(`/api/v1/review-sets/${reviewSetId}/exceptions`);
@@ -351,6 +393,11 @@ describe("a member holding every discovery permission but not on the access list
       `/api/v1/review-sets/${reviewSetId}/exceptions`,
       `/api/v1/review-sets/${reviewSetId}/documents/${corpus.familyParent}/occurrences`,
       `/api/v1/review-sets/${reviewSetId}/index-status`,
+      // The reviewer's own two reads. A document is reachable by its identifier, so these are the
+      // reads most likely to be written without the predicate and most costly if they were: the
+      // address alone would confirm that a corpus exists and that this document is in it.
+      `/api/v1/review-sets/${reviewSetId}/documents/${corpus.familyParent}`,
+      `/api/v1/review-sets/${reviewSetId}/documents/${corpus.familyParent}/text`,
     ]) {
       const response = await get(path, strangerCookie);
       expect(response.status, path).toBe(404);

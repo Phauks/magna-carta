@@ -47,6 +47,7 @@ export type MeResponse = {
         [key: string]: boolean;
     };
     joining?: JoiningState;
+    membership?: Membership;
 };
 
 export type JoiningState = {
@@ -54,6 +55,40 @@ export type JoiningState = {
      * What this person still has to do: choose how they join a firm, or wait while the firm they asked for is built.
      */
     state: 'chooseFirm' | 'firmProvisioning';
+    build?: FirmBuildProgress;
+};
+
+/**
+ * Present only while a firm is being built; how far it has got.
+ */
+export type FirmBuildProgress = {
+    /**
+     * The firm's own record exists.
+     */
+    firmRecord: boolean;
+    /**
+     * Its file storage has been allocated.
+     */
+    fileStorage: boolean;
+    /**
+     * Its encryption key has been minted.
+     */
+    encryptionKey: boolean;
+    /**
+     * The firm is active and its owner is recorded — the last step.
+     */
+    activated: boolean;
+    /**
+     * The build stopped and is no longer being retried. Reported because it is the one state on a waiting screen that will not clear by waiting.
+     */
+    stalled: boolean;
+};
+
+export type Membership = {
+    /**
+     * Whether this account's member record has reached the firm's own database. `provisioning` is a wait, not a permission somebody has to grant; `stalled` is that write having been given up on, which waiting will not fix; `unknown` is a read that did not answer, which is not a verdict about the account.
+     */
+    state: 'active' | 'provisioning' | 'stalled' | 'unknown';
 };
 
 export type MetaVersionsResponse = {
@@ -708,7 +743,7 @@ export type FirmMemberSummary = {
     userId: string;
     displayName: string;
     /**
-     * A deactivated member is still listed: they remain the responsible attorney on matters they carried and the author of what they filed, and dropping the row would print those cells as an unfilled gap rather than as the person who is no longer here.
+     * A deactivated member is still listed: they remain the responsible attorney on matters they carried and the author of what they filed, and dropping the row would print those cells as an unfilled gap rather than as the person who is no longer here. Nothing sets this yet; no route deactivates a member.
      */
     status: 'active' | 'deactivated';
     /**
@@ -1766,6 +1801,28 @@ export type ArchiveEntry = {
     modifiedAt: string | null;
 };
 
+export type ExtractArchiveMembersResponse = {
+    extracted: Array<ExtractedArchiveMember>;
+    refused: Array<RefusedArchiveMember>;
+};
+
+export type ExtractedArchiveMember = {
+    path: string;
+    fileId: string;
+    versionId: string;
+    name: string;
+};
+
+export type RefusedArchiveMember = {
+    path: string;
+    reason: 'archive-missing' | 'directory' | 'not-a-file' | 'encrypted' | 'unsupported-compression' | 'malformed' | 'too-large' | 'expansion-ratio' | 'corrupt' | 'not-in-archive' | 'policy-size' | 'policy-type';
+};
+
+export type ExtractArchiveMembersRequest = {
+    paths: Array<string>;
+    folderId?: string | null;
+};
+
 export type FileHistoryResponse = {
     data: Array<FileHistoryItem>;
     nextCursor: string | null;
@@ -2603,6 +2660,20 @@ export type ConflictsPolicyResponse = {
     balancedNameRoles: Array<string>;
 };
 
+export type ConflictsPolicyRequest = {
+    floorSources?: Array<'party' | 'graph' | 'imputation' | 'content'>;
+    floorStrictness?: 'balanced' | 'over_inclusive';
+    defaultDepth?: number;
+    edgeClassBudgets?: {
+        control?: number;
+        family?: number;
+        representation?: number;
+    };
+    closureCap?: number;
+    candidateCap?: number;
+    balancedNameRoles?: Array<string>;
+};
+
 export type CreatedConflictsRecheckResponse = {
     checkId: string;
 };
@@ -3320,6 +3391,7 @@ export type CommunicationDetail = {
     matterStatus: string | null;
     matterNumber: string | null;
     consultationNumber: string | null;
+    disposition: 'spam' | 'firmBusiness' | 'noAction' | null;
     counterpartyNumber: string;
     counterpartyEntityId: string | null;
     memberUserId: string | null;
@@ -3352,6 +3424,7 @@ export type LogCommunicationRequest = {
     durationSeconds?: number | null;
     body?: string | null;
     summary?: string | null;
+    disposition?: 'spam' | 'firmBusiness' | 'noAction' | null;
 };
 
 export type CommunicationAcknowledged = {
@@ -3360,6 +3433,22 @@ export type CommunicationAcknowledged = {
 
 export type RouteCommunicationRequest = {
     matterId: string;
+};
+
+export type SetCommunicationDispositionRequest = {
+    disposition: 'spam' | 'firmBusiness' | 'noAction';
+};
+
+export type UpdateCommunicationRequest = {
+    channel?: 'voice' | 'sms' | 'mms';
+    direction?: 'inbound' | 'outbound';
+    counterpartyNumber?: string;
+    counterpartyEntityId?: string | null;
+    memberUserId?: string | null;
+    occurredAt?: string;
+    durationSeconds?: number | null;
+    body?: string | null;
+    summary?: string | null;
 };
 
 export type MatterSearchAnswer = {
@@ -4987,6 +5076,44 @@ export type CodingProgress = {
     splitFamilyIds: Array<string>;
 };
 
+export type ReviewDocumentDetail = {
+    id: string;
+    reviewSetId: string;
+    recordCustodianId: string;
+    discoveryLoadId: string;
+    sourceKind: 'file_version' | 'email_message' | 'email_attachment';
+    familyId: string;
+    familyRole: 'standalone' | 'parent' | 'attachment' | 'container-child';
+    familySequence: number;
+    sourceName: string | null;
+    sourcePath: string | null;
+    sizeBytes: number | null;
+    pageCount: number | null;
+    formatIdentified: string | null;
+    sortDate: string | null;
+    sortDateSource: string | null;
+    processingState: 'pending' | 'processing' | 'processed' | 'excepted';
+    processingDeferredReason: string | null;
+    indexState: 'indexed' | 'deferred' | 'failed' | null;
+    isDedupPrimary: boolean;
+    dedupGroupId: string | null;
+    extractionRoute: string | null;
+    pagesRecognized: number | null;
+    contentSha256: string | null;
+    contentMd5: string | null;
+    contentSha1: string | null;
+    textFingerprint: string | null;
+    hasExtractedText: boolean;
+    createdAt: string;
+    exceptions: Array<{
+        id: string;
+        stage: 'load' | 'identify' | 'extract' | 'deduplicate' | 'family' | 'index';
+        code: 'unsupported-format' | 'corrupt' | 'encrypted' | 'password-protected' | 'encrypted-container-entry' | 'container-not-expanded' | 'container-guard-tripped' | 'oversize' | 'extraction-timeout' | 'no-text-extracted' | 'malware-flagged' | 'conversion-failed' | 'recognition-failed' | 'load-file-metadata-mismatch' | 'source-bytes-missing';
+        detail: string | null;
+        createdAt: string;
+    }>;
+};
+
 export type ReviewDocumentPage = {
     data: Array<ReviewDocument>;
     nextCursor: string | null;
@@ -5346,9 +5473,16 @@ export type CostSummary = {
     utbmsExpenseCodeId: string | null;
     description: string;
     status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    invoiceId?: string | null;
     vendorName?: string | null;
+    matterNumber?: string | null;
+    matterTitle?: string | null;
     source: 'manual' | 'grid' | 'recovery';
     recoveryCategory: string | null;
+    createdAt: string;
+    createdByUserId: string | null;
+    createdByName: string | null;
+    kickBackReason: string | null;
 };
 
 export type PatchCostRequest = {
@@ -5368,6 +5502,61 @@ export type CostKickBackRequest = {
 
 export type AttachReceiptRequest = {
     fileId: string;
+};
+
+export type FeeAck = {
+    feeEntryId: string;
+};
+
+export type CreateFeeRequest = {
+    matterId: string;
+    serviceDate: string;
+    timekeeperUserId?: string | null;
+    description: string;
+    amountMinor: number;
+    currency: 'USD';
+    billable: boolean;
+    memo?: string | null;
+};
+
+export type FeeListResponse = {
+    data: Array<FeeSummary>;
+    nextCursor: string | null;
+};
+
+export type FeeSummary = {
+    id: string;
+    matterId: string;
+    serviceDate: string;
+    timekeeperUserId: string | null;
+    timekeeperName: string | null;
+    description: string;
+    amountMinor: number;
+    currency: string;
+    billable: boolean;
+    status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    kickBackReason: string | null;
+    invoiceId: string | null;
+    memo: string | null;
+    createdAt: string;
+    createdByUserId: string | null;
+    createdByName: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
+};
+
+export type PatchFeeRequest = {
+    serviceDate?: string;
+    timekeeperUserId?: string | null;
+    description?: string;
+    amountMinor?: number;
+    currency?: 'USD';
+    billable?: boolean;
+    memo?: string | null;
+};
+
+export type FeeKickBackRequest = {
+    reason: string;
 };
 
 export type TrustMovementAck = {
@@ -6206,7 +6395,7 @@ export type BillingAddClaimsRequest = {
 };
 
 export type BillingClaimRequest = {
-    sourceKind: 'time_entry' | 'cost_entry';
+    sourceKind: 'time_entry' | 'cost_entry' | 'fee_entry';
     sourceId: string;
 };
 
@@ -6330,6 +6519,7 @@ export type BillingInvoiceListResponse = {
 export type BillingInvoiceListItem = {
     id: string;
     clientEntityId: string;
+    clientName: string | null;
     currency: string;
     status: 'draft' | 'final' | 'void';
     invoiceNumber: string | null;
@@ -6339,6 +6529,9 @@ export type BillingInvoiceListItem = {
     appliedMinor: number;
     unpaidMinor: number;
     createdAt: string;
+    matterLinesMinor?: number;
+    matterTotalMinor?: number | null;
+    matterAppliedMinor?: number | null;
 };
 
 export type BillingInvoiceDetailResponse = BillingInvoiceListItem & {
@@ -6347,12 +6540,16 @@ export type BillingInvoiceDetailResponse = BillingInvoiceListItem & {
         id: string;
         lineIndex: number;
         matterId: string;
+        matterNumber: string | null;
+        matterTitle: string | null;
         kind: string;
         description: string;
         amountMinor: number;
     }>;
     matterBalances: Array<{
         matterId: string;
+        matterNumber: string | null;
+        matterTitle: string | null;
         totalMinor: number;
         appliedMinor: number;
         unpaidMinor: number;
@@ -14426,6 +14623,57 @@ export type FilesArchiveEntriesResponses = {
 
 export type FilesArchiveEntriesResponse = FilesArchiveEntriesResponses[keyof FilesArchiveEntriesResponses];
 
+export type FilesExtractArchiveMembersData = {
+    body: ExtractArchiveMembersRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/archive-extractions';
+};
+
+export type FilesExtractArchiveMembersErrors = {
+    /**
+     * The request body is absent or is not JSON
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * No such file in this firm, its stored bytes are gone, or the destination folder is unknown
+     */
+    404: Problem;
+    /**
+     * The file has no committed version yet, so there are no bytes to extract from
+     */
+    409: Problem;
+    /**
+     * The file is not a zip archive, or the request names no paths (or more than the cap)
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesExtractArchiveMembersError = FilesExtractArchiveMembersErrors[keyof FilesExtractArchiveMembersErrors];
+
+export type FilesExtractArchiveMembersResponses = {
+    /**
+     * Accepted: each extracted member's rows and audit were committed and its bytes were written. Every version is pending until the ingest gate commits or quarantines it. Members that could not be taken out are reported in refused, by reason.
+     */
+    202: ExtractArchiveMembersResponse;
+};
+
+export type FilesExtractArchiveMembersResponse = FilesExtractArchiveMembersResponses[keyof FilesExtractArchiveMembersResponses];
+
 export type FilesHistoryData = {
     body?: never;
     path: {
@@ -16982,6 +17230,54 @@ export type ConflictsFirmPolicyResponses = {
 
 export type ConflictsFirmPolicyResponse = ConflictsFirmPolicyResponses[keyof ConflictsFirmPolicyResponses];
 
+export type ConflictsSetFirmPolicyData = {
+    body: ConflictsPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/conflicts-policy';
+};
+
+export type ConflictsSetFirmPolicyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsSetFirmPolicyError = ConflictsSetFirmPolicyErrors[keyof ConflictsSetFirmPolicyErrors];
+
+export type ConflictsSetFirmPolicyResponses = {
+    /**
+     * The firm's conflicts policy as stored, after normalization
+     */
+    200: ConflictsPolicyResponse;
+};
+
+export type ConflictsSetFirmPolicyResponse = ConflictsSetFirmPolicyResponses[keyof ConflictsSetFirmPolicyResponses];
+
 export type ConflictsRecheckMatterData = {
     body?: never;
     headers: {
@@ -19471,7 +19767,7 @@ export type CommunicationsListData = {
     path?: never;
     query?: {
         cursor?: string;
-        scope?: 'all' | 'routed' | 'unrouted';
+        scope?: 'all' | 'routed' | 'unrouted' | 'setAside';
         channel?: 'voice' | 'sms' | 'mms';
         search?: string;
     };
@@ -19679,6 +19975,60 @@ export type CommunicationsGetResponses = {
 
 export type CommunicationsGetResponse = CommunicationsGetResponses[keyof CommunicationsGetResponses];
 
+export type CommunicationsUpdateData = {
+    body: UpdateCommunicationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        communicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/communications/{communicationId}';
+};
+
+export type CommunicationsUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsUpdateError = CommunicationsUpdateErrors[keyof CommunicationsUpdateErrors];
+
+export type CommunicationsUpdateResponses = {
+    /**
+     * Corrected
+     */
+    200: CommunicationAcknowledged;
+};
+
+export type CommunicationsUpdateResponse = CommunicationsUpdateResponses[keyof CommunicationsUpdateResponses];
+
 export type CommunicationsUnrouteFromMatterData = {
     body?: never;
     headers: {
@@ -19786,6 +20136,114 @@ export type CommunicationsRouteToMatterResponses = {
 };
 
 export type CommunicationsRouteToMatterResponse = CommunicationsRouteToMatterResponses[keyof CommunicationsRouteToMatterResponses];
+
+export type CommunicationsClearDispositionData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        communicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/communications/{communicationId}/disposition';
+};
+
+export type CommunicationsClearDispositionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsClearDispositionError = CommunicationsClearDispositionErrors[keyof CommunicationsClearDispositionErrors];
+
+export type CommunicationsClearDispositionResponses = {
+    /**
+     * Back in the queue
+     */
+    200: CommunicationAcknowledged;
+};
+
+export type CommunicationsClearDispositionResponse = CommunicationsClearDispositionResponses[keyof CommunicationsClearDispositionResponses];
+
+export type CommunicationsSetDispositionData = {
+    body: SetCommunicationDispositionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        communicationId: string;
+    };
+    query?: never;
+    url: '/api/v1/communications/{communicationId}/disposition';
+};
+
+export type CommunicationsSetDispositionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the row is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type CommunicationsSetDispositionError = CommunicationsSetDispositionErrors[keyof CommunicationsSetDispositionErrors];
+
+export type CommunicationsSetDispositionResponses = {
+    /**
+     * Set aside
+     */
+    200: CommunicationAcknowledged;
+};
+
+export type CommunicationsSetDispositionResponse = CommunicationsSetDispositionResponses[keyof CommunicationsSetDispositionResponses];
 
 export type MatterSearchSearchData = {
     body?: never;
@@ -25827,6 +26285,94 @@ export type DiscoveryGetCodingProgressResponses = {
 
 export type DiscoveryGetCodingProgressResponse = DiscoveryGetCodingProgressResponses[keyof DiscoveryGetCodingProgressResponses];
 
+export type DiscoveryGetReviewDocumentData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+        reviewDocumentId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}';
+};
+
+export type DiscoveryGetReviewDocumentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or there is no such review set the member may reach
+     */
+    404: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetReviewDocumentError = DiscoveryGetReviewDocumentErrors[keyof DiscoveryGetReviewDocumentErrors];
+
+export type DiscoveryGetReviewDocumentResponses = {
+    /**
+     * The document
+     */
+    200: ReviewDocumentDetail;
+};
+
+export type DiscoveryGetReviewDocumentResponse = DiscoveryGetReviewDocumentResponses[keyof DiscoveryGetReviewDocumentResponses];
+
+export type DiscoveryGetReviewDocumentTextData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+        reviewDocumentId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/text';
+};
+
+export type DiscoveryGetReviewDocumentTextErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or there is no such review set the member may reach
+     */
+    404: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetReviewDocumentTextError = DiscoveryGetReviewDocumentTextErrors[keyof DiscoveryGetReviewDocumentTextErrors];
+
+export type DiscoveryGetReviewDocumentTextResponses = {
+    /**
+     * The extracted text
+     */
+    200: string;
+};
+
+export type DiscoveryGetReviewDocumentTextResponse = DiscoveryGetReviewDocumentTextResponses[keyof DiscoveryGetReviewDocumentTextResponses];
+
 export type DiscoveryListReviewDocumentsData = {
     body?: never;
     path: {
@@ -26018,6 +26564,100 @@ export type DiscoveryGetReviewSetIndexStatusResponses = {
 };
 
 export type DiscoveryGetReviewSetIndexStatusResponse = DiscoveryGetReviewSetIndexStatusResponses[keyof DiscoveryGetReviewSetIndexStatusResponses];
+
+export type DiscoveryListAllReviewSetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/review-sets';
+};
+
+export type DiscoveryListAllReviewSetsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryListAllReviewSetsError = DiscoveryListAllReviewSetsErrors[keyof DiscoveryListAllReviewSetsErrors];
+
+export type DiscoveryListAllReviewSetsResponses = {
+    /**
+     * One page of the member's review sets
+     */
+    200: ReviewSetList;
+};
+
+export type DiscoveryListAllReviewSetsResponse = DiscoveryListAllReviewSetsResponses[keyof DiscoveryListAllReviewSetsResponses];
+
+export type DiscoveryDownloadLoadArtifactData = {
+    body?: never;
+    path: {
+        loadId: string;
+        /**
+         * Which of the load's two records to hand over.
+         */
+        artifact: 'manifest' | 'exception-report';
+    };
+    query?: {
+        /**
+         * The machine-readable form (default) or the printable one a person reads with no tooling.
+         */
+        format?: 'json' | 'text';
+    };
+    url: '/api/v1/loads/{loadId}/artifacts/{artifact}';
+};
+
+export type DiscoveryDownloadLoadArtifactErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryDownloadLoadArtifactError = DiscoveryDownloadLoadArtifactErrors[keyof DiscoveryDownloadLoadArtifactErrors];
 
 export type DiscoveryListReviewSetsData = {
     body?: never;
@@ -27688,6 +28328,18 @@ export type CostsListData = {
         cursor?: string;
         matterId?: string;
         /**
+         * The first incurred date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — the question the firm's cost record is asked at the end of a month, and the one a per-matter listing cannot answer without walking every matter first.
+         */
+        from?: string;
+        /**
+         * The last incurred date of a period listing, inclusive. Required alongside `from`.
+         */
+        to?: string;
+        /**
+         * Narrows a period listing to the costs that are billable, or to those that are not. Omitted, it answers with both.
+         */
+        billable?: 'true' | 'false';
+        /**
          * Narrows the listing to one status. Omitted, it answers with every status the matter carries, which is what a matter's cost record is.
          */
         status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
@@ -27708,6 +28360,10 @@ export type CostsListErrors = {
      * The firm is unreachable, the member is deactivated, or the cost entry is unknown
      */
     404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
     /**
      * Rate limit exceeded
      */
@@ -28193,6 +28849,482 @@ export type CostsAttachReceiptResponses = {
 };
 
 export type CostsAttachReceiptResponse = CostsAttachReceiptResponses[keyof CostsAttachReceiptResponses];
+
+export type FeesListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        matterId?: string;
+        /**
+         * The first service date of a period listing, inclusive. Given with `to`, the listing answers a span of days across every matter — what the firm charged for work done in a period, which a per-matter listing cannot answer without walking every matter first.
+         */
+        from?: string;
+        /**
+         * The last service date of a period listing, inclusive. Required alongside `from`.
+         */
+        to?: string;
+        /**
+         * Narrows a listing to the fees that are billable, or to those that are not. Omitted, it answers with both.
+         */
+        billable?: 'true' | 'false';
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    };
+    url: '/api/v1/fees';
+};
+
+export type FeesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesListError = FeesListErrors[keyof FeesListErrors];
+
+export type FeesListResponses = {
+    /**
+     * One page of fee entries
+     */
+    200: FeeListResponse;
+};
+
+export type FeesListResponse = FeesListResponses[keyof FeesListResponses];
+
+export type FeesCreateData = {
+    body: CreateFeeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/fees';
+};
+
+export type FeesCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesCreateError = FeesCreateErrors[keyof FeesCreateErrors];
+
+export type FeesCreateResponses = {
+    /**
+     * The fee entry was recorded
+     */
+    201: FeeAck;
+};
+
+export type FeesCreateResponse = FeesCreateResponses[keyof FeesCreateResponses];
+
+export type FeesDeleteDraftData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}';
+};
+
+export type FeesDeleteDraftErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesDeleteDraftError = FeesDeleteDraftErrors[keyof FeesDeleteDraftErrors];
+
+export type FeesDeleteDraftResponses = {
+    /**
+     * The draft was deleted
+     */
+    200: FeeAck;
+};
+
+export type FeesDeleteDraftResponse = FeesDeleteDraftResponses[keyof FeesDeleteDraftResponses];
+
+export type FeesGetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}';
+};
+
+export type FeesGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesGetError = FeesGetErrors[keyof FeesGetErrors];
+
+export type FeesGetResponses = {
+    /**
+     * The fee entry
+     */
+    200: FeeSummary;
+};
+
+export type FeesGetResponse = FeesGetResponses[keyof FeesGetResponses];
+
+export type FeesUpdateData = {
+    body: PatchFeeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}';
+};
+
+export type FeesUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesUpdateError = FeesUpdateErrors[keyof FeesUpdateErrors];
+
+export type FeesUpdateResponses = {
+    /**
+     * The fee entry was updated
+     */
+    200: FeeAck;
+};
+
+export type FeesUpdateResponse = FeesUpdateResponses[keyof FeesUpdateResponses];
+
+export type FeesSubmitData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}/submit';
+};
+
+export type FeesSubmitErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesSubmitError = FeesSubmitErrors[keyof FeesSubmitErrors];
+
+export type FeesSubmitResponses = {
+    /**
+     * The transition was applied
+     */
+    200: FeeAck;
+};
+
+export type FeesSubmitResponse = FeesSubmitResponses[keyof FeesSubmitResponses];
+
+export type FeesApproveData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}/approve';
+};
+
+export type FeesApproveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesApproveError = FeesApproveErrors[keyof FeesApproveErrors];
+
+export type FeesApproveResponses = {
+    /**
+     * The transition was applied
+     */
+    200: FeeAck;
+};
+
+export type FeesApproveResponse = FeesApproveResponses[keyof FeesApproveResponses];
+
+export type FeesVoidData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}/void';
+};
+
+export type FeesVoidErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesVoidError = FeesVoidErrors[keyof FeesVoidErrors];
+
+export type FeesVoidResponses = {
+    /**
+     * The transition was applied
+     */
+    200: FeeAck;
+};
+
+export type FeesVoidResponse = FeesVoidResponses[keyof FeesVoidResponses];
+
+export type FeesKickBackData = {
+    body: FeeKickBackRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/fees/{id}/kick-back';
+};
+
+export type FeesKickBackErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the fee entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), the entry is not a draft, or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, the period's first date is after its last, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FeesKickBackError = FeesKickBackErrors[keyof FeesKickBackErrors];
+
+export type FeesKickBackResponses = {
+    /**
+     * The transition was applied
+     */
+    200: FeeAck;
+};
+
+export type FeesKickBackResponse = FeesKickBackResponses[keyof FeesKickBackResponses];
 
 export type TrustDepositData = {
     body: TrustDepositRequest;
@@ -29814,6 +30946,10 @@ export type BillingListInvoicesData = {
     path?: never;
     query?: {
         clientEntityId?: string;
+        /**
+         * Narrows to the bills that charge this matter, drafts included, and adds that matter's own share to every row. Without it the listing answers for the whole firm, or for one client when clientEntityId is given.
+         */
+        matterId?: string;
         status?: 'draft' | 'final' | 'void';
         cursor?: string;
     };

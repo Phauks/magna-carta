@@ -18,11 +18,27 @@
    *
    * THE WAIT IS POLLED FROM THE SERVER, never remembered here. The bootstrap says whether a firm is
    * building, so closing the tab and coming back lands wherever the work actually got to.
+   *
+   * AND THE WAIT RUNS ONE STEP PAST THE FIRM EXISTING. A firm becomes active in the control plane
+   * before the member record mirroring its owner into the firm's OWN database has landed, and this
+   * screen used to go in the moment the firm appeared — straight into a workspace where every screen
+   * that checks a permission refuses, because there is nobody to check it against. So "ready" here
+   * means the firm exists AND this account can use it, which is what the bootstrap's membership
+   * state reports.
    */
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
+  import {
+    FIRM_BUILD_UNREPORTED,
+    firmBuildComplete,
+    firmBuildStalled,
+    firmBuildSteps,
+    firmBuiltReading,
+    type FirmBuildReading,
+    type JoinKind,
+  } from "$lib/auth/firm-build-progress.ts";
   import {
     foundFirm,
     readBootstrap,
@@ -58,7 +74,7 @@
   // reactive read that only looks like an oversight.
   let step = $state<"choose" | "firm" | "building" | "redeem">(
     untrack(() =>
-      data.bootstrap?.joining?.state === "firmProvisioning"
+      buildUnderWay(data.bootstrap)
         ? "building"
         : pendingInvitationCode() !== null
           ? "redeem"
@@ -66,7 +82,88 @@
     ),
   );
 
+  /*
+   * Whether this bootstrap describes a workspace still being made. TWO SHAPES, one question: a firm
+   * that does not exist yet reports it as a joining state, and a firm that exists but has not
+   * finished admitting its owner reports it as a membership state. The second is invisible from the
+   * first — the account HAS a firm by then — and it is the half that let somebody into a workspace
+   * that refused them everything. An `unknown` membership is not counted: a read that did not answer
+   * is not a verdict, and treating it as one would hold a working member on a waiting screen.
+   */
+  function buildUnderWay(bootstrap: Bootstrap | null | undefined): boolean {
+    if (bootstrap === null || bootstrap === undefined) return false;
+    if (bootstrap.firm === null) return bootstrap.joining?.state === "firmProvisioning";
+    const membership = bootstrap.membership?.state;
+    return membership === "provisioning" || membership === "stalled";
+  }
+
+  /**
+   * The build a bootstrap describes, or null when it describes none. A firm that is already active
+   * has every build step behind it by construction — activation is the last of them and commits as
+   * one batch — so only the member record is still an open question there.
+   */
+  function readingFrom(bootstrap: Bootstrap | null | undefined): FirmBuildReading | null {
+    if (bootstrap === null || bootstrap === undefined) return null;
+    if (bootstrap.firm !== null) {
+      const membership = bootstrap.membership?.state;
+      return firmBuiltReading({
+        // An ABSENT membership reads as landed, deliberately: a reply from a deployment older than
+        // the field must not strand every member of every firm on a waiting screen.
+        memberRecord: membership !== "provisioning" && membership !== "stalled",
+        memberRecordStalled: membership === "stalled",
+      });
+    }
+    const build = bootstrap.joining?.build;
+    return build === undefined
+      ? null
+      : { ...build, memberRecord: false, memberRecordStalled: false };
+  }
+
+  /*
+   * WHICH WAIT THIS IS, which decides how many steps there are to show. Somebody founding a firm
+   * watches it being made; somebody redeeming an invitation into a firm that has existed for years
+   * waits on the last step alone, and four ticks against work nobody did today would be filler.
+   *
+   * It is inferred from where the wait STARTED rather than from anything the server says, because
+   * the server cannot tell the two apart once the firm exists: an active firm looks identical
+   * whether it was made a minute ago or in 2019. A bootstrap that arrived with no firm is somebody
+   * watching one being built; a bootstrap that arrived with one is somebody being let into it.
+   */
+  let joinKind = $state<JoinKind>(
+    untrack(() => (data.bootstrap?.firm === null ? "founding" : "joining")),
+  );
+
+  /** How far the build has got, as the last answered poll reported it. */
+  let building = $state<FirmBuildReading>(
+    untrack(() => readingFrom(data.bootstrap) ?? FIRM_BUILD_UNREPORTED),
+  );
+
+  /*
+   * When this browser started waiting, so the screen can admit a wait is running long. Wall-clock
+   * from HERE rather than a fact from the server: somebody who reopened the page an hour later does
+   * not need to be told their own wait has been long. Null until a wait is actually under way.
+   */
+  let waitingSince = $state<number | null>(null);
+  let clock = $state(Date.now());
+
+  /** Longer than a build normally takes. Not a timeout — nothing is abandoned, it is just said. */
+  const SLOW_BUILD_MILLISECONDS = 45_000;
+
+  const buildHasStalled = $derived(firmBuildStalled(building));
+  const buildIsSlow = $derived(
+    waitingSince !== null && !buildHasStalled && clock - waitingSince > SLOW_BUILD_MILLISECONDS,
+  );
+
   let firmName = $state("");
+  /*
+   * The firm's own name once it exists, so somebody who signs in while the last step is still
+   * landing sees what is being finished rather than an unnamed wait. `firmName` above is what THIS
+   * browser typed, and it is empty for a person who founded the firm on another device or in an
+   * earlier session — which is exactly who reaches this screen through the membership wait.
+   */
+  // `untrack` for the same reason `step` above takes it: this is where the screen STARTS, and a
+  // later bootstrap reaches it through the poll rather than by re-reading the load's data.
+  let builtFirmName = $state(untrack(() => data.bootstrap?.firm?.name ?? ""));
   let code = $state(pendingInvitationCode() ?? "");
   let lastName = $state("");
   let dateOfBirth = $state("");
@@ -101,27 +198,51 @@
    * THE POLL, and it only runs while a firm is building. Every four seconds is often enough that
    * the wait feels answered and rare enough that a forgotten tab is not a load profile. It stops
    * the moment the effect is torn down, which includes arriving.
+   *
+   * The same tick advances the clock the "taking longer than usual" line reads, so the screen needs
+   * one timer rather than two — and a wait can only become slow between polls that did not finish
+   * it, which is exactly when this fires.
    */
   $effect(() => {
     if (step !== "building") return;
-    const timer = setInterval(() => void arrivedYet(), 4000);
+    waitingSince ??= Date.now();
+    const timer = setInterval(() => {
+      clock = Date.now();
+      void arrivedYet();
+    }, 4000);
     return () => clearInterval(timer);
   });
 
-  /** Ask the bootstrap whether the firm has arrived, and go in when it has. */
+  /**
+   * Ask the bootstrap where the build has got to, and go in once it is finished.
+   *
+   * FINISHED IS TWO FACTS, NOT ONE. The firm existing is the one this used to read, and it arrives
+   * before the member record that makes the workspace usable — so going in on it alone dropped
+   * somebody into an app where every screen refused. It now waits for both, and shows which of them
+   * it is still waiting on.
+   */
   async function arrivedYet(): Promise<void> {
     if (checking) return;
     checking = true;
     const outcome = await readBootstrap(fetch);
     checking = false;
+    // A poll that did not answer is not news about the build: leave the sequence showing what the
+    // last answered read said rather than resetting it to "nothing has happened yet".
     if (outcome.kind !== "ok") return;
-    if (outcome.value.firm !== null) {
+
+    building = readingFrom(outcome.value) ?? building;
+    builtFirmName = outcome.value.firm?.name ?? builtFirmName;
+    if (firmBuildComplete(building)) {
       await goto("/home");
       return;
     }
     // A build that fell over leaves the server saying "choose" again, and this follows it rather
     // than stranding somebody on a waiting screen for work nothing is doing.
-    if (outcome.value.joining?.state === "chooseFirm") step = "choose";
+    if (outcome.value.firm === null && outcome.value.joining?.state === "chooseFirm") {
+      step = "choose";
+      waitingSince = null;
+      building = FIRM_BUILD_UNREPORTED;
+    }
   }
 
   async function submitFirm(event: SubmitEvent): Promise<void> {
@@ -138,6 +259,10 @@
       return;
     }
     step = "building";
+    joinKind = "founding";
+    building = FIRM_BUILD_UNREPORTED;
+    waitingSince = Date.now();
+    clock = waitingSince;
     // Ask once immediately: a small firm can be built before the first poll would have fired.
     void arrivedYet();
   }
@@ -173,7 +298,17 @@
 
     // Redeemed: the code has done its work and must not survive to be offered again.
     forgetInvitationCode();
-    await goto("/home");
+
+    // AND THE SAME LAST STEP APPLIES HERE. Redemption attaches the account to the firm in the
+    // control plane and queues the member record that every permission resolves through; going
+    // straight to /home would land on the app guard, which would send them back here anyway. So the
+    // wait is entered directly, on its one relevant step.
+    step = "building";
+    joinKind = "joining";
+    building = FIRM_BUILD_UNREPORTED;
+    waitingSince = Date.now();
+    clock = waitingSince;
+    void arrivedYet();
   }
 
   function backToChoice(): void {
@@ -214,7 +349,15 @@
       back={backToChoice}
     />
   {:else if step === "building"}
-    <FirmBuildingScreen firmName={firmName.trim()} {checking} onCheckAgain={() => void arrivedYet()} />
+    <FirmBuildingScreen
+      firmName={firmName.trim() === "" ? builtFirmName : firmName.trim()}
+      kind={joinKind}
+      steps={firmBuildSteps(building, joinKind)}
+      slow={buildIsSlow}
+      stalled={buildHasStalled}
+      {checking}
+      onCheckAgain={() => void arrivedYet()}
+    />
   {:else}
     <RedeemInvitationScreen
       bind:code

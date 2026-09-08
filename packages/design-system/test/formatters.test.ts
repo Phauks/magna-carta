@@ -9,8 +9,15 @@
  * agrees with itself.
  */
 import { describe, expect, it } from "vitest";
+import { formatDate, formatDateRange, formatMonth } from "../src/lib/formatters/civil-date.ts";
 import { formatClock, formatDuration } from "../src/lib/formatters/duration.ts";
-import { formatInstant, instantAttribute, readInstant } from "../src/lib/formatters/instant.ts";
+import {
+  formatInstant,
+  formatInstantDate,
+  formatTimeOfDay,
+  instantAttribute,
+  readInstant,
+} from "../src/lib/formatters/instant.ts";
 import { personName, UNRECORDED_PERSON } from "../src/lib/formatters/person-name.ts";
 import { placeholderOf, readsAsFieldName } from "../src/lib/formatters/placeholder.ts";
 import { formatVersion } from "../src/lib/formatters/version.ts";
@@ -158,6 +165,96 @@ describe("formatInstant", () => {
   it("reads an instant into a Date, and refuses what is not one", () => {
     expect(readInstant(INSTANT)?.toISOString()).toEqual(INSTANT);
     expect(readInstant("recorded on a Tuesday")).toBeNull();
+  });
+});
+
+describe("the civil-date formatters", () => {
+  // The day the firm wrote down. Every assertion pins the locale, so the test is not just checking
+  // that the machine running it agrees with itself.
+  const DAY = "2026-09-08";
+
+  it("names a calendar day and never moves it, whatever zone the reader is in", () => {
+    expect(formatDate(DAY, { locale: "en-US" })).toBe("Sep 8, 2026");
+  });
+
+  it("keeps the day it was given even at the ends of the day", () => {
+    // The whole reason this file formats in UTC: a day pinned anywhere else reads as the 7th to
+    // half the offices and the 8th to the other half.
+    expect(formatDate("2026-09-08", { locale: "en-US" })).toContain("8");
+    expect(formatDate("2026-01-01", { locale: "en-US" })).toBe("Jan 1, 2026");
+  });
+
+  it("writes a span with only what differs between its ends", () => {
+    // Within a month the month is said once; across a year both years show.
+    const withinMonth = formatDateRange("2026-09-02", "2026-09-15", { locale: "en-US" });
+    expect(withinMonth).toContain("Sep");
+    expect(withinMonth).toContain("2");
+    expect(withinMonth).toContain("15");
+    expect(withinMonth.match(/Sep/g)).toHaveLength(1);
+
+    const acrossYear = formatDateRange("2026-12-28", "2027-01-03", { locale: "en-US" });
+    expect(acrossYear).toContain("2026");
+    expect(acrossYear).toContain("2027");
+  });
+
+  it("names a month in full with its year", () => {
+    expect(formatMonth(DAY, { locale: "en-US" })).toBe("September 2026");
+  });
+});
+
+describe("the two halves of an instant", () => {
+  const INSTANT = "2026-08-14T20:05:00.000Z";
+
+  it("gives the date half in the reader's own zone, at three lengths", () => {
+    const options = { locale: "en-US", timeZone: "UTC" };
+    expect(formatInstantDate(INSTANT, options)).toBe("Aug 14, 2026");
+    expect(formatInstantDate(INSTANT, { ...options, length: "long" })).toBe("August 14, 2026");
+    expect(formatInstantDate(INSTANT, { ...options, length: "full" })).toBe(
+      "Friday, August 14, 2026",
+    );
+  });
+
+  it("is not formatDate: it says which day the moment fell on WHERE THE READER IS", () => {
+    // Half an hour past midnight UTC is still the previous evening on the west coast. formatDate
+    // pins a recorded day; this one follows the reader, and the two differ by a day.
+    const justAfterMidnight = "2026-08-15T00:30:00.000Z";
+    expect(formatInstantDate(justAfterMidnight, { locale: "en-US", timeZone: "UTC" })).toContain(
+      "15",
+    );
+    expect(
+      formatInstantDate(justAfterMidnight, { locale: "en-US", timeZone: "America/Los_Angeles" }),
+    ).toContain("14");
+  });
+
+  it("gives the clock half, to the minute, and to the second when asked", () => {
+    const options = { locale: "en-US", timeZone: "UTC" };
+    expect(formatTimeOfDay(INSTANT, options)).toMatch(/8:05|20:05/);
+    expect(formatTimeOfDay(INSTANT, options)).not.toContain(":00 ");
+    expect(formatTimeOfDay(INSTANT, { ...options, precision: "second" })).toMatch(
+      /8:05:00|20:05:00/,
+    );
+  });
+
+  it("names the zone on a stamp that leaves this machine", () => {
+    // An export is read by somebody whose clock is not the reader's; a bare time of day on it is
+    // not a time to them.
+    const stamped = formatTimeOfDay(INSTANT, {
+      locale: "en-US",
+      timeZone: "America/Los_Angeles",
+      zoneName: true,
+    });
+    expect(stamped).toMatch(/PDT|GMT-7/);
+  });
+
+  it("shows an unreadable value as what it actually says, like formatInstant does", () => {
+    expect(formatInstantDate("recorded on a Tuesday")).toBe("recorded on a Tuesday");
+    expect(formatTimeOfDay("recorded on a Tuesday")).toBe("recorded on a Tuesday");
+  });
+
+  it("never renders elapsed time", () => {
+    const text = formatInstantDate(new Date(), { locale: "en-US" });
+    expect(text).not.toMatch(/just now|ago|moments/i);
+    expect(text).toMatch(/\d{4}/);
   });
 });
 

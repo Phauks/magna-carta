@@ -1,7 +1,7 @@
 ---
 slice: The settings surface, wired — every stubbed section given the server behind it, from firm members and their rights through to how the firm measures the time it bills
 group: cross-cutting
-order: 41
+order: 42
 research: n/a
 spec: done
 plan: done

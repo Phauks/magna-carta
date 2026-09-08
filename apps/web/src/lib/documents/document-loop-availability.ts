@@ -70,6 +70,13 @@ export const DOCUMENT_LOOP_STEPS: readonly LoopStep[] = [
       "Opening a text document from the file manager reads its current version into an editor in a new tab; saving puts the text back through the upload ceremony as the next version.",
   },
   {
+    id: "read-pdf",
+    label: "Read a PDF in the browser",
+    reach: "live",
+    behaviour:
+      "Opening a portable document from the file manager draws its pages in a new tab, rasterized locally by the firm's own engine running in a Web Worker; only pixels reach the page, so it needs no rendition service and works wherever the application does.",
+  },
+  {
     id: "save-version",
     label: "Save a new version",
     reach: "live",

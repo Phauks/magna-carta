@@ -4,6 +4,7 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   CostEntryId,
+  FeeEntryId,
   LedgerAccountId,
   LocationId,
   MatterId,
@@ -281,6 +282,37 @@ export async function seedCostEntry(
       entryOptions.amountMinor ?? 12_500,
       entryOptions.disbursementClass ?? "hard",
       entryOptions.description ?? "Filing fee",
+      entryOptions.status ?? "draft",
+      clock.now(),
+    )
+    .run();
+  return id;
+}
+
+export interface SeedFeeEntryOptions {
+  readonly amountMinor?: number;
+  readonly description?: string;
+  readonly status?: string;
+  readonly billable?: number;
+}
+
+export async function seedFeeEntry(
+  fixture: BillingFixture,
+  matterId: MatterId,
+  entryOptions: SeedFeeEntryOptions = {},
+): Promise<FeeEntryId> {
+  const id = newIdentifier("feeEntry") as FeeEntryId;
+  await fixture.database
+    .prepare(
+      `INSERT INTO fee_entry (id, matter_id, service_date, amount_minor, currency, billable, description, status, created_at, updated_at)
+       VALUES (?1, ?2, '2026-08-01', ?3, 'USD', ?4, ?5, ?6, ?7, ?7)`,
+    )
+    .bind(
+      id,
+      matterId,
+      entryOptions.amountMinor ?? 75_000,
+      entryOptions.billable ?? 1,
+      entryOptions.description ?? "Settlement agreement, drafting",
       entryOptions.status ?? "draft",
       clock.now(),
     )

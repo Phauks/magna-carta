@@ -101,6 +101,11 @@ export function grantReviewSetAccess(
 // Revoking the last member is refused. An access list that can reach empty is a corpus that can
 // become unreachable by everybody, including whoever would fix it — and because the list is
 // fail-closed, "unreachable" is permanent short of a migration.
+//
+// The count is of members who can ACT, not of rows: a deactivated member keeps their row and is
+// absent to every read, so counting rows would let this guard wave through the removal of the last
+// person who could actually open the corpus. The other half of that hole is on the deactivation
+// path, which must run readReviewSetsHeldOnlyBy before it deactivates anybody.
 export async function revokeReviewSetAccess(
   database: SqlDatabase,
   input: { reviewSetId: ReviewSetId; memberUserId: UserId },
@@ -110,9 +115,9 @@ export async function revokeReviewSetAccess(
   if (memberCount <= 1) {
     throw new DiscoveryValidationError(
       "discovery-access-list-would-be-empty",
-      "this is the last member on the review set's access list, and the list is fail-closed — " +
-        "removing them would leave a corpus nobody can reach. Add the member who should hold it " +
-        "first, then remove this one.",
+      "this is the last member of the firm who can still open this review set, and the list is " +
+        "fail-closed — removing them would leave a corpus nobody can reach. Add the member who " +
+        "should hold it first, then remove this one.",
     );
   }
   return {

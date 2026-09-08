@@ -62,17 +62,24 @@ export function draftTotalMinor(detail: InvoiceDetail | null): number {
 /**
  * This matter's share of the bill, or null where the bill charges nothing at all.
  *
- * A draft's share is computed from the lines it carries; a finalized bill's is its per-matter
- * balance. A voided draft has no share, because it never charged anybody anything.
+ * A draft's share is the lines it carries; a finalized bill's is its per-matter balance. A voided
+ * draft has no share, because it never charged anybody anything.
+ *
+ * THE LISTING ROW ANSWERS FIRST, AND THE DETAIL IS THE FALLBACK. A listing narrowed to a matter
+ * carries that matter's own figures on every row, so the column is right the moment the list lands
+ * rather than after each bill's detail has been read. A row read in a scope that named no matter —
+ * the firm's own register — has no such figures, and there the detail answers as it always did.
  */
 export function matterShareMinor(row: InvoiceRow, matterId: string): number | null {
   if (row.summary.status === "void") return null;
   if (row.summary.status === "draft") {
+    if (row.summary.matterLinesMinor !== undefined) return row.summary.matterLinesMinor;
     if (row.detail === null) return null;
     return row.detail.lines
       .filter((line) => line.matterId === matterId)
       .reduce((total, line) => total + line.amountMinor, 0);
   }
+  if (row.summary.matterTotalMinor !== undefined) return row.summary.matterTotalMinor;
   const balance = row.detail?.matterBalances.find((entry) => entry.matterId === matterId);
   return balance === undefined ? null : balance.totalMinor;
 }
@@ -82,9 +89,16 @@ export function matterShareMinor(row: InvoiceRow, matterId: string): number | nu
  *
  * A draft owes nothing yet — balances are created at finalization — and a voided draft never owed
  * anything. Both answer null rather than zero, because a zero would read as "settled".
+ *
+ * The listing row answers first, on the same terms as the share above.
  */
 export function matterUnpaidMinor(row: InvoiceRow, matterId: string): number | null {
   if (row.summary.status !== "final") return null;
+  const total = row.summary.matterTotalMinor;
+  const applied = row.summary.matterAppliedMinor;
+  if (total !== undefined && applied !== undefined) {
+    return total === null || applied === null ? null : total - applied;
+  }
   const balance = row.detail?.matterBalances.find((entry) => entry.matterId === matterId);
   return balance === undefined ? null : balance.unpaidMinor;
 }

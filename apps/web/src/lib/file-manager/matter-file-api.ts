@@ -100,6 +100,55 @@ export interface DeletedFileSummary {
   sniffedContentType: string | null;
 }
 
+/** Why one member could not be taken out of an archive. Each is a fact about that member. */
+export type ExtractionRefusalReason =
+  | "archive-missing"
+  | "directory"
+  | "not-a-file"
+  | "encrypted"
+  | "unsupported-compression"
+  | "malformed"
+  | "too-large"
+  | "expansion-ratio"
+  | "corrupt"
+  | "policy-size"
+  | "policy-type"
+  | "not-in-archive";
+
+export interface ArchiveExtraction {
+  /** The members that became files on the matter. */
+  readonly extracted: readonly {
+    readonly path: string;
+    readonly fileId: string;
+    readonly versionId: string;
+    readonly name: string;
+  }[];
+  /** The members that did not, each with the reason it did not. */
+  readonly refused: readonly { readonly path: string; readonly reason: ExtractionRefusalReason }[];
+}
+
+/**
+ * Take named members out of an archive and file them on the matter.
+ *
+ * PARTIAL SUCCESS IS THE ORDINARY CASE, which is why the answer carries two lists rather than a
+ * status: one encrypted member among ten does not stop the other nine, and a caller that collapsed
+ * this into success-or-failure would have to lie about one of them. Every member that comes out
+ * goes through the same scan gate an upload does, so an extraction is not a way around the checks.
+ */
+export function extractArchiveMembers(
+  fetchImpl: typeof fetch,
+  fileId: string,
+  paths: readonly string[],
+  folderId: string | null,
+  idempotencyKey: string,
+): Promise<ApiOutcome<ArchiveExtraction>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/archive-extractions`, {
+    method: "POST",
+    body: { paths: [...paths], folderId },
+    idempotencyKey,
+  });
+}
+
 /** The matter's soft-deleted files, newest deletion first. */
 export function listDeletedFiles(
   fetchImpl: typeof fetch,

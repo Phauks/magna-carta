@@ -148,6 +148,7 @@ export default defineConfig({
       "tooling/lint-back-navigation/vitest.config.ts",
       "tooling/lint-cache-keys/vitest.config.ts",
       "tooling/lint-conflicts-vocabulary/vitest.config.ts",
+      "tooling/lint-date-handling/vitest.config.ts",
       "tooling/lint-ledger-staleness/vitest.config.ts",
       "tooling/lint-list-pagination/vitest.config.ts",
       "tooling/lint-one-ui/vitest.config.ts",
@@ -176,10 +177,24 @@ export default defineConfig({
       // it does NOT build the standalone sibling workers (scan/bundle/convert/edit). Those are separate
       // deployables with their own Workers Builds; building their container images here is both wasteful
       // and fragile (e.g. the scan image's YARA Forge download is rate-limited, which would fail the app
-      // deploy on an unrelated worker). `dependsOn` forces the wasm + the SPA before the worker's build.
+      // deploy on an unrelated worker).
+      //
+      // The ORDER is carried by the command chain, not by `dependsOn`: entries in a `dependsOn` list
+      // are siblings and run in PARALLEL, so naming the wasm build beside the SPA build ordered
+      // neither against the other. That was invisible while the SPA imported no wasm, and became a
+      // hard deploy failure the moment it did — the SPA bundles @magna-carta/pdf (the in-browser PDF
+      // reader), whose `./pkg/pdf_core.js` is git-ignored and produced by `rust-wasm-build`, so the
+      // SPA bundle raced a Docker image pull it could only lose (UNRESOLVED_IMPORT, deploy red).
+      // A nested `vp run` inside a command is inlined as its own task rather than a child process
+      // (viteplus.dev/guide/run — Nested `vp run`), so the chain below is a real serial edge in the
+      // graph and each step keeps its own cache entry: wasm, then the SPA that bundles it, then the
+      // worker that serves apps/web/build.
       "build-all": {
-        command: 'vp run --filter "@magna-carta/api-worker" build',
-        dependsOn: ["@magna-carta/web#build", "rust-wasm-build"],
+        command: [
+          'vp run --filter "@magna-carta/web" build',
+          'vp run --filter "@magna-carta/api-worker" build',
+        ],
+        dependsOn: ["rust-wasm-build"],
       },
       // Rust quality gate: fmt + clippy + unit tests for the crates/ workspace.
       // Run via `vp run rust-check`; also wired into the root `check` script so `pnpm check` covers Rust.
@@ -204,26 +219,56 @@ export default defineConfig({
       "typecheck-refs": {
         command: "node tooling/tsconfig-refs/index.mjs",
       },
-      // Build the WASM artefacts the app-worker build consumes — pdf-core into packages/pdf/src/pkg
-      // and decryption-core into packages/decryption/src/pkg — EACH IN A PINNED RUST DOCKER IMAGE
+      // Build the three WASM artefacts the deploy consumes — pdf-core into packages/pdf/src/pkg,
+      // decryption-core into packages/decryption/src/pkg, email-core into packages/email/src/pkg —
+      // EACH IN A PINNED RUST DOCKER IMAGE
       // (crates/<crate>/wasm.Dockerfile, mirroring containers/scan/Dockerfile), never on the host
       // toolchain. This is the one canonical wasm build, invoked identically in local builds and in
       // Cloudflare Workers Builds: the build environment needs only Docker (which the Workers Builds
       // runner provides — the same way the scan/bundle/convert container images build), never Rust or
       // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
-      // each host package dir (the import paths packages/{pdf,decryption}/src expect). Both are built
-      // because build-all bundles both consumers: the SPA imports pdf-core, and apps/api-worker imports
-      // decryption-core (the decryption/recovery routes' strip_with_key/extract_hash/verify_guess) —
-      // omitting either makes the worker or SPA bundle fail with ENOENT on the missing .wasm. Build
+      // each host package dir (the import paths packages/{pdf,decryption,email,seven-zip}/src
+      // expect). All four are built because build-all bundles all of the consumers: the SPA imports
+      // pdf-core (the in-browser PDF reader), and apps/api-worker imports pdf-core, decryption-core
+      // (the decryption/recovery routes' strip_with_key/extract_hash/verify_guess), email-core and
+      // seven-zip-core (the archive browse route's 7z reader) — omitting any makes the worker
+      // or SPA bundle fail with ENOENT on the missing .wasm. Build
       // context is crates/. Like the container workers, this requires Docker available locally.
       // --network=host: the Workers Builds runner's Docker isolates RUN-step networking (image pulls
       // work, but RUN-step DNS fails), so the rustup/cargo downloads need the host network — which the
       // bare runner has (it clones the repo + runs pnpm install). Harmless locally.
+      //
+      // Each crate also has its OWN task, because a Worker that imports one of them should not pay to
+      // compile the others: `magna-carta-web` (the interface Worker, and so the build that runs most
+      // often) needs pdf-core alone, and its build script asks for exactly that. The composite below is
+      // still what the app-worker deploy and CI's wasm job (.github/workflows/gate.yml) ask for, and it
+      // is a chain of nested `vp run`s so each crate keeps its own cache entry rather than one
+      // all-or-nothing entry.
       "rust-wasm-build": {
-        command:
-          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/decryption/src/pkg -f crates/decryption-core/wasm.Dockerfile crates && docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
+        command: [
+          "vp run rust-wasm-build-pdf",
+          "vp run rust-wasm-build-decryption",
+          "vp run rust-wasm-build-email",
+          "vp run rust-wasm-build-seven-zip",
+        ],
       },
-      // DEV-ONLY, Docker-free fallback for the same three wasm artefacts, built with the host Rust
+      "rust-wasm-build-pdf": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates",
+      },
+      "rust-wasm-build-decryption": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/decryption/src/pkg -f crates/decryption-core/wasm.Dockerfile crates",
+      },
+      "rust-wasm-build-email": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
+      },
+      "rust-wasm-build-seven-zip": {
+        command:
+          "docker build --network=host --output type=local,dest=packages/seven-zip/src/pkg -f crates/seven-zip-core/wasm.Dockerfile crates",
+      },
+      // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that
       // cannot pull the base image (e.g. a cloud session whose egress policy blocks Docker Hub /
       // ghcr blob pulls). It is NOT authoritative — the host rustc may emit different wasm bytes
@@ -234,6 +279,10 @@ export default defineConfig({
       },
       // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
       // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.
+      // Neither builds the wasm both bundles need: these are the LOCAL tasks, and locally the artefacts
+      // come from `vp run bootstrap` (host wasm-pack, no Docker), which a worktree runs once. Adding the
+      // Docker build here would put a container pull in front of every local run. `build-all` is the
+      // path that builds it, because a deploy has no worktree to have bootstrapped.
       "worker-build": {
         command: 'vp run --filter "@magna-carta/api-worker" build',
         dependsOn: ["@magna-carta/web#build"],

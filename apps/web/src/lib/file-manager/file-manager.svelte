@@ -95,6 +95,11 @@
     archivePathSegments,
     type ArchiveRow,
   } from "./archive-browse.ts";
+  import {
+    looksLikeBrowsableArchive,
+    nameSuggestsExtractableArchive,
+  } from "./archive-names.ts";
+  import { extractionSentence, runExtraction } from "./archive-extraction.ts";
   import { uploadIntoFolder } from "./file-upload.ts";
   import { matterUploadRevision, startUploadBatch } from "./upload-queue.svelte.ts";
   import {
@@ -470,9 +475,12 @@
       manager.openFolder(row.folder.id);
       return;
     }
-    // A zip with bytes opens INTO itself: what somebody wants from an archive is what is in it,
-    // and the central directory answers that without extracting anything.
-    if (isZip(row.file.name, row.file.sniffedContentType) && row.file.currentVersionId !== null) {
+    // An archive with bytes opens INTO itself: what somebody wants from one is what is in it, and
+    // every format this reads answers that from its header alone, without unpacking anything.
+    if (
+      looksLikeBrowsableArchive(row.file.name, row.file.sniffedContentType) &&
+      row.file.currentVersionId !== null
+    ) {
       enterArchive({
         fileId: row.file.id,
         fileName: row.file.name,
@@ -481,14 +489,15 @@
       });
       return;
     }
-    // One "Open". A word-processing or plain-text document with clean, committed bytes opens its
-    // editor beside this list — a working session with a life of its own, kept open while the
-    // reader comes back here. Every other file opens its preview in the panel; a file without
-    // bytes, or one whose bytes are withheld, opens the panel anyway, on the tab that says why
-    // there is nothing to see. What decides between the two is the file, never a second menu item
-    // (editable-documents.ts holds the rule).
+    // One "Open". A document with clean, committed bytes that this application can work on opens
+    // beside this list — a word-processing or text document in its editor, a portable document in
+    // its reader — as a session with a life of its own, kept open while the reader comes back here.
+    // Every other file opens its preview in the panel; a file without bytes, or one whose bytes are
+    // withheld, opens the panel anyway, on the tab that says why there is nothing to see. What
+    // decides between them is the file, never a second menu item (editable-documents.ts holds the
+    // rule).
     const destination = openDestinationOf(row.file);
-    if (destination.kind === "editor") {
+    if (destination.kind === "editor" || destination.kind === "viewer") {
       openBeside(destination.href, "session");
       return;
     }
@@ -1351,10 +1360,10 @@
     rows: () => (manager.view === "deleted" ? [...deletedFiles] : []),
     rowKey: (row) => row.id,
     itemNoun: { singular: "deleted file", plural: "deleted files" },
-    // A deleted zip still browses — reading its directory restores nothing — so opening one looks
+    // A deleted archive still browses — reading its header restores nothing — so opening one looks
     // inside it; everything else opens the restore question, which is the only act it has.
     onActivate: (row) =>
-      isZip(row.name, row.sniffedContentType) && row.currentVersionId !== null
+      looksLikeBrowsableArchive(row.name, row.sniffedContentType) && row.currentVersionId !== null
         ? enterArchive({ fileId: row.id, fileName: row.name, deleted: true, unscanned: false })
         : beginRestore(row),
   });
@@ -1407,8 +1416,17 @@
     readonly fileName: string;
     /** Entered from Deleted Files. Browsing restores nothing, and the bar says where it came from. */
     readonly deleted: boolean;
-    /** The zip's own safety check has not come back clean, which the reader sees before trusting it. */
+    /** The archive's own safety check has not come back clean, which the reader sees before trusting it. */
     readonly unscanned: boolean;
+  }
+
+  /**
+   * Whether this archive's members can be taken out, as opposed to only looked at. A rar lists from
+   * its headers and cannot be unpacked here, so the control says that rather than being offered and
+   * then refusing.
+   */
+  function archiveIsExtractable(): boolean {
+    return archiveBrowse !== null && nameSuggestsExtractableArchive(archiveBrowse.fileName);
   }
 
   let archiveBrowse = $state<ArchiveBrowseState | null>(null);
@@ -1418,11 +1436,6 @@
   let archiveTruncated = $state(false);
   let archiveLoading = $state(false);
   let archiveFailure = $state<string | null>(null);
-
-  /** What the row's own facts say: sniffed as a zip, or named one when nothing was sniffed. */
-  function isZip(name: string, sniffedContentType: string | null): boolean {
-    return sniffedContentType === "application/zip" || name.toLowerCase().endsWith(".zip");
-  }
 
   function enterArchive(target: ArchiveBrowseState): void {
     archiveBrowse = target;
@@ -1462,6 +1475,66 @@
     void manager.place;
     leaveArchive();
   });
+
+  /*
+   * Taking members out of the archive and onto the matter.
+   *
+   * The destination is the folder the archive itself sits in, which is the ruling's default for a
+   * live archive: a member comes out beside the container it came from. What comes out is a
+   * decision the reader already made — the members they selected, or every file in the archive
+   * when they asked for the whole thing from the archive bar.
+   *
+   * Every extracted member re-enters through the scan gate, so this is not a way around the checks
+   * and the files appear as the gate settles them. The list is re-read either way, so what the
+   * reader sees afterwards is what actually landed rather than what was asked for.
+   */
+  let extracting = $state(false);
+
+  /**
+   * Why Extract is off for a rar. Stated rather than left silent, because a control that is off and
+   * says nothing is the reader's problem to solve and this one has a plain answer.
+   */
+  const NOT_EXTRACTABLE_REASON =
+    "What is inside this archive can be read, but its files cannot be taken out here. Download " +
+    "the archive to open it.";
+
+  async function extract(paths: readonly string[]): Promise<void> {
+    const archive = archiveBrowse;
+    if (archive === null || extracting) return;
+    if (paths.length === 0) {
+      actionFailure = "Select something inside the archive to extract first.";
+      return;
+    }
+    actionFailure = null;
+    extracting = true;
+    const outcome = await runExtraction(fetch, {
+      fileId: archive.fileId,
+      paths,
+      folderId: archiveDestinationFolderId(),
+    });
+    extracting = false;
+    if (outcome.kind === "nothing-asked") return;
+    if (outcome.kind !== "done") {
+      actionFailure = "Nothing could be extracted from the archive.";
+      return;
+    }
+    // Stated whether or not anything was refused: a member that did not come out is the reader's
+    // to know about, and a count alone would not tell them what to do next.
+    actionFailure = extractionSentence(outcome.result);
+    reload();
+  }
+
+  /** Where an extracted member lands: the folder the archive itself sits in. */
+  function archiveDestinationFolderId(): string | null {
+    const archive = archiveBrowse;
+    if (archive === null) return null;
+    return files?.find((file) => file.id === archive.fileId)?.folderId ?? null;
+  }
+
+  /** Every file inside the archive, at any depth. Directories have no bytes and never come out. */
+  function everyArchiveMemberPath(): readonly string[] {
+    return archiveEntriesHeld.filter((entry) => !entry.isDirectory).map((entry) => entry.path);
+  }
 
   const archiveGrid = DataTable.createDataTableGrid<ArchiveRow>({
     columns: () => archiveColumns(),
@@ -2096,10 +2169,34 @@
 {/snippet}
 
 {#snippet archiveActions()}
-  <Button variant="secondary" size="sm" disabled title={waitingReason("archive-extract")}>
-    Extract Into This Matter
-    <Badge variant="neutral">Soon</Badge>
-  </Button>
+  {#if archiveGrid.selectedKeys.length > 0}
+    <Button
+      variant="secondary"
+      size="sm"
+      disabled={extracting || !archiveIsExtractable()}
+      title={archiveIsExtractable() ? undefined : NOT_EXTRACTABLE_REASON}
+      onclick={() => void extract(archiveGrid.selectedKeys)}
+    >
+      {extracting ? "Extracting" : `Extract ${countPhrase(archiveGrid.selectedKeys.length, "Item")}`}
+    </Button>
+  {:else}
+    <Button
+      variant="secondary"
+      size="sm"
+      disabled={extracting ||
+        archiveLoading ||
+        !archiveIsExtractable() ||
+        everyArchiveMemberPath().length === 0}
+      title={!archiveIsExtractable()
+        ? NOT_EXTRACTABLE_REASON
+        : everyArchiveMemberPath().length === 0
+          ? "This archive holds no files to extract."
+          : undefined}
+      onclick={() => void extract(everyArchiveMemberPath())}
+    >
+      {extracting ? "Extracting" : "Extract Into This Matter"}
+    </Button>
+  {/if}
   <Button
     variant="ghost"
     size="icon"

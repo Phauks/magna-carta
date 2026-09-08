@@ -102,7 +102,10 @@ describe("GET /api/v1/me", () => {
         "communications:read",
         "communications:reviewUnrouted",
         // conflicts:read / conflicts:run are seeded onto every default role (any member may screen a
-        // consultation); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only.
+        // consultation); conflicts:dispose is narrower and reaches Owner/Admin + Attorney only, and
+        // conflicts:configure narrower still — Owner/Admin alone, because it sets what every future
+        // check searches rather than acting on any one of them.
+        "conflicts:configure",
         "conflicts:dispose",
         "conflicts:read",
         "conflicts:run",
@@ -164,6 +167,8 @@ describe("GET /api/v1/me", () => {
         // including Read-only carries (20260819T140000_seed-notification-policy-permission).
         "firm:manageNotificationPolicy",
         "firm:manageReleaseChannel",
+        // Seeded to Owner/Admin alone by 20260907T090000_seed-report-policy-permission.
+        "firm:manageReportPolicy",
         "firm:manageScanPolicy",
         "firm:manageSecrets",
         // Seeded to every default role, Read-only included — reading who is on the firm is not the
@@ -332,6 +337,10 @@ describe("GET /api/v1/me", () => {
     // No mirrorMemberWithOwnerRole call: the user exists on the control plane but the per-firm
     // member row has not landed yet — the owner-activation window between invite and the outbox
     // sweep. Deliberately NOT a 404: that state self-heals, deactivation is a deliberate state.
+    //
+    // The empty permission list is the SYMPTOM and is not, by itself, an explanation: a member who
+    // genuinely holds no role reads the same. So the reply names the window as well, and the app's
+    // own guards read that field rather than inferring a wait from an absence.
     const { userId, firmId } = await seedCredentialedUser("me-unmirrored@example.com", {
       userName: "Unmirrored User",
       firmId: poolFirmId,
@@ -348,6 +357,7 @@ describe("GET /api/v1/me", () => {
       permissions: [],
       channel: "stable",
       flags: { "release-channels.smoke": false },
+      membership: { state: "provisioning" },
     });
   });
 

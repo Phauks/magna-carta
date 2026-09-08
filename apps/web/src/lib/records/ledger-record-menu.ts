@@ -2,7 +2,12 @@
  * The verbs of the ledger surfaces: time, fees and costs.
  *
  * Same menu, different words. The rules about counting, scoping and refusing are the ones every
- * surface shares; what is particular here is three things the file surfaces have no equivalent of.
+ * surface shares; what is particular here is four things the file surfaces have no equivalent of.
+ *
+ * THE BILL A RECORD REACHED IS ONE VERB, NOT ONE PER LEDGER. Time and costs both end up on an
+ * invoice and both readers ask the same thing of a billed row — what was the client actually told.
+ * It was built on the cost ledger first and lifted here rather than copied, because two menus
+ * answering one question is two chances to word the refusal differently.
  *
  * DUPLICATE AND COPY ARE TWO DIFFERENT ANSWERS. Right-clicking an entry and choosing "Copy" used to
  * mean whichever of them the reader assumed. They are now separate: "Duplicate" is a verb that
@@ -21,10 +26,12 @@
  */
 import ArrowRightLeft from "@lucide/svelte/icons/arrow-right-left";
 import CircleSlash from "@lucide/svelte/icons/circle-slash";
+import Trash2 from "@lucide/svelte/icons/trash-2";
 import Undo2 from "@lucide/svelte/icons/undo-2";
 import Copy from "@lucide/svelte/icons/copy";
 import CopyPlus from "@lucide/svelte/icons/copy-plus";
 import FolderOpen from "@lucide/svelte/icons/folder-open";
+import Receipt from "@lucide/svelte/icons/receipt";
 import Reply from "@lucide/svelte/icons/reply";
 import Send from "@lucide/svelte/icons/send";
 import Stamp from "@lucide/svelte/icons/stamp";
@@ -53,6 +60,13 @@ export interface LedgerRecord {
   readonly description: string;
   /** The money, already formatted for reading. Copying it copies exactly what was on screen. */
   readonly amount: string;
+  /**
+   * The invoice that took this record up, or null while nothing has.
+   *
+   * Optional, because a surface that does not offer the bill has no reason to resolve one. Where
+   * `opensTheBill` is on, this is what decides whether the verb is offered or refused.
+   */
+  readonly invoiceId?: string | null;
 }
 
 export interface LedgerMenuContext {
@@ -85,6 +99,25 @@ export interface LedgerMenuContext {
    * absent a voided record simply reads "Already voided", which is what it did before.
    */
   readonly canRestoreVoid?: boolean;
+  /**
+   * Whether this surface can open the bill a billed record reached.
+   *
+   * Optional and absent by default, on the same terms as the two above. Time and Costs both have
+   * somewhere to send a reader — the matter's Billing section, with that bill open — and the Fees
+   * ledger does not, because an unbilled fee record has no table behind it yet. A menu that
+   * advertised an act the surface cannot perform is worse than one that does not mention it.
+   */
+  readonly opensTheBill?: boolean;
+  /**
+   * Whether this ledger can delete a draft that never entered review.
+   *
+   * Optional and absent by default, on the same terms as the three above. DELETING IS NOT VOIDING,
+   * and the two are offered together on purpose: a draft nobody has been shown is a typing mistake
+   * and leaves nothing behind, while anything submitted, approved, billed or voided is a record
+   * somebody may be asked to account for and is withdrawn instead. Offering only the second would
+   * leave a firm's ledger accumulating struck-through typos forever.
+   */
+  readonly deletesDraft?: boolean;
 }
 
 /**
@@ -109,10 +142,13 @@ export function ledgerRecordMenu(
   const submitted = records.filter((record) => record.status === "submitted");
 
   return menuOf([
-    { identifier: "record", items: [openVerb(), duplicateVerb(), copyValuesFlyout()] },
+    {
+      identifier: "record",
+      items: [openVerb(), openBillVerb(), duplicateVerb(), copyValuesFlyout()],
+    },
     { identifier: "chain", items: [submitVerb(), approveVerb(), kickBackVerb()] },
     { identifier: "ledger", items: [reclassifyVerb()] },
-    { identifier: "destructive", items: [voidVerb()] },
+    { identifier: "destructive", items: [deleteDraftVerb(), voidVerb()] },
   ]);
 
   function openVerb(): RecordMenuAction {
@@ -122,6 +158,38 @@ export function ledgerRecordMenu(
       label: "Open",
       icon: FolderOpen,
       ...oneRecordGesture(count, `Open works on one ${noun.singular.toLowerCase()} at a time.`),
+    };
+  }
+
+  /*
+   * The bill this record reached, for the one question a ledger cannot answer about a billed row:
+   * what was the client actually told?
+   *
+   * It renders on every record rather than only on billed ones — a verb that appears and
+   * disappears with a row's state teaches a reader the menu has a mind of its own — and a record
+   * nothing has billed says so and stays put. Absent entirely on a surface that has declared no
+   * `opensTheBill`, which is the same rule the move and the restore follow.
+   */
+  function openBillVerb(): RecordMenuAction | null {
+    if (context.opensTheBill !== true) return null;
+    const billed = target.status === "billed";
+    const invoiceId = target.invoiceId ?? null;
+    return {
+      kind: "action",
+      identifier: "openBill",
+      label: "Open The Bill",
+      icon: Receipt,
+      ...oneRecordGesture(count, `One ${noun.singular.toLowerCase()}'s bill is opened at a time.`),
+      ...(billed && invoiceId !== null
+        ? {}
+        : {
+            disabledReason: billed
+              ? // Billed, but the listing did not carry which invoice. The claim is the truth about
+                // who holds a record and this is its mirror; a row that lost it is a read to fix,
+                // never a bill to guess at.
+                `This ${noun.singular.toLowerCase()} is billed, but the bill it reached was not read with it.`
+              : `Nothing has billed this ${noun.singular.toLowerCase()} yet. A draft bill claims it from the Billing section.`,
+          }),
     };
   }
 
@@ -215,6 +283,34 @@ export function ledgerRecordMenu(
       ...(move.allowed
         ? oneRecordGesture(count, "A record moves between ledgers one at a time.")
         : { disabledReason: move.reason }),
+    };
+  }
+
+  /*
+   * Removing a draft that never entered review. It sits above Void because it is the narrower act:
+   * it reaches one state and one state only, and every other state is the verb below it.
+   *
+   * It renders on every record rather than only on drafts, for the reason the bill verb does — a
+   * verb that appears and disappears with a row's state teaches a reader the menu has a mind of its
+   * own — and a record past draft says why it is refused, which is where the difference between
+   * deleting and voiding is actually taught.
+   */
+  function deleteDraftVerb(): RecordMenuAction | null {
+    if (context.deletesDraft !== true) return null;
+    const lower = noun.singular.toLowerCase();
+    return {
+      kind: "action",
+      identifier: "deleteDraft",
+      label: "Delete Draft",
+      icon: Trash2,
+      ...(target.status === "draft"
+        ? oneRecordGesture(count, "A draft is deleted one at a time.")
+        : {
+            disabledReason:
+              `Only a draft is deleted. This ${lower} has been submitted or billed, so it is a ` +
+              "record somebody may be asked to account for — withdraw it with Void instead, and it " +
+              "stays on the ledger.",
+          }),
     };
   }
 

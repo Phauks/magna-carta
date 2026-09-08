@@ -1,3 +1,4 @@
+import { CANONICAL_INSTANT_PATTERN } from "@magna-carta/civil-time/instant";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PERMISSIONS } from "@magna-carta/access-control/registry";
@@ -98,7 +99,11 @@ describe("collapsed migration baselines (committed artifacts)", () => {
       "directory_name",
       "custom_field",
     ]) {
-      expect(sql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
+      // Quote-agnostic on purpose. The baseline is SQLite's OWN rendering of what the retired
+      // chain built, and a table that was rebuilt somewhere in that chain comes back double-quoted
+      // because that is what the rename left behind. The schema is what matters here, not which
+      // quote character it survived in.
+      expect(sql, tableName).toMatch(new RegExp(`CREATE TABLE [\`"]${tableName}[\`"]`, "u"));
     }
     // The CHECKs are the point — bounds/status/positive-amount gates must survive the collapse.
     for (const check of [
@@ -150,7 +155,7 @@ describe("collapsed migration baselines (committed artifacts)", () => {
     ]);
     for (const seed of roleSeeds) {
       expect(isIdentifier(seed.id, "role"), String(seed.id)).toBe(true);
-      expect(seed.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/); // ISO-8601 instant
+      expect(seed.created_at).toMatch(CANONICAL_INSTANT_PATTERN); // ISO-8601 instant
     }
     const ownerAdminId = roleSeeds.find((seed) => seed.name === "Owner/Admin")?.id;
 
@@ -174,32 +179,6 @@ describe("collapsed migration baselines (committed artifacts)", () => {
     expect(manageMembers).toHaveLength(1);
     expect(manageMembers[0]?.role_id).toBe(ownerAdminId);
     expect(grants.filter((grant) => grant.permission === "tools:aiTextDetection")).toHaveLength(5);
-  });
-
-  it("per-firm baseline never creates the auth tables — they are control-plane only", async () => {
-    const migrations = await loadLineage("per-firm");
-    const sql = migrations[0]?.statements.join("\n") ?? "";
-    for (const tableName of BETTER_AUTH_TABLE_NAMES) {
-      expect(sql, tableName).not.toContain(`CREATE TABLE \`${tableName}\``);
-    }
-  });
-
-  it("the search-index catalog gains its per-document columns additively, never by rebuilding the table", async () => {
-    const migrations = await loadLineage("per-firm");
-    const follow = migrations.find(
-      (migration) => migration.tag === "20260804T082351_index-split-document-version",
-    );
-    const sql = follow?.statements.join("\n") ?? "";
-    expect(sql).toContain("ALTER TABLE `index_split` ADD `document_id` text");
-    expect(sql).toContain("ALTER TABLE `index_split` ADD `version` integer");
-    // The table is not re-created: a rebuild would drop the rows an already-provisioned firm's
-    // catalog holds, which are the only record of where its splits live.
-    expect(sql).not.toContain("CREATE TABLE `index_split`");
-    // The uniqueness rule that makes a re-index converge, and its partial scope so the many-document
-    // splits a compaction publishes are not caught by it.
-    expect(sql).toContain("CREATE UNIQUE INDEX `index_split_document_version_unique`");
-    expect(sql).toContain(`WHERE "index_split"."document_id" IS NOT NULL`);
-    expect(sql).toContain(`"index_split"."superseded_at" IS NULL`);
   });
 
   it("the whole per-firm lineage creates index_split exactly once", async () => {

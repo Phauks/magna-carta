@@ -133,11 +133,32 @@
 
 - id: documents.upload.archive-opacity
   name: Opaque archive storage
-  scope: Uploaded archives stored versioned/hashed on the matter and never expanded server-side — no zip-bomb/nested-archive read pipeline exists.
+  scope: An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.
   status: shipped
   surface: internal
   adrs: ADR-0027
-  evidence: No server-side extraction code in the tree; ADR-0027 records the opaque posture; client-side extraction path deferred to Discovery.
+  evidence: The ingest path stores an archive unexpanded; ADR-0027 records the posture. What has changed since this node was written is that expansion now EXISTS in two asked-for lanes rather than nowhere — the discovery processing lane (crates/discovery-core archive.rs) and, on a member a person names, the file manager (packages/file-manager/src/zip-member-extract.ts). Neither runs on arrival, which is what opacity meant.
+
+- id: documents.file-manager.archive-browse
+  name: Browse inside an archive
+  scope: Read an archive's entry listing over ranged reads of its headers, without unpacking a byte, for a live or a soft-deleted archive alike. Four formats, each decided from the object's own signature rather than its name - zip, tar, 7z and rar.
+  status: shipped
+  surface: screen
+  evidence: packages/file-manager/src/{archive-format,zip-central-directory,tar-listing,rar-listing}.ts + packages/seven-zip (crates/seven-zip-core to WebAssembly) + GET /api/v1/files/{id}/archive-entries + the archive view in apps/web/src/lib/file-manager (archive-browse.ts, archiveColumns).
+  audience: public
+  public-name: Looking inside an archive
+  public-summary: See what a zip, tar, 7z or rar holds without extracting it or downloading it first.
+
+- id: documents.file-manager.archive-extract
+  name: Extract an archive's members
+  scope: Take named members out of a stored zip, tar or 7z by ranged read, and file each on the matter through the ordinary ingest gate. One module owns the dispatch, one refusal vocabulary, the firm's caps and the per-attempt accounting, for every format at once.
+  status: shipped
+  surface: screen
+  evidence: packages/file-manager/src/archive-members.ts (the one door - format dispatch, caps applied before any format-specific code runs, the request budget, and the record of what every attempt cost) over zip-member-extract.ts, the tar ranged read, and the 7z engine port filled by apps/api-worker/src/files/seven-zip-engine.ts (crates/seven-zip-core) + POST /api/v1/files/{id}/archive-extractions + the archive bar's extract control in apps/web/src/lib/file-manager/file-manager.svelte.
+  audience: public
+  public-name: Taking files out of an archive
+  public-summary: Extract what you need from a zip, tar or 7z onto the matter, checked on the way in like any upload.
+  notes: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Refused by name and never silently: an encrypted member (a 7z locks them one at a time), a packing method no decoder here covers, an entry that is a link or a device rather than a file, and bytes that disagree with what the archive recorded. A rar is deliberately not extractable - listing one needs no decoder and decoding one has no memory-safe implementation to build against - and the control says so rather than refusing after the click. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built.
 
 - id: documents.scanning
   name: Malware scanning
@@ -247,7 +268,7 @@
   status: shipped
   surface: awaiting-screen
   adrs: ADR-0126
-  evidence: packages/file-manager/src/checkout-statements.ts + apps/api-worker/src/editing idle-checkout-sweep.ts. The four permissions the chokepoint enforces across this surface are seeded as of packages/database/drizzle/per-firm/20260819T220000_seed-document-editing-and-tools-permissions.sql — until then documents:edit, documents:checkout, documents:reconcile and documents:forceReleaseLock were granted to no role and every route answered 403 to every member of every firm.
+  evidence: packages/file-manager/src/checkout-statements.ts + apps/api-worker/src/editing idle-checkout-sweep.ts. The four permissions the chokepoint enforces across this surface are seeded as of packages/database/drizzle/per-firm/20260908T000000_baseline.sql — until then documents:edit, documents:checkout, documents:reconcile and documents:forceReleaseLock were granted to no role and every route answered 403 to every member of every firm.
   awaiting-owner: Should documents:forceReleaseLock also reach Attorney? It is seeded to Owner/Admin alone, so in a firm whose administrator is away nobody can free a document another member has exclusively locked until the idle-checkout sweep releases it overnight. Widening is one additive migration; narrowing later is a conversation with every firm that had got used to the wider default.
 
 - id: documents.editing.editor-ui
@@ -371,6 +392,17 @@
   surface: awaiting-screen
   evidence: packages/file-manager/src/safe-rendition-port.ts ships the port plus an engine-less adapter that refuses; active formats are download-only until the engine wires in.
   notes: Rasterize/transcode engine wires in with the player UI.
+
+- id: documents.preview.pdf-reader
+  name: Portable-document reader
+  scope: A read-only in-app reader that rasterizes a PDF's pages locally through the pure-Rust engine in a Web Worker, rather than serving the file to the browser.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/lib/documents/pdf-pages.ts + pdf-render.worker.ts over @magna-carta/pdf, opened from the file manager at /documents/{fileId}/view.
+  audience: public
+  public-name: Reading a PDF
+  public-summary: Open a PDF from a matter and read it in the app, turning pages and zooming, without downloading it first.
+  notes: Independent of the cookieless streaming path: only pixels reach the page, so it needs no rendition engine and no deploy activation. Pages are drawn as they come into view, and the resolution is capped.
 
 - id: documents.preview.player
   name: Video player UI
@@ -515,11 +547,11 @@
   name: Render to raster
   scope: PDF page rendering for preview/flatten via the pure-Rust engine (hayro dependency doctrine).
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   slices: pdf-render-engine
   adrs: ADR-0127
   spec: docs/specs/2026-06-21-pdf-slice-1-core-render-design.md
-  evidence: pdf-render-engine fragment lists render built; crates/pdf-eval evaluation harness in the workspace.
+  evidence: pdf-render-engine fragment lists render built; crates/pdf-eval evaluation harness in the workspace. Reached by a person as of the document reader at apps/web/src/routes/(app)/documents/[id]/view, which draws every page through this renderer.
 
 - id: documents.pdf.redaction
   name: True redaction (rasterize route)
@@ -798,7 +830,7 @@
   status: partial
   slices: decryption-file-unlock-password-recovery
   spec: docs/specs/2026-06-26-decryption-tool-design.md
-  evidence: crates/decryption-core + @magna-carta/decryption + routes decryption.ts/recovery.ts + apps/recovery-worker + containers/recovery; GPU rungs and UI deferred.
+  evidence: crates/decryption-core + @magna-carta/decryption + routes decryption.ts/recovery.ts + apps/recovery-worker + containers/recovery, reached from the File Workbench's Unlock capability and from a password-protected PDF's own reader. GPU rungs remain deferred.
   audience: public
   public-name: Opening a locked file
   public-summary: Unlock a password-protected file when you have the password, and attempt recovery when the client no longer does.
@@ -808,16 +840,16 @@
   name: Inspect & unlock
   scope: PDF/ZIP/OOXML inspect + unlock via a FormatAdapter, pure Rust compiled to both WASM and native.
   status: shipped
-  surface: awaiting-screen
-  evidence: /decryption/inspect + /unlock routes; crates/decryption-core on the engine-host seam.
+  surface: screen
+  evidence: /decryption/inspect + /unlock routes; crates/decryption-core on the engine-host seam; the File Workbench's Unlock panel (apps/web/src/lib/tools/file-workbench/panels/unlock-panel.svelte).
 
 - id: documents.decryption.recovery
   name: Password recovery orchestration
   scope: Durable-Object-coordinated fan-out over recovery-worker shards with a hash-only boundary (privileged bytes never leave; only hashes are distributed).
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   spec: docs/specs/2026-06-26-decryption-slice-2-recovery-design.md
-  evidence: apps/recovery-worker + containers/recovery (with wordlists) + /decryption/recover\* routes.
+  evidence: apps/recovery-worker + containers/recovery (with wordlists) + /decryption/recover\* routes; the recovery job's own screen (apps/web/src/lib/tools/file-workbench/decryption-api.ts + recovery-status.ts), addressed by the job's own id rather than by the file that started it, so it survives the file being discarded from the workbench.
 
 - id: documents.decryption.gpu
   name: GPU recovery rungs
@@ -825,14 +857,15 @@
   status: partial
   surface: internal
   spec: docs/specs/2026-07-03-decryption-slice-3-gpu-recovery-design.md
-  evidence: packages/gpu-benchmark (Stage 1 benchmark harness) built; Stage 2 wiring named next in the status fragment.
+  evidence: packages/gpu-benchmark (Stage 1 benchmark harness) built; Stage 2 wiring named next in the status fragment. The recovery job screen already answers needsGpu plainly, so a firm sees the honest limit today rather than a spinner that never finishes.
   notes: Partial rather than in-build: Stage 1 is built and Stage 2 is named next, with no stream open on it.
 
 - id: documents.decryption.ui
   name: Unlock/recovery UI
-  scope: End-user unlock and recovery surface.
-  status: not-started
-  evidence: Status fragment: end-user UI post-shell.
+  scope: End-user unlock and recovery surface, and the connection from a password wall a reader actually hits (a locked PDF) to that surface.
+  status: shipped
+  surface: screen
+  evidence: File Workbench Unlock capability (attest, unlock with a known password, or start a recovery search) + its recovery job screen (poll, cancel, one-time password reveal) + the PDF reader's own password wall, which unlocks a known password locally through the same @magna-carta/pdf engine already loaded to draw pages and links out to the workbench for a password it does not have.
 
 - id: documents.metadata
   name: Metadata inspector & scrubber

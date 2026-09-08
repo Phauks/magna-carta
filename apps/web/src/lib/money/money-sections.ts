@@ -14,6 +14,7 @@
  * the same, so a layout chosen on one of them is the layout of all of them.
  */
 import { matterStrip, type MatterSection } from "$lib/matters/sections.ts";
+import { destinationById, type DestinationId } from "$lib/navigation/destinations.ts";
 import {
   stringUnionPreference,
   type PreferenceCodec,
@@ -72,6 +73,52 @@ export const moneySections: readonly MatterSection[] = readMoneyGroup();
 /** Where a money section lives: the same address the section strip links to. */
 export function moneySectionHref(matterId: string, slug: string): string {
   return `/matters/${matterId}/${slug}`;
+}
+
+/**
+ * Where one bill is read: the matter's Billing section, with that bill already open.
+ *
+ * The seam every money surface uses to answer "what was the client actually told" — the cost and
+ * time ledgers from a billed row's menu, the invoice window from the list of matters a bill
+ * charges, the firm's own register from a row. It is spelled once because it was spelled three
+ * times, and one of the three forgot to encode the identifier.
+ *
+ * A bill is read on the matter it charges rather than at the firm's scale, because the acts
+ * against it are that matter's — applying its trust money, writing off its balance — and a reader
+ * who followed a bill wants to be somewhere those are possible.
+ */
+export function billHref(matterId: string, invoiceId: string): string {
+  return `${moneySectionHref(matterId, "billing")}?invoice=${encodeURIComponent(invoiceId)}`;
+}
+
+/**
+ * The FIRM-wide surface a money section has a sibling on, or null where it has none yet.
+ *
+ * Four of the five now exist at both scopes — a matter's Time, Fees, Costs and Billing each have a
+ * firm-wide screen answering the question the matter's own section cannot: what the whole firm
+ * recorded this week, charged this month, advanced this month, or is owed. The toolbar's way out is
+ * what makes that pair discoverable rather than something a member finds by noticing a sidebar row;
+ * without it the two scopes are two places that happen to be about the same thing.
+ *
+ * The addresses come from the sidebar's own registry rather than being spelled here, so a section
+ * cannot point at a destination the sidebar calls something else or that has moved. Trust's is
+ * announced and unbuilt, so it answers null and the toolbar renders nothing rather than a link to a
+ * Soon page.
+ */
+export function moneySectionFirmDestination(slug: MoneySectionSlug): DestinationId | null {
+  const named: Readonly<Record<MoneySectionSlug, DestinationId | null>> = {
+    time: "time",
+    fees: "fees",
+    costs: "costs",
+    billing: "billing",
+    trust: null,
+  };
+  const destinationId = named[slug];
+  if (destinationId === null) return null;
+  // A destination that is announced but not shipped is a Soon row, and a way OUT to a page that
+  // does not exist is worse than no way out: the link is offered only once the surface is real.
+  const destination = destinationById(destinationId);
+  return destination !== null && destination.shipped ? destinationId : null;
 }
 
 /*

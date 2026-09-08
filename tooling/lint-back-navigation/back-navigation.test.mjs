@@ -425,8 +425,19 @@ describe("declining", () => {
     expect(audit(repository).failures).toHaveLength(1);
   });
 
-  it("carries the record's former address as the one standing exemption", () => {
-    expect([...STANDING_EXEMPTIONS.keys()]).toEqual(["/directory/[id]"]);
+  /*
+   * The register itself, pinned. Declining is allowed; declining SILENTLY is what the gate refuses,
+   * so the value of this assertion is that a new exemption cannot be added without somebody writing
+   * it down here too — which is the moment its reason gets read by a second person.
+   */
+  it("carries every standing exemption, each with a reason", () => {
+    expect([...STANDING_EXEMPTIONS.keys()]).toEqual([
+      "/directory/[id]",
+      "/discovery/review-sets/[reviewSetId]/documents/[reviewDocumentId]",
+    ]);
+    for (const reason of STANDING_EXEMPTIONS.values()) {
+      expect(reason.trim()).not.toBe("");
+    }
   });
 });
 
@@ -485,7 +496,11 @@ describe("the real sources", () => {
     expect(result.covered).toEqual(
       expect.arrayContaining([
         "/conflicts/checks/[checkId]",
-        "/conflicts/matters/[matterId]",
+        // A matter's conflicts standing moved inside the matter, so the screen this list used to
+        // name (/conflicts/matters/[matterId]) is a redirect now and is no longer a screen to
+        // cover. Its replacement is named instead — the point of the assertion is that the rule
+        // still reaches the conflicts surface, not which address it reaches it at.
+        "/matters/[id]/conflicts",
         "/matters/[id]/overview",
         "/tools/whois-lookup",
         "/developer-console/table-states",

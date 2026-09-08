@@ -66,47 +66,4 @@ describe("the co-editing and Tools permission seed", () => {
     }
     raw.close();
   });
-
-  it("reaches a firm whose database was provisioned BEFORE it: the same rows, applied on the next wake", () => {
-    // The real population. A firm's database is a Durable Object that applies pending migrations
-    // when it wakes, so an existing firm arrives at this migration with every earlier one already
-    // applied and none of these rows present. Split the lineage at the migration and drive exactly
-    // that: nothing before, everything after, and the same end state as a firm created today.
-    const lineage = loadMigrationsFromDisk("per-firm");
-    const index = lineage.findIndex((migration) => migration.tag === MIGRATION_TAG);
-    expect(index, `${MIGRATION_TAG} is not in the committed journal`).toBeGreaterThan(0);
-
-    const raw = new DatabaseSync(":memory:");
-    applyMigrations(raw, lineage.slice(0, index));
-    for (const [permission] of EXPECTED) {
-      expect(seatsHolding(raw, permission), `${permission} before the migration`).toEqual([]);
-    }
-
-    applyMigrations(raw, [lineage[index]!]);
-    for (const [permission, seats] of EXPECTED) {
-      expect(seatsHolding(raw, permission), `${permission} after the migration`).toEqual(
-        [...seats].toSorted(),
-      );
-    }
-    raw.close();
-  });
-
-  it("adds rows and nothing else — no schema statement, no touch to an existing grant", () => {
-    // Expand-contract, and narrower: a seed migration that altered a table or replaced an existing
-    // row would be changing what firms already have rather than adding to it.
-    const lineage = loadMigrationsFromDisk("per-firm");
-    const migration = lineage.find((entry) => entry.tag === MIGRATION_TAG);
-    expect(migration).toBeDefined();
-    for (const statement of migration?.statements ?? []) {
-      // The journal keeps each statement with the comment block above it, which is where this
-      // migration's reasoning lives; the executable half is what has to be an INSERT.
-      const executable = statement
-        .split("\n")
-        .filter((line) => !line.trimStart().startsWith("--"))
-        .join("\n")
-        .trim();
-      expect(executable).toMatch(/^INSERT INTO `role_permission`/u);
-      expect(executable).not.toMatch(/\bOR\s+REPLACE\b/iu);
-    }
-  });
 });

@@ -105,6 +105,11 @@ export const ENTITY_PREFIXES = {
   // Costs & expenses WIP — one matter disbursement captured as a cost entry (the parallel to
   // timeEntry for non-time billables and cost-recovery amounts).
   costEntry: "costEntry",
+  // Fees WIP — one flat charge for professional services, typed by hand. The third work-in-progress
+  // record beside timeEntry and costEntry, riding the same chain and claimed onto a draft invoice
+  // the same way. It is never computed from time entries: the amount is what somebody decided to
+  // charge, which is exactly why it needs a record of its own rather than a projection.
+  feeEntry: "feeEntry",
   // Support-access framework. `platformStaff` identifies a named help-desk operator on the control
   // plane; `supportGrant` is a time-boxed, pull-redeemed access grant issued to that operator.
   platformStaff: "platformStaff",

@@ -52,6 +52,9 @@ export function costRecordMenu(
   const shared = ledgerRecordMenu(records, target, {
     recordNoun: COST_NOUN,
     reviewGateEnabled: context.reviewGateEnabled,
+    // The cost ledger has somewhere to send a reader: the matter's Billing section, with the bill
+    // open. The verb itself is the shared catalogue's — the time ledger asks the same question.
+    opensTheBill: true,
   });
   const withdrawal = shared.find((group) => group.identifier === "destructive")?.items ?? [];
 

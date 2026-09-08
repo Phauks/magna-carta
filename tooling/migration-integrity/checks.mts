@@ -99,3 +99,46 @@ export function rebuildViolations(
         `unreviewed table-rebuild in ${tag} — audit that the copy preserves every row, then add the tag to REVIEWED_REBUILDS`,
     );
 }
+
+/**
+ * A rebuild of a table that OTHER TABLES POINT AT — the shape that cannot run in production.
+ *
+ * The reviewed-rebuild rule above asks whether a human audited the copy. That is the wrong question
+ * for this case, because no amount of care makes the migration applicable: a rebuild drops the table
+ * it replaces, and in a Cloudflare durable object foreign keys are enforced at the statement and at
+ * the commit, with `PRAGMA foreign_keys=OFF` a no-op inside the one execution context a migration
+ * runs in. A drop with children therefore fails against every firm database that holds data, and
+ * succeeds only against the empty ones the test suite used to build. The reasoning and the four
+ * probes that establish it are recorded beside the grandfather list in reviewed-rebuilds.ts.
+ *
+ * The children are read from the schema AS IT STANDS at that migration, not from the head — a table
+ * gains references over time, and the question is what pointed at it on the day it was rebuilt.
+ *
+ * Takes the applied-schema reader as a parameter so this file stays free of node:sqlite and can run
+ * under the same guard the rest of these checks do.
+ */
+export function parentRebuildViolations(
+  sqlByTag: Record<string, string>,
+  childrenOfRebuiltTableAt: (tag: string, table: string) => readonly string[],
+  grandfathered: ReadonlySet<string>,
+): string[] {
+  const violations: string[] = [];
+  for (const [tag, sql] of Object.entries(sqlByTag)) {
+    const rebuilt = /`__new_(\w+)`/.exec(sql)?.[1];
+    if (rebuilt === undefined) continue;
+    const children = childrenOfRebuiltTableAt(tag, rebuilt);
+    if (children.length === 0) continue;
+    if (grandfathered.has(tag)) continue;
+    violations.push(
+      `${tag} rebuilds \`${rebuilt}\`, which ${String(children.length)} table(s) reference ` +
+        `(${children.slice(0, 4).join(", ")}${children.length > 4 ? ", …" : ""}). A rebuild drops ` +
+        "the table it replaces, and a durable object refuses that drop while anything points at it " +
+        "— the pragma that would suspend enforcement does nothing inside a migration's execution " +
+        "context. This migration would apply to an empty database and fail against every firm that " +
+        "holds data. Widening a CHECK or dropping a column on a parent table needs a different " +
+        "approach; see PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING for why that list must " +
+        "not grow.",
+    );
+  }
+  return violations;
+}

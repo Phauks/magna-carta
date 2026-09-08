@@ -89,6 +89,12 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "retain-under-matter",
     note: "billing record; the narrative free-text is handled by the residue report",
   },
+  {
+    table: "fee_entry",
+    subjectKey: "timekeeper_user_id",
+    action: "retain-under-matter",
+    note: "billing record, on the same terms as time_entry: whose professional services were charged is part of what a bill is defended with, and the description and memo free-text are handled by the residue report",
+  },
   { table: "incident", subjectKey: "reported_by", action: "pseudonymize-keep" },
   { table: "ai_detection_usage", subjectKey: "requested_by", action: "pseudonymize-keep" },
   // The download shelf — a member's own transient list of what the platform produced for them.

@@ -65,6 +65,12 @@ const ARTEFACTS = [
     wasm: "email_core_bg.wasm",
     bindings: "email_core.js",
   },
+  {
+    crate: "seven-zip-core",
+    pkg: "packages/seven-zip",
+    wasm: "seven_zip_core_bg.wasm",
+    bindings: "seven_zip_core.js",
+  },
 ];
 
 // The stamp lives beside the generated output (inside the git-ignored pkg directory), so it is created

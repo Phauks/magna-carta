@@ -8,7 +8,8 @@
    * the draft as the calendar string the record stores (YYYY-MM-DD), or empty.
    */
   import { DatePicker } from "@magna-carta/design-system/date-picker";
-  import { parseDate, type DateValue } from "@internationalized/date";
+  import type { DateValue } from "@internationalized/date";
+  import { civilDateValue, civilDateTextOrEmpty } from "$lib/dates";
 
   let {
     dateOfBirth = $bindable(""),
@@ -20,16 +21,6 @@
     disabled?: boolean;
   } = $props();
 
-  /** The stored string as a calendar date, or undefined while it is empty or half-entered. */
-  function calendarDate(stored: string): DateValue | undefined {
-    if (stored === "") return undefined;
-    try {
-      return parseDate(stored);
-    } catch {
-      return undefined;
-    }
-  }
-
   const outOfOrder = $derived(
     dateOfBirth !== "" && dateOfDeath !== "" && dateOfDeath < dateOfBirth,
   );
@@ -40,16 +31,16 @@
     <div class="flex flex-col gap-8">
       <DatePicker
         label="Date of birth"
-        value={calendarDate(dateOfBirth)}
-        onValueChange={(next) => (dateOfBirth = next === undefined ? "" : next.toString())}
+        value={civilDateValue(dateOfBirth)}
+        onValueChange={(next) => (dateOfBirth = civilDateTextOrEmpty(next))}
         {disabled}
       />
     </div>
     <div class="flex flex-col gap-8">
       <DatePicker
         label="Date of death"
-        value={calendarDate(dateOfDeath)}
-        onValueChange={(next) => (dateOfDeath = next === undefined ? "" : next.toString())}
+        value={civilDateValue(dateOfDeath)}
+        onValueChange={(next) => (dateOfDeath = civilDateTextOrEmpty(next))}
         {disabled}
       />
       {#if outOfOrder}
