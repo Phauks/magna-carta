@@ -1340,7 +1340,11 @@ export function registerIntakeFormRoutes(
         {
           title: resolved.view.title,
           introduction: resolved.view.introduction,
-          humanVerificationSiteKey: c.env.TURNSTILE_SITE_KEY ?? null,
+          // Empty counts as absent, on the same terms resolveHumanVerificationPort reads the
+          // secret: a var set to "" in a deployment that has not provisioned a widget would
+          // otherwise render a challenge against a key Cloudflare does not know, which fails in the
+          // browser with nothing to tell the visitor.
+          humanVerificationSiteKey: siteKeyOrNull(c.env.TURNSTILE_SITE_KEY),
           fields: resolved.view.fields.map((field) => ({
             fieldId: field.fieldId,
             kind: field.kind,
@@ -1416,6 +1420,10 @@ export function registerIntakeFormRoutes(
       );
     },
   );
+}
+
+function siteKeyOrNull(siteKey: string | undefined): string | null {
+  return siteKey === undefined || siteKey === "" ? null : siteKey;
 }
 
 function parseAnswers(answersJson: string): Record<string, string> {

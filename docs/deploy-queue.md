@@ -306,9 +306,14 @@ platform's only self-serve front door.**
      user-content domain, which serves no forms.
    - Keep the **site key** (public — it goes in the client) and the **secret key** (never leaves the
      dashboard and the Worker).
-3. **Set the secret on the app worker** — `wrangler secret put TURNSTILE_SECRET_KEY`, or **Worker →
-   Settings → Variables and Secrets**. Setting it is what switches enforcement on; there is no other
-   flag. Deliberately absent from `wrangler.jsonc`'s `secrets.required`, so a deploy without it
+3. **Set the secret AND the site key on the app worker** — `wrangler secret put
+   TURNSTILE_SECRET_KEY` for the secret half, and `TURNSTILE_SITE_KEY` as a plain var (it is public;
+   it ships to every visitor). Setting the secret is what switches enforcement on; there is no other
+   flag. Setting the site key is what makes a challenge appear: the public intake form is served its
+   value by its own public read rather than having it built into the interface, so the two together
+   activate verification with **no rebuild and no redeploy of the SPA**. The site key is absent
+   rather than empty in `wrangler.jsonc` on purpose — an empty one would render a challenge against
+   a key Cloudflare does not know, which fails in the browser with nothing to tell the visitor. Deliberately absent from `wrangler.jsonc`'s `secrets.required`, so a deploy without it
    succeeds rather than failing on a credential nobody has provisioned yet.
 4. **Which endpoints light up:** the two named above, and only those. The Better Auth credential
    endpoints (`/api/auth/*` — sign-in, password reset) are **not** gated: their shipped screen mints

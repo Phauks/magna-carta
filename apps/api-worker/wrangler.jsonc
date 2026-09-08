@@ -86,6 +86,14 @@
     // than left to the code default so changing the posture is this one line. It has no effect once
     // TURNSTILE_SECRET_KEY is set — from then on a missing or bad solution is refused either way.
     "HUMAN_VERIFICATION_POSTURE": "fail-open",
+    // The PUBLIC half of the Turnstile widget, which a browser needs to render a challenge at all.
+    // Deliberately ABSENT rather than set to "": no widget has been created in the dashboard, and
+    // absent is what makes the public intake form render no challenge instead of one against a key
+    // Cloudflare does not know. Set it here — it is public, not a secret — in the same activation
+    // that sets TURNSTILE_SECRET_KEY, and the form picks it up with no rebuild of the interface,
+    // because it is served to the page by the form's own public read. Order and steps:
+    // docs/deploy-queue.md.
+    // "TURNSTILE_SITE_KEY": "",
     // The switch that selects the Cloudflare Email Service adapter over the logging one
     // (src/app.ts emailAdapterForEnv). magnacarta.esq is onboarded for Email Sending, and the send
     // paths are guarded now: a refusal answers a retryable 503 carrying an Error ID rather than
