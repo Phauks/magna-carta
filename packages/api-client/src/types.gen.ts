@@ -743,7 +743,7 @@ export type FirmMemberSummary = {
     userId: string;
     displayName: string;
     /**
-     * A deactivated member is still listed: they remain the responsible attorney on matters they carried and the author of what they filed, and dropping the row would print those cells as an unfilled gap rather than as the person who is no longer here.
+     * A deactivated member is still listed: they remain the responsible attorney on matters they carried and the author of what they filed, and dropping the row would print those cells as an unfilled gap rather than as the person who is no longer here. Nothing sets this yet; no route deactivates a member.
      */
     status: 'active' | 'deactivated';
     /**
@@ -4974,6 +4974,44 @@ export type CodingProgress = {
     }>;
     uncodedDocumentIds: Array<string>;
     splitFamilyIds: Array<string>;
+};
+
+export type ReviewDocumentDetail = {
+    id: string;
+    reviewSetId: string;
+    recordCustodianId: string;
+    discoveryLoadId: string;
+    sourceKind: 'file_version' | 'email_message' | 'email_attachment';
+    familyId: string;
+    familyRole: 'standalone' | 'parent' | 'attachment' | 'container-child';
+    familySequence: number;
+    sourceName: string | null;
+    sourcePath: string | null;
+    sizeBytes: number | null;
+    pageCount: number | null;
+    formatIdentified: string | null;
+    sortDate: string | null;
+    sortDateSource: string | null;
+    processingState: 'pending' | 'processing' | 'processed' | 'excepted';
+    processingDeferredReason: string | null;
+    indexState: 'indexed' | 'deferred' | 'failed' | null;
+    isDedupPrimary: boolean;
+    dedupGroupId: string | null;
+    extractionRoute: string | null;
+    pagesRecognized: number | null;
+    contentSha256: string | null;
+    contentMd5: string | null;
+    contentSha1: string | null;
+    textFingerprint: string | null;
+    hasExtractedText: boolean;
+    createdAt: string;
+    exceptions: Array<{
+        id: string;
+        stage: 'load' | 'identify' | 'extract' | 'deduplicate' | 'family' | 'index';
+        code: 'unsupported-format' | 'corrupt' | 'encrypted' | 'password-protected' | 'encrypted-container-entry' | 'container-not-expanded' | 'container-guard-tripped' | 'oversize' | 'extraction-timeout' | 'no-text-extracted' | 'malware-flagged' | 'conversion-failed' | 'recognition-failed' | 'load-file-metadata-mismatch' | 'source-bytes-missing';
+        detail: string | null;
+        createdAt: string;
+    }>;
 };
 
 export type ReviewDocumentPage = {
@@ -25627,6 +25665,94 @@ export type DiscoveryGetCodingProgressResponses = {
 
 export type DiscoveryGetCodingProgressResponse = DiscoveryGetCodingProgressResponses[keyof DiscoveryGetCodingProgressResponses];
 
+export type DiscoveryGetReviewDocumentData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+        reviewDocumentId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}';
+};
+
+export type DiscoveryGetReviewDocumentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or there is no such review set the member may reach
+     */
+    404: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetReviewDocumentError = DiscoveryGetReviewDocumentErrors[keyof DiscoveryGetReviewDocumentErrors];
+
+export type DiscoveryGetReviewDocumentResponses = {
+    /**
+     * The document
+     */
+    200: ReviewDocumentDetail;
+};
+
+export type DiscoveryGetReviewDocumentResponse = DiscoveryGetReviewDocumentResponses[keyof DiscoveryGetReviewDocumentResponses];
+
+export type DiscoveryGetReviewDocumentTextData = {
+    body?: never;
+    path: {
+        reviewSetId: string;
+        reviewDocumentId: string;
+    };
+    query?: never;
+    url: '/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/text';
+};
+
+export type DiscoveryGetReviewDocumentTextErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or there is no such review set the member may reach
+     */
+    404: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryGetReviewDocumentTextError = DiscoveryGetReviewDocumentTextErrors[keyof DiscoveryGetReviewDocumentTextErrors];
+
+export type DiscoveryGetReviewDocumentTextResponses = {
+    /**
+     * The extracted text
+     */
+    200: string;
+};
+
+export type DiscoveryGetReviewDocumentTextResponse = DiscoveryGetReviewDocumentTextResponses[keyof DiscoveryGetReviewDocumentTextResponses];
+
 export type DiscoveryListReviewDocumentsData = {
     body?: never;
     path: {
@@ -25818,6 +25944,100 @@ export type DiscoveryGetReviewSetIndexStatusResponses = {
 };
 
 export type DiscoveryGetReviewSetIndexStatusResponse = DiscoveryGetReviewSetIndexStatusResponses[keyof DiscoveryGetReviewSetIndexStatusResponses];
+
+export type DiscoveryListAllReviewSetsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+    };
+    url: '/api/v1/review-sets';
+};
+
+export type DiscoveryListAllReviewSetsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryListAllReviewSetsError = DiscoveryListAllReviewSetsErrors[keyof DiscoveryListAllReviewSetsErrors];
+
+export type DiscoveryListAllReviewSetsResponses = {
+    /**
+     * One page of the member's review sets
+     */
+    200: ReviewSetList;
+};
+
+export type DiscoveryListAllReviewSetsResponse = DiscoveryListAllReviewSetsResponses[keyof DiscoveryListAllReviewSetsResponses];
+
+export type DiscoveryDownloadLoadArtifactData = {
+    body?: never;
+    path: {
+        loadId: string;
+        /**
+         * Which of the load's two records to hand over.
+         */
+        artifact: 'manifest' | 'exception-report';
+    };
+    query?: {
+        /**
+         * The machine-readable form (default) or the printable one a person reads with no tooling.
+         */
+        format?: 'json' | 'text';
+    };
+    url: '/api/v1/loads/{loadId}/artifacts/{artifact}';
+};
+
+export type DiscoveryDownloadLoadArtifactErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the discovery permission this route requires
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record does not exist
+     */
+    404: Problem;
+    /**
+     * The review set no longer takes material, the load has not reconciled, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is well-formed but a rule refuses it
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DiscoveryDownloadLoadArtifactError = DiscoveryDownloadLoadArtifactErrors[keyof DiscoveryDownloadLoadArtifactErrors];
 
 export type DiscoveryListReviewSetsData = {
     body?: never;

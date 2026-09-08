@@ -246,22 +246,6 @@ function readMeta(action: string): RouteMeta {
   };
 }
 
-// The one read here that is not about a single matter: the register of every corpus a member may
-// reach. Its resource is the FIRM because it names no matter and cannot — the member reading it may
-// hold no matter access at all, which is exactly the reader it exists for.
-function firmReadMeta(action: string): RouteMeta {
-  return {
-    operationId: `discovery.${action}`,
-    surface: "app",
-    authenticated: true,
-    permission: READ,
-    resource: "firm",
-    audited: false,
-    idempotency: "optional",
-    rateLimit: "default",
-  };
-}
-
 // Handing a record artifact to somebody is an EXPORT, so it is audited even though it is a GET.
 // The audit row names the load and which artifact left, never a byte of its content.
 function artifactMeta(action: string): RouteMeta {
@@ -409,7 +393,12 @@ const listReviewSetsRoute = defineOpenAPIRoute(readMeta("listReviewSets"), {
   },
 });
 
-const listAllReviewSetsRoute = defineOpenAPIRoute(firmReadMeta("listAllReviewSets"), {
+// The one read here whose ADDRESS names no matter — and its resource is still `matter`, which is
+// not a fudge. The resource says what the permission governs, and `discovery:read` governs one
+// matter's corpus wherever it is reached from: every row this returns is a review set, and a review
+// set cannot exist without a matter. Declaring `firm` here would have loosened a rule the whole
+// namespace stands on so that one listing could be spelled differently.
+const listAllReviewSetsRoute = defineOpenAPIRoute(readMeta("listAllReviewSets"), {
   method: "get",
   path: "/api/v1/review-sets",
   description:

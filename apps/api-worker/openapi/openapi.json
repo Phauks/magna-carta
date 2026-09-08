@@ -77302,7 +77302,7 @@
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "discovery:read",
-        "x-mc-resource": "firm",
+        "x-mc-resource": "matter",
         "x-mc-audited": false,
         "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
