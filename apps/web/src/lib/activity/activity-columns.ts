@@ -20,6 +20,7 @@
  * is what `activityRows` is for: the entry, what its own subsystem calls it, its facts, who acted,
  * and how it opens, resolved once.
  */
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import type { ActivityEntry } from "$lib/matters/activity-api.ts";
 import {
@@ -135,7 +136,7 @@ export function activityRows(
       key: `${entry.sourceKey}:${entry.rowId}`,
       entry,
       contribution,
-      day: entry.sortKey.slice(0, 10),
+      day: civilDateOf(entry.sortKey),
       time: timeOfDay(entry.sortKey) ?? "",
       section: contribution?.section ?? "Unknown",
       type:

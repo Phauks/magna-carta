@@ -23,7 +23,8 @@
  * UTC so it never shifts under the reader's zone. Shape lives here; display lives there; neither
  * borrows the other's job.
  */
-import { requireCivilDate, requireInstant } from "./refuse.ts";
+import { CANONICAL_INSTANT_PATTERN, type CanonicalInstant } from "./instant.ts";
+import { CivilTimeArgumentError, requireCivilDate, requireInstant } from "./refuse.ts";
 
 /** A civil date: the calendar day a record names, as `YYYY-MM-DD`. */
 export type CivilDate = string;
@@ -115,9 +116,29 @@ export function isCivilDate(value: unknown): value is CivilDate {
  *
  * Where a reader's OWN day is what is wanted — is this task overdue for the person looking at it —
  * that is a zoned question and `zonedReading` in time-zone.ts is the function for it. The two are not
- * interchangeable and the difference is a day.
+ * interchangeable and the difference is a day. To DISPLAY the day a moment fell on, neither of these
+ * is the answer: that is `formatInstantDate` in the design system, which reads in the viewer's zone.
+ *
+ * Takes a stored instant as a string too, because that is the form most callers hold one in and the
+ * alternative was `someInstant.slice(0, 10)` — which is what four surfaces shipped a UTC-day bug as.
  */
-export function civilDateOf(instant: Date | number): CivilDate {
+export function civilDateOf(instant: Date | number | CanonicalInstant): CivilDate {
+  // A canonical instant is ALREADY this string with a time on the end, so the day is the first ten
+  // characters and there is nothing to parse. The overload exists so that the twenty-odd places
+  // that legitimately want the UTC day of a stored instant can say so by name instead of slicing —
+  // a slice is invisible to every scan, and the four display bugs that shipped were written as one.
+  // The shape is checked rather than assumed, so a value that is not an instant fails here saying
+  // what it is instead of returning ten characters of something else.
+  if (typeof instant === "string") {
+    if (!CANONICAL_INSTANT_PATTERN.test(instant)) {
+      throw new CivilTimeArgumentError(
+        `civilDateOf: the instant "${instant}" is not a stored instant (the exact form ` +
+          "toISOString emits). A day already in hand needs no conversion; anything else is parsed " +
+          "where it arrives, so the failure names the field.",
+      );
+    }
+    return instant.slice(0, 10);
+  }
   return new Date(requireInstant(instant, "civilDateOf", "the instant")).toISOString().slice(0, 10);
 }
 

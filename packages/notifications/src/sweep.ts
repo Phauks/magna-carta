@@ -192,7 +192,7 @@ interface Collection {
 async function collectDeadlineFindings(database: SqlDatabase, now: string): Promise<Collection> {
   const visibility = visibleMatterPredicate();
   const visibilityFragment = visibility.fragmentFor("matter_deadline.matter_id");
-  const nowCivilDate = now.slice(0, 10);
+  const nowCivilDate = civilDateOf(now);
   // A day either side of the platform's own civil date covers every zone in use, and bounds the
   // zone-discovery read to deadlines that could plausibly be due or overdue right now.
   const zoneDiscoveryCeiling = civilDateOffsetByDays(nowCivilDate, 1);
@@ -315,7 +315,7 @@ function deadlineFinding(
   // The bucket is the zone's OWN civil date, so the same deadline raises once per day of the court's
   // calendar rather than once per day of UTC's. Falling back to the platform's date would only
   // happen for a zone the runtime cannot resolve, which the cutoff filter has already removed.
-  const civilDate = currentCivilDateByZone.get(row.time_zone) ?? now.slice(0, 10);
+  const civilDate = currentCivilDateByZone.get(row.time_zone) ?? civilDateOf(now);
   return {
     emissionPoint,
     subjectId: row.id,
@@ -335,7 +335,7 @@ function deadlineFinding(
 // one function rather than growing a second definition of what is due, and the reports the register
 // already ships read exactly the same call.
 async function collectCustodyFindings(database: SqlDatabase, now: string): Promise<Collection> {
-  const civilDate = now.slice(0, 10);
+  const civilDate = civilDateOf(now);
   const reminders = await collectCustodyReminders(database, civilDate, {
     limit: MAX_COMPARISON_FINDINGS_PER_KIND + 1,
   });

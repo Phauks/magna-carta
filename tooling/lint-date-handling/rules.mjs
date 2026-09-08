@@ -224,20 +224,64 @@ export function findInlineViewerZone(filePath, source) {
 
 const TODAY_BY_STRING_SURGERY = /\.toISOString\(\)\.slice\(0,\s*10\)/g;
 
+/*
+ * The same cut, on a value that is ALREADY an ISO instant — `createdAt.slice(0, 10)`.
+ *
+ * This is the form the rule missed first time round, and it is the form that had actually shipped
+ * bugs: four surfaces took the first ten characters of a stored instant and rendered the result
+ * through `formatDate`, which pins to UTC. Two of them are print sheets. A record entered at 18:30
+ * in Los Angeles has a `createdAt` of 01:30Z the next day, so "Date Entered" named the wrong day
+ * for every entry after late afternoon.
+ *
+ * It is also the case that defeats a type. `createdAt.slice(0, 10)` produces a perfectly
+ * well-formed YYYY-MM-DD — a branded `CivilDate` obtained by parsing would accept it without
+ * complaint. It is not malformed; it is the wrong day. Only knowing where the string came from
+ * catches it, which is what this reads.
+ *
+ * KEYED ON NAMES THAT CAN ONLY MEAN AN INSTANT — a trailing `At`, or `now`/`instant`/`sortKey` —
+ * rather than on `.slice(0, 10)` at large, which is also how somebody truncates a title. The
+ * deliberate omission is `validFrom`/`validTo`: those columns hold a civil date at one end and an
+ * instant at the other by design, and the reads that slice them are normalising exactly that. A
+ * dual-shape column is a hazard, but it is not this one.
+ */
+const CIVIL_DATE_CUT_FROM_AN_INSTANT =
+  /\b(?:\w*[aA]t|now|nowIso|instant|sortKey)\b\)?\??\.slice\(0,\s*10\)/g;
+
 export function findHandCutToday(filePath, source) {
   if (filePath.startsWith(`${SHAPE_HOME}/`)) return [];
   const text = stripComments(source);
-  return [...text.matchAll(TODAY_BY_STRING_SURGERY)].map((match) =>
-    problem(
-      "civil-date-of",
-      filePath,
-      text,
-      match.index,
-      "cuts a civil date out of an ISO string. `civilDateOf(instant)` and `todayInUtc()` from " +
-        "@magna-carta/civil-time/civil-date say what this means and are findable; a string slice " +
-        "is not, which is why forty of them accumulated with nothing able to name them",
-    ),
-  );
+  const problems = [];
+  for (const match of text.matchAll(TODAY_BY_STRING_SURGERY)) {
+    problems.push(
+      problem(
+        "civil-date-of",
+        filePath,
+        text,
+        match.index,
+        "cuts a civil date out of an ISO string. `civilDateOf(instant)` and `todayInUtc()` from " +
+          "@magna-carta/civil-time/civil-date say what this means and are findable; a string slice " +
+          "is not, which is why forty of them accumulated with nothing able to name them",
+      ),
+    );
+  }
+  for (const match of text.matchAll(CIVIL_DATE_CUT_FROM_AN_INSTANT)) {
+    problems.push(
+      problem(
+        "day-of-an-instant",
+        filePath,
+        text,
+        match.index,
+        "takes the first ten characters of a stored INSTANT to get a day, which gets the UTC day — " +
+          "a different day from the reader's for roughly a third of every day. Four surfaces " +
+          'shipped that under labels like "Date Entered". To DISPLAY the day a moment fell on, ' +
+          "call `formatInstantDate` (@magna-carta/design-system/formatters), which reads in the " +
+          "viewer's own zone; to compute with it, `civilDateOf(Date.parse(value))` for the UTC day " +
+          "or `zonedReading(Date.parse(value), zone).civilDate` for a named zone — and say which " +
+          "you meant, because the two differ by a day",
+      ),
+    );
+  }
+  return problems;
 }
 
 // --- rule: one display of a date, a time, or a moment -------------------------------------------

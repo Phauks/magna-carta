@@ -43,7 +43,7 @@
   import * as Combobox from "@magna-carta/design-system/combobox";
   import * as Alert from "@magna-carta/design-system/alert";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
-  import { formatDuration, formatInstant } from "@magna-carta/design-system/formatters";
+  import { formatDuration, formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import Info from "@lucide/svelte/icons/info";
   import Paperclip from "@lucide/svelte/icons/paperclip";
@@ -872,6 +872,7 @@
           matterTitle: chosenMatterName,
           money: (amount) => formatMoney(amount, { currency: entry.currency }),
           date: (isoDate) => formatDate(isoDate),
+          instantDate: (instant) => formatInstantDate(instant),
           printedAt: formatInstant(new Date()),
         }),
   );
@@ -1646,7 +1647,7 @@
                 {attachment.fileName ?? "This document is no longer on the matter"}
               </span>
               <span class="text-xs whitespace-nowrap text-text-subtle">
-                {formatDate(attachment.createdAt.slice(0, 10))}
+                {formatInstantDate(attachment.createdAt)}
               </span>
               <Button
                 variant="ghost"

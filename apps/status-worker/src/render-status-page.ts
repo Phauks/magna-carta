@@ -8,6 +8,7 @@
 // progressive enhancement only (countdown, scheme toggle, text size, the subscribe panel);
 // everything a reader needs has a working static fallback. Every snapshot-sourced string is
 // operator- or upstream-authored and is HTML-escaped here.
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type {
   ComponentHistory,
   ComponentStatus,
@@ -588,9 +589,9 @@ function renderHistory(
   const windowDays = snapshot.history.windowDays;
   const inWindow = new Set(dayKeys);
   const windowed = resolvedEvents.filter((event) =>
-    inWindow.has((event.resolvedAt ?? event.startedAt).slice(0, 10)),
+    inWindow.has(civilDateOf(event.resolvedAt ?? event.startedAt)),
   );
-  const eventDays = new Set(windowed.map((event) => event.startedAt.slice(0, 10)));
+  const eventDays = new Set(windowed.map((event) => civilDateOf(event.startedAt)));
   const quietDays = Math.max(windowDays - eventDays.size, 0);
   const quietLine =
     windowed.length === 0

@@ -74,8 +74,8 @@ Hand a stored instant to a function that takes a day and you are a whole day out
 so nothing about the call looks wrong.
 
 Every entry point in `@magna-carta/civil-time` refuses a value that is not its shape and says what
-the value actually is: *"addCalendarDays: the civil date "2026-09-08T12:00:00.000Z" is a stored
-INSTANT, not a day … `zonedReading(Date.parse(value), zone).civilDate` is that reading"*. Before
+the value actually is: _"addCalendarDays: the civil date "2026-09-08T12:00:00.000Z" is a stored
+INSTANT, not a day … `zonedReading(Date.parse(value), zone).civilDate` is that reading"_. Before
 this, `civilDateParts` returned `{ year: 2026, month: 9, day: NaN }` **in silence** — every field
 still a number — and everything built on it surfaced as `RangeError: Invalid time value`, a message
 naming no function, no argument and no value, on a request carrying a dozen dates. The failure was
@@ -86,7 +86,7 @@ rejected on three counts, recorded so it is not re-proposed:
 
 1. **A brand is erased at runtime, and the bad values arrive at runtime.** They come from a D1
    column or a request body — and thirty-two civil-date columns still carry no shape `CHECK`, so a
-   civil-date column genuinely *can* hold an instant today. A brand asserts a shape the database does
+   civil-date column genuinely _can_ hold an instant today. A brand asserts a shape the database does
    not enforce, and it is wrong in precisely the case that matters: real data that is already wrong.
 2. **Every call site would take a cast to satisfy it** — 162 of them across the six functions whose
    misuse costs a day — and a cast is a lie that typechecks.
@@ -96,6 +96,30 @@ rejected on three counts, recorded so it is not re-proposed:
 
 The honest version of a brand is "this was checked", not "this came from a trusted column" — and
 that is what the guards already enforce, at the only place the two can be told apart.
+
+## Never take the day of an instant by slicing it
+
+`createdAt.slice(0, 10)` is the UTC day. For any reader west of Greenwich it is the **wrong** day
+for roughly a third of every day, and it does not look wrong: it produces a perfectly well-formed
+`YYYY-MM-DD`.
+
+Four surfaces shipped that — two of them print sheets that reach clients — under labels reading
+"Date Entered" and "Created". A record entered at 18:30 in Los Angeles has a `createdAt` of 01:30Z
+the next morning, so the sheet named the following day.
+
+| What you want | Call |
+| --- | --- |
+| The day to **show a reader** | `formatInstantDate(instant)` — the design system, viewer's own zone |
+| The **UTC** day, for a query key or a sweep bucket | `civilDateOf(instant)` |
+| The day **in a named zone** | `zonedReading(Date.parse(instant), zone).civilDate` |
+
+`civilDateOf` takes the stored instant as a string precisely so this has a name. A slice is
+invisible to every scan; that is how all four bugs were written, and it is why the `day-of-an-instant`
+rule reads the receiver rather than the operation.
+
+**This is also the case that defeats a type.** A branded `CivilDate` obtained by parsing accepts
+`createdAt.slice(0, 10)` without complaint — the value is not malformed, it is the wrong day. Only
+knowing where the string came from catches it.
 
 ## No date is derived from another date
 
@@ -169,7 +193,14 @@ In a form, the seam between stored text and what the picker holds is `civilDateV
 `pnpm run lint:date-handling` is derived into both the inner loop and CI by
 `tooling/check-scoped/repo-wide.mjs`, so it runs everywhere with no further wiring. It reads source
 text, so it catches a shape or a formatter written out and misses one assembled at runtime or
-reached by different means. Two package fitness tests hold the same line from inside:
+reached by different means.
+
+The `day-of-an-instant` rule is the one that reads a RECEIVER rather than an operation — a trailing
+`At`, or `now`/`instant`/`sortKey`, before `.slice(0, 10)`. It has to: the operation is ordinary
+string work and the mistake is entirely in what the string was. It deliberately says nothing about
+`validFrom`/`validTo`, which hold a civil date at one end and an instant at the other by design, so
+the reads that slice them are normalising exactly that. A dual-shape column is a hazard, and it is a
+different one. Two package fitness tests hold the same line from inside:
 `packages/calendar/test/window-and-arithmetic.test.ts` and
 `packages/tasks/test/no-arithmetic.test.ts` both now assert that their package names `Intl` nowhere
 at all — each had an exemption list before the arithmetic moved somewhere every package could reach.

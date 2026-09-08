@@ -38,6 +38,15 @@ export interface InvoiceSheetContext {
   /** Money in the bill's own currency, given the amount in major units. */
   readonly money: (amount: number) => string;
   readonly date: (isoDate: string) => string;
+  /**
+   * The day a recorded MOMENT fell on, as the reader sees it.
+   *
+   * Separate from `date` because the two differ by a day: `date` takes a day the firm wrote down
+   * and pins it to UTC so it never moves, while an instant is a day only once somebody names a
+   * zone. Passing `createdAt.slice(0, 10)` through `date` gave the UTC day, which named the wrong
+   * one for every invoice raised after late afternoon in an American office.
+   */
+  readonly instantDate: (instant: string) => string;
   /** When the sheet was taken, already stated as an instant. */
   readonly printedAt: string;
 }
@@ -73,7 +82,7 @@ export function invoiceRecordSheet(
         kind: "fields",
         fields: [
           { label: "Status", value: statusEntry(invoiceStanding(row)).label },
-          { label: "Created", value: context.date(invoice.createdAt.slice(0, 10)) },
+          { label: "Created", value: context.instantDate(invoice.createdAt) },
           {
             label: "Issued",
             value: invoice.issueDate === null ? "Not issued" : context.date(invoice.issueDate),

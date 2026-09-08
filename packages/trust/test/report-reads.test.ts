@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { UserId } from "@magna-carta/identifiers/types";
 import type { ClockPort } from "@magna-carta/ledger/types";
 import { money, USD } from "@magna-carta/money/money";
@@ -29,7 +30,7 @@ const clockAt = (instant: string): ClockPort => ({
   now: () => instant,
   // `today` only bounds future-dating, and every effective date this suite uses is in the past
   // relative to the instants it records at.
-  today: () => instant.slice(0, 10),
+  today: () => civilDateOf(instant),
 });
 
 const optionsAt = (instant: string) => ({ clock: clockAt(instant) });

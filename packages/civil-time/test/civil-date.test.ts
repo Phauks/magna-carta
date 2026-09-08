@@ -96,6 +96,34 @@ describe("the civil date an instant has in UTC", () => {
   });
 });
 
+describe("the day of a stored instant, taken by name rather than by slicing", () => {
+  it("takes the instant as the string most callers hold one in", () => {
+    // The point of the overload: `someInstant.slice(0, 10)` is invisible to every scan, and four
+    // surfaces shipped a UTC-day bug written exactly that way.
+    expect(civilDateOf("2026-09-08T12:00:00.000Z")).toBe("2026-09-08");
+    expect(civilDateOf("2026-09-08T23:59:59.999Z")).toBe("2026-09-08");
+  });
+
+  it("agrees with the Date and the epoch-milliseconds forms", () => {
+    const text = "2026-09-08T12:00:00.000Z";
+    expect(civilDateOf(text)).toBe(civilDateOf(new Date(text)));
+    expect(civilDateOf(text)).toBe(civilDateOf(Date.parse(text)));
+  });
+
+  it("refuses a string that is not a stored instant, rather than returning ten characters of it", () => {
+    for (const value of ["2026-09-08", "2026-09-08T12:00:00Z", "not an instant", ""]) {
+      expect(() => civilDateOf(value), value).toThrow(/is not a stored instant/);
+    }
+  });
+
+  it("is NOT the day to show a reader, and the two differ by a day", () => {
+    // 01:30Z is the previous evening on the west coast. This is the UTC day — correct for a
+    // query key or a sweep bucket, and the wrong answer under a label reading "Date Entered".
+    // formatInstantDate in the design system is the one that follows the reader.
+    expect(civilDateOf("2026-09-08T01:30:00.000Z")).toBe("2026-09-08");
+  });
+});
+
 describe("plain calendar-day arithmetic", () => {
   it("counts days, crossing months and years", () => {
     expect(addCalendarDays("2026-09-08", 1)).toBe("2026-09-09");
