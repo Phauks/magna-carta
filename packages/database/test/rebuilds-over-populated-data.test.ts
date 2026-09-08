@@ -87,7 +87,7 @@ const REBUILD_CASES: Record<string, RebuildCase> = {
    * apps/api-worker/test/leaf-rebuild-in-durable-object.test.ts, which replays these statements over
    * a populated table inside a real object. This case is the row-preservation half.
    */
-  "20260908T020000_invoice-wip-claim-admits-a-fee": {
+  "20260908T040000_invoice-wip-claim-admits-a-fee": {
     lineage: "per-firm",
     rebuilt: "invoice_wip_claim",
     child: "invoice_line",

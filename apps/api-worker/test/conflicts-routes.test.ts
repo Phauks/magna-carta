@@ -239,6 +239,11 @@ describe("conflicts check routes", () => {
     // A person asked for it, so the row names them. An automated run would carry null here, and the
     // two must never read alike.
     expect(listed?.actorUserId).toBe(ownerUserId);
+    // And the row says a PERSON asked, not merely who. Unset, the check stores no trigger source at
+    // all — the shape of a row written before the column existed — and the firm's log then reads
+    // "the row does not say what started it" beside an actor it does in fact name. That is a
+    // different and worse claim than either of the two honest ones.
+    expect(listed?.triggerSource).toBe("manual");
     expect(typeof listed?.hitCount).toBe("number");
 
     const narrowed = await get(`/api/v1/conflicts/checks?matterId=${matterId}`);

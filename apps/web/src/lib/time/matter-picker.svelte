@@ -126,18 +126,25 @@
     {#each matching as matter (matter.id)}
       <Combobox.Item value={matter.id} label={matterDisplay(matter)} />
     {/each}
+    <!-- A HEADING SITS INSIDE A GROUP. The group is where the heading finds the identity it labels,
+         so a bare one throws the moment the listbox opens — which is invisible until somebody
+         clicks the field, and is exactly how this picker crashed the Messaging screen. -->
     {#if matching.length === 0}
-      <Combobox.GroupHeading>
-        {matters.length === 0
-          ? "No matters were read, so there is nothing to file this on."
-          : `No matter matches "${query.trim()}".`}
-      </Combobox.GroupHeading>
+      <Combobox.Group>
+        <Combobox.GroupHeading>
+          {matters.length === 0
+            ? "No matters were read, so there is nothing to file this on."
+            : `No matter matches "${query.trim()}".`}
+        </Combobox.GroupHeading>
+      </Combobox.Group>
     {:else if capped}
       <!-- A capped answer says it is capped: this is a page of the firm's matters, not the whole
            record, so a matter that is genuinely there can be genuinely missing from this list. -->
-      <Combobox.GroupHeading>
-        More matters exist than were read. Type to narrow what is here.
-      </Combobox.GroupHeading>
+      <Combobox.Group>
+        <Combobox.GroupHeading>
+          More matters exist than were read. Type to narrow what is here.
+        </Combobox.GroupHeading>
+      </Combobox.Group>
     {/if}
   </Combobox.Content>
 </Combobox.Root>

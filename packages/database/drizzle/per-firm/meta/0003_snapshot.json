@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "abb86701-415c-4060-8dca-37d563072b26",
-  "prevId": "3eb60dda-ab90-4a42-9f60-e2a03c7512f3",
+  "id": "51fed5ae-535b-40be-86ab-779d95903bde",
+  "prevId": "5c254c0b-c514-4d71-ba73-175798ec4c70",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -908,6 +908,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "disposition": {
+          "name": "disposition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "carrier_reference": {
           "name": "carrier_reference",
           "type": "text",
@@ -961,6 +968,14 @@
             "counterparty_number"
           ],
           "isUnique": false
+        },
+        "communication_disposition_index": {
+          "name": "communication_disposition_index",
+          "columns": [
+            "disposition"
+          ],
+          "isUnique": false,
+          "where": "\"communication\".\"disposition\" IS NOT NULL"
         },
         "communication_carrier_reference_unique_index": {
           "name": "communication_carrier_reference_unique_index",

@@ -12,15 +12,22 @@
     {
       "idx": 1,
       "version": "6",
-      "when": 1788818867482,
-      "tag": "20260908T010000_fee-entry-work-in-progress-store",
+      "when": 1788834353158,
+      "tag": "20260908T022553_communication-disposition",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "6",
-      "when": 1788819300482,
-      "tag": "20260908T020000_invoice-wip-claim-admits-a-fee",
+      "when": 1788836000000,
+      "tag": "20260908T030000_fee-entry-work-in-progress-store",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788836100000,
+      "tag": "20260908T040000_invoice-wip-claim-admits-a-fee",
       "breakpoints": true
     }
   ]

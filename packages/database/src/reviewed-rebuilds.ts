@@ -48,7 +48,7 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // this migration could have done silently. The reasoning is written out in the migration's own
   // `-- contract:` header, and the durable-object case is proved rather than assumed in
   // apps/api-worker/test/leaf-rebuild-in-durable-object.test.ts.
-  "20260908T020000_invoice-wip-claim-admits-a-fee",
+  "20260908T040000_invoice-wip-claim-admits-a-fee",
   // `user`.`firm_id` widened to nullable, so an account can exist before it belongs to a firm.
   // Audited: the copy is column-for-column over the whole table, the foreign key and the unique
   // index on `email` are both carried across, and no row loses a value — the reasoning is written
