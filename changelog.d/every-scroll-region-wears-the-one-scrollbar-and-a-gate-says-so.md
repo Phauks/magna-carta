@@ -12,7 +12,7 @@ appears exactly when content outgrows its box, which is to say never in the stat
 built in.
 
 The worst of them was the `ActionDialog`'s own fields pane. Nothing in its markup says "scroll" —
-`.mc-modal-frame-pane` says `overflow-y: auto` in CSS — so *every panel in the product* had it, and
+`.mc-modal-frame-pane` says `overflow-y: auto` in CSS — so _every panel in the product_ had it, and
 the conflicts check panel is where the owner saw it. The `Dialog`, `AlertDialog`, `Sheet` and
 `RecordWindow` shells were the same. The record window's tab strip takes `mc-scrollbar-hidden`
 instead, with a `ScrollEdgeHint` beside it: it is `flex: none`, so a horizontal bar arriving under

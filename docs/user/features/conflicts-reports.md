@@ -24,8 +24,8 @@ will be compared, and how the check will be filed. The right side is the search 
 saying what it searches. You can leave every one of them alone. Nothing runs until you press Run
 Check, because choosing the scope is part of the act.
 
-**A check does not need a matter.** The matter is where the check is *filed*, not what it is checked
-*against* — the whole point of a check is to find the matters that might conflict. Naming one adds
+**A check does not need a matter.** The matter is where the check is _filed_, not what it is checked
+_against_ — the whole point of a check is to find the matters that might conflict. Naming one adds
 that matter's own parties to the search and lets the check reach your own people; leaving it empty is
 what you do when all you have is a name somebody gave you on the telephone.
 
@@ -82,7 +82,7 @@ did not reach.
 **Every number can be left blank**, and a blank one takes your firm's own setting — which is shown
 inside the box, so you can see the number you are accepting.
 
-**You are not asked whether the check is preliminary or comprehensive.** Those two words say *when* a
+**You are not asked whether the check is preliminary or comprehensive.** Those two words say _when_ a
 check ran, not how it searched: the screen before your firm takes a matter on, or the moment it
 accepts. A check filed against a matter your firm has already taken on is comprehensive, and every
 other check is preliminary. The panel tells you which one it is going into the log as.

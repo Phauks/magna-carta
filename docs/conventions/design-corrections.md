@@ -999,6 +999,7 @@ don't know what half of them mean, meaning we need better naming." What binds:
 - **A matter is where a check is filed, not what it is checked against.** The field is optional in
   what it says as well as in what it accepts, because finding the matters that might conflict is the
   point of running one.
+
 ### 2026-09-08 — Record Communication: two columns, typed choices, and a number that can be shortened
 
 The owner's second round on the messaging form, from the deployed screen. Their list, worked end to

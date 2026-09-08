@@ -19,20 +19,20 @@ holds the search settings, each with its own line saying what it searches rather
 **Name or identifier**, **Relationship**, **The firm's own people** and **Documents and messages**.
 `Strictness` — a dial, not a thing — is **Name matching**, and its two settings, `Balanced` and
 `Over-inclusive`, are **Standard** and **Widest**; both say out loud that they match names that
-*sound* alike, which was true before and said nowhere. `Control` and `Family` are **Ownership and
+_sound_ alike, which was true before and said nowhere. `Control` and `Family` are **Ownership and
 control** and **Family and personal**. `Closure cap` and `Candidate cap` are **Related parties to
 reach** and **Candidates to record**. These are the same stored values under better words, so the
 firm's log, the settings screen and the printed report all read the new ones.
 
-**A check no longer asks which trigger to file it under.** Preliminary and comprehensive name *when*
+**A check no longer asks which trigger to file it under.** Preliminary and comprehensive name _when_
 a check ran, not how it searched — the pre-engagement screen, or the moment the firm accepts — and
 that is a fact the record already holds. A check filed against a matter the firm has taken on is
 comprehensive; every other check is preliminary. The panel says which, rather than asking a member to
 classify their own act.
 
 **And a matter is optional, in what the field says as well as in what it accepts.** It always was
-accepted without one; the field now says that a matter is where a check is *filed*, not what it is
-checked *against* — naming one adds that matter's own parties and lets the search reach the firm's
+accepted without one; the field now says that a matter is where a check is _filed_, not what it is
+checked _against_ — naming one adds that matter's own parties and lets the search reach the firm's
 own people, and leaving it empty is a real choice rather than an omission.
 
 **A blank number is the firm's own, and now shows which number that is** — inside the box, as its
@@ -50,7 +50,7 @@ searches, and you can leave every one of them alone.
 **The settings are named for what they search.** Where a check looks is now **Name or identifier**,
 **Relationship**, **The firm's own people** and **Documents and messages**. How widely it matches
 names is **Name matching**, set to **Standard** or **Widest** — and both of those say out loud that
-they match names that *sound* alike, which they always did. How far it walks is **Ownership and
+they match names that _sound_ alike, which they always did. How far it walks is **Ownership and
 control**, **Family and personal**, **Representation** and **Corporate family**. Where it stops is
 **Related parties to reach** and **Candidates to record**. Your firm's log, the settings screen and
 the printed check all read the new words.

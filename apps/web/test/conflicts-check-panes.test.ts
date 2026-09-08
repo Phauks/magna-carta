@@ -8,7 +8,7 @@
  * box, and neither of those is the kind of thing a type-checker can hold in place. So they are
  * pinned here, where a later round that quietly reverts one fails instead of shipping.
  */
-import { flushSync, mount, unmount } from "svelte";
+import { flushSync, mount, unmount, type ComponentProps } from "svelte";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import CheckScope from "$lib/conflicts/check-scope.svelte";
 import CheckSubject from "$lib/conflicts/check-subject.svelte";
@@ -29,11 +29,18 @@ const POLICY: FirmConflictsPolicy = {
 let target: HTMLElement;
 let instance: Record<string, unknown> | undefined;
 
-function draw<Props extends Record<string, unknown>>(
-  component: Parameters<typeof mount>[0],
-  props: Props,
-): HTMLElement {
-  instance = mount(component, { target, props });
+/*
+ * One helper per pane rather than one generic over both: a helper typed loosely enough to take
+ * either component takes props neither of them has, which is the assertion these tests are for.
+ */
+function drawScope(props: ComponentProps<typeof CheckScope>): HTMLElement {
+  instance = mount(CheckScope, { target, props });
+  flushSync();
+  return target;
+}
+
+function drawSubject(props: ComponentProps<typeof CheckSubject>): HTMLElement {
+  instance = mount(CheckSubject, { target, props });
   flushSync();
   return target;
 }
@@ -57,7 +64,7 @@ afterEach(() => {
 
 describe("the engine settings pane", () => {
   it("says what every source searches, in the page rather than on a hover", () => {
-    const rendered = draw(CheckScope, { draft: new CheckDraft(), policy: POLICY });
+    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
     const shown = text(rendered);
     // The four labels, in the words the log's own columns use.
     expect(shown).toContain("Name or identifier");
@@ -70,13 +77,13 @@ describe("the engine settings pane", () => {
   });
 
   it("names sound-alike matching, which the old wording never did", () => {
-    const rendered = draw(CheckScope, { draft: new CheckDraft(), policy: POLICY });
+    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
     expect(text(rendered)).toContain("SOUND");
     expect(text(rendered)).toContain("Stephen and Steven");
   });
 
   it("calls the bands what they do rather than how strict they are", () => {
-    const rendered = draw(CheckScope, { draft: new CheckDraft(), policy: POLICY });
+    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
     expect(text(rendered)).toContain("Name matching");
     expect(text(rendered)).toContain("Standard");
     expect(text(rendered)).toContain("Widest");
@@ -84,7 +91,7 @@ describe("the engine settings pane", () => {
   });
 
   it("names the relationship classes for what they cover", () => {
-    const rendered = draw(CheckScope, { draft: new CheckDraft(), policy: POLICY });
+    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
     const shown = text(rendered);
     expect(shown).toContain("Ownership and control");
     expect(shown).toContain("Family and personal");
@@ -93,42 +100,44 @@ describe("the engine settings pane", () => {
   });
 
   it("shows the firm's own number inside every box a reader may leave blank", () => {
-    const rendered = draw(CheckScope, { draft: new CheckDraft(), policy: POLICY });
+    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
     // The three hop budgets, then the two bounds — each its own firm setting, in its own field.
     expect(placeholders(rendered)).toEqual(["2", "1", "1", "500", "5000"]);
   });
 
   it("says the firm's own where the policy could not be read, rather than inventing a figure", () => {
-    const rendered = draw(CheckScope, { draft: new CheckDraft(), policy: null });
+    const rendered = drawScope({ draft: new CheckDraft(), policy: null });
     expect(new Set(placeholders(rendered))).toEqual(new Set(["The firm's own"]));
   });
 
   it("states the floor as something that widens a check, never as a limit on it", () => {
-    const rendered = draw(CheckScope, { draft: new CheckDraft(), policy: POLICY });
+    const rendered = drawScope({ draft: new CheckDraft(), policy: POLICY });
     expect(text(rendered)).toContain("raised back up before the search runs");
   });
 
   it("holds the hop budgets shut while the relationship walk is turned off", () => {
     const draft = new CheckDraft();
     draft.searchRelationships = false;
-    const rendered = draw(CheckScope, { draft, policy: POLICY });
+    const rendered = drawScope({ draft, policy: POLICY });
     const hops = [...rendered.querySelectorAll("input")].slice(0, 3);
     expect(hops.every((input) => input.disabled)).toBe(true);
   });
 
   it("cannot reach the firm's own people with no matter named, and says so", () => {
-    const rendered = draw(CheckScope, {
+    const rendered = drawScope({
       draft: new CheckDraft(),
       policy: POLICY,
       matterNamed: false,
     });
-    expect(text(rendered)).toContain("No matter is named, so this check records it as not searched");
+    expect(text(rendered)).toContain(
+      "No matter is named, so this check records it as not searched",
+    );
   });
 });
 
 describe("the subject pane", () => {
   it("says a matter is where a check is filed, not what it is checked against", () => {
-    const rendered = draw(CheckSubject, {
+    const rendered = drawSubject({
       draft: new CheckDraft(),
       matterLabel: "2026-0001 · Acme",
       plan: [],
@@ -142,7 +151,7 @@ describe("the subject pane", () => {
       { matterId: null, matterEngaged: false, permissions: null },
       POLICY,
     );
-    const rendered = draw(CheckSubject, { draft: new CheckDraft(), plan });
+    const rendered = drawSubject({ draft: new CheckDraft(), plan });
     const shown = text(rendered);
     expect(shown).toContain("What This Check Will Do");
     for (const sentence of plan) expect(shown).toContain(sentence);
