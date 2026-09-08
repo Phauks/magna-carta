@@ -60,14 +60,8 @@
     writeKey,
     type CostLedgerEntry,
   } from "./cost-operations.ts";
-  import {
-    GONE_RECORDER_NOTE,
-    billingSentence,
-    payeeText,
-    recorderState,
-    recorderText,
-    returnedDraftReason,
-  } from "./cost-vocabulary.ts";
+  import { billingSentence, payeeText } from "./cost-vocabulary.ts";
+import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
 
   let {
     open = $bindable(false),
