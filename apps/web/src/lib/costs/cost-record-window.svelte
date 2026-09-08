@@ -63,6 +63,7 @@
   } from "./cost-operations.ts";
   import { billingSentence, payeeText } from "./cost-vocabulary.ts";
 import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
+  import { printSheetDates } from "$lib/print-sheet";
 
   let {
     open = $bindable(false),
@@ -269,7 +270,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
           matterTitle,
           matterNumber,
           money: (amount) => formatMoney(amount, { currency: entry.currency }),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
           expenseCodeLabels: expenseCodes.labelFor,

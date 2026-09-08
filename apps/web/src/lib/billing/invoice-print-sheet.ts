@@ -11,6 +11,7 @@
  * the artifact exists. Calling either of them by the other's name would let a firm send a reader's
  * working copy to a client.
  */
+import type { PrintSheetDates } from "$lib/print-sheet";
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import {
@@ -30,23 +31,13 @@ import {
  * standing across the firm it says neither, because a bill may charge several matters and naming
  * one of them on the record's own sheet would be picking a matter out of a hat.
  */
-export interface InvoiceSheetContext {
+export interface InvoiceSheetContext extends PrintSheetDates {
   readonly matterId?: string | null;
   readonly matterTitle?: string | null;
   readonly matterNumber?: string | null;
   readonly clientName: string;
   /** Money in the bill's own currency, given the amount in major units. */
   readonly money: (amount: number) => string;
-  readonly date: (isoDate: string) => string;
-  /**
-   * The day a recorded MOMENT fell on, as the reader sees it.
-   *
-   * Separate from `date` because the two differ by a day: `date` takes a day the firm wrote down
-   * and pins it to UTC so it never moves, while an instant is a day only once somebody names a
-   * zone. Passing `createdAt.slice(0, 10)` through `date` gave the UTC day, which named the wrong
-   * one for every invoice raised after late afternoon in an American office.
-   */
-  readonly instantDate: (instant: string) => string;
   /** When the sheet was taken, already stated as an instant. */
   readonly printedAt: string;
 }

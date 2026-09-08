@@ -49,6 +49,7 @@
     pendingAttachmentsOf,
   } from "./note-attachable-documents.ts";
   import { noteSheet, occurrenceLine } from "./note-print-sheet.ts";
+  import { printSheetDates } from "$lib/print-sheet";
   import {
     attachNoteDocument,
     createMatterNote,
@@ -211,7 +212,7 @@
           authorName: nameOf(note.authorUserId),
           lastEditedByName: note.lastEditedBy === null ? null : nameOf(note.lastEditedBy),
           instant: (at) => formatInstant(at),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           attachedNames: note.documents.map((document) => document.fileName),
           printedAt: formatInstant(new Date()),
         }),

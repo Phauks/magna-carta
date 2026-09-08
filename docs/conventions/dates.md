@@ -97,7 +97,20 @@ rejected on three counts, recorded so it is not re-proposed:
 The honest version of a brand is "this was checked", not "this came from a trusted column" — and
 that is what the guards already enforce, at the only place the two can be told apart.
 
-## Never take the day of an instant by slicing it
+## Never take the day of an instant with a day formatter
+
+There are two spellings of this and the second is the one that shipped more of it.
+
+```ts
+formatDate(row.createdAt.slice(0, 10)); // takes the UTC day, then pins it to UTC
+formatDate(row.createdAt); // no slice at all — same wrong day
+```
+
+`formatDate` pins to UTC _deliberately_, because a recorded day must not move under the reader.
+Hand it a moment and that pinning is what makes the wrong answer silent instead of loud. Ten
+surfaces shipped one of the two — "Date Entered", "Created", "Opened", "Closed", "On hold since" —
+across the matter overview, the invoice window, the time record and two print sheets that reach
+clients.
 
 `createdAt.slice(0, 10)` is the UTC day. For any reader west of Greenwich it is the **wrong** day
 for roughly a third of every day, and it does not look wrong: it produces a perfectly well-formed
@@ -107,11 +120,11 @@ Four surfaces shipped that — two of them print sheets that reach clients — u
 "Date Entered" and "Created". A record entered at 18:30 in Los Angeles has a `createdAt` of 01:30Z
 the next morning, so the sheet named the following day.
 
-| What you want | Call |
-| --- | --- |
-| The day to **show a reader** | `formatInstantDate(instant)` — the design system, viewer's own zone |
-| The **UTC** day, for a query key or a sweep bucket | `civilDateOf(instant)` |
-| The day **in a named zone** | `zonedReading(Date.parse(instant), zone).civilDate` |
+| What you want                                      | Call                                                                |
+| -------------------------------------------------- | ------------------------------------------------------------------- |
+| The day to **show a reader**                       | `formatInstantDate(instant)` — the design system, viewer's own zone |
+| The **UTC** day, for a query key or a sweep bucket | `civilDateOf(instant)`                                              |
+| The day **in a named zone**                        | `zonedReading(Date.parse(instant), zone).civilDate`                 |
 
 `civilDateOf` takes the stored instant as a string precisely so this has a name. A slice is
 invisible to every scan; that is how all four bugs were written, and it is why the `day-of-an-instant`
@@ -174,6 +187,21 @@ only classification still open to a **new** date column is the guard itself.
   and fall back to the absolute instant when they cannot compute an age.
 - An unreadable value renders as the text that arrived. A silent blank or a cheerful "Invalid Date"
   hides a defect that showing the data makes obvious.
+
+## A printed sheet takes its date formatters, and there is one set
+
+Seven sheets each declared their own formatting seam, and the parameter was named `isoDate` in five
+and `civilDate` in two. That disagreement was a record of nobody being sure what the function took,
+and it is what let an instant reach a formatter contracted for a day — twice, on sheets that go to
+clients.
+
+One interface now: [`apps/web/src/lib/print-sheet/`](../../apps/web/src/lib/print-sheet/) declares
+`date` (a day the firm wrote down, UTC-pinned) and `instantDate` (the day a moment fell on, in the
+reader's zone), and every sheet's context extends it. A supplier calls `printSheetDates()` rather
+than wiring two closures, so it cannot wire them to the wrong pair.
+
+A sheet keeps its own `date` only where the wording genuinely differs — the calendar entry sheet
+prints "Tuesday, September 15, 2026" — and it still takes `instantDate` from the shared set.
 
 ## The date field
 

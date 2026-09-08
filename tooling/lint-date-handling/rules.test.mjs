@@ -3,6 +3,7 @@ import {
   ALLOWANCES,
   ALLOWED_RAW_DATE_INPUTS,
   applyAllowances,
+  findDayFormatterGivenAMoment,
   findElapsedTime,
   findHandCutToday,
   findHandWrittenValidators,
@@ -126,6 +127,57 @@ describe("one display of a date, a time or a moment", () => {
     const source = 'new Intl.DateTimeFormat(locale, { weekday: "long" });';
     const home = "packages/design-system/src/lib/components/calendar-grid/civil-date.ts";
     expect(findSecondDisplay(home, source)).toEqual([]);
+  });
+});
+
+describe("a day formatter is never handed a moment", () => {
+  it("catches the form that has no slice in it at all", () => {
+    // The six that shipped. `formatDate` pins to UTC, so an instant renders as the UTC day — the
+    // next day for an American office from late afternoon on.
+    for (const source of [
+      "formatDate(matter.openedAt)",
+      "formatDate(row.summary.createdAt)",
+      "value: formatDate(matter.heldAt)",
+      "formatDate(credit.openedAt)",
+      "formatMonth(entry.recordedAt)",
+      "formatDateRange(a.startedAt, b.endedAt)",
+    ]) {
+      expect(findDayFormatterGivenAMoment(APP, source), source).toHaveLength(1);
+    }
+  });
+
+  it("names the remedy, not just the fault", () => {
+    const [found] = findDayFormatterGivenAMoment(APP, "formatDate(matter.openedAt)");
+    expect(found.detail).toContain("formatInstantDate");
+    expect(found.detail).toContain("viewer's own zone");
+  });
+
+  it("leaves a genuine civil date alone", () => {
+    for (const source of [
+      "formatDate(entry.workDate)",
+      "formatDate(cost.incurredDate)",
+      "formatDate(task.dueOn)",
+      // Dual-shape by design — a civil date at one end, an instant at the other.
+      "formatDate(inForce.validFrom)",
+      "formatDate(edge.validTo)",
+    ]) {
+      expect(findDayFormatterGivenAMoment(APP, source), source).toEqual([]);
+    }
+  });
+
+  it("leaves a wall clock alone — AtTime is not an instant", () => {
+    expect(findDayFormatterGivenAMoment(APP, "formatDate(task.dueAtTime)")).toEqual([]);
+    expect(findDayFormatterGivenAMoment(APP, "formatDate(event.startsAtTime)")).toEqual([]);
+  });
+
+  it("says nothing about the display home, which defines these functions", () => {
+    const home = "packages/design-system/src/lib/formatters/civil-date.ts";
+    expect(findDayFormatterGivenAMoment(home, "formatDate(value.createdAt)")).toEqual([]);
+  });
+
+  it("does not fire on the instant formatters, which take a moment by contract", () => {
+    expect(findDayFormatterGivenAMoment(APP, "formatInstantDate(matter.openedAt)")).toEqual([]);
+    expect(findDayFormatterGivenAMoment(APP, "formatInstant(row.createdAt)")).toEqual([]);
   });
 });
 

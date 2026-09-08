@@ -2472,6 +2472,48 @@
       "notes": "`@magna-carta/civil-time` (shape) + the design system's `formatters/` (display), with `lint:date-handling` holding the line; about seventy duplicates removed, two of which had already drifted."
     },
     {
+      "slice": "One home for dates — the second pass",
+      "group": "cross-cutting",
+      "order": 42,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "claude/date-consolidation-continued",
+      "activeWork": "docs/active-work/claude/date-consolidation-continued.md",
+      "next": "Owner call on whether the sixteen surfaces still on a native date input move to the DatePicker",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": [
+          "ADR-a-date-has-two-authorities-and-a-gate-that-keeps-it-so"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "Six more wrong-day surfaces in the spelling the first pass missed, the gate rule that reads the argument rather than the operation, and the print-sheet formatting seam collapsed from seven declarations to one."
+    },
+    {
       "slice": "3·1 — Time tracking + WIP + rate engine",
       "group": "phase-3",
       "order": 1,

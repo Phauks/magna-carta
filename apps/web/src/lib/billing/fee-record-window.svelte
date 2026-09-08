@@ -59,6 +59,7 @@
   import { feeEntrySheet } from "./fee-print-sheet.ts";
   import { todayInUtc } from "@magna-carta/civil-time/civil-date";
   import { createFee, patchFee, writeKey } from "./fee-operations.ts";
+  import { printSheetDates } from "$lib/print-sheet";
   import {
     billingSentence,
     feeDraftRefusal,
@@ -305,7 +306,7 @@
           matterTitle,
           matterNumber,
           money: (amount) => formatMoney(amount, { currency: fee.currency }),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
         }),

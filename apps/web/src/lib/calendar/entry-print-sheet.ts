@@ -10,6 +10,7 @@
  * surface doing the printing, not to the description of what the paper says. The description of an
  * event is prose and prints as prose, wrapping rather than clipping.
  */
+import type { PrintSheetDates } from "$lib/print-sheet";
 import type {
   PrintSheetDocument,
   PrintSheetField,
@@ -25,7 +26,7 @@ import type { EntryRecord } from "./entry-reference.ts";
 import { timeZoneLabel } from "./time-zone-options.ts";
 
 /** Everything the sheet needs that the record itself does not carry. */
-export interface EntrySheetContext {
+export interface EntrySheetContext extends PrintSheetDates {
   /** The matter's number, where the record has a matter and the number is known. */
   readonly matterNumber: string | null;
   /** The type's name, where the record is classified and the catalog knows it. */
@@ -34,8 +35,6 @@ export interface EntrySheetContext {
   readonly officeName: string | null;
   /** A participant's name as the surface resolved it. */
   readonly participantName: (participant: EventParticipant) => string;
-  /** A civil date as the reader sees it. */
-  readonly date: (civilDate: string) => string;
   /** A wall-clock time in its zone, or null for all day. */
   readonly time: (time: string | null, timeZone: string) => string | null;
   /** When the sheet was taken, already stated as an instant. */

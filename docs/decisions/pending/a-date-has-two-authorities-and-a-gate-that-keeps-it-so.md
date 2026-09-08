@@ -92,6 +92,8 @@ actually is. It replaces nothing that worked: `civilDateParts` returned a NaN da
 consumers surfaced `RangeError: Invalid time value`, naming no function, argument or value. The
 failure was never the problem; the diagnosis was.
 
+**The wrong-day mistake has two spellings, and the second shipped more of it.** `formatDate(x.createdAt.slice(0, 10))` was the one the first gate rule caught; `formatDate(x.createdAt)` — no slice at all — was six further surfaces, on the matter overview, the invoice window and the matter status dialog. `formatDate` pins to UTC deliberately, so that pinning is what makes a moment passed to it silently wrong rather than loudly. The rule now keys on the ARGUMENT rather than the operation, reading the `At` suffix this codebase uses consistently enough that the schema column scan relies on the same convention. What made both spellings possible was seven print sheets each declaring their own formatting seam, with the date parameter named `isoDate` in five of them and `civilDate` in two — a disagreement that was a record of nobody being sure what the function took. That seam is now one interface with both questions named separately, and a supplier takes the pair through one call rather than wiring two closures.
+
 **Consequences.** Elapsed time remains banned for a record, with one stated carve-out — the age of a
 live measurement, whose whole subject is how long ago it was taken, and which falls back to the
 absolute instant where it cannot compute an age. The fifteen surfaces still holding a native

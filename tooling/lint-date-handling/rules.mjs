@@ -284,6 +284,48 @@ export function findHandCutToday(filePath, source) {
   return problems;
 }
 
+// --- rule: a day formatter is never handed a moment -------------------------------------------
+
+/*
+ * `formatDate(row.createdAt)` — the UTC-pinned CIVIL-DATE formatter, handed a stored INSTANT.
+ *
+ * The sibling of the slicing rule below it, and the reason both exist: the slice was only ever one
+ * SPELLING of this mistake. Six surfaces took the other one — no slice at all, just an instant
+ * passed to a function whose whole contract is that its argument is a day the firm wrote down.
+ * "Opened", "Closed" and "On hold since" on the matter overview, "Created" and a credit note's
+ * "Opened" on the invoice window, and "On hold since" on the matter status dialog. Every one showed
+ * the UTC day, which for an American office is the next day from late afternoon onward.
+ *
+ * `formatDate` pins to UTC deliberately — a recorded day must not move under the reader — so
+ * handing it a moment is a category error twice over: the wrong function, and the pinning that
+ * makes the wrong function silently wrong rather than loudly.
+ *
+ * READS THE ARGUMENT'S NAME, because that is the only signal in the source. An identifier ending in
+ * `At` is this codebase's own convention for a stored instant, kept consistently enough that the
+ * schema's date-shaped-column scan relies on the same one. The deliberate omissions are
+ * `validFrom`/`validTo` (dual-shape by design) and anything ending `AtTime`, which is a wall clock.
+ */
+const DAY_FORMATTER_GIVEN_A_MOMENT =
+  /\bformat(?:Date|DateRange|Month)\(\s*[\w.?[\]]*\b\w*(?<!AtTime)At\b/g;
+
+export function findDayFormatterGivenAMoment(filePath, source) {
+  if (filePath.startsWith(`${DISPLAY_HOME}/`)) return [];
+  const text = stripComments(source);
+  return [...text.matchAll(DAY_FORMATTER_GIVEN_A_MOMENT)].map((match) =>
+    problem(
+      "day-formatter-given-a-moment",
+      filePath,
+      text,
+      match.index,
+      "hands a stored instant to `formatDate`, which pins to UTC because its argument is supposed " +
+        "to be a day the firm wrote down. The result is the UTC day — the NEXT day, for an " +
+        "American office, from late afternoon onward. Six surfaces shipped that under labels like " +
+        '"Opened" and "Created". Use `formatInstantDate` ' +
+        "(@magna-carta/design-system/formatters), which reads the day in the viewer's own zone",
+    ),
+  );
+}
+
 // --- rule: one display of a date, a time, or a moment -------------------------------------------
 
 /**
@@ -537,6 +579,7 @@ export function applyAllowances(problems) {
 /** Every rule, in the order a failure reads best: shape, then meaning, then words. */
 export const RULES = Object.freeze([
   findShapeLiterals,
+  findDayFormatterGivenAMoment,
   findHandWrittenValidators,
   findInlineViewerZone,
   findHandCutToday,

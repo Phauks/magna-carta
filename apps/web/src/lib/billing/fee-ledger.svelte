@@ -74,6 +74,7 @@
   } from "./fee-columns.ts";
   import { gapReason, REVIEW_GATE_ENABLED } from "./fee-gaps.ts";
   import { feeEntrySheet } from "./fee-print-sheet.ts";
+  import { printSheetDates } from "$lib/print-sheet";
   import {
     approveFee,
     canWorkDraft,
@@ -392,7 +393,7 @@
           matterTitle,
           matterNumber,
           money: (amount) => formatMoney(amount, { currency }),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
         }),
