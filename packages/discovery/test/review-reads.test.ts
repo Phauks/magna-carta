@@ -11,6 +11,7 @@ import {
   readVisibleExceptionCounts,
   readVisibleOccurrences,
   readVisibleReviewSet,
+  readVisibleReviewSets,
   readVisibleReviewSetsForMatter,
 } from "../src/review-reads.ts";
 import { readRecordCustodians } from "../src/record-custodian-statements.ts";
@@ -116,6 +117,25 @@ describe("the review-set list is what a member may reach and nothing else", () =
     const { database } = migratedDatabase();
     const visible = await readVisibleReviewSetsForMatter(database, MATTER, outsiderAccess, 50);
     expect(visible.data.map((row) => row.id)).toEqual([WALLED_REVIEW_SET]);
+  });
+
+  it("lists across matters exactly what the access list allows, and not what matter access would", async () => {
+    // The firm-wide register's read. Both corpora sit on the SAME matter here, so a read that
+    // scoped by matter rather than by the access list would return both to either member and look
+    // entirely ordinary doing it — which is the failure this asserts against.
+    const { database } = migratedDatabase();
+    const reviewer = await readVisibleReviewSets(database, reviewerAccess, 50);
+    expect(reviewer.data.map((row) => row.id)).toEqual([REVIEW_SET]);
+    const outsider = await readVisibleReviewSets(database, outsiderAccess, 50);
+    expect(outsider.data.map((row) => row.id)).toEqual([WALLED_REVIEW_SET]);
+  });
+
+  it("pages the firm-wide list by cursor, and the wall holds across the page boundary", async () => {
+    const { database } = migratedDatabase();
+    const first = await readVisibleReviewSets(database, reviewerAccess, 1);
+    expect(first.data.map((row) => row.id)).toEqual([REVIEW_SET]);
+    // One visible corpus, so there is no second page — and the walled one must not appear as one.
+    expect(first.nextCursor).toBeNull();
   });
 
   it("answers ABSENT rather than refused for a corpus the member is not on", async () => {
