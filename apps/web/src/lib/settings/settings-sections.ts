@@ -420,16 +420,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   // Data & Platform
   {
-    // The firm's stance toward pre-release features (release channel + beta opt-in). Draft
-    // mode with no registered definitions yet: the rows are honest seams until the
-    // release-channel frontend ships, but the section already declares who may edit and how
-    // edits will land.
+    // Whether the firm runs the released build or the one ahead of it. The channel was always in
+    // the session bootstrap and the write has existed behind firm:manageReleaseChannel since
+    // release channels landed, so this section needed no endpoint of its own — and its two former
+    // rows ("release channel" and "beta opt-in") were one fact asked twice.
+    //
+    // Instant rather than draft, and the reason is the consent: entering beta takes an explicit
+    // acknowledgement that the firm accepts pre-release behavior on live client data, which the
+    // shared footer's generic recap of staged changes is exactly not. The one act that needs
+    // saying carries its own dialog saying it.
     id: "beta-access",
     label: "Beta Access",
     href: "/settings/beta-access",
     group: "data-platform",
     scope: "firm",
-    commitMode: "draft",
+    commitMode: "instant",
     editPermissionArea: "firm",
     shipped: true,
   },

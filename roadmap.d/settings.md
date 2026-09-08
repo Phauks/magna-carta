@@ -125,7 +125,8 @@
   scope: Firm release-channel stance, versioned-component ledger, developer master switch and console.
   status: partial
   surface: screen
-  evidence: Pages shipped; Beta Access rows and most Versions rows are honest seams pending backend endpoints (page comments cite docs/research/fable-backend-review-2026-07.md).
+  evidence: Beta Access is live over the session bootstrap's channel and PUT /api/v1/firm/release-channel, gated on firm:manageReleaseChannel (apps/web/src/routes/(app)/settings/beta-access/ and apps/web/src/lib/settings/release-channel-api.ts). Most Versions rows remain honest seams pending backend endpoints (page comments cite docs/research/fable-backend-review-2026-07.md).
+  notes: Beta Access is instant with its own consent dialog rather than the shared draft footer — entering beta takes an explicit acknowledgement the footer's generic staged-changes recap cannot express, and leaving takes none because the route asks none. A firm on the platform-only alpha channel is told so and offered no control.
 
 - id: settings.area-ui.integrations-category
   name: Integrations settings category
