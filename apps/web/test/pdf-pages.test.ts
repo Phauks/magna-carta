@@ -1,7 +1,15 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { DecompressionBombError, ensureReady, loadDocument } from "@magna-carta/pdf";
+import {
+  DecompressionBombError,
+  decryptDocument,
+  ensureReady,
+  inspectSecurity,
+  loadDocument,
+  secureDocument,
+  WrongPasswordError,
+} from "@magna-carta/pdf";
 import {
   PDF_BASE_DPI,
   PDF_MAX_DPI,
@@ -108,5 +116,51 @@ describe("the engine the worker draws with", () => {
     // reported as what it is. Pinning the type here keeps that branch honest if the class moves.
     expect(new DecompressionBombError()).toBeInstanceOf(Error);
     expect(new DecompressionBombError().code).toBe("decompression-bomb");
+  });
+
+  /*
+   * The password-wall contract the render worker leans on: `inspectSecurity` is what tells the
+   * worker to raise "encrypted" instead of "unreadable", and `decryptDocument` is what it retries
+   * with once a reader types one in. Built with `secureDocument` rather than a checked-in fixture,
+   * because a password-protected file is exactly the kind of bytes that should not sit in the
+   * repository even for a test.
+   */
+  it("reports a password-protected document as one a password could open", async () => {
+    await ensureReady(wasmBytes);
+    const { pdf } = await secureDocument(helloPdf, {
+      ownerPassword: "owner",
+      userPassword: "open",
+    });
+    const info = await inspectSecurity(pdf);
+    // This is the exact condition pdf-render.worker.ts gates "encrypted" on: a document a
+    // publicKey (certificate) handler protects would fail here, correctly, since no password can
+    // open it.
+    expect(info.encrypted).toBe(true);
+    expect(info.handler).toBe("standard");
+    expect(info.hasUserPassword).toBe(true);
+  });
+
+  it("opens a password-protected document with the right password", async () => {
+    await ensureReady(wasmBytes);
+    const { pdf } = await secureDocument(helloPdf, {
+      ownerPassword: "owner",
+      userPassword: "open",
+    });
+    const { pdf: plain } = await decryptDocument(pdf, "open");
+    const document = await loadDocument(plain);
+    try {
+      expect(document.pageCount).toBeGreaterThan(0);
+    } finally {
+      document.free();
+    }
+  });
+
+  it("refuses the wrong password by name, which is what tells the wall to ask again", async () => {
+    await ensureReady(wasmBytes);
+    const { pdf } = await secureDocument(helloPdf, {
+      ownerPassword: "owner",
+      userPassword: "open",
+    });
+    await expect(decryptDocument(pdf, "not it")).rejects.toBeInstanceOf(WrongPasswordError);
   });
 });

@@ -830,7 +830,7 @@
   status: partial
   slices: decryption-file-unlock-password-recovery
   spec: docs/specs/2026-06-26-decryption-tool-design.md
-  evidence: crates/decryption-core + @magna-carta/decryption + routes decryption.ts/recovery.ts + apps/recovery-worker + containers/recovery; GPU rungs and UI deferred.
+  evidence: crates/decryption-core + @magna-carta/decryption + routes decryption.ts/recovery.ts + apps/recovery-worker + containers/recovery, reached from the File Workbench's Unlock capability and from a password-protected PDF's own reader. GPU rungs remain deferred.
   audience: public
   public-name: Opening a locked file
   public-summary: Unlock a password-protected file when you have the password, and attempt recovery when the client no longer does.
@@ -840,16 +840,16 @@
   name: Inspect & unlock
   scope: PDF/ZIP/OOXML inspect + unlock via a FormatAdapter, pure Rust compiled to both WASM and native.
   status: shipped
-  surface: awaiting-screen
-  evidence: /decryption/inspect + /unlock routes; crates/decryption-core on the engine-host seam.
+  surface: screen
+  evidence: /decryption/inspect + /unlock routes; crates/decryption-core on the engine-host seam; the File Workbench's Unlock panel (apps/web/src/lib/tools/file-workbench/panels/unlock-panel.svelte).
 
 - id: documents.decryption.recovery
   name: Password recovery orchestration
   scope: Durable-Object-coordinated fan-out over recovery-worker shards with a hash-only boundary (privileged bytes never leave; only hashes are distributed).
   status: shipped
-  surface: awaiting-screen
+  surface: screen
   spec: docs/specs/2026-06-26-decryption-slice-2-recovery-design.md
-  evidence: apps/recovery-worker + containers/recovery (with wordlists) + /decryption/recover\* routes.
+  evidence: apps/recovery-worker + containers/recovery (with wordlists) + /decryption/recover\* routes; the recovery job's own screen (apps/web/src/lib/tools/file-workbench/decryption-api.ts + recovery-status.ts), addressed by the job's own id rather than by the file that started it, so it survives the file being discarded from the workbench.
 
 - id: documents.decryption.gpu
   name: GPU recovery rungs
@@ -857,14 +857,15 @@
   status: partial
   surface: internal
   spec: docs/specs/2026-07-03-decryption-slice-3-gpu-recovery-design.md
-  evidence: packages/gpu-benchmark (Stage 1 benchmark harness) built; Stage 2 wiring named next in the status fragment.
+  evidence: packages/gpu-benchmark (Stage 1 benchmark harness) built; Stage 2 wiring named next in the status fragment. The recovery job screen already answers needsGpu plainly, so a firm sees the honest limit today rather than a spinner that never finishes.
   notes: Partial rather than in-build: Stage 1 is built and Stage 2 is named next, with no stream open on it.
 
 - id: documents.decryption.ui
   name: Unlock/recovery UI
-  scope: End-user unlock and recovery surface.
-  status: not-started
-  evidence: Status fragment: end-user UI post-shell.
+  scope: End-user unlock and recovery surface, and the connection from a password wall a reader actually hits (a locked PDF) to that surface.
+  status: shipped
+  surface: screen
+  evidence: File Workbench Unlock capability (attest, unlock with a known password, or start a recovery search) + its recovery job screen (poll, cancel, one-time password reveal) + the PDF reader's own password wall, which unlocks a known password locally through the same @magna-carta/pdf engine already loaded to draw pages and links out to the workbench for a password it does not have.
 
 - id: documents.metadata
   name: Metadata inspector & scrubber

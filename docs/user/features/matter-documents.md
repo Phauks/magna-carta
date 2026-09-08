@@ -226,6 +226,11 @@ Some PDFs will not open. One that is larger than the reader holds, one whose con
 read, and one built in a way that is unsafe to open all say so on the screen and offer you the
 download instead. The file is stored either way, and nothing about it is changed by trying.
 
+A password-protected PDF asks for its password right there instead of failing outright — type it
+and the document opens normally. The password is checked in this browser and never sent anywhere.
+If you do not have it, the reader points you to File Unlock & Password Recovery in Tools, which can
+search for a common or predictable one.
+
 A PDF is read-only here. There is no editing, and nothing you do in the reader changes the document
 or adds a version.
 

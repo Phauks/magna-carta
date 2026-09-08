@@ -7,8 +7,21 @@
  * bitmap, never anything that could be executed (pdf-pages.ts says why that matters).
  *
  * One document at a time, because that is what a viewer shows. Opening a second frees the first.
+ *
+ * A PASSWORD NEVER LEAVES THIS WORKER EITHER. Checking whether a document is encrypted and trying
+ * a password to open it both run through @magna-carta/pdf's own security functions — the SAME
+ * WebAssembly module already loaded here to draw pages, so there is no server round trip and no
+ * upload: the bytes this worker already holds are read again, in place, and only a bitmap or a
+ * refusal ever crosses back out.
  */
-import { loadDocument, DecompressionBombError, type PdfDocument } from "@magna-carta/pdf";
+import {
+  DecompressionBombError,
+  decryptDocument,
+  inspectSecurity,
+  loadDocument,
+  WrongPasswordError,
+  type PdfDocument,
+} from "@magna-carta/pdf";
 import type { PdfFailureReason, PdfWorkerReply, PdfWorkerRequest } from "./pdf-pages.ts";
 
 // The worker's global is typed as a window by the app's DOM library; the two members used here are
@@ -20,27 +33,84 @@ const scope = self as unknown as {
 
 let open: PdfDocument | null = null;
 
+/**
+ * The bytes of the document currently asking for a password. Held only between an `open` that came
+ * back "encrypted" (or a failed "unlock") and whatever ends that attempt — a document that opened,
+ * one abandoned by a `close`, or one abandoned by opening another. Never kept once a document is
+ * open for real, and never touched by anything outside this worker.
+ */
+let awaitingPassword: Uint8Array | null = null;
+
 function closeOpenDocument(): void {
   open?.free();
   open = null;
+  awaitingPassword = null;
 }
 
-/** The engine's own guard has its own outcome; everything else it throws is an unreadable file. */
-function reasonFor(error: unknown): PdfFailureReason {
-  return error instanceof DecompressionBombError ? "decompression-bomb" : "unreadable";
+/**
+ * Whether this document is one a password could plausibly open. `publicKey` handlers are
+ * certificate-based — no password unlocks them, and offering the wall for one would be a promise
+ * this engine cannot keep.
+ */
+async function classifyUnreadable(raw: Uint8Array): Promise<PdfFailureReason> {
+  try {
+    const info = await inspectSecurity(raw);
+    if (info.encrypted && info.handler === "standard") return "encrypted";
+  } catch {
+    // inspectSecurity failed too (a decompression bomb already handled above, or bytes that are
+    // not a PDF at all) — the caller's own catch already knows this is "unreadable".
+  }
+  return "unreadable";
 }
 
 async function openDocument(id: number, bytes: ArrayBuffer): Promise<void> {
   closeOpenDocument();
+  const raw = new Uint8Array(bytes);
   try {
-    open = await loadDocument(new Uint8Array(bytes));
+    open = await loadDocument(raw);
     const pages = Array.from({ length: open.pageCount }, (_unused, index) =>
       (open as PdfDocument).pageSize(index),
     );
     scope.postMessage({ kind: "opened", id, pages });
   } catch (error) {
     closeOpenDocument();
-    scope.postMessage({ kind: "failed", id, reason: reasonFor(error) });
+    if (error instanceof DecompressionBombError) {
+      scope.postMessage({ kind: "failed", id, reason: "decompression-bomb" });
+      return;
+    }
+    const reason = await classifyUnreadable(raw);
+    if (reason === "encrypted") awaitingPassword = raw;
+    scope.postMessage({ kind: "failed", id, reason });
+  }
+}
+
+async function unlockDocument(id: number, password: string): Promise<void> {
+  const raw = awaitingPassword;
+  if (raw === null) {
+    // Nothing is waiting on a password — the reader's page and this worker have lost track of one
+    // another (a stale retry after a `close`, most plausibly). Unreadable is the honest answer:
+    // there is no document here to unlock.
+    scope.postMessage({ kind: "failed", id, reason: "unreadable" });
+    return;
+  }
+  try {
+    const { pdf } = await decryptDocument(raw, password);
+    open = await loadDocument(pdf);
+    awaitingPassword = null;
+    const pages = Array.from({ length: open.pageCount }, (_unused, index) =>
+      (open as PdfDocument).pageSize(index),
+    );
+    scope.postMessage({ kind: "opened", id, pages });
+  } catch (error) {
+    if (error instanceof WrongPasswordError) {
+      // The document is still exactly as encrypted as it was; awaitingPassword stays so the reader
+      // can try again without the page re-fetching the file.
+      scope.postMessage({ kind: "failed", id, reason: "wrong-password" });
+      return;
+    }
+    awaitingPassword = null;
+    const reason = error instanceof DecompressionBombError ? "decompression-bomb" : "unreadable";
+    scope.postMessage({ kind: "failed", id, reason });
   }
 }
 
@@ -82,6 +152,10 @@ scope.onmessage = (event) => {
   }
   if (request.kind === "open") {
     void openDocument(request.id, request.bytes);
+    return;
+  }
+  if (request.kind === "unlock") {
+    void unlockDocument(request.id, request.password);
     return;
   }
   renderPage(request.id, request.page, request.dpi);
