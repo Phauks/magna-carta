@@ -144,7 +144,7 @@
   scope: Read an archive's entry listing over ranged reads of its headers, without unpacking a byte, for a live or a soft-deleted archive alike. Four formats, each decided from the object's own signature rather than its name - zip, tar, 7z and rar.
   status: shipped
   surface: screen
-  evidence: packages/file-manager/src/{archive-format,zip-central-directory,tar-listing,rar-listing}.ts + packages/seven-zip-listing (crates/seven-zip-listing-core to WebAssembly) + GET /api/v1/files/{id}/archive-entries + the archive view in apps/web/src/lib/file-manager (archive-browse.ts, archiveColumns).
+  evidence: packages/file-manager/src/{archive-format,zip-central-directory,tar-listing,rar-listing}.ts + packages/seven-zip (crates/seven-zip-core to WebAssembly) + GET /api/v1/files/{id}/archive-entries + the archive view in apps/web/src/lib/file-manager (archive-browse.ts, archiveColumns).
   audience: public
   public-name: Looking inside an archive
   public-summary: See what a zip, tar, 7z or rar holds without extracting it or downloading it first.

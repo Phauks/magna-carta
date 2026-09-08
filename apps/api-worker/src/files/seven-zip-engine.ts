@@ -3,7 +3,7 @@
 // The other three readers are pure TypeScript over a bucket: bytes in, arithmetic, entries out. A 7z
 // cannot be read that way — its file list lives in a header at the END of the archive and is normally
 // LZMA-compressed, so listing one needs a real decoder. That decoder is
-// `@magna-carta/seven-zip-listing` (crates/seven-zip-listing-core compiled to WebAssembly), which
+// `@magna-carta/seven-zip` (crates/seven-zip-core compiled to WebAssembly), which
 // takes a range reader rather than a bucket precisely so it does not have to know what a firm bucket
 // is. This module is the two-way seam: bucket in, range reader out.
 //
@@ -19,8 +19,8 @@ import {
   readSevenZipListing,
   type SevenZipListing,
   type SevenZipListingLimits,
-} from "@magna-carta/seven-zip-listing";
-import sevenZipWasmModule from "@magna-carta/seven-zip-listing/src/pkg/seven_zip_listing_core_bg.wasm";
+} from "@magna-carta/seven-zip";
+import sevenZipWasmModule from "@magna-carta/seven-zip/src/pkg/seven_zip_core_bg.wasm";
 import type { ArchiveSourceBucket } from "@magna-carta/file-manager/zip-central-directory";
 
 /**

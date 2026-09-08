@@ -11,7 +11,7 @@ members = [
   "search-core",
   "search-eval",
   "discovery-core",
-  "seven-zip-listing-core",
+  "seven-zip-core",
 ]
 
 [workspace.package]

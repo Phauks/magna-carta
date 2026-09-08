@@ -13,6 +13,16 @@
 // walk with what was read so far marked truncated rather than throwing away the whole listing.
 import type { ArchiveSourceBucket } from "./zip-central-directory.ts";
 
+/**
+ * What a tar member IS, as its own header declares it.
+ *
+ * Only a regular file has bytes to take out. The rest are entries a tar carries that name something
+ * outside themselves — a link to another path, a device node, a pipe — and they matter to an
+ * extractor precisely because they are not content: filing a symlink's zero bytes as a document
+ * would put an empty file on the matter under a name that promises something else.
+ */
+export type TarEntryKind = "file" | "directory" | "link" | "other";
+
 /** One member, in the shape every archive reader on this platform answers with. */
 export interface TarEntry {
   readonly path: string;
@@ -20,6 +30,14 @@ export interface TarEntry {
   readonly compressedSizeBytes: number;
   readonly uncompressedSizeBytes: number;
   readonly modifiedAt: string | null;
+  /** What the header says this entry is, which decides whether it can be extracted at all. */
+  readonly kind: TarEntryKind;
+  /**
+   * Where this member's bytes begin in the object. A tar stores its members whole and uncompressed,
+   * so this offset and the size are the whole of what an extractor needs — there is no directory to
+   * consult and no decoder to run.
+   */
+  readonly dataOffset: number;
 }
 
 export interface TarListing {
@@ -38,6 +56,19 @@ const PREFIX = { at: 345, length: 155 };
 
 /** GNU's long-name record: the NEXT member's path, held as this member's data. */
 const TYPE_GNU_LONG_NAME = "L";
+
+/**
+ * The type flag, read as what the entry is. "0" and NUL are both a regular file — the NUL spelling
+ * predates the field being defined and is still written by older tars. "5" is a directory, "1" and
+ * "2" are a hard and a symbolic link, and "3" through "7" are device nodes, pipes and the contiguous
+ * file nobody writes any more; none of those holds content.
+ */
+function kindOfTypeFlag(typeFlag: string, path: string): TarEntryKind {
+  if (typeFlag === "5" || path.endsWith("/")) return "directory";
+  if (typeFlag === "0" || typeFlag === "\0" || typeFlag === "7") return "file";
+  if (typeFlag === "1" || typeFlag === "2") return "link";
+  return "other";
+}
 
 const decoder = new TextDecoder("utf-8", { fatal: false });
 
@@ -155,11 +186,10 @@ export async function readTarListing(
     const path = normalizeTarPath(rawPath);
     if (path !== null) {
       const modifiedSeconds = numericField(block, MODIFIED.at, MODIFIED.length);
-      // Type flag "5" is a directory; a trailing slash is the older convention for the same thing.
-      const isDirectory = typeFlag === "5" || path.endsWith("/");
+      const kind = kindOfTypeFlag(typeFlag, path);
       entries.push({
         path,
-        isDirectory,
+        isDirectory: kind === "directory",
         // A tar does not compress: a member occupies exactly its own length, so the two sizes are
         // the same number rather than one of them being unknown.
         compressedSizeBytes: memberSize,
@@ -168,6 +198,8 @@ export async function readTarListing(
           modifiedSeconds === null || modifiedSeconds <= 0
             ? null
             : new Date(modifiedSeconds * 1000).toISOString(),
+        kind,
+        dataOffset: dataAt,
       });
     }
     position = nextPosition;

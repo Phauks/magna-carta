@@ -50,8 +50,8 @@ import {
 } from "@magna-carta/file-manager/archive-format";
 import { readTarListing } from "@magna-carta/file-manager/tar-listing";
 import { readRarListing } from "@magna-carta/file-manager/rar-listing";
-import { SevenZipListingError } from "@magna-carta/seven-zip-listing";
-import { readSevenZipArchiveListing } from "../files/seven-zip-archive-listing.ts";
+import { SevenZipListingError } from "@magna-carta/seven-zip";
+import { readSevenZipArchiveListing } from "../files/seven-zip-engine.ts";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
 import {
   readFlaggedTreatment,

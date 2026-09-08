@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-# Build helper (NOT a runtime container): compiles the @magna-carta/seven-zip-listing WebAssembly
-# artifact (crates/seven-zip-listing-core -> packages/seven-zip-listing/src/pkg) in a pinned Rust
+# Build helper (NOT a runtime container): compiles the @magna-carta/seven-zip WebAssembly
+# artifact (crates/seven-zip-core -> packages/seven-zip/src/pkg) in a pinned Rust
 # toolchain, mirroring crates/decryption-core/wasm.Dockerfile. The wasm reads a 7z archive's file
 # list — names, sizes, timestamps, encrypted flag — from its header alone, over ranged reads, so the
 # Worker isolate can list a multi-gigabyte archive without fetching it. Like the other wasm helpers
@@ -17,9 +17,9 @@ COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/src/target \
-    wasm-pack build seven-zip-listing-core --target web --out-dir /out --release --no-opt
+    wasm-pack build seven-zip-core --target web --out-dir /out --release --no-opt
 
-# Export-only final stage: `docker build --output type=local,dest=packages/seven-zip-listing/src/pkg`
+# Export-only final stage: `docker build --output type=local,dest=packages/seven-zip/src/pkg`
 # writes exactly the wasm-pack output (and nothing else) to the host package directory.
 FROM scratch AS export
 COPY --from=build /out /

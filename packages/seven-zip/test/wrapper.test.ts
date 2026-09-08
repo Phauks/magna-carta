@@ -10,14 +10,14 @@ import {
 } from "../src/index.js";
 
 const wasmBytes = readFileSync(
-  fileURLToPath(new URL("../src/pkg/seven_zip_listing_core_bg.wasm", import.meta.url)),
+  fileURLToPath(new URL("../src/pkg/seven_zip_core_bg.wasm", import.meta.url)),
 );
 
 function fixture(name: string): Uint8Array {
   return new Uint8Array(
     readFileSync(
       fileURLToPath(
-        new URL(`../../../crates/seven-zip-listing-core/tests/fixtures/${name}`, import.meta.url),
+        new URL(`../../../crates/seven-zip-core/tests/fixtures/${name}`, import.meta.url),
       ),
     ),
   );
@@ -38,7 +38,7 @@ function rangeReader(archive: Uint8Array): {
   };
 }
 
-describe("@magna-carta/seven-zip-listing wasm wrapper", () => {
+describe("@magna-carta/seven-zip wasm wrapper", () => {
   beforeAll(async () => {
     await ensureReady(wasmBytes);
   });

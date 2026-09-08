@@ -2,14 +2,14 @@
 //
 // A 7z keeps its file list in a header at the END of the archive, and that header is normally
 // LZMA-compressed, so unlike zip and tar it cannot be listed by reading bytes and doing arithmetic —
-// it needs a real LZMA decoder. That decoder is Rust (crates/seven-zip-listing-core, over
+// it needs a real LZMA decoder. That decoder is Rust (crates/seven-zip-core, over
 // sevenz-rust2) compiled to WebAssembly, and this module is the seam between it and the platform.
 //
 // WHAT IT COSTS TO LIST ONE. Two ranged reads for an archive whose file list is stored plain, three
 // when it is compressed, and nothing else however large the archive is — the same property the zip
 // and tar listings have. `readSevenZipListing` drives that: the engine answers each call with either
 // the listing or the next range it needs, and this loops until it has one.
-import init, { listRanges } from "./pkg/seven_zip_listing_core.js";
+import init, { listRanges } from "./pkg/seven_zip_core.js";
 
 // Optional wasm bytes for environments (Node/Vitest) where fetch is unavailable.
 // Pass the result of `readFileSync(wasmPath)` — the loader handles both Buffer and Uint8Array.

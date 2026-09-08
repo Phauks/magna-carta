@@ -1,6 +1,6 @@
-# seven-zip-listing-core test fixtures
+# seven-zip-core test fixtures
 
-Tiny, non-sensitive 7z archives the TypeScript wrapper's tests (`packages/seven-zip-listing/test/`)
+Tiny, non-sensitive 7z archives the TypeScript wrapper's tests (`packages/seven-zip/test/`)
 read. The Rust tests do not use them — they build their own archives in memory — so these exist only
 because a Vitest test cannot run a 7z encoder.
 
@@ -24,7 +24,7 @@ Password, where there is one: `correct horse battery staple`.
 Regenerate all four with
 
 ```
-cargo test -p seven-zip-listing-core -- --ignored regenerate_typescript_fixtures
+cargo test -p seven-zip-core -- --ignored regenerate_typescript_fixtures
 ```
 
 The generator lives in `../integration.rs` beside the tests, and its output is deterministic, so a

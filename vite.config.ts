@@ -226,11 +226,11 @@ export default defineConfig({
       // Cloudflare Workers Builds: the build environment needs only Docker (which the Workers Builds
       // runner provides — the same way the scan/bundle/convert container images build), never Rust or
       // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
-      // each host package dir (the import paths packages/{pdf,decryption,email,seven-zip-listing}/src
+      // each host package dir (the import paths packages/{pdf,decryption,email,seven-zip}/src
       // expect). All four are built because build-all bundles all of the consumers: the SPA imports
       // pdf-core (the in-browser PDF reader), and apps/api-worker imports pdf-core, decryption-core
       // (the decryption/recovery routes' strip_with_key/extract_hash/verify_guess), email-core and
-      // seven-zip-listing-core (the archive browse route's 7z reader) — omitting any makes the worker
+      // seven-zip-core (the archive browse route's 7z reader) — omitting any makes the worker
       // or SPA bundle fail with ENOENT on the missing .wasm. Build
       // context is crates/. Like the container workers, this requires Docker available locally.
       // --network=host: the Workers Builds runner's Docker isolates RUN-step networking (image pulls
@@ -248,7 +248,7 @@ export default defineConfig({
           "vp run rust-wasm-build-pdf",
           "vp run rust-wasm-build-decryption",
           "vp run rust-wasm-build-email",
-          "vp run rust-wasm-build-seven-zip-listing",
+          "vp run rust-wasm-build-seven-zip",
         ],
       },
       "rust-wasm-build-pdf": {
@@ -263,9 +263,9 @@ export default defineConfig({
         command:
           "docker build --network=host --output type=local,dest=packages/email/src/pkg -f crates/email-core/wasm.Dockerfile crates",
       },
-      "rust-wasm-build-seven-zip-listing": {
+      "rust-wasm-build-seven-zip": {
         command:
-          "docker build --network=host --output type=local,dest=packages/seven-zip-listing/src/pkg -f crates/seven-zip-listing-core/wasm.Dockerfile crates",
+          "docker build --network=host --output type=local,dest=packages/seven-zip/src/pkg -f crates/seven-zip-core/wasm.Dockerfile crates",
       },
       // DEV-ONLY, Docker-free fallback for those same wasm artefacts, built with the host Rust
       // toolchain + wasm-pack instead of the pinned Docker images above. For dev environments that
