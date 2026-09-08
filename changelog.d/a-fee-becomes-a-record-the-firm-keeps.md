@@ -23,8 +23,14 @@ abandoned. **Nothing here is computed from time entries.**
 claims a fee through the same `invoice_wip_claim` — whose `source_kind` CHECK is widened by a
 **hand-written** rebuild rather than a generated one, because the two triggers freezing a finalized
 invoice's claims are not in the Drizzle schema and a generated rebuild would have dropped them
-silently. `packages/database/test/invoice-wip-claim-rebuild-migration.test.ts` seeds a claim on a
-finalized invoice and proves both still fire.
+silently. The rebuild also had to answer a finding that landed while this was being built: a
+durable object enforces foreign keys at the statement **and** at the commit, and
+`PRAGMA foreign_keys=OFF` does nothing inside a migration's execution context, so a rebuild of a table
+other tables point at cannot complete against a firm holding data. This one ships because
+`invoice_wip_claim` is a **leaf** — nothing references it, so the drop has no child to orphan, which
+is exactly what `parentRebuildViolations` tests for. It is proved in a real durable object
+(`leaf-rebuild-in-durable-object.test.ts`) rather than in `node:sqlite`, which does not reproduce
+commit-time enforcement and so could not have caught the outage that produced the rule.
 
 `GET/POST /api/v1/fees` answers both listing shapes — one matter entire, and a span of service dates
 across every matter — with the timekeeper, the recorder and the matter resolved beside each record

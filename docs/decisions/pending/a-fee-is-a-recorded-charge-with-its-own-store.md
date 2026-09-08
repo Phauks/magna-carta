@@ -47,8 +47,33 @@ are one implementation rather than three that agree today.
 rebuild, so admitting `fee_entry` to `source_kind` is a hand-written rebuild rather than a generated
 one — because the two triggers that freeze a finalized invoice's claims are not in the Drizzle schema,
 and a generated rebuild would have dropped them silently, unfreezing every finalized bill's claims in
-the fleet. The rebuild is on the reviewed-rebuild allowlist with that reasoning, and a test seeds a
-claim on a FINALIZED invoice and proves both triggers still fire afterwards.
+the fleet.
+
+**And a rebuild is now the shape this platform has just learned it mostly cannot ship**, which this
+slice met head-on rather than around. Between the store being built and it landing, `main` collapsed
+the per-firm lineage and recorded the finding behind it: a rebuild DROPS the table it replaces, a
+durable object enforces foreign keys at the statement AND at the commit, and `PRAGMA foreign_keys=OFF`
+does nothing inside the one execution context a migration runs in. Four workarounds were tried against
+real storage and all four fail. So a rebuild of a table that other tables point at cannot complete
+against any firm holding data — it completes only against the empty databases the suite used to build,
+which is how one took a firm's database offline for a day.
+
+**This rebuild ships because `invoice_wip_claim` is a LEAF, and that is the guard's own criterion
+rather than an exemption from it.** `parentRebuildViolations` reads the children of the rebuilt table
+from the schema as it stood at that migration and skips when there are none. Nothing references the
+claim: it points OUT, at the invoice and the line it was composed into, and dropping a child is not
+what the object refuses. So the tag joins `REVIEWED_REBUILDS` and NOT
+`PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING`, which is documented as debt that must never
+grow.
+
+**The proof is in a durable object, not in `node:sqlite`.** That distinction is the whole lesson of
+the outage: the harness that proves rebuilds preserve rows runs on `node:sqlite`, which does not
+reproduce commit-time enforcement at all, so a leaf rebuild passing there would say nothing about the
+runtime it has to survive. `apps/api-worker/test/leaf-rebuild-in-durable-object.test.ts` seeds a claim
+on a finalized invoice and replays the drop inside a real object — deliberately WITHOUT the pragma,
+because the pragma does nothing and leaving it out is what makes it a test of the drop. The migration's
+own header, which had claimed the bracketing pragmas protected the swap, is corrected to say they are
+kept as ordinary practice and are doing no work.
 
 **The amount is TYPED and never computed.** Nothing in `packages/fees` reads a time entry, a rate or an
 arrangement. `feeEntryToClaimable` composes a `flat_fee` line; the non-hourly-arrangement guard that
