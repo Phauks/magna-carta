@@ -42,6 +42,7 @@ Each guide follows the per-feature pattern in [`../README.md`](../README.md): wh
 - [`safe-custody-register.md`](safe-custody-register.md) — Safe custody register: physical originals the firm holds, where they are, and whose they are (backend built, screens pending).
 - [`conflicts-reports.md`](conflicts-reports.md) — Conflicts reports: what a conflicts check searched, what it could not search, what is still unanswered, and why the platform reports a search rather than a verdict (backend built, screens pending).
 - [`automatic-conflicts-rechecks.md`](automatic-conflicts-rechecks.md) — Automatic conflicts re-checks: the six changes that make a matter get looked at again, what deliberately does not, and why a matter says a re-check is owed before one has run (backend built, screens pending).
+- [`tools.md`](tools.md) — Tools: the firm's workbench page — the subjects the tools are grouped under, searching the page to find one, the tile and list views, and what a tool marked Soon means.
 - [`shipping.md`](shipping.md) — Shipping & postage (stub; screens pending and no account can be connected yet).
 - [`whois-lookup.md`](whois-lookup.md) — WHOIS Lookup: who registered a domain or IP address, and when.
 - [`safe-website-viewer.md`](safe-website-viewer.md) — Safe Website Viewer: what a suspicious link leads to, seen from an isolated remote browser (screen shipped; captures wait on the rendering service being enabled).

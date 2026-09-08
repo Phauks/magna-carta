@@ -1,31 +1,28 @@
 <script lang="ts">
   /*
-   * Reports — the catalogue. Every report the platform declares, grouped by family, rendered from
-   * the registry: a built report opens its run screen, a soon one is visible, disabled and says what
-   * it waits on. The tools listing's shape, because a catalogue of things a member can open is the
-   * same kind of screen whatever the things are.
+   * Reports — the catalogue of every report the platform declares, on the shared catalogue
+   * framework ($lib/catalogue): grouped by family, as a card grid or a dense list, searchable from
+   * the masthead's action row. A built report opens its run screen; a soon one is visible, goes
+   * nowhere, and says what it waits on.
+   *
+   * It is the Tools screen's framework because a catalogue of things a member can open is the same
+   * screen whatever the things are — which is the whole reason the framework was lifted out of the
+   * two of them.
    */
-  import FieldLabel from "@magna-carta/design-system/field-label";
-  import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import ReportRow from "$lib/reports/report-row.svelte";
-  import { REPORT_FAMILIES, reportsInFamily } from "$lib/reports/report-registry.ts";
+  import CatalogueScreen from "$lib/catalogue/catalogue-screen.svelte";
+  import { createCatalogueViewPreference } from "$lib/catalogue/catalogue-view-preference.svelte.ts";
+  import { reportCatalogueSections, REPORTS_VIEW_STORAGE_KEY } from "$lib/reports/report-catalogue.ts";
+
+  const sections = reportCatalogueSections();
+  const viewPreference = createCatalogueViewPreference(REPORTS_VIEW_STORAGE_KEY);
 </script>
 
 <svelte:head><title>Reports · Magna Carta</title></svelte:head>
 
-<ScreenHeader title="Reports" class="mb-24" />
-
-<div class="flex flex-col gap-32">
-  {#each REPORT_FAMILIES as family (family.id)}
-    <section class="flex flex-col gap-16">
-      <FieldLabel as="h2" class="border-b border-border-strong pb-8">{family.label}</FieldLabel>
-      <ul
-        class="divide-y divide-border-default overflow-hidden rounded-lg border border-border-default"
-      >
-        {#each reportsInFamily(family.id) as report (report.id)}
-          <li><ReportRow {report} icon={family.icon} /></li>
-        {/each}
-      </ul>
-    </section>
-  {/each}
-</div>
+<CatalogueScreen
+  title="Reports"
+  {sections}
+  {viewPreference}
+  searchLabel="Search reports"
+  noun="reports"
+/>
