@@ -1,0 +1,17 @@
+-- THE FIRM'S AI SETTINGS GET AN OWNER.
+--
+-- `firm:manageAiSettings` gates the two gates: whether this firm's content may reach a third-party
+-- model at all (`inference.aiProcessingEligibility`), and whether the assistant is one of the things
+-- that may send it (`magnus.enabled`), plus the assistant's daily ceiling.
+--
+-- Owner/Admin ALONE, and none of the seats that do the work. `magnus:converse` already seeds to
+-- Attorney and Paralegal, because holding a conversation is ordinary work; deciding that privileged
+-- client content may leave the platform for somebody else's model is not, and a member who may ask
+-- the assistant a question must not thereby be able to decide for the whole firm that asking is
+-- allowed. That is the same bracket firm:manageScanPolicy and firm:manageReportPolicy sit in.
+--
+-- The house seed shape, plain and unqualified: a migration applies once per lineage, tracked by the
+-- journal, so there is nothing for an OR IGNORE to guard against — and the fitness scan in
+-- tooling/lint-ungranted-permissions reads exactly this form to prove the permission is reachable by
+-- somebody. A seed written any other way passes SQLite and fails that scan.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_aiSettingsOwnerAdmin0', 'role_Gw-zKO8hOHQuNv2bWokMp', 'firm:manageAiSettings');

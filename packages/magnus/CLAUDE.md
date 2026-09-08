@@ -132,12 +132,26 @@ registered there; this file states what they mean for the code, not where they w
   A conversation has no artifact to sign, so relaxing that check to share the class would weaken it
   for both. The **frames** stay in the one home
   (`apps/api-worker/src/progress/job-progress-protocol.ts`); only the attachment differs.
-- **The surface exists; the firm-administrator enablement screen does not.** A member reaches the
-  assistant from the sidebar destination and from a matter's own section, and accepts the disclosure
-  there. What is still missing is the screen a firm opens the two consent settings from — until it
-  ships, `magnus.enabled` and `inference.aiProcessingEligibility` are settable only through the
-  settings write path, so every firm's surface renders its closed state. That is the honest state,
-  not a defect: the feature is off by default and says which gate is shut.
+- **Both surfaces exist now: the member's and the firm's.** A member reaches the assistant from the
+  sidebar destination and from a matter's own section, and accepts the disclosure there. A firm opens
+  the two consent settings at **Settings · AI and the Assistant** — `apps/web/src/routes/(app)/settings/ai`
+  over `GET`/`PATCH /api/v1/firm/ai/settings` (`apps/api-worker/src/routes/firm-ai-settings.ts`), behind
+  `firm:manageAiSettings`, which is Owner/Admin alone by seed and is deliberately NOT `magnus:converse`:
+  asking the assistant a question is ordinary work, deciding for the whole firm that privileged content
+  may leave for a third-party provider is not. That route is the only writer of the pair
+  `consent.ts` reads, and its own test asserts the seam — a screen that wrote settings the resolver did
+  not read would look like it worked and do nothing. **Off by default is still the shipped state**; what
+  changed is that a firm can now turn it on rather than needing the settings write path.
+
+- **The firm's screen states the model and cannot select one.** It reports
+  `inference.primaryReasoningModel` with its pinned snapshot and the two confidentiality facts, because
+  consenting to third-party processing without being told which model receives the content is consent to
+  nothing legible. It writes no model, and the route accepts no model field. Selection is a different
+  question with a real cost: an unconfigured firm follows the platform's reasoning tier and moves forward
+  with it, while a firm holding a model id keeps that choice forever
+  ([`../inference/src/settings.ts`](../inference/src/settings.ts) says why that asymmetry is deliberate),
+  so a control that wrote an id on the firm's behalf would silently convert "follow the platform" into
+  "pinned". That control wants a setting that can express the tier.
 - **The interface polls the turn; it does not hold the socket.** The events route exists and is
   correct, and the surface deliberately reads `GET .../turns/{turnId}` instead, because the two
   return identical state and a socket buys nothing until a frame can carry a partial answer. Token

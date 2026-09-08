@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 810 nodes of the feature ledger in
+is the complete register rather than a digest: all 812 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**810 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**812 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 141 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **669 that are units of work**, for the reason set out under [What a roll-up is
+count the **671 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 301 | 45% |
-| Part-built | partial, in-build | 124 | 19% |
+| Done | shipped | 302 | 45% |
+| Part-built | partial, in-build | 125 | 19% |
 | Ahead | designed, planned, researching, not-started | 203 | 30% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **669** | **100%** |
+| **All units of work** | | **671** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 301 | 45% |
-| `partial` | 123 | 18% |
+| `shipped` | 302 | 45% |
+| `partial` | 124 | 19% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 137 | 21% |
+| `not-started` | 137 | 20% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **669** | **100%** |
+| **All statuses** | **671** | **100%** |
 
 ### What a roll-up is not
 
-**141 of the 810 nodes are parents, and 110 of those parents are `partial`.** A parent's status is a
+**141 of the 812 nodes are parents, and 110 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 301 of 669 (45%). Shipped plus partial is 424 (63%).**
+**Shipped alone is 302 of 671 (45%). Shipped plus partial is 426 (63%).**
 
-The 123 units between those two numbers are work that is engineered and paid for and is not
+The 124 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**425 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**427 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 82 | 19% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 164 | 39% |
+| A person can open it today (`screen`) | 85 | 20% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 163 | 38% |
 | No user surface by nature (`internal`) | 179 | 42% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **425** | **100%** |
+| **Everything with something built** | **427** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -95,7 +95,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 
 | Area | `shipped` | `partial` | `in-build` | `designed` | `planned` | `researching` | `not-started` | `deferred` | `cut` | Total | Shipped |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| AI & Inference | 17 | 4 | 0 | 0 | 0 | 1 | 4 | 3 | 0 | 29 | 59% |
+| AI & Inference | 17 | 5 | 0 | 0 | 0 | 1 | 4 | 3 | 0 | 30 | 57% |
 | Authentication, Access Control & Encryption | 13 | 5 | 0 | 0 | 0 | 0 | 5 | 3 | 0 | 26 | 50% |
 | Calendar and Rules-Based Docketing | 13 | 1 | 0 | 0 | 0 | 1 | 4 | 0 | 0 | 19 | 68% |
 | Communications Layer | 5 | 0 | 0 | 0 | 0 | 0 | 11 | 1 | 0 | 17 | 29% |
@@ -123,10 +123,10 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
 | Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
-| Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
+| Settings & Configuration | 5 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 15 | 33% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **301** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **669** | **45%** |
+| **All areas** | **302** | **124** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **671** | **45%** |
 
 ## Where we have been
 
@@ -395,7 +395,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### AI & Inference
 
-[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 29 units of work, 59% shipped. 17 done, 4 part-built, 5 ahead, 3 parked.
+[`roadmap.d/ai.md`](../roadmap.d/ai.md) — 30 units of work, 57% shipped. 17 done, 5 part-built, 5 ahead, 3 parked.
 
 - `ai` · `partial` · **AI / inference** — Single credential-less model chokepoint owning confidentiality, tenant isolation, and fairness; AI-text detection; consent gate before any feature sends privileged content to a model.
   - `ai.inference` · `shipped` · **Inference chokepoint (@magna-carta/inference)** — Every AI feature reaches the model through one pure package; no feature talks to the gateway directly.
@@ -404,7 +404,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `ai.inference.model-catalog` · `shipped` · **Curated ZDR-only model catalog** — In-repo data table of allowed models; every reasoning entry zdrEligible, zod-validated at module load; non-ZDR models unrepresentable. Each entry also records the provider's published lifecycle facts (retirement date, successor) under a verification date separate from the confidentiality one, and the FORM the provider publishes its pinned snapshot in, so a snapshot id that contradicts its own form fails at import rather than reaching a provenance record.
     - `ai.inference.reasoning-tier` · `shipped` · **Evergreen reasoning tier** — A platform-maintained tier name (most-capable / balanced) that the firm default and deploy configuration resolve through, so tracking model advancement is a data edit rather than a code change. An override can only ever select a model already curated in the catalog, so non-ZDR models stay unrepresentable. _Note: Which model occupies each tier is unchanged from what the platform already ran; moving a tier onto a published successor is an open owner decision._
     - `ai.inference.pin-freshness` · `shipped` · **Model-pin staleness detection** — A pure pass over the catalog that reports a pin past its published retirement, approaching one, superseded by a newer generation, or overdue for re-verification. Expiry fails the gate; the rest is reported. Cannot detect a successor released since the last check — that gap is bounded by the re-read interval, not closed.
-    - `ai.inference.firm-model-selection` · `shipped` · **Per-firm reasoning-model selection** — Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id.
+    - `ai.inference.firm-model-selection` · `partial` · **Per-firm reasoning-model selection** — Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id. _Note: Partial because nothing SELECTS. A control that wrote a model id would silently convert a firm that follows the platform's reasoning tier into one pinned to today's occupant of it, which is the asymmetry packages/inference/src/settings.ts deliberately preserves; selection wants a setting that can express the tier itself._
     - `ai.inference.confidentiality` · `shipped` · **Confidentiality control plane** — Gateway-level ZDR, collectLog false and skipCache true pinned per request, fail-closed pre-dispatch ZDR guard that rejects rather than downgrades. _Note: Cloudflare/Anthropic ZDR procurement artifacts gate the first real AI feature, not this layer._
     - `ai.inference.tenant-isolation` · `shipped` · **Tenant isolation & metering** — Firm metadata derived server-side (never caller-supplied); authoritative per-request token usage written through the firm-scoped data-access layer as the reconcilable metering record.
     - `ai.inference.fairness` · `partial` · **Multi-tenant fairness** — One shared gateway per environment; queue-dispatched inference off the hot path; firm-scoped spend rule and account credit alarm as real-time guardrails.
@@ -419,10 +419,11 @@ to change a line here, edit the node in its area file and re-run the build.
   - `ai.magnus` · `partial` · **Magnus — the conversational assistant** — The assistant a firm member talks to — the conversation and turn record, two fail-closed consent gates, the queue-dispatched path to an answer through the one inference chokepoint, and the poll-and-push transport.
     - `ai.magnus.record` · `shipped` · **Transcript as firm work product** — Conversations and turns in per-firm D1 through the firm-scoped data-access layer — protected, deletable, archivable. Author-and-administrator visible, never client-visible, member-deletable with the deletion audited and registered in the erasure registry. Discoverable like email, so any search or collection surface reaching transcripts must carry an explicit include-or-exclude control.
     - `ai.magnus.consent` · `shipped` · **Two fail-closed consent gates** — The firm's general AI-processing setting plus a feature-specific one, both default closed, read in one resolver, re-read by the consumer before the model call so a gate closing stops queued work.
+    - `ai.magnus.firm-enablement` · `shipped` · **The firm-administrator enablement screen** — The one screen a firm opens both consent gates from, and the only writer of the pair the assistant's resolver reads. Carries the assistant's daily question ceiling beside them, states the model in force with its pinned snapshot and both confidentiality facts, and states the EFFECTIVE answer over the staged values, so an assistant switched on above a closed processing gate never reads as working.
     - `ai.magnus.port-reuse` · `shipped` · **One model port, one additive operation** — No second model port — the assistant consumes the shipped InferencePort and adds generateConversation, with a platform-vocabulary role set and a structurally separate system prompt.
     - `ai.magnus.stub-adapter` · `shipped` · **Deterministic stub InferencePort** — A complete, network-free implementation of the port that every AI feature inherits; the composition root resolves to it whenever the binding or the enabling configuration is absent.
     - `ai.magnus.streaming` · `not-started` · **Token streaming** — Delta frames on the push-progress protocol, a protocol version bump, and partial-content semantics for a stream that dies mid-answer.
-    - `ai.magnus.interface` · `partial` · **Assistant interface** — The in-app conversation surface in its two homes, and the member disclosure. The sidebar destination is the member's own workspace across everything; the matter section is one matter's file of transcripts. One surface serves both and they differ in scope and framing, not in capability. _Note: Partial because the firm-administrator enablement screen is not built — the two consent settings are settable only through the settings write path, so every firm's surface renders its closed state naming which gate is shut. The surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer._
+    - `ai.magnus.interface` · `partial` · **Assistant interface** — The in-app conversation surface in its two homes, and the member disclosure. The sidebar destination is the member's own workspace across everything; the matter section is one matter's file of transcripts. One surface serves both and they differ in scope and framing, not in capability. _Note: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The firm-administrator enablement screen it used to wait on has landed — see ai.magnus.firm-enablement — so a firm's closed state is now a state the firm chose rather than one it could not leave._
     - `ai.magnus.context` · `not-started` · **Explicit per-conversation context grants** — What the assistant can see beyond what the member typed. The shape is settled — the member attaches a named document or matter and can see exactly what was attached; implicit firm-wide retrieval is not on this path and would need a consent decision of its own.
     - `ai.magnus.actions` · `deferred` · **Tools and actions** — Propose-and-approve only, where a tool proposes, a member approves, and the approval is the audited act.
   - `ai.natural-language-search` · `partial` · **Natural-language document search** — A retrieval-only question-and-answer search over a firm's own committed working documents, on a Cloudflare AI Search instance per firm fed by a derived text feed. Passages with their citations, never composed prose; matter-scoped, with the metadata filter treated as a recall optimization and read-time re-authorization through the firm-scoped data-access layer as the boundary. _Note: The route is blocked on the ethical-wall filter experiment's E1 and E2 — the protocol is built and sensitivity-proven, and the live run against a fenced account has not been executed._
@@ -1316,7 +1317,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Settings & Configuration
 
-[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 14 units of work, 29% shipped. 4 done, 6 part-built, 4 ahead, 0 parked.
+[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 15 units of work, 33% shipped. 5 done, 6 part-built, 4 ahead, 0 parked.
 
 - `settings` · `partial` · **Settings & configuration framework** — Declarative settings registry, scope-chain resolution, role-gated access enforced in the data-access layer, storage placement per tenancy, and the registry-driven Settings area.
   - `settings.registry` · `partial` · **Declarative settings registry** — Each setting declared once (key, type, scope, default, access, validation, audited/effective-dated flags).
@@ -1330,7 +1331,8 @@ to change a line here, edit the node in its area file and re-run the build.
     - `settings.area-ui.my-account` · `partial` · **My Account (identity & security)** — Person-scoped /account secure shell: profile (name, email, avatar) and security (password, 2FA, sessions), no app chrome.
     - `settings.area-ui.personal-preferences` · `shipped` · **Personal preferences (Theme, Accessibility, Text)** — Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast axis. _Note: The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one._
     - `settings.area-ui.firm-band` · `partial` · **Firm settings band** — Firm Profile, Users, Matter Numbering, Billing, File Safety & Scanning as staged draft pages with Save/Cancel commit flow.
-    - `settings.area-ui.platform-band` · `partial` · **Platform band (Beta Access, Versions, Developer)** — Firm release-channel stance, versioned-component ledger, developer master switch and console.
+    - `settings.area-ui.platform-band` · `partial` · **Platform band (AI and the Assistant, Beta Access, Versions, Developer)** — The firm's AI consent gates, its release-channel stance, the versioned-component ledger, and the developer master switch and console.
+  - `settings.control-kinds` · `shipped` · **Setting control kinds** — The closed set of controls a registered setting renders as — a dropdown for an enumeration (never a radio group), a switch for a boolean, a text field, and a bounded integer field carrying the same interval its backend schema enforces.
     - `settings.area-ui.integrations-category` · `not-started` · **Integrations settings category** — Plugin credential management UI per firm.
     - `settings.area-ui.diagnostics-category` · `not-started` · **Diagnostics settings category** — UI for the diagnostics consent/level setting.
     - `settings.area-ui.notifications-category` · `not-started` · **Notification preferences category** — Per-user type/category-by-channel routing matrix with locked mandatory categories.

@@ -10,7 +10,7 @@
   status: partial
   slices: ai-inference-foundation, ai-text-detection, magnus
   adrs: ADR-0111
-  evidence: packages/inference, packages/ai-detection, and packages/magnus on main; the consent decision is still open, so the assistant ships off by default with an adapter that reaches no provider.
+  evidence: packages/inference, packages/ai-detection, and packages/magnus on main; the consent decision is still open, so the assistant ships off by default with an adapter that reaches no provider. The firm's own consent surface exists (Settings / AI and the Assistant), so "off" is now a state a firm can leave.
 
 - id: ai.inference
   name: Inference chokepoint (@magna-carta/inference)
@@ -61,9 +61,10 @@
 - id: ai.inference.firm-model-selection
   name: Per-firm reasoning-model selection
   scope: Firm's primary reasoning model in the per-firm setting table; schema refined over the ZDR-eligible subset; total reads with safe default derived from the platform tier rather than a literal model id.
-  status: shipped
-  surface: awaiting-screen
-  evidence: packages/inference/src/settings.ts (inference-owned FirmSettingDefinition).
+  status: partial
+  surface: screen
+  evidence: packages/inference/src/settings.ts (inference-owned FirmSettingDefinition). The value is now STATED to the firm on Settings / AI and the Assistant, with its pinned snapshot and both confidentiality facts, because a consent gate is illegible without them; GET /api/v1/firm/ai/settings reports it and PATCH accepts no model field.
+  notes: Partial because nothing SELECTS. A control that wrote a model id would silently convert a firm that follows the platform's reasoning tier into one pinned to today's occupant of it, which is the asymmetry packages/inference/src/settings.ts deliberately preserves; selection wants a setting that can express the tier itself.
 
 - id: ai.inference.confidentiality
   name: Confidentiality control plane
@@ -150,7 +151,7 @@
   slices: magnus
   adrs: ADR-0109
   spec: docs/specs/2026-08-06-magnus-design.md
-  evidence: Magnus is that consumer; its backend is built (packages/magnus + apps/api-worker/src/magnus) and a member can now reach it from the sidebar and from a matter. It is off by default, so what a member reaches is the surface stating which gate is shut; production enablement is gated on the consent decision and the ZDR procurement artifacts.
+  evidence: Magnus is that consumer; its backend is built (packages/magnus + apps/api-worker/src/magnus) and a member can now reach it from the sidebar and from a matter. It ships off by default and a firm can now open both gates itself at Settings / AI and the Assistant; production enablement is still gated on the consent decision and the ZDR procurement artifacts.
 
 - id: ai.magnus
   name: Magnus — the conversational assistant
@@ -159,7 +160,7 @@
   slices: magnus
   adrs: ADR-0109, ADR-0111, ADR-0112, ADR-0113
   spec: docs/specs/2026-08-06-magnus-design.md
-  evidence: packages/magnus + apps/api-worker/src/magnus + apps/api-worker/src/routes/magnus.ts; three per-firm tables in the 20260806T050000 migration. The member-facing interface is built in both of its homes; the firm-administrator enablement screen and token streaming are later slices.
+  evidence: packages/magnus + apps/api-worker/src/magnus + apps/api-worker/src/routes/magnus.ts; three per-firm tables in the 20260806T050000 migration. The member-facing interface is built in both of its homes and the firm-administrator enablement screen now exists, so a firm can turn the assistant on; token streaming is a later slice.
   audience: public
   public-name: Magnus, the in-app assistant
   public-summary: Ask a question about your matters in plain language and get an answer, with nothing you ask retained by the model provider.
@@ -177,6 +178,16 @@
   status: shipped
   surface: internal
   evidence: apps/api-worker/src/magnus/consent.ts; magnus.enabled and inference.aiProcessingEligibility both default false; every route refuses by a named problem type.
+
+- id: ai.magnus.firm-enablement
+  name: The firm-administrator enablement screen
+  scope: The one screen a firm opens both consent gates from, and the only writer of the pair the assistant's resolver reads. Carries the assistant's daily question ceiling beside them, states the model in force with its pinned snapshot and both confidentiality facts, and states the EFFECTIVE answer over the staged values, so an assistant switched on above a closed processing gate never reads as working.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/routes/(app)/settings/ai over GET/PATCH /api/v1/firm/ai/settings (apps/api-worker/src/routes/firm-ai-settings.ts), behind firm:manageAiSettings — Owner/Admin alone by 20260908T050000_seed-ai-settings-permission, deliberately not magnus:converse. apps/api-worker/test/firm-ai-settings-routes.test.ts asserts the seam that matters: what the screen writes is what resolveMagnusFirmGates reads.
+  audience: public
+  public-name: Turning AI on for your firm
+  public-summary: Decide whether your firm's content may be sent to a model at all, and whether the assistant is one of the things that may send it. Both are off until you turn them on.
 
 - id: ai.magnus.port-reuse
   name: One model port, one additive operation
@@ -206,7 +217,7 @@
   surface: screen
   spec: docs/specs/2026-09-07-magnus-interface-design.md
   evidence: The design-system Conversation component (packages/design-system/src/lib/components/conversation), the shared surface and its wire module (apps/web/src/lib/magnus), and the two routes it serves — apps/web/src/routes/(app)/magnus and apps/web/src/routes/(app)/matters/[id]/magnus. Both registries light up: the sidebar destination is shipped and the matter section is at stage alpha.
-  notes: Partial because the firm-administrator enablement screen is not built — the two consent settings are settable only through the settings write path, so every firm's surface renders its closed state naming which gate is shut. The surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer.
+  notes: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The firm-administrator enablement screen it used to wait on has landed — see ai.magnus.firm-enablement — so a firm's closed state is now a state the firm chose rather than one it could not leave.
 
 - id: ai.magnus.context
   name: Explicit per-conversation context grants

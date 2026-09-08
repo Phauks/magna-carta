@@ -27,7 +27,8 @@ export type SettingsPermissionArea =
   | "documents"
   | "integrations"
   | "calendar"
-  | "reports";
+  | "reports"
+  | "ai";
 
 /**
  * Still the mock described above. The "calendar" area is the first whose real answer exists —

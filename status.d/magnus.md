@@ -11,7 +11,7 @@ load-profile: todo
 tested: todo
 branch: claude/magnus-ui-setup-a5lp1p
 active-work:
-next: The firm-administrator enablement screen (the two consent settings have no screen, so a firm opens them through the settings write path), then explicit per-conversation context grants, then token streaming and the events socket the surface polls in place of today
+next: Explicit per-conversation context grants, then token streaming and the events socket the surface polls in place of today
 link-spec: docs/specs/2026-08-06-magnus-design.md
 link-plan: docs/specs/2026-08-06-magnus-implementation-plan.md
 adrs: ADR-0109, ADR-0110, ADR-0111, ADR-0112, ADR-0113
@@ -28,3 +28,15 @@ four availability answers, the member disclosure, a pending turn, all five failu
 member can act on, and the truncated-context note. The list read gained a matter filter, which is the
 one backend change the interface needed. The surface polls the turn rather than holding the events
 socket; the socket lands with token streaming, where a frame can carry a partial answer.
+
+**The firm can now turn it on.** The screen this fragment used to name as next has landed: Settings ·
+AI and the Assistant, over `GET`/`PATCH /api/v1/firm/ai/settings`, behind `firm:manageAiSettings` —
+Owner/Admin alone by seed, and deliberately not `magnus:converse`, because asking the assistant a
+question is ordinary work and deciding for the whole firm that privileged content may leave for a
+third-party provider is not. It is the only writer of the two gates the consent resolver reads, and
+its own test asserts that seam rather than trusting it. The screen also **states** the model in force
+with its pinned snapshot and both confidentiality facts (a consent gate is illegible without them)
+and states the effective answer over the staged values, so an assistant switched on above a closed
+processing gate never reads as working. It selects no model: an unconfigured firm follows the
+platform's reasoning tier, and a control that wrote a model id would silently pin it. **Off by
+default is unchanged** — what changed is that off is now a state a firm can leave.

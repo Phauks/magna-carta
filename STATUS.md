@@ -478,7 +478,19 @@ section is one matter's file of transcripts. Both hold the whole state set the r
 four availability answers, the member disclosure, a pending turn, all five failure labels in words a
 member can act on, and the truncated-context note. The list read gained a matter filter, which is the
 one backend change the interface needed. The surface polls the turn rather than holding the events
-socket; the socket lands with token streaming, where a frame can carry a partial answer. |
+socket; the socket lands with token streaming, where a frame can carry a partial answer.
+
+**The firm can now turn it on.** The screen this fragment used to name as next has landed: Settings ·
+AI and the Assistant, over `GET`/`PATCH /api/v1/firm/ai/settings`, behind `firm:manageAiSettings` —
+Owner/Admin alone by seed, and deliberately not `magnus:converse`, because asking the assistant a
+question is ordinary work and deciding for the whole firm that privileged content may leave for a
+third-party provider is not. It is the only writer of the two gates the consent resolver reads, and
+its own test asserts that seam rather than trusting it. The screen also **states** the model in force
+with its pinned snapshot and both confidentiality facts (a consent gate is illegible without them)
+and states the effective answer over the staged values, so an assistant switched on above a closed
+processing gate never reads as working. It selects no model: an unconfigured firm follows the
+platform's reasoning tier, and a control that wrote a model id would silently pin it. **Off by
+default is unchanged** — what changed is that off is now a state a firm can leave. |
 | R2 object dimensions (matter + object class in object metadata) | [x] Opus 5 | [-] | [-] | [x] Opus 5 | [-] | [-] | [x] Opus 5 | `@magna-carta/object-dimensions` — the two dimensions every object in a firm's bucket carries (`matter` on matter-scoped objects, `object_class` on all of them) and the closed class vocabulary behind them. Stamped at put time by every write path: the presigned PUT signs the metadata headers, so a browser upload that drops one is refused rather than landing an unscopeable object; the multipart create carries them (a multipart object's metadata is fixed there); a version cut inherits its source's matter and only changes class; firm-level objects (bundles, templates, letterheads, conversion artifacts, staged mail, the content-addressed email original) record the class and deliberately no matter. `dimension-backfill-sweep.ts` repairs what predates the stamp on the daily storage pass — candidates come from the R2 listing rather than any new schema, bounded per firm and convergent over failures, and it doubles as the standing detector for a write path that forgets. `apps/api-worker/test/r2-object-dimension-scan.test.ts` is that guard in the suite. `client` and `confidentiality_scope` are reserved and written by nothing. |
 | Notifications — delivery | [-] | [x] Opus 5 | [x] Opus 5 | [~] Opus 5 | [ ] | [ ] | [ ] | Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second
 non-exclusive translator pass on the shipped per-firm queue (no producing package changed —

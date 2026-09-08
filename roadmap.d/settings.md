@@ -90,11 +90,18 @@
   evidence: Pages exist with draft-ledger staging; some values are Preview posture (demonstration values not yet governing behavior).
 
 - id: settings.area-ui.platform-band
-  name: Platform band (Beta Access, Versions, Developer)
-  scope: Firm release-channel stance, versioned-component ledger, developer master switch and console.
+  name: Platform band (AI and the Assistant, Beta Access, Versions, Developer)
+  scope: The firm's AI consent gates, its release-channel stance, the versioned-component ledger, and the developer master switch and console.
   status: partial
   surface: screen
-  evidence: Pages shipped; Beta Access rows and most Versions rows are honest seams pending backend endpoints (page comments cite docs/research/fable-backend-review-2026-07.md).
+  evidence: Pages shipped; AI and the Assistant is fully server-backed (GET/PATCH /api/v1/firm/ai/settings), while Beta Access rows and most Versions rows are honest seams pending backend endpoints (page comments cite docs/research/fable-backend-review-2026-07.md).
+
+- id: settings.control-kinds
+  name: Setting control kinds
+  scope: The closed set of controls a registered setting renders as — a dropdown for an enumeration (never a radio group), a switch for a boolean, a text field, and a bounded integer field carrying the same interval its backend schema enforces.
+  status: shipped
+  surface: screen
+  evidence: SettingKind in apps/web/src/lib/settings/settings-definitions.ts rendered by components/settings-row.svelte; the number kind's bounds are required rather than optional, enforced by apps/web/test/settings-mode-purity.test.ts, so an unbounded numeric field cannot ship and be refused by the server.
 
 - id: settings.area-ui.integrations-category
   name: Integrations settings category

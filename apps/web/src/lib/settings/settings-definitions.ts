@@ -11,14 +11,20 @@
  * and drafts live in settings-draft.svelte.ts; this module only says what the settings ARE.
  */
 
-export type SettingValue = string | boolean;
+/**
+ * A setting's value, in the vocabulary its kind speaks: a string for select and text, a boolean
+ * for switch, a number for number. Deliberately not "always a string": a numeric setting stringly
+ * typed compares "500" against 500 at every staging boundary, and the one place that forgets the
+ * conversion stages a change the user never made.
+ */
+export type SettingValue = string | boolean | number;
 
 /**
  * Enumerated settings render as dropdowns, never radio groups — owner preference: a dropdown
  * makes the option set clearer and spends less vertical space. There is deliberately no
  * "radio" kind.
  */
-export type SettingKind = "select" | "switch" | "text";
+export type SettingKind = "select" | "switch" | "text" | "number";
 
 export interface SettingOption {
   readonly value: string;
@@ -49,6 +55,20 @@ export interface SettingDefinition {
   readonly kind: SettingKind;
   /** select only. */
   readonly options?: readonly SettingOption[];
+  /**
+   * number only: the closed interval the field accepts, mirroring the bounds the backend's own
+   * setting schema enforces at the write path. Both are REQUIRED on a number definition (the
+   * mode-purity check enforces it): a numeric setting with no stated ceiling renders as a field
+   * that will take anything and be refused by the server, which teaches the wrong thing about
+   * what the firm may choose.
+   */
+  readonly minimum?: number;
+  readonly maximum?: number;
+  /**
+   * number only: the unit noun the value counts, singular — "question", "day". The row appends it
+   * to the stated value so a bare integer never has to be guessed at ("500 questions", not "500").
+   */
+  readonly unit?: string;
   readonly defaultValue: SettingValue;
   /**
    * "open": visible read-only to every member even without edit rights. "restricted": absent
@@ -191,5 +211,13 @@ export function settingValueLabel(definition: SettingDefinition, value: SettingV
     }
     case "text":
       return String(value);
+    case "number": {
+      // The unit is part of the value's meaning, so it travels with every place the value is
+      // stated: the engraved row, the "Was:" badge, and the commit footer's recap. A count of 1
+      // takes the singular; everything else, including 0, takes the plural.
+      const count = Number(value);
+      if (definition.unit === undefined || Number.isNaN(count)) return String(value);
+      return `${count.toLocaleString()} ${definition.unit}${count === 1 ? "" : "s"}`;
+    }
   }
 }

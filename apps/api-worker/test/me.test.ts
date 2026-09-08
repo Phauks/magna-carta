@@ -161,6 +161,11 @@ describe("GET /api/v1/me", () => {
         "files:manageDocumentTypes",
         "files:organize",
         "files:upload",
+        // Seeded to Owner/Admin ALONE by 20260908T050000_seed-ai-settings-permission, and
+        // deliberately not to the seats that hold magnus:converse: asking the assistant a
+        // question is ordinary work, deciding that the firm's privileged content may leave for
+        // a third-party model is not.
+        "firm:manageAiSettings",
         "firm:manageMembers",
         // The firm's notification policy — the in-app floor, retention window and digest hour —
         // reaches Owner/Admin only. Deliberately NOT notifications:read, which every default role
