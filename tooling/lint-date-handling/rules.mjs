@@ -404,6 +404,16 @@ export const ALLOWED_RAW_DATE_INPUTS = Object.freeze([
   "apps/web/src/lib/matters/task-list.svelte",
   "packages/design-system/src/lib/components/data-table/data-table-grid-filter.svelte",
   "packages/design-system/src/stories/field-row.stories.svelte",
+  /*
+   * THE SIXTEENTH, AND HOW IT GOT HERE — recorded rather than hidden inside the count.
+   *
+   * The communications fields landed on `main` while this gate was on a branch, so it was written
+   * against a rule that did not exist yet. That is the one way this list can legitimately grow, and
+   * it is a merge race rather than a precedent: a surface written AFTER the gate is on `main` has
+   * no such excuse, and the count below is what makes the difference visible instead of letting a
+   * sixteenth entry pass as quietly as a fifteenth did.
+   */
+  "apps/web/src/lib/communications/communication-fields.svelte",
 ]);
 
 const RAW_DATE_INPUT = /type=["']date["']/g;

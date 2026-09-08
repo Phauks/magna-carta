@@ -162,6 +162,19 @@ describe("the date field is one component, and the exceptions are closed", () =>
     expect(stale[0].file).toBe(ALLOWED_RAW_DATE_INPUTS[0]);
   });
 
+  it("has not grown — the list is closed, and nothing else was enforcing that", () => {
+    /*
+     * The count is pinned because the prose called this list "closed" and nothing checked it. The
+     * first concurrent merge added a sixteenth entry and the gate stayed green, which is precisely
+     * the shape of failure the whole file is written against.
+     *
+     * It may FALL — a surface moved to the DatePicker comes out. A rise means somebody took the
+     * escape hatch instead of the component, and that is the owner's design question to settle
+     * rather than a list entry to add.
+     */
+    expect(ALLOWED_RAW_DATE_INPUTS).toHaveLength(16);
+  });
+
   it("checks every allowance rather than every other one", () => {
     // A global regex reused across `.test()` calls carries lastIndex and skips alternate files —
     // which read as six allowances going stale at once the first time this ran.

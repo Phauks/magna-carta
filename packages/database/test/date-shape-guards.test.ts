@@ -104,6 +104,21 @@ const UNGUARDED_PREDATING_THE_SHARED_GUARD: ReadonlySet<string> = new Set([
   "matterAssetReceivable.maturity_on",
   "matterAssetEncumbrance.released_on",
   "notificationInAppSuppression.civil_date",
+  /*
+   * THE THIRTY-SECOND, AND HOW IT GOT HERE — recorded rather than absorbed into the count.
+   *
+   * `fee_entry` landed on `main` while this guard was on a branch, so its column was written
+   * against a rule that did not exist yet, and its migration has already shipped. Adding the CHECK
+   * now would be a rebuild of a table that exists in firm databases, which is the thing the header
+   * forbids — the fact that the table is NEW does not help, because what matters is whether the
+   * migration creating it has landed, and it has.
+   *
+   * This is the one way the list can legitimately grow: a merge race, not a precedent. A column
+   * written after this guard is on `main` has no such excuse, and the count below is what makes
+   * the two distinguishable instead of letting a thirty-second entry pass as quietly as a
+   * thirty-first would.
+   */
+  "feeEntry.service_date",
 ]);
 
 /**
@@ -188,9 +203,16 @@ describe("every column that holds a day or a clock is classified", () => {
   });
 
   it("has not let the recorded gap grow", () => {
-    // The number the shared guard landed with. It may fall; a rise means a new column took the
-    // escape hatch instead of the guard, which is the one thing this file is here to stop.
-    expect(UNGUARDED_PREDATING_THE_SHARED_GUARD.size).toBeLessThanOrEqual(31);
+    /*
+     * 31 was the figure this guard landed with; the 32nd is `feeEntry.service_date`, which came
+     * from a branch that merged while this one was open — see the note beside it.
+     *
+     * The number may FALL: a table that is genuinely childless and empty can be rebuilt, and a
+     * dropped table takes its entry with it. A rise is a new column taking the escape hatch instead
+     * of the guard, which is the one thing this file is here to stop, and raising this line is the
+     * deliberate act that makes anyone doing it say so.
+     */
+    expect(UNGUARDED_PREDATING_THE_SHARED_GUARD.size).toBeLessThanOrEqual(32);
   });
 });
 
