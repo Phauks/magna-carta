@@ -237,6 +237,11 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:scanFile",
         "intake:read",
         "intake:record",
+        // Clearing the queue a public form fills is reception's daily job, and the paralegal
+        // seat is where reception usually sits — withholding it would mean only a partner could
+        // read what strangers sent. Authoring the form is the firm's own act and stops at
+        // Owner/Admin, so intakeForms:manage is absent here.
+        "intakeForms:readSubmissions",
         // The assistant reaches the seats that do legal work. Seeding the key turns nothing on:
         // both firm-level consent settings default closed and every route reads them first.
         // magnus:readAllConversations is Owner/Admin only, so it is absent here.

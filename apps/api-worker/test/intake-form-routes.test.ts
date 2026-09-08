@@ -73,7 +73,12 @@ beforeAll(async () => {
   paralegalCookie = await signInForSessionCookie("form-paralegal@example.com");
 });
 
-function send(method: string, path: string, body: unknown, cookie = ownerCookie): Promise<Response> {
+function send(
+  method: string,
+  path: string,
+  body: unknown,
+  cookie = ownerCookie,
+): Promise<Response> {
   return SELF.fetch(`https://example.com${path}`, {
     method,
     headers: {
@@ -103,6 +108,29 @@ function anonymous(method: string, path: string, body?: unknown): Promise<Respon
 
 async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
+}
+
+/**
+ * A problem body reduced to what a caller could learn something FROM.
+ *
+ * The Error ID and the correlation id differ on every response by construction — they exist so a
+ * caller and an operator can name one request to each other — so comparing raw bodies would prove
+ * nothing. Everything else has to match, and that is the assertion worth making.
+ */
+async function comparableProblem(response: Response): Promise<string> {
+  const problem = await readJson<{ type: string; title: string; detail?: string }>(response);
+  return `${String(response.status)} ${problem.type} ${problem.title} ${problem.detail ?? ""}`;
+}
+
+/**
+ * A well-formed firm handle that names no firm.
+ *
+ * The shape has to be right: a malformed one is refused by the route's own parameter check with a
+ * 422 before the handler runs, which is a fact about the caller's URL rather than about the firm,
+ * and is asserted separately below.
+ */
+function absentFirmId(): string {
+  return newIdentifier("firm");
 }
 
 interface FormDetail {
@@ -164,23 +192,22 @@ describe("what the anonymous routes refuse to distinguish", () => {
     expect(live200.status).toBe(200);
 
     // The four that must be one answer. A 404 for an unknown token beside a 403 for a closed one
-    // turns the endpoint into an index of which forms a firm has and what state each is in.
+    // turns the endpoint into an index of which forms a firm has and what state each is in. The
+    // fourth is a well-formed firm handle that names no firm — the shape has to be right, or the
+    // contract's own parameter check answers before the handler does.
     const refusals = await Promise.all([
       anonymous("GET", `/api/v1/public/intake-forms/${poolFirmId}/${draft.publicToken}`),
       anonymous("GET", `/api/v1/public/intake-forms/${poolFirmId}/${closedForm.publicToken}`),
       anonymous("GET", `/api/v1/public/intake-forms/${poolFirmId}/not-a-real-token`),
-      anonymous("GET", `/api/v1/public/intake-forms/frm_000000000000000000000/anything`),
+      anonymous("GET", `/api/v1/public/intake-forms/${absentFirmId()}/anything`),
     ]);
 
-    const bodies = await Promise.all(
-      refusals.map(async (response) => {
-        const problem = await readJson<{ type: string; title: string; detail?: string }>(response);
-        return `${String(response.status)} ${problem.type} ${problem.title} ${problem.detail ?? ""}`;
-      }),
-    );
+    const bodies = await Promise.all(refusals.map(comparableProblem));
 
     expect(refusals.map((response) => response.status)).toEqual([404, 404, 404, 404]);
-    // Byte-for-byte the same sentence, not merely the same code.
+    // The same sentence, not merely the same code. The Error ID and the correlation id are stripped
+    // because they are per-REQUEST by construction and say nothing about the form — they exist so a
+    // caller and an operator can name one request to each other.
     expect(new Set(bodies).size).toBe(1);
   });
 
@@ -222,7 +249,7 @@ describe("what the anonymous routes refuse to distinguish", () => {
       { answers: {} },
     );
     expect(refused.status).toBe(404);
-    expect(await refused.text()).toBe(await invented.text());
+    expect(await comparableProblem(refused)).toBe(await comparableProblem(invented));
   });
 
   it("rotating the link stops the old one resolving and keeps what arrived", async () => {
@@ -248,7 +275,10 @@ describe("what the anonymous routes refuse to distinguish", () => {
       "GET",
       `/api/v1/public/intake-forms/${poolFirmId}/${form.publicToken}`,
     );
-    const fresh = await anonymous("GET", `/api/v1/public/intake-forms/${poolFirmId}/${publicToken}`);
+    const fresh = await anonymous(
+      "GET",
+      `/api/v1/public/intake-forms/${poolFirmId}/${publicToken}`,
+    );
     expect(old.status).toBe(404);
     expect(fresh.status).toBe(200);
 
@@ -262,6 +292,15 @@ describe("what the anonymous routes refuse to distinguish", () => {
 });
 
 describe("what a stranger may be told about their own input", () => {
+  it("says a malformed firm handle is malformed, which is about their URL and not the firm", async () => {
+    // Deliberately NOT folded into the uniform 404 above. A handle that is not a handle is a fact
+    // about what the caller typed, like an over-long answer; answering it as a missing form would
+    // make a mistyped link indistinguishable from a withdrawn one for the person who has to fix it.
+    // It reveals nothing either way: the shape of a handle is public and holds no firm's name.
+    const malformed = await anonymous("GET", "/api/v1/public/intake-forms/not-a-handle/whatever");
+    expect(malformed.status).toBe(422);
+  });
+
   it("names a required question they left out", async () => {
     const form = await authorPublishedForm("Required form");
     const refused = await anonymous(
@@ -293,8 +332,9 @@ describe("the firm's side", () => {
       required: true,
     });
     expect(reworded.status).toBe(200);
-    expect((await send("POST", `/api/v1/intake-forms/${form.id}/publication`, undefined)).status)
-      .toBe(200);
+    expect(
+      (await send("POST", `/api/v1/intake-forms/${form.id}/publication`, undefined)).status,
+    ).toBe(200);
 
     const queue = await readJson<{ data: { id: string }[] }>(
       await get(`/api/v1/intake-forms/${form.id}/submissions`),

@@ -131,10 +131,24 @@ async function draftVersionFor(
   readonly versionId: IntakeFormVersionId;
   readonly statements: readonly SqlStatement[];
   readonly carriedFields: readonly SqlStatement[];
+  /**
+   * Which copy each published question became, when this call opened a draft.
+   *
+   * An edit aimed at a live form names the id of a question on the FROZEN version — that is the only
+   * id the firm has been shown — and the edit has to land on the copy instead. Without this map the
+   * only way to reword a question on a published form would be to add a new one first, which is not
+   * a rule anybody would guess at.
+   */
+  readonly carriedFrom: ReadonlyMap<IntakeFormFieldId, IntakeFormFieldId>;
 }> {
   const existing = await readDraftVersion(database, formId);
   if (existing !== undefined) {
-    return { versionId: existing.id, statements: [], carriedFields: [] };
+    return {
+      versionId: existing.id,
+      statements: [],
+      carriedFields: [],
+      carriedFrom: new Map(),
+    };
   }
 
   const now = options.clock.now();
@@ -151,9 +165,12 @@ async function draftVersionFor(
   // on a live form must not silently drop the other nine, and the alternative — asking the firm to
   // retype the form to change a label — is how a firm ends up never correcting a typo.
   const previous = await readPublishedFieldsForCarry(database, formId);
-  const carriedFields = previous.map((field, index) =>
-    insertFieldStatement(database, {
-      id: newIdentifier("intakeFormField", options.randomSource),
+  const carriedFrom = new Map<IntakeFormFieldId, IntakeFormFieldId>();
+  const carriedFields = previous.map((field, index) => {
+    const copyId = newIdentifier("intakeFormField", options.randomSource);
+    carriedFrom.set(field.id, copyId);
+    return insertFieldStatement(database, {
+      id: copyId,
       formVersionId: versionId,
       position: index,
       kind: field.kind,
@@ -162,10 +179,10 @@ async function draftVersionFor(
       required: field.required === 1,
       optionsJson: field.options_json,
       now,
-    }),
-  );
+    });
+  });
 
-  return { versionId, statements: [openDraft], carriedFields };
+  return { versionId, statements: [openDraft], carriedFields, carriedFrom };
 }
 
 async function readPublishedFieldsForCarry(database: SqlDatabase, formId: IntakeFormId) {
@@ -284,28 +301,66 @@ export async function addField(
 }
 
 /**
- * Refuse an edit aimed at a version that has been published.
+ * Where an edit to one question actually lands, and the statements that have to precede it.
  *
- * The builder only ever offers the draft, so reaching this is a stale page or a hand-rolled caller —
- * but it is the invariant the whole subsystem rests on, so it is enforced here rather than assumed
- * from the interface.
+ * THE PUBLISHED VERSION IS NEVER TOUCHED — that is the invariant the whole subsystem rests on. What
+ * this does instead is what a firm means when it edits a live form: open a draft seeded with a copy
+ * of what is published, and aim the edit at the copy. The firm has only ever been shown the ids of
+ * the questions it can see, so refusing those would make rewording a live question impossible
+ * without first adding an unrelated one.
+ *
+ * The returned statements MUST be committed in the same batch, ahead of the edit: the copy is an
+ * INSERT the edit's UPDATE then finds, and a batch runs in order.
  */
-async function requireDraftField(
+async function draftFieldFor(
   database: SqlDatabase,
+  options: FormServiceOptions,
+  formId: IntakeFormId,
   fieldId: IntakeFormFieldId,
-): Promise<{ readonly versionId: IntakeFormVersionId }> {
+): Promise<{
+  readonly versionId: IntakeFormVersionId;
+  readonly targetFieldId: IntakeFormFieldId;
+  readonly statements: readonly SqlStatement[];
+  /** Empty unless this call opened a draft; then, which copy each published question became. */
+  readonly carriedFrom: ReadonlyMap<IntakeFormFieldId, IntakeFormFieldId>;
+}> {
   const field = await readField(database, fieldId);
   if (field === undefined) {
     throw new IntakeFormValidationError("field-unknown", `no such question: ${fieldId}`);
   }
   const version = await readVersionRow(database, field.form_version_id);
-  if (version.published_at !== null) {
+
+  if (version.published_at === null) {
+    // Already the working draft: edit it where it stands.
+    return {
+      versionId: field.form_version_id,
+      targetFieldId: fieldId,
+      statements: [],
+      carriedFrom: new Map(),
+    };
+  }
+
+  if (version.form_id !== formId) {
+    throw new IntakeFormValidationError("field-unknown", `no such question: ${fieldId}`);
+  }
+
+  const draft = await draftVersionFor(database, options, formId);
+  const targetFieldId = draft.carriedFrom.get(fieldId);
+  if (targetFieldId === undefined) {
+    // A field on a version this form published EARLIER than the live one. There is no copy of it in
+    // the new draft because the live version does not carry it, and inventing one would resurrect a
+    // question the firm already stopped asking.
     throw new IntakeFormValidationError(
       "form-not-draftable",
-      "this question belongs to a published version and cannot be changed; edit the draft instead",
+      "that question is on an older version of this form and is no longer being asked",
     );
   }
-  return { versionId: field.form_version_id };
+  return {
+    versionId: draft.versionId,
+    targetFieldId,
+    statements: [...draft.statements, ...draft.carriedFields],
+    carriedFrom: draft.carriedFrom,
+  };
 }
 
 async function readVersionRow(
@@ -327,13 +382,14 @@ export async function editField(
   options: FormServiceOptions,
 ): Promise<EffectWrite> {
   await requireForm(database, formId);
-  await requireDraftField(database, fieldId);
   const shape = normalizeFieldShape(input);
+  const target = await draftFieldFor(database, options, formId, fieldId);
 
   return {
     statements: [
+      ...target.statements,
       updateFieldStatement(database, {
-        id: fieldId,
+        id: target.targetFieldId,
         kind: shape.kind,
         label: shape.label,
         helpText: shape.helpText,
@@ -354,17 +410,29 @@ export async function removeField(
   options: FormServiceOptions,
 ): Promise<EffectWrite> {
   await requireForm(database, formId);
-  const { versionId } = await requireDraftField(database, fieldId);
+  const target = await draftFieldFor(database, options, formId, fieldId);
+  const now = options.clock.now();
 
   // Close the gap the removal leaves, so positions stay dense and a later insert lands where the
-  // builder says it will.
-  const remaining = (await readFields(database, versionId)).filter((field) => field.id !== fieldId);
-  const now = options.clock.now();
+  // builder says it will. On a draft this call just opened, the copies are still only statements —
+  // nothing has run — so the surviving order is read from what was carried rather than from a
+  // database that does not hold them yet.
+  const justOpened = target.statements.length > 0;
+  const remaining = justOpened
+    ? // The copies, in the order they were carried, minus the one being removed. Their ids come from
+      // the map rather than from a read, because nothing has been written yet.
+      (await readPublishedFieldsForCarry(database, formId))
+        .map((field) => target.carriedFrom.get(field.id))
+        .filter((id): id is IntakeFormFieldId => id !== undefined && id !== target.targetFieldId)
+    : (await readFields(database, target.versionId))
+        .filter((field) => field.id !== target.targetFieldId)
+        .map((field) => field.id);
 
   return {
     statements: [
-      deleteFieldStatement(database, fieldId),
-      ...remaining.map((field, index) => setFieldPositionStatement(database, field.id, index, now)),
+      ...target.statements,
+      deleteFieldStatement(database, target.targetFieldId),
+      ...remaining.map((id, index) => setFieldPositionStatement(database, id, index, now)),
       audit(database, options, "intakeForm.fieldRemoved", formId, { fieldId }),
     ],
     outboxMessages: [],
@@ -380,9 +448,16 @@ export async function reorderFields(
   await requireForm(database, formId);
   const now = options.clock.now();
   const statements: SqlStatement[] = [];
+  // One resolve for the whole reorder: the first id opens the draft if there is none, and every id
+  // after it translates against the same draft rather than opening a second one.
+  let opened = false;
   for (const [index, fieldId] of orderedFieldIds.entries()) {
-    await requireDraftField(database, fieldId);
-    statements.push(setFieldPositionStatement(database, fieldId, index, now));
+    const target = await draftFieldFor(database, options, formId, fieldId);
+    if (!opened && target.statements.length > 0) {
+      statements.push(...target.statements);
+      opened = true;
+    }
+    statements.push(setFieldPositionStatement(database, target.targetFieldId, index, now));
   }
   statements.push(audit(database, options, "intakeForm.fieldsReordered", formId));
   return { statements, outboxMessages: [] };
