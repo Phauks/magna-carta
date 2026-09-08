@@ -1337,6 +1337,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@magna-carta/civil-time':
+        specifier: workspace:*
+        version: link:../civil-time
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
@@ -1350,9 +1353,6 @@ importers:
       '@magna-carta/access-control':
         specifier: workspace:*
         version: link:../access-control
-      '@magna-carta/civil-time':
-        specifier: workspace:*
-        version: link:../civil-time
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig

@@ -7,8 +7,9 @@
   "exports": {
     "./civil-date": "./src/civil-date.ts",
     "./instant": "./src/instant.ts",
-    "./wall-clock": "./src/wall-clock.ts",
-    "./time-zone": "./src/time-zone.ts"
+    "./sql-shape": "./src/sql-shape.ts",
+    "./time-zone": "./src/time-zone.ts",
+    "./wall-clock": "./src/wall-clock.ts"
   },
   "scripts": {
     "test": "vp test run"
