@@ -611,6 +611,14 @@ surface, which is most of the product.
   screen; what it never is, is a second screen. A genuine aggregate (counts per owner rather than a
   list of packets) is a different object and is judged on its own, not carried along because it sat
   in the same strip. _(Custodian register, 2026-09-01)_
+- **Where a surface both HOLDS a record and OFFERS the act that writes one, the record is the screen
+  and the act is the create control over it.** The conflicts destination opened on the check
+  composer — a matter picker, the parties, the sources, the band, three edge budgets and two caps —
+  with the firm's own log of every check it had run pushed below all of it. The form is filled in on
+  a fraction of visits; the log is the question the screen exists to answer, and it was the part a
+  reader had to scroll to. The act does not lose anything by moving: it becomes New Check at the end
+  of the action row, opening the one panel the product asks acts in, which is also where a reader
+  already looks for it on every other list screen. _(Conflicts Check, 2026-09-08)_
 - **A screen with no way to create the thing it lists is not built.** A list, a detail window, a
   filter set and a print sheet over records nobody can add is a reader for somebody else's data. The
   entry path ships with the surface, and where the backend already serves it, its absence is the
@@ -852,6 +860,26 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-08 — the Conflicts Check screen: the log is the screen, the check is a panel
+
+The owner: "conflicts check needs some work. when accessing the conflicts check screen, it should be
+a history screen with a new conflict check button at the top right. when you click the button, you
+get a modal to go through doing a conflicts check." What binds:
+
+- **A destination whose subject is a RECORD opens on the record, not on the form that makes one.**
+  `/conflicts` opened on the composer — a matter picker, then parties, sources, band, three edge
+  budgets and two caps — with the firm's own log of what it had run below all of it. The form is used
+  on a fraction of visits; the log is what the screen is for. Generalizes, and is promoted into
+  _List screens_ above: where a surface both holds a record and offers the act that writes one, the
+  record is the screen and the act is the create control over it.
+- **The act is asked for in the one panel the product asks acts in.** New Check is a `CreateControl`
+  at the end of the header's action row and opens an `ActionDialog`; it does not scroll the reader to
+  a form, which is what the matter's own section did with the same words on the same control. One
+  gesture, one panel, from both doors.
+- **One form, two doors.** Opened from the firm's log the panel asks which matter; opened from a
+  matter it states the matter and asks nothing about it. The fields are one component either way — a
+  surface that carried its own copy of the composer is how the two came to differ in the first place.
 
 ### 2026-09-07 — the sidebar's foot: the transfer registers join Settings and Customize
 

@@ -8,16 +8,23 @@ gives you the check as a printed sheet rather than a filed document._
 
 ## Where to find it
 
-**Conflicts Check in the sidebar** is your firm's whole picture. Run a check from here against any
-matter on your docket, and read the list of every check your firm has run — newest first, each one
-saying what set it going, who asked for it if anybody did, and how many results it turned up. Open
-any of them to read the check in full.
+**Conflicts Check in the sidebar** is your firm's whole picture: the log of every check your firm has
+run, across every matter, newest first. Each row says when the check ran, what set it going, who
+asked for it if anybody did, whether it was filed against a matter or against named parties with no
+matter yet, which band it reached, whether your firm's floor widened it, and how many candidates it
+turned up. Open a row to read that check in full. Narrow the log from any column's own heading — by
+trigger, by who asked, by band — and clear the narrowing from the control beside New Check.
+
+**New Check**, at the top right of that screen, opens the form: which matter if any, the parties to
+search for, what to search, and how far. Nothing runs until you press Run Check, because choosing
+the scope is part of the act.
 
 **The Conflicts tab on a matter**, next to Intake, is that one matter's record: when it was last
-checked and under what settings, anything nobody has answered yet, whether your firm has since
-widened what a check must cover, and a way to run another. It is also where the intake checklist
-sends you, and it keeps working after the intake step is marked done — the record is most often
-wanted long after the box is ticked.
+checked and under what settings, anything nobody has answered yet, and whether your firm has since
+widened what a check must cover. **New Check** at the top of the matter opens the same form with the
+matter already filled in, and **Re-check now** beside the standing runs your firm's floor without
+asking you anything. It is also where the intake checklist sends you, and it keeps working after the
+intake step is marked done — the record is most often wanted long after the box is ticked.
 
 A conflicts check also appears on the matter's activity history, and opens the check it refers to.
 

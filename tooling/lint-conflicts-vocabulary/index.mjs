@@ -46,7 +46,8 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const CONFLICTS_TREES = [
   "packages/conflicts",
   "apps/api-worker/src/routes/conflicts.ts",
-  "apps/web/src/routes/conflicts",
+  "apps/web/src/routes/(app)/conflicts",
+  "apps/web/src/routes/(app)/matters/[id]/conflicts",
   "apps/web/src/lib/conflicts",
   // Intake gates a consultation's opening on the conflicts posture, which is exactly where a
   // verdict-shaped word tempts a builder: the package, its route, and its web surfaces.
