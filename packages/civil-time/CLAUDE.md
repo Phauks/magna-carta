@@ -1,6 +1,6 @@
 # `@magna-carta/civil-time` — CLAUDE.md
 
-**Purpose.** What a civil date, a wall-clock time and a time zone ARE, and the whole of the platform's
+**Purpose.** What a civil date, a wall-clock time, a stored instant and a time zone ARE, and the whole of the platform's
 arithmetic on them. This is the shape authority; it holds no display and no data access, and it has no
 workspace dependencies at all so that every package, worker and screen can reach it.
 
@@ -13,6 +13,8 @@ this package encodes, and the gate that keeps them the only copy.
 - `src/civil-date.ts` — the `YYYY-MM-DD` shape, `isCivilDate` (pattern **and** a real day on the
   calendar), `civilDateOf` / `todayInUtc`, `addCalendarDays`, `endOfCivilMonth`.
 - `src/wall-clock.ts` — the `HH:MM` shape and `isWallClockTime`.
+- `src/instant.ts` — the canonical stored-instant shape (`toISOString`'s exact form, which the
+  federated chronology's text sort depends on), `isCanonicalInstant`, `canonicalInstant`.
 - `src/time-zone.ts` — `isResolvableTimeZone`, `viewerTimeZone`, and the zoned arithmetic:
   `zonedReading`, `instantForCivilDateTime`, `endOfCivilDayInstant`.
 
@@ -27,6 +29,9 @@ this package encodes, and the gate that keeps them the only copy.
   implementations happened.
 - **A civil date is a string, not a `Date`.** A `Date` is an instant and an instant is a day only once
   somebody names a zone. Functions that take one say so in their type.
+- **The patterns carry no regex flags.** They are handed to zod at route boundaries and the OpenAPI
+  emitter writes a regex's flags into the JSON Schema `pattern`, so a `/u` ships every generated
+  client a pattern that matches nothing. Pinned by `test/civil-date.test.ts`.
 
 ## Invariants that apply here
 
