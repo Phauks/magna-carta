@@ -144,7 +144,7 @@
 
   <!-- The result region is furniture: it holds its shape at rest, so arriving results fill a frame
        the reader already has rather than appearing out of nothing. -->
-  <div class="min-h-0 flex-1 overflow-y-auto pt-16">
+  <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto pt-16">
     {#if addressQuery.trim() === ""}
       <p class="text-sm text-text-muted">
         {#if sectionLabel === null}

@@ -13,6 +13,7 @@
    * to the first tab otherwise.
    */
   import * as Tabs from "../tabs/index.ts";
+  import ScrollEdgeHint from "../scroll-edge-hint/scroll-edge-hint.svelte";
   import { openingTabKey } from "./opening-tab.ts";
   import type { RecordWindowTab } from "./types.ts";
 
@@ -27,24 +28,35 @@
   let chosenTab = $state<string | undefined>(undefined);
 
   const selectedTab = $derived(chosenTab ?? openingTabKey(tabs, defaultTab));
+
+  /** The strip's own scrollport, watched by the edge hint below it. */
+  let tabStrip = $state<HTMLElement | null>(null);
 </script>
 
 <Tabs.Root
   class="mc-record-window-tabs"
   bind:value={() => selectedTab, (value) => (chosenTab = value)}
 >
-  <Tabs.List class="mc-record-window-tab-strip">
-    {#each tabs as tab (tab.key)}
-      <Tabs.Trigger value={tab.key}>
-        {tab.label}
-        {#if tab.count !== undefined}
-          <span class="mc-record-window-tab-count">{tab.count}</span>
-        {/if}
-      </Tabs.Trigger>
-    {/each}
-  </Tabs.List>
+  <!-- The strip scrolls sideways past its own tabs, and hides the scrollbar rather than wearing
+       one: it is `flex: none`, so a horizontal bar arriving under the labels would push the pane
+       below it down by its own height the moment a record gained a tab. The gilt edge rule says
+       what the hidden scrollbar no longer can, and is absolutely positioned against this shell,
+       which is the strip's own box. -->
+  <div class="relative flex min-w-0 flex-none flex-col">
+    <Tabs.List bind:ref={tabStrip} class="mc-record-window-tab-strip mc-scrollbar-hidden">
+      {#each tabs as tab (tab.key)}
+        <Tabs.Trigger value={tab.key}>
+          {tab.label}
+          {#if tab.count !== undefined}
+            <span class="mc-record-window-tab-count">{tab.count}</span>
+          {/if}
+        </Tabs.Trigger>
+      {/each}
+    </Tabs.List>
+    <ScrollEdgeHint element={tabStrip} axis="inline" />
+  </div>
   {#each tabs as tab (tab.key)}
-    <Tabs.Content value={tab.key} class="mc-record-window-tab-panel">
+    <Tabs.Content value={tab.key} class="mc-record-window-tab-panel mc-scrollbar">
       {@render tab.content()}
     </Tabs.Content>
   {/each}

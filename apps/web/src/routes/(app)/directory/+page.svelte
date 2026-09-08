@@ -523,7 +523,7 @@
         {/if}
       {/snippet}
       {#snippet fixture()}
-        <div class="min-h-0 flex-1 overflow-auto">
+        <div class="mc-scrollbar min-h-0 flex-1 overflow-auto">
           {@render hitTable(HIT_FIXTURE)}
         </div>
         <p class="text-xs text-text-muted">Every match the firm holds, in its own relevance order.</p>
@@ -536,7 +536,7 @@
           </EmptyState>
         </div>
       {/snippet}
-      <div class="min-h-0 flex-1 overflow-auto">
+      <div class="mc-scrollbar min-h-0 flex-1 overflow-auto">
         {@render hitTable(hits ?? [])}
       </div>
       <p class="text-xs text-text-muted">

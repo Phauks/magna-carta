@@ -170,7 +170,7 @@
 
       {#if hasQuery}
         <div
-          class="overflow-y-auto border-t border-border-default p-8"
+          class="mc-scrollbar overflow-y-auto border-t border-border-default p-8"
           style="max-block-size: var(--mc-size-record-pane)"
         >
           <MatterSearchResults

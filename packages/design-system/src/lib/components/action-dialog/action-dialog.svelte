@@ -442,7 +442,7 @@
     <form
       id={formIdentifier}
       bind:this={pane}
-      class="mc-modal-frame-pane mc-action-dialog-fields"
+      class="mc-modal-frame-pane mc-action-dialog-fields mc-scrollbar"
       novalidate
       onsubmit={submit}
       onkeydown={commitOnModifiedEnter}

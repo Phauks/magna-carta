@@ -127,7 +127,7 @@
           {/if}
         {/snippet}
         {#snippet fixture()}
-          <div class="min-h-0 flex-1 overflow-y-auto">
+          <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
             <CalendarGrid.Agenda
               class="h-full"
               entries={TODAY_CARD_FIXTURE}

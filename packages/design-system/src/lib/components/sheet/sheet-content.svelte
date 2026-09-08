@@ -59,7 +59,7 @@
     bind:ref
     class={mergeClasses(
       Z_LAYER_CLASSES.modal,
-      "mc-sheet-content",
+      "mc-sheet-content mc-scrollbar",
       SIDE_CLASS[side],
       SIDE_SIZE[side],
       className,

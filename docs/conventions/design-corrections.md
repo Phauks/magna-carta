@@ -151,7 +151,16 @@ is usually the fastest way to understand the rule.
 - **Every scroll region we own wears the app's scrollbar, corner included.** A themed track and
   thumb still leave the corner where a horizontal and a vertical bar meet painted by the user
   agent, and a table wide enough to scroll sideways is where it shows first. _(matters docket,
-  2026-08-30)_
+  2026-08-30)_ — **and it is every region, not every table.** One class: the `mc-scrollbar` recipe,
+  or `mc-scrollbar-hidden` with a `ScrollEdgeHint` where a scrollbar appearing would reflow the
+  strip it sits in. A region wearing neither gets the operating system's, which is the only chrome
+  on the screen we did not draw and which appears exactly when content outgrows its box — on real
+  data, and never in the state the screen was built in. It binds where the overflow comes from a
+  recipe as much as from a utility: `.mc-modal-frame-pane` scrolls in CSS and named no recipe, so
+  every panel in the product had it, and so did `Dialog`, `AlertDialog`, `Sheet` and
+  `RecordWindow`. Enforced by `pnpm run lint:scrollbar`, which derives what scrolls from the
+  Tailwind utilities and from the design system's own stylesheets rather than from a list.
+  _(the New Check panel, 2026-09-08)_
 - **A column's controls are summoned from the column, not from a control anywhere else.**
   Right-clicking a column heading opens that column's menu, and everything a column can be ASKED is
   in it: filter it, hide it, pin it, and — one arrow to the right — the full roster of columns,
@@ -183,6 +192,22 @@ is usually the fastest way to understand the rule.
   being created are not module navigation; the owner chose the side rail for New Person from a
   canvas of four directions on 2026-09-03, with a count on each section and the gate beside it.
   _(new person, 2026-09-03)_
+- **A form whose result is invisible reads back what it will do.** Where a form configures machinery
+  the reader cannot watch — a search, an import, a run — it ends in plain sentences saying what
+  pressing the commit will actually do, composed from the SAME values the request is composed from,
+  so it can never describe one thing and send another. It is the only honest answer to "what does
+  this setting do" when the setting's effect is a query nobody sees. _(the New Check panel,
+  2026-09-08)_
+- **A default a field will take is that field's placeholder, never a footnote.** A blank number that
+  falls back to a firm setting shows the setting's own value inside its own box. Stating it once at
+  the bottom of a form — "an empty field takes the firm's own setting", over a block of shorthand —
+  puts the fact somewhere other than where the decision is made, and leaves the reader to work out
+  which number belongs to which box. _(the New Check panel, 2026-09-08)_
+- **Do not ask somebody to classify their own act when the record already knows.** A field whose
+  right answer is derivable from what the surface already holds is a field with a wrong answer and
+  no way to tell you that you gave it. The conflicts panel stopped asking whether a check was
+  preliminary or comprehensive: both name WHEN the check ran, and whether the firm has taken the
+  matter on is a fact the record carries. _(the New Check panel, 2026-09-08)_
 - **A data-entry surface carries no helper prose.** Every visible line is a label, a value, or the
   one honest sentence a Soon capability owes about what it waits on. A block with nothing in it is
   not drawn at all rather than announcing its own emptiness. _(new matter, 2026-08-30)_
@@ -263,6 +288,25 @@ is usually the fastest way to understand the rule.
   absent. _(the intake desk's client field, and every picker over the directory, 2026-09-05)_
 
 ### Controls and patterns
+
+- **A settings-heavy panel splits along "what I am asking" and "how the engine answers".** The
+  primary pane takes the fields a member fills in every time; the context pane takes the machinery.
+  In one column the two read as equals, and a form asking for two names and eleven engine settings
+  reads as a control panel for something nobody can name. _(the New Check panel, 2026-09-08)_
+- **A control that tunes something invisible carries its sentence in place, not on hover.** A hover
+  title does not exist on a touch device and a screen reader reaches it only by asking, so a setting
+  whose whole meaning lives in a `title` has no meaning for most readers. It goes under the control,
+  in the reader's words. _(the New Check panel, 2026-09-08)_
+- **Name the thing, not the dial, and say the capability out loud.** A label naming a mechanism
+  ("Strictness", "Imputation", "Closure cap") asks the reader to have built the engine. Name what it
+  searches instead ("Name matching", "The firm's own people", "Related parties to reach"), and where
+  a capability already runs and is mentioned nowhere — sound-alike name matching, which the owner
+  asked for as a new feature — say so on the control. A capability that is not on the screen does not
+  exist. _(the New Check panel, 2026-09-08)_
+- **A panel does not explain its own subject, and a refusal does not lecture.** The subtitle names
+  what is being acted on; it is not the place for a paragraph on what the subsystem is for. A
+  refusal states what to do in as few words as that takes — "Name at least one party.", not a
+  sentence about what a check is. _(the New Check panel, 2026-09-08)_
 
 - **A screen makes something new through ONE control, and it is the same control on every screen.**
   The design system's `CreateControl`: a primary button reading "New" and one noun ("New Fee",
@@ -860,6 +904,65 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-08 — the New Check panel: two panes, names that say what they search, and one scrollbar
+
+The owner, on the panel the previous round had just built: "conflict check ui, scrollbar needs to use
+common scrollbar component… conflict check should be a two-column modal… a conflict check does not
+need to check against a matter, the whole point is to find the matters that are potential conflicts…
+what is difference between preliminary and comprehensive conflict check? not sure why we would have
+both… what do party, graph, imputation, and content search? what does strictness search for? we need
+more modular control, rather than these one off buttons. that is where the left and right side would
+work well. left would be general information, right would be advanced and technical settings. left
+side is the input. right side is the 'engine' settings… overall, you have so many settings and i
+don't know what half of them mean, meaning we need better naming." What binds:
+
+- **Every scroll region wears the design system's scrollbar** — a rule that already stood under
+  _Lists and tables_ for tables, now widened there to every region and made mechanical by
+  `pnpm run lint:scrollbar`. This was not a conflicts defect: `.mc-modal-frame-pane` scrolls in CSS
+  and named no recipe, so every `ActionDialog` in the product had it, and so did `Dialog`,
+  `AlertDialog`, `Sheet` and `RecordWindow`.
+- **A settings-heavy panel splits along "what I am asking" and "how the engine answers".** The left
+  pane takes the fields a member fills in every time; the context pane takes the machinery. One
+  column had put the parties and a bank of hop budgets on the same footing, which is how a form comes
+  to read as a control panel for something nobody can name. Generalizes to any act whose scope is
+  configurable, and is promoted into _Controls and patterns_ above.
+- **A control that tunes something invisible carries its sentence in place, not on hover.** A hover
+  title does not exist on a touch device and a screen reader reaches it only by asking. Every setting
+  on the right pane says what it searches, under it, in the reader's words. Promoted.
+- **A form whose result is invisible reads back what it will do.** The left pane ends in sentences
+  composed from the very values the request is composed from, so it can never describe a search other
+  than the one that runs. It is the only honest answer to "what does this setting do" for an engine
+  nobody can watch. Promoted into _Data entry_ above.
+- **Do not ask a member to classify their own act when the record already knows.** Preliminary and
+  comprehensive name WHEN a check ran, not how it searched. The panel derives it — a check filed
+  against a matter the firm has taken on is comprehensive, every other check is preliminary — and
+  states which. Generalizes: a field with a wrong answer and no way to tell you that you gave it does
+  not belong on a form.
+- **Name the thing, not the dial.** `Strictness` became **Name matching**, because what the dial
+  moves is how many ways a name may be written and still count. `Party`/`Graph`/`Imputation`/
+  `Content` became **Name or identifier**, **Relationship**, **The firm's own people** and
+  **Documents and messages**; `Control` and `Family` became **Ownership and control** and **Family
+  and personal**; `Closure cap` and `Candidate cap` became **Related parties to reach** and
+  **Candidates to record**. The stored values did not move — only the words a reader sees, and they
+  moved everywhere at once because one vocabulary map serves the form, the log's columns, the
+  settings screen and the printed report.
+- **Sound-alike matching is named out loud.** It ran in both bands and was mentioned nowhere, which
+  is why the owner asked for it as a new feature. A capability that is not on the screen does not
+  exist.
+- **A default a field will take is the field's placeholder, never a footnote.** The panel's closing
+  block — "An empty field takes the firm's own setting. Firm floor · Party · Balanced · Defaults
+  depth 1 · closure cap 500 · candidate cap 5000" — was four facts in a shorthand that required
+  having built the engine. Each field now shows the firm's own number inside its own box. Promoted
+  into _Data entry_ above.
+- **A panel does not explain its own subject in its subtitle.** "A conflicts check searches the
+  firm's own record and writes what it searched into the log. It is not a verdict…" was removed on
+  the owner's instruction, and so was the refusal that lectured — "A check searches for the parties
+  it is given. Name at least one." now reads "Name at least one party." A refusal states what to do,
+  in as few words as that takes.
+- **A matter is where a check is filed, not what it is checked against.** The field is optional in
+  what it says as well as in what it accepts, because finding the matters that might conflict is the
+  point of running one.
 
 ### 2026-09-08 — the Conflicts Check screen: the log is the screen, the check is a panel
 

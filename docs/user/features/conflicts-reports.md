@@ -11,13 +11,23 @@ gives you the check as a printed sheet rather than a filed document._
 **Conflicts Check in the sidebar** is your firm's whole picture: the log of every check your firm has
 run, across every matter, newest first. Each row says when the check ran, what set it going, who
 asked for it if anybody did, whether it was filed against a matter or against named parties with no
-matter yet, which band it reached, whether your firm's floor widened it, and how many candidates it
-turned up. Open a row to read that check in full. Narrow the log from any column's own heading — by
-trigger, by who asked, by band — and clear the narrowing from the control beside New Check.
+matter yet, how widely it matched names, whether your firm's floor widened it, and how many
+candidates it turned up. Open a row to read that check in full. Narrow the log from any column's own
+heading — by trigger, by who asked, by name matching — and clear the narrowing from the control
+beside New Check.
 
-**New Check**, at the top right of that screen, opens the form: which matter if any, the parties to
-search for, what to search, and how far. Nothing runs until you press Run Check, because choosing
-the scope is part of the act.
+**New Check**, at the top right of that screen, opens the panel, which has two sides. The left side
+is what you are asking: the parties to search for, and the matter to file the check under if there
+is one. Under them it tells you, in plain sentences, what pressing **Run Check** will actually do —
+how far it will follow each kind of relationship, whether it can reach your own people, how names
+will be compared, and how the check will be filed. The right side is the search settings, each one
+saying what it searches. You can leave every one of them alone. Nothing runs until you press Run
+Check, because choosing the scope is part of the act.
+
+**A check does not need a matter.** The matter is where the check is *filed*, not what it is checked
+*against* — the whole point of a check is to find the matters that might conflict. Naming one adds
+that matter's own parties to the search and lets the check reach your own people; leaving it empty is
+what you do when all you have is a name somebody gave you on the telephone.
 
 **The Conflicts tab on a matter**, next to Intake, is that one matter's record: when it was last
 checked and under what settings, anything nobody has answered yet, and whether your firm has since
@@ -30,6 +40,53 @@ A conflicts check also appears on the matter's activity history, and opens the c
 
 **Settings, Conflicts** is where your firm decides what every check must cover — see below.
 
+## The search settings, and what each one searches
+
+The right side of the New Check panel is the search itself. Each setting says what it searches, under
+it, so nothing here needs looking up. In summary:
+
+**Where to look.**
+
+- **Name or identifier** — every party your firm has ever recorded, matched on name and on the
+  identifiers you hold for them. Always searched: it is your firm's floor and not a choice.
+- **Relationship** — walks outwards from each party you named, through relationships your directory
+  holds, and reports whoever it reaches that way.
+- **The firm's own people** — joins your own members against the matter's parties by identity, never
+  by name. It needs a matter; without one the check records it as not searched rather than leaving it
+  out.
+- **Documents and messages** — designed, not built. There is no index of document text or message
+  bodies behind it yet, and the panel says so.
+
+**Name matching** decides how many ways a name may be written and still count. There are two
+settings, and **both of them match names that sound alike** — Stephen and Steven, Smith and Smyth.
+
+- **Standard** compares the name rows your firm has chosen — current, former, maiden and alias out of
+  the box — under the main sound-alike encoder.
+- **Widest** compares every name your directory holds, trading styles and also-known-as names
+  included, under every encoder. It is a strict superset of Standard: widening can only add
+  candidates, never hide one.
+
+**How far to follow relationships** is a separate number for each kind, because one number cannot say
+"follow a company's renames and mergers as far as they go" and "do not walk from a spouse to her
+employer's other directors" at the same time. **Ownership and control** covers officers, directors,
+partners, trustees, owners, employees and agents; **Family and personal** covers spouses,
+beneficiaries and guardians; **Representation** covers somebody recorded as acting for somebody else.
+**Corporate family** — a parent, a subsidiary, a successor — is followed all the way and carries no
+number, because a rename or merger chain of any length is the same business continuing.
+
+**Where the search stops** is two limits. **Related parties to reach** is the most connected parties
+one walk may pull in before it stops walking; **candidates to record** is the most possible matches
+one check may write down. A check that reaches either says so on its own record and says how much it
+did not reach.
+
+**Every number can be left blank**, and a blank one takes your firm's own setting — which is shown
+inside the box, so you can see the number you are accepting.
+
+**You are not asked whether the check is preliminary or comprehensive.** Those two words say *when* a
+check ran, not how it searched: the screen before your firm takes a matter on, or the moment it
+accepts. A check filed against a matter your firm has already taken on is comprehensive, and every
+other check is preliminary. The panel tells you which one it is going into the log as.
+
 ## What your firm decides, and what it cannot switch off
 
 Under **Settings, Conflicts** an owner or administrator sets your firm's floor: the minimum every
@@ -37,13 +94,13 @@ check searches, whoever runs it. Somebody running a check can search wider than 
 request is raised back up to it before it runs, and the check records that this happened. Nobody can
 search below what your firm requires.
 
-The floor covers what a check searches (the party register, the relationship graph, your own
-members), which band it must reach, which of a person's names the narrower band compares — current,
-former, maiden, alias, and two more your firm can add — how far it follows each kind of relationship,
-and the two limits on how much one check may do.
+The floor covers what a check searches (names and identifiers, relationships, your own people), how
+widely it must match names, which of a person's names standard matching compares — current, former,
+maiden, alias, and two more your firm can add — how far it follows each kind of relationship, and the
+two limits on how much one check may do.
 
-Two things are shown but cannot be turned off, and the screen says why on each. **The party register**
-is always searched, because conflicts apply across your whole firm. And the **current name** is always
+Two things are shown but cannot be turned off, and the screen says why on each. **Names and
+identifiers** are always searched, because conflicts apply across your whole firm. And the **current name** is always
 compared, because a check that skipped the name someone goes by today would not be a conflicts check.
 
 Three things worth knowing before you change it:
@@ -97,11 +154,11 @@ answers them separately, because collapsing them into one answer is exactly what
 information:
 
 - **When was it last checked, and by whom?** The most recent check, with the settings it actually
-  ran under — which sources, how strict the name matching was, how far it followed relationships.
+  ran under — where it looked, how widely it matched names, how far it followed relationships.
   These are the settings on the day it ran, read back word for word, so a check from March still means
   in September what it meant in March.
 - **Has your firm's policy moved since?** If you have since widened what a check must cover — added a
-  source, raised the strictness, deepened the search — the position says so, and keeps saying so until
+  source, widened the name matching, deepened the search — the position says so, and keeps saying so until
   a new check has actually run at the wider setting. Nothing is written to the old check; the
   comparison is made fresh every time you look, so it is never out of date.
 - **What could not be searched, and why?** Every source that had nothing behind it, named, with the
