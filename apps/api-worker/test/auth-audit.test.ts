@@ -12,7 +12,8 @@ import {
 } from "./support/test-auth.ts";
 import { createAuthenticator, secretFromTotpUri } from "./support/totp.ts";
 
-// The audit wiring: login.success via databaseHooks.session.create.after,
+// The audit wiring: login.success via databaseHooks.session.create.after, logout via
+// databaseHooks.session.delete.after gated on the /sign-out endpoint,
 // two_factor.enabled/disabled via the paired user.update hooks (1.6.16 exposes no dedicated
 // twoFactor hook — the flip rides internalAdapter.updateUser), password.reset via the
 // emailAndPassword.onPasswordReset server hook. All writes land in control-plane auth_audit
@@ -36,6 +37,41 @@ describe("auth audit hooks", () => {
     const { userId } = await seedCredentialedUser("audit-login@example.com");
     await signInForSessionCookie("audit-login@example.com");
     expect(await auditEvents(userId)).toEqual(["login.success"]);
+  });
+
+  it("writes logout when the session is signed out, and expires both session cookies", async () => {
+    const { userId } = await seedCredentialedUser("audit-logout@example.com");
+    const sessionCookie = await signInForSessionCookie("audit-logout@example.com");
+
+    const signOutResponse = await postJson("/api/auth/sign-out", {}, sessionCookie);
+    expect(signOutResponse.status).toBe(200);
+
+    expect(await auditEvents(userId)).toEqual(["login.success", "logout"]);
+
+    // Both cookies go, not just the token: the session also rides a five-minute signed cache
+    // (session.cookieCache in src/auth.ts), and a sign-out that left THAT one behind would leave a
+    // believable session on the device it was signed out of. `liveCookie` finds only a cookie with
+    // a value, so an expired one is absent from both of these.
+    const cleared = setCookies(signOutResponse);
+    expect(liveCookie(cleared, "session_token")).toBeUndefined();
+    expect(liveCookie(cleared, "session_data")).toBeUndefined();
+  });
+
+  it("writes session.revoked once per device when the other sessions are signed out", async () => {
+    const { userId } = await seedCredentialedUser("audit-revoke@example.com");
+    // Three devices, of which the last is the one doing the revoking.
+    await signInForSessionCookie("audit-revoke@example.com");
+    await signInForSessionCookie("audit-revoke@example.com");
+    const here = await signInForSessionCookie("audit-revoke@example.com");
+
+    const revokeResponse = await postJson("/api/auth/revoke-other-sessions", {}, here);
+    expect(revokeResponse.status).toBe(200);
+
+    const events = await auditEvents(userId);
+    // Two ended, one left standing — and not one of the three is recorded as a logout: nobody
+    // signed out, they revoked somebody else's session.
+    expect(events.filter((event) => event === "session.revoked")).toHaveLength(2);
+    expect(events).not.toContain("logout");
   });
 
   it("writes two_factor.enabled exactly at the verify-totp transition, and two_factor.disabled on disable", async () => {
@@ -75,6 +111,12 @@ describe("auth audit hooks", () => {
     expect(disableResponse.status).toBe(200);
     const eventsAfterDisable = await auditEvents(userId);
     expect(eventsAfterDisable.filter((event) => event === "two_factor.disabled")).toHaveLength(1);
+
+    // THE CANARY FOR THE ENDPOINT GATE ON THE logout HOOK. Enabling and disabling a factor each
+    // rotate the session, which DELETES the old row through the very hook logout is written from —
+    // so an ungated hook would file two departures for somebody who never left. Nobody signed out
+    // in this test, and the trail has to say so.
+    expect(eventsAfterDisable).not.toContain("logout");
   });
 
   it("writes password.reset when a reset completes (alongside the activation email-verified flip)", async () => {

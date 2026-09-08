@@ -55,7 +55,25 @@ facts, the check-your-email state both doors end at, and the screen the emailed 
 Two joining steps land short of where a visitor would expect and say so rather than pretending
 otherwise — the confirmation mail carries a bare token with no link to follow, and the Terms of
 Service and Privacy Policy the two acknowledgements point at are not published, so that consent is a
-browser-side gate recorded nowhere. |
+browser-side gate recorded nowhere.
+
+Signing out is built at both ends, which closes the last control that was inert only because
+authentication had not shipped. The profile menu's `Sign out` ends the session server-first, drops
+what the session left in the browser, and leaves by a document load rather than a route change so
+the tab's memory of a firm's data does not survive into whoever sits down next; a sign-out the
+server did not confirm reports that the session is still open instead of navigating away on an
+unanswered request.
+
+`Account → Active Sessions` is a new section beside Profile and Security — the first account surface
+that is a live list rather than a seam — over Better Auth's own list and revoke routes: a row per
+device with the one being read on marked and left without a button, per-device sign-out, and
+`Sign out everywhere else`. It states the five-minute revocation lag rather than leaving it to be
+discovered, and refuses to state a "last used" time the record cannot support. Two findings came out
+of building it: the library's session-freshness default would have 403ed the listing for any session
+older than a day (the exact one the screen exists to manage), so `freshAge` is off with the
+reasoning recorded at the config; and the audit trail's new `logout` / `session.revoked` events are
+decided by the ENDPOINT a session was deleted under, because expiry sweeps and the two-factor
+session rotation delete rows through the same hook and neither is somebody leaving. |
 
 ## Phase 1 — Core domain (firm + matters)
 

@@ -241,6 +241,21 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         enabled: true,
         maxAge: 300,
       },
+      // THE FRESHNESS DIAL, OFF — because in the pinned 1.6.22 it gates a READ and none of the
+      // writes anybody would want it for. `freshSessionMiddleware` is mounted on exactly two
+      // endpoints: /list-sessions and /unlink-account (no social provider is configured here, so
+      // that one is unreachable). Revoking a session, changing a password and deleting an account
+      // all go through `sensitiveSessionMiddleware`, which re-reads the session store and does NOT
+      // consult freshAge. Left at the library default of one day, the only thing it would do here
+      // is 403 the signed-in-devices screen (apps/web/src/routes/account/sessions) for anybody
+      // signed in longer than a day — which is precisely the long-lived "keep me signed in"
+      // session that screen exists to let somebody find and end. Being unable to SEE a suspicious
+      // device while still being allowed to revoke one is not a security posture, it is a gap.
+      //
+      // This is not the step-up re-authentication the account surface is designed around; that is
+      // a deliberate re-prompt in front of a named act, and it is still to be built. When it lands
+      // it goes in front of the acts, not in front of a list.
+      freshAge: 0,
     },
     // The one tenant firm this person belongs to; input: false keeps the field out of every
     // request body — only server-side code (the joining paths) ever sets it. required: false
@@ -283,6 +298,40 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
           // to distinguish it inside this hook.
           after: async (session) => {
             await writeAuthAuditGuarded(env, { event: "login.success", userId: session.userId });
+          },
+        },
+        delete: {
+          // WHICH SESSION DELETION MEANT SOMETHING, decided by the endpoint it happened under.
+          //
+          // A session row is deleted by half a dozen paths in the pinned 1.6.22 that are not a
+          // person ending a session: sweeping an expired row on a read, and the rotation the
+          // two-factor plugin performs when a factor is enabled or disabled mid-session all come
+          // through this same hook. Auditing every deletion would put a departure in the trail at
+          // the exact moment somebody was signing IN with a second factor, and a trail that says
+          // the opposite of what happened is worse than one that says nothing. So the endpoint
+          // decides, and an endpoint not in this table is not an event.
+          //
+          // The two that are: leaving on this device, and ending some OTHER device's session from
+          // the signed-in-devices screen — two different acts by the same person, which is why
+          // they are two event names rather than one. /revoke-other-sessions deletes each session
+          // through this same single-row path, so ending four devices files four rows; that is the
+          // record wanted, one per session actually ended. /revoke-sessions is deliberately absent:
+          // it deletes through the MANY path, which does not reach this hook at all, and listing it
+          // here would claim an audit row that never gets written. Nothing in this application
+          // calls it.
+          //
+          // A null context (a deletion outside any endpoint) is skipped rather than guessed at —
+          // the same posture the two_factor transition detector above takes.
+          after: async (session, endpointContext) => {
+            const path = endpointContext?.path;
+            const event =
+              path === "/sign-out"
+                ? "logout"
+                : path === "/revoke-session" || path === "/revoke-other-sessions"
+                  ? "session.revoked"
+                  : null;
+            if (event === null) return;
+            await writeAuthAuditGuarded(env, { event, userId: session.userId });
           },
         },
       },

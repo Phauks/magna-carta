@@ -1,6 +1,6 @@
-# Signing in
+# Signing in and out
 
-Signing in is how you get into Magna Carta. It asks for your email address and password together, and — if your account uses an authenticator app — a six-digit code.
+Signing in is how you get into Magna Carta. It asks for your email address and password together, and — if your account uses an authenticator app — a six-digit code. Signing out is how you end a session on the computer you are at.
 
 ## What it does
 
@@ -43,6 +43,10 @@ Each screen after the first carries a **Back** link above its heading. Going bac
 
 Select **Forgot Password**, next to the password box, or ask your firm's administrator to send you a reset link.
 
+**Sign out**
+
+Select your initials at the top right of any screen, then **Sign out**. This ends your session on the computer you are using and returns you to the sign-in screen; nothing you were looking at stays behind in the browser. Signing out on one computer does not sign you out on your others — [Signed-in devices](signed-in-devices.md) is where you do that.
+
 ## Tips and edge cases
 
 - **"That email and password combination doesn't match our records."** This one message covers every reason a sign-in was refused — a wrong password, a mistyped address, or an account that is not active yet. It is deliberately not more specific: a message that said "no such account" would let anyone test which addresses belong to your firm. Check both the address and the password, and contact your administrator if it keeps happening.
@@ -55,8 +59,11 @@ Below a failed attempt you will sometimes see how many tries you have left. That
 - **The web address never changes** as you move between the steps. That is on purpose: it keeps the fact that your account uses an authenticator out of your browser history and off the screen.
 - **Refreshing the page starts over** from the sign-in screen. Nothing you typed is kept, which is what you want on a shared screen.
 - **After you sign in** you land on your home page — or, if you followed a link into Magna Carta before signing in, on the page you were trying to reach.
+- **"You could not be signed out — your session is still open."** The sign-out did not go through, so you are still signed in and the screen deliberately did not pretend otherwise. Try again. If you are on a shared or public computer and it will not go through, close the whole browser rather than walking away from it.
+- **Closing the tab is not signing out.** If you ticked **Keep me signed in on this device**, your session is still there when the browser is reopened. On a computer that is not yours alone, sign out.
 
 ## Related features
 
 - Your account's password and authenticator settings live under **Account → Security**.
+- Every computer and phone signed in as you, and how to sign out of them, is [Signed-in devices](signed-in-devices.md) — **Account → Active Sessions**.
 - Administrators invite new users and set their access under **Settings → Users**.

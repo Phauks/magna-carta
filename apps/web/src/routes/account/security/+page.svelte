@@ -1,9 +1,13 @@
 <script lang="ts">
   /*
-   * Account · Security — how the member signs in and protects their account: password,
-   * two-factor, active sessions. The higher-ceremony half of the account surface — step-up
-   * re-authentication lands here when authentication ships. Every row is an honest Soon seam
-   * until then (a disabled control + the Soon badge), never a faked state.
+   * Account · Security — how the member signs in and protects their account: password and
+   * two-factor. The higher-ceremony half of the account surface — step-up re-authentication lands
+   * here when it ships. Both rows are honest Soon seams until then (a disabled control + the Soon
+   * badge), never a faked state.
+   *
+   * Signed-in devices used to be a third seam here and are now their own section
+   * (routes/account/sessions), because they are a live list rather than a setting. The account
+   * rail is sourced from $lib/account/account-sections.ts — add a section there, never here.
    */
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -32,16 +36,6 @@
     defaultValue: false,
     sensitivity: "open",
   };
-
-  const SESSIONS_DEFINITION: SettingDefinition = {
-    id: "account.security.sessions",
-    sectionId: "account-security",
-    label: "Active Sessions",
-    description: "The devices currently signed in to your account.",
-    kind: "text",
-    defaultValue: "",
-    sensitivity: "open",
-  };
 </script>
 
 <svelte:head>
@@ -64,13 +58,6 @@
         {#snippet control()}
           <Badge variant="neutral">Soon</Badge>
           <Switch disabled aria-label="Two-Factor (arrives with authentication)" />
-        {/snippet}
-      </SettingsRow>
-
-      <SettingsRow definition={SESSIONS_DEFINITION}>
-        {#snippet control()}
-          <Badge variant="neutral">Soon</Badge>
-          <Button variant="secondary" disabled aria-label="Manage sessions (arrives with authentication)">Manage…</Button>
         {/snippet}
       </SettingsRow>
     </SettingsPlate>

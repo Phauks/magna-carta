@@ -19,9 +19,13 @@ export interface AccountSection {
 /** The single band header for the account rail (every section is the member's own). */
 export const ACCOUNT_BAND_LABEL = "Account";
 
+// Active Sessions is its own section rather than a row under Security because it is the only part
+// of this surface that is a list of records with a per-row action, and because it is the one people
+// come here FOR — a rail entry is what makes it findable without reading a settings page first.
 export const ACCOUNT_SECTIONS: readonly AccountSection[] = [
   { id: "profile", label: "Profile", href: "/account/profile" },
   { id: "security", label: "Security", href: "/account/security" },
+  { id: "sessions", label: "Active Sessions", href: "/account/sessions" },
 ];
 
 /** The rail's render list, canonical order. */
