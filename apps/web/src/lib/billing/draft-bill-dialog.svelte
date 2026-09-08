@@ -18,9 +18,10 @@
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
-  import Input from "@magna-carta/design-system/input";
-  import Label from "@magna-carta/design-system/label";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
   import Info from "@lucide/svelte/icons/info";
+  import { civilDateParts, startOfCivilMonth } from "@magna-carta/civil-time/civil-date";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import { billingFailure, createInvoice } from "./billing-api.ts";
   import { civilDatePlusDays, civilToday } from "./invoice-standing.ts";
 
@@ -43,8 +44,6 @@
     onOpened: (invoiceId: string) => void;
   } = $props();
 
-  const fieldPrefix = $props.id();
-
   let periodStart = $state("");
   let periodEnd = $state("");
   let failure = $state<StatedFailure | null>(null);
@@ -53,7 +52,8 @@
   // finished, and carrying the last dialog's dates into this one is how a bill gets the wrong period.
   function reset(): void {
     const today = civilToday();
-    periodStart = `${today.slice(0, 8)}01`;
+    const { year, month } = civilDateParts(today);
+    periodStart = startOfCivilMonth(year, month);
     periodEnd = today;
     failure = null;
   }
@@ -114,22 +114,22 @@
       </p>
 
       <div class="grid gap-12 sm:grid-cols-2">
+        <!-- The picker's label and field are siblings with no wrapper of their own, so each one
+             needs a track to itself or the label lands in the next column. -->
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-period-start">Billing Period Starts</Label>
-          <Input
-            id="{fieldPrefix}-period-start"
-            type="date"
+          <DatePicker
+            label="Billing Period Starts"
+            value={civilDateValue(periodStart)}
+            onValueChange={(next) => (periodStart = civilDateTextOrEmpty(next))}
             disabled={busy}
-            bind:value={periodStart}
           />
         </div>
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-period-end">Billing Period Ends</Label>
-          <Input
-            id="{fieldPrefix}-period-end"
-            type="date"
+          <DatePicker
+            label="Billing Period Ends"
+            value={civilDateValue(periodEnd)}
+            onValueChange={(next) => (periodEnd = civilDateTextOrEmpty(next))}
             disabled={busy}
-            bind:value={periodEnd}
           />
         </div>
       </div>

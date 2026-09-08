@@ -11,7 +11,8 @@ this package encodes, and the gate that keeps them the only copy.
 ## Key files / entry points
 
 - `src/civil-date.ts` — the `YYYY-MM-DD` shape, `isCivilDate` (pattern **and** a real day on the
-  calendar), `civilDateOf` / `todayInUtc`, `addCalendarDays`, `endOfCivilMonth`.
+  calendar), `civilDateOf` / `todayInUtc`, `addCalendarDays`, `startOfCivilMonth` /
+  `endOfCivilMonth`.
 - `src/wall-clock.ts` — the `HH:MM` shape and `isWallClockTime`.
 - `src/instant.ts` — the canonical stored-instant shape (`toISOString`'s exact form, which the
   federated chronology's text sort depends on), `isCanonicalInstant`, `canonicalInstant`.
@@ -43,7 +44,9 @@ this package encodes, and the gate that keeps them the only copy.
 - **No date is ever derived from another date beyond plain day counting.** No business-day rule, no
   holiday calendar, no service-method offset, no chained recalculation. That is the calendar package's
   stated invariant and this package inherits it: a computed deadline that is wrong is trusted
-  precisely because it was computed. `addCalendarDays` counts days and nothing else.
+  precisely because it was computed. `addCalendarDays` counts days and nothing else. The month
+  helpers are the same rule read the other way: `startOfCivilMonth` / `endOfCivilMonth` exist so a
+  call site never cuts a date out of another with `slice`, which is where a day quietly goes missing.
 - **A stored zone is a named IANA zone, never a fixed offset.** `isResolvableTimeZone` refuses
   `+05:00` even where the runtime accepts it — an offset is wrong for half the year in every zone that
   observes daylight saving, and storing one is how a hearing moves by an hour when the clocks change.

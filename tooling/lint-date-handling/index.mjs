@@ -125,7 +125,7 @@ if (problems.length > 0) {
 const scanned = sources.size;
 console.log(
   `Dates: ${String(scanned)} file(s) scanned; the shape of a date, a time, a stored instant and a ` +
-    `zone is defined once, and every wording comes from the design system. ` +
-    `${String(ALLOWED_RAW_DATE_INPUTS.length)} surface(s) still hold a native date input rather ` +
-    "than the DatePicker, recorded and closed (tooling/lint-date-handling/rules.mjs).",
+    `zone is defined once, and every wording comes from the design system. Every date is entered ` +
+    `through the DatePicker: ${String(ALLOWED_RAW_DATE_INPUTS.length)} surface(s) hold a native ` +
+    "date input, and no allowance can make that a number other than zero.",
 );

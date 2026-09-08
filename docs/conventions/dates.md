@@ -145,6 +145,11 @@ The reason is not conservatism. A computed deadline that is wrong gets trusted *
 computed. Deadline derivation waits on a verified jurisdiction-keyed rule catalog, and until that
 exists the platform declines to guess.
 
+What this rule does **not** license is cutting one date out of another with string arithmetic. The
+month a date falls in is `startOfCivilMonth` / `endOfCivilMonth` over `civilDateParts`, not
+`` `${date.slice(0, 8)}01` `` — which is correct, unreadable, and one edit away from being a day
+out. Going through the parts keeps the year and the month numbers the whole way.
+
 ## A column that holds a day says so
 
 New civil-date and wall-clock columns take the guards in
@@ -205,16 +210,37 @@ prints "Tuesday, September 15, 2026" — and it still takes `instantDate` from t
 
 ## The date field
 
-The platform's date field is **`DatePicker`** (`@magna-carta/design-system/date-picker`) — the only
-one that can carry a firm-configured week start. Fifteen surfaces still hold a native
-`<Input type="date">`; that list is **recorded and closed** in
-[`tooling/lint-date-handling/rules.mjs`](../../tooling/lint-date-handling/rules.mjs), so a sixteenth
-fails. Whether the existing fifteen should all become `DatePicker` is an open design question for
-the owner, not a decision the gate makes.
+**Every date on this platform is entered through `DatePicker`**
+(`@magna-carta/design-system/date-picker`). Owner's ruling, 2026-09-08. There is no allowance list:
+`ALLOWED_RAW_DATE_INPUTS` in
+[`tooling/lint-date-handling/rules.mjs`](../../tooling/lint-date-handling/rules.mjs) is empty and
+asserted empty, and a native `<Input type="date">` fails wherever it is written — the design system
+included.
+
+It held sixteen surfaces for a day, while whether the native control was good enough for some of
+them still looked like an open question. It was not: the design system's own notes had already
+called the native date types "a thin interim", and only the component can carry a firm-configured
+week start (ADR-0040) or the locale-aware week the native `type="week"` is hard-locked out of.
+
+What the ruling cost, recorded so it is not rediscovered as a defect: the invitation screen's
+birthdate field carried `autocomplete="bday"`, and a browser fills a birthday only into a native
+date input it recognises as one. The picker has no `name` or `autocomplete` to pass through, so that
+screen is typed now, like every other date.
 
 In a form, the seam between stored text and what the picker holds is `civilDateValue` /
-`civilDateText` from [`apps/web/src/lib/dates/`](../../apps/web/src/lib/dates/) — never a
-`try { parseDate(…) } catch { return undefined }` written again in a component.
+`civilDateText` / `civilDateTextOrEmpty` — never a
+`try { parseDate(…) } catch { return undefined }` written again in a component. They live beside the
+picker, in
+[`packages/design-system/src/lib/components/date-picker/civil-date-value.ts`](../../packages/design-system/src/lib/components/date-picker/civil-date-value.ts),
+because a `CalendarDate` is that component's value type and a column filter's date range needed them
+inside the design system too; [`apps/web/src/lib/dates/`](../../apps/web/src/lib/dates/) re-exports
+them, so a screen still has one import path for every date reading it makes.
+
+A field with a visible label passes `label`; one with no room for a label — a range's two boxes
+inside a column's filter menu — passes `aria-label`, which the picker forwards to the segment group.
+The spread goes to the primitive's Root, which renders nothing, so an `aria-label` left in it would
+disappear without a warning. `size` is the Input's own scale, imported rather than redeclared, so a
+date field and the text field beside it can be set to one row height.
 
 ## What the gate covers, and what it cannot
 

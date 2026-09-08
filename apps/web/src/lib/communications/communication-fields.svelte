@@ -50,6 +50,8 @@
   import { DISPOSITION_CHOICES } from "./communication-vocabulary.ts";
   import type { CommunicationDisposition } from "./communications-api.ts";
   import { isTextDraft, type AnchorChoice, type LogDraft } from "./log-draft.ts";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   let {
     draft = $bindable(),
@@ -277,11 +279,15 @@
 
   <div class="flex min-w-0 gap-8">
     <div class="flex min-w-0 flex-auto flex-col gap-8">
-      <Label for="communication-date">Date</Label>
       <!-- The wall clock, read in the reader's own zone in both directions: the person typing it is
            saying what their own clock said. Two fields rather than one, because changing the day of
            a call recorded this morning must not mean stepping through a combined control. -->
-      <Input id="communication-date" type="date" disabled={busy} bind:value={draft.occurredDate} />
+      <DatePicker
+        label="Date"
+        value={civilDateValue(draft.occurredDate)}
+        onValueChange={(next) => (draft.occurredDate = civilDateTextOrEmpty(next))}
+        disabled={busy}
+      />
     </div>
     <div class="flex shrink-0 flex-col gap-8" style="width: 9rem">
       <Label for="communication-time">Time</Label>

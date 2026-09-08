@@ -4,3 +4,5 @@
  * recipes; only the segmented date field adds recipes (mc-date-field-*).
  */
 export { default as DatePicker } from "./date-picker.svelte";
+export { civilDateText, civilDateTextOrEmpty, civilDateValue } from "./civil-date-value.ts";
+export { dateFieldClasses } from "./variants.ts";
