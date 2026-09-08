@@ -14,7 +14,8 @@
    * its minor-unit arithmetic) is built, and the model's validation only checks the SHAPE of what
    * was typed — no arithmetic happens anywhere on this path.
    */
-  import { parseDate, type DateValue } from "@internationalized/date";
+  import type { DateValue } from "@internationalized/date";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import MergeFieldChip from "@magna-carta/design-system/merge-field-chip";
@@ -44,14 +45,7 @@
   const chipStatus = $derived(chipStatusForAvailability(field.disposition));
 
   /** The stored ISO text as a calendar date, or undefined while it is empty or half-typed. */
-  const calendarValue = $derived.by(() => {
-    if (value === "") return undefined;
-    try {
-      return parseDate(value);
-    } catch {
-      return undefined;
-    }
-  });
+  const calendarValue = $derived(civilDateValue(value));
 
   /*
    * The picker hands back the general DateValue union; a civil date is what a document renders, and
@@ -59,7 +53,7 @@
    * union, so no narrowing is needed to store it.
    */
   function recordDate(next: DateValue | undefined): void {
-    value = next ? next.toString() : "";
+    value = civilDateTextOrEmpty(next);
   }
 </script>
 

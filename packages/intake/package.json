@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@magna-carta/billing": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/conflicts": "workspace:*",
     "@magna-carta/custom-fields": "workspace:*",
     "@magna-carta/data-access": "workspace:*",

@@ -25,13 +25,8 @@
   import { expenseCodeText, type ExpenseCodeLabels } from "./cost-columns.ts";
   import { gapCellTitle } from "./cost-gaps.ts";
   import { approveCost, writeKey, type CostLedgerEntry } from "./cost-operations.ts";
-  import {
-    GONE_RECORDER_NOTE,
-    billingLabel,
-    payeeText,
-    recorderState,
-    recorderText,
-  } from "./cost-vocabulary.ts";
+  import { billingLabel, payeeText } from "./cost-vocabulary.ts";
+import { GONE_RECORDER_NOTE, recorderState, recorderText } from "$lib/records/work-in-progress-record.ts";
 
   let {
     open = $bindable(false),

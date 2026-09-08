@@ -252,6 +252,42 @@ is usually the fastest way to understand the rule.
   statement about a route and a wrong one about the work: the person has the document open in front
   of them. Hold the picks and apply them when the record is written. _(Time record window,
   2026-09-03)_
+- **Every closed choice is a combobox, never a select.** Wherever a person picks from a set the
+  product wrote — a type, a direction, a country, a reason — the field accepts typing and narrows as
+  they type. A two-row list loses nothing by it; a two-hundred-row one is unusable without it; and a
+  reader should not have to discover which lists take typing before they know whether to reach for
+  the keyboard. The field is `$lib/components/choice-picker.svelte`, on the design system's one
+  Combobox, and it shows what it holds at rest like every other picker. _(the call log, 2026-09-08)_
+- **Changing an answer must not move the form.** A field the chosen type does not apply to stands
+  REFUSED, with the reason on its hover, rather than being removed: a control that vanishes reflows
+  the form under the hand of the person filling it in, and the fields they have not reached yet jump
+  to new places. This is the narrow exception to "a disabled control implies a choice is being
+  withheld" — here the fact itself does not exist (a text has no length), which is what the hover
+  says. _(the call log's duration, switching between a call and a text, 2026-09-08)_
+- **A value the form can work out is shown, not asked for.** A call gives its start and its end, and
+  the duration follows from them; a field that accepted a third answer to the same question is a
+  field that can disagree with the two beside it. The derived field sits with the fields it is
+  derived from. _(the call log, 2026-09-08)_
+- **One question is one field, however many kinds of answer it has.** "Where does this belong" is a
+  matter, or a reason there is no matter, or nobody has decided — so it is ONE searchable field
+  carrying all three, not a category control that reveals a second field once it is answered.
+  Answering a question in two steps makes a reader answer it twice. _(the call log's Belongs to,
+  2026-09-08)_
+- **A telephone number's ghost text is its country's own grouping** — `(XXX) XXX-XXXX` here, and
+  whatever the chosen country writes anywhere else. It is the ONE placeholder in the product that is
+  not simply its field's name: the grouping cannot be said anywhere else, it is what tells a reader
+  the field wants a national number rather than a `+1` one, and it changes under them when they
+  change the country. It is derived from libphonenumber's example number, never authored per field.
+  _(the call log, 2026-09-08)_
+- **A field whose height the panel has already decided carries no grab corner.** Dragging it only
+  pushes the form's own footer around, so `resizable` comes off. A textarea in a scrolling stack
+  keeps it. _(the call log's description, 2026-09-08)_
+- **New beside a picker comes off where the field is one of many in a dense form.** The 2026-09-05
+  ruling below still governs every field that says nothing — a way to add a record that only appears
+  after a failed search is a way you find by accident — but on a form of eight fields a control per
+  field is chrome, and the add row inside the list is where people were adding the record anyway.
+  `createBeside={false}` is the exception, stated per field. _(the call log's contact field,
+  2026-09-08)_
 - **A field that chooses a record can MAKE one, from where it stands, through a top-level New.**
   Wherever a person or an organization is picked — a client, a payee, a conflicts subject, an
   event's participant — a New control stands beside the field before anything is typed, and the
@@ -860,6 +896,46 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-08 — Record Communication: two columns, typed choices, and a number that can be shortened
+
+The owner's second round on the messaging form, from the deployed screen. Their list, worked end to
+end: flags and typing in the country control, a number field consolidated with the one that already
+existed, start and end times, type and direction typable, the number's ghost text showing its shape,
+a zip that could not be backspaced, "Length in minutes" renamed to Duration and worked out from the
+times, no reflow when the type changes, "Belongs to" searchable against matters, no grab corner on
+the description, the helper line struck, the panel renamed, the New button beside the contact
+removed, and the whole form segmented into two columns. What binds:
+
+- **The quantitative and the qualitative are two columns.** Everything measurable about the call is
+  on the left and what was said fills the right, because they are different kinds of answer written
+  at different moments — the left is transcribed from the phone in seconds, the right is composed.
+  It also leaves the right side room to become tabs (the message, a transcript, the recording), which
+  is where the surface goes once the carrier is connected. Promoted into _Data entry_ as the
+  combobox, no-reflow, derived-value and one-question rules above.
+- **The panel keeps one name.** Record Communication, whichever type is chosen. A heading that
+  renamed itself as somebody switched the type is a panel changing identity under the hand filling it
+  in, and the sentence beneath it ("nothing is sent from here") explained the subsystem to a reader
+  who had already decided to write a call down. Generalizes: a panel is named for the act, not for
+  the variant of the act.
+- **The defect behind "I cannot backspace unless I re-enter it" was the formatter, not the field.**
+  A number regrouped on every keystroke cannot be fed its own output blindly: backspace over a
+  bracket or a space deletes a character the formatter immediately puts back, so the key does
+  nothing at all and the field reads as broken. A deletion that removes no digit removes the last
+  digit instead. Generalizes to every as-you-type formatter the product grows. (The ruling said
+  "zip"; the only field on this panel that formats as it is typed is the number, and the address's
+  postal field has no formatter and could not reproduce it. If a postal code really was the field,
+  it is still to be found.)
+- **Two hand-built copies of one field is where they drift.** The country-and-number pair existed in
+  the Directory's contact rows and in the call log, and the backspace defect was in both. It is now
+  one field used by both. The design system's own component list has had a `PhoneInput` planned since
+  2026-06-13; this is that field, built where the phone knowledge already lives (the app) rather than
+  in a package that would have to learn about countries.
+- **Flags are files, not characters.** The regional-indicator pairs are emoji — banned by golden rule
+  2 — and Windows ships no font for them, so the owner's own machine would draw two boxed letters
+  where every other machine drew a flag. They are vendored SVGs served as static assets, fetched only
+  for the rows a reader looks at. Generalizes: a glyph the product cannot draw on the owner's machine
+  is not a glyph the product uses.
 
 ### 2026-09-08 — the Conflicts Check screen: the log is the screen, the check is a panel
 

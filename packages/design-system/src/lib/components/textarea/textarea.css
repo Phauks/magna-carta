@@ -26,6 +26,11 @@
     outline-width: var(--mc-space-0);
     outline-offset: var(--mc-focus-ring-offset);
   }
+  /* A field whose height is already decided by the panel around it. Dragging it taller there moves
+     the form's own footer rather than showing more of the text, so the corner is not offered. */
+  .mc-textarea-fixed {
+    resize: none;
+  }
   .mc-textarea::placeholder {
     color: var(--mc-text-muted);
   }

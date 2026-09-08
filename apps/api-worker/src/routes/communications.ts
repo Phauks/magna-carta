@@ -9,7 +9,9 @@ import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import {
   logCommunication,
   routeCommunication,
+  setCommunicationDisposition,
   unrouteCommunication,
+  updateCommunication,
 } from "@magna-carta/communications/communication-service";
 import {
   countUnroutedCommunicationsStatement,
@@ -20,6 +22,7 @@ import {
 import {
   COMMUNICATION_CHANNELS,
   COMMUNICATION_DIRECTIONS,
+  COMMUNICATION_DISPOSITIONS,
   COMMUNICATION_SCOPES,
   MAX_CALL_DURATION_SECONDS,
   MAX_COMMUNICATION_BODY_LENGTH,
@@ -72,6 +75,7 @@ const REVIEW_UNROUTED = "communications:reviewUnrouted" as const;
 
 const channelField = z.enum(COMMUNICATION_CHANNELS);
 const directionField = z.enum(COMMUNICATION_DIRECTIONS);
+const dispositionField = z.enum(COMMUNICATION_DISPOSITIONS);
 
 const LogCommunicationRequest = z
   .object({
@@ -90,8 +94,35 @@ const LogCommunicationRequest = z
     durationSeconds: z.number().int().min(0).max(MAX_CALL_DURATION_SECONDS).nullable().optional(),
     body: z.string().max(MAX_COMMUNICATION_BODY_LENGTH).nullable().optional(),
     summary: z.string().max(MAX_COMMUNICATION_SUMMARY_LENGTH).nullable().optional(),
+    // The other anchor: why this belongs to no matter. Not every call a firm takes is about a case —
+    // spam, a wrong number, the landlord, a prospect who never came back — and a row that can only
+    // be filed onto a matter sits in the queue forever. Refused together with matterId: a row is on
+    // a matter, or set aside, never both.
+    disposition: dispositionField.nullable().optional(),
   })
   .openapi("LogCommunicationRequest");
+
+const SetDispositionRequest = z
+  .object({ disposition: dispositionField })
+  .openapi("SetCommunicationDispositionRequest");
+
+// A CORRECTION, not a patch of arbitrary shape: every field a member could have mistyped, each
+// optional and each keeping what the row holds when it is omitted. The ANCHOR is deliberately absent
+// — a matter and a disposition move a row between queues through their own acts, and a correction to
+// a summary must not be able to re-file a message somebody else has just filed.
+const UpdateCommunicationRequest = z
+  .object({
+    channel: channelField.optional(),
+    direction: directionField.optional(),
+    counterpartyNumber: z.string().min(1).max(MAX_COUNTERPARTY_NUMBER_LENGTH).optional(),
+    counterpartyEntityId: z.string().min(1).max(64).nullable().optional(),
+    memberUserId: identifierField("user").nullable().optional(),
+    occurredAt: z.string().datetime().optional(),
+    durationSeconds: z.number().int().min(0).max(MAX_CALL_DURATION_SECONDS).nullable().optional(),
+    body: z.string().max(MAX_COMMUNICATION_BODY_LENGTH).nullable().optional(),
+    summary: z.string().max(MAX_COMMUNICATION_SUMMARY_LENGTH).nullable().optional(),
+  })
+  .openapi("UpdateCommunicationRequest");
 
 const RouteCommunicationRequest = z
   .object({ matterId: identifierField("matter") })
@@ -113,6 +144,9 @@ const CommunicationDetail = z
     matterStatus: z.string().nullable(),
     matterNumber: z.string().nullable(),
     consultationNumber: z.string().nullable(),
+    // Why the row belongs to no matter, where somebody has said so. Null on a filed row and on one
+    // nobody has decided about yet — those two are told apart by matterId, not by this.
+    disposition: dispositionField.nullable(),
     counterpartyNumber: z.string(),
     counterpartyEntityId: z.string().nullable(),
     memberUserId: z.string().nullable(),
@@ -427,6 +461,96 @@ const unrouteFromMatterRoute = defineOpenAPIRoute(
   },
 );
 
+const setDispositionRoute = defineOpenAPIRoute(writeMeta("setDisposition"), {
+  method: "post",
+  path: "/api/v1/communications/{communicationId}/disposition",
+  description:
+    "Sets a call or a message aside as something that belongs to no matter — spam or a wrong " +
+    "number, the firm's own business, or a prospect nothing came of. It leaves the queue without " +
+    "being filed and without being deleted, because what was said still happened. A row already on " +
+    "a matter is refused: take it off first.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: communicationIdParam,
+    body: { content: { "application/json": { schema: SetDispositionRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "Set aside",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
+const clearDispositionRoute = defineOpenAPIRoute(
+  {
+    ...writeMeta("clearDisposition"),
+    // Putting it back in the queue is the exact inverse: nothing was destroyed, and the row returns
+    // with its words, its number and its instant intact.
+    reversal: { kind: "inverse", by: "communications.setDisposition" },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/communications/{communicationId}/disposition",
+    description:
+      "Returns a set-aside call or message to the queue — what a firm does when it decides " +
+      "something it had written off is real work after all.",
+    request: { headers: idempotencyKeyHeader, params: communicationIdParam },
+    responses: {
+      200: {
+        description: "Back in the queue",
+        content: { "application/json": { schema: AcknowledgedResponse } },
+      },
+      400: authErrors[400],
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      409: authErrors[409],
+      422: authErrors[422],
+      429: authErrors[429],
+    },
+  },
+);
+
+const updateRoute = defineOpenAPIRoute(writeMeta("update"), {
+  method: "patch",
+  path: "/api/v1/communications/{communicationId}",
+  description:
+    "Corrects a call or a message somebody recorded — a digit in the number, the wrong direction, " +
+    "a length in the wrong units, what was said. An omitted field keeps what the record holds. The " +
+    "matter and the set-aside reason are not changeable here: each moves the row between queues " +
+    "through its own operation. A carrier-written record is refused, because it is what the network " +
+    "reported rather than somebody's recollection.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: communicationIdParam,
+    body: {
+      content: { "application/json": { schema: UpdateCommunicationRequest } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: "Corrected",
+      content: { "application/json": { schema: AcknowledgedResponse } },
+    },
+    400: authErrors[400],
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+    429: authErrors[429],
+  },
+});
+
 // ---- helpers ----
 
 function serviceOptions(userId: string, mayReviewQueue: boolean) {
@@ -451,6 +575,7 @@ function communicationDetail(row: CommunicationWithMatterRow): z.infer<typeof Co
     matterStatus: row.matter_status,
     matterNumber: row.matter_number,
     consultationNumber: row.consultation_number,
+    disposition: row.disposition,
     counterpartyNumber: row.counterparty_number,
     counterpartyEntityId: row.counterparty_entity_id,
     memberUserId: row.member_user_id,
@@ -558,9 +683,10 @@ export function registerCommunicationsRoutes(
       const firm = requireChokepointFirmContext(c);
       const { cursor, scope, channel, search } = c.req.valid("query");
       const mayReview = mayReviewUnrouted(c);
-      // Asking for the queue without the key is a refusal, in the identical shape the chokepoint's
+      // Asking for the queue — or for what has been set aside, which is the same rows on the other
+      // side of a decision — without the key is a refusal, in the identical shape the chokepoint's
       // own denial takes. Browsing without it is not: the other scopes simply omit those rows.
-      if (scope === "unrouted" && !mayReview) {
+      if ((scope === "unrouted" || scope === "setAside") && !mayReview) {
         const denial = assertAlsoHasPermission(c, REVIEW_UNROUTED);
         if (denial !== null) return denial;
       }
@@ -679,6 +805,88 @@ export function registerCommunicationsRoutes(
           communicationId as CommunicationId,
           matterId as MatterId,
           serviceOptions(userId, true),
+        );
+        return { id: communicationId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // POST /api/v1/communications/{communicationId}/disposition
+  app.openapi(
+    { ...setDispositionRoute, middleware: chokepointMiddleware(chokepoint, setDispositionRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { communicationId } = c.req.valid("param");
+      const { disposition } = c.req.valid("json");
+      // Setting one aside necessarily READS an unrouted row on its way, exactly as filing one does,
+      // so it is gated by the same key as looking at the queue.
+      const denial = assertAlsoHasPermission(c, REVIEW_UNROUTED);
+      if (denial !== null) return denial;
+      const outcome = await commitEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await setCommunicationDisposition(
+          firm.firmDatabase,
+          communicationId as CommunicationId,
+          disposition,
+          serviceOptions(userId, true),
+        );
+        return { id: communicationId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // DELETE /api/v1/communications/{communicationId}/disposition
+  app.openapi(
+    {
+      ...clearDispositionRoute,
+      middleware: chokepointMiddleware(chokepoint, clearDispositionRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { communicationId } = c.req.valid("param");
+      const denial = assertAlsoHasPermission(c, REVIEW_UNROUTED);
+      if (denial !== null) return denial;
+      const outcome = await commitEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await setCommunicationDisposition(
+          firm.firmDatabase,
+          communicationId as CommunicationId,
+          null,
+          serviceOptions(userId, true),
+        );
+        return { id: communicationId, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ ok: true } as const, 200);
+    },
+  );
+
+  // PATCH /api/v1/communications/{communicationId}
+  app.openapi(
+    { ...updateRoute, middleware: chokepointMiddleware(chokepoint, updateRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { communicationId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitEffect(c, firm.firmDatabase, idempotency, 200, async () => {
+        const { effect } = await updateCommunication(
+          firm.firmDatabase,
+          communicationId as CommunicationId,
+          request,
+          // A row waiting in the queue is correctable by whoever may see it, which is the same key
+          // that reveals it; a filed row needs no queue capability at all.
+          serviceOptions(userId, mayReviewUnrouted(c)),
         );
         return { id: communicationId, effect };
       });

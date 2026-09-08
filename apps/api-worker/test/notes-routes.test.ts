@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -159,7 +160,8 @@ describe("writing, editing and deleting a note", () => {
     expect(note?.occurredOn).toBe("2026-08-25");
     expect(note?.occurredAtTime).toBe("15:30");
     // The typing instant is its own fact and is not the occurrence.
-    expect(note?.createdAt.slice(0, 10)).not.toBe("2026-08-25");
+    // The preceding assertions already fail if the note is missing, so the day is read directly.
+    expect(note === undefined ? null : civilDateOf(note.createdAt)).not.toBe("2026-08-25");
   });
 
   it("refuses a time with no date, and a wall clock with no zone", async () => {

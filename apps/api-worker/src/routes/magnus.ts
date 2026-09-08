@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { assertPermission } from "@magna-carta/access-control/registry";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
@@ -527,7 +528,7 @@ function consentRefusal(
 }
 
 function utcDayStart(nowIso: string): string {
-  return `${nowIso.slice(0, 10)}T00:00:00.000Z`;
+  return `${civilDateOf(nowIso)}T00:00:00.000Z`;
 }
 
 export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): void {

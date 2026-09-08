@@ -6,11 +6,16 @@
  * source, and the difference between the two hosts is this module and nothing on the screen — which
  * is why the surface takes files and never a matter id.
  *
- * NOTHING IS UPLOADED. Today the bytes never leave the browser: the arrival readings that are real
- * (what the file is, and its digests) are computed here, and the capabilities whose engines run in
- * a container say so rather than pretending. When the firm-scoped scratch object lands, this module
- * gains the upload and the readings move server-side; the capability modules and the screen do not
- * change, because they read outcomes rather than reaching for bytes.
+ * NOTHING IS UPLOADED ON ARRIVAL. The readings that are real the moment a file lands (what it is,
+ * its digests) are computed here, in the browser, and the capabilities whose engines run in a
+ * container say so rather than pretending. When the firm-scoped scratch object lands, this module
+ * gains that upload and those readings move server-side; the capability modules and the screen do
+ * not change, because they read outcomes rather than reaching for bytes.
+ *
+ * A capability the reader ASKS to run is a different question from an arrival reading: Unlock
+ * sends the file to a one-shot server call only when a person presses Unlock or Recover, and
+ * `WorkbenchFile.readBytes` is how it reaches the bytes to do that. Nothing here uploads on its
+ * own; a capability that never runs never reads them.
  */
 import { digestBuffer } from "./digest.ts";
 import { IDENTIFY_PREFIX_BYTES, identifyFromPrefix } from "./identify.ts";
@@ -104,6 +109,10 @@ async function readArrival(source: File): Promise<WorkbenchFile> {
     receivedAt: new Date(),
     preview: previewFor(identified.report.detected, prefix, source),
     outcomes,
+    // Closes over the browser's own `File`, which does not duplicate the bytes until something
+    // actually reads them. A capability that needs to send this file somewhere — Unlock, eventually
+    // Metadata — calls this rather than reaching for a copy the arrival reading already took.
+    readBytes: () => source.arrayBuffer().then((buffer) => new Uint8Array(buffer)),
   };
 }
 

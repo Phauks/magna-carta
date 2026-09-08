@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN, todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -72,7 +73,7 @@ const MANAGE = "trust:manage" as const;
 // and sits unmatched forever with nothing saying why.
 const civilDate = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .regex(CIVIL_DATE_PATTERN)
   .refine(isValidCalendarDate, { message: "not a calendar date" });
 const LineDirection = z.enum(["deposit", "withdrawal"]);
 
@@ -858,7 +859,7 @@ type ReconciliationApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariabl
 const trustOptions = () => ({
   clock: {
     now: () => new Date().toISOString(),
-    today: () => new Date().toISOString().slice(0, 10),
+    today: () => todayInUtc(),
   },
 });
 

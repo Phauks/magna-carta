@@ -43,6 +43,7 @@
     renderStoredExport,
   } from "$lib/export/bulk-download.ts";
   import { exportFilename, saveExport } from "$lib/export/tabular-export.ts";
+  import { formatInstant } from "@magna-carta/design-system/formatters";
 
   let items = $state<ShelfItem[] | null>(null);
   let failure = $state<StatedFailure | null>(null);
@@ -192,10 +193,7 @@
     conversion: "Converted File",
   };
 
-  function formatStamp(value: string): string {
-    const when = new Date(value);
-    return `${when.toLocaleDateString()} ${when.toLocaleTimeString(undefined, { timeStyle: "short" })}`;
-  }
+  const formatStamp = (value: string): string => formatInstant(value);
 
   function formatTaken(formats: readonly string[]): string {
     if (formats.length === 0) return "Not yet";

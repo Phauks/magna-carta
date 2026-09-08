@@ -26,6 +26,7 @@
  */
 import ArrowRightLeft from "@lucide/svelte/icons/arrow-right-left";
 import CircleSlash from "@lucide/svelte/icons/circle-slash";
+import Trash2 from "@lucide/svelte/icons/trash-2";
 import Undo2 from "@lucide/svelte/icons/undo-2";
 import Copy from "@lucide/svelte/icons/copy";
 import CopyPlus from "@lucide/svelte/icons/copy-plus";
@@ -107,6 +108,16 @@ export interface LedgerMenuContext {
    * advertised an act the surface cannot perform is worse than one that does not mention it.
    */
   readonly opensTheBill?: boolean;
+  /**
+   * Whether this ledger can delete a draft that never entered review.
+   *
+   * Optional and absent by default, on the same terms as the three above. DELETING IS NOT VOIDING,
+   * and the two are offered together on purpose: a draft nobody has been shown is a typing mistake
+   * and leaves nothing behind, while anything submitted, approved, billed or voided is a record
+   * somebody may be asked to account for and is withdrawn instead. Offering only the second would
+   * leave a firm's ledger accumulating struck-through typos forever.
+   */
+  readonly deletesDraft?: boolean;
 }
 
 /**
@@ -137,7 +148,7 @@ export function ledgerRecordMenu(
     },
     { identifier: "chain", items: [submitVerb(), approveVerb(), kickBackVerb()] },
     { identifier: "ledger", items: [reclassifyVerb()] },
-    { identifier: "destructive", items: [voidVerb()] },
+    { identifier: "destructive", items: [deleteDraftVerb(), voidVerb()] },
   ]);
 
   function openVerb(): RecordMenuAction {
@@ -272,6 +283,34 @@ export function ledgerRecordMenu(
       ...(move.allowed
         ? oneRecordGesture(count, "A record moves between ledgers one at a time.")
         : { disabledReason: move.reason }),
+    };
+  }
+
+  /*
+   * Removing a draft that never entered review. It sits above Void because it is the narrower act:
+   * it reaches one state and one state only, and every other state is the verb below it.
+   *
+   * It renders on every record rather than only on drafts, for the reason the bill verb does — a
+   * verb that appears and disappears with a row's state teaches a reader the menu has a mind of its
+   * own — and a record past draft says why it is refused, which is where the difference between
+   * deleting and voiding is actually taught.
+   */
+  function deleteDraftVerb(): RecordMenuAction | null {
+    if (context.deletesDraft !== true) return null;
+    const lower = noun.singular.toLowerCase();
+    return {
+      kind: "action",
+      identifier: "deleteDraft",
+      label: "Delete Draft",
+      icon: Trash2,
+      ...(target.status === "draft"
+        ? oneRecordGesture(count, "A draft is deleted one at a time.")
+        : {
+            disabledReason:
+              `Only a draft is deleted. This ${lower} has been submitted or billed, so it is a ` +
+              "record somebody may be asked to account for — withdraw it with Void instead, and it " +
+              "stays on the ledger.",
+          }),
     };
   }
 

@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import { targetDailyHoursDefinition } from "@magna-carta/timekeeping/settings";
@@ -24,7 +25,7 @@ const TRACK = "time:track" as const;
 
 const MyDayQuery = z.object({
   timekeeperUserId: identifierField("user"),
-  workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  workDate: z.string().regex(CIVIL_DATE_PATTERN),
 });
 
 const MyDayResponse = z

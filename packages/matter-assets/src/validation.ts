@@ -1,6 +1,6 @@
+import { CIVIL_DATE_PATTERN, isCivilDate } from "@magna-carta/civil-time/civil-date";
 import { isMatterAssetClass, matterAssetClassDeclaration } from "./classes.ts";
 import {
-  CIVIL_DATE_PATTERN,
   MATTER_ASSET_ENCUMBRANCE_KINDS,
   MATTER_ASSET_IDENTIFIER_KINDS,
   MATTER_ASSET_VALUATION_BASES,
@@ -102,16 +102,10 @@ export function assertCivilDate(value: string, field: string): void {
   if (!CIVIL_DATE_PATTERN.test(value)) {
     refuse("matter-asset-invalid-date", `${field} must be a civil date of the form YYYY-MM-DD`);
   }
-  // The pattern alone accepts 2026-02-30. A round trip through the calendar catches a rollover,
+  // The pattern alone accepts 2026-02-30; isCivilDate also checks the day is on the calendar,
   // which matters here because a valuation dated a day that does not exist resolves against nothing
   // and silently drops off a schedule.
-  const [year, month, day] = value.split("-").map(Number) as [number, number, number];
-  const roundTrip = new Date(Date.UTC(year, month - 1, day));
-  const sameDate =
-    roundTrip.getUTCFullYear() === year &&
-    roundTrip.getUTCMonth() === month - 1 &&
-    roundTrip.getUTCDate() === day;
-  if (!sameDate)
+  if (!isCivilDate(value))
     refuse("matter-asset-invalid-date", `${field} is not a date that exists: ${value}`);
 }
 

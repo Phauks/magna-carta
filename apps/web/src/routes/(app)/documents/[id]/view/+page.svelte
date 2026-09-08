@@ -19,11 +19,14 @@
   import { invalidateAll } from "$app/navigation";
   import ZoomIn from "@lucide/svelte/icons/zoom-in";
   import ZoomOut from "@lucide/svelte/icons/zoom-out";
+  import KeyRound from "@lucide/svelte/icons/key-round";
   import * as Alert from "@magna-carta/design-system/alert";
   import type { AlertVariant } from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import PasswordInput from "@magna-carta/design-system/password-input";
   import * as Masthead from "@magna-carta/design-system/masthead";
   import FullHeightSection from "$lib/components/full-height-section.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -92,7 +95,12 @@
       "the document to read it.",
   };
 
-  const OPEN_REFUSALS: Record<PdfFailureReason, Refusal> = {
+  /**
+   * "encrypted" and "wrong-password" are deliberately not here: neither is a dead end the reader
+   * downloads their way out of, so each renders its own password wall instead of this plain
+   * Alert-and-Download shape.
+   */
+  const OPEN_REFUSALS: Record<Exclude<PdfFailureReason, "encrypted" | "wrong-password">, Refusal> = {
     unreadable: {
       variant: "warning",
       title: "This Document Could Not Be Read",
@@ -126,6 +134,17 @@
   let pages = $state<readonly PdfPageSize[]>([]);
   let pageStates = $state<PageState[]>([]);
   let currentPage = $state(1);
+
+  /**
+   * The document is asking for a password. `wrongPassword` marks a rejected attempt, so the wall
+   * says "wrong password" rather than opening as if for the first time on a retry.
+   */
+  interface PasswordWall {
+    readonly wrongPassword: boolean;
+  }
+  let locked = $state<PasswordWall | null>(null);
+  let unlockPassword = $state("");
+  let unlocking = $state(false);
 
   const zoom = $derived(ZOOM_FACTORS[zoomIndex] ?? 1);
   const nothingToSize = $derived(pages.length === 0);
@@ -270,6 +289,8 @@
     currentPage = 1;
     refusal = null;
     readFailure = null;
+    locked = null;
+    unlockPassword = "";
     opening = true;
 
     if (!pdfWorkerAvailable()) {
@@ -309,6 +330,13 @@
       engine.close();
       return;
     }
+    if (reason === "encrypted" || reason === "wrong-password") {
+      // The worker keeps these bytes rather than the caller: the engine stays open so `handleUnlock`
+      // can ask it to try a password without the document being fetched a second time.
+      locked = { wrongPassword: reason === "wrong-password" };
+      opening = false;
+      return;
+    }
     if (reason !== null) {
       engine.close();
       source = null;
@@ -320,6 +348,37 @@
     pageStates = engine.pages.map(() => "blank");
     drawnAt = engine.pages.map(() => Number.NaN);
     opening = false;
+  }
+
+  /** Try the password wall's field against the document the worker is still holding open. */
+  async function handleUnlock(): Promise<void> {
+    const engine = source;
+    if (engine === null || unlockPassword === "" || unlocking) return;
+    unlocking = true;
+    const attempted = unlockPassword;
+    const reason = await engine.unlock(attempted);
+    unlocking = false;
+    if (gone || source !== engine) return;
+    if (reason === "wrong-password" || reason === "encrypted") {
+      // A wrong guess, or the worker lost track of the pending document (a stale retry) — either
+      // way the wall stays up and says so; the password is cleared rather than left for a second
+      // failed attempt to compound on top of.
+      locked = { wrongPassword: true };
+      unlockPassword = "";
+      return;
+    }
+    if (reason !== null) {
+      engine.close();
+      source = null;
+      locked = null;
+      refusal = OPEN_REFUSALS[reason];
+      return;
+    }
+    locked = null;
+    unlockPassword = "";
+    pages = engine.pages;
+    pageStates = engine.pages.map(() => "blank");
+    drawnAt = engine.pages.map(() => Number.NaN);
   }
 
   onMount(() => {
@@ -433,6 +492,51 @@
             <Alert.Description>{refusal.description}</Alert.Description>
             {@render downloadAction(file.id)}
           </Alert.Root>
+        </div>
+      {:else if locked !== null}
+        <div class="flex max-w-md flex-col gap-16 p-24">
+          <Alert.Root variant={locked.wrongPassword ? "danger" : "info"}>
+            <Alert.Title>
+              {locked.wrongPassword ? "Wrong Password" : "This Document Is Password Protected"}
+            </Alert.Title>
+            <Alert.Description>
+              {locked.wrongPassword
+                ? "That password did not open the document. Try again."
+                : "Enter the password to read it. The password is checked in this browser and never leaves it."}
+            </Alert.Description>
+          </Alert.Root>
+          <div class="flex flex-col gap-4">
+            <Label for="document-unlock-password">Password</Label>
+            <PasswordInput
+              id="document-unlock-password"
+              bind:value={unlockPassword}
+              autocomplete="off"
+              disabled={unlocking}
+              onkeydown={(event) => {
+                if (event.key === "Enter") void handleUnlock();
+              }}
+            />
+          </div>
+          <div class="flex items-center gap-8">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={unlockPassword === "" || unlocking}
+              onclick={handleUnlock}
+            >
+              <KeyRound class="size-16" aria-hidden="true" />
+              {unlocking ? "Unlocking" : "Unlock"}
+            </Button>
+            {@render downloadAction(file.id)}
+          </div>
+          <p class="text-sm text-text-muted">
+            Don't have the password? <a
+              class="underline"
+              href="/tools/file-workbench?capability=unlock"
+              {...opensBeside("session")}>Try Password Recovery</a
+            > in a new tab — download the document there first, since the recovery tool works on its
+            own copy of a file.
+          </p>
         </div>
       {:else}
         <!-- The strip sits flush under the header, one row: where the reader is at its inline

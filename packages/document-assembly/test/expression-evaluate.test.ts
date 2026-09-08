@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { seededRandomSource } from "@magna-carta/identifiers/random";
 import { describe, expect, it } from "vitest";
 import { expressionScopeFor } from "../src/dictionary.ts";
@@ -240,7 +241,7 @@ describe("dates", () => {
 // both silently — so the boundary is asserted exactly rather than approximately, and then generated
 // over so the claim covers offsets nobody thought to enumerate.
 
-const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const CALENDAR_DATE = CIVIL_DATE_PATTERN;
 
 describe("the calendar range every date helper shares", () => {
   const HELPERS = ["addDays", "addMonths", "addYears"] as const;

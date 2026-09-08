@@ -31,6 +31,24 @@ export const PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING: ReadonlySet<s
   new Set<string>(["20260829T101500_firmless-account"]);
 
 export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
+  // `invoice_wip_claim`.`source_kind` widened from two work-in-progress kinds to three, so a draft
+  // invoice can claim a recorded fee the way it already claims an hour and a disbursement. A CHECK
+  // cannot be widened in place, so this is a rebuild — and it is listed here rather than beside the
+  // grandfathered parent rebuilds because `invoice_wip_claim` IS A LEAF: nothing in the schema
+  // references it, so the DROP that cannot run against a parent fires no violation here, which is
+  // exactly the condition parentRebuildViolations tests for. The claim points OUT, at the invoice
+  // and the line it was composed into, and dropping a child is not what a durable object refuses.
+  // Audited: the copy is column-for-column over the whole table — seven columns, in the order the
+  // replacement declares them, with no WHERE and no expression between source and target — so every
+  // claim carries across unchanged, and the CHECK cannot reject a copied row because the change only
+  // ADDS a value to the set. The partial unique index that makes the claim the concurrency control,
+  // and the two indexes beside it, are recreated after the rename; so are the two RAISE(ABORT)
+  // triggers that freeze a finalized invoice's claims, which are NOT in the Drizzle schema and would
+  // therefore have been dropped and never put back by a generated rebuild — the single worst thing
+  // this migration could have done silently. The reasoning is written out in the migration's own
+  // `-- contract:` header, and the durable-object case is proved rather than assumed in
+  // apps/api-worker/test/leaf-rebuild-in-durable-object.test.ts.
+  "20260908T040000_invoice-wip-claim-admits-a-fee",
   // `user`.`firm_id` widened to nullable, so an account can exist before it belongs to a firm.
   // Audited: the copy is column-for-column over the whole table, the foreign key and the unique
   // index on `email` are both carried across, and no row loses a value — the reasoning is written

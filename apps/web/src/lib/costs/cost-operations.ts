@@ -11,9 +11,12 @@
  * Every call goes through the one transport seam, so a dead network is an outcome rather than a
  * thrown error, and the surface can say something true about it.
  */
-import { statusEntry } from "@magna-carta/design-system/status-register";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
-import { costStatusKey, type CostSummary } from "$lib/matters/cost-api.ts";
+import type { CostSummary } from "$lib/matters/cost-api.ts";
+// The chain's own rule about who may change a record, from the one home the three ledgers
+// share. Re-exported rather than re-imported by every caller: this module is where the cost
+// surfaces already ask what they may do to a cost.
+export { canWorkDraft } from "$lib/records/work-in-progress-record.ts";
 import type { CostCaptureSource } from "./cost-vocabulary.ts";
 
 /**
@@ -40,7 +43,10 @@ export function listMatterCostLedger(
   matterId: string,
   cursor?: string,
 ): Promise<ApiOutcome<Page<CostLedgerEntry>>> {
-  const query = new URLSearchParams({ matterId, ...(cursor === undefined ? {} : { cursor }) });
+  const query = new URLSearchParams({
+    matterId,
+    ...(cursor === undefined ? {} : { cursor }),
+  });
   return requestJson(fetchImpl, `/api/v1/costs?${query.toString()}`);
 }
 
@@ -193,7 +199,9 @@ export function kickBackCost(
   reason: string,
   idempotencyKey: string,
 ): Promise<ApiOutcome<CostAcknowledgement>> {
-  return transition(fetchImpl, costEntryId, "kick-back", idempotencyKey, { reason });
+  return transition(fetchImpl, costEntryId, "kick-back", idempotencyKey, {
+    reason,
+  });
 }
 
 /** Withdraw a cost. It freezes, counts toward nothing, and stays on the record. */
@@ -247,27 +255,6 @@ export function parseAmountMinor(text: string): number | null {
   if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) return null;
   const minor = Math.round(Number(trimmed) * 100);
   return minor > 0 ? minor : null;
-}
-
-/**
- * Whether a cost is this reader's to change, and the sentence that says why either way.
- *
- * ONE RULE, BOTH SCOPES. The matter's own Costs section and the firm's period screen ask the same
- * question of the same record, so they ask it of one function; two copies of it were two chances
- * for a matter and the firm to disagree about whether the cost in front of a reader is editable.
- *
- * THE RULE IS THE CHAIN, NOT THE RECORDER, AND THAT IS SETTLED RATHER THAN PROVISIONAL. A cost
- * belongs to the MATTER it was advanced for, not to whoever typed it, so a `costs:track` holder
- * works any matter's costs and no read or write is scoped per person — which is the deliberate
- * difference from time, where an entry is somebody's own hours. So the recorder now being on the
- * record changes nothing here: it is who to ask about a figure that looks wrong, never a gate.
- * What decides is where the cost stands — a draft is editable, and everything past it is evidence.
- */
-export function canWorkDraft(cost: CostSummary): { allowed: boolean; reason: string } {
-  if (cost.status !== "draft") {
-    return { allowed: false, reason: statusEntry(costStatusKey(cost.status)).meaning };
-  }
-  return { allowed: true, reason: "Change any part of this draft." };
 }
 
 /**

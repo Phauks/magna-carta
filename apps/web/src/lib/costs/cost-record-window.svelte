@@ -52,6 +52,7 @@
   import { billHref } from "$lib/money/index.ts";
   import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { costEntrySheet } from "./cost-print-sheet.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
   import {
     costDraftRefusal,
     createCost,
@@ -60,14 +61,8 @@
     writeKey,
     type CostLedgerEntry,
   } from "./cost-operations.ts";
-  import {
-    GONE_RECORDER_NOTE,
-    billingSentence,
-    payeeText,
-    recorderState,
-    recorderText,
-    returnedDraftReason,
-  } from "./cost-vocabulary.ts";
+  import { billingSentence, payeeText } from "./cost-vocabulary.ts";
+import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
 
   let {
     open = $bindable(false),
@@ -180,7 +175,7 @@
     if (seededFor === identity) return;
     seededFor = identity;
     saveFailure = null;
-    incurredDateText = entry?.incurredDate ?? new Date().toISOString().slice(0, 10);
+    incurredDateText = entry?.incurredDate ?? civilDateOf(new Date());
     amountText = entry === null ? "" : (entry.amountMinor / 100).toFixed(2);
     descriptionText = entry?.description ?? "";
     billingChoice = entry === null || entry.billable ? "billable" : "absorbed";

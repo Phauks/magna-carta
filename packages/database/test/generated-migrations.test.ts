@@ -1,3 +1,4 @@
+import { CANONICAL_INSTANT_PATTERN } from "@magna-carta/civil-time/instant";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PERMISSIONS } from "@magna-carta/access-control/registry";
@@ -154,7 +155,7 @@ describe("collapsed migration baselines (committed artifacts)", () => {
     ]);
     for (const seed of roleSeeds) {
       expect(isIdentifier(seed.id, "role"), String(seed.id)).toBe(true);
-      expect(seed.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/); // ISO-8601 instant
+      expect(seed.created_at).toMatch(CANONICAL_INSTANT_PATTERN); // ISO-8601 instant
     }
     const ownerAdminId = roleSeeds.find((seed) => seed.name === "Owner/Admin")?.id;
 

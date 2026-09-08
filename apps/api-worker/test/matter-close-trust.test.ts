@@ -1,3 +1,4 @@
+import { todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -28,7 +29,6 @@ let ownerUserId: UserId;
 let trustAccountId: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
-const todayInUtc = () => new Date().toISOString().slice(0, 10);
 const clock = { now: () => new Date().toISOString(), today: () => todayInUtc() };
 
 function get(path: string): Promise<Response> {

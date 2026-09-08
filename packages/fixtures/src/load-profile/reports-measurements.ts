@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { NodeSqlStatement } from "@magna-carta/database/node-sqlite";
 import { refusingTrustJurisdictions } from "@magna-carta/trust/jurisdiction";
@@ -48,7 +49,7 @@ function periodBounds(asOfDate: string, months: number): { start: string; end: s
   const start = new Date(end);
   start.setUTCMonth(start.getUTCMonth() - months);
   start.setUTCDate(start.getUTCDate() + 1);
-  return { start: start.toISOString().slice(0, 10), end: asOfDate };
+  return { start: civilDateOf(start), end: asOfDate };
 }
 
 // Recover the runtime node-sqlite shape so the EXPLAIN probes run the REAL query SQL (the statement

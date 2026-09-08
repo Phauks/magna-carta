@@ -72,16 +72,13 @@ export const WAIVER_SHORTFALLS = [
 ] as const;
 export type WaiverShortfall = (typeof WAIVER_SHORTFALLS)[number];
 
-/** A civil date, and nothing that merely looks like one. Mirrors the column's own shape CHECK. */
-const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-export function isCivilDate(value: string): boolean {
-  if (!CIVIL_DATE.test(value)) return false;
-  // A shape check alone admits 2026-02-31 and 2026-13-01. Round-tripping through the calendar is
-  // what rejects them, and it is cheap enough to do at the door.
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
+/*
+ * A civil date, and nothing that merely looks like one — the column's own shape CHECK mirrored in
+ * code. Both halves (the shape, and the day actually being on the calendar: a shape check alone
+ * admits 2026-02-31 and 2026-13-01) are @magna-carta/civil-time's, so this is the one function under
+ * this package's own name rather than a fourth implementation of it.
+ */
+export { isCivilDate } from "@magna-carta/civil-time/civil-date";
 
 /**
  * What one disposition's waiver record is missing, in catalogue order.

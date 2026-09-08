@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -176,7 +177,7 @@ export interface ComposedTrustBankStatement {
   readonly effect: EffectWrite;
 }
 
-const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const CIVIL_DATE = CIVIL_DATE_PATTERN;
 
 // The statement and every one of its lines in ONE batch. A statement that committed without its
 // lines would read as a period in which the bank reported balances and no transactions, which is a

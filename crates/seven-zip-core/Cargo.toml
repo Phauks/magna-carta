@@ -1,0 +1,28 @@
+[package]
+name = "seven-zip-core"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The 7z reader. Its DEFAULT `compress` feature stays on because the crate's own wasm32 module calls
+# the writer unconditionally and will not compile without it. `aes256` is deliberately NOT enabled:
+# listing never decrypts, and an archive whose header is AES-encrypted is refused by name rather than
+# decoded. Pure Rust either way — no C library is reachable from this feature set.
+sevenz-rust2 = "0.7"
+crc32fast = "1.4"
+thiserror = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+
+[dev-dependencies]
+# Fixtures are written by the same crate that reads them back, so every test archive is one a real 7z
+# encoder produced. `aes256` is a dev-only feature: resolver 2 keeps dev-dependency features out of the
+# `cargo build --lib` the wasm artefact comes from, so the shipped module still has no AES coder.
+sevenz-rust2 = { version = "0.7", features = ["aes256"] }
+crc32fast = "1.4"

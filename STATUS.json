@@ -392,7 +392,7 @@
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Archives are no longer opaque to a person: browsing one reads its headers over ranged reads and never unpacks a byte, for all four formats the platform recognises - zip, tar, 7z and rar, each decided from the object's own signature rather than its name - and extracting a member (zip) reads only that member's bytes and files it through the ordinary ingest gate. Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7. The numbering editor landed on 2026-09-06: Settings · Matter Numbering edits the matter and consultation schemes over the existing routes with a server-rendered preview, and the status window sets a matter's number by hand (only where the matter has been active; the service refuses the unnumbered rungs)."
+      "notes": "Archives are no longer opaque to a person: browsing one reads its headers over ranged reads and never unpacks a byte, for all four formats the platform recognises - zip, tar, 7z and rar, each decided from the object's own signature rather than its name - and extracting a member (zip, tar, 7z) reads only that member's bytes - or, for a 7z, only the block holding it - and files it through the ordinary ingest gate. Every extraction goes through one module that owns the format dispatch, one refusal vocabulary, the firm's caps and the record of what each attempt cost. Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7. The numbering editor landed on 2026-09-06: Settings · Matter Numbering edits the matter and consultation schemes over the existing routes with a server-rendered preview, and the status window sets a matter's number by hand (only where the matter has been active; the service refuses the unnumbered rungs)."
     },
     {
       "slice": "1·2 — `protected()` crypto module",
@@ -1803,7 +1803,8 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "todo"
+          "state": "done",
+          "by": "Sonnet 5"
         },
         "load-profile": {
           "state": "n/a"
@@ -1815,8 +1816,8 @@
         }
       },
       "branch": "main",
-      "activeWork": null,
-      "next": "GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; end-user UI (post-0·7); connect the magna-carta-recovery Worker to Workers Builds",
+      "activeWork": "docs/active-work/claude/text-document-editor-support-arvpgv.md",
+      "next": "GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; connect the magna-carta-recovery Worker to Workers Builds",
       "links": {
         "spec": "docs/specs/2026-06-26-decryption-tool-design.md",
         "plan": "docs/specs/2026-06-26-decryption-slice-2-plan-2-orchestration-implementation-plan.md",
@@ -1826,7 +1827,7 @@
         ]
       },
       "blockedBy": [],
-      "notes": "`crates/decryption-core` (pure Rust → wasm + native) behind `FormatAdapter`: unlock (`/decryption/inspect` + `/unlock`) and recover (DO-coordinated fan-out over `apps/recovery-worker` shards, `/decryption/recover*`). PDF/ZIP/OOXML; hash-only recovery boundary; GPU rungs + UI deferred."
+      "notes": "`crates/decryption-core` (pure Rust → wasm + native) behind `FormatAdapter`: unlock (`/decryption/inspect` + `/unlock`) and recover (DO-coordinated fan-out over `apps/recovery-worker` shards, `/decryption/recover*`). PDF/ZIP/OOXML; hash-only recovery boundary; GPU rungs deferred. The File Workbench's Unlock capability is now real (attest, unlock with a known password, or start a recovery search that hands off to its own addressable job screen — poll, cancel, one-time password reveal, an honest needsGpu answer rather than a spinner that never finishes). A PDF's own reader also unlocks a known password without leaving the page: `@magna-carta/pdf` already carries `inspectSecurity`/`decryptDocument`, loaded client-side in the same worker that rasterizes pages, so trying a password costs nothing server-side and a reader who does not have one is linked straight to the workbench's Unlock capability, where Recover lives."
     },
     {
       "slice": "File-manager UI primitives (FileIcon · Breadcrumb · ContextMenu · Tree · Dropzone)",
@@ -2431,6 +2432,48 @@
       "notes": "The Tools host every file capability is run from: the file-workbench route, a file dropped once and read by all ten. Two capabilities are real in the browser today — the file's true type, read from its leading bytes against what its name claims, and its SHA-256 and SHA-1. The eight whose engines run in a container render their own control disabled with the dependency named. The capability set is a registry, so adding one is a module and an array entry; the Overview is contributed by the modules rather than written by hand. Conversion acts on the whole selection, and offers only the formats every selected file can reach. Two rounds of owner review are recorded in `docs/conventions/file-workbench-rulings.md`; the second turned the file list into the product's one grid and moved four of its rulings into the standing set."
     },
     {
+      "slice": "One home for dates",
+      "group": "cross-cutting",
+      "order": 41,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "claude/date-handling-audit-xx8q3o",
+      "activeWork": "docs/active-work/claude/date-handling-audit-xx8q3o.md",
+      "next": "Owner call on whether the fifteen surfaces still on a native date input move to the DatePicker",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": [
+          "ADR-a-date-has-two-authorities-and-a-gate-that-keeps-it-so"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/civil-time` (shape) + the design system's `formatters/` (display), with `lint:date-handling` holding the line; about seventy duplicates removed, two of which had already drifted."
+    },
+    {
       "slice": "3·1 — Time tracking + WIP + rate engine",
       "group": "phase-3",
       "order": 1,
@@ -2555,14 +2598,14 @@
       },
       "branch": "main",
       "activeWork": "docs/active-work/claude/billing-uui-consolidation-5l2kiu.md",
-      "next": "Approving a submitted cost from the firm-wide period, and a cost's entry number and attached files",
+      "next": "Approving a submitted record from either firm-wide period; a record's entry number, its attached files and its recorded history on both ledgers; the firm's review setting being served so the chain verbs stop being absent",
       "links": {
         "spec": null,
         "plan": null,
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "`@magna-carta/costs` + `@magna-carta/billing-core` (shared WIP lifecycle); first per-firm queue consumer; recoverable-charge seam. cost→A/R + LEDES → 3·4.\n\n**Costs becomes a place you can go, which took a listing shape it did not have.** `GET /api/v1/costs` answered one matter entire and returned an empty list for anything else, so Costs was absent from the sidebar's Money group entirely while the matter's own Money group carried it — the two disagreed about what Money holds, for a structural reason rather than an oversight. The listing now also takes a `from`/`to` span of incurred dates across every matter, narrowable to one matter, one status and to billable or not, cursor-paged over the same statement the per-matter shape walks so a cost reads back identically whichever found it. The unnarrowed range had no index whose leading column was the date, so `cost_entry` gained one, exactly as `time_entry` did for its own span.\n\n`/costs` is that period: what the firm advanced, what is still waiting on a bill, and what it decided to absorb. Its columns are the matter ledger's own declaration with the Matter column brought forward, so a cost carries the same words on both screens.\n\n**The cost record answers with what the table already held.** `cost_entry.created_at`, `.created_by` and `.kick_back_reason` were in the baseline schema and were never projected, so Date Entered, Entered By and the reason a cost was sent back said \"not served\" on every cost surface about facts the firm's own database was holding. The kick-back reason was the costly one: the transition returns a cost to **draft** and writes the reviewer's reason on the row, and the next submission clears it, so a non-null value means exactly \"this draft came back and has not been sent again\" — the only thing telling a returned draft from one nobody submitted. Unserved, the person who had to fix the cost was told nothing. It now leads the record window's Details pane, sits above the chain on the details panel, and has a hidden Returned column; it is read as a DRAFT fact so no later transition that forgets to clear it can print it over an approved cost, and it shows whether or not the firm runs review, because a reason already on a record is a fact rather than an invitation to a workflow. Both reach the wire now, the recorder's name resolved by a `member` outer join in the same statement the vendor's and the matter's already were — outer, and `created_by` deliberately not a foreign key, because who wrote a disbursement down has to survive that person leaving the firm. Entered By is not a permission fact: this slice's design rules that a cost belongs to the matter and not to its recorder, so there is no per-user self-scoping on costs at all, and the two surfaces' duplicated `canWorkDraft` — whose comment promised a recorder gate that ruling refuses — is now one function that states the real rule. The detail read stopped being a third shape at the same time: it was a hand-written column list resolving none of the three names, so opening a cost answered with less than the row it was opened from.\n\nAnd a billed record now names the bill that took it up. `cost_entry.invoice_id` existed and never reached the wire, so a billed cost could not answer what the client was actually told; the row menu's **Open The Bill** lands on the matter's Billing section with that bill open. The verb lives in the shared ledger catalogue rather than on this menu, because time asks the same question of the same kind of row — `time_entry.invoice_id` had been on the entry contract since it was written and nothing on the time surfaces read it, so that gap was a verb rather than a read. A ledger declares `opensTheBill` when it has somewhere to send a reader; Fees does not, because an unbilled fee record has no table behind it yet."
+      "notes": "`@magna-carta/costs` + `@magna-carta/billing-core` (shared WIP lifecycle); first per-firm queue consumer; recoverable-charge seam. cost→A/R + LEDES → 3·4.\n\n**Costs becomes a place you can go, which took a listing shape it did not have.** `GET /api/v1/costs` answered one matter entire and returned an empty list for anything else, so Costs was absent from the sidebar's Money group entirely while the matter's own Money group carried it — the two disagreed about what Money holds, for a structural reason rather than an oversight. The listing now also takes a `from`/`to` span of incurred dates across every matter, narrowable to one matter, one status and to billable or not, cursor-paged over the same statement the per-matter shape walks so a cost reads back identically whichever found it. The unnarrowed range had no index whose leading column was the date, so `cost_entry` gained one, exactly as `time_entry` did for its own span.\n\n`/costs` is that period: what the firm advanced, what is still waiting on a bill, and what it decided to absorb. Its columns are the matter ledger's own declaration with the Matter column brought forward, so a cost carries the same words on both screens.\n\n**The cost record answers with what the table already held.** `cost_entry.created_at`, `.created_by` and `.kick_back_reason` were in the baseline schema and were never projected, so Date Entered, Entered By and the reason a cost was sent back said \"not served\" on every cost surface about facts the firm's own database was holding. The kick-back reason was the costly one: the transition returns a cost to **draft** and writes the reviewer's reason on the row, and the next submission clears it, so a non-null value means exactly \"this draft came back and has not been sent again\" — the only thing telling a returned draft from one nobody submitted. Unserved, the person who had to fix the cost was told nothing. It now leads the record window's Details pane, sits above the chain on the details panel, and has a hidden Returned column; it is read as a DRAFT fact so no later transition that forgets to clear it can print it over an approved cost, and it shows whether or not the firm runs review, because a reason already on a record is a fact rather than an invitation to a workflow. Both reach the wire now, the recorder's name resolved by a `member` outer join in the same statement the vendor's and the matter's already were — outer, and `created_by` deliberately not a foreign key, because who wrote a disbursement down has to survive that person leaving the firm. Entered By is not a permission fact: this slice's design rules that a cost belongs to the matter and not to its recorder, so there is no per-user self-scoping on costs at all, and the two surfaces' duplicated `canWorkDraft` — whose comment promised a recorder gate that ruling refuses — is now one function that states the real rule. The detail read stopped being a third shape at the same time: it was a hand-written column list resolving none of the three names, so opening a cost answered with less than the row it was opened from.\n\nAnd a billed record now names the bill that took it up. `cost_entry.invoice_id` existed and never reached the wire, so a billed cost could not answer what the client was actually told; the row menu's **Open The Bill** lands on the matter's Billing section with that bill open. The verb lives in the shared ledger catalogue rather than on this menu, because time asks the same question of the same kind of row — `time_entry.invoice_id` had been on the entry contract since it was written and nothing on the time surfaces read it, so that gap was a verb rather than a read. A ledger declares `opensTheBill` when it has somewhere to send a reader.\n\n**And Fees becomes the third work-in-progress store, which reverses a standing ruling.** The 2026-08-26 fee-surface design ruled that Fees is NOT a work-in-progress surface: a matter's fee value was the time ledger's or the arrangement's, so the screen paired the fee AGREEMENT with the invoice LINES a bill had composed from it. The owner moved the arrangement into the matter's status window on 2026-09-03 — it is a fact of the engagement rather than of the ledger — which removed that ruling's own justification, because the pairing WAS the argument. What was left was the pure invoice view the design had itself rejected: a ledger of lines can show nothing that is still unbilled, which is the whole of what a work-in-progress ledger is for. The reasoning also had a hole the pairing hid — a flat sum agreed to settle a file on an hourly matter is neither the time ledger's product nor the arrangement's amount, so it could only be typed straight onto a draft bill, invisible to every unbilled read and gone if the draft was abandoned.\n\n`fee_entry` carries the same anatomy `time_entry` and `cost_entry` do, deliberately, and rides the same chain through `@magna-carta/billing-core` rather than a third copy of it. A draft invoice claims it through the same `invoice_wip_claim`, whose `source_kind` CHECK is widened by a **hand-written** rebuild: the two triggers freezing a finalized invoice's claims are not in the Drizzle schema, so a generated rebuild would have dropped them silently and unfrozen every finalized bill's claims in the fleet.\n\n**That rebuild then had to answer the durable-object finding**, which landed on main while this was being built and collapsed the per-firm lineage with it: a rebuild DROPS the table it replaces, a durable object enforces foreign keys at the statement AND at the commit, and `PRAGMA foreign_keys=OFF` is a no-op inside the one execution context a migration runs in — so a rebuild of a table other tables point at cannot complete against a firm that holds data, and completes only against the empty databases the suite used to build. This one ships on the guard's own criterion rather than by exemption: `invoice_wip_claim` is a **leaf**, nothing in the schema references it, the claim points OUT at the invoice and the line it was composed into, and `parentRebuildViolations` skips a rebuild whose table has no children. The tag joins `REVIEWED_REBUILDS` and NOT the grandfathered parent list, which is documented as debt that must never grow. And the proof is in a real durable object rather than in `node:sqlite` — that distinction IS the lesson of the outage, because the row-preservation harness cannot reproduce commit-time enforcement, so a leaf rebuild passing there says nothing about the runtime it has to survive. The migration's header, which claimed the bracketing pragmas protected the swap, is corrected: they are kept as ordinary practice and are doing no work. The kinds became a union (`WORK_IN_PROGRESS_KINDS`) so the draft composer's two-way ternaries and its two hand-written mirror-clearing statements derive from it rather than enumerating it.\n\n`GET/POST /api/v1/fees` serves both listing shapes on billing's own permissions — reading a fee is reading unbilled work in progress, which `billing:read` already names — and the matter's Fees section reads the per-matter shape whole, in every status, paged. **Nothing computes a fee from time entries**, and the non-hourly-arrangement guard stays scoped to `time_entry` so a recorded fee on a flat-fee matter is a separate charge rather than a second billing of the same agreement.\n\nWhat the second ledger shares with the first was hoisted rather than copied, which is the point of doing it at the second surface: `$lib/records/work-in-progress-record.ts` is the one home for the readings every ledger makes of a record, and the void and kick-back confirmations moved beside it. Fees is the first ledger with a DELETE route, so **delete-draft** joins them and `deletesDraft` sits beside `opensTheBill` as a declaration on the shared row menu — deleting is not voiding, and the refusal on the wrong one is where the difference gets taught. The nullable-amount branch the built surface carried came out: the table's CHECK makes it unreachable and the cross-ledger move that would produce it does not exist, so \"Needs an amount\" was a state no reader could ever meet.\n\n`/fees` is the period across every matter, and it takes the row Fees never had — absent from the sidebar's Money group for exactly the reason Costs was, structurally rather than by oversight, because nothing served the record. Its columns are the matter ledger's own declaration with Matter brought forward (`firmFeeColumns`), so a fee carries the same words on both screens; its period arithmetic is the Time Sheet's, reused a third time rather than written again, because three money screens computing \"last month\" separately is three chances to disagree about where a month starts. The record window gained the matter picker the cost window has, on the same reasoning: a fee pre-filled with whichever matter came first would be a wrong answer arriving faster than no answer. Four of the five money sections now have a firm-wide twin, and the toolbar's way out derives from the sidebar's own registry, so **All fees** appeared with no second declaration."
     },
     {
       "slice": "3·4 — Billing & invoicing",
@@ -3261,6 +3304,82 @@
       },
       "blockedBy": [],
       "notes": "The sidebar's Messaging row had four different meanings attached to it — an id naming the whole three-channel Communications layer, a label naming one channel, a description naming two, and a matter section under the same word describing the client portal's message grant. The owner settled it on 2026-09-07: **Messaging is calls and texts**, for logging what occurs, with the carrier writing the same rows once the firm's number is connected, and recording and transcription over the voice half. Email is refused from the row deliberately — mail lives in the firm's own mailbox and is _filed_ onto a matter from there, so its verb is route-what-exists where the verb here is cause-a-record-to-exist — and the argument is recorded rather than assumed, along with the gap it leaves: captured mail that routes to no matter still has no screen anywhere in the product.\n\nThe log is the durable thing and the carrier is a producer of rows into it, which is what takes the whole surface off the vendor's critical path: A2P 10DLC registration is weeks of procurement and gates only the second of three producers. One per-firm `communication` row — channel, direction, counterparty number and its nullable Directory handle, the member on the firm's end, the instant it happened, duration, body, summary, `producer` and the carrier's own reference — behind `@magna-carta/communications` (types, validation, statements, service) and seven operations in `apps/api-worker/src/routes/communications.ts`. The insert writes the literal `'member'` rather than taking the producer as a parameter, because a shared insert taking it as an argument is how a member row eventually gets written claiming to be a carrier one. Three closed vocabularies are CHECKs on the schema, not only types, and so are the channel/content coherence rules: a body belongs to a text, a duration to a call.\n\n**The anchor is a matter with a status, not a matter with a number** — the owner's second ruling the same day, and the one that shaped every read. `matter.matter_number` is null until a matter opens, and an intake or a consultation is where a first contact actually lands, so `assertRoutable` turns on the status and `ROUTABLE_STATUSES` admits intake, consultation, open and hold; a closed matter is refused a new filing while keeping everything already on it. The web picker walks three streams rather than the docket's two, because `listEveryMatter` deliberately excludes intakes — right for a docket, wrong for the surface that files phone calls.\n\n**The unrouted queue takes its own capability, and the reason is structural.** Every filed row is narrowed by the visible-matter predicate, so a walled matter contributes nothing to the firm-wide read; a row with no matter fails that `EXISTS` entirely, which means the predicate silently decides the queue is invisible and the next reader would be tempted to drop it to reach the rows. So the null branch is its own clause the caller asks for by flag, and the route passes it only for `communications:reviewUnrouted` (seeded to Owner/Admin and Paralegal). Filing is gated by the same key, since it reads a queued row on its way; asking for the queue without it is a 403, browsing without it simply omits those rows. Building this caught a real defect in the gate itself: `readRoutableMatter` selected from an unaliased `matter`, so the predicate's own `EXISTS (SELECT 1 FROM matter …)` shadowed the outer table and the correlation degenerated to `matter.id = matter.id` — true of every row, so the anchor check passed every matter in the firm. The outer table is aliased `anchor` and the test that found it is kept.\n\nTwo screens over one listing component: the firm-wide `/communications` with the queue as a scope of the same log (never a second table), and the matter's Messaging section, the same read pre-filtered with the matter column dropped. Filing exists only on the firm-wide surface — inside a matter the decision is already made — and unfiling returns a row to the queue rather than deleting it. The section flips off `soon` with its search source, its timeline source and a create noun, so all three coverage lints are answered rather than deferred; the destination flips to `shipped` at `alpha` in the same commit as the screen, per the registry's own rule. The audit log carries identifiers, enums and instants and never the words or the number, asserted by a test rather than trusted. 45 tests: 33 in the package, 12 over the routes.\n\nRecording is sequenced last for a legal reason rather than a technical one — call-recording consent is gated on the jurisdiction-profile machinery, which is itself still in design — and the screen says plainly, once and at the top, that nothing is sent or received yet."
+    },
+    {
+      "slice": "6·7 — The Messaging screen's review round: plainer questions, a record that opens, and a call that belongs to no matter",
+      "group": "phase-6",
+      "order": 7,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "done"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "claude/messaging-screen-improvements-b7hyj1",
+      "activeWork": "docs/active-work/claude/messaging-screen-improvements-b7hyj1.md",
+      "next": "reporting on what a firm's phone actually carries, which the set-aside reasons now make answerable; resolving an inbound number against the Directory automatically, which the contact field only does by hand; the messaging port and the Telnyx adapter, still gated on A2P 10DLC registration",
+      "links": {
+        "spec": "docs/specs/2026-09-07-call-and-text-log-design.md",
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The owner reviewed the deployed screen on 2026-09-08 and the round is their list, worked end to end. Most of it is vocabulary and layout, one item is a crash, and two are real capabilities the log did not have.\n\n**The crash first, because it was not this screen's alone.** Pressing the matter field returned an error report: the picker's \"no matches\" line was a `Combobox.GroupHeading` with no `Group` above it, which throws when the listbox opens — invisible until somebody clicks a field whose list is empty or fully narrowed, which is exactly when that line renders. The same one-line defect had shipped in four pickers (matter, time zone, calendar participants, the time record window's documents) and all four are fixed. The design system had already written this down, in `undo-redo-controls.svelte`: \"Both hand-built copies of this control shipped without it.\"\n\n**Selects rendered the value the database stores.** The form opened reading `voice` and `outbound`, because bits resolves a select's label from its `items` list and neither select passed one — the labels appeared only after the listbox had been opened once. The same omission put raw channels in the matter Activity section's Type column.\n\n**A call and a text are one record and now look like one.** Type and Direction rather than Kind and Which way; the date and the time as two fields rather than one combined control; and one **Description** for both, which is the message on a text and the member's account on a call. The columns behind them stay two — `body` is what was sent and `summary` is what somebody remembered, so a read never has to ask which it is holding — but nobody typing has to care. A note recorded beside a text under the old two-field form is carried through a correction untouched rather than silently dropped. **Picture** is gone as a kind: a picture is something a text carries, so `mms` reads as Text everywhere and states what it carries beside the row. The commit is Save, and the wordy \"a call or a text needs the number at the other end\" that stood in the action bar for the whole time somebody was filling the form is now \"The number.\"\n\n**The number carries its country.** A dial-code control beside the digits, grouping as they are typed in that country's own national form, and the international form stored — which makes storing E.164 honest for the first time. The server still refuses to canonicalize on its own, because that needs a country it has no way to know; the form knows, because somebody picked it. All of it reuses `$lib/directory/phone-entry.ts` rather than re-deriving a country's grouping rules. Display reformats only what is already canonical: handing a free-text number to a parser that assumes a country turns \"ext 4102\" into \"4102\".\n\n**A row opens into the record window, and a member-produced record is correctable there** (`communications.update`; a carrier row is refused, because editing one would turn an observation into a recollection wearing an observation's badge). The window's fields ARE the entry form's, rendered by one component, so the two cannot drift. Where the record belongs stays out of those fields and lives in the action bar, because a matter and a set-aside reason each move the row between queues through their own concurrency-safe act — folding them into the field patch was built first and discarded, since it turned one Save into three writes with a partial-failure state to explain.\n\n**A call that belongs to no matter can finally be put somewhere.** `communication.disposition` — spam, firm business, nothing came of it — is the other anchor, and the unrouted queue is redefined as rows carrying neither, so it is a list that can be emptied. Nothing is deleted and nothing leaves the record; a set-aside row goes back to the queue on request, and filing one clears its reason in the same statement. The vocabulary is enforced in the domain package rather than as a CHECK, because the column lands on a populated table and SQLite cannot add a CHECK to one without the rebuild expand-contract forbids.\n\n**Two smaller things the list asked for.** An **intake** starts from a call's own record, seeded with the caller and filing the call onto the matter it opens — the matters subsystem's own window, given a prefill, rather than this screen learning to open a matter. And the search now matches the matter's title and both its numbers as well as the words and the number dialled, because \"what did we say on the Herrera file\" is the question people actually bring.\n\nThe screen moved from `/communications` to `/messaging`; the sidebar id stays `communications`, because a member's stars are stored under it. 84 tests: 45 in the package, 18 over the routes, 21 over the form's model."
+    },
+    {
+      "slice": "6·8 — Record Communication: two columns, typed choices, one phone field, and a duration worked out from the clock",
+      "group": "phase-6",
+      "order": 8,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "done"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "claude/exciting-pascal-qfr3la",
+      "activeWork": "docs/active-work/claude/exciting-pascal-qfr3la.md",
+      "next": "the right column becomes tabs — the message, a transcript, the recording — once the carrier is connected; the design system's own PhoneInput, if a package ever needs the field the app now owns",
+      "links": {
+        "spec": "docs/specs/2026-09-07-call-and-text-log-design.md",
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The owner's second round on the deployed form, worked end to end: the panel is Record Communication, laid out as the measurable beside the written, every closed choice a combobox, the country and the number one field shared with the Directory, and the duration worked out from a start and an end rather than typed. The backspace defect behind \"I cannot backspace unless I re-enter it\" was the as-you-type formatter being fed its own output."
     }
   ]
 }

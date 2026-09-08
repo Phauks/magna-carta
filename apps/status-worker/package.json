@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@magna-carta/build-identity": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/status": "workspace:*"
   },
   "devDependencies": {

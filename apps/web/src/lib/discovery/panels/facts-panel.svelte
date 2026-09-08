@@ -14,6 +14,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { readReviewDocument, type ReviewDocumentDetail } from "../discovery-api.ts";
+  import { formatInstantDate } from "@magna-carta/design-system/formatters";
   import {
     exceptionCodeEntry,
     indexStateEntry,
@@ -63,7 +64,7 @@
         value:
           one.sortDate === null
             ? "No date"
-            : `${new Date(one.sortDate).toLocaleDateString()}${
+            : `${formatInstantDate(one.sortDate)}${
                 one.sortDateSource === null ? "" : ` (${one.sortDateSource})`
               }`,
       },

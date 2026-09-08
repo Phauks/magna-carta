@@ -12,7 +12,8 @@
  *     filed them under, and the resolved name is offered beside it rather than instead of it.
  *   - MATTER carries the anchor's STATUS, not just its name. An intake and a consultation are real
  *     anchors and they carry no matter number, so the cell falls through to what the row actually
- *     has; and an unfiled row says it is not filed rather than rendering blank, because a blank
+ *     has; a row set aside as spam or firm business names the reason it is on no matter; and a row
+ *     nobody has decided about yet says it is not filed rather than rendering blank, because a blank
  *     there reads as a record the platform failed to fill.
  *   - SAID is one line of what was said, and a call with nothing written says so. A missed call is a
  *     real record — the phone rang and nobody answered — and an empty cell would read as a gap.
@@ -22,6 +23,7 @@ import type { Communication } from "./communications-api.ts";
 import {
   anchorText,
   channelEntry,
+  counterpartyNumberText,
   directionEntry,
   durationText,
   saidText,
@@ -55,11 +57,9 @@ export function counterpartyText(
   communication: Communication,
   vocabulary: CommunicationVocabulary,
 ): string {
-  if (communication.counterpartyEntityId === null) return communication.counterpartyNumber;
-  return (
-    vocabulary.counterpartyNames.get(communication.counterpartyEntityId) ??
-    communication.counterpartyNumber
-  );
+  const number = counterpartyNumberText(communication.counterpartyNumber);
+  if (communication.counterpartyEntityId === null) return number;
+  return vocabulary.counterpartyNames.get(communication.counterpartyEntityId) ?? number;
 }
 
 /**
@@ -86,7 +86,9 @@ export function communicationColumns(
     },
     {
       id: "channel",
-      label: "Kind",
+      // TYPE, not "kind". The form asks for the same word, so the column a person filters by and the
+      // field they filled carry one name (owner ruling, 2026-09-08).
+      label: "Type",
       filter: "set",
       // The word, not the enum: the set filter offers what the column shows, and a person filters on
       // "Call", never on `voice`.
@@ -94,7 +96,7 @@ export function communicationColumns(
     },
     {
       id: "direction",
-      label: "Way",
+      label: "Direction",
       filter: "set",
       value: (communication) => directionEntry(communication.direction).label,
     },
@@ -119,12 +121,14 @@ export function communicationColumns(
   columns.push(
     {
       id: "said",
-      label: "Said",
+      // The DESCRIPTION, for a call and a text alike: what a member wrote down about the call, or
+      // the words of the message. One word for one column.
+      label: "Description",
       value: (communication) => saidText(communication),
     },
     {
       id: "duration",
-      label: "Length",
+      label: "Duration",
       // Blank on a message, which has no length in seconds. Not a gap: a text does not have one.
       value: (communication) => durationText(communication.durationSeconds) ?? "",
     },

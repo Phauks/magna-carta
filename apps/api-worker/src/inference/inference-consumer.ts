@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
   inferenceDedupStatements,
@@ -49,7 +50,7 @@ export function firmRateGate(_firmId: string): void {
 
 // The metering bucket key: a run's UTC civil date + the model's slot + the model id.
 export function tokenUsageKeyForDay(nowIso: string, slot: string, modelId: string): TokenUsageKey {
-  return { day: nowIso.slice(0, 10), slot, modelId };
+  return { day: civilDateOf(nowIso), slot, modelId };
 }
 
 const ENVIRONMENT_LABEL = "production";

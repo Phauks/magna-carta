@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
@@ -22,7 +23,7 @@ export const AUTHORIZER = "user_authorizer" as UserId;
 
 export const clockAt = (instant: string): ClockPort => ({
   now: () => instant,
-  today: () => instant.slice(0, 10),
+  today: () => civilDateOf(instant),
 });
 
 export const optionsAt = (instant: string) => ({ clock: clockAt(instant) });

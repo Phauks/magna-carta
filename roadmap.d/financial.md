@@ -555,6 +555,52 @@
   slices: 3-7-billing-automations
   evidence: designed in docs/specs/2026-08-16-billing-automations-design.md; readRetainerStatus and requestRetainerReplenishment ship in packages/billing/src/retainer.ts with the billing.retainer.replenishment_requested topic, and nothing calls them on a schedule or subscribes to the topic
 
+- id: financial.fees
+  name: Recorded fees (flat charges for professional services)
+  scope: Per-matter fee entries for a flat charge somebody decided on — neither an hourly matter's time value nor a flat-fee arrangement's amount — staying unbilled work in progress until a draft invoice claims one.
+  status: partial
+  slices: 3-3-costs-expenses-disbursements
+  spec: docs/specs/2026-09-07-fee-work-in-progress-store-design.md
+  evidence: the fee_entry table and its two indexes in packages/database/src/per-firm-schema.ts; packages/fees (capture, update, the whole chain over @magna-carta/billing-core's assertTransition, and the draft delete); apps/api-worker/src/routes/fees.ts serving both listing shapes; feeEntryToClaimable in packages/billing/src/draft.ts composing the flat_fee line
+  audience: public
+  public-name: Recorded fees
+  public-summary: Record a flat charge for professional services on a matter, and bill it like any other work in progress.
+  notes: This REVERSES the 2026-08-26 fee-surface ruling that Fees is not a work-in-progress surface. That design rested on pairing the fee agreement with the invoice lines a bill had composed from it; the owner moved the arrangement into the matter's status window on 2026-09-03, which removed the pairing and left the pure invoice view the design had itself rejected. A ledger of lines can show nothing that is still unbilled. Both surfaces read it now — the matter's own Fees section and the firm's period across every matter. Partial because the review gate the routes honour is not served to the app, and because a fee's entry number, its attached files and its recorded history are not on the record yet.
+
+- id: financial.fees.claim
+  name: A draft invoice claims a fee
+  scope: The third work-in-progress kind admitted to the shared claim table, so one draft cannot bill a fee two bills have taken up.
+  status: shipped
+  surface: internal
+  slices: 3-3-costs-expenses-disbursements
+  evidence: the invoice_wip_claim source_kind CHECK widened by a hand-written rebuild (packages/database/drizzle/per-firm/20260908T040000_invoice-wip-claim-admits-a-fee.sql, on the reviewed-rebuild allowlist), WORK_IN_PROGRESS_KINDS in packages/billing/src/types.ts replacing the two-way ternaries, the row-preservation case in packages/database/test/rebuilds-over-populated-data.test.ts, and apps/api-worker/test/leaf-rebuild-in-durable-object.test.ts replaying the drop over a populated table inside a real durable object
+  notes: The rebuild is hand-written rather than generated because the two triggers freezing a finalized invoice's claims are not in the Drizzle schema; a generated rebuild would have dropped them and unfrozen every finalized bill's claims in the fleet. It is also the first rebuild written since the durable-object finding, and it is appliable for the reason parentRebuildViolations tests for rather than by exemption: invoice_wip_claim is a LEAF, nothing in the schema references it, so the drop has no child row to orphan — the claim points out, at the invoice and the line it was composed into. That is proved rather than reasoned, in a durable object, because node:sqlite does not reproduce the commit-time enforcement that made the finding. The non-hourly-arrangement guard stays scoped to time_entry deliberately — a recorded fee on a flat-fee matter is a separate charge, not a second billing of the same agreement.
+
+- id: financial.fees.matter-ledger
+  name: The matter's fee record
+  scope: One screen reading every fee on a matter in every status, paged, with what is unbilled and what has been billed, and every verb writing: record, edit, submit, approve, kick back, delete a draft, void.
+  status: shipped
+  surface: screen
+  slices: 3-3-costs-expenses-disbursements
+  spec: docs/specs/2026-09-07-fee-work-in-progress-store-design.md
+  evidence: apps/web/src/routes/(app)/matters/[id]/fees/+page.svelte over listMatterFeeLedger, and apps/web/src/lib/billing/fee-ledger.svelte on the shared money surface
+  audience: public
+  public-name: A matter's fees
+  public-summary: See every flat charge recorded on a matter, what is still unbilled, and what a bill has already taken up.
+  notes: The surface was built whole against the record a fee IS while nothing served one; wiring it was a read, not a redesign. What it shares with Costs was hoisted rather than copied — the readings every ledger makes of a record (apps/web/src/lib/records/work-in-progress-record.ts) and the void, kick-back and delete-draft confirmations — because canWorkDraft had already been written twice byte-identical before anybody noticed. Fees is the first ledger with a DELETE route, so deletesDraft joins opensTheBill as a declaration on the shared row menu.
+
+- id: financial.fees.firm-period
+  name: The firm's fee record over a period
+  scope: What the firm charged for work done across every matter over a span of service dates, and what is still waiting on a bill.
+  status: partial
+  surface: screen
+  slices: 3-3-costs-expenses-disbursements
+  evidence: the from/to span on GET /api/v1/fees (apps/api-worker/src/routes/fees.ts) over the fee_entry service-date index, and apps/web/src/routes/(app)/fees/+page.svelte on the matter ledger's own column declaration with its Matter column brought forward (firmFeeColumns); the sidebar destination is shipped at stage alpha
+  audience: public
+  public-name: What the firm charged for its work
+  public-summary: See every flat charge the firm made in a month, across all its matters, and how much is still waiting on a bill.
+  notes: Fees was absent from the sidebar's Money group for the same structural reason Costs was — nothing served the record, so it was not a Soon row, it was not a row — and the work-in-progress store is what made adding it honest. Partial because it does not yet approve a submitted fee across matters, and because the firm's review setting is not served so the review verbs are absent rather than offered. The record window takes the firm's matters and leads with an unfilled matter picker, the arrangement the cost window and the Time Sheet already have; a fee pre-filled with whichever matter came first would be a wrong answer arriving faster than no answer.
+
 - id: financial.costs
   name: Costs and expenses (disbursements)
   scope: Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced.
@@ -587,7 +633,7 @@
   surface: screen
   slices: 3-3-costs-expenses-disbursements, 3-1-time-tracking-wip-rate-engine
   evidence: cost_entry.invoice_id on the CostSummary contract, time_entry.invoice_id already on TimeEntrySummary, and one Open The Bill verb in apps/web/src/lib/records/ledger-record-menu.ts behind an opensTheBill declaration, landing on the matter's Billing section with that bill open through the invoice address both registers honour
-  notes: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently — and Fees declares no opensTheBill, because an unbilled fee record has no table behind it yet.
+  notes: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently. Fees declared no opensTheBill while it had no table behind it; it declares one now, off fee_entry.invoice_id, on the same seam.
 
 - id: financial.costs.entry-model
   name: Cost entry anatomy

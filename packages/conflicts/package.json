@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/directory": "workspace:*",

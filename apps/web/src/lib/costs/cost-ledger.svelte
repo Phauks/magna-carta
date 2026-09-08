@@ -44,7 +44,9 @@
   import ListChecks from "@lucide/svelte/icons/list-checks";
   import { MoneySurface, billHref, type MoneySurfaceDensity } from "$lib/money/index.ts";
   import {
+    RecordKickBackDialog,
     RecordMenu,
+    RecordVoidDialog,
     type RecordMenuAction,
     type RecordMenuModel,
   } from "$lib/records/index.ts";
@@ -53,10 +55,10 @@
   import { costStatusKey } from "$lib/matters/cost-api.ts";
   import type { ApiOutcome, Failure } from "$lib/api/request.ts";
   import CostDetailsPanel from "./cost-details-panel.svelte";
-  import CostKickBackDialog from "./cost-kick-back-dialog.svelte";
+
   import CostRecordWindow from "./cost-record-window.svelte";
   import CostReviewWindow from "./cost-review-window.svelte";
-  import CostVoidDialog from "./cost-void-dialog.svelte";
+
   import {
     COST_COLUMN_IDENTIFIERS,
     costLedgerColumns,
@@ -73,8 +75,10 @@
   import {
     approveCost,
     canWorkDraft,
+    kickBackCost,
     readCostLedgerEntry,
     submitCost,
+    voidCost,
     writeKey,
     type CostAcknowledgement,
     type CostLedgerEntry,
@@ -85,6 +89,7 @@
     billingLabel,
     countsInTotals,
     payeeState,
+    payeeText,
   } from "./cost-vocabulary.ts";
 
   let {
@@ -252,6 +257,16 @@
     if (key === null) return;
     contextTarget = costs.find((cost) => cost.id === key) ?? null;
     if (!grid.isSelected(key)) grid.rowClick(key, { repeated: true });
+  }
+
+  /*
+   * The line naming one cost in a confirmation. The shared dialogs take it as a string rather than
+   * a record, so they hold no cost vocabulary of their own; a null subject is how they read
+   * "nothing is open".
+   */
+  function identify(cost: CostLedgerEntry | null): string | null {
+    if (cost === null) return null;
+    return `${formatDate(cost.incurredDate)} · ${payeeText(cost)} · ${money(cost.amountMinor)}`;
   }
 
   /** What a refused write says, in the reader's words rather than the transport's. */
@@ -581,14 +596,23 @@
   }}
 />
 
-<CostKickBackDialog
+<RecordKickBackDialog
   bind:open={kickBackOpen}
-  cost={kickBackTarget}
-  {currency}
+  noun="Cost"
+  subject={identify(kickBackTarget)}
+  commit={(reason) =>
+    kickBackCost(fetch, kickBackTarget?.id ?? "", reason, writeKey())}
   onKickedBack={onChanged}
 />
 
-<CostVoidDialog bind:open={voidOpen} cost={voidTarget} {currency} onVoided={onChanged} />
+<RecordVoidDialog
+  bind:open={voidOpen}
+  noun="Cost"
+  subject={identify(voidTarget)}
+  consequence="The cost freezes and stops counting toward the matter's totals: a withdrawn cost was never advanced."
+  commit={() => voidCost(fetch, voidTarget?.id ?? "", writeKey())}
+  onVoided={onChanged}
+/>
 
 {#if sheet !== null}
   <PrintSheet bind:open={printOpen} {sheet} />

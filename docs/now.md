@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 806 nodes of the feature ledger in
+is the complete register rather than a digest: all 810 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**806 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 140 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **666 that are units of work**, for the reason set out under [What a roll-up is
+**810 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 141 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **669 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 300 | 45% |
-| Part-built | partial, in-build | 122 | 18% |
-| Ahead | designed, planned, researching, not-started | 203 | 31% |
+| Done | shipped | 302 | 45% |
+| Part-built | partial, in-build | 124 | 19% |
+| Ahead | designed, planned, researching, not-started | 202 | 30% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **666** | **100%** |
+| **All units of work** | | **669** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 300 | 45% |
-| `partial` | 121 | 18% |
+| `shipped` | 302 | 45% |
+| `partial` | 123 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 137 | 21% |
+| `not-started` | 136 | 20% |
 | `deferred` | 38 | 6% |
-| `cut` | 3 | 0% |
-| **All statuses** | **666** | **100%** |
+| `cut` | 3 | 1% |
+| **All statuses** | **669** | **100%** |
 
 ### What a roll-up is not
 
-**140 of the 806 nodes are parents, and 109 of those parents are `partial`.** A parent's status is a
+**141 of the 810 nodes are parents, and 110 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 300 of 666 (45%). Shipped plus partial is 421 (63%).**
+**Shipped alone is 302 of 669 (45%). Shipped plus partial is 425 (64%).**
 
-The 121 units between those two numbers are work that is engineered and paid for and is not
+The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**422 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**426 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 83 | 20% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 161 | 38% |
-| No user surface by nature (`internal`) | 178 | 42% |
+| A person can open it today (`screen`) | 85 | 20% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 162 | 38% |
+| No user surface by nature (`internal`) | 179 | 42% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **422** | **100%** |
+| **Everything with something built** | **426** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -106,14 +106,14 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 66 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 100 | 66% |
+| Documents | 67 | 11 | 0 | 2 | 0 | 0 | 16 | 3 | 1 | 100 | 67% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
-| Financial Core | 19 | 18 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 59 | 32% |
+| Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
-| Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
+| Notifications | 3 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 21% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **300** | **121** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **666** | **45%** |
+| **All areas** | **302** | **123** | **1** | **46** | **15** | **5** | **136** | **38** | **3** | **669** | **45%** |
 
 ## Where we have been
 
@@ -508,8 +508,8 @@ to change a line here, edit the node in its area file and re-run the build.
       - `communications.email.filing.capture-addresses` · `shipped` · **Capture-address management** — Minting, rotating, and revoking the forward/CC capture address a matter files mail through, plus the firm's single catch-all address. _Note: Backend and user guide only — no screens yet; a minted address becomes routable on the next per-firm outbox sweep, and the capture-subdomain DNS onboarding is still a deploy step._
       - `communications.email.filing.auto-file-rules` · `shipped` · **Auto-file rules** — Typed, matter-bound, revocable rules that route captured mail to a matter unattended, behind a fixed set of fail-closed guardrails and a staged-by-default consent posture. _Note: Complete end to end with no screens. Until the management routes landed nothing in the product created a rule — the create statement's only caller was a test — so the engine evaluated an empty candidate set on every unrouted capture; a rule can now be created from a filing, re-postured, suspended, resumed and revoked, and the firm can read one message's decision history and a thirty-day per-rule review. Refusals are at creation rather than at fire time: a rule asking to file under a lowered firm ceiling is rejected outright, and a thread rule is rejected unless its conversation is already filed to the named matter. The circuit-breaker thresholds are a per-firm setting with the shipped numbers as defaults, bounded so the protection cannot be configured away. Measured: ten thousand rules cost no more per capture than ten; the breaker's read stays at its cap after two hundred firings; the thread read grows with the conversation (0.06 ms at eight messages, 1.9 ms at two thousand), which is narrower than the design's flat-cost sentence and is recorded in packages/fixtures/src/load-profile/auto-file-measurements.test.ts. The matterNumberInSubject firm toggle is deliberately not built._
     - `communications.email.parse-engine` · `shipped` · **Email parse core** — Pure-Rust .eml/.msg/mbox parse engine on the engine-host seam with WASM edge, wrapper package, and Email Inspector tool route. _Note: Parse-only; the communications capture subsystem builds on this record model later._
-  - `communications.messaging` · `partial` · **Messaging (SMS/MMS/RCS)** — CPaaS behind a messaging port serving outbound notifications, SMS 2FA, access codes, and two-way client texting. _Note: The owner's ruling of 2026-09-07 settled what the sidebar's Messaging row means — calls and texts, not email and not portal messages — and settled the anchor: a conversation may sit on an intake or a consultation, which carry no matter number, so every read and every picker turns on the matter's STATUS rather than its number._
-    - `communications.messaging.log` · `shipped` · **Call and text log** — One record per voice call or SMS/MMS message, hand-logged today and carrier-written later, filed onto a matter or waiting in the firm-wide queue. _Note: Only the member producer is built — `producer` is a stored column so a carrier row is never mistaken for a recollection, and the insert writes the literal 'member' rather than taking it as a parameter. The unrouted queue takes its own capability (communications:reviewUnrouted, seeded to Owner/Admin and Paralegal) because a row with no matter falls through the visible-matter predicate entirely; filing is gated by the same key, since it reads a queued row on its way. A counterparty number is stored as typed rather than normalized to E.164: canonicalizing needs the firm's own country, which this subsystem does not have._
+  - `communications.messaging` · `partial` · **Messaging (SMS/MMS/RCS)** — CPaaS behind a messaging port serving outbound notifications, SMS 2FA, access codes, and two-way client texting. _Note: The owner's ruling of 2026-09-07 settled what the sidebar's Messaging row means — calls and texts, not email and not portal messages — and settled the anchor: a conversation may sit on an intake or a consultation, which carry no matter number, so every read and every picker turns on the matter's STATUS rather than its number. Their review of 2026-09-08 settled the rest of the screen: two kinds rather than three (a picture is something a text carries), one description for both, the number's own country beside it, a record that opens and can be corrected, and a reason a call may belong to no matter at all. The screen moved to /messaging; the sidebar id stays "communications" because a member's stars are stored under it._
+    - `communications.messaging.log` · `shipped` · **Call and text log** — One record per voice call or SMS/MMS message, hand-logged today and carrier-written later, filed onto a matter or waiting in the firm-wide queue. _Note: Only the member producer is built — `producer` is a stored column so a carrier row is never mistaken for a recollection, the insert writes the literal 'member' rather than taking it as a parameter, and a carrier-written row is refused a member's correction. The unrouted queue takes its own capability (communications:reviewUnrouted, seeded to Owner/Admin and Paralegal) because a row with no matter falls through the visible-matter predicate entirely; filing, setting aside and returning to the queue are gated by the same key, since each reads a queued row on its way. A row has one anchor: a matter, or a set-aside reason (spam, firm business, nothing came of it), never both — which is what makes the queue a list somebody can empty. The counterparty number is stored in E.164 where the log form could compose one from the country picked beside the digits, and exactly as typed where it could not: the server still refuses to canonicalize on its own, because that needs a country this subsystem has no way to know._
     - `communications.messaging.port` · `not-started` · **Messaging port** — Swappable CPaaS adapter with per-firm scoped secrets.
     - `communications.messaging.notifications` · `not-started` · **Outbound notifications** — Appointment/deadline/payment reminders and invoice/report-ready notices over messaging.
     - `communications.messaging.two-way-texting` · `not-started` · **Two-way client texting** — Inbound and outbound conversations threaded and logged to the matter/Directory.
@@ -733,7 +733,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 66% shipped. 66 done, 11 part-built, 19 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 67% shipped. 67 done, 11 part-built, 18 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -752,7 +752,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.upload.quarantine` · `shipped` · **Quarantine-on-arrival** — Bytes land at their final key not visible/servable/indexed until the async ingest consumer clears them (gates, SHA-256, scan port, version commit in one read).
     - `documents.upload.archive-opacity` · `shipped` · **Opaque archive storage** — An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.
     - `documents.file-manager.archive-browse` · `shipped` · **Browse inside an archive** — Read an archive's entry listing over ranged reads of its headers, without unpacking a byte, for a live or a soft-deleted archive alike. Four formats, each decided from the object's own signature rather than its name - zip, tar, 7z and rar.
-    - `documents.file-manager.archive-extract` · `shipped` · **Extract an archive's members** — Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate. _Note: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built._
+    - `documents.file-manager.archive-extract` · `shipped` · **Extract an archive's members** — Take named members out of a stored zip, tar or 7z by ranged read, and file each on the matter through the ordinary ingest gate. One module owns the dispatch, one refusal vocabulary, the firm's caps and the per-attempt accounting, for every format at once. _Note: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Refused by name and never silently: an encrypted member (a 7z locks them one at a time), a packing method no decoder here covers, an entry that is a link or a device rather than a file, and bytes that disagree with what the archive recorded. A rar is deliberately not extractable - listing one needs no decoder and decoding one has no memory-safe implementation to build against - and the control says so rather than refusing after the click. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built._
   - `documents.scanning` · `partial` · **Malware scanning** — Async scan of every uploaded byte behind a swappable port; verdict stored as file metadata; quarantine, never auto-delete. _Note: EICAR live check deferred (no production users yet)._
     - `documents.scanning.port` · `shipped` · **Scan port** — ScanPort seam in the file-manager package so scan engines are swappable without touching the pipeline.
     - `documents.scanning.engine` · `shipped` · **In-house scan engine (YARA + raw facts)** — YARA Forge rule packs plus a raw-facts extraction engine running in a dedicated scan container behind its own worker.
@@ -839,7 +839,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.decryption.unlock` · `shipped` · **Inspect & unlock** — PDF/ZIP/OOXML inspect + unlock via a FormatAdapter, pure Rust compiled to both WASM and native.
     - `documents.decryption.recovery` · `shipped` · **Password recovery orchestration** — Durable-Object-coordinated fan-out over recovery-worker shards with a hash-only boundary (privileged bytes never leave; only hashes are distributed).
     - `documents.decryption.gpu` · `partial` · **GPU recovery rungs** — GPU-accelerated recovery tiers above the CPU shards. _Note: Partial rather than in-build: Stage 1 is built and Stage 2 is named next, with no stream open on it._
-    - `documents.decryption.ui` · `not-started` · **Unlock/recovery UI** — End-user unlock and recovery surface.
+    - `documents.decryption.ui` · `shipped` · **Unlock/recovery UI** — End-user unlock and recovery surface, and the connection from a password wall a reader actually hits (a locked PDF) to that surface.
   - `documents.metadata` · `partial` · **Metadata inspector & scrubber** — Inspect and scrub embedded metadata from files before sharing/production.
     - `documents.metadata.ooxml` · `shipped` · **OOXML metadata** — Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
     - `documents.metadata.image` · `shipped` · **Image metadata** — Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.
@@ -870,7 +870,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Financial Core
 
-[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 59 units of work, 32% shipped. 19 done, 18 part-built, 19 ahead, 3 parked.
+[`roadmap.d/financial.md`](../roadmap.d/financial.md) — 62 units of work, 34% shipped. 21 done, 19 part-built, 19 ahead, 3 parked.
 
 - `financial` · `partial` · **Financial Core** — The firm's money spine — ledger, time, trust, billing, costs, operating books
   - `financial.ledger` · `partial` · **Append-only double-entry ledger** — Single append-only double-entry ledger in D1 serving trust, billing, costs, and operating accounting. _Note: Core shipped; the operating-books extension is in build (children mix shipped and not)._
@@ -935,9 +935,13 @@ to change a line here, edit the node in its area file and re-run the build.
       - `financial.billing.automations.reminders` · `designed` · **Payment reminders** — A comparison over unpaid finalized invoices past their due date, recorded as a durable billing decision and surfaced through the notifications subsystem. _Note: A prompt to the firm rather than a letter to the client — every notification audience resolves to a member and the client portal is not started. The delivery record it needed is now built (financial.billing.delivery), so a reminder can state whether the bill was ever recorded as given to the client; it still cannot deliver one._
       - `financial.billing.automations.payment-plans` · `designed` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied. _Note: The record half is buildable now; charging is unreachable on three independent grounds — no payment rail, no stored method, and no principal an unattended charge could be checked against._
       - `financial.billing.automations.replenishment` · `designed` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
+  - `financial.fees` · `partial` · **Recorded fees (flat charges for professional services)** — Per-matter fee entries for a flat charge somebody decided on — neither an hourly matter's time value nor a flat-fee arrangement's amount — staying unbilled work in progress until a draft invoice claims one. _Note: This REVERSES the 2026-08-26 fee-surface ruling that Fees is not a work-in-progress surface. That design rested on pairing the fee agreement with the invoice lines a bill had composed from it; the owner moved the arrangement into the matter's status window on 2026-09-03, which removed the pairing and left the pure invoice view the design had itself rejected. A ledger of lines can show nothing that is still unbilled. Both surfaces read it now — the matter's own Fees section and the firm's period across every matter. Partial because the review gate the routes honour is not served to the app, and because a fee's entry number, its attached files and its recorded history are not on the record yet._
+    - `financial.fees.claim` · `shipped` · **A draft invoice claims a fee** — The third work-in-progress kind admitted to the shared claim table, so one draft cannot bill a fee two bills have taken up. _Note: The rebuild is hand-written rather than generated because the two triggers freezing a finalized invoice's claims are not in the Drizzle schema; a generated rebuild would have dropped them and unfrozen every finalized bill's claims in the fleet. It is also the first rebuild written since the durable-object finding, and it is appliable for the reason parentRebuildViolations tests for rather than by exemption: invoice_wip_claim is a LEAF, nothing in the schema references it, so the drop has no child row to orphan — the claim points out, at the invoice and the line it was composed into. That is proved rather than reasoned, in a durable object, because node:sqlite does not reproduce the commit-time enforcement that made the finding. The non-hourly-arrangement guard stays scoped to time_entry deliberately — a recorded fee on a flat-fee matter is a separate charge, not a second billing of the same agreement._
+    - `financial.fees.matter-ledger` · `shipped` · **The matter's fee record** — One screen reading every fee on a matter in every status, paged, with what is unbilled and what has been billed, and every verb writing: record, edit, submit, approve, kick back, delete a draft, void. _Note: The surface was built whole against the record a fee IS while nothing served one; wiring it was a read, not a redesign. What it shares with Costs was hoisted rather than copied — the readings every ledger makes of a record (apps/web/src/lib/records/work-in-progress-record.ts) and the void, kick-back and delete-draft confirmations — because canWorkDraft had already been written twice byte-identical before anybody noticed. Fees is the first ledger with a DELETE route, so deletesDraft joins opensTheBill as a declaration on the shared row menu._
+    - `financial.fees.firm-period` · `partial` · **The firm's fee record over a period** — What the firm charged for work done across every matter over a span of service dates, and what is still waiting on a bill. _Note: Fees was absent from the sidebar's Money group for the same structural reason Costs was — nothing served the record, so it was not a Soon row, it was not a row — and the work-in-progress store is what made adding it honest. Partial because it does not yet approve a submitted fee across matters, and because the firm's review setting is not served so the review verbs are absent rather than offered. The record window takes the firm's matters and leads with an unfilled matter picker, the arrangement the cost window and the Time Sheet already have; a fee pre-filled with whichever matter came first would be a wrong answer arriving faster than no answer._
   - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Two registers read it — the matter's own Costs section and the firm's period across every matter; cost-to-A/R conversion and LEDES belong to the billing slice._
     - `financial.costs.firm-period` · `partial` · **The firm's cost record over a period** — What the firm advanced across every matter over a span of incurred dates, and what is still waiting on a bill. _Note: Partial because it does not yet approve a submitted cost across matters. It reads, opens a cost, and records one — the record window takes the firm's matters and leads with an unfilled matter picker, on the arrangement the Time Sheet already has. The listing answered one matter entire and returned an empty list for anything else, which is why Costs was absent from the sidebar's Money group while the matter carried it — the two disagreed about what Money holds for a structural reason rather than an oversight._
-    - `financial.costs.billed-record-to-bill` · `shipped` · **A billed record names its bill** — The invoice that took a cost or a time entry up, on its own listing row and reachable from it. _Note: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently — and Fees declares no opensTheBill, because an unbilled fee record has no table behind it yet._
+    - `financial.costs.billed-record-to-bill` · `shipped` · **A billed record names its bill** — The invoice that took a cost or a time entry up, on its own listing row and reachable from it. _Note: A ledger cannot answer what the client was actually told, and neither surface could reach the bill that would. On costs the column had never reached the wire; on time it had been on the contract since it was written and nothing read it, so the gap was a verb rather than a read. The verb is shared rather than copied — two menus answering one question is two chances to word the refusal differently. Fees declared no opensTheBill while it had no table behind it; it declares one now, off fee_entry.invoice_id, on the same seam._
     - `financial.costs.entry-model` · `partial` · **Cost entry anatomy** — Per-matter entries with type, Directory-linked vendor, date, hard/soft, billable flag, optional UTBMS expense (E-) code with e-billing validation. _Note: Backend shipped; entry UI not built._
     - `financial.costs.hard` · `partial` · **Hard costs as client receivable** — Firm-advanced third-party costs (filing, recording, service, experts, postage/shipping) advanced as a client receivable and billed back. _Note: Capture shipped, and the receivable posting is shipped with it — packages/billing/src/finalize.ts credits client costs advanced for a hard cost, keeping it an asset the firm is repaid rather than income. The cost entry screens are not built._
     - `financial.costs.soft` · `partial` · **Soft/in-house costs** — In-house costs (printing, copies) tracked separately from hard costs. _Note: Backend shipped; UI not built._
@@ -1054,15 +1058,15 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Notifications
 
-[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 14 units of work, 29% shipped. 4 done, 6 part-built, 1 ahead, 3 parked.
+[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 14 units of work, 21% shipped. 3 done, 7 part-built, 1 ahead, 3 parked.
 
 - `notifications` · `partial` · **Notifications subsystem** — One home for the decision (event, audience, channels, preferences, read state) and in-app delivery, delegating external delivery to communications-layer ports; replaces per-feature trigger code.
   - `notifications.registry` · `shipped` · **Notification type registry** — Declarative types: key, category, internal/external audience, severity, mandatory flag, eligible channels with default routing, channel-aware templates, cadence, audited flag; fitness-function introspectable. _Note: Twenty types registered. A type declares its production path (raisedBy — outbox-topic, comparison-sweep, or job-coordinator), the emission point it names, its subject kind, its matter anchoring, its non-privileged fact schema, and its email content level. A fitness test asserts each type is indexed under exactly one path, and that a matter-anchored type does not reach a single member unless it is on a list saying why. Each path also declares how long its dedupe key must hold (CONVERGENCE_HORIZON_BY_RAISER in packages/notifications/src/materialize.ts) — the uniqueness lives on a row the retention sweep deletes, so a fourth path is a compile error until it states a horizon shorter than the retention floor, and a condition needing once-per-subject-forever convergence carries it in the owning subsystem's own tables instead._
   - `notifications.recipients-preferences` · `partial` · **Recipients & preferences** — Recipient resolution to a firm member or Directory entity; per-user channel matrix on the settings scope chain; mandatory categories non-silenceable; external routing honors STOP/TCPA consent. _Note: Two channels composing in opposite directions, held by packages/notifications/test/preferences.test.ts - in app the firm tier is a floor a member may not lower, by email the member's choice wins because a firm may not force mail into a mailbox it does not administer. `security` and `trust` are non-silenceable in app from either tier (MANDATORY_CATEGORIES, asserted against every registered type by test/registry-fitness.test.ts). A silenced category writes NO feed row and a counted notification_in_app_suppression row instead, so a member who chose not to hear something stays distinguishable from a member nobody told; packages/notifications/test/preference-enforcement.test.ts proves both the missing feed row and the tally. The email detail level (a member's choice under a firm ceiling) shipped ahead of the matrix, so a firm's stored ceiling is not rewritten when the digest lands._
   - `notifications.firm-policy` · `shipped` · **Firm notification policy** — The firm's own tier of the notification settings - the per-category in-app floor, the retention window, and the local hour the summary email lands - written under a firm-administration capability and audited. _Note: Deliberately NOT the member key notifications:read, which every default role including Read-only carries - reusing it would let any member raise the floor and shorten retention for the whole firm. The two channels still compose in opposite directions: the firm's in-app tier is a floor a member may not lower, and the firm's email tier is only a default a member's own choice overrides. The retention window and digest hour are refused outside their declared bounds rather than clamped, because a firm that asked for five years and silently got one would believe it had the first. Deliberately absent: the firm's email DETAIL-LEVEL ceiling (notifications.emailDetailLevel), which has no write statement in either tier and is not reachable from this surface either._
   - `notifications.trust-compliance-designation` · `shipped` · **Trust-compliance designation** — A firm-tier list of members who join the recipient set of every trust-category notification, written under the trust-management capability and audited by count. _Note: A designation is not a grant of access. The designated member gets an ordinary recipient row and the visible-matter predicate still decides at read, so a notification about a matter they cannot see leaves their feed and unread count byte-identical to a firm where it was never raised - no placeholder, which would be an existence oracle. The audit row carries the recipient COUNT and never the names._
-  - `notifications.center` · `shipped` · **In-app notification center** — Per-firm D1 rows (IDs + non-sensitive display fields, seen/read state, canonical deep-link) aggregated into the staff bell: unread badge, grouped/filterable list, mark-read, click-through. _Note: The card is assembled at read time from the kind, the declared facts and a visibility-filtered matter join - no title, name, or filename is stored, so the sentence is composed on the client in apps/web/src/lib/notifications/notification-presentation.ts. A kind that module has no entry for renders as its category's own noun rather than being dropped: a client that shipped before a type did must not swallow a notification somebody was meant to see, and a source scan over the server's registry fails when a registered kind has no words. Both filters are query parameters rather than client-side narrowing, so a filtered feed is cheaper rather than merely shorter and the cursor keeps meaning the same thing from page to page. The feed page reports readThroughCursor beside nextCursor - the newest row rather than the oldest - because read-all takes the newest as its bound and nextCursor is null exactly when a member's whole backlog fits on one page._
-  - `notifications.channels` · `partial` · **Delivery channels** — The channels a notification can route to — in-app, email, SMS, web push, desktop _Note: The two built channels do not share a delivery port. In-app writes recipient rows directly and email is a bespoke hourly digest pass with its own reader, renderer and watermark, so adding SMS or push today means a third delivery mechanism rather than an adapter behind one seam. Cutting that port is the work that makes the remaining three channels modular; nothing about the registry, the preference matrix or the read blocks it._
+  - `notifications.center` · `partial` · **In-app notification center** — Per-firm D1 rows (IDs + non-sensitive display fields, seen/read state, canonical deep-link) aggregated into the staff bell: unread badge, grouped/filterable list, mark-read, click-through. _Note: Backend only. The card is assembled at read time from the kind and a visibility-filtered matter join — no title, name, or filename is stored._
+  - `notifications.channels` · `partial` · **Delivery channels** — The channels a notification can route to — in-app, email, SMS, web push, desktop
     - `notifications.channels.email` · `partial` · **Email channel** — External delivery via the communications layer: transactional provider for system/billing, matter mailbox for thread-bound mail. _Note: Digest-only, counts-only. A summary carries a fixed matter-free subject holding a count, a line of per-category counts and one link - no title, number, name, filename, date or amount, enforced by a golden test over a fixture whose matter is named after its parties. Composed per member per cadence from a keyset watermark through the SAME shared read the feed composes, so the wall binds at delivery time in one implementation; sends before it marks; and every row it did not mail is settled as a suppressed notification_delivery row naming a closed reason. Cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL are provisioned - absent any of the three the port reports a typed not-configured reason and the pass mails nobody (docs/deploy-queue.md)._
     - `notifications.channels.sms` · `not-started` · **SMS/MMS channel** — Appointment/deadline/payment reminders through the messaging port where type and recipient warrant.
     - `notifications.channels.web-push` · `deferred` · **Web push channel** — Push API subscriptions + VAPID via the app-shell service worker.
