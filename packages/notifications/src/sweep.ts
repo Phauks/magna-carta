@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { collectCustodyReminders } from "@magna-carta/custodian/reminders";
 import {
   selectMatterDeadlinesStatement,
@@ -490,5 +491,5 @@ function wholeDaysBetween(fromCivilDate: string, toCivilDate: string): number {
 function civilDateOffsetByDays(civilDate: string, days: number): string {
   const base = Date.parse(`${civilDate}T00:00:00.000Z`);
   if (Number.isNaN(base)) return civilDate;
-  return new Date(base + days * 86_400_000).toISOString().slice(0, 10);
+  return civilDateOf(new Date(base + days * 86_400_000));
 }

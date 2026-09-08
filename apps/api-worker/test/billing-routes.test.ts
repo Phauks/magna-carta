@@ -1,3 +1,4 @@
+import { civilDateOf, todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
@@ -42,7 +43,6 @@ let operatingBankAccountId: string;
 let accountsReceivableAccountId: string;
 
 const clock = { now: () => new Date().toISOString(), today: () => todayInUtc() };
-const todayInUtc = () => new Date().toISOString().slice(0, 10);
 const ACME = "directoryOrganization_acme";
 
 async function mirrorMemberWithDirectGrants(
@@ -398,7 +398,7 @@ describe("the billing HTTP surface", () => {
       claims: [{ sourceKind: "time_entry", sourceId: entryId }],
     });
 
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const tomorrow = civilDateOf(new Date(Date.now() + 86_400_000));
     const refused = await post(`/api/v1/billing/invoices/${invoiceId}/finalization`, {
       issueDate: tomorrow,
       dueDate: tomorrow,

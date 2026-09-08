@@ -88,6 +88,7 @@
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { timeEntrySheet } from "./time-print-sheet.ts";
   import { listMatterTasks, type MatterTask } from "$lib/matters/tasks-api.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 
   let {
     open = $bindable(false),
@@ -363,7 +364,7 @@
     memoText = entry?.memo ?? "";
     taskCodeId = entry?.utbmsTaskCodeId ?? null;
     activityCodeId = entry?.utbmsActivityCodeId ?? null;
-    workDateText = start?.workDate ?? new Date().toISOString().slice(0, 10);
+    workDateText = start?.workDate ?? civilDateOf(new Date());
     durationText =
       start === null || start.rawDurationMinutes === 0
         ? ""

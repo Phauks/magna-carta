@@ -88,12 +88,15 @@ describe("no code path computes a deadline date", () => {
 
   it("keeps every zone and calendar computation in the one module that exists for it", () => {
     // Intl date projection is how a recorded wall-clock time becomes an instant. It lives in
-    // time-zone.ts and is consumed by overdue.ts; anywhere else it would be the beginning of a
-    // second, disagreeing definition of when something is due.
-    const offenders = sourceFiles(SOURCE_DIRECTORY).filter((file) => {
-      if (file.endsWith("time-zone.ts") || file.endsWith("validation.ts")) return false;
-      return withoutComments(readFileSync(file, "utf8")).includes("Intl.DateTimeFormat");
-    });
+    // @magna-carta/civil-time/time-zone, which this package imports; anywhere here it would be the
+    // beginning of a second, disagreeing definition of when something is due.
+    //
+    // There is no exemption list any more. There were two — the module itself and validation.ts —
+    // and both went when the arithmetic moved to the leaf package every subsystem can reach. The
+    // exemptions were the reason three other packages wrote their own weaker copy of it.
+    const offenders = sourceFiles(SOURCE_DIRECTORY).filter((file) =>
+      withoutComments(readFileSync(file, "utf8")).includes("Intl.DateTimeFormat"),
+    );
     expect(offenders).toEqual([]);
   });
 });

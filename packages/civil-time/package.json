@@ -1,0 +1,21 @@
+{
+  "name": "@magna-carta/civil-time",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./civil-date": "./src/civil-date.ts",
+    "./instant": "./src/instant.ts",
+    "./wall-clock": "./src/wall-clock.ts",
+    "./time-zone": "./src/time-zone.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

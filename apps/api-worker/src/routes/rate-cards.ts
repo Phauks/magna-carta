@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
@@ -42,14 +43,14 @@ const AppendRateRequest = z
     scopedId: z.string().nullable().optional(),
     rateE4: z.number().int().positive(),
     currency: z.string().min(1),
-    validFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    validFrom: z.string().regex(CIVIL_DATE_PATTERN),
   })
   .openapi("AppendRateRequest");
 
 const ReRateDraftsRequest = z
   .object({
-    fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    fromDate: z.string().regex(CIVIL_DATE_PATTERN),
+    toDate: z.string().regex(CIVIL_DATE_PATTERN),
   })
   .openapi("ReRateDraftsRequest");
 

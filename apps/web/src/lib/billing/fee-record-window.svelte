@@ -44,6 +44,7 @@
   import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
   import { gapCellTitle, gapReason, REVIEW_GATE_ENABLED } from "./fee-gaps.ts";
   import { feeEntrySheet } from "./fee-print-sheet.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
   import {
     billingSentence,
     feeDraftRefusal,
@@ -121,7 +122,7 @@
     }
     if (seededFor === identity) return;
     seededFor = identity;
-    feeDateText = fee?.feeDate ?? new Date().toISOString().slice(0, 10);
+    feeDateText = fee?.feeDate ?? civilDateOf(new Date());
     amountText = fee === null || fee.amountMinor === null ? "" : (fee.amountMinor / 100).toFixed(2);
     descriptionText = fee?.description ?? "";
     memoText = fee?.memo ?? "";

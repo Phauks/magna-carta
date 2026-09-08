@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { Faker, en } from "@faker-js/faker";
 import { hashSeed, type RandomSource, seededRandomSource } from "@magna-carta/identifiers/random";
 import type { ClockPort } from "@magna-carta/ledger/types";
@@ -25,7 +26,7 @@ export function fixtureContext(seed: string): FixtureContext {
   let currentMs = Date.parse(FIXTURE_EPOCH);
   const clock: FixtureClock = {
     now: () => new Date(currentMs).toISOString(),
-    today: () => new Date(currentMs).toISOString().slice(0, 10),
+    today: () => civilDateOf(new Date(currentMs)),
     advanceMinutes: (minutes: number) => {
       currentMs += minutes * 60_000;
     },

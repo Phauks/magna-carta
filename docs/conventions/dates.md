@@ -1,0 +1,121 @@
+# Dates, times and zones — the standing rules
+
+**White paper:** _Core domain_ — [`../Magna-Carta-White-Paper.md`](../Magna-Carta-White-Paper.md).
+**Enforced by:** `pnpm run lint:date-handling` ([`tooling/lint-date-handling/`](../../tooling/lint-date-handling/)),
+plus the two package fitness tests named at the end.
+
+A date is the most-copied thing in this codebase, and every copy of it was correct. That is what
+made the duplication expensive rather than harmless: nothing was broken, so nothing drew attention,
+and the copies accumulated until one of them was corrected and the others were not.
+
+The count when this standard was written: **six** implementations of "is this a real calendar day",
+**three** of "is this a resolvable time zone" — two of which accepted a fixed offset the third
+refused — about **forty** copies of the civil-date pattern, **six** of the canonical-instant
+pattern, **six** of the date picker's value reader, and **nine** surfaces each printing a recorded
+moment in their own words.
+
+## The two authorities
+
+| Question                                                                       | Home                                                                                             |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| What a date, a time, an instant and a zone **are**, and the arithmetic on them | [`@magna-carta/civil-time`](../../packages/civil-time/)                                          |
+| How any of them **reads** to a person                                          | [`packages/design-system/src/lib/formatters/`](../../packages/design-system/src/lib/formatters/) |
+
+The split mirrors money exactly, and deliberately: `@magna-carta/money` owns what an amount is,
+`formatters/money.ts` owns how much it says. Neither half borrows the other's job.
+
+`@magna-carta/civil-time` has **no workspace dependencies**, and that is the load-bearing property.
+Every one of the hand-written copies existed in a package that could not reach the one that already
+had the function — `packages/notes` and `packages/tasks` could not import `packages/calendar`, so
+they each wrote their own zone check, and both wrote a weaker one.
+
+## The four shapes
+
+| Shape               | Written as                     | Import from                          | Guard                  |
+| ------------------- | ------------------------------ | ------------------------------------ | ---------------------- |
+| **Civil date**      | `YYYY-MM-DD`                   | `@magna-carta/civil-time/civil-date` | `isCivilDate`          |
+| **Wall-clock time** | `HH:MM`, 24-hour               | `@magna-carta/civil-time/wall-clock` | `isWallClockTime`      |
+| **Stored instant**  | exactly `toISOString()`'s form | `@magna-carta/civil-time/instant`    | `isCanonicalInstant`   |
+| **Time zone**       | an IANA name, never an offset  | `@magna-carta/civil-time/time-zone`  | `isResolvableTimeZone` |
+
+**The pattern is not the validation.** `CIVIL_DATE_PATTERN` accepts `2026-02-30`. Hand it to zod at
+a route boundary if that is all you have; use `isCivilDate` everywhere a day has to exist.
+
+**A stored zone is a named zone.** `isResolvableTimeZone` refuses `+05:00` even where the runtime
+accepts it: an offset is wrong for half the year in every zone that observes daylight saving, and
+storing one is how a hearing moves by an hour when the clocks change. Where a refusal wants to say
+so in those words, `isFixedOffset` is the predicate — so the refusal and its explanation cannot come
+to different conclusions about what an offset looks like.
+
+**The stored-instant shape is narrow on purpose.** `2026-09-08T12:00:00Z` and
+`2026-09-08T12:00:00.000Z` are the same moment and sort differently as text, and the federated
+chronology in `packages/calendar` compares sort keys as text. One row in the wrong shape puts a
+hearing in the wrong place on a timeline, and nothing fails.
+
+## Three things that look alike and differ by a day
+
+This is the distinction most worth getting right, and the one a scan cannot make for you.
+
+- **`civilDateOf(instant)` / `todayInUtc()`** — the day in UTC. The server's "today", with no zone
+  read into it.
+- **`zonedReading(instant, zone).civilDate`** — the day that instant fell on _in that place_. The
+  reader's "today", and the one an overdue comparison wants.
+- **`formatDate(day)`** vs **`formatInstantDate(moment)`** — the display twins of the same split.
+  `formatDate` pins a recorded day to UTC so a cost incurred on the 4th is the 4th in every office;
+  `formatInstantDate` says which day a moment fell on where the reader is, so a file uploaded at
+  23:40 in Boston reads as a different day in Reno. Both are true and both are correct calls.
+
+Picking the wrong one of any pair shows a task as overdue that is not.
+
+## No date is derived from another date
+
+No business-day rule, no holiday calendar, no service-method offset, no jurisdiction, no chained
+recalculation. `addCalendarDays` counts calendar days and is the whole of the arithmetic on offer;
+it will land a task on a Sunday or on Christmas Day, and that is the honest behaviour — a person
+moves such a date in a second and a template cannot know to.
+
+The reason is not conservatism. A computed deadline that is wrong gets trusted **because** it was
+computed. Deadline derivation waits on a verified jurisdiction-keyed rule catalog, and until that
+exists the platform declines to guess.
+
+## Display
+
+- Every wording comes from `@magna-carta/design-system/formatters`. A surface never builds an
+  `Intl.DateTimeFormat` or calls `toLocaleDateString`.
+- The set: `formatDate`, `formatDateRange`, `formatMonth` (recorded days, UTC-pinned);
+  `formatInstant`, `formatInstantDate`, `formatTimeOfDay`, `instantAttribute` (moments, in the
+  reader's zone); `formatClock`, `formatDuration` (durations, which are not times of day).
+- **Elapsed time is banned for a record.** No "2 hours ago", no "just now". It decays while the
+  reader looks at it, two rows carrying it cannot be compared, and a record is a record.
+  The one carve-out is the **age of a live measurement** — a cached probe, a status snapshot — whose
+  whole subject is how long ago it was taken; those surfaces are named in the gate's allowance list
+  and fall back to the absolute instant when they cannot compute an age.
+- An unreadable value renders as the text that arrived. A silent blank or a cheerful "Invalid Date"
+  hides a defect that showing the data makes obvious.
+
+## The date field
+
+The platform's date field is **`DatePicker`** (`@magna-carta/design-system/date-picker`) — the only
+one that can carry a firm-configured week start. Fifteen surfaces still hold a native
+`<Input type="date">`; that list is **recorded and closed** in
+[`tooling/lint-date-handling/rules.mjs`](../../tooling/lint-date-handling/rules.mjs), so a sixteenth
+fails. Whether the existing fifteen should all become `DatePicker` is an open design question for
+the owner, not a decision the gate makes.
+
+In a form, the seam between stored text and what the picker holds is `civilDateValue` /
+`civilDateText` from [`apps/web/src/lib/dates/`](../../apps/web/src/lib/dates/) — never a
+`try { parseDate(…) } catch { return undefined }` written again in a component.
+
+## What the gate covers, and what it cannot
+
+`pnpm run lint:date-handling` is derived into both the inner loop and CI by
+`tooling/check-scoped/repo-wide.mjs`, so it runs everywhere with no further wiring. It reads source
+text, so it catches a shape or a formatter written out and misses one assembled at runtime or
+reached by different means. Two package fitness tests hold the same line from inside:
+`packages/calendar/test/window-and-arithmetic.test.ts` and
+`packages/tasks/test/no-arithmetic.test.ts` both now assert that their package names `Intl` nowhere
+at all — each had an exemption list before the arithmetic moved somewhere every package could reach.
+
+Every allowance the gate carries is printed on every run, and an allowance that outlives its
+violation fails. A rule with a standing exemption is a rule that is not yet true of this repository,
+and the run says so.

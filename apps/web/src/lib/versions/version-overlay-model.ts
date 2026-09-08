@@ -8,6 +8,7 @@
  * Kept free of Svelte and of the vite define constants so the node-pool tests exercise every rule
  * directly.
  */
+import { formatInstant, readInstant } from "@magna-carta/design-system/formatters";
 
 export type ServiceVersionState = "reported" | "unbound" | "unreachable" | "unreported";
 
@@ -297,15 +298,16 @@ export function copyReportForPanel(input: {
   return lines.join("\n");
 }
 
-/** A compact local rendering of an ISO timestamp for the panel's meta lines; null passes through. */
+/**
+ * A compact local rendering of an ISO timestamp for the panel's meta lines; null passes through.
+ *
+ * Null for an unreadable value rather than `formatInstant`'s own passthrough, because a meta line
+ * that cannot be read is dropped here rather than shown: this panel already states a version it
+ * could not parse in its own vocabulary, and a raw string beside "committed" would read as a value.
+ */
 export function formatVersionTimestamp(iso: string | null): string | null {
   if (iso === null) return null;
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(parsed);
+  return readInstant(iso) === null ? null : formatInstant(iso);
 }
 
 /*

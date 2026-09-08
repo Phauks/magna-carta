@@ -622,6 +622,7 @@ it. Both ports resolve to typed unavailable outcomes reached through the product
 Owner direction (ADR-0255) removed the general-availability gate: enablement waits on the firm's
 versioned disclosure, not on Cloudflare leaving beta. |
 | File workbench | [-] | [-] | [-] | [~] Opus 5 | [~] Opus 5 | [-] | [x] Opus 5 | The Tools host every file capability is run from: the file-workbench route, a file dropped once and read by all ten. Two capabilities are real in the browser today — the file's true type, read from its leading bytes against what its name claims, and its SHA-256 and SHA-1. The eight whose engines run in a container render their own control disabled with the dependency named. The capability set is a registry, so adding one is a module and an array entry; the Overview is contributed by the modules rather than written by hand. Conversion acts on the whole selection, and offers only the formats every selected file can reach. Two rounds of owner review are recorded in `docs/conventions/file-workbench-rulings.md`; the second turned the file list into the product's one grid and moved four of its rulings into the standing set. |
+| One home for dates | [-] | [-] | [-] | [x] Opus 5 | [-] | [-] | [x] Opus 5 | `@magna-carta/civil-time` (shape) + the design system's `formatters/` (display), with `lint:date-handling` holding the line; about seventy duplicates removed, two of which had already drifted. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 

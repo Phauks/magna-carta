@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import {
   commitEffectBatch,
   type BatchDatabase,
@@ -56,7 +57,7 @@ const NARRATIVES = [
 function addDays(plainDate: string, days: number): string {
   const at = new Date(`${plainDate}T00:00:00.000Z`);
   at.setUTCDate(at.getUTCDate() + days);
-  return at.toISOString().slice(0, 10);
+  return civilDateOf(at);
 }
 
 export async function generateTimeVolume(

@@ -7,6 +7,8 @@
 // rather than the whole day, and a run that never happened is simply an uncounted sample — never a
 // green one. Days with no samples at all render as no-data ticks, because a status page that paints
 // unknown days green is worse than one that shows nothing.
+
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import {
   HISTORY_SCHEMA_VERSION,
   HISTORY_WINDOW_DAYS,
@@ -20,7 +22,7 @@ const MS_PER_DAY = 86_400_000;
 // The UTC calendar day an instant falls in. UTC everywhere is the genre convention and the only
 // timezone this page ever states.
 export function utcDayKey(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
+  return civilDateOf(new Date(iso));
 }
 
 // The window's day keys, oldest first, ending on the day containing `now`. Deriving the keys by
@@ -30,7 +32,7 @@ function windowDayKeys(now: string, windowDays: number): string[] {
   const end = Date.parse(now);
   const keys: string[] = [];
   for (let offset = windowDays - 1; offset >= 0; offset -= 1) {
-    keys.push(new Date(end - offset * MS_PER_DAY).toISOString().slice(0, 10));
+    keys.push(civilDateOf(new Date(end - offset * MS_PER_DAY)));
   }
   return keys;
 }

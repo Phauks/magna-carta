@@ -23,7 +23,8 @@
   import Label from "@magna-carta/design-system/label";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import { parseDate, type DateValue } from "@internationalized/date";
+  import type { DateValue } from "@internationalized/date";
+  import { civilDateText, civilDateValue } from "$lib/dates";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { listMatterDocuments, type DocumentSummary } from "$lib/documents/document-api.ts";
@@ -104,17 +105,10 @@
   const started = $derived(draft.fileId !== null || draft.capturedAt !== null);
 
   /** When the copy was taken, as a calendar date, or undefined while it is empty. */
-  const capturedAtValue = $derived.by(() => {
-    if (draft.capturedAt === null) return undefined;
-    try {
-      return parseDate(draft.capturedAt);
-    } catch {
-      return undefined;
-    }
-  });
+  const capturedAtValue = $derived(civilDateValue(draft.capturedAt));
 
   function recordCapturedAt(next: DateValue | undefined): void {
-    draft.capturedAt = next ? next.toString() : null;
+    draft.capturedAt = civilDateText(next);
   }
 
   function reset(): void {
