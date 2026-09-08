@@ -5,12 +5,13 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "build": "pnpm --filter @magna-carta/web run build && wrangler deploy --dry-run --outdir dist",
+    "build": "vp run -w rust-wasm-build-pdf && pnpm --filter @magna-carta/web run build && wrangler deploy --dry-run --outdir dist",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
     "@magna-carta/web": "workspace:*",
+    "vite-plus": "catalog:",
     "wrangler": "catalog:"
   }
 }

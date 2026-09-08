@@ -30,7 +30,7 @@ status below, and the fix table is in #157. Nothing here was disputed.
 **Where.** [`packages/custodian/src/release-gate.ts:53-118`](../../packages/custodian/src/release-gate.ts) ·
 [`packages/custodian/src/movement-service.ts:135-142`](../../packages/custodian/src/movement-service.ts) ·
 [`apps/api-worker/src/routes/custody.ts:584-590`](../../apps/api-worker/src/routes/custody.ts) ·
-[`packages/database/drizzle/per-firm/20260805T130000_custody-gated-release.sql`](../../packages/database/drizzle/per-firm/20260805T130000_custody-gated-release.sql)
+[`packages/database/drizzle/per-firm/20260908T000000_baseline.sql`](../../packages/database/drizzle/per-firm/20260908T000000_baseline.sql)
 
 **What the code does.** `resolveCustodyReleaseCapture` takes `identityVerifiedByUserId` and
 `witnessedByUserId` **out of the request body**. It enforces exactly two things about them: that a
@@ -181,7 +181,7 @@ robust to any cap.
 
 **Status: Fixed in #157.** `custody_stocktake_frozen_once_closed` (BEFORE UPDATE on a non-open row) and `custody_stocktake_no_replace` land in `20260806T040000_operational-fixes.sql`; both are additive and rebuild nothing.
 
-**Where.** [`packages/database/drizzle/per-firm/20260805T150000_custodian-stocktake.sql:17-41`](../../packages/database/drizzle/per-firm/20260805T150000_custodian-stocktake.sql)
+**Where.** [`packages/database/drizzle/per-firm/20260908T000000_baseline.sql:17-41`](../../packages/database/drizzle/per-firm/20260908T000000_baseline.sql)
 (compare the four triggers at `:77-99`) ·
 [`packages/custodian/src/stocktake-statements.ts:88-121`](../../packages/custodian/src/stocktake-statements.ts)
 

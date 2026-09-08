@@ -37,7 +37,8 @@ Note: BuildKit cache mounts are build-local. Persisting them across Workers Buil
 - **Multi-stage Docker builds** — keep the toolchain in a build stage; ship a slim runtime image with no compiler, intermediates, or caches.
 - **Lean build context** — a `.dockerignore` that excludes `target/`, `node_modules/`, and other heavy regenerables keeps context transfer small.
 - **Minimal feature/dependency sets** — compile only what the artifact needs (e.g. default-off optional native backends, trimmed crate features) so the build pulls and compiles less.
-- **Respect the dependency graph; never build an artifact twice** — `vp run build-all` builds the SPA once and orders the Worker after it through the vp task graph; do not add steps that rebuild the same output.
+- **Respect the dependency graph; never build an artifact twice** — `vp run build-all` builds the SPA once and orders the Worker after it; do not add steps that rebuild the same output. **Ordering is a chain, not a list:** entries in one `dependsOn` array are siblings and run in parallel, so a step that must precede another belongs in the command chain (a nested `vp run` is inlined as its own task, and keeps its own cache entry) or behind that other step's own `dependsOn`. Listing the wasm build beside the SPA build ordered neither, and the deploy went red the day the SPA started importing wasm.
+- **Ask for the artefact you need, not the set it belongs to** — `rust-wasm-build` is a chain of three per-crate tasks precisely so `magna-carta-web`, which rebuilds on every interface merge and imports pdf-core alone, compiles one crate rather than three. A task that bundles several slow, independently useful outputs should be decomposable by its callers.
 
 ### Move slow inputs to build time, not run time
 

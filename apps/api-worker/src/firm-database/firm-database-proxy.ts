@@ -39,6 +39,17 @@ export interface FirmDatabaseMigrationState {
   readonly fault: string | null;
   readonly appliedCount: number;
   readonly appliedHead: string | null;
+  /**
+   * The instant before the last migration batch, as a bookmark Cloudflare can restore this object
+   * to. Null when nothing has been applied since restore points began, or when the bookmark could
+   * not be taken. The lineage runs only forwards, so this is the only undo a wrong-but-successful
+   * migration has.
+   */
+  readonly restorePoint: {
+    readonly bookmark: string;
+    readonly takenAt: string;
+    readonly appliedTags: string[];
+  } | null;
 }
 
 // Every statement in a batch has to reach the Durable Object as a `sql` + `bindings` pair, and the

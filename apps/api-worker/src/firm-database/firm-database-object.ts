@@ -6,6 +6,84 @@ import type { Bindings } from "../app.ts";
 import { perFirmMigrations } from "../per-firm-migrations.ts";
 import { uniqueConstraintColumns, type CommitOutcome, type RpcStatement } from "./rpc-types.ts";
 
+/*
+ * THE RESTORE POINT: one row naming the instant before the last migration batch.
+ *
+ * Cloudflare can restore a durable object to a bookmark, which is what makes a migration reversible
+ * at all — the lineage itself only runs forwards, so a migration that succeeds and turns out to be
+ * wrong has no undo of its own. Keeping the bookmark beside the ledger is what turns "restore this
+ * firm to before that deploy" from an archaeology problem into a value somebody can read off the
+ * diagnostics panel.
+ *
+ * One row, replaced each batch. Older bookmarks are not kept: Cloudflare's retention window is what
+ * actually bounds how far back an object can go, and a list of bookmarks older than that window
+ * would be a list of restore points that no longer restore anything.
+ */
+const CREATE_RESTORE_POINT_TABLE =
+  "CREATE TABLE IF NOT EXISTS _migration_restore_point (" +
+  "id INTEGER PRIMARY KEY CHECK (id = 1), bookmark TEXT NOT NULL, taken_at TEXT NOT NULL, " +
+  "applied_tags TEXT NOT NULL)";
+
+interface RestorePoint {
+  readonly bookmark: string;
+  readonly takenAt: string;
+  readonly appliedTags: string[];
+}
+
+/** Which migrations this wake is about to apply, so the restore point can name them. */
+async function pendingTags(
+  target: { appliedMigrationTags(): Promise<string[]> },
+  migrations: readonly { tag: string }[],
+): Promise<string[]> {
+  try {
+    const applied = new Set(await target.appliedMigrationTags());
+    return migrations.filter((migration) => !applied.has(migration.tag)).map((m) => m.tag);
+  } catch {
+    // The ledger could not be read. The runner is about to fail on the same thing and say so
+    // properly; this read only decides whether to take a bookmark.
+    return [];
+  }
+}
+
+function recordRestorePoint(
+  storage: DurableObjectState["storage"],
+  bookmark: string,
+  appliedTags: readonly string[],
+): void {
+  try {
+    storage.sql.exec(CREATE_RESTORE_POINT_TABLE);
+    storage.sql.exec(
+      "INSERT INTO _migration_restore_point (id, bookmark, taken_at, applied_tags) VALUES (1, ?1, ?2, ?3) " +
+        "ON CONFLICT(id) DO UPDATE SET bookmark = ?1, taken_at = ?2, applied_tags = ?3",
+      bookmark,
+      new Date().toISOString(),
+      JSON.stringify(appliedTags),
+    );
+  } catch {
+    // Recording the restore point must never fail the migration that succeeded. A firm on the right
+    // schema with no restore point is a worse diagnostic, not a worse database.
+  }
+}
+
+function readRestorePoint(storage: DurableObjectState["storage"]): RestorePoint | null {
+  try {
+    storage.sql.exec(CREATE_RESTORE_POINT_TABLE);
+    const rows = storage.sql
+      .exec("SELECT bookmark, taken_at, applied_tags FROM _migration_restore_point WHERE id = 1")
+      .toArray() as { bookmark: string; taken_at: string; applied_tags: string }[];
+    const row = rows[0];
+    if (row === undefined) return null;
+    const tags: unknown = JSON.parse(row.applied_tags);
+    return {
+      bookmark: row.bookmark,
+      takenAt: row.taken_at,
+      appliedTags: Array.isArray(tags) ? (tags as string[]) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 // One firm's per-firm database. Addressed idFromName(firmId): binding-free, created on first access,
 // self-migrating on wake. The app Worker reaches it through firm-database-proxy.ts (the SqlDatabase
 // the statement modules build against); this class only executes already-composed SQL + params.
@@ -30,8 +108,32 @@ export class FirmDatabase extends DurableObject<Bindings> {
   constructor(ctx: DurableObjectState, env: Bindings) {
     super(ctx, env);
     this.ready = ctx.blockConcurrencyWhile(async () => {
+      const target = doSqliteMigrationTarget(ctx.storage);
+      const migrations = perFirmMigrations();
+
+      // THE RESTORE POINT, taken before anything is applied.
+      //
+      // A migration that FAILS needs no restore: workerd rolls the whole context back, so the
+      // database is exactly as it was and the row written below goes with it. The case this exists
+      // for is the other one — a migration that succeeds and is WRONG, which is unrecoverable
+      // otherwise because the lineage only runs forwards. A bookmark taken here names the instant
+      // before the change, and Cloudflare can restore the object to it.
+      //
+      // Taking it is best-effort on purpose. A bookmark that cannot be read is a reason to migrate
+      // without a restore point and say so, not a reason to leave a firm on an old schema.
+      const pending = await pendingTags(target, migrations);
+      let bookmark: string | null = null;
+      if (pending.length > 0) {
+        try {
+          bookmark = await ctx.storage.getCurrentBookmark();
+        } catch {
+          bookmark = null;
+        }
+      }
+
       try {
-        await runPendingMigrations(doSqliteMigrationTarget(ctx.storage), perFirmMigrations());
+        await runPendingMigrations(target, migrations);
+        if (bookmark !== null) recordRestorePoint(ctx.storage, bookmark, pending);
       } catch (error) {
         this.migrationFault = error instanceof Error ? error.message : String(error);
       }
@@ -58,6 +160,7 @@ export class FirmDatabase extends DurableObject<Bindings> {
     fault: string | null;
     appliedCount: number;
     appliedHead: string | null;
+    restorePoint: { bookmark: string; takenAt: string; appliedTags: string[] } | null;
   }> {
     await this.ready;
     // The ledger is the runner's own table and exists before any migration in the lineage runs, so
@@ -76,6 +179,7 @@ export class FirmDatabase extends DurableObject<Bindings> {
       fault: this.migrationFault,
       appliedCount: applied.length,
       appliedHead: applied.at(-1) ?? null,
+      restorePoint: readRestorePoint(this.ctx.storage),
     };
   }
 

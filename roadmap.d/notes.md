@@ -29,7 +29,7 @@
   status: shipped
   slices: 4-4-matter-notes
   surface: screen
-  evidence: editMatterNote and deleteMatterNote in packages/notes/src/note-service.ts, over the reviewed rebuild in packages/database/drizzle/per-firm/20260901T120000_matter-notes-edit-and-delete.sql
+  evidence: editMatterNote and deleteMatterNote in packages/notes/src/note-service.ts, over the reviewed rebuild in packages/database/drizzle/per-firm/20260908T000000_baseline.sql
   audience: public
   public-summary: Edit a note to change what it says, or delete one outright.
   notes: Replaced correction-by-revision and withdrawal on the owner's direction, 2026-09-01. Nothing records what a note said before an edit, and a deletion leaves only an audit row naming no content; the superseded reasoning is kept in docs/decisions/pending/ rather than deleted.
@@ -39,7 +39,7 @@
   scope: Three RAISE(ABORT) triggers that refused UPDATE, DELETE and INSERT OR REPLACE on the revision table.
   status: cut
   slices: 4-4-matter-notes
-  evidence: dropped by packages/database/drizzle/per-firm/20260901T120000_matter-notes-edit-and-delete.sql
+  evidence: dropped by packages/database/drizzle/per-firm/20260908T000000_baseline.sql
   notes: CUT on the owner's direction, 2026-09-01, hours after it shipped. A note is edited in place and deleted outright, so there is no append-only body left to guard.
 
 - id: notes.matter-note.record-window

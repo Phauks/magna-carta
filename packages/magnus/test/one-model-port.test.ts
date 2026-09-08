@@ -101,7 +101,7 @@ describe("no second model port (fitness)", () => {
 });
 
 describe("seeding the permissions turns nothing on (fitness)", () => {
-  it("the migration grants the two keys and touches neither consent setting", () => {
+  it("the baseline grants the two keys and seeds neither consent gate", () => {
     const migration = readFileSync(
       join(
         repositoryRoot,
@@ -109,15 +109,20 @@ describe("seeding the permissions turns nothing on (fitness)", () => {
         "database",
         "drizzle",
         "per-firm",
-        "20260806T050000_magnus-conversations.sql",
+        "20260908T000000_baseline.sql",
       ),
       "utf8",
     );
     expect(migration.includes("'magnus:converse'")).toBe(true);
     expect(migration.includes("'magnus:readAllConversations'")).toBe(true);
-    // It writes no setting row at all — neither consent gate, and nothing else. A firm that runs this
-    // migration has the permissions and a closed feature.
-    expect(/INSERT\s+INTO\s+`?setting`?/i.test(migration)).toBe(false);
+    // NO SETTING ROW TURNS MAGNUS ON. This asked whether the lineage seeded any setting at all,
+    // which was a fair proxy while the migration was its own file and seeded nothing; the collapsed
+    // baseline carries every seed the lineage ever wrote, so the proxy now answers about unrelated
+    // catalogs. The invariant is the same and is asserted directly: a firm arrives with the two
+    // permissions and a closed feature, so neither gate may be seeded at any value.
+    for (const gate of ["magnus.enabled", "magnus.consent"]) {
+      expect(migration.includes(`'${gate}'`), gate).toBe(false);
+    }
   });
 
   it("the committed deploy configuration does not set the adapter switch", () => {
