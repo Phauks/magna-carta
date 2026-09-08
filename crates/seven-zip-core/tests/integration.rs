@@ -4,12 +4,13 @@
 
 use std::io::Cursor;
 
-use seven_zip_listing_core::{
-    list, list_bytes, ArchiveRange, ListError, ListLimits, ListOutcome, SevenZipListing,
+use seven_zip_core::{
+    extract, extract_bytes, list, list_bytes, ArchiveRange, ExtractError, ExtractLimits,
+    ExtractOutcome, ListError, ListLimits, ListOutcome, SevenZipListing,
 };
 use sevenz_rust2::{
-    lzma::LZMA2Options, AesEncoderOptions, Password, SevenZArchiveEntry, SevenZMethod,
-    SevenZMethodConfiguration, SevenZWriter,
+    lzma::LZMA2Options, AesEncoderOptions, Password, SeqReader, SevenZArchiveEntry, SevenZMethod,
+    SevenZMethodConfiguration, SevenZWriter, SourceReader,
 };
 
 /// One member to write into a fixture.
@@ -532,7 +533,7 @@ fn a_range_the_caller_never_fetched_is_asked_for_rather_than_assumed() {
 
 /// Write the archives the TypeScript wrapper's tests read. Ignored by default: it writes into the
 /// source tree, and the files it writes are committed. Run it when the fixtures need to change:
-/// `cargo test -p seven-zip-listing-core -- --ignored regenerate_typescript_fixtures`.
+/// `cargo test -p seven-zip-core -- --ignored regenerate_typescript_fixtures`.
 ///
 /// The output is deterministic — fixed content, fixed timestamps, one encoder — so a regeneration
 /// that changes a byte means the encoder changed, which is worth seeing in a diff.
@@ -580,4 +581,330 @@ fn regenerate_typescript_fixtures() {
             false,
         ),
     );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Taking one member out.
+// ---------------------------------------------------------------------------------------------
+
+/// The extraction counterpart of `RangedFetch`: fetch only what the engine names, and record it, so
+/// a test can assert that taking one member out of a large archive did not read the archive.
+struct RangedExtract {
+    archive: Vec<u8>,
+    fetched: Vec<(u64, u64)>,
+}
+
+impl RangedExtract {
+    fn new(archive: Vec<u8>) -> Self {
+        Self {
+            archive,
+            fetched: Vec::new(),
+        }
+    }
+
+    fn run(
+        &mut self,
+        member_index: usize,
+        limits: &ExtractLimits,
+    ) -> Result<Vec<u8>, ExtractError> {
+        let size = self.archive.len() as u64;
+        let mut ranges: Vec<ArchiveRange> = Vec::new();
+        // The three header ranges a listing needs, plus the one block the member lives in. A fifth
+        // request means the planner asked for something it had not named.
+        for _ in 0..5 {
+            match extract(size, &ranges, member_index, limits)? {
+                ExtractOutcome::Member(bytes) => return Ok(bytes),
+                ExtractOutcome::NeedRange { offset, length } => {
+                    self.fetched.push((offset, length));
+                    let start = offset as usize;
+                    let end = start + length as usize;
+                    ranges.push(ArchiveRange::new(offset, self.archive[start..end].to_vec()));
+                }
+            }
+        }
+        panic!("the extraction asked for more ranges than a well-formed archive can need");
+    }
+
+    fn bytes_read(&self) -> u64 {
+        self.fetched.iter().map(|(_, length)| length).sum()
+    }
+}
+
+/// A 7z whose members share ONE compressed stream — solid compression, which is what 7-Zip does by
+/// default and what makes reaching a later member cost the members before it.
+///
+/// `push_archive_entry` (used by every fixture above) compresses each member into a block of its
+/// own, so an archive built that way cannot exercise solidity at all. This uses the writer's own
+/// solid entry point instead.
+fn write_solid_archive(members: &[(&'static str, &'static str)]) -> Vec<u8> {
+    let mut writer =
+        SevenZWriter::new(Cursor::new(Vec::new())).expect("the writer accepts an in-memory sink");
+    writer.set_content_methods(vec![LZMA2Options::with_preset(5).into()]);
+
+    let entries: Vec<SevenZArchiveEntry> = members
+        .iter()
+        .map(|(path, content)| {
+            let mut entry = SevenZArchiveEntry::new_file(path);
+            entry.has_stream = true;
+            entry.size = content.len() as u64;
+            entry
+        })
+        .collect();
+    let readers: Vec<SourceReader<&[u8]>> = members
+        .iter()
+        .map(|(_, content)| SourceReader::new(content.as_bytes()))
+        .collect();
+    writer
+        .push_archive_entries(entries, SeqReader::new(readers))
+        .expect("the writer accepts a solid block");
+    writer
+        .finish()
+        .expect("the writer finishes into the sink")
+        .into_inner()
+}
+
+#[test]
+fn takes_a_member_out_by_the_index_the_listing_gave_it() {
+    let archive = write_archive(
+        &[
+            Member::file("readme.txt", "hello"),
+            Member::directory("exhibits"),
+            Member::file("exhibits/a/deposition.txt", "content of a"),
+            Member::file("exhibits/b/transcript.txt", "content of b, which is longer"),
+        ],
+        None,
+        false,
+    );
+    // The listing is what names a member, so the index extraction takes comes from it rather than
+    // from a test's own count — that agreement is the whole reason both halves read one header.
+    let listing = list_bytes(&archive, &ListLimits::default()).expect("the fixture lists");
+    let wanted = listing
+        .entries
+        .iter()
+        .position(|entry| entry.path == "exhibits/b/transcript.txt")
+        .expect("the fixture holds the member");
+
+    let bytes = extract_bytes(&archive, wanted, &ExtractLimits::default()).expect("it comes out");
+    assert_eq!(bytes, b"content of b, which is longer");
+}
+
+#[test]
+fn takes_the_last_member_of_a_solid_block_out_by_decoding_the_ones_before_it() {
+    // ONE compressed stream over four members: reaching the last means decoding the three ahead of
+    // it, because that is what solid means. A reader that seeked to a member's own offset would
+    // return the wrong bytes here and nowhere else, which is why this fixture is built differently
+    // from every other one in this file.
+    let archive = write_solid_archive(&[
+        ("first.txt", "the first statement"),
+        ("second.txt", "the second statement"),
+        ("third.txt", "the third statement"),
+        ("fourth.txt", "the fourth and final statement"),
+    ]);
+    let listing = list_bytes(&archive, &ListLimits::default()).expect("the fixture lists");
+    assert_eq!(listing.entries.len(), 4);
+
+    for (index, expected) in [
+        "the first statement",
+        "the second statement",
+        "the third statement",
+        "the fourth and final statement",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let bytes =
+            extract_bytes(&archive, index, &ExtractLimits::default()).expect("it comes out");
+        assert_eq!(bytes, expected.as_bytes(), "member {index} of the block");
+    }
+}
+
+#[test]
+fn takes_a_member_out_of_an_archive_of_four_hundred() {
+    let (archive, names) = write_many_member_archive(400);
+    let listing = list_bytes(&archive, &ListLimits::default()).expect("the fixture lists");
+    let wanted = listing
+        .entries
+        .iter()
+        .position(|entry| entry.path == names[399])
+        .expect("the fixture holds the last member");
+
+    let bytes = extract_bytes(&archive, wanted, &ExtractLimits::default()).expect("it comes out");
+    assert_eq!(bytes, b"exhibit 399");
+}
+
+#[test]
+fn reads_the_header_and_one_block_rather_than_the_archive() {
+    let (archive, _) = write_many_member_archive(400);
+    let mut fetch = RangedExtract::new(archive.clone());
+    let bytes = fetch
+        .run(0, &ExtractLimits::default())
+        .expect("it comes out");
+
+    assert_eq!(bytes, b"exhibit 0");
+    // The point of the ranged form: what was fetched is the header plus the one block, never the
+    // whole object. On this fixture the block IS most of the content, so the assertion that carries
+    // weight is that no range covered the archive.
+    assert!(fetch
+        .fetched
+        .iter()
+        .all(|(_, length)| *length < archive.len() as u64));
+    assert!(fetch.bytes_read() <= archive.len() as u64);
+}
+
+#[test]
+fn takes_an_empty_member_out_without_touching_a_block() {
+    let archive = write_archive(&[Member::file("empty.txt", "")], None, false);
+    let listing = list_bytes(&archive, &ListLimits::default()).expect("the fixture lists");
+    let wanted = listing
+        .entries
+        .iter()
+        .position(|entry| entry.path == "empty.txt")
+        .expect("the fixture holds it");
+    assert_eq!(
+        extract_bytes(&archive, wanted, &ExtractLimits::default()),
+        Ok(Vec::new())
+    );
+}
+
+#[test]
+fn refuses_a_directory_rather_than_answering_with_no_bytes() {
+    // Zero bytes and "this is a folder" are different answers, and filing the first as a document
+    // would put an empty file on a matter under a folder's name.
+    let archive = write_archive(
+        &[
+            Member::directory("exhibits"),
+            Member::file("exhibits/a.txt", "a"),
+        ],
+        None,
+        false,
+    );
+    let listing = list_bytes(&archive, &ListLimits::default()).expect("the fixture lists");
+    let directory = listing
+        .entries
+        .iter()
+        .position(|entry| entry.is_directory)
+        .expect("the fixture holds a directory");
+    assert_eq!(
+        extract_bytes(&archive, directory, &ExtractLimits::default()),
+        Err(ExtractError::NotAFile)
+    );
+}
+
+#[test]
+fn refuses_a_member_index_the_archive_does_not_hold() {
+    let archive = write_archive(&[Member::file("only.txt", "one")], None, false);
+    assert_eq!(
+        extract_bytes(&archive, 99, &ExtractLimits::default()),
+        Err(ExtractError::MemberNotFound)
+    );
+}
+
+#[test]
+fn refuses_encrypted_content_by_name_rather_than_failing_to_decode_it() {
+    // The build carries no AES coder, so a decode would fail anyway. "This member is encrypted" and
+    // "this reader has no decoder" are different facts and the reader is owed the true one.
+    let archive = write_archive(
+        &[Member::file("sealed.txt", "privileged")],
+        Some("correct horse battery staple"),
+        false,
+    );
+    let listing = list_bytes(&archive, &ListLimits::default()).expect("an unencrypted list reads");
+    let wanted = listing
+        .entries
+        .iter()
+        .position(|entry| entry.path == "sealed.txt")
+        .expect("the fixture holds it");
+    assert!(listing.entries[wanted].encrypted);
+    assert_eq!(
+        extract_bytes(&archive, wanted, &ExtractLimits::default()),
+        Err(ExtractError::MemberEncrypted)
+    );
+}
+
+#[test]
+fn refuses_a_member_larger_than_the_caller_allows() {
+    let archive = write_archive(&[Member::file("big.txt", "0123456789")], None, false);
+    let limits = ExtractLimits {
+        max_member_bytes: 4,
+        ..ExtractLimits::default()
+    };
+    assert_eq!(
+        extract_bytes(&archive, 0, &limits),
+        Err(ExtractError::TooLarge {
+            limit: 4,
+            declared: 10,
+        })
+    );
+}
+
+#[test]
+fn refuses_a_block_larger_than_the_caller_allows_even_for_a_small_member() {
+    // The reason the block has a ceiling of its own: the FIRST member of this block is nineteen
+    // bytes and its block unpacks to ninety, so a caller bounding only what it keeps would be
+    // bounding the wrong number — the decode costs the block either way.
+    let archive = write_solid_archive(&[
+        ("first.txt", "the first statement"),
+        ("second.txt", "the second statement"),
+        ("third.txt", "the third statement"),
+        ("fourth.txt", "the fourth and final statement"),
+    ]);
+    let limits = ExtractLimits {
+        max_block_bytes: 32,
+        ..ExtractLimits::default()
+    };
+    match extract_bytes(&archive, 0, &limits) {
+        Err(ExtractError::TooLarge { limit, declared }) => {
+            assert_eq!(limit, 32);
+            assert!(
+                declared > 32,
+                "the block unpacks to more than the ceiling: {declared}"
+            );
+        }
+        other => panic!("expected a block-size refusal, got {other:?}"),
+    }
+    // The same member, with room for its block, comes out — so the refusal above is the ceiling
+    // biting rather than the fixture being unreadable.
+    assert_eq!(
+        extract_bytes(&archive, 0, &ExtractLimits::default()),
+        Ok(b"the first statement".to_vec())
+    );
+}
+
+#[test]
+fn refuses_an_archive_whose_file_list_is_encrypted_before_naming_a_member() {
+    let (archive, _) =
+        write_many_member_archive_with(400, Some("correct horse battery staple"), true);
+    assert_eq!(
+        extract_bytes(&archive, 0, &ExtractLimits::default()),
+        Err(ExtractError::Header(ListError::HeaderEncrypted))
+    );
+}
+
+#[test]
+fn refuses_a_member_whose_bytes_disagree_with_the_archives_own_record() {
+    // Corrupt the packed content and leave every header intact: the reader verifies each member
+    // against the CRC the archive recorded, so this is the one failure only decoding can find.
+    let mut archive = write_archive(
+        &[Member::file(
+            "brief.txt",
+            "In the matter of Renee Chase, a statement long enough to actually compress.",
+        )],
+        None,
+        false,
+    );
+    // The packed streams begin immediately after the start header.
+    let at = 40.min(archive.len() - 1);
+    archive[at] ^= 0xff;
+
+    match extract_bytes(&archive, 0, &ExtractLimits::default()) {
+        Err(ExtractError::Corrupt) => {}
+        // A single flipped byte can also make the block undecodable outright, which the reader
+        // reports as its own refusal. Either is a refusal; what must never happen is bytes coming
+        // back as though they were the member.
+        Err(other) => assert!(
+            !matches!(other, ExtractError::MemberNotFound),
+            "expected a refusal about the content, got {other:?}"
+        ),
+        Ok(bytes) => panic!("corrupt content came back as {} bytes", bytes.len()),
+    }
 }

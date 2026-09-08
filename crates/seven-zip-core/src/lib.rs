@@ -259,60 +259,10 @@ pub fn list(
     ranges: &[ArchiveRange],
     limits: &ListLimits,
 ) -> Result<ListOutcome, ListError> {
-    if archive_size < START_HEADER_BYTES {
-        return Err(ListError::NotSevenZip);
+    match read_header(archive_size, ranges, limits)? {
+        HeaderState::NeedRange { offset, length } => Ok(ListOutcome::NeedRange { offset, length }),
+        HeaderState::Parsed(archive) => Ok(ListOutcome::Listing(to_listing(&archive, limits))),
     }
-    let Some(start_header) = slice_of(ranges, 0, START_HEADER_BYTES) else {
-        return Ok(ListOutcome::NeedRange {
-            offset: 0,
-            length: START_HEADER_BYTES,
-        });
-    };
-    let location = read_start_header(start_header, archive_size, limits)?;
-
-    // An archive with no members writes no next header at all. There is nothing to fetch and
-    // nothing to decode; the listing is empty because the archive is.
-    if location.size == 0 {
-        return Ok(ListOutcome::Listing(SevenZipListing {
-            entries: Vec::new(),
-            truncated: false,
-        }));
-    }
-
-    let Some(next_header) = slice_of(ranges, location.offset, location.size) else {
-        return Ok(ListOutcome::NeedRange {
-            offset: location.offset,
-            length: location.size,
-        });
-    };
-    if crc32fast::hash(next_header) != location.crc {
-        return Err(malformed("next header checksum"));
-    }
-
-    match next_header.first().copied() {
-        Some(PROPERTY_HEADER) => {}
-        Some(PROPERTY_ENCODED_HEADER) => {
-            // The blob describes where the real header is packed. Parse that description first, so
-            // the sizes it declares are checked before the reader allocates against them — and so
-            // the third range is named exactly rather than guessed at.
-            let packed = describe_packed_header(next_header, archive_size, limits)?;
-            if slice_of(ranges, packed.offset, packed.size).is_none() {
-                return Ok(ListOutcome::NeedRange {
-                    offset: packed.offset,
-                    length: packed.size,
-                });
-            }
-        }
-        _ => {
-            return Err(malformed(
-                "next header is neither a header nor an encoded header",
-            ))
-        }
-    }
-
-    let mut reader = SparseReader::new(ranges, archive_size);
-    let archive = Archive::read(&mut reader, archive_size, &[]).map_err(read_error)?;
-    Ok(ListOutcome::Listing(to_listing(&archive, limits)))
 }
 
 /// List an archive already held whole in memory. The ranged form above is the one to reach for on a
@@ -605,5 +555,324 @@ impl Seek for SparseReader<'_> {
         })?;
         self.position = target;
         Ok(target)
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Taking ONE member's content out.
+//
+// Listing reads only the header. Extraction has to decode real content, and the format decides how
+// much: 7z packs members into BLOCKS (the format calls them folders), and a solid block is one
+// compressed stream over several members end to end. There is no way to decode the fourth member of
+// a solid block without decoding the three before it — that is what solid means — so the cost of one
+// member is the cost of its block up to and including it.
+//
+// That is why extraction takes a block ceiling of its own rather than only a per-member one. A
+// member of a modest size can sit at the end of a block that unpacks to gigabytes, and a caller
+// bounding only what it wants to keep would be bounding the wrong number.
+//
+// WHAT IS FETCHED: the two or three header ranges the listing already needs, plus exactly one more —
+// the block's packed streams, which are contiguous. Nothing else, whatever the archive weighs.
+// ---------------------------------------------------------------------------------------------
+
+/// The ceilings an extraction refuses to work above.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtractLimits {
+    /// Everything the listing bounds, because extraction reads the same header first.
+    pub list: ListLimits,
+    /// Largest a single member may unpack to.
+    pub max_member_bytes: u64,
+    /// Largest a BLOCK may unpack to. A solid block is decoded up to the member being taken, so this
+    /// bounds the work a request can be made to do, which the member's own size does not.
+    pub max_block_bytes: u64,
+}
+
+impl Default for ExtractLimits {
+    fn default() -> Self {
+        Self {
+            list: ListLimits::default(),
+            max_member_bytes: 256 * 1024 * 1024,
+            max_block_bytes: 1024 * 1024 * 1024,
+        }
+    }
+}
+
+/// Either the member's bytes, or the one further range needed to produce them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExtractOutcome {
+    Member(Vec<u8>),
+    NeedRange { offset: u64, length: u64 },
+}
+
+/// Why a member could not be taken out. The listing's refusals are reachable too, because
+/// extraction reads the same header before it reads anything else.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum ExtractError {
+    #[error(transparent)]
+    Header(#[from] ListError),
+    /// No member sits at that index in this archive.
+    #[error("memberNotFound")]
+    MemberNotFound,
+    /// The index names a directory, or an entry with no content stream of its own.
+    #[error("notAFile")]
+    NotAFile,
+    /// The member's content is AES-encrypted; this build carries no AES coder and holds no password.
+    #[error("memberEncrypted")]
+    MemberEncrypted,
+    /// The member, or the block holding it, unpacks to more than the caller allows.
+    #[error("tooLarge")]
+    TooLarge { limit: u64, declared: u64 },
+    /// The block is packed by a coder this reader has no decoder for.
+    #[error("unsupportedCoder")]
+    UnsupportedCoder(Cow<'static, str>),
+    /// The decoded bytes disagree with what the archive recorded — a length or a CRC that does not
+    /// match. The member is not what its container says it is.
+    #[error("corrupt")]
+    Corrupt,
+    /// A range the caller supplied does not hold the bytes it claims to. A caller bug.
+    #[error("rangeMismatch")]
+    RangeMismatch,
+}
+
+/// The header ranges are all present and the archive parsed, or one more range is needed first.
+enum HeaderState {
+    Parsed(Box<Archive>),
+    NeedRange { offset: u64, length: u64 },
+}
+
+/// Walk the start header and the next header, fetching-by-request, and parse the archive when both
+/// are in hand. Shared by listing and extraction so the two can never disagree about which member
+/// is which — an extraction addresses a member by the index the listing gave it.
+fn read_header(
+    archive_size: u64,
+    ranges: &[ArchiveRange],
+    limits: &ListLimits,
+) -> Result<HeaderState, ListError> {
+    if archive_size < START_HEADER_BYTES {
+        return Err(ListError::NotSevenZip);
+    }
+    let Some(start_header) = slice_of(ranges, 0, START_HEADER_BYTES) else {
+        return Ok(HeaderState::NeedRange {
+            offset: 0,
+            length: START_HEADER_BYTES,
+        });
+    };
+    let location = read_start_header(start_header, archive_size, limits)?;
+
+    if location.size == 0 {
+        // 7-Zip writes exactly the start header and stops when there is nothing to pack: no next
+        // header at all, every field zero. The reader this crate drives errors on that rather than
+        // answering, so the empty archive is built here — there is nothing to read and nothing to
+        // decode, and an archive with no members is a real archive.
+        return Ok(HeaderState::Parsed(Box::default()));
+    }
+
+    let Some(next_header) = slice_of(ranges, location.offset, location.size) else {
+        return Ok(HeaderState::NeedRange {
+            offset: location.offset,
+            length: location.size,
+        });
+    };
+    if crc32fast::hash(next_header) != location.crc {
+        return Err(malformed("next header checksum"));
+    }
+
+    match next_header.first().copied() {
+        Some(PROPERTY_HEADER) => {}
+        Some(PROPERTY_ENCODED_HEADER) => {
+            let packed = describe_packed_header(next_header, archive_size, limits)?;
+            if slice_of(ranges, packed.offset, packed.size).is_none() {
+                return Ok(HeaderState::NeedRange {
+                    offset: packed.offset,
+                    length: packed.size,
+                });
+            }
+        }
+        _ => {
+            return Err(malformed(
+                "next header is neither a header nor an encoded header",
+            ))
+        }
+    }
+
+    let mut reader = SparseReader::new(ranges, archive_size);
+    let archive = Archive::read(&mut reader, archive_size, &[]).map_err(read_error)?;
+    Ok(HeaderState::Parsed(Box::new(archive)))
+}
+
+/// Where one block's packed bytes sit: its streams are contiguous, so this is a single range.
+fn block_range(archive: &Archive, folder_index: usize) -> Option<(u64, u64)> {
+    let folder = archive.folders.get(folder_index)?;
+    let first = *archive
+        .stream_map
+        .folder_first_pack_stream_index
+        .get(folder_index)?;
+    let offset = START_HEADER_BYTES
+        .checked_add(archive.pack_pos)?
+        .checked_add(*archive.stream_map.pack_stream_offsets.get(first)?)?;
+    let mut length: u64 = 0;
+    for index in 0..folder.packed_streams.len() {
+        length = length.checked_add(*archive.pack_sizes.get(first + index)?)?;
+    }
+    Some((offset, length))
+}
+
+/// Take one member's content out of the ranges fetched so far.
+///
+/// `member_index` is the member's position in the listing this archive produced, which is its
+/// position in the archive's own file table. Returns [`ExtractOutcome::NeedRange`] until every range
+/// it needs is in hand — at most four in total, three of them the same header ranges a listing
+/// reads.
+pub fn extract(
+    archive_size: u64,
+    ranges: &[ArchiveRange],
+    member_index: usize,
+    limits: &ExtractLimits,
+) -> Result<ExtractOutcome, ExtractError> {
+    let archive = match read_header(archive_size, ranges, &limits.list)? {
+        HeaderState::NeedRange { offset, length } => {
+            return Ok(ExtractOutcome::NeedRange { offset, length })
+        }
+        HeaderState::Parsed(archive) => archive,
+    };
+
+    let file = archive
+        .files
+        .get(member_index)
+        .ok_or(ExtractError::MemberNotFound)?;
+    if file.is_directory {
+        return Err(ExtractError::NotAFile);
+    }
+    if file.size > limits.max_member_bytes {
+        return Err(ExtractError::TooLarge {
+            limit: limits.max_member_bytes,
+            declared: file.size,
+        });
+    }
+    // A member with no content stream is an empty file, which is a real thing to take out and is
+    // held in no block at all.
+    let folder_index = match archive
+        .stream_map
+        .file_folder_index
+        .get(member_index)
+        .copied()
+        .flatten()
+    {
+        None => return Ok(ExtractOutcome::Member(Vec::new())),
+        Some(folder_index) => folder_index,
+    };
+    if !file.has_stream || file.size == 0 {
+        return Ok(ExtractOutcome::Member(Vec::new()));
+    }
+
+    let folder = archive
+        .folders
+        .get(folder_index)
+        .ok_or(ExtractError::Corrupt)?;
+    if folder
+        .coders
+        .iter()
+        .any(|coder| coder.decompression_method_id() == SevenZMethod::ID_AES256SHA256)
+    {
+        // Named before anything is fetched. This build carries no AES coder, so decoding would fail
+        // anyway — but "this member is encrypted" and "this reader has no decoder" are different
+        // facts and the reader deserves the true one.
+        return Err(ExtractError::MemberEncrypted);
+    }
+    // The block, not the member, is what the decode actually costs. Checked before the packed bytes
+    // are fetched, so a hostile block is refused without being downloaded.
+    let block_bytes = folder.get_unpack_size();
+    if block_bytes > limits.max_block_bytes {
+        return Err(ExtractError::TooLarge {
+            limit: limits.max_block_bytes,
+            declared: block_bytes,
+        });
+    }
+
+    let (offset, length) = block_range(&archive, folder_index).ok_or(ExtractError::Corrupt)?;
+    if offset
+        .checked_add(length)
+        .is_none_or(|end| end > archive_size)
+    {
+        return Err(ExtractError::Corrupt);
+    }
+    if slice_of(ranges, offset, length).is_none() {
+        return Ok(ExtractOutcome::NeedRange { offset, length });
+    }
+
+    let mut reader = SparseReader::new(ranges, archive_size);
+    let decoder = sevenz_rust2::BlockDecoder::new(folder_index, &archive, &[], &mut reader);
+    let first_in_block = *archive
+        .stream_map
+        .folder_first_file_index
+        .get(folder_index)
+        .ok_or(ExtractError::Corrupt)?;
+    let wanted_in_block = member_index
+        .checked_sub(first_in_block)
+        .ok_or(ExtractError::Corrupt)?;
+
+    let mut taken: Option<Vec<u8>> = None;
+    let mut seen = 0usize;
+    let mut failure: Option<ExtractError> = None;
+    let outcome = decoder.for_each_entries(&mut |_entry, stream| {
+        let position = seen;
+        seen += 1;
+        if position < wanted_in_block {
+            // A solid block is ONE compressed stream over several members, so the ones before the
+            // wanted member have to be read through rather than skipped — the decoder has no other
+            // way to reach the bytes that follow them. They are drained, never held.
+            match std::io::copy(stream, &mut std::io::sink()) {
+                Ok(_) => return Ok(true),
+                Err(_) => {
+                    failure = Some(ExtractError::Corrupt);
+                    return Ok(false);
+                }
+            }
+        }
+        let mut bytes = Vec::new();
+        match stream.read_to_end(&mut bytes) {
+            Ok(_) => {
+                taken = Some(bytes);
+                // Stop here: every member after this one in the block is somebody else's request.
+                Ok(false)
+            }
+            Err(_) => {
+                // The reader verifies each member against the CRC the archive recorded, and a
+                // mismatch surfaces as a read failure. A member whose bytes disagree with its own
+                // container is not evidence of anything, so it is refused rather than handed back.
+                failure = Some(ExtractError::Corrupt);
+                Ok(false)
+            }
+        }
+    });
+    if let Some(error) = failure {
+        return Err(error);
+    }
+    outcome.map_err(|error| match read_error(error) {
+        ListError::UnsupportedCoder(name) => ExtractError::UnsupportedCoder(name),
+        ListError::HeaderEncrypted => ExtractError::MemberEncrypted,
+        ListError::TooLarge { limit, declared } => ExtractError::TooLarge { limit, declared },
+        other => ExtractError::Header(other),
+    })?;
+
+    let bytes = taken.ok_or(ExtractError::MemberNotFound)?;
+    // The archive's own claim about what this member holds. A length that disagrees is the same
+    // failure a CRC mismatch is.
+    if bytes.len() as u64 != file.size {
+        return Err(ExtractError::Corrupt);
+    }
+    Ok(ExtractOutcome::Member(bytes))
+}
+
+/// Take one member out of an archive already held whole in memory.
+pub fn extract_bytes(
+    bytes: &[u8],
+    member_index: usize,
+    limits: &ExtractLimits,
+) -> Result<Vec<u8>, ExtractError> {
+    let ranges = [ArchiveRange::new(0, bytes.to_vec())];
+    match extract(bytes.len() as u64, &ranges, member_index, limits)? {
+        ExtractOutcome::Member(bytes) => Ok(bytes),
+        ExtractOutcome::NeedRange { .. } => Err(ExtractError::RangeMismatch),
     }
 }

@@ -1,15 +1,15 @@
 {
-  "name": "@magna-carta/seven-zip-listing",
+  "name": "@magna-carta/seven-zip",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./src/pkg/seven_zip_listing_core_bg.wasm": "./src/pkg/seven_zip_listing_core_bg.wasm"
+    "./src/pkg/seven_zip_core_bg.wasm": "./src/pkg/seven_zip_core_bg.wasm"
   },
   "scripts": {
     "test": "vp test run",
-    "build:wasm": "wasm-pack build ../../crates/seven-zip-listing-core --target web --out-dir ../../packages/seven-zip-listing/src/pkg --release --no-opt"
+    "build:wasm": "wasm-pack build ../../crates/seven-zip-core --target web --out-dir ../../packages/seven-zip/src/pkg --release --no-opt"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

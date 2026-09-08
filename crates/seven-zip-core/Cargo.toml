@@ -1,5 +1,5 @@
 [package]
-name = "seven-zip-listing-core"
+name = "seven-zip-core"
 version = "0.0.0"
 edition.workspace = true
 publish = false

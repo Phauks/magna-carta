@@ -38,6 +38,7 @@ function fileNamed(name: string, options: { hashed?: boolean } = {}): WorkbenchF
     declaredMediaType: "application/pdf",
     receivedAt: new Date("2026-08-31T12:00:00Z"),
     preview: { kind: "none", reason: "a fixture draws nothing" },
+    readBytes: () => Promise.resolve(new Uint8Array(0)),
     outcomes,
   };
 }

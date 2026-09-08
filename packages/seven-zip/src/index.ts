@@ -2,14 +2,14 @@
 //
 // A 7z keeps its file list in a header at the END of the archive, and that header is normally
 // LZMA-compressed, so unlike zip and tar it cannot be listed by reading bytes and doing arithmetic —
-// it needs a real LZMA decoder. That decoder is Rust (crates/seven-zip-listing-core, over
+// it needs a real LZMA decoder. That decoder is Rust (crates/seven-zip-core, over
 // sevenz-rust2) compiled to WebAssembly, and this module is the seam between it and the platform.
 //
 // WHAT IT COSTS TO LIST ONE. Two ranged reads for an archive whose file list is stored plain, three
 // when it is compressed, and nothing else however large the archive is — the same property the zip
 // and tar listings have. `readSevenZipListing` drives that: the engine answers each call with either
 // the listing or the next range it needs, and this loops until it has one.
-import init, { listRanges } from "./pkg/seven_zip_listing_core.js";
+import init, { extractRanges, listRanges } from "./pkg/seven_zip_core.js";
 
 // Optional wasm bytes for environments (Node/Vitest) where fetch is unavailable.
 // Pass the result of `readFileSync(wasmPath)` — the loader handles both Buffer and Uint8Array.
@@ -63,6 +63,21 @@ export type SevenZipListingErrorCode =
   | "rangeMismatch";
 
 /**
+ * What extraction can refuse on top of everything a listing can. Extraction reads the same header
+ * first, so every listing code is reachable here too.
+ */
+export type SevenZipExtractionErrorCode =
+  | SevenZipListingErrorCode
+  /** No member sits at that index in this archive. */
+  | "memberNotFound"
+  /** The index names a directory, or an entry with no content stream of its own. */
+  | "notAFile"
+  /** The member's content is AES-encrypted; this build carries no AES coder and holds no password. */
+  | "memberEncrypted"
+  /** The decoded bytes disagree with the length or the checksum the archive recorded. */
+  | "corrupt";
+
+/**
  * Thrown when the engine refuses an archive. Branch on `.code` — never string-match `.message`.
  *
  * `headerEncrypted` is the one worth handling separately: the archive is intact and its members are
@@ -70,16 +85,16 @@ export type SevenZipListingErrorCode =
  * without the password.
  */
 export class SevenZipListingError extends Error {
-  public readonly code: SevenZipListingErrorCode;
+  public readonly code: SevenZipExtractionErrorCode;
 
-  constructor(code: SevenZipListingErrorCode) {
+  constructor(code: SevenZipExtractionErrorCode) {
     super(code);
     this.name = "SevenZipListingError";
     this.code = code;
   }
 }
 
-const KNOWN_ERROR_CODES: ReadonlySet<string> = new Set<SevenZipListingErrorCode>([
+const KNOWN_ERROR_CODES: ReadonlySet<string> = new Set<SevenZipExtractionErrorCode>([
   "notSevenZip",
   "unsupportedVersion",
   "headerEncrypted",
@@ -87,11 +102,15 @@ const KNOWN_ERROR_CODES: ReadonlySet<string> = new Set<SevenZipListingErrorCode>
   "unsupportedCoder",
   "malformed",
   "rangeMismatch",
+  "memberNotFound",
+  "notAFile",
+  "memberEncrypted",
+  "corrupt",
 ]);
 
 function wrapEngineError(thrown: unknown): SevenZipListingError {
   if (thrown instanceof Error && KNOWN_ERROR_CODES.has(thrown.message)) {
-    return new SevenZipListingError(thrown.message as SevenZipListingErrorCode);
+    return new SevenZipListingError(thrown.message as SevenZipExtractionErrorCode);
   }
   // Anything else is the engine failing in a way it does not have a code for — a trap on an
   // allocation a hostile header asked for, most plausibly. It is still a refusal, never a listing.
@@ -221,4 +240,79 @@ export async function listSevenZipBytes(
   const outcome = callEngine(bytes.byteLength, [0], [bytes], limits);
   if (outcome.status !== "listing") throw new SevenZipListingError("malformed");
   return { entries: outcome.entries.map(toEntry), truncated: outcome.truncated };
+}
+
+/** The ceilings an extraction refuses to work above, on top of the header ceilings a listing sets. */
+export interface SevenZipExtractionLimits extends SevenZipListingLimits {
+  /** Largest a single member may unpack to. */
+  readonly maxMemberBytes: number;
+  /**
+   * Largest a BLOCK may unpack to. A 7z packs members into blocks, and a solid block is one
+   * compressed stream over several members, so reaching the fourth member of one costs decoding the
+   * three before it. A caller bounding only what it keeps would be bounding the wrong number:
+   * default 1 GiB.
+   */
+  readonly maxBlockBytes?: number;
+}
+
+const DEFAULT_MAX_BLOCK_BYTES = 1024 * 1024 * 1024;
+
+type ExtractOutcome =
+  | { status: "member"; bytes: Uint8Array }
+  | { status: "needRange"; offset: number; length: number };
+
+/**
+ * A listing needs at most three ranges; extraction needs those plus the one block its member lives
+ * in. A fifth request means the engine asked for a range it had not named, which is a refusal.
+ */
+const MAX_EXTRACT_RANGE_REQUESTS = 4;
+
+/**
+ * Take one member's content out of a 7z over ranged reads.
+ *
+ * `memberIndex` is the member's position in the listing `readSevenZipListing` produced: both halves
+ * read the same header, so an index from one addresses the same member in the other.
+ *
+ * `read` is called at most four times and never asked for the whole archive, so a member comes out
+ * of a multi-gigabyte production for the cost of its own block rather than the object.
+ *
+ * Throws `SevenZipListingError`; branch on its `code`, never on the message.
+ */
+export async function readSevenZipMember(
+  archiveSizeBytes: number,
+  read: ArchiveRangeReader,
+  memberIndex: number,
+  limits: SevenZipExtractionLimits,
+): Promise<Uint8Array> {
+  await ensureReady();
+
+  const offsets: number[] = [];
+  const bytes: Uint8Array[] = [];
+  for (let request = 0; request <= MAX_EXTRACT_RANGE_REQUESTS; request += 1) {
+    let outcome: ExtractOutcome;
+    try {
+      outcome = extractRanges(
+        archiveSizeBytes,
+        new Float64Array(offsets),
+        bytes,
+        memberIndex,
+        limits.maxMemberBytes,
+        limits.maxBlockBytes ?? DEFAULT_MAX_BLOCK_BYTES,
+        limits.maxHeaderBytes ?? DEFAULT_MAX_HEADER_BYTES,
+        limits.maxDecodedHeaderBytes ?? DEFAULT_MAX_DECODED_HEADER_BYTES,
+        limits.maxDictionaryBytes ?? DEFAULT_MAX_DICTIONARY_BYTES,
+      ) as ExtractOutcome;
+    } catch (thrown) {
+      throw wrapEngineError(thrown);
+    }
+    if (outcome.status === "member") return outcome.bytes;
+    if (request === MAX_EXTRACT_RANGE_REQUESTS) break;
+    const fetched = await read(outcome.offset, outcome.length);
+    // A short range means the object is not what its own header says it is, which is the same fact
+    // a bad checksum is — never something to work around by asking again.
+    if (fetched.byteLength < outcome.length) throw new SevenZipListingError("malformed");
+    offsets.push(outcome.offset);
+    bytes.push(fetched);
+  }
+  throw new SevenZipListingError("malformed");
 }

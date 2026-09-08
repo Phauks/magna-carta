@@ -7074,6 +7074,7 @@
             "enum": [
               "archive-missing",
               "directory",
+              "not-a-file",
               "encrypted",
               "unsupported-compression",
               "malformed",
