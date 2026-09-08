@@ -143,6 +143,23 @@ export function civilDateOf(instant: Date | number | CanonicalInstant): CivilDat
 }
 
 /**
+ * The day of a value that is EITHER a stored instant or a civil date already.
+ *
+ * For the federated timeline, whose sources declare their time column as one or the other
+ * (`TimeColumnShape` in @magna-carta/calendar) and whose sort key is therefore genuinely
+ * dual-shaped. A caller that knows which it holds should say so with `civilDateOf`; this is for the
+ * one that legitimately does not.
+ *
+ * Named rather than left as `value.slice(0, 10)` — which is what it replaced, and which is
+ * indistinguishable at a glance from the bug that takes the UTC day of an instant and shows it to a
+ * reader. Being unable to tell those apart is the whole reason this function has a name.
+ */
+export function civilDayOf(instantOrDay: CanonicalInstant | CivilDate): CivilDate {
+  if (CIVIL_DATE_PATTERN.test(instantOrDay)) return instantOrDay;
+  return civilDateOf(instantOrDay);
+}
+
+/**
  * Today in UTC. `now` is injectable so a test states the day it means rather than depending on when
  * the suite runs.
  */
