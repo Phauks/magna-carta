@@ -35,7 +35,23 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { displayNameFromRow } from "./entity-display.ts";
 import type { EntityKind } from "./types.ts";
 
-/** One row of the index: who the record is, and nothing about what it holds. */
+/**
+ * One row of the index: who the record is, and the few facts a reader sorts and narrows a book of
+ * names by.
+ *
+ * WHAT A ROW CARRIES IS DECIDED BY WHAT A COLUMN CAN BE. A listing row used to carry the name, the
+ * kind and the date, because those were the three columns; a reader who wanted to find everyone in
+ * one city, or to sort by family name, or to see whether the firm holds an address for somebody,
+ * had to open records one at a time. So the row carries the parts of the name it was assembled
+ * from, and the record's DEFAULT way to reach them — the primary email, the primary number, and the
+ * locality of the primary address. None of it is a contact register: it is one value per channel,
+ * the one a message goes to when nobody named an address, and the record's own Contact section is
+ * still where the rest lives.
+ *
+ * A sealed identifier is deliberately not here and never will be: reading one is a decrypt, it is
+ * permission-gated, and it writes an audit row before any plaintext exists. A column cannot ask
+ * that of a page of fifty records.
+ */
 export interface DirectoryEntityListingRow {
   readonly entityId: string;
   readonly entityKind: EntityKind;
@@ -49,8 +65,29 @@ export interface DirectoryEntityListingRow {
    * organization. Null for a person, and null where the two are the same.
    */
   readonly legalName: string | null;
+  /** A person's first name, as the record holds it. Null for an organization. */
+  readonly givenName: string | null;
+  /** A person's middle name. Null for an organization, and null where none was recorded. */
+  readonly middleName: string | null;
+  /**
+   * A person's last name. Null for an organization, and null for a person who has one name — a
+   * record with no family name is a record the firm keeps, not one it refuses.
+   */
+  readonly familyName: string | null;
+  /** The default email address for the record, or null where the firm holds none. */
+  readonly emailAddress: string | null;
+  /** The default number for the record, as it was entered, or null where the firm holds none. */
+  readonly phoneNumber: string | null;
+  /** The locality of the default address — the city, town or village. */
+  readonly city: string | null;
+  /** The administrative area of the default address, where the country has one. */
+  readonly region: string | null;
+  /** The default address's country, ISO 3166-1 alpha-2. */
+  readonly country: string | null;
   /** When the firm wrote the record down. */
   readonly recordedAt: string;
+  /** When the record itself last changed. Not a change to anything hanging off it. */
+  readonly changedAt: string;
 }
 
 /**
@@ -91,13 +128,13 @@ const LIVE_RECORD = "deleted_at IS NULL AND merged_into_id IS NULL";
 const PERSON_BRANCH =
   `SELECT id, 'person' AS entity_kind, ${PERSON_SORT_NAME} AS sort_name, ` +
   "display_name, NULL AS legal_name, name_prefix, name_given, name_middle, name_family, " +
-  "name_suffix, created_at " +
+  "name_suffix, created_at, updated_at " +
   `FROM directory_person WHERE ${LIVE_RECORD}`;
 
 const ORGANIZATION_BRANCH =
   `SELECT id, 'organization' AS entity_kind, ${ORGANIZATION_SORT_NAME} AS sort_name, ` +
   "display_name, legal_name, NULL AS name_prefix, NULL AS name_given, NULL AS name_middle, " +
-  "NULL AS name_family, NULL AS name_suffix, created_at " +
+  "NULL AS name_family, NULL AS name_suffix, created_at, updated_at " +
   `FROM directory_organization WHERE ${LIVE_RECORD}`;
 
 /** The union the page and the count both read, narrowed to one side of the directory or neither. */
@@ -119,6 +156,113 @@ interface ListingRow {
   name_family: string | null;
   name_suffix: string | null;
   created_at: string;
+  updated_at: string;
+}
+
+/**
+ * The default way to reach one record — one value per channel, and nothing about the rest.
+ *
+ * Read for the PAGE rather than joined into the listing query, and that is the shape to keep. The
+ * listing is a union of two node tables with a computed sort key over it, and hanging three
+ * correlated subqueries off that union makes the count query and the walk pay for contact rows on
+ * every record the firm holds, not on the fifty being shown. One extra round trip bounded by the
+ * page size is the cheaper half of that trade, and it stays cheap as the directory grows.
+ */
+interface ContactSummary {
+  readonly emailAddress: string | null;
+  readonly phoneNumber: string | null;
+  readonly city: string | null;
+  readonly region: string | null;
+  readonly country: string | null;
+}
+
+const NO_CONTACT: ContactSummary = {
+  emailAddress: null,
+  phoneNumber: null,
+  city: null,
+  region: null,
+  country: null,
+};
+
+// Which row of a channel is the record's default. `is_primary` names it outright; where nothing was
+// marked, the oldest row stands in, because the first one recorded is the one the firm has been
+// using. Ordering by id after created_at makes the choice deterministic where two landed together.
+const DEFAULT_ROW_ORDER = "ORDER BY is_primary DESC, created_at ASC, id ASC";
+
+interface ContactSummaryRow {
+  entity_id: string;
+  email_address: string | null;
+  phone_number: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+}
+
+/** The default email, number and address locality for each record on the page, in one query. */
+async function readContactSummaries(
+  database: SqlDatabase,
+  entityIds: readonly string[],
+): Promise<ReadonlyMap<string, ContactSummary>> {
+  const summaries = new Map<string, ContactSummary>();
+  if (entityIds.length === 0) return summaries;
+  const placeholders = entityIds.map(() => "?").join(", ");
+  // One statement per channel would be three round trips for one strip of columns. The channels
+  // are unioned into one shape instead, each contributing only its own columns, and folded together
+  // here — every row carries an entity and exactly one channel's worth of values.
+  const channel = (table: string, columns: string) =>
+    `SELECT entity_id, ${columns} FROM ${table} ` +
+    `WHERE entity_id IN (${placeholders}) AND deleted_at IS NULL ${DEFAULT_ROW_ORDER}`;
+  const [emails, phones, addresses] = await Promise.all([
+    database
+      .prepare(
+        channel(
+          "directory_email",
+          "address AS email_address, NULL AS phone_number, NULL AS city, NULL AS region, " +
+            "NULL AS country",
+        ),
+      )
+      .bind(...entityIds)
+      .all<ContactSummaryRow>(),
+    database
+      .prepare(
+        channel(
+          "directory_phone",
+          "NULL AS email_address, number AS phone_number, NULL AS city, NULL AS region, " +
+            "NULL AS country",
+        ),
+      )
+      .bind(...entityIds)
+      .all<ContactSummaryRow>(),
+    database
+      .prepare(
+        channel(
+          "directory_address",
+          "NULL AS email_address, NULL AS phone_number, city, region, country",
+        ),
+      )
+      .bind(...entityIds)
+      .all<ContactSummaryRow>(),
+  ]);
+
+  // First row per entity wins, which is the default row: the ordering above already put it first.
+  const fold = (
+    rows: readonly ContactSummaryRow[],
+    take: (row: ContactSummaryRow) => Partial<ContactSummary>,
+  ) => {
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (seen.has(row.entity_id)) continue;
+      seen.add(row.entity_id);
+      summaries.set(row.entity_id, {
+        ...(summaries.get(row.entity_id) ?? NO_CONTACT),
+        ...take(row),
+      });
+    }
+  };
+  fold(emails.results, (row) => ({ emailAddress: row.email_address }));
+  fold(phones.results, (row) => ({ phoneNumber: row.phone_number }));
+  fold(addresses.results, (row) => ({ city: row.city, region: row.region, country: row.country }));
+  return summaries;
 }
 
 /**
@@ -167,7 +311,7 @@ export async function readEntityListing(
     database
       .prepare(
         `SELECT id, entity_kind, sort_name, display_name, legal_name, name_prefix, name_given,
-                name_middle, name_family, name_suffix, created_at
+                name_middle, name_family, name_suffix, created_at, updated_at
            FROM (${records})
           ${where}ORDER BY sort_name ASC, id ASC
           LIMIT ?`,
@@ -182,17 +326,31 @@ export async function readEntityListing(
   const hasMore = page.results.length > pageSize;
   const rows = hasMore ? page.results.slice(0, pageSize) : page.results;
   const last = rows.at(-1);
+  const contact = await readContactSummaries(
+    database,
+    rows.map((row) => row.id),
+  );
 
   return {
     data: rows.map((row) => {
       const displayName = displayNameFromRow(row);
+      const reach = contact.get(row.id) ?? NO_CONTACT;
       return {
         entityId: row.id,
         // The literal each branch selects, narrowed back to the domain type it came from.
         entityKind: row.entity_kind === "organization" ? "organization" : "person",
         displayName,
         legalName: distinctLegalName(row, displayName),
+        givenName: row.name_given,
+        middleName: row.name_middle,
+        familyName: row.name_family,
+        emailAddress: reach.emailAddress,
+        phoneNumber: reach.phoneNumber,
+        city: reach.city,
+        region: reach.region,
+        country: reach.country,
         recordedAt: row.created_at,
+        changedAt: row.updated_at,
       };
     }),
     nextCursor: hasMore && last !== undefined ? encodeCursor(last.sort_name, last.id) : null,

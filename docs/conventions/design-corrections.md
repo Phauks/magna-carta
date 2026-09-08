@@ -105,6 +105,15 @@ is usually the fastest way to understand the rule.
 
 ### Lists and tables
 
+- **A list OFFERS more columns than it SHOWS, and the difference is where the design lives.** A
+  register is read for a different reason on a different day — sorted by surname to work down it,
+  narrowed to one place to see who is local, scanned for whether a fact was ever recorded — and a
+  table carrying every one of those at once is unreadable on the day somebody wanted only the names.
+  So the column model declares every column the rows can answer, the few a reader most often wants
+  start visible, and the rest start hidden and are turned on from the header menu's Columns
+  submenu. A reader asking for one more column is then a press, not a screen change, and the
+  question "why is this not a column" has one place to be answered. _(the directory index,
+  2026-09-08)_
 - **A list screen shows its whole record by default, and the table is the only thing that narrows
   it.** A second control offering the same slices the Status column already offers — a scope
   dropdown reading "the working docket / open / closed / consultations" — is removed, not moved.
@@ -183,6 +192,42 @@ is usually the fastest way to understand the rule.
   being created are not module navigation; the owner chose the side rail for New Person from a
   canvas of four directions on 2026-09-03, with a count on each section and the gate beside it.
   _(new person, 2026-09-03)_
+- **A record needs a name, not the parts of one somebody expects it to have.** Refusing to record a
+  person without a family name refuses a person who has one name, which is the ordinary form of a
+  name in much of the world; the record then gets filed under something they are not called, or in a
+  note where nothing can find it. Require the one thing the record cannot be without — something to
+  call it — and state the rest as a WARNING beside the commit, which records exactly what is on
+  screen. A warning is not a refusal and must never read as one. _(new person, 2026-09-08)_
+- **A vocabulary that is not closed but is not free either is the product's dropdown-with-add.** A
+  courtesy title, a post-nominal, a payee, a document type: the firm writes the same twenty and will
+  one day need a twenty-first. A free-text box gives one file "Mr", "Mr." and "mr." and makes the
+  firm's own spelling undiscoverable; a closed dropdown refuses the rank nobody put on the list. The
+  Combobox over the offered spellings with `AddOption` at the end of the list is the answer, and it
+  is the same control in every such field. _(new person, 2026-09-08)_
+- **A field holds as many values as the fact has.** A person is "Jr." and "Esq." at once; a field
+  that holds one of them loses the other, and the record then states something false about somebody
+  by omission. Where the fact is plural, the chosen values stand as their own removable rows above
+  the control that adds another. _(new person, 2026-09-08)_
+- **An entry row is the last row of its list, under the same rule as every other row.** A bordered,
+  raised box around the add row makes one section read as two things — a list, and a form beneath it
+  — when it is one list that ends in an empty line. The box also has to be styled, and every section
+  that draws one draws it slightly differently. _(the directory record, 2026-09-08)_
+- **A recorded value is CORRECTED, never deleted and retyped.** Delete-and-retype is not a
+  correction: the removal is its own fact on the record, and everything attached to the value — the
+  permission, the preference, the confirmation, the history — goes with it, to fix one mistyped
+  character. Every list of recorded values offers a pencil that loads the row back into the fields it
+  was entered in, and the row it left says it is being corrected so nobody thinks a second copy is
+  about to be added. _(the directory record, 2026-09-08)_
+- **An address is a form whose shape is the country's, and it gets its own section.** Which boxes an
+  address has, what each is called and what order they read in are properties of the COUNTRY:
+  Ireland has no state, Japan writes the code first, Germany puts the code before the town, Brazil
+  carries a neighbourhood line. One form asking every country for "State" and "ZIP Code" produces
+  addresses that do not deliver. So there is ONE address component
+  (`@magna-carta/design-system/address-fields`), the country is its first field because it decides
+  the rest, changing it re-labels and re-orders without ever moving a value between fields, and a
+  value the new country has no line for is STATED rather than silently dropped. It never stands as
+  one option in a dropdown beside one-line fields: it is six to nine boxes and they are one, and
+  putting them under one control makes them read as alike. _(the directory record, 2026-09-08)_
 - **A data-entry surface carries no helper prose.** Every visible line is a label, a value, or the
   one honest sentence a Soon capability owes about what it waits on. A block with nothing in it is
   not drawn at all rather than announcing its own emptiness. _(new matter, 2026-08-30)_
@@ -741,6 +786,20 @@ name, which is every screen outside a matter.
 
 ### Layout
 
+- **A panel with a side rail holds ONE size, whichever rail item is chosen.** A modal sized to its
+  content is right for a panel whose content is fixed and wrong for one whose content the reader
+  picks from a rail beside it: four fields, then a table, then a list whose length the firm's own
+  data decides, and the panel jumps taller and shorter under the pointer on every press — so the
+  rail item somebody was reaching for next has moved by the time they get there. The panel takes one
+  height for the SCREEN it opens on (a share of the viewport, capped at a comfortable measure, so it
+  neither overflows a laptop nor wastes a monitor) and the chosen section scrolls inside it. The
+  right-hand pane takes the same height, or a long list there decides the geometry instead.
+  _(the directory record and New Person, 2026-09-08)_
+- **A row of fields WRAPS; it never scrolls sideways inside a panel.** Five controls on one grid line
+  inside a modal pane put everything after the second past the right edge of a panel that does not
+  scroll sideways, so the fields were unreachable rather than merely cramped. Each control keeps a
+  width it can be typed into and the row grows downward, which a panel has room for.
+  _(the directory record, 2026-09-08)_
 - **The five money sections are one surface, and it wears the file manager's frame.** Time, Fees,
   Costs, Billing and Trust each render inside `MoneySurface` (`apps/web/src/lib/money/`), which is
   the file manager's arrangement applied to a ledger: the surface runs to the edges of the work
@@ -860,6 +919,60 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-08 — the Directory: the index's columns, and the record panel
+
+The owner, on the directory page and the panel a person is recorded and read in: "we need to
+increase the number of columns we can show. get rid of the out of table filters button, as that
+functionality is handled within the table. allow for saving an individual without a last name, some
+people don't have a last name, save with a warning though. prefix and suffix should use common
+component we already use for that elsewhere in the application. allow for multiple suffixes. rename
+given to First Name. Middle Name. Last Name. contact should not have contacts within a box, that is
+weird. we don't have any way to edit contact information once set besides deleting it. identifiers
+also have this box format which i don't like. these identifiers also are all in one line and scroll
+off the right side. address format should reflect the country identified, since they all can be
+different. look at making a common component. address should be in the left side of the modal,
+separate from contact. when changing left sidebar sections, don't change size of the modal. modal
+should always be the same size, which may depend on the size of the screen of course." What binds:
+
+- **A list offers more columns than it shows.** The directory carried three; it now declares twelve
+  and starts with six, the rest reachable from the header menu's Columns submenu. Generalizes, and
+  is promoted into _Lists and tables_.
+- **A screen adds no filter control of its own.** The filter popover above the table narrowed to
+  people or organizations, which the Kind column's own set filter already did. The standing rule
+  that filtering belongs to the columns was already recorded (_Data entry_, from the matter activity
+  round); what this round adds is that the rule also refuses a control that merely DUPLICATES a
+  column's filter, not only one that invents a narrowing the columns cannot express.
+- **A person needs a name, not two names.** Recording refused without a family name; a mononym is the
+  ordinary form of a name in much of the world. It records with the missing last name stated as a
+  warning above the commit. Generalizes, and is promoted into _Data entry_.
+- **A closed-but-growable vocabulary is the product's dropdown-with-add, never a text box.** The
+  prefix and the suffix were free-text, which is how one firm's file held "Mr", "Mr." and "mr.".
+  Generalizes, and is promoted into _Data entry_.
+- **A field holds as many values as the fact has.** A person is "Jr." and "Esq." at once, and a
+  suffix field that held one lost the other. Promoted into _Data entry_.
+- **A field's label is the word the reader uses.** Given and Family became First Name and Last Name.
+  The plain-word rule was already standing; this is it applied.
+- **An entry row is the last row of its list, not a panel beneath it.** Contact and Identifiers each
+  drew a bordered, raised box around their add row, so each section read as a list and a form.
+  Generalizes, and is promoted into _Data entry_.
+- **A recorded value is corrected, not deleted and retyped.** Promoted into _Data entry_.
+- **A row of fields wraps; it never scrolls sideways inside a panel.** The identifier entry row put
+  five controls on one grid line and ran off the right edge of a panel that does not scroll
+  sideways. Promoted into _Layout_.
+- **An address is a form whose shape is the country's, and it is its own section.** It was a fourth
+  choice in the Contact section's kind dropdown — one option that grew a whole form beneath it
+  beside three that did not. Promoted into _Data entry_.
+- **A panel with a side rail holds one size.** Promoted into _Layout_.
+
+Local to this surface, and not promoted:
+
+- The index's contact columns are the record's DEFAULT row per channel — one email, one number, one
+  place — and never a contact register. A sealed identifier is never a column: reading one is a
+  permission-gated, audited decrypt, and a page of fifty rows cannot ask that.
+- The name parts start hidden and the assembled name leads, because the assembled name is what a
+  book of names is read by; the parts exist so it can be SORTED by surname, which the assembled name
+  cannot do.
 
 ### 2026-09-08 — the Conflicts Check screen: the log is the screen, the check is a panel
 

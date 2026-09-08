@@ -21,6 +21,7 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import * as Alert from "@magna-carta/design-system/alert";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
@@ -43,6 +44,8 @@
     type DirectoryNameEntry,
     type DirectoryNameRole,
   } from "./directory-api.ts";
+  import { NAME_PREFIXES, NAME_SUFFIXES, storedSuffix, suffixesFrom } from "./name-affix.ts";
+  import NameAffixField from "./sections/name-affix-field.svelte";
   import { appendableNameRoles, nameRoleLabel } from "./directory-vocabulary.ts";
   import { directoryEntityName, entityDetailIdentifier } from "./entity-presentation.ts";
 
@@ -184,24 +187,34 @@
   let given = $state("");
   let middle = $state("");
   let family = $state("");
-  let suffix = $state("");
+  let suffixes = $state<string[]>([]);
   let legalName = $state("");
   let writeFailure = $state<StatedFailure | null>(null);
 
-  const ready = $derived(
-    kind === "person" ? given.trim() !== "" && family.trim() !== "" : legalName.trim() !== "",
-  );
+  // A NAME, NOT TWO NAMES. A person with one name is an ordinary person, and a record that refuses
+  // them files them under something they are not called. person-draft.ts holds the same rule for the
+  // New Person panel; the missing last name is stated as a warning below, never as a refusal.
+  const ready = $derived(kind === "person" ? given.trim() !== "" : legalName.trim() !== "");
 
   const refusal = $derived.by((): string | undefined => {
     if (ready) return undefined;
-    return kind === "person" ? "A given name and a family name are required." : "A name is required.";
+    return kind === "person" ? "A first name is required." : "A name is required.";
   });
+
+  const warning = $derived(
+    kind === "person" && given.trim() !== "" && family.trim() === ""
+      ? "This name has no last name. The first name is what the firm will file, search and check " +
+          "conflicts under."
+      : null,
+  );
 
   /*
    * What the fields hold, as one string, so the guard can ask only when something has changed: the
    * add dialog against empty fields, the change dialog against the name it was seeded with.
    */
-  const draft = $derived([prefix, given, middle, family, suffix, legalName].join("\u0000"));
+  const draft = $derived(
+    [prefix, given, middle, family, storedSuffix(suffixes) ?? "", legalName].join("\u0000"),
+  );
   const EMPTY_DRAFT = ["", "", "", "", "", ""].join("\u0000");
   let seededDraft = $state(EMPTY_DRAFT);
 
@@ -211,7 +224,7 @@
     given = "";
     middle = "";
     family = "";
-    suffix = "";
+    suffixes = [];
     legalName = "";
     writeFailure = null;
   }
@@ -225,21 +238,31 @@
       given = entity.person.given ?? "";
       middle = entity.person.middle ?? "";
       family = entity.person.family ?? "";
-      suffix = entity.person.suffix ?? "";
+      suffixes = suffixesFrom(entity.person.suffix);
     } else {
       legalName = entity.organization.legalName ?? "";
     }
-    seededDraft = [prefix, given, middle, family, suffix, legalName].join("\u0000");
+    seededDraft = [prefix, given, middle, family, storedSuffix(suffixes) ?? "", legalName].join(
+      "\u0000",
+    );
   }
 
-  function personFields() {
-    return {
+  function personFields(): {
+    given: string;
+    family?: string;
+    prefix: string | null;
+    middle: string | null;
+    suffix: string | null;
+  } {
+    const fields = {
       given: given.trim(),
-      family: family.trim(),
       prefix: prefix.trim() === "" ? null : prefix.trim(),
       middle: middle.trim() === "" ? null : middle.trim(),
-      suffix: suffix.trim() === "" ? null : suffix.trim(),
+      suffix: storedSuffix(suffixes),
     };
+    // Absent rather than empty: a person with one name has no family name, and the contract takes
+    // an omitted field as "there is none" and an empty string as a value that cannot be one.
+    return family.trim() === "" ? fields : { ...fields, family: family.trim() };
   }
 
   async function submitAdd(): Promise<ActionOutcome> {
@@ -293,45 +316,51 @@
 
 {#snippet nameFields(busy: boolean)}
   {#if kind === "person"}
+    <!-- The same fields, in the same words, as the New Person panel: a name entered one way and
+         corrected another is how a record ends up with two spellings of one convention. -->
     <FieldRow>
-      <LabelledField label="Prefix">
-        {#snippet children({ props })}
-          <Input {...props} disabled={busy} bind:value={prefix} placeholder={placeholderOf("Prefix")} />
-        {/snippet}
-      </LabelledField>
-      <LabelledField label="Suffix">
-        {#snippet children({ props })}
-          <Input {...props} disabled={busy} bind:value={suffix} placeholder={placeholderOf("Suffix")} />
-        {/snippet}
-      </LabelledField>
-    </FieldRow>
-    <FieldRow>
-      <LabelledField label="Given name">
+      <LabelledField label="First Name">
         {#snippet children({ props })}
           <Input
             {...props}
             disabled={busy}
             bind:value={given}
-            placeholder={placeholderOf("Given name")}
+            placeholder={placeholderOf("First Name")}
           />
         {/snippet}
       </LabelledField>
-      <LabelledField label="Middle name">
+      <LabelledField label="Middle Name">
         {#snippet children({ props })}
           <Input
             {...props}
             disabled={busy}
             bind:value={middle}
-            placeholder={placeholderOf("Middle name")}
+            placeholder={placeholderOf("Middle Name")}
           />
         {/snippet}
       </LabelledField>
     </FieldRow>
-    <LabelledField label="Family name">
+    <LabelledField label="Last Name">
       {#snippet children({ props })}
-        <Input {...props} disabled={busy} bind:value={family} placeholder={placeholderOf("Family name")} />
+        <Input {...props} disabled={busy} bind:value={family} placeholder={placeholderOf("Last Name")} />
       {/snippet}
     </LabelledField>
+    <FieldRow>
+      <NameAffixField label="Prefix" offered={NAME_PREFIXES} bind:value={prefix} disabled={busy} />
+      <NameAffixField
+        label="Suffix"
+        offered={NAME_SUFFIXES}
+        bind:values={suffixes}
+        multiple
+        disabled={busy}
+      />
+    </FieldRow>
+    {#if warning !== null}
+      <Alert.Root variant="warning">
+        <Alert.Title>This Name Has No Last Name</Alert.Title>
+        <Alert.Description>{warning}</Alert.Description>
+      </Alert.Root>
+    {/if}
   {:else}
     <LabelledField label="Name">
       {#snippet children({ props })}
