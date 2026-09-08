@@ -356,8 +356,11 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   // Documents
   {
-    // The per-firm scan policy engine and its routes already exist server-side — this section
-    // is the first candidate for real wiring when the authenticated settings integration lands.
+    // The firm's scan policy: how much of the engine's rule set an upload is checked against, how
+    // confident a suspicious match must be to count, and what the firm may do with a file the scan
+    // flagged. Server-backed over GET/PATCH /api/v1/firm/scan-policy — the same policy the ingest
+    // consumer reads at queue-consume time and the download route reads at access time, so a save
+    // here reaches both without re-ingesting anything.
     id: "file-safety",
     label: "File Safety & Scanning",
     href: "/settings/file-safety",

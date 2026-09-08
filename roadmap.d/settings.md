@@ -28,6 +28,14 @@
   status: partial
   surface: screen
   evidence: apps/web/src/lib/settings/ — settings-sections.ts as the page registry, settings-definitions.ts as the per-setting frontend definitions, and components/settings-page.svelte composing a page out of plates and rows. Bespoke seam pages remain outside the renderer (settings/beta-access).
+  notes: A server-backed page composes the same rows and footer through apps/web/src/lib/settings/server-backed-draft.svelte.ts rather than settings-page.svelte, because settings-definitions.ts's committed values are local storage and firm policy may not keep a per-browser copy. Calendar and File Safety both go through it; a third such page declares a field list and writes no machinery.
+
+- id: settings.registry.server-backed-draft
+  name: Server-backed settings drafts
+  scope: One draft implementation for every settings page whose committed values live on the server — staging, the pending count, the confirmation recap, the save refusal, and the audited write.
+  status: shipped
+  surface: internal
+  evidence: apps/web/src/lib/settings/server-backed-draft.svelte.ts over a declared field list, with apps/web/test/scan-policy-draft.test.ts and calendar-settings-draft.test.ts as its two callers' tests. Fields FOLD into the patch rather than merging, so settings sharing one nested object on the wire (the scan tier and its score floor) arrive as one object carrying both.
 
 - id: settings.scope-resolution
   name: Scope chain resolution
@@ -94,7 +102,15 @@
   scope: Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety & Scanning as pages whose posture follows the signed-in member's real capability.
   status: partial
   surface: screen
-  evidence: Pages exist with draft-ledger staging; Firm Profile and Billing values are still Preview posture (local storage, governing nothing). Users and Roles and Permissions are real end to end — see settings.area-ui.member-administration.
+  evidence: Pages exist with draft-ledger staging; Firm Profile and Billing values are still Preview posture (local storage, governing nothing). Users and Roles and Permissions are real end to end (settings.area-ui.member-administration), and so is File Safety & Scanning (settings.area-ui.file-safety).
+
+- id: settings.area-ui.file-safety
+  name: File Safety & Scanning
+  scope: The firm's scan policy — scan depth, the suspicion threshold, what a flagged file may do, and whether opening one asks the member to confirm who they are.
+  status: shipped
+  surface: screen
+  evidence: apps/web/src/routes/(app)/settings/file-safety/ over GET/PATCH /api/v1/firm/scan-policy through apps/web/src/lib/file-manager/scan-policy-draft.svelte.ts, gated on firm:manageScanPolicy from the session. The same policy the ingest consumer and the download route already read, so a save reaches both without re-ingest.
+  notes: The suspicion threshold is a typed number. The engine publishes the score distribution of its own rule corpus (/api/v1/firm/scan-policy/score-histogram), which is what would make the threshold answerable rather than a number in a vacuum; that plotted control is its own piece of work and the plain field stands until it lands.
 
 - id: settings.area-ui.member-administration
   name: Users and Roles and Permissions
