@@ -62,6 +62,7 @@ describe("problem-type URI registry", () => {
         "malware-flagged",
         "unsupported-conversion",
         "not-an-archive",
+        "archive-unreadable",
         "storage-unavailable",
         "wrong-password",
         "internal",

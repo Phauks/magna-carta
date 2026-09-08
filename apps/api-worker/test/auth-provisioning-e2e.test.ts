@@ -225,6 +225,9 @@ describe("end-to-end", () => {
       // safe default with no flag provider bound in the test pool.
       channel: "stable",
       flags: { "release-channels.smoke": false },
+      // The owner's member record has reached the firm's own database — which is a separate fact
+      // from belonging to the firm, and the one the app's guards wait on before letting anybody in.
+      membership: { state: "active" },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
       // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
       // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /

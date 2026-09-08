@@ -1,9 +1,9 @@
 # The load manifest and the exception report
 
-_Both documents are produced automatically when a load finishes, and both are kept for good. There is
-no screen yet: the manifest and the report are files the platform writes into your firm's own
-storage, and until the review screens ship you get them by asking for the load, which gives you the
-location of each. This guide is about what they say and how to read them._
+_Both documents are produced automatically when a load finishes, and both are kept for good. You
+download them from the review set's Loads screen, where each load offers its manifest and its report
+in two forms: printable, which is the one to attach to a letter, and machine-readable. This guide is
+about what they say and how to read them._
 
 ## What they do
 
@@ -33,6 +33,19 @@ the load stays open and nothing is written. A report that does not add up is not
 Once written, neither document is ever rewritten. If you re-process the set later — a new engine, a
 better reader — that produces a new record of the re-processing. The manifest describes what the
 other side handed you, and that does not change.
+
+## Where to find them
+
+Open the matter, go to **Discovery**, and open the review set. On **Loads** each delivery has its own
+panel with four buttons: the manifest and the exception report, each in a printable form and a
+machine-readable one. The printable form is the one you would attach to a letter — it opens for
+anybody, with no account and no software.
+
+The buttons stay unavailable until the load has finished, and that is deliberate rather than a delay:
+the platform will not produce a report about a load whose documents are still being read.
+
+Taking a copy is recorded in your firm's audit log — which load, which document, which form. The
+contents are not.
 
 ## Reading the exception report
 

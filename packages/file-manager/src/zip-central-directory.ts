@@ -103,8 +103,10 @@ async function readRange(
 }
 
 // DOS date/time (two 16-bit words) to an ISO instant, read as UTC because the format records no
-// zone. A zero date names "day 0 of month 0", which is no date — the caller renders null.
-function dosDateTimeToIso(dosTime: number, dosDate: number): string | null {
+// zone. A zero date names "day 0 of month 0", which is no date — the caller renders null. Exported
+// because a RAR4 file header carries the same two words in one 32-bit field (rar-listing.ts), and
+// two readings of one encoding would eventually disagree.
+export function dosDateTimeToIso(dosTime: number, dosDate: number): string | null {
   if (dosDate === 0) return null;
   const year = 1980 + ((dosDate >> 9) & 0x7f);
   const month = (dosDate >> 5) & 0x0f;

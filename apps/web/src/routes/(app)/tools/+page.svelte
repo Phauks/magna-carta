@@ -1,45 +1,28 @@
 <script lang="ts">
   /*
-   * Tools — the ethereal workbench's directory. Every tool the firm offers, grouped by subject,
-   * shown as a card grid or a dense list. It is the multi-view shell's proving second consumer
-   * (after the primitive extraction): it registers a tiles view and a list view and renders through
-   * the shell, with the view-switch in the masthead and the active view below. Runs outside any
-   * matter: the standing line states it. Every entry is `soon` until its own page is built.
+   * Tools — the ethereal workbench's directory, on the shared catalogue framework
+   * ($lib/catalogue): every tool the firm offers, grouped by subject, as a card grid or a dense
+   * list, searchable from the masthead's action row. Runs outside any matter.
+   *
+   * The screen decides nothing about how a catalogue looks or narrows — that is the framework's,
+   * shared with Reports — and nothing about what a tool is, which is the catalog's and its
+   * presentation layer's. What is left is which catalogue this is: its sections, its title, and
+   * where this browser's view choice is kept.
    */
-  import type { GroupedTools } from "@magna-carta/tools/select";
-  import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import LayoutGrid from "@lucide/svelte/icons/layout-grid";
-  import List from "@lucide/svelte/icons/list";
-  import { visibleToolGroups } from "$lib/tools/tool-presentation.ts";
-  import { toolsViewPreference } from "$lib/tools/tools-view-preference.svelte.ts";
-  import type { ToolsView } from "$lib/tools/tools-view-preference.ts";
-  import ToolsTilesView from "$lib/tools/tools-tiles-view.svelte";
-  import ToolsListView from "$lib/tools/tools-list-view.svelte";
-  import { createViewShell } from "$lib/view-shell/view-shell.svelte.ts";
-  import type { ViewDefinition } from "$lib/view-shell/view-shell-types.ts";
-  import ViewSwitch from "$lib/view-shell/view-switch.svelte";
-  import ViewShellBody from "$lib/view-shell/view-shell-body.svelte";
+  import CatalogueScreen from "$lib/catalogue/catalogue-screen.svelte";
+  import { createCatalogueViewPreference } from "$lib/catalogue/catalogue-view-preference.svelte.ts";
+  import { toolCatalogueSections, TOOLS_VIEW_STORAGE_KEY } from "$lib/tools/tool-catalogue.ts";
 
-  const groups = visibleToolGroups();
-
-  const views: ViewDefinition<GroupedTools, ToolsView>[] = [
-    { id: "tiles", label: "Tile view", icon: LayoutGrid, view: ToolsTilesView },
-    { id: "list", label: "List view", icon: List, view: ToolsListView },
-  ];
-
-  const shell = createViewShell({
-    views,
-    activeViewPreference: toolsViewPreference,
-    items: () => groups,
-  });
+  const sections = toolCatalogueSections();
+  const viewPreference = createCatalogueViewPreference(TOOLS_VIEW_STORAGE_KEY);
 </script>
 
 <svelte:head><title>Tools · Magna Carta</title></svelte:head>
 
-<ScreenHeader title="Tools" class="mb-24">
-  {#snippet actions()}
-    <ViewSwitch controller={shell} label="Choose a view" />
-  {/snippet}
-</ScreenHeader>
-
-<ViewShellBody controller={shell} />
+<CatalogueScreen
+  title="Tools"
+  {sections}
+  {viewPreference}
+  searchLabel="Search tools"
+  noun="tools"
+/>

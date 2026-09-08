@@ -221,7 +221,7 @@ export function registerOnboardingRoutes(
       // state is read from the control plane rather than from an idempotency key, because the
       // press that needs collapsing is usually a person reloading a waiting screen on another
       // device, which carries no key of ours.
-      if ((await readJoiningState(c.env.DB_CONTROL, account.email)) === "firmProvisioning") {
+      if ((await readJoiningState(c.env.DB_CONTROL, account.email)).state === "firmProvisioning") {
         return c.json({ status: "provisioning" as const }, 202);
       }
 

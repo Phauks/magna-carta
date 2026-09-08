@@ -7,7 +7,20 @@
    * the files rather than above the folder tree.
    *
    * The breadcrumb's root is the HOME ICON, the same Lucide house the rail's root row draws, so the
-   * two names for one place cannot drift into two glyphs.
+   * two names for one place cannot drift into two glyphs. It is PINNED beside back, forward and up
+   * rather than sitting at the head of the path, because the path scrolls and the root must not:
+   * the one crumb that is always worth reaching was the first to leave the screen under a deep
+   * path, and the way back to the top of the matter is not something a reader should have to
+   * scroll for.
+   *
+   * A PATH DEEPER THAN THE ROOM IT HAS FOLDS ITS MIDDLE behind an ellipsis, rather than running on
+   * sideways: the fold is `collapseBreadcrumb`, the design system's one collapse rule, and pressing
+   * it opens the folders it stands for as a menu — one press to any of them, where revealing them
+   * in place would only make the strip longer again. What still does not fit scrolls, and the strip
+   * hides its scrollbar (`mc-scrollbar-hidden`) and draws the gilt edge rule instead: a scrollbar
+   * that arrives with a deep path and leaves with a shallow one takes its own height out of the
+   * toolbar every time, which moved every control on the row. The strip also holds itself at its
+   * far end, so the folder the reader is standing in is the one crumb never scrolled out of sight.
    *
    * THE TOOLBAR CARRIES NEITHER THE CREATE CONTROL NOR THE SEARCH NOR THE PANE TOGGLES. The New menu
    * that anchored its far end — the three ways something new lands here — moved up to the matter
@@ -31,10 +44,13 @@
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import List from "@lucide/svelte/icons/list";
   import Settings2 from "@lucide/svelte/icons/settings-2";
+  import { collapseBreadcrumb } from "@magna-carta/design-system/breadcrumb";
   import { FOLDER_TREE_HOME_ICON } from "@magna-carta/design-system/folder-tree";
+  import ScrollEdgeHint from "@magna-carta/design-system/scroll-edge-hint";
   import type { FileManagerState } from "./file-manager-state.svelte.ts";
 
   let {
@@ -56,6 +72,29 @@
 
   /** The icon view is the one place with no table header to carry the display settings. */
   const iconView = $derived(manager.listMode === "icons" && manager.view === "browse");
+
+  /*
+   * Home is pinned outside the path, so the fold counts the FOLDERS only: past four of them the
+   * middle goes behind the ellipsis, keeping the first folder under Home (where the reader started
+   * down this branch) and the last two (the folder they are in and the one it sits in).
+   */
+  const segments = $derived(
+    collapseBreadcrumb(trail, { maxItems: 4, itemsBeforeCollapse: 1, itemsAfterCollapse: 2 }),
+  );
+
+  let pathStrip = $state<HTMLDivElement | null>(null);
+
+  /*
+   * Opening a folder scrolls the strip to its far end. A path that outruns the strip does so at the
+   * end a reader is reading towards, so the alternative is arriving somewhere and being shown the
+   * part of the path they already knew.
+   */
+  $effect(() => {
+    void segments;
+    const strip = pathStrip;
+    if (strip === null) return;
+    strip.scrollLeft = strip.scrollWidth;
+  });
 </script>
 
 <div class="flex items-center gap-4 border-b border-border-default px-8 py-4">
@@ -90,10 +129,11 @@
     <ArrowUp class="size-16" aria-hidden="true" />
   </Button>
 
-  <nav class="mc-scrollbar flex min-w-0 items-center gap-4 overflow-x-auto" aria-label="Folder path">
+  <nav class="flex min-w-0 items-center gap-4" aria-label="Folder path">
     <Button
       variant="ghost"
       size="icon"
+      class="shrink-0"
       title="Home"
       aria-label="Home"
       aria-current={viewTitle === null && trail.length === 0 ? "page" : undefined}
@@ -109,18 +149,46 @@
         {viewTitle}
       </span>
     {:else}
-      {#each trail as crumb, index (crumb.id)}
-        <ChevronRight class="size-12 shrink-0 text-text-subtle" aria-hidden="true" />
-        <Button
-          variant="ghost"
-          size="sm"
-          class="whitespace-nowrap"
-          aria-current={index === trail.length - 1 ? "page" : undefined}
-          onclick={() => manager.openFolder(crumb.id)}
+      <!-- The hint is absolutely positioned against this shell, which is the strip's own box. -->
+      <div class="relative flex min-w-0 items-center">
+        <div
+          bind:this={pathStrip}
+          class="mc-scrollbar-hidden flex min-w-0 grow items-center gap-4 overflow-x-auto"
         >
-          {crumb.label}
-        </Button>
-      {/each}
+          {#each segments as segment (segment.kind === "ellipsis" ? "ellipsis" : segment.entry.id)}
+            <ChevronRight class="size-12 shrink-0 text-text-subtle" aria-hidden="true" />
+            {#if segment.kind === "ellipsis"}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger
+                  class={buttonClasses({ variant: "ghost", size: "icon" })}
+                  title="Show the folders in between"
+                  aria-label="Show the folders in between"
+                >
+                  <Ellipsis class="size-16" aria-hidden="true" />
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content align="start">
+                  {#each segment.hidden as folded (folded.entry.id)}
+                    <DropdownMenu.Item onSelect={() => manager.openFolder(folded.entry.id)}>
+                      {folded.entry.label}
+                    </DropdownMenu.Item>
+                  {/each}
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            {:else}
+              <Button
+                variant="ghost"
+                size="sm"
+                class="whitespace-nowrap"
+                aria-current={segment.index === trail.length - 1 ? "page" : undefined}
+                onclick={() => manager.openFolder(segment.entry.id)}
+              >
+                {segment.entry.label}
+              </Button>
+            {/if}
+          {/each}
+        </div>
+        <ScrollEdgeHint element={pathStrip} axis="inline" />
+      </div>
     {/if}
   </nav>
 

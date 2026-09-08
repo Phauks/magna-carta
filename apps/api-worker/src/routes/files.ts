@@ -37,9 +37,21 @@ import {
 import {
   readZipCentralDirectory,
   ZipCentralDirectoryError,
+  type ArchiveSourceBucket,
 } from "@magna-carta/file-manager/zip-central-directory";
 import { extractZipMember } from "@magna-carta/file-manager/zip-member-extract";
 import { readArchiveCaps } from "@magna-carta/file-manager/upload-policy";
+import {
+  archiveFormatName,
+  archiveFormatOf,
+  ARCHIVE_SNIFF_BYTES,
+  supportsExtraction,
+  type ArchiveFormat,
+} from "@magna-carta/file-manager/archive-format";
+import { readTarListing } from "@magna-carta/file-manager/tar-listing";
+import { readRarListing } from "@magna-carta/file-manager/rar-listing";
+import { SevenZipListingError } from "@magna-carta/seven-zip-listing";
+import { readSevenZipArchiveListing } from "../files/seven-zip-archive-listing.ts";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
 import {
   readFlaggedTreatment,
@@ -72,6 +84,7 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
 import { cursorQuery, paginated } from "../contracts/pagination.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
+import type { ProblemTypeKey } from "../contracts/problem-types.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { maybeEnqueueRescanOnAccess } from "../files/access-rescan.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
@@ -509,6 +522,91 @@ const archiveEntriesMeta: RouteMeta = {
 // of an archive becomes an ordinary matter file by the ordinary gate — and it is audited, because
 // each filed member is a new document whose only provenance is the row this route writes.
 // rateLimit "expensive": every member is inflated and stored in this isolate.
+/**
+ * One archive listing, whatever the archive is.
+ *
+ * Every reader answers the same shape, so the route, the response contract and the screen do not
+ * know which format they are looking at — which is the point: a person browsing a production wants
+ * to see what is in it, not to learn which packer produced it. All four formats this platform
+ * recognises are listed here, and every one of them is listed from header bytes alone: no archive is
+ * fetched, inflated or unpacked to answer what is inside it.
+ */
+async function readArchiveListing(
+  format: ArchiveFormat,
+  bucket: ArchiveSourceBucket,
+  key: string,
+  limits: { maxEntries: number },
+): Promise<{
+  entries: readonly {
+    path: string;
+    isDirectory: boolean;
+    compressedSizeBytes: number;
+    uncompressedSizeBytes: number;
+    modifiedAt: string | null;
+  }[];
+  truncated: boolean;
+} | null> {
+  switch (format) {
+    case "tar":
+      return readTarListing(bucket, key, limits);
+    case "zip":
+      return readZipCentralDirectory(bucket, key, limits);
+    case "rar":
+      return readRarListing(bucket, key, limits);
+    case "sevenZip":
+      return readSevenZipArchiveListing(bucket, key, limits);
+  }
+}
+
+/**
+ * What to tell a person about a 7z the engine would not list.
+ *
+ * `notSevenZip` and `malformed` are the two that are statements about the bytes rather than about
+ * this application, so they answer as the zip reader's equivalent does — the content is not a
+ * readable archive. The rest are archives that are genuinely fine and that this application cannot
+ * show the inside of, which is a different thing to say and is said separately.
+ */
+function sevenZipRefusal(
+  error: SevenZipListingError,
+): { type: ProblemTypeKey; detail: string } | null {
+  switch (error.code) {
+    case "notSevenZip":
+    case "malformed":
+      return null;
+    case "headerEncrypted":
+      return {
+        type: "archive-unreadable",
+        detail:
+          "This 7z archive's own list of files is encrypted, so what is inside it cannot be shown " +
+          "without the password it was packed with. The archive can still be downloaded.",
+      };
+    case "unsupportedVersion":
+    case "unsupportedCoder":
+      return {
+        type: "archive-unreadable",
+        detail:
+          "This 7z archive stores its list of files in a form this application cannot read. The " +
+          "archive can still be downloaded.",
+      };
+    case "tooLarge":
+      return {
+        type: "archive-unreadable",
+        detail:
+          "This 7z archive's list of files is too large to read here. The archive can still be " +
+          "downloaded.",
+      };
+    // The engine asked for bytes it had not named, which is this application's fault rather than the
+    // archive's. It is still answered rather than raised as a fault, because whoever is looking at
+    // the file needs to know the listing did not happen, and the error log carries the rest.
+    case "rangeMismatch":
+      return {
+        type: "archive-unreadable",
+        detail:
+          "What is inside this 7z archive could not be read. The archive can still be downloaded.",
+      };
+  }
+}
+
 const extractArchiveMembersMeta: RouteMeta = {
   operationId: "files.extractArchiveMembers",
   surface: "app",
@@ -1613,25 +1711,35 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             "again once the upload finishes processing.",
         });
       }
-      // The sniffed type is what the bytes actually are; a file that was never sniffed falls back to
-      // its stored name's extension. Anything else is not an archive this endpoint can browse.
-      const sniffed = file.currentVersion.sniffedContentType;
-      const looksLikeZip =
-        sniffed === null
-          ? file.name.toLowerCase().endsWith(".zip")
-          : (sniffed.toLowerCase().split(";")[0]?.trim() ?? "") === "application/zip";
-      if (!looksLikeZip) {
+      const caps = await readArchiveCaps(firm.firmDatabase);
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      // WHICH ARCHIVE THIS IS, ASKED OF THE BYTES. The stored name and the type sniffed at ingest
+      // are both claims made about the object; the format's own signature is the object itself. One
+      // small ranged read settles it, and it is what lets a zip named `.dat` open and a text file
+      // named `.zip` be refused as what it is.
+      const headObject = await bucket.get(file.currentVersion.r2Key, {
+        range: { offset: 0, length: ARCHIVE_SNIFF_BYTES },
+      });
+      if (headObject === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "The file's stored bytes are no longer available.",
+        });
+      }
+      const format = archiveFormatOf(new Uint8Array(await headObject.arrayBuffer()));
+      if (format === null) {
         return problemJson(c, {
           type: "not-an-archive",
           title: "Not an archive",
           status: 422,
-          detail: "This file is not a zip archive, so it has no entries to browse.",
+          detail:
+            "This file is not an archive this application can read, so it has nothing to browse.",
         });
       }
-      const caps = await readArchiveCaps(firm.firmDatabase);
-      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
       try {
-        const listing = await readZipCentralDirectory(bucket, file.currentVersion.r2Key, {
+        const listing = await readArchiveListing(format, bucket, file.currentVersion.r2Key, {
           maxEntries: caps.maxEntries,
         });
         if (listing === null) {
@@ -1656,6 +1764,26 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           200,
         );
       } catch (caught) {
+        // A 7z the engine would not list. Some of those are statements about the archive and some
+        // are statements about this application, and they are not the same fact — see
+        // `sevenZipRefusal`, which is where the two are told apart.
+        if (caught instanceof SevenZipListingError) {
+          const refusal = sevenZipRefusal(caught);
+          if (refusal !== null) {
+            return problemJson(c, {
+              type: refusal.type,
+              title: "Archive contents not readable",
+              status: 422,
+              detail: refusal.detail,
+            });
+          }
+          return problemJson(c, {
+            type: "not-an-archive",
+            title: "Not an archive",
+            status: 422,
+            detail: "This file's content is not a readable 7z archive.",
+          });
+        }
         // Bytes that carry a zip name or declared type but no readable zip end structures: not an
         // archive as far as browsing is concerned, and the caller can act on that — never a 500.
         if (caught instanceof ZipCentralDirectoryError) {
@@ -1705,24 +1833,45 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             "try again once the upload finishes processing.",
         });
       }
-      // The sniffed type is what the bytes actually are; a file that was never sniffed falls back to
-      // its stored name's extension. Same decision the listing makes, for the same reason.
-      const sniffed = archiveVersion.sniffedContentType;
-      const looksLikeZip =
-        sniffed === null
-          ? file.name.toLowerCase().endsWith(".zip")
-          : (sniffed.toLowerCase().split(";")[0]?.trim() ?? "") === "application/zip";
-      if (!looksLikeZip) {
+      const caps = await readArchiveCaps(firm.firmDatabase);
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      // ASKED OF THE BYTES, exactly as the listing asks — the stored name and the type sniffed at
+      // ingest are both claims about the object, and a member is about to be taken out of it and
+      // filed on the matter on the strength of the answer.
+      const formatHead = await bucket.get(archiveVersion.r2Key, {
+        range: { offset: 0, length: ARCHIVE_SNIFF_BYTES },
+      });
+      if (formatHead === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "The file's stored bytes are no longer available.",
+        });
+      }
+      const archiveFormat = archiveFormatOf(new Uint8Array(await formatHead.arrayBuffer()));
+      if (archiveFormat === null) {
         return problemJson(c, {
           type: "not-an-archive",
           title: "Not an archive",
           status: 422,
-          detail: "This file is not a zip archive, so it has nothing to extract.",
+          detail: "This file is not an archive, so it has nothing to extract.",
         });
       }
-
-      const caps = await readArchiveCaps(firm.firmDatabase);
-      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      // A real archive whose members this platform can list and cannot take out. Two different
+      // facts, said differently: browsing one works, and the refusal names the format rather than
+      // claiming the file has nothing in it — which the person can see on screen is false.
+      if (!supportsExtraction(archiveFormat)) {
+        return problemJson(c, {
+          type: "archive-unreadable",
+          title: "Archive members cannot be taken out",
+          status: 422,
+          detail:
+            `This is a ${archiveFormatName(archiveFormat)} archive. What is inside it can be ` +
+            "browsed, but taking a member out of one is not built yet — download the archive to " +
+            "open it.",
+        });
+      }
       let listing;
       try {
         listing = await readZipCentralDirectory(bucket, archiveVersion.r2Key, {

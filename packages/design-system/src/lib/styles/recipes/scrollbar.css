@@ -65,4 +65,27 @@
       scrollbar-color: var(--mc-border-strong) transparent;
     }
   }
+
+  /*
+   * The hidden variant, for a scroll region whose scrollbar would cost more than it says. Two
+   * regions want it and want it for the same reason: a scrollbar that appears and disappears with
+   * the content REFLOWS the strip it sits in, and both of these are strips that must not move —
+   * the sidebar's nav list (the dark rail stays one clean plane, its header and footer pinned
+   * around it) and the file manager's folder path (a scrollbar arriving under a deep path pushed
+   * the whole toolbar down by its own height). What a hidden scrollbar can no longer say, the
+   * gilt scroll-edge rule says instead (ScrollEdgeHint), so a region that hides one draws that.
+   *
+   * The standard property is NOT quarantined to Firefox here, unlike the slim recipe above: the
+   * two engines' paths disagree about how to PAINT a scrollbar, not about how to remove one, and
+   * `scrollbar-width: none` sending Chromium down the standard path lands it on the same answer.
+   * Declared after both `.mc-scrollbar` blocks, the Firefox one included, so an element carrying
+   * both classes is hidden rather than slim in either engine — at equal specificity the last
+   * `scrollbar-width` in the file is the one that stands.
+   */
+  .mc-scrollbar-hidden {
+    scrollbar-width: none;
+  }
+  .mc-scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
 }

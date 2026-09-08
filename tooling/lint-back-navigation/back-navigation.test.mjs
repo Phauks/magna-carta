@@ -473,8 +473,19 @@ describe("declining", () => {
     expect(audit(repository).failures).toHaveLength(1);
   });
 
-  it("carries the record's former address as the one standing exemption", () => {
-    expect([...STANDING_EXEMPTIONS.keys()]).toEqual(["/directory/[id]"]);
+  /*
+   * The register itself, pinned. Declining is allowed; declining SILENTLY is what the gate refuses,
+   * so the value of this assertion is that a new exemption cannot be added without somebody writing
+   * it down here too — which is the moment its reason gets read by a second person.
+   */
+  it("carries every standing exemption, each with a reason", () => {
+    expect([...STANDING_EXEMPTIONS.keys()]).toEqual([
+      "/directory/[id]",
+      "/discovery/review-sets/[reviewSetId]/documents/[reviewDocumentId]",
+    ]);
+    for (const reason of STANDING_EXEMPTIONS.values()) {
+      expect(reason.trim()).not.toBe("");
+    }
   });
 });
 

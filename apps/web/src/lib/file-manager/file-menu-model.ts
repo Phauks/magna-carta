@@ -24,6 +24,7 @@ import { countPhrase, selectionPhrase } from "./file-manager-vocabulary.ts";
 import { waitingReason } from "./file-manager-availability.ts";
 import type { FileManagerRow } from "./file-rows.ts";
 import type { FileManagerView } from "./file-manager-state.svelte.ts";
+import { nameLooksLikeBrowsableArchive } from "./archive-names.ts";
 
 /** Every command a file menu can carry. The surface switches on this, never on a label. */
 export type FileMenuCommand =
@@ -130,7 +131,7 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
   const many = scope.rows.length > 1;
   const onlyRow = scope.rows.length === 1 ? scope.rows[0] : undefined;
   const singleFile = onlyRow?.kind === "file" ? onlyRow.file : undefined;
-  const isArchive = singleFile?.name.toLowerCase().endsWith(".zip") === true;
+  const isArchive = singleFile !== undefined && nameLooksLikeBrowsableArchive(singleFile.name);
   // A file with no committed clean version has no bytes to hand over. It is still listed, still
   // selectable, and everything else about it still works — nothing here is blocked, only honest.
   const undownloadable = files.filter(

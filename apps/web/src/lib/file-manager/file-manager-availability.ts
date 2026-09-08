@@ -111,7 +111,7 @@ const CAPABILITIES: readonly Capability[] = [
   },
   {
     id: "archive-browse",
-    label: "Browse inside a zip",
+    label: "Browse inside a zip, tar, 7z or rar",
     reach: "served",
   },
   {
