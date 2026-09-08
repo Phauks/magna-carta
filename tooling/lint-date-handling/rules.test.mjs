@@ -171,12 +171,27 @@ describe("the date field is one component, and the exceptions are closed", () =>
 });
 
 describe("the recorded allowances", () => {
-  it("drops exactly the finding each one names", () => {
-    const covered = { rule: ALLOWANCES[0].rule, file: ALLOWANCES[0].file, line: 4, detail: "x" };
-    const other = { rule: ALLOWANCES[1].rule, file: ALLOWANCES[1].file, line: 9, detail: "y" };
-    const real = { rule: ALLOWANCES[0].rule, file: APP, line: 1, detail: "z" };
-    const { problems } = applyAllowances([covered, other, real]);
+  it("drops exactly the finding each one names, and nothing else", () => {
+    // Every allowance is exercised, so none of them reports itself stale; the one finding that is
+    // NOT covered — same rule, different file — has to survive.
+    const covered = ALLOWANCES.map((allowance, index) => ({
+      rule: allowance.rule,
+      file: allowance.file,
+      line: index + 1,
+      detail: "covered",
+    }));
+    const real = { rule: ALLOWANCES[0].rule, file: APP, line: 1, detail: "not covered" };
+    const { problems } = applyAllowances([...covered, real]);
     expect(problems).toEqual([real]);
+  });
+
+  it("covers a rule for ONE file, never for the rule everywhere", () => {
+    // The allowance is a pair. A finding of the same rule in another file is untouched, which is
+    // what keeps a recorded exception from quietly becoming a switched-off rule.
+    const elsewhere = { rule: ALLOWANCES[0].rule, file: "apps/web/src/lib/other.ts", line: 3, detail: "e" };
+    const covered = ALLOWANCES.map((allowance) => ({ ...allowance, line: 1, detail: "c" }));
+    const { problems } = applyAllowances([...covered, elsewhere]);
+    expect(problems).toEqual([elsewhere]);
   });
 
   it("fails an allowance that covered nothing this run", () => {
