@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z } from "zod";
 
 export const SCHEMA_VERSION = 1 as const;
@@ -24,7 +25,7 @@ export const changelogCategorySchema = z.enum(CHANGELOG_CATEGORIES);
 // this shape reworked. It is present-and-null rather than absent because adding a field to a
 // published artifact schema is a change every reader has to tolerate, and this one is foreseeable.
 export const publicChangelogEntrySchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD"),
+  date: z.string().regex(CIVIL_DATE_PATTERN, "date must be YYYY-MM-DD"),
   version: z.string().nullable(),
   category: changelogCategorySchema,
   text: z.string().min(1),

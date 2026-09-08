@@ -15,7 +15,7 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
-  import { personName } from "@magna-carta/design-system/formatters";
+  import { formatInstantDate, personName } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import Printer from "@lucide/svelte/icons/printer";
@@ -93,7 +93,7 @@
       <DetailsPanel.Facts ruled>
         <DetailsPanel.Fact label="Work Date" value={formatDate(sole.workDate)} />
         {#if sole.createdAt !== undefined}
-          <DetailsPanel.Fact label="Date Entered" value={formatDate(sole.createdAt.slice(0, 10))} />
+          <DetailsPanel.Fact label="Date Entered" value={formatInstantDate(sole.createdAt)} />
         {/if}
         <DetailsPanel.Fact label="Timekeeper" value={timekeeperOf(sole)} />
         <!-- Both people, always: an entry a person recorded for themselves carries the same name

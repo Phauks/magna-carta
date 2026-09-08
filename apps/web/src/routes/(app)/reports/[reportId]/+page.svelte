@@ -78,12 +78,13 @@
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
   import { matterDisplay } from "$lib/time/time-sheet-model.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 
   let { data }: { data: { report: ReportDeclaration } } = $props();
   const report = $derived(data.report);
   const built = $derived(isBuiltReport(report) ? report : null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = civilDateOf(new Date());
 
   // ---- who is asking -----------------------------------------------------------------------------
 

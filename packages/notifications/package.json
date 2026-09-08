@@ -30,6 +30,7 @@
     "@magna-carta/access-control": "workspace:*",
     "@magna-carta/billing": "workspace:*",
     "@magna-carta/calendar": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/conflicts": "workspace:*",
     "@magna-carta/custodian": "workspace:*",
     "@magna-carta/data-access": "workspace:*",

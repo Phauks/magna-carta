@@ -46,6 +46,11 @@ const ALLOWED_EXTERNALS: ReadonlySet<string> = new Set([
   // export printer reads, so a report and a merge document print through the same printer. Restating
   // the model here would be a second document shape for the printer to learn.
   "@magna-carta/export-document/renderable",
+  // A document renders dates in the MATTER'S OFFICE'S zone, and which day an instant fell on in a
+  // place is one question with one answer — the same projection a deadline and an overdue comparison
+  // use. A second one here is how a merged filing date and a due date come to disagree about a day.
+  "@magna-carta/civil-time/civil-date",
+  "@magna-carta/civil-time/time-zone",
 ]);
 
 // Specifiers that would mean the package had stopped being pure, listed by the thing they drag in.

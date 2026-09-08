@@ -148,6 +148,7 @@ export default defineConfig({
       "tooling/lint-back-navigation/vitest.config.ts",
       "tooling/lint-cache-keys/vitest.config.ts",
       "tooling/lint-conflicts-vocabulary/vitest.config.ts",
+      "tooling/lint-date-handling/vitest.config.ts",
       "tooling/lint-ledger-staleness/vitest.config.ts",
       "tooling/lint-list-pagination/vitest.config.ts",
       "tooling/lint-one-ui/vitest.config.ts",

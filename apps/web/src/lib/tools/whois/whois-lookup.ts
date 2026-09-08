@@ -163,22 +163,12 @@ export function problemGuidance(problem: WhoisProblem): ProblemGuidance {
   }
 }
 
-/**
- * Format an ISO 8601 timestamp for display. An unparseable value is returned unchanged rather than
- * hidden — showing exactly what the registry sent is more honest than dropping a field we could not
- * parse.
+/*
+ * A registry timestamp for display. An unparseable value comes back unchanged — `formatInstant`'s
+ * own rule, and the right one here: showing exactly what the registry sent is more honest than
+ * dropping a field we could not parse.
  */
-export function formatTimestamp(iso: string): string {
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) return iso;
-  return parsed.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+export { formatInstant as formatTimestamp } from "@magna-carta/design-system/formatters";
 
 /** The attempt now running, reported to the page so the retrying is visible, never silent. */
 export interface AttemptProgress {

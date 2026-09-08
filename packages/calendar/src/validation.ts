@@ -1,10 +1,7 @@
-import {
-  CIVIL_DATE_PATTERN,
-  MAX_CALENDAR_WINDOW_DAYS,
-  MAX_DEADLINE_HORIZON_DAYS,
-  WALL_CLOCK_TIME_PATTERN,
-} from "./types.ts";
-import { isResolvableTimeZone } from "./time-zone.ts";
+import { CIVIL_DATE_PATTERN, isCivilDate } from "@magna-carta/civil-time/civil-date";
+import { isResolvableTimeZone } from "@magna-carta/civil-time/time-zone";
+import { isWallClockTime } from "@magna-carta/civil-time/wall-clock";
+import { MAX_CALENDAR_WINDOW_DAYS, MAX_DEADLINE_HORIZON_DAYS } from "./types.ts";
 
 // Every refusal this subsystem raises, as a code the route maps to a problem type. Codes — never
 // messages — drive the mapping, so a message can be reworded without changing the contract.
@@ -104,27 +101,21 @@ export function assertNonEmptyTitle(title: string): void {
   if (title.trim().length === 0) refuse("calendar-empty-title", "a title is required");
 }
 
+// The shape check is `isCivilDate`, which also rules out a day that does not exist — 2026-02-30
+// matches the pattern perfectly well, and a hearing recorded on it is one nobody will be at. The
+// refusal is split in two so each says which of the two things is wrong.
 export function assertCivilDate(value: string, field: string): void {
   if (!CIVIL_DATE_PATTERN.test(value)) {
     refuse("calendar-invalid-date", `${field} must be a civil date of the form YYYY-MM-DD`);
   }
-  // The pattern alone accepts 2026-02-30. A round trip through the calendar catches a rollover,
-  // which matters here more than anywhere: a hearing recorded on a date that does not exist is one
-  // nobody will be at.
-  const [year, month, day] = value.split("-").map(Number) as [number, number, number];
-  const roundTrip = new Date(Date.UTC(year, month - 1, day));
-  if (
-    roundTrip.getUTCFullYear() !== year ||
-    roundTrip.getUTCMonth() !== month - 1 ||
-    roundTrip.getUTCDate() !== day
-  ) {
+  if (!isCivilDate(value)) {
     refuse("calendar-invalid-date", `${field} is not a date on the calendar: ${value}`);
   }
 }
 
 export function assertWallClockTime(value: string | null | undefined, field: string): void {
   if (value === null || value === undefined) return;
-  if (!WALL_CLOCK_TIME_PATTERN.test(value)) {
+  if (!isWallClockTime(value)) {
     refuse("calendar-invalid-time", `${field} must be a wall-clock time of the form HH:MM`);
   }
 }

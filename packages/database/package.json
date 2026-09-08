@@ -15,7 +15,8 @@
     "./do-sqlite-migration-target": "./src/do-sqlite-migration-target.ts",
     "./do-sqlite-batch-database": "./src/do-sqlite-batch-database.ts",
     "./node-sqlite": "./src/node-sqlite.ts",
-    "./drizzle/*": "./drizzle/*"
+    "./drizzle/*": "./drizzle/*",
+    "./date-shape-checks": "./src/date-shape-checks.ts"
   },
   "scripts": {
     "test": "vp test run",
@@ -26,6 +27,7 @@
     "check-snapshots": "node scripts/refresh-snapshot.mjs control-plane --check && node scripts/refresh-snapshot.mjs per-firm --check"
   },
   "dependencies": {
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "drizzle-orm": "catalog:"
   },

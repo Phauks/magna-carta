@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
@@ -85,10 +86,7 @@ const PreviewRequest = z
     counterValue: z.number().int().positive().default(1),
     context: z
       .object({
-        openedDate: z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}$/)
-          .optional(),
+        openedDate: z.string().regex(CIVIL_DATE_PATTERN).optional(),
         locationCode: z.string().optional(),
         matterTypeCode: z.string().optional(),
         clientCode: z.string().optional(),

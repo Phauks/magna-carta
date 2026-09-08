@@ -1,12 +1,40 @@
-// Resolving a civil date plus an optional wall-clock time, in a named zone, to a UTC instant.
-//
-// This is the only arithmetic in the package that touches a calendar, and it is deliberately the
-// only kind there is: it answers "when, in absolute terms, is nine in the morning on this date in
-// this place". It NEVER derives a date from another date. There is no business-day arithmetic here,
-// no holiday calendar, no service-method offset, and no chained recalculation — those are what a
-// verified jurisdiction-keyed rule catalog would supply, and a wrong deadline computed from a rule
-// is worse than no computed deadline at all, because it will be trusted precisely because it was
-// computed.
+/*
+ * WHERE A CIVIL DATE AND A WALL CLOCK MEET AN INSTANT — resolving "nine in the morning on this date
+ * in this place" to a moment in absolute time, and reading a moment back as the day and the clock it
+ * had somewhere.
+ *
+ * This is the only arithmetic in the platform that touches a calendar in a zone, and it is
+ * deliberately the only kind there is. It NEVER derives a date from another date. There is no
+ * business-day arithmetic here, no holiday calendar, no service-method offset, and no chained
+ * recalculation — those are what a verified jurisdiction-keyed rule catalog would supply, and a wrong
+ * deadline computed from a rule is worse than no computed deadline at all, because it will be trusted
+ * precisely because it was computed.
+ *
+ * It lives in this leaf package rather than beside the calendar's data access because everything that
+ * stores a zone needs to validate one: notes, tasks, calendar entries, notification windows and the
+ * firm's own settings all did, and the three that could not reach the calendar package wrote their own
+ * weaker copy instead. Two of those copies accepted `+05:00`, which this one refuses for the reason
+ * stated below.
+ */
+import { civilDateFromParts, civilDateOf, civilDateParts, type CivilDate } from "./civil-date.ts";
+import type { WallClockTime } from "./wall-clock.ts";
+import { requireCivilDate, requireInstant, requireWallClockTime } from "./refuse.ts";
+
+// A bare UTC offset — "+05:00", "-0800". Named here rather than re-tested at each caller, because
+// the refusal below and any message that EXPLAINS the refusal have to agree about what one is.
+const FIXED_OFFSET = /^[+-]\d{2}:?\d{2}$/;
+
+/**
+ * Whether a value is a fixed offset rather than a zone.
+ *
+ * Offered separately because a surface that refuses one usefully says WHY — "a location's time zone
+ * is an IANA identifier such as America/Los_Angeles, never a fixed offset" reads better than "not a
+ * zone this platform can resolve" — and a caller that wants that wording should not have to write
+ * the shape out again to get it.
+ */
+export function isFixedOffset(timeZone: string): boolean {
+  return FIXED_OFFSET.test(timeZone);
+}
 
 // A zone the runtime can actually resolve. Checked by construction rather than against a shipped
 // list: the list of IANA zones changes under us (zones are added, renamed, and merged), and the only
@@ -16,7 +44,7 @@ export function isResolvableTimeZone(timeZone: string): boolean {
   // A fixed offset is rejected even where a runtime accepts it: an offset is wrong for half the year
   // in every zone that observes daylight saving, and storing one is how a hearing moves by an hour
   // when the clocks change.
-  if (/^[+-]\d{2}:?\d{2}$/.test(timeZone)) return false;
+  if (isFixedOffset(timeZone)) return false;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone });
     return true;
@@ -52,8 +80,8 @@ function formatterFor(timeZone: string): Intl.DateTimeFormat {
 // The wall-clock reading an instant has in a zone, as a civil date and a time. The one primitive
 // everything else here is built on.
 export interface ZonedReading {
-  readonly civilDate: string; // YYYY-MM-DD
-  readonly wallClockTime: string; // HH:MM
+  readonly civilDate: CivilDate;
+  readonly wallClockTime: WallClockTime;
 }
 
 function partsAt(
@@ -76,9 +104,12 @@ function partsAt(
 const pad = (value: number, width: number): string => String(value).padStart(width, "0");
 
 export function zonedReading(instantMilliseconds: number, timeZone: string): ZonedReading {
-  const parts = partsAt(instantMilliseconds, timeZone);
+  const parts = partsAt(
+    requireInstant(instantMilliseconds, "zonedReading", "the instant"),
+    timeZone,
+  );
   return {
-    civilDate: `${pad(parts.year, 4)}-${pad(parts.month, 2)}-${pad(parts.day, 2)}`,
+    civilDate: civilDateFromParts(parts),
     wallClockTime: `${pad(parts.hour, 2)}:${pad(parts.minute, 2)}`,
   };
 }
@@ -127,13 +158,19 @@ const MILLISECONDS_PER_DAY = 86_400_000;
 //     refuse a skipped time: a hearing typed into the gap is somebody's typo about a real hearing, and
 //     moving it forward keeps it on the right side of every deadline it is compared against.)
 export function instantForCivilDateTime(
-  civilDate: string,
-  wallClockTime: string | null,
+  civilDate: CivilDate,
+  wallClockTime: WallClockTime | null,
   timeZone: string,
 ): number {
-  const [year, month, day] = civilDate.split("-").map(Number) as [number, number, number];
+  const { year, month, day } = civilDateParts(
+    requireCivilDate(civilDate, "instantForCivilDateTime", "the civil date"),
+  );
   const [hour, minute] =
-    wallClockTime === null ? [0, 0] : (wallClockTime.split(":").map(Number) as [number, number]);
+    wallClockTime === null
+      ? [0, 0]
+      : (requireWallClockTime(wallClockTime, "instantForCivilDateTime", "the wall-clock time")
+          .split(":")
+          .map(Number) as [number, number]);
   const naive = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
   const requested = `${pad(hour, 2)}:${pad(minute, 2)}`;
 
@@ -161,9 +198,22 @@ export function instantForCivilDateTime(
 // it stays right in the zones whose daylight-saving transition happens AT midnight (America/Santiago
 // and America/Havana have both done it): there, the next day begins at 01:00 local and the end of
 // this one is 23:59:59.999 local, which is what the arithmetic above resolves the missing midnight to.
-export function endOfCivilDayInstant(civilDate: string, timeZone: string): number {
-  const [year, month, day] = civilDate.split("-").map(Number) as [number, number, number];
-  const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
-  const nextCivilDate = nextDay.toISOString().slice(0, 10);
+export function endOfCivilDayInstant(civilDate: CivilDate, timeZone: string): number {
+  const { year, month, day } = civilDateParts(
+    requireCivilDate(civilDate, "endOfCivilDayInstant", "the civil date"),
+  );
+  const nextCivilDate = civilDateOf(new Date(Date.UTC(year, month - 1, day + 1)));
   return instantForCivilDateTime(nextCivilDate, "00:00", timeZone) - 1;
+}
+
+// The zone the person reading this is in, as their own runtime reports it.
+//
+// The only honest default there is for a surface that must send a zone with a date: the browser knows
+// where its reader is and the server does not. Four screens resolved this inline before it was one
+// function, which is three more places for it to become something else.
+//
+// In a Workers isolate this answers "UTC", which is the correct answer there and not a fallback: a
+// server has no reader to be local to.
+export function viewerTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }

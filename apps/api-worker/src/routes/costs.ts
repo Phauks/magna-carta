@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -52,7 +53,7 @@ const CreateCostRequest = z
   .object({
     matterId: identifierField("matter"),
     vendorId: identifierField("directory").nullable().optional(),
-    incurredDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    incurredDate: z.string().regex(CIVIL_DATE_PATTERN),
     amountMinor: z.number().int().positive(),
     currency: z.literal("USD"),
     disbursementClass: z.enum(["hard", "soft"]),
@@ -66,10 +67,7 @@ const CreateCostRequest = z
 const PatchCostRequest = z
   .object({
     vendorId: identifierField("directory").nullable().optional(),
-    incurredDate: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional(),
+    incurredDate: z.string().regex(CIVIL_DATE_PATTERN).optional(),
     amountMinor: z.number().int().positive().optional(),
     currency: z.literal("USD").optional(),
     disbursementClass: z.enum(["hard", "soft"]).optional(),
@@ -146,7 +144,7 @@ const AttachReceiptRequest = z
 
 const costParam = z.object({ id: identifierPathParam("costEntry", "id") });
 
-const incurredDateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const incurredDateField = z.string().regex(CIVIL_DATE_PATTERN);
 
 const listQuery = z.object({
   ...cursorQuery.shape,

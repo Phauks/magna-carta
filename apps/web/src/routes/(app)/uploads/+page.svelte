@@ -24,6 +24,7 @@
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { intakeFolderPaths } from "$lib/file-manager/upload-intake.ts";
   import UploadSourceTable from "$lib/file-manager/upload-source-table.svelte";
+  import { formatTimeOfDay } from "@magna-carta/design-system/formatters";
   import {
     batchCountsText,
     batchPaceText,
@@ -54,9 +55,7 @@
       : `${base}?folder=${encodeURIComponent(batch.destinationFolderId)}`;
   }
 
-  function startedAt(batch: UploadBatch): string {
-    return new Date(batch.startedAt).toLocaleTimeString(undefined, { timeStyle: "short" });
-  }
+  const startedAt = (batch: UploadBatch): string => formatTimeOfDay(batch.startedAt);
 </script>
 
 <svelte:head>

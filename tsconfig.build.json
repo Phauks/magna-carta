@@ -62,6 +62,9 @@
       "path": "packages/calendar/tsconfig.build.json"
     },
     {
+      "path": "packages/civil-time/tsconfig.build.json"
+    },
+    {
       "path": "packages/communications/tsconfig.build.json"
     },
     {

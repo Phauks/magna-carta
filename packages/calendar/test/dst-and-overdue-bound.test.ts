@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { selectMatterDeadlinesStatement } from "../src/deadline-statements.ts";
 import { isOverdue, overdueCutoffFor } from "../src/overdue.ts";
-import { endOfCivilDayInstant, instantForCivilDateTime, zonedReading } from "../src/time-zone.ts";
+import {
+  endOfCivilDayInstant,
+  instantForCivilDateTime,
+  zonedReading,
+} from "@magna-carta/civil-time/time-zone";
 import { visibleMatterPredicate } from "../src/visibility.ts";
 import { migratedDatabase } from "./support.ts";
 

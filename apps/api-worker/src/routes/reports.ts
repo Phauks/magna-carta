@@ -1,3 +1,5 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
+import { CANONICAL_INSTANT_PATTERN } from "@magna-carta/civil-time/instant";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { isValidCalendarDate } from "@magna-carta/ledger/validate";
 import { ReportingValidationError } from "@magna-carta/reporting/reporting-validation";
@@ -32,13 +34,13 @@ const TRUST_COMPLIANCE = "reports:trustCompliance" as const;
 // refuses anyway but which a member should never have had to travel that far to hear about.
 const civilDate = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .regex(CIVIL_DATE_PATTERN)
   .refine(isValidCalendarDate, { message: "not a calendar date" });
 
 // The knowledge instant, in exactly the shape `recorded_at` is written in. Strict rather than
 // permissive: the value is compared lexicographically against stored instants, so a different shape
 // would filter wrong rather than fail — quietly dropping rows the caller meant to include.
-const knowledgeInstant = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+const knowledgeInstant = z.string().regex(CANONICAL_INSTANT_PATTERN);
 
 const trustCompliancePackQuery = z.object({
   periodStart: civilDate,

@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
@@ -32,7 +33,7 @@ import {
 
 const RECORDED_AT = "2026-07-15T10:00:00.000Z";
 const clockAt = (instant: string) => ({
-  clock: { now: () => instant, today: () => instant.slice(0, 10) },
+  clock: { now: () => instant, today: () => civilDateOf(instant) },
 });
 
 let poolFirmId: FirmId;

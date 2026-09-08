@@ -69,6 +69,7 @@
     type CostPeriodScope,
   } from "$lib/costs/cost-operations.ts";
   import { payeeText } from "$lib/costs/cost-vocabulary.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
   /*
    * The period arithmetic is the Time Sheet's, reused rather than written a second time: it is pure
    * calendar work — a named span, its label, and the refusal a backwards custom range earns — with
@@ -92,7 +93,7 @@
    */
   const FIRST_WEEKDAY_OF_THE_FIRMS_WEEK = 1;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = civilDateOf(new Date());
 
   const expenseCodes = new ExpenseCodeCatalogue();
   const firmMatters = new FirmMatters();

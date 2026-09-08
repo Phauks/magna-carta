@@ -1,9 +1,7 @@
-import {
-  CIVIL_DATE_PATTERN,
-  MAX_NOTE_BODY_LENGTH,
-  WALL_CLOCK_TIME_PATTERN,
-  type NoteOccurrence,
-} from "./types.ts";
+import { CIVIL_DATE_PATTERN, isCivilDate } from "@magna-carta/civil-time/civil-date";
+import { isResolvableTimeZone } from "@magna-carta/civil-time/time-zone";
+import { isWallClockTime } from "@magna-carta/civil-time/wall-clock";
+import { MAX_NOTE_BODY_LENGTH, type NoteOccurrence } from "./types.ts";
 
 // Every refusal this subsystem raises, as a code the route maps to a problem type. Codes — never
 // messages — drive the mapping, so a message can be reworded without changing the contract.
@@ -55,18 +53,6 @@ export function normalizeNoteBody(body: string): string {
   return normalized;
 }
 
-// Whether a runtime can resolve a zone. Validated at the WRITE and never at the read, for the reason
-// the calendar states: a row whose zone nothing can resolve is a record nobody can display and
-// nobody can correct without a migration.
-function isResolvableTimeZone(timeZone: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // The occurrence as it will be stored, with the three-way coherence checked once here rather than at
 // each call site. Nothing is inferred: a caller that supplies a date and no time gets a date and no
 // time, and this never invents a midnight, a zone, or today.
@@ -86,20 +72,14 @@ export function normalizeOccurrence(input: {
         "the date it happened must be a civil date of the form YYYY-MM-DD",
       );
     }
-    // The pattern alone accepts 2026-02-30. A round trip through the calendar catches a rollover.
-    const [year, month, day] = occurredOn.split("-").map(Number) as [number, number, number];
-    const roundTrip = new Date(Date.UTC(year, month - 1, day));
-    if (
-      roundTrip.getUTCFullYear() !== year ||
-      roundTrip.getUTCMonth() !== month - 1 ||
-      roundTrip.getUTCDate() !== day
-    ) {
+    // The pattern alone accepts 2026-02-30; isCivilDate also checks the day is on the calendar.
+    if (!isCivilDate(occurredOn)) {
       refuse("note-invalid-date", `${occurredOn} is not a date on the calendar`);
     }
   }
 
   if (occurredAtTime !== null) {
-    if (!WALL_CLOCK_TIME_PATTERN.test(occurredAtTime)) {
+    if (!isWallClockTime(occurredAtTime)) {
       refuse(
         "note-invalid-time",
         "the time it happened must be a wall-clock time of the form HH:MM",

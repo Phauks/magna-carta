@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
+import { civilDateShape } from "./date-shape-checks.ts";
 import type {
   AiDetectionUsageId,
   AuditLogId,
@@ -6317,14 +6318,8 @@ export const matterEvent = sqliteTable(
     check("matter_event_time_zone_check", sql`length(${table.timeZone}) > 0`),
     // A civil date is stored as a civil date. The shape check is what keeps an instant, a locale
     // rendering, or a naive local datetime out of a column the whole timeline sorts on as text.
-    check(
-      "matter_event_starts_on_shape_check",
-      sql`${table.startsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
-    check(
-      "matter_event_ends_on_shape_check",
-      sql`${table.endsOn} IS NULL OR ${table.endsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
+    check("matter_event_starts_on_shape_check", civilDateShape(table.startsOn)),
+    check("matter_event_ends_on_shape_check", civilDateShape(table.endsOn, true)),
     check(
       "matter_event_starts_at_time_shape_check",
       sql`${table.startsAtTime} IS NULL OR ${table.startsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
@@ -6478,10 +6473,7 @@ export const matterDeadline = sqliteTable(
     index("matter_deadline_trigger_event_index").on(table.triggerEventId),
     check("matter_deadline_title_check", sql`length(${table.title}) > 0`),
     check("matter_deadline_time_zone_check", sql`length(${table.timeZone}) > 0`),
-    check(
-      "matter_deadline_due_on_shape_check",
-      sql`${table.dueOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
+    check("matter_deadline_due_on_shape_check", civilDateShape(table.dueOn)),
     check(
       "matter_deadline_due_at_time_shape_check",
       sql`${table.dueAtTime} IS NULL OR ${table.dueAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
@@ -6579,10 +6571,7 @@ export const matterNote = sqliteTable(
     index("matter_note_created_at_id_index").on(table.createdAt, table.id),
     index("matter_note_author_index").on(table.authorUserId),
     check("matter_note_body_check", sql`length(${table.body}) > 0`),
-    check(
-      "matter_note_occurred_on_shape_check",
-      sql`${table.occurredOn} IS NULL OR ${table.occurredOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
+    check("matter_note_occurred_on_shape_check", civilDateShape(table.occurredOn, true)),
     check(
       "matter_note_occurred_at_time_shape_check",
       sql`${table.occurredAtTime} IS NULL OR ${table.occurredAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
@@ -6795,10 +6784,7 @@ export const matterTask = sqliteTable(
       sql`${table.priority} IN ('low', 'normal', 'high', 'urgent')`,
     ),
     check("matter_task_state_check", sql`${table.state} IN ('open', 'done', 'cancelled')`),
-    check(
-      "matter_task_due_on_shape_check",
-      sql`${table.dueOn} IS NULL OR ${table.dueOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
+    check("matter_task_due_on_shape_check", civilDateShape(table.dueOn, true)),
     check(
       "matter_task_due_at_time_shape_check",
       sql`${table.dueAtTime} IS NULL OR ${table.dueAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
@@ -7133,14 +7119,8 @@ export const firmEvent = sqliteTable(
     ),
     check("firm_event_audience_check", sql`${table.audience} IN ('all_members', 'participants')`),
     check("firm_event_time_zone_check", sql`length(${table.timeZone}) > 0`),
-    check(
-      "firm_event_starts_on_shape_check",
-      sql`${table.startsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
-    check(
-      "firm_event_ends_on_shape_check",
-      sql`${table.endsOn} IS NULL OR ${table.endsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
+    check("firm_event_starts_on_shape_check", civilDateShape(table.startsOn)),
+    check("firm_event_ends_on_shape_check", civilDateShape(table.endsOn, true)),
     check(
       "firm_event_starts_at_time_shape_check",
       sql`${table.startsAtTime} IS NULL OR ${table.startsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
@@ -7303,14 +7283,8 @@ export const firmResourceBooking = sqliteTable(
         OR (${table.matterEventId} IS NULL AND ${table.firmEventId} IS NOT NULL)`,
     ),
     check("firm_resource_booking_time_zone_check", sql`length(${table.timeZone}) > 0`),
-    check(
-      "firm_resource_booking_starts_on_shape_check",
-      sql`${table.startsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
-    check(
-      "firm_resource_booking_ends_on_shape_check",
-      sql`${table.endsOn} IS NULL OR ${table.endsOn} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
+    check("firm_resource_booking_starts_on_shape_check", civilDateShape(table.startsOn)),
+    check("firm_resource_booking_ends_on_shape_check", civilDateShape(table.endsOn, true)),
     check(
       "firm_resource_booking_starts_at_time_shape_check",
       sql`${table.startsAtTime} IS NULL OR ${table.startsAtTime} GLOB '[0-2][0-9]:[0-5][0-9]'`,
@@ -7960,10 +7934,7 @@ export const matterAssetValuation = sqliteTable(
       table.recordedAt,
     ),
     index("matter_asset_valuation_corrects_index").on(table.correctsValuationId),
-    check(
-      "matter_asset_valuation_as_of_shape_check",
-      sql`${table.asOfDate} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`,
-    ),
+    check("matter_asset_valuation_as_of_shape_check", civilDateShape(table.asOfDate)),
     // An amount with no currency cannot be interpreted, and a currency with no amount says nothing.
     // Money is minor units plus a currency, never a float, and no total is ever computed across two.
     check(

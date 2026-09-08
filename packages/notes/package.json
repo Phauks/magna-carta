@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@magna-carta/calendar": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*"
