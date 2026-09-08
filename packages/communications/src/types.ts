@@ -9,6 +9,14 @@
 export const COMMUNICATION_CHANNELS = Object.freeze(["voice", "sms", "mms"] as const);
 export type CommunicationChannel = (typeof COMMUNICATION_CHANNELS)[number];
 
+// The channels a PERSON may choose between when recording one by hand, which is a shorter list than
+// the one above and deliberately so (owner ruling, 2026-09-08): a firm records a call or a text, and
+// a picture is a text that happens to carry a picture rather than a third kind of thing to decide
+// between. `mms` stays in the vocabulary because a carrier will hand us one and the log has to hold
+// it; what it is not is a choice a form asks anybody to make.
+export const LOGGABLE_COMMUNICATION_CHANNELS = Object.freeze(["voice", "sms"] as const);
+export type LoggableCommunicationChannel = (typeof LOGGABLE_COMMUNICATION_CHANNELS)[number];
+
 export function isCommunicationChannel(value: string): value is CommunicationChannel {
   return (COMMUNICATION_CHANNELS as readonly string[]).includes(value);
 }
@@ -60,13 +68,47 @@ export const DEFAULT_COMMUNICATION_PAGE_SIZE = 50;
 export const MAX_COMMUNICATION_PAGE_SIZE = 200;
 
 // What a list read is asked to cover. `all` is every row the reader may see; `unrouted` is the
-// queue of rows with no matter at all, which is the firm-wide screen's real work and is gated by its
-// own permission; `routed` is everything already filed, which is what a member reviewing the week's
-// traffic wants. The matter's own section does not use this axis at all — it names a matter, and a
-// matter narrows harder than any scope here.
-export const COMMUNICATION_SCOPES = Object.freeze(["all", "routed", "unrouted"] as const);
+// queue of rows with no matter at all AND no disposition, which is the firm-wide screen's real work
+// and is gated by its own permission; `routed` is everything already filed, which is what a member
+// reviewing the week's traffic wants; `setAside` is what somebody decided belongs to no matter at
+// all. The matter's own section does not use this axis at all — it names a matter, and a matter
+// narrows harder than any scope here.
+//
+// WHY `unrouted` EXCLUDES THE SET-ASIDE ROWS. The queue is a list somebody is meant to empty. A
+// wrong number that will never belong to a matter would sit in it forever, and a queue that cannot
+// be emptied is a queue nobody works — which is the whole reason a disposition exists.
+export const COMMUNICATION_SCOPES = Object.freeze([
+  "all",
+  "routed",
+  "unrouted",
+  "setAside",
+] as const);
 export type CommunicationScope = (typeof COMMUNICATION_SCOPES)[number];
 
 export function isCommunicationScope(value: string): value is CommunicationScope {
   return (COMMUNICATION_SCOPES as readonly string[]).includes(value);
+}
+
+// ---------------------------------------------------------------------------------------------
+// What a call or a text was, when it was not a matter's business.
+// ---------------------------------------------------------------------------------------------
+
+// The alternative to a matter, and the reason it exists (owner ruling, 2026-09-08): not every call a
+// firm takes is about a case. Some are spam or a wrong number, some are the firm's own business —
+// the landlord, the bar association, a vendor — and some are a real prospect who never came back.
+// None of those can be filed onto a matter, because there is no matter; before this vocabulary
+// existed they had nowhere to go but the queue, where they stayed forever.
+//
+// SO A ROW HAS EXACTLY ONE ANCHOR: a matter, a disposition, or neither while nobody has decided.
+// Never both — "this is spam AND it is on the Whitfield matter" is not a fact anybody can act on,
+// and the pair would make every read ask which of the two to believe.
+export const COMMUNICATION_DISPOSITIONS = Object.freeze([
+  "spam",
+  "firmBusiness",
+  "noAction",
+] as const);
+export type CommunicationDisposition = (typeof COMMUNICATION_DISPOSITIONS)[number];
+
+export function isCommunicationDisposition(value: string): value is CommunicationDisposition {
+  return (COMMUNICATION_DISPOSITIONS as readonly string[]).includes(value);
 }

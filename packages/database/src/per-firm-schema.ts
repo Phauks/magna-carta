@@ -3219,6 +3219,19 @@ export const communication = sqliteTable(
     producer: text("producer", { enum: ["member", "carrier"] }).notNull(),
     // Who typed it in, on a member-produced row. Null on a carrier row, which nobody authored.
     loggedByUserId: text("logged_by_user_id").$type<UserId>(),
+    // THE OTHER ANCHOR, and the reason it exists (owner ruling, 2026-09-08): not every call a firm
+    // takes is about a case. Some are spam or a wrong number, some are the firm's own business —
+    // the landlord, the bar association, a vendor — and some are a real prospect who never came
+    // back. None of them can be filed onto a matter, because there is no matter, and before this
+    // column existed they had nowhere to go but the unrouted queue, where they stayed forever. A
+    // queue that cannot be emptied is a queue nobody works.
+    //
+    // So a row has EXACTLY ONE anchor: a matter, a disposition, or neither while nobody has decided.
+    // Never both. That pairing, and the vocabulary itself, are enforced in
+    // packages/communications/src/validation.ts rather than as CHECKs here: the column is added to a
+    // table that already holds rows, and SQLite cannot add a CHECK to one without the destructive
+    // table rebuild the expand-contract rule forbids (test/expand-contract.test.ts).
+    disposition: text("disposition"),
     // The adapter's own id for the message or call. The idempotency key for a redelivered webhook —
     // carriers retry, and a retried delivery must not become a second row. Null on every
     // member-produced row, which is why the unique index below is partial.
@@ -3239,6 +3252,11 @@ export const communication = sqliteTable(
     // "Everything we have ever said to this person", which is the Directory record's own read.
     index("communication_counterparty_entity_id_index").on(table.counterpartyEntityId),
     index("communication_counterparty_number_index").on(table.counterpartyNumber),
+    // The set-aside read. Partial, because the column is null on nearly every row and the only read
+    // that names it wants exactly the rows where it is not.
+    index("communication_disposition_index")
+      .on(table.disposition)
+      .where(sql`${table.disposition} IS NOT NULL`),
     // One row per carrier message. Partial, so the member-produced rows that carry no reference are
     // unconstrained — the same shape as matter.matter_number and for the same reason.
     uniqueIndex("communication_carrier_reference_unique_index")

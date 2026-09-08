@@ -27,8 +27,13 @@
   import type { MatterRecord } from "$lib/matters/matter-record.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import CommunicationLog from "$lib/communications/communication-log.svelte";
+  import CommunicationRecordWindow from "$lib/communications/communication-record-window.svelte";
   import LogCommunicationDialog from "$lib/communications/log-communication-dialog.svelte";
-  import { LOG_COMMUNICATIONS_PERMISSION } from "$lib/communications/communications-api.ts";
+  import {
+    LOG_COMMUNICATIONS_PERMISSION,
+    REVIEW_UNROUTED_PERMISSION,
+    type Communication,
+  } from "$lib/communications/communications-api.ts";
 
   let { data }: { data: { matter: MatterRecord } } = $props();
 
@@ -42,6 +47,16 @@
   let dialogOpen = $state(false);
   let rereadLog = $state<() => void>(() => {});
   let bootstrapped = false;
+
+  // A row opens into its own record here exactly as it does on the firm-wide screen: one listing,
+  // one way to open what is in it. Taking a row back off this matter is one of the acts inside it.
+  let recordOpen = $state(false);
+  let openedId = $state<string | null>(null);
+
+  function openRow(row: Communication): void {
+    openedId = row.id;
+    recordOpen = true;
+  }
 
   $effect(() => {
     if (bootstrapped || isSample) return;
@@ -95,7 +110,7 @@
       {query}
       showMatter={false}
       bind:reread={rereadLog}
-      onOpen={() => {}}
+      onOpen={openRow}
       caption="Calls and texts on this matter"
       emptyTitle="Nothing Recorded On This Matter"
     >
@@ -117,4 +132,13 @@
   matterFixed
   matterName={matter.title}
   onLogged={() => rereadLog()}
+/>
+
+<CommunicationRecordWindow
+  bind:open={recordOpen}
+  communicationId={openedId}
+  matters={[]}
+  canWrite={session?.permissions.includes(LOG_COMMUNICATIONS_PERMISSION) ?? false}
+  canReviewQueue={session?.permissions.includes(REVIEW_UNROUTED_PERMISSION) ?? false}
+  onChanged={() => rereadLog()}
 />

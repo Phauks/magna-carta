@@ -18,7 +18,8 @@ import {
   type ActivityContribution,
   type Fact,
 } from "$lib/activity/contribution.ts";
-import { durationText } from "./communication-vocabulary.ts";
+import { channelEntry, durationText } from "./communication-vocabulary.ts";
+import { isCommunicationChannel } from "./communications-api.ts";
 
 export const communicationActivityContribution: ActivityContribution = {
   sourceKey: "communication",
@@ -33,7 +34,7 @@ export const communicationActivityContribution: ActivityContribution = {
         return "A call was recorded";
       }
       case "mms": {
-        return "A picture message was recorded";
+        return "A text with a picture was recorded";
       }
       default: {
         return "A text was recorded";
@@ -42,7 +43,16 @@ export const communicationActivityContribution: ActivityContribution = {
   },
   icon: Phone,
   labelMeaning: "Call or text",
-  types: ["Call", "Text", "Picture"],
+  // Two words, not three. A picture message is a text that happens to carry a picture, not a third
+  // kind of thing to filter by (owner ruling, 2026-09-08) — communication-vocabulary.ts is where
+  // that mapping lives, and this reads it rather than restating it.
+  types: ["Call", "Text"],
+  // The source projects the raw channel as the row's own type word, which would put `voice` in the
+  // Type column. The word a reader sees is the vocabulary's.
+  typeOf: (row) =>
+    row.typeText !== null && isCommunicationChannel(row.typeText)
+      ? channelEntry(row.typeText).label
+      : (row.typeText ?? "Call"),
   factsOf: (row) => {
     const result: Fact[] = [];
     // Which way it went. A fact rather than part of the sentence, so the sentence stays one line and
