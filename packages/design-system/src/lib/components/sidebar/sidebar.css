@@ -78,14 +78,10 @@
     padding: var(--mc-space-8);
     overflow-x: hidden;
     overflow-y: auto;
-    /* The nav list scrolls its own area with the scrollbar HIDDEN — the dark rail stays one
-       clean plane while the header (brand) and footer (the utility tray + collapse) stay pinned
-       around it. Same Firefox/WebKit split the mc-scrollbar recipe documents; hidden rather than slim
-       because chrome is identity, not a work surface. */
-    scrollbar-width: none;
-  }
-  .mc-sidebar-content::-webkit-scrollbar {
-    display: none;
+    /* The nav list scrolls its own area with the scrollbar HIDDEN — the dark rail stays one clean
+       plane while the header (brand) and footer (the utility tray + collapse) stay pinned around
+       it; chrome is identity, not a work surface. The hiding itself is the shared
+       `mc-scrollbar-hidden` recipe (recipes/scrollbar.css), which Sidebar.Content carries. */
   }
   /*
    * The gilt scroll-edge rule this region depends on is the shared ScrollEdgeHint recipe

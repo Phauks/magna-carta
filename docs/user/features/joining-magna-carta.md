@@ -38,6 +38,12 @@ Your firm's name does not have to be unique. Plenty of firms share a name, and y
 
 You can close the page while it is building. It keeps going, and signing in again brings you back to wherever it got to.
 
+**What the building screen is showing you.** Making a firm is five pieces of work, and the screen lists them as it goes — the firm's record, its document storage, its encryption key, the workspace itself, and adding you to it as its owner. Each one is either finished, in progress, or still to come. Most firms are built in well under a minute; if it is taking longer, the screen says so rather than leaving you guessing.
+
+The last step is the one worth waiting for. Your firm exists before you have been added to it, and until you have been, the screens inside would tell you that you are not permitted to use them. So the screen holds until that step finishes and takes you in when it does — which is why signing in during that window brings you back here rather than into a workspace that would refuse you.
+
+Very rarely a step stops and will not restart itself. The screen says which one, and nothing you have done is lost: contact support and the step can be restarted from where it stopped.
+
 ### Redeem an invitation
 
 You will need three things: the **code** from your invitation, the **surname** the firm has on file for you, and your **date of birth**.

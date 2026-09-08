@@ -1,10 +1,11 @@
 <script lang="ts">
   /*
    * Breadcrumb — folder-path navigation (Tier 1: a native <nav>/<ol>, no Bits UI). Data-driven from an
-   * `items` array so the graceful-collapse logic lives in ONE place: when a path is deeper than
-   * `maxItems`, the MIDDLE collapses behind an ellipsis affordance (the root and the current folder are
-   * always kept — the current folder is the one the user needs to read, so it is never collapsed or
-   * truncated). Clicking the ellipsis reveals the full path in place (no floating layer, no z-index).
+   * `items` array, folded by the shared rule in `collapse.ts` so that every surface drawing a path
+   * collapses the same way: when a path is deeper than `maxItems`, the MIDDLE collapses behind an
+   * ellipsis affordance (the root and the current folder are always kept — the current folder is the
+   * one the user needs to read, so it is never collapsed or truncated). Clicking the ellipsis reveals
+   * the full path in place (no floating layer, no z-index).
    *
    * Accessibility: a <nav> landmark labelled "Breadcrumb", an ordered list, links for navigable
    * segments, and `aria-current="page"` on the leaf. Separators are decorative (aria-hidden). A single
@@ -16,6 +17,7 @@
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
+  import { collapseBreadcrumb } from "./collapse.ts";
   import type { BreadcrumbEntry } from "./types.ts";
 
   let {
@@ -45,29 +47,18 @@
 
   let expanded = $state(false);
 
-  const before = $derived(Math.max(0, itemsBeforeCollapse));
-  const after = $derived(Math.max(0, itemsAfterCollapse));
-
-  const collapsed = $derived(
-    !expanded && maxItems > 0 && items.length > maxItems && before + after < items.length,
+  /*
+   * The fold itself is `collapseBreadcrumb` — shared with the matter file manager's path, which
+   * draws the same fold as buttons and a menu. Expanding here reveals the path IN PLACE (no
+   * floating layer, no z-index), which is a `maxItems` of zero: the rule that never collapses.
+   */
+  const parts = $derived(
+    collapseBreadcrumb(items, {
+      maxItems: expanded ? 0 : maxItems,
+      itemsBeforeCollapse,
+      itemsAfterCollapse,
+    }),
   );
-
-  type Part =
-    | { kind: "item"; entry: BreadcrumbEntry; index: number }
-    | { kind: "ellipsis"; hiddenCount: number };
-
-  const parts = $derived.by<Part[]>(() => {
-    if (!collapsed) {
-      return items.map((entry, index) => ({ kind: "item", entry, index }));
-    }
-    const leading: Part[] = items
-      .slice(0, before)
-      .map((entry, index) => ({ kind: "item", entry, index }));
-    const trailing: Part[] = items
-      .slice(items.length - after)
-      .map((entry, offset) => ({ kind: "item", entry, index: items.length - after + offset }));
-    return [...leading, { kind: "ellipsis", hiddenCount: items.length - before - after }, ...trailing];
-  });
 
   const lastIndex = $derived(items.length - 1);
 </script>

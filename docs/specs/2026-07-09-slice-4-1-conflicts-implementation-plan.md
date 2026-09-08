@@ -164,7 +164,7 @@ EOF
 **Files:**
 
 - Modify: `packages/database/src/per-firm-schema.ts` (append at end of file)
-- Create: `packages/database/drizzle/per-firm/20260709T120000_conflicts.sql`
+- Create: `packages/database/drizzle/per-firm/20260908T000000_baseline.sql`
 - Modify: `apps/worker/src/per-firm-migrations.ts` (register the migration)
 - Test: `packages/database/test/conflicts-append-only.test.ts`
 
@@ -320,7 +320,7 @@ export const conflictsDisposition = sqliteTable(
 
 Import the three branded id types at the top of `per-firm-schema.ts` alongside the existing identifier imports.
 
-Create `packages/database/drizzle/per-firm/20260709T120000_conflicts.sql`:
+Create `packages/database/drizzle/per-firm/20260908T000000_baseline.sql`:
 
 ```sql
 CREATE TABLE `conflicts_check` (
@@ -404,7 +404,7 @@ Expected: PASS (4 tests)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/database/src/per-firm-schema.ts packages/database/drizzle/per-firm/20260709T120000_conflicts.sql apps/worker/src/per-firm-migrations.ts packages/database/test/conflicts-append-only.test.ts
+git add packages/database/src/per-firm-schema.ts packages/database/drizzle/per-firm/20260908T000000_baseline.sql apps/worker/src/per-firm-migrations.ts packages/database/test/conflicts-append-only.test.ts
 git commit -F- <<'EOF'
 feat(conflicts): add the three append-only log tables
 
@@ -2807,7 +2807,7 @@ EOF
 
 - Create: `apps/worker/src/routes/conflicts.ts`
 - Modify: `apps/worker/src/app.ts`, `packages/access-control/src/registry.ts`
-- Create: `packages/database/drizzle/per-firm/20260709T120001_seed-conflicts-permissions.sql`
+- Create: `packages/database/drizzle/per-firm/20260908T000000_baseline.sql`
 - Test: `apps/worker/test/conflicts-routes.test.ts`
 
 **Interfaces:**
@@ -2849,7 +2849,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/worker/src/routes/conflicts.ts apps/worker/src/app.ts packages/access-control/src/registry.ts packages/database/drizzle/per-firm/20260709T120001_seed-conflicts-permissions.sql apps/worker/test/conflicts-routes.test.ts apps/worker/openapi/openapi.json packages/api-client/src
+git add apps/worker/src/routes/conflicts.ts apps/worker/src/app.ts packages/access-control/src/registry.ts packages/database/drizzle/per-firm/20260908T000000_baseline.sql apps/worker/test/conflicts-routes.test.ts apps/worker/openapi/openapi.json packages/api-client/src
 git commit -F- <<'EOF'
 feat(conflicts): expose run, read, and disposition routes
 

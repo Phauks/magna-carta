@@ -1,15 +1,20 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/text-document-editor-support-arvpgv
-area: Documents — the PDF reader, drawn locally by the firm's own engine compiled to WebAssembly, and the guard that stops the text editor opening bytes it would corrupt on save
+area: Documents — archive browsing for every format the platform recognises (zip, tar, 7z, rar), listed from headers alone. Zip extraction, the PDF reader and the text editor's encoding guard from this stream have landed.
 status: building
-touches: apps/web/src/lib/documents/, apps/web/src/lib/file-manager/file-manager.svelte, apps/web/src/routes/(app)/documents/, apps/web/package.json, roadmap.d/documents.md, status.d/2-3-inline-preview-safe-delivery-sandbox.md, STATUS.md, ROADMAP.md, docs/user/features/matter-documents.md
+touches: packages/file-manager/src/{archive-format,zip-central-directory,zip-member-extract,tar-listing,rar-listing}.ts, packages/seven-zip-listing/, crates/seven-zip-listing-core/, apps/api-worker/src/routes/files.ts, apps/api-worker/src/files/seven-zip-archive-listing.ts, apps/api-worker/src/contracts/problem-types.ts, apps/web/src/lib/file-manager/, roadmap.d/documents.md, status.d/1-1-matters-locations-file-manager.md, STATUS.md, docs/user/features/matter-documents.md, tooling/bootstrap/index.mjs, vite.config.ts
 ---
 
-Opening a PDF from the file manager now draws it, in a new tab, from `crates/pdf-core` compiled to
-WebAssembly and run in a Web Worker: the bytes are rasterized locally by the firm's own memory-safe
-engine and only pixels reach the page, so no PDF ever meets a parser that could run what is inside
-it. The same round fixes a defect in the text editor, which decoded leniently and would have written
-a lossy re-encoding into the next version of any document not already UTF-8.
+An archive stops being opaque to a person, whatever packed it. Browsing one is decided from the
+object's own first bytes and dispatched to a reader per format: the zip central directory, a tar's
+512-byte header walk, both rar generations' block chains, and a 7z's end-of-file header through
+`@magna-carta/seven-zip-listing` (the new `seven-zip-listing-core` crate to WebAssembly, over the
+`sevenz-rust2` the repository already builds to WRITE bundles). Every one of them reads headers only
+— two or three small ranged reads — so a multi-gigabyte archive lists as cheaply as a small one, and
+nothing is ever inflated to answer what is inside.
 
-A concurrent stream touching `openDestinationOf`, the file manager's `activate()`, or anything under
-`apps/web/src/lib/documents/` should merge this first.
+Extraction stays zip-only and says so by name rather than claiming the other formats hold nothing.
+
+A concurrent stream touching `zip-central-directory.ts`, `apps/api-worker/src/routes/files.ts`, the
+file manager's archive bar or `matter-file-api.ts` should merge this first. `vite.config.ts`,
+`tooling/bootstrap/index.mjs` and the root `tsconfig.*.json` gain the fourth WebAssembly artefact.

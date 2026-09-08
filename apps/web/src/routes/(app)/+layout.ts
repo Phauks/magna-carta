@@ -14,6 +14,17 @@ import type { LayoutLoad } from "./$types";
 // which is the one signed-in surface that renders without a firm. The attempted path is NOT carried
 // — there is nothing to return to yet, and the screen they are being sent to is the thing standing
 // between them and every path in this group.
+//
+// NOR IS A FIRM THE SAME AS A WORKSPACE THAT WORKS. A firm is activated in the control plane — which
+// is what attaches the account to it — before the queued message mirroring that account into the
+// firm's OWN database as a member has landed. In between, the bootstrap answers a firm and no
+// permissions, and every screen in this group refuses for a reason that reads like an administrator
+// has to grant something. It is a wait, so it is waited out on the joining screen, which reports
+// that last step by name — and `stalled`, that same write having been given up on, goes to the same
+// place: a screen that says the step stopped is worth more than a workspace that refuses everything
+// without saying why. `unknown` is deliberately not counted, because a membership read that did not
+// answer is not a verdict, and bouncing a working member out of a working workspace on one would be
+// worse than the gap this closes.
 export const load: LayoutLoad = async ({ fetch, url }) => {
   let response: Response;
   try {
@@ -29,9 +40,14 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
     // shell renders — the same posture the transport failure above takes.
     const bootstrap = await response
       .json()
-      .then((body: unknown) => body as { firm?: unknown })
+      .then((body: unknown) => body as { firm?: unknown; membership?: { state?: unknown } })
       .catch(() => null);
-    if (bootstrap !== null && bootstrap.firm === null) redirect(307, "/welcome");
+    if (bootstrap !== null) {
+      const membership = bootstrap.membership?.state;
+      const stillJoining =
+        bootstrap.firm === null || membership === "provisioning" || membership === "stalled";
+      if (stillJoining) redirect(307, "/welcome");
+    }
   }
   return {};
 };

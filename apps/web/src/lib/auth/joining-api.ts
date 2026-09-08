@@ -15,6 +15,7 @@
  */
 
 import { requestJson, type ApiOutcome, type Problem } from "$lib/api/request.ts";
+import type { FirmBuildFacts } from "./firm-build-progress.ts";
 
 /**
  * A refusal the server described. The shared problem record — named here for the screens that read
@@ -129,6 +130,22 @@ export function redeemInvitation(
 export interface JoiningStatus {
   /** `chooseFirm` — nothing is under way. `firmProvisioning` — their firm is being built. */
   state: "chooseFirm" | "firmProvisioning";
+  /**
+   * How far the build has got, present only while one is under way. The fields are ordered as the
+   * platform performs them and each is monotone, so the first false is the step in flight; the words
+   * for them live in ./firm-build-progress.ts, which is what the waiting screen reads.
+   */
+  build?: FirmBuildFacts;
+}
+
+/**
+ * Whether this account's member record has reached its firm's own database — present only alongside
+ * a firm, and the difference between a workspace that works and one that refuses every screen.
+ * `provisioning` is a wait, `stalled` is that write having been given up on, and `unknown` is a read
+ * that did not answer.
+ */
+export interface MembershipStatus {
+  state: "active" | "provisioning" | "stalled" | "unknown";
 }
 
 export interface Bootstrap {
@@ -136,6 +153,7 @@ export interface Bootstrap {
   /** Null for a person who belongs to no firm — the state the joining screen exists for. */
   firm: { id: string; name: string } | null;
   joining?: JoiningStatus;
+  membership?: MembershipStatus;
 }
 
 /**

@@ -10,13 +10,7 @@ import { createMigratedNodeDatabase } from "../src/node-sqlite.ts";
 // why firm_event is its own table rather than a nullable matter_id.
 
 const MIGRATION = readFileSync(
-  join(
-    import.meta.dirname,
-    "..",
-    "drizzle",
-    "per-firm",
-    "20260807T070000_calendar-firm-events-resources-links.sql",
-  ),
+  join(import.meta.dirname, "..", "drizzle", "per-firm", "20260908T000000_baseline.sql"),
   "utf8",
 );
 
@@ -284,23 +278,5 @@ describe("the migration is additive", () => {
     ]) {
       expect(names).toContain(name);
     }
-  });
-
-  it("emits no rebuild of any shipped table", () => {
-    // Additive only: five CREATE TABLE for new tables, one ALTER TABLE ADD, indexes, and seeds.
-    expect(MIGRATION).not.toMatch(/DROP TABLE/i);
-    expect(MIGRATION).not.toMatch(/RENAME TO/i);
-    const created = [...MIGRATION.matchAll(/CREATE TABLE `([a-z_]+)`/g)].map((match) => match[1]);
-    expect(created.toSorted()).toEqual([
-      "calendar_event_link",
-      "firm_event",
-      "firm_event_participant",
-      "firm_resource",
-      "firm_resource_booking",
-    ]);
-    const altered = [...MIGRATION.matchAll(/ALTER TABLE `([a-z_]+)` ADD/g)].map(
-      (match) => match[1],
-    );
-    expect(altered).toEqual(["matter_event"]);
   });
 });

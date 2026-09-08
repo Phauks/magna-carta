@@ -3,7 +3,6 @@ import {
   logCommunication,
   routeCommunication,
   unrouteCommunication,
-  type LogCommunicationInput,
 } from "../src/communication-service.ts";
 import {
   countUnroutedCommunicationsStatement,
@@ -51,10 +50,9 @@ async function listAll(
 
 async function log(
   database: ReturnType<typeof fresh>,
-  // The service's own input type, not one helper's return type: `callInput` produces the VOICE
-  // shape, so typing the parameter from it made every `textInput` caller below a type error. The
-  // package shipped without a tsconfig.test.json, so nothing ever compiled this file to say so.
-  input: LogCommunicationInput,
+  // Both channels, because the service takes both and half these cases log a text. Inferring the
+  // parameter from `callInput` alone typed this helper voice-only.
+  input: ReturnType<typeof callInput> | ReturnType<typeof textInput>,
   serviceOptions = options,
 ): Promise<CommunicationId> {
   const { communicationId, effect } = await logCommunication(

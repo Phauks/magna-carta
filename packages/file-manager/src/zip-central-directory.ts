@@ -30,6 +30,19 @@ export interface ZipCentralDirectoryEntry {
   // DOS date/time converted to an ISO instant (the zip format records no zone; read as UTC). Null
   // when the record carries no date at all.
   readonly modifiedAt: string | null;
+  // How the member's bytes are stored: 0 is stored verbatim, 8 is raw deflate. Any other value is a
+  // method this platform does not inflate, and extraction refuses it by name rather than guessing.
+  readonly compressionMethod: number;
+  // The general-purpose bit flag, verbatim. Bit 0 set means the member is encrypted, which the
+  // listing still shows (its name and size are in the clear) and extraction refuses.
+  readonly generalPurposeFlags: number;
+  // The member's own CRC-32, as the archive recorded it. Extraction recomputes it over the inflated
+  // bytes and refuses a mismatch: it is the archive's own claim about what it holds, and checking it
+  // is what makes an extracted member's provenance worth anything.
+  readonly crc32: number;
+  // Where this member's LOCAL header begins in the object. The listing does not use it; extraction
+  // seeks to it, because a member's own bytes can only be found from here.
+  readonly localHeaderOffset: number;
 }
 
 export interface ZipCentralDirectoryListing {
@@ -90,8 +103,10 @@ async function readRange(
 }
 
 // DOS date/time (two 16-bit words) to an ISO instant, read as UTC because the format records no
-// zone. A zero date names "day 0 of month 0", which is no date — the caller renders null.
-function dosDateTimeToIso(dosTime: number, dosDate: number): string | null {
+// zone. A zero date names "day 0 of month 0", which is no date — the caller renders null. Exported
+// because a RAR4 file header carries the same two words in one 32-bit field (rar-listing.ts), and
+// two readings of one encoding would eventually disagree.
+export function dosDateTimeToIso(dosTime: number, dosDate: number): string | null {
   if (dosDate === 0) return null;
   const year = 1980 + ((dosDate >> 9) & 0x7f);
   const month = (dosDate >> 5) & 0x0f;
@@ -238,10 +253,17 @@ async function readEndOfCentralDirectory(
 // One entry's ZIP64 extended-information extra field: 8-byte replacements for whichever of the
 // 32-bit sizes were saturated, in spec order (uncompressed, then compressed). Fields beyond those
 // (local-header offset, disk start) follow but a listing never needs them.
-function applyZip64Extra(
-  extra: DataView,
-  sizes: { uncompressedSizeBytes: number; compressedSizeBytes: number },
-): { uncompressedSizeBytes: number; compressedSizeBytes: number } {
+interface Zip64Overridable {
+  uncompressedSizeBytes: number;
+  compressedSizeBytes: number;
+  localHeaderOffset: number;
+}
+
+// The ZIP64 extra field carries its values in a fixed order — uncompressed size, compressed size,
+// local header offset — and includes ONLY the ones whose 32-bit slot is saturated. So the cursor
+// advances per field actually present, and reading the offset means reading past whichever sizes
+// came before it.
+function applyZip64Extra(extra: DataView, fields: Zip64Overridable): Zip64Overridable {
   let position = 0;
   while (position + 4 <= extra.byteLength) {
     const headerId = extra.getUint16(position, true);
@@ -250,7 +272,7 @@ function applyZip64Extra(
     if (dataStart + dataSize > extra.byteLength) break; // a lying extra field ends the scan
     if (headerId === 0x0001) {
       let cursor = dataStart;
-      let { uncompressedSizeBytes, compressedSizeBytes } = sizes;
+      let { uncompressedSizeBytes, compressedSizeBytes, localHeaderOffset } = fields;
       if (uncompressedSizeBytes === 0xffffffff && cursor + 8 <= dataStart + dataSize) {
         const value = Number(extra.getBigUint64(cursor, true));
         if (Number.isSafeInteger(value)) uncompressedSizeBytes = value;
@@ -259,12 +281,17 @@ function applyZip64Extra(
       if (compressedSizeBytes === 0xffffffff && cursor + 8 <= dataStart + dataSize) {
         const value = Number(extra.getBigUint64(cursor, true));
         if (Number.isSafeInteger(value)) compressedSizeBytes = value;
+        cursor += 8;
       }
-      return { uncompressedSizeBytes, compressedSizeBytes };
+      if (localHeaderOffset === 0xffffffff && cursor + 8 <= dataStart + dataSize) {
+        const value = Number(extra.getBigUint64(cursor, true));
+        if (Number.isSafeInteger(value)) localHeaderOffset = value;
+      }
+      return { uncompressedSizeBytes, compressedSizeBytes, localHeaderOffset };
     }
     position = dataStart + dataSize;
   }
-  return sizes;
+  return fields;
 }
 
 // Reads a zip's entry listing from its central directory over ranged reads only, or null when the
@@ -323,12 +350,16 @@ export async function readZipCentralDirectory(
     }
     const dosTime = directory.getUint16(position + 12, true);
     const dosDate = directory.getUint16(position + 14, true);
+    const generalPurposeFlags = directory.getUint16(position + 8, true);
+    const compressionMethod = directory.getUint16(position + 10, true);
+    const crc32 = directory.getUint32(position + 16, true);
     const compressedSize32 = directory.getUint32(position + 20, true);
     const uncompressedSize32 = directory.getUint32(position + 24, true);
     const nameLength = directory.getUint16(position + 28, true);
     const extraLength = directory.getUint16(position + 30, true);
     const commentLength = directory.getUint16(position + 32, true);
     const externalAttributes = directory.getUint32(position + 38, true);
+    const localHeaderOffset32 = directory.getUint32(position + 42, true);
     const recordLength = CENTRAL_FILE_HEADER_BYTES + nameLength + extraLength + commentLength;
     if (position + recordLength > directory.byteLength) {
       if (!directoryByteCapBit) truncated = true;
@@ -354,10 +385,14 @@ export async function readZipCentralDirectory(
     const path = normalizeEntryPath(decoder.decode(nameBytes));
     if (path === null) continue; // absolute, empty, or traversal — skipped, never presented
 
-    const { uncompressedSizeBytes, compressedSizeBytes } = applyZip64Extra(extra, {
-      uncompressedSizeBytes: uncompressedSize32,
-      compressedSizeBytes: compressedSize32,
-    });
+    const { uncompressedSizeBytes, compressedSizeBytes, localHeaderOffset } = applyZip64Extra(
+      extra,
+      {
+        uncompressedSizeBytes: uncompressedSize32,
+        compressedSizeBytes: compressedSize32,
+        localHeaderOffset: localHeaderOffset32,
+      },
+    );
     const isDirectory = path.endsWith("/") || (externalAttributes & DOS_DIRECTORY_ATTRIBUTE) !== 0;
 
     entries.push({
@@ -366,6 +401,10 @@ export async function readZipCentralDirectory(
       compressedSizeBytes,
       uncompressedSizeBytes,
       modifiedAt: dosDateTimeToIso(dosTime, dosDate),
+      compressionMethod,
+      generalPurposeFlags,
+      crc32,
+      localHeaderOffset,
     });
     if (entries.length >= limits.maxEntries && recordsWalked < end.totalEntries) {
       truncated = true;

@@ -1756,7 +1756,7 @@ This is the registration surface. Every item below must land together: a permiss
 
 - Modify: `packages/access-control/src/registry.ts`
 - Modify: `packages/tools/src/catalog.ts`
-- Create: `packages/database/drizzle/per-firm/20260709T000001_seed-tools-ocr.sql`
+- Create: `packages/database/drizzle/per-firm/20260908T000000_baseline.sql`
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json`
 - Modify: `apps/worker/src/per-firm-migrations.ts`
 - Create: `apps/worker/src/routes/ocr.ts`
@@ -1812,7 +1812,7 @@ If that import path does not resolve, run `pnpm --filter @magna-carta/identifier
 
 - [ ] **Step 4: Write the seed migration**
 
-Create `packages/database/drizzle/per-firm/20260709T000001_seed-tools-ocr.sql`, substituting the five minted identifiers:
+Create `packages/database/drizzle/per-firm/20260908T000000_baseline.sql`, substituting the five minted identifiers:
 
 ```sql
 -- Seed tools:ocr onto every default role. Reading the text out of a scanned document is an everyday

@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 808 nodes of the feature ledger in
+is the complete register rather than a digest: all 810 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,26 +21,26 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**808 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+**810 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
 below. 141 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **667 that are units of work**, for the reason set out under [What a roll-up is
+count the **669 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 299 | 45% |
+| Done | shipped | 301 | 45% |
 | Part-built | partial, in-build | 124 | 19% |
 | Ahead | designed, planned, researching, not-started | 203 | 30% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **667** | **100%** |
+| **All units of work** | | **669** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 299 | 45% |
+| `shipped` | 301 | 45% |
 | `partial` | 123 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
@@ -49,11 +49,11 @@ not](#what-a-roll-up-is-not).
 | `not-started` | 137 | 21% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **667** | **100%** |
+| **All statuses** | **669** | **100%** |
 
 ### What a roll-up is not
 
-**141 of the 808 nodes are parents, and 110 of those parents are `partial`.** A parent's status is a
+**141 of the 810 nodes are parents, and 110 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 299 of 667 (45%). Shipped plus partial is 422 (63%).**
+**Shipped alone is 301 of 669 (45%). Shipped plus partial is 424 (63%).**
 
 The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**423 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**425 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 78 | 19% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 166 | 39% |
+| A person can open it today (`screen`) | 82 | 19% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 164 | 39% |
 | No user surface by nature (`internal`) | 179 | 42% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **423** | **100%** |
+| **Everything with something built** | **425** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -106,7 +106,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 64 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 98 | 65% |
+| Documents | 66 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 100 | 66% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **299** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **667** | **45%** |
+| **All areas** | **301** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **669** | **45%** |
 
 ## Where we have been
 
@@ -703,7 +703,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `discovery.search.corpus-index` · `shipped` · **Review-set corpus indexing** — A review set as its own search corpus — its own split prefix, its own catalog rows, its own wholesale deletion — and the enqueue that puts a processed review document into it. _Note: Dormant like the rest of the index — with no SEARCH_SERVICE binding every document parks deferred and a later replay drains it into the same derived split, which is what apps/api-worker/test/discovery-corpus-index.test.ts exercises. A review set never feeds the natural-language corpus: that surface's audience is the matter team, and a review set's access list is narrower._
     - `discovery.search.semantic` · `designed` · **Semantic search** — Vectorize-backed semantic search alongside keyword search.
   - `discovery.review` · `partial` · **Review workflow** — Filter by date/custodian/party/keyword, tag documents, redact, thread email, detect near-duplicates.
-    - `discovery.review.document-list` · `shipped` · **Review-document list read** — The paged, filtered read of a review set's documents that every review surface sits on, plus the live exception surface, the occurrences a suppressed copy stays reachable through, and what the corpus still owes the index. _Note: Backend only — the list, the filters and the exception surface are deferred to the owner. This read is what 5-2-1 begins on._
+    - `discovery.review.document-list` · `shipped` · **Review-document list read** — The paged, filtered read of a review set's documents that every review surface sits on, plus the live exception surface, the occurrences a suppressed copy stays reachable through, and what the corpus still owes the index. _Note: The list and its five filters now have their screen (the review workspace's Documents), rendered from the narrowing registry in apps/web/src/lib/discovery/criteria.ts so a sixth narrowing is an entry rather than a control change, and the same read is the reviewer's queue. The occurrences read has its panel; the live exception surface still has no screen of its own, because it is a narrowing rather than a destination. This read is what 5-2-1 begins on._
     - `discovery.review.filters` · `partial` · **Review filters** — Filtering the corpus by date, custodian, party, and keyword.
     - `discovery.review.tagging` · `partial` · **Tagging and coding** — Responsive/privileged/confidential document tagging, coded per document, with family and bulk as scopes rather than storage. _Note: Backend only — the coding panel, tag chips and viewer pane are deferred to the owner. Criteria-driven bulk at corpus scale waits on the corpus index read._
     - `discovery.review.redaction` · `partial` · **Redaction** — Applied redactions on documents under review.
@@ -733,7 +733,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 98 units of work, 65% shipped. 64 done, 11 part-built, 19 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 66% shipped. 66 done, 11 part-built, 19 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -750,7 +750,9 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.upload.direct-to-r2` · `shipped` · **Direct-to-R2 transfer** — Presigned single PUT for small files, resumable S3 multipart above a threshold; Worker only authorizes, mints URLs, records metadata.
     - `documents.upload.policy-gates` · `shipped` · **Pre-acceptance gates** — Per-firm size and content-type allow-list enforced at presign and re-verified against real bytes; magic-byte validation; filename sanitization.
     - `documents.upload.quarantine` · `shipped` · **Quarantine-on-arrival** — Bytes land at their final key not visible/servable/indexed until the async ingest consumer clears them (gates, SHA-256, scan port, version commit in one read).
-    - `documents.upload.archive-opacity` · `shipped` · **Opaque archive storage** — Uploaded archives stored versioned/hashed on the matter and never expanded server-side — no zip-bomb/nested-archive read pipeline exists.
+    - `documents.upload.archive-opacity` · `shipped` · **Opaque archive storage** — An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.
+    - `documents.file-manager.archive-browse` · `shipped` · **Browse inside an archive** — Read an archive's entry listing over ranged reads of its headers, without unpacking a byte, for a live or a soft-deleted archive alike. Four formats, each decided from the object's own signature rather than its name - zip, tar, 7z and rar.
+    - `documents.file-manager.archive-extract` · `shipped` · **Extract an archive's members** — Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate. _Note: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built._
   - `documents.scanning` · `partial` · **Malware scanning** — Async scan of every uploaded byte behind a swappable port; verdict stored as file metadata; quarantine, never auto-delete. _Note: EICAR live check deferred (no production users yet)._
     - `documents.scanning.port` · `shipped` · **Scan port** — ScanPort seam in the file-manager package so scan engines are swappable without touching the pipeline.
     - `documents.scanning.engine` · `shipped` · **In-house scan engine (YARA + raw facts)** — YARA Forge rule packs plus a raw-facts extraction engine running in a dedicated scan container behind its own worker.
@@ -934,7 +936,7 @@ to change a line here, edit the node in its area file and re-run the build.
       - `financial.billing.automations.payment-plans` · `designed` · **Payment plans** — An instalment schedule recorded against a finalized invoice, with the standing derived from what has actually been applied. _Note: The record half is buildable now; charging is unreachable on three independent grounds — no payment rail, no stored method, and no principal an unattended charge could be checked against._
       - `financial.billing.automations.replenishment` · `designed` · **Evergreen below-floor replenishment** — A scheduled comparison of each retainer matter's available trust balance against the agreement's floor, raising the replenishment ask the firm can act on.
   - `financial.fees` · `partial` · **Recorded fees (flat charges for professional services)** — Per-matter fee entries for a flat charge somebody decided on — neither an hourly matter's time value nor a flat-fee arrangement's amount — staying unbilled work in progress until a draft invoice claims one. _Note: This REVERSES the 2026-08-26 fee-surface ruling that Fees is not a work-in-progress surface. That design rested on pairing the fee agreement with the invoice lines a bill had composed from it; the owner moved the arrangement into the matter's status window on 2026-09-03, which removed the pairing and left the pure invoice view the design had itself rejected. A ledger of lines can show nothing that is still unbilled. Both surfaces read it now — the matter's own Fees section and the firm's period across every matter. Partial because the review gate the routes honour is not served to the app, and because a fee's entry number, its attached files and its recorded history are not on the record yet._
-    - `financial.fees.claim` · `shipped` · **A draft invoice claims a fee** — The third work-in-progress kind admitted to the shared claim table, so one draft cannot bill a fee two bills have taken up. _Note: The rebuild is hand-written rather than generated because the two triggers freezing a finalized invoice's claims are not in the Drizzle schema; a generated rebuild would have dropped them and unfrozen every finalized bill's claims in the fleet. The non-hourly-arrangement guard stays scoped to time_entry deliberately — a recorded fee on a flat-fee matter is a separate charge, not a second billing of the same agreement._
+    - `financial.fees.claim` · `shipped` · **A draft invoice claims a fee** — The third work-in-progress kind admitted to the shared claim table, so one draft cannot bill a fee two bills have taken up. _Note: The rebuild is hand-written rather than generated because the two triggers freezing a finalized invoice's claims are not in the Drizzle schema; a generated rebuild would have dropped them and unfrozen every finalized bill's claims in the fleet. It is also the first rebuild written since the durable-object finding, and it is appliable for the reason parentRebuildViolations tests for rather than by exemption: invoice_wip_claim is a LEAF, nothing in the schema references it, so the drop has no child row to orphan — the claim points out, at the invoice and the line it was composed into. That is proved rather than reasoned, in a durable object, because node:sqlite does not reproduce the commit-time enforcement that made the finding. The non-hourly-arrangement guard stays scoped to time_entry deliberately — a recorded fee on a flat-fee matter is a separate charge, not a second billing of the same agreement._
     - `financial.fees.matter-ledger` · `shipped` · **The matter's fee record** — One screen reading every fee on a matter in every status, paged, with what is unbilled and what has been billed, and every verb writing: record, edit, submit, approve, kick back, delete a draft, void. _Note: The surface was built whole against the record a fee IS while nothing served one; wiring it was a read, not a redesign. What it shares with Costs was hoisted rather than copied — the readings every ledger makes of a record (apps/web/src/lib/records/work-in-progress-record.ts) and the void, kick-back and delete-draft confirmations — because canWorkDraft had already been written twice byte-identical before anybody noticed. Fees is the first ledger with a DELETE route, so deletesDraft joins opensTheBill as a declaration on the shared row menu._
     - `financial.fees.firm-period` · `partial` · **The firm's fee record over a period** — What the firm charged for work done across every matter over a span of service dates, and what is still waiting on a bill. _Note: Fees was absent from the sidebar's Money group for the same structural reason Costs was — nothing served the record, so it was not a Soon row, it was not a row — and the work-in-progress store is what made adding it honest. Partial because it does not yet approve a submitted fee across matters, and because the firm's review setting is not served so the review verbs are absent rather than offered. The record window takes the firm's matters and leads with an unfilled matter picker, the arrangement the cost window and the Time Sheet already have; a fee pre-filled with whichever matter came first would be a wrong answer arriving faster than no answer._
   - `financial.costs` · `partial` · **Costs and expenses (disbursements)** — Per-matter cost entries for advanced hard costs and in-house soft costs, staying unbilled WIP until invoiced. _Note: Two registers read it — the matter's own Costs section and the firm's period across every matter; cost-to-A/R conversion and LEDES belong to the billing slice._
@@ -989,7 +991,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `integrations.shipping.ui` · `deferred` · **Shipping UI** — Firm-facing surface for drafting, buying, and tracking shipments.
   - `integrations.tools-area` · `partial` · **Tools area** — One Tools catalog surfacing first-party utilities and integration-backed tools via left-nav and contextual entry points; presentation layer above the plugin framework.
     - `integrations.tools-area.catalog` · `shipped` · **Tools catalog package** — Single source-of-truth catalog; adding a tool is one manifest entry; reflects connection health without holding credentials.
-    - `integrations.tools-area.listing-page` · `shipped` · **Tools listing page** — /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges. _Note: toolsByGroup renders only the tools whose permission the member holds, and until 2026-08-19 five manifests were granted to no role - so the property, business-entities, people-licenses and mailing-shipping groups rendered for nobody on any seat. Seeded in packages/database/drizzle/per-firm/20260819T220000_seed-document-editing-and-tools-permissions.sql; all nineteen manifests are now reachable by some seat._
+    - `integrations.tools-area.listing-page` · `shipped` · **Tools listing page** — /tools page rendering the catalog grouped by subject, tiles or dense list, maturity-stage badges. _Note: toolsByGroup renders only the tools whose permission the member holds, and until 2026-08-19 five manifests were granted to no role - so the property, business-entities, people-licenses and mailing-shipping groups rendered for nobody on any seat. Seeded in packages/database/drizzle/per-firm/20260908T000000_baseline.sql; all nineteen manifests are now reachable by some seat._
     - `integrations.tools-area.contextual-entry` · `partial` · **Contextual entry points** — Tools reachable in context — command palette, file-context tags on file-shaped tools; Location/Directory entity entry points.
     - `integrations.tools-area.diagnostics-group` · `shipped` · **Diagnostics group (firm usage)** — Read-only firm usage snapshot in the Tools area, computed on request — storage by class, matters by type and by location, the file versioning breakdown, Directory and member counts, and the AI meters. _Note: Storage totals read the storage_meter rollup, so they are zero for any firm whose files did not arrive through ingest until the daily reconciliation runs. Custodian holdings report per office through @magna-carta/custodian/usage (external roots on a Held Offsite row); per-firm compute stays a Soon table (waits on the Cloudflare Analytics API credential, the ADR-0103 deferral)._
     - `integrations.tools-area.network-speed-test` · `shipped` · **Network speed test** — First tool with its own page: Cloudflare measurement engine, per-direction charts, AIM score, authenticated round-trip probe.

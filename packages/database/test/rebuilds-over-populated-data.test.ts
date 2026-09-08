@@ -73,135 +73,21 @@ const REBUILD_CASES: Record<string, RebuildCase> = {
     childrenAtSeed: countAccounts,
     childrenAfterRebuild: countAccounts,
   },
-
-  "20260901T120000_matter-notes-edit-and-delete": {
-    lineage: "per-firm",
-    rebuilt: "matter_note",
-    child: "matter_note_revision",
-    seed(raw) {
-      seedMatter(raw);
-      // An ACTIVE note: the rebuild deliberately does not carry retracted ones across, so a
-      // retracted note would be a case about deletion rather than about the drop.
-      raw
-        .prepare(
-          `INSERT INTO matter_note (id, matter_id, author_user_id, head_ordinal, state, created_at, updated_at)
-           VALUES ('matterNote_seed', 'matter_seed', 'user_seed', 1, 'active', ?, ?)`,
-        )
-        .run(NOW, NOW);
-      // The head revision the rebuild joins on to find the body it carries forward.
-      raw
-        .prepare(
-          `INSERT INTO matter_note_revision (id, note_id, body, author_user_id, ordinal, created_at)
-           VALUES ('matterNoteRevision_seed', 'matterNote_seed', 'The body.', 'user_seed', 1, ?)`,
-        )
-        .run(NOW);
-    },
-    childrenAtSeed(raw) {
-      return countJoin(
-        raw,
-        `SELECT COUNT(*) AS n FROM matter_note_revision
-         JOIN matter_note ON matter_note.id = matter_note_revision.note_id`,
-      );
-    },
-    childrenAfterRebuild(raw) {
-      // The revision table is retired here — the note holds its own body afterwards — so the
-      // surviving row is the note carrying that body across, which is the same row's survival.
-      return countJoin(
-        raw,
-        "SELECT COUNT(*) AS n FROM matter_note WHERE id = 'matterNote_seed' AND body = 'The body.'",
-      );
-    },
-  },
-
-  "20260901T150000_tasks": {
-    lineage: "per-firm",
-    rebuilt: "notification_event",
-    child: "notification_recipient",
-    seed(raw) {
-      raw
-        .prepare(
-          `INSERT INTO notification_event
-             (id, kind, category, severity, subject_kind, subject_id, occurred_at, dedupe_key, created_at)
-           VALUES ('notificationEvent_seed', 'seeded.kind', 'system', 'informational', 'matter',
-                   'matter_seed', ?, 'seeded-dedupe', ?)`,
-        )
-        .run(NOW, NOW);
-      raw
-        .prepare(
-          `INSERT INTO notification_recipient
-             (id, notification_event_id, recipient_user_id, created_at)
-           VALUES ('notificationRecipient_seed', 'notificationEvent_seed', 'user_seed', ?)`,
-        )
-        .run(NOW);
-    },
-    childrenAtSeed: countNotificationRecipients,
-    childrenAfterRebuild: countNotificationRecipients,
-  },
-
-  "20260905T195543_intake-step-kinds-client-forms-and-payment": {
-    lineage: "per-firm",
-    rebuilt: "intake_procedure_step",
-    child: "matter_intake_step_record",
-    seed(raw) {
-      seedMatter(raw);
-      raw
-        .prepare(
-          `INSERT INTO intake_procedure (id, name, created_by, created_at, updated_at)
-           VALUES ('intakeProcedure_seed', 'Seeded Procedure', 'user_seed', ?, ?)`,
-        )
-        .run(NOW, NOW);
-      raw
-        .prepare(
-          `INSERT INTO intake_procedure_step (id, procedure_id, kind, title, created_at, updated_at)
-           VALUES ('intakeProcedureStep_seed', 'intakeProcedure_seed', 'questionnaire', 'A step', ?, ?)`,
-        )
-        .run(NOW, NOW);
-      raw
-        .prepare(
-          `INSERT INTO matter_intake_step_record
-             (id, matter_id, procedure_step_id, outcome, recorded_by, recorded_at)
-           VALUES ('matterIntakeStepRecord_seed', 'matter_seed', 'intakeProcedureStep_seed',
-                   'completed', 'user_seed', ?)`,
-        )
-        .run(NOW);
-    },
-    childrenAtSeed: countIntakeStepRecords,
-    childrenAfterRebuild: countIntakeStepRecords,
-  },
-
-  "20260906T013304_matter-status-intake-and-consultation": {
-    lineage: "per-firm",
-    rebuilt: "matter",
-    child: "matter_party",
-    seed: seedMatterWithParty,
-    childrenAtSeed: countMatterParties,
-    childrenAfterRebuild: countMatterParties,
-  },
-
-  "20260906T030014_matter-hold-status": {
-    lineage: "per-firm",
-    rebuilt: "matter",
-    child: "matter_party",
-    seed: seedMatterWithParty,
-    childrenAtSeed: countMatterParties,
-    childrenAfterRebuild: countMatterParties,
-  },
-
   /*
-   * THE ONE CASE WHERE THE ARROW POINTS THE OTHER WAY. Nothing in the schema references
-   * `invoice_wip_claim` — it is a leaf, and it is the claim that points OUT, at the invoice and the
-   * line it was composed into. So the pairing here is the claim against the line it names, which
-   * asks the same question this harness exists to ask: after the copy, does the row still resolve
-   * to what it resolved to before? A rebuild that re-keyed its rows would complete and lose the
-   * link between a billed entry and the line the client was actually charged on.
+   * THE ONE CASE WHERE THE ARROW POINTS THE OTHER WAY, and the reason it is allowed to exist at all.
+   * Nothing in the schema references `invoice_wip_claim` — it is a leaf, and it is the claim that
+   * points OUT, at the invoice and the line it was composed into. That is what keeps it clear of
+   * `parentRebuildViolations`: the drop this rebuild performs has no child row to orphan, which is
+   * the whole of what a durable object refuses. So the pairing here is the claim against the line it
+   * names, which still asks this harness's question — after the copy, does the row resolve to what
+   * it resolved to before?
    *
-   * The invoice is FINALIZED rather than draft, which is not incidental. Two `RAISE(ABORT)`
-   * triggers freeze a finalized invoice's claims and neither is in the Drizzle schema, so a
-   * generated rebuild would drop them and leave every finalized bill's claims editable with nothing
-   * about the database looking wrong. `invoice-wip-claim-rebuild-migration.test.ts` is where those
-   * triggers are proved to still fire; this case is the population half.
+   * This file runs against `node:sqlite`, which does not reproduce the durable object's commit-time
+   * enforcement, so it cannot be the proof that the drop is applicable. That proof is
+   * apps/api-worker/test/leaf-rebuild-in-durable-object.test.ts, which replays these statements over
+   * a populated table inside a real object. This case is the row-preservation half.
    */
-  "20260907T221500_invoice-wip-claim-admits-a-fee": {
+  "20260908T020000_invoice-wip-claim-admits-a-fee": {
     lineage: "per-firm",
     rebuilt: "invoice_wip_claim",
     child: "invoice_line",
@@ -211,8 +97,21 @@ const REBUILD_CASES: Record<string, RebuildCase> = {
   },
 };
 
-/** The member a matter must name, and the matter itself. `open` is legal at every point below. */
-function seedMatter(raw: DatabaseSync): void {
+function countAccounts(raw: DatabaseSync): number {
+  return countJoin(raw, "SELECT COUNT(*) AS n FROM account JOIN user ON user.id = account.user_id");
+}
+
+/**
+ * A finalized invoice with one line and one claim against it.
+ *
+ * The invoice carries its number, its two dates and its finalized instant because four paired
+ * CHECKs on `invoice` tie all of them to `status = 'final'` — a finalized invoice with any of them
+ * missing is not a state the schema will hold, so a thinner seed would be testing a row that cannot
+ * exist. No time entry sits behind the claim: `source_id` carries no foreign key, because it names a
+ * row in one of three tables and SQLite cannot express that, so the rebuild's behaviour does not
+ * depend on the source row existing.
+ */
+function seedFinalizedInvoiceWithClaim(raw: DatabaseSync): void {
   raw
     .prepare(
       `INSERT OR IGNORE INTO member (user_id, display_name, created_at)
@@ -225,50 +124,6 @@ function seedMatter(raw: DatabaseSync): void {
        VALUES ('matter_seed', 'Seeded Matter', 'open', 'user_seed', ?, ?)`,
     )
     .run(NOW, NOW);
-}
-
-function seedMatterWithParty(raw: DatabaseSync): void {
-  seedMatter(raw);
-  raw
-    .prepare(
-      `INSERT INTO matter_party (id, matter_id, entity_id, role, created_at, updated_at)
-       VALUES ('matterParty_seed', 'matter_seed', 'directoryEntity_seed', 'client', ?, ?)`,
-    )
-    .run(NOW, NOW);
-}
-
-function countAccounts(raw: DatabaseSync): number {
-  return countJoin(raw, "SELECT COUNT(*) AS n FROM account JOIN user ON user.id = account.user_id");
-}
-
-function countNotificationRecipients(raw: DatabaseSync): number {
-  return countJoin(
-    raw,
-    `SELECT COUNT(*) AS n FROM notification_recipient
-     JOIN notification_event ON notification_event.id = notification_recipient.notification_event_id`,
-  );
-}
-
-function countIntakeStepRecords(raw: DatabaseSync): number {
-  return countJoin(
-    raw,
-    `SELECT COUNT(*) AS n FROM matter_intake_step_record
-     JOIN intake_procedure_step ON intake_procedure_step.id = matter_intake_step_record.procedure_step_id`,
-  );
-}
-
-/**
- * A finalized invoice with one line and one claim against it.
- *
- * The invoice carries its number, its two dates and its finalized instant because four paired
- * CHECKs on `invoice` tie all of them to `status = 'final'` — a finalized invoice with any of them
- * missing is not a state the schema will hold, so a thinner seed would be testing a row that cannot
- * exist. No time entry sits behind the claim: `source_id` carries no foreign key, because it names
- * a row in one of three tables and SQLite cannot express that, so the rebuild's behaviour does not
- * depend on the source row existing.
- */
-function seedFinalizedInvoiceWithClaim(raw: DatabaseSync): void {
-  seedMatter(raw);
   raw
     .prepare(
       `INSERT INTO invoice (id, client_entity_id, status, currency, invoice_number, number_scope_key,
@@ -293,13 +148,6 @@ function seedFinalizedInvoiceWithClaim(raw: DatabaseSync): void {
                'invoiceLine_seed', 10000, ?)`,
     )
     .run(NOW);
-}
-
-function countMatterParties(raw: DatabaseSync): number {
-  return countJoin(
-    raw,
-    "SELECT COUNT(*) AS n FROM matter_party JOIN matter ON matter.id = matter_party.matter_id",
-  );
 }
 
 function countClaimsResolvingToTheirLine(raw: DatabaseSync): number {

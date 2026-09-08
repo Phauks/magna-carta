@@ -115,6 +115,21 @@ const CONTROL_PLANE_CONSUMERS: Readonly<
   "firm.provision": consumeFirmProvision,
 };
 
+// WHY THE CONTROL-PLANE SWEEP RE-READS ITS OWN TABLE, and the per-firm ones do not. These consumers
+// run INSIDE the pass and commit back into the same outbox: activating a firm queues the
+// member.provision row that mirrors its owner into the firm's own database, and a single-batch
+// sweep reads the pending set before that row exists. The firm went active, the person was let as
+// far as a workspace nothing had admitted them to, and the mirror waited for the next fire — the
+// gap the joining screen's last step and the database-health panel's "Not in the database yet" both
+// report. One more round carries it. The per-firm sweeps publish to a Queue instead, so nothing
+// they dispatch can land back in the table they are reading, and they stay at one batch.
+//
+// Two is the deepest chain the map above can make (firm.provision -> member.provision, whose own
+// message goes to the FIRM's outbox). This is the safety stop, not the terminator: the sweep ends
+// the moment a round finds no row it has not already tried, so the extra headroom costs nothing
+// today and a topic that grows the chain does not silently lose its tail.
+const CONTROL_PLANE_SWEEP_ROUNDS = 4;
+
 // A control-plane user whose firm database carries no member row — the reconciliation backstop's
 // finding.
 export interface UnprovisionedMember {
@@ -275,6 +290,7 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
 
   const controlPlane = await sweepOutbox({
     database: env.DB_CONTROL,
+    maxRounds: CONTROL_PLANE_SWEEP_ROUNDS,
     publish: async (row) => {
       const consume = CONTROL_PLANE_CONSUMERS[row.topic];
       if (consume === undefined) {
