@@ -28,14 +28,7 @@
 // list must never grow. Widening a CHECK or dropping a column on a parent table needs a different
 // answer, and choosing one is an open decision rather than something to work around here.
 export const PARENT_REBUILDS_PREDATING_THE_DURABLE_OBJECT_FINDING: ReadonlySet<string> =
-  new Set<string>([
-    "20260829T101500_firmless-account",
-    "20260901T120000_matter-notes-edit-and-delete",
-    "20260901T150000_tasks",
-    "20260905T195543_intake-step-kinds-client-forms-and-payment",
-    "20260906T013304_matter-status-intake-and-consultation",
-    "20260906T030014_matter-hold-status",
-  ]);
+  new Set<string>(["20260829T101500_firmless-account"]);
 
 export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // `user`.`firm_id` widened to nullable, so an account can exist before it belongs to a firm.
@@ -50,7 +43,6 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // take NULL, which each CHECK accepts. Retracted notes are deliberately NOT carried — the new
   // model has no state that could hold one, and copying its body would restore withdrawn text to
   // every surface. The reasoning is written out in the migration's own `-- contract:` header.
-  "20260901T120000_matter-notes-edit-and-delete",
   // `tasks` joins the notification category vocabulary and `matterTask` its subject kinds, which are
   // CHECK constraints on `notification_event` and `notification_in_app_suppression` and so cannot be
   // widened in place. Audited: both copies are column-for-column over the whole table — eleven
@@ -62,7 +54,6 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the replacement
   // takes the original name, so every referencing row resolves to the row it resolved to before and
   // nothing is re-keyed. The reasoning is written out in the migration's own `-- contract:` header.
-  "20260901T150000_tasks",
   // The intake procedure's step kinds gain `client-forms` and `payment`, a CHECK constraint on
   // `intake_procedure_step` that cannot be widened in place. Audited: the copy is column-for-column
   // over the whole table — eleven columns, in the order the replacement declares them, with no WHERE
@@ -73,7 +64,6 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // the swap in PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the
   // replacement takes the original name, so every member's record resolves to the step it resolved
   // to before. The reasoning is written out in the migration's own `-- contract:` header.
-  "20260905T195543_intake-step-kinds-client-forms-and-payment",
   // The matter lifecycle gains `intake` and renames `prospective` to `consultation`, a CHECK
   // constraint on `matter` that cannot be widened in place. Audited: the copy is column-for-column
   // over the whole table — nineteen columns, in the order the replacement declares them, with no
@@ -89,10 +79,8 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // PRAGMA foreign_keys=OFF/ON; it is safe because ids are preserved verbatim and the replacement
   // takes the original name, so every referencing row resolves to the row it resolved to before. The
   // reasoning is written out in the migration's own `-- contract:` header.
-  "20260906T013304_matter-status-intake-and-consultation",
   // Widens matter_status_check with `hold` and adds the two hold columns (held_at, hold_reason) with
   // their paired-nullability CHECK. The copy is exhaustive over every existing column and NULL for
   // the two new ones; ids are preserved verbatim under PRAGMA foreign_keys=OFF/ON. The reasoning is
   // in the migration's own `-- contract:` header.
-  "20260906T030014_matter-hold-status",
 ]);

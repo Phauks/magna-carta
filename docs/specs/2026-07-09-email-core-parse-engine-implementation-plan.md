@@ -1602,7 +1602,7 @@ Without this the permission exists but nobody holds it, so the tool is invisible
 
 - [ ] **Step 1: Read the precedent**
 
-Read `packages/database/drizzle/per-firm/20260704T041517_seed-tools-file-repair.sql` and `apps/worker/test/seed-tools-file-repair.test.ts` end to end. Mirror both. Note the migration-id convention is a monotonic UTC timestamp, not a sequential number.
+Read `packages/database/drizzle/per-firm/20260908T000000_baseline.sql` and `apps/worker/test/seed-tools-file-repair.test.ts` end to end. Mirror both. Note the migration-id convention is a monotonic UTC timestamp, not a sequential number.
 
 - [ ] **Step 2: Write the failing seed guard**
 
