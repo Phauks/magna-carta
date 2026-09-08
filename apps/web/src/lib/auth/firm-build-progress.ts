@@ -107,13 +107,15 @@ const BUILD_STEP_LABELS = [
 const MEMBER_STEP_LABEL = "Adding you to the firm";
 
 /**
- * What a stopped step reads as, replacing that step's own label — so the failure is one sentence in
- * the sequence rather than a struck-out step plus an error somewhere else on the card. It says what
+ * What a stopped step reads as. The steps component shows this INSTEAD of the step's own label, so
+ * the sentence has to carry the label itself — otherwise the sequence says a step stopped and no
+ * longer says which one, which is precisely the fact somebody has to give support. It also says what
  * to do, because there is nothing the person themselves can retry: the work is a committed row that
  * has run out of attempts.
  */
-export const STALLED_STEP_FAILURE =
-  "This step stopped and is not being retried. Your firm is safe; support can restart it.";
+export function stalledStepFailure(label: string): string {
+  return `${label} stopped and is not being retried. Your firm is safe; support can restart it.`;
+}
 
 /** Whether the wait is over — the workspace exists and this account can actually use it. */
 export function firmBuildComplete(reading: FirmBuildReading): boolean {
@@ -159,7 +161,7 @@ export function firmBuildSteps(
     if (reached) return { label, status: "pending" };
     reached = true;
     return stalled
-      ? { label, status: "failed", failure: STALLED_STEP_FAILURE }
+      ? { label, status: "failed", failure: stalledStepFailure(label) }
       : { label, status: "active" };
   });
 }

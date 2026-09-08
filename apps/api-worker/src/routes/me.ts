@@ -14,6 +14,7 @@ import type { AppVariables, FirmContext } from "../chokepoint/ports.ts";
 import { Problem } from "../contracts/problem.ts";
 import { loadEffectivePermissions } from "../session-context.ts";
 import { readFirmReleaseChannelStatement } from "@magna-carta/data-access/firm-release-channel-statements";
+import { selectMemberStatusStatement } from "@magna-carta/data-access/member-statements";
 import { OUTBOX_TABLE } from "@magna-carta/data-access/outbox-statements";
 // The topic's home is beside the health panel that reports its backlog, and this is the same fact:
 // which message the wait is on. Naming it twice would let the two drift into different strings.
@@ -178,7 +179,7 @@ export async function resolveChannelAndFlags(
  * A HELD PERMISSION IS ITSELF THE ANSWER, and it is the answer nearly every caller gets: every
  * permission resolves through a join onto an ACTIVE member row (data-access/member-statements.ts),
  * so a non-empty set cannot exist without one. That is why the count is passed in rather than the
- * row being read on every bootstrap — the extra statement is spent only in the one ambiguous case,
+ * row being read on every bootstrap — the extra statements are spent only in the one ambiguous case,
  * where the set is empty and "no member record yet" and "a member holding no role" look identical
  * from the outside and mean opposite things to the person reading the screen.
  *
@@ -193,16 +194,20 @@ async function readMembershipState(
   permissionCount: number,
 ): Promise<{ state: "active" | "provisioning" | "stalled" | "unknown" }> {
   if (permissionCount > 0) return { state: "active" };
-  let member: { present: number } | null;
+  let memberRows: { status: string }[];
   try {
-    member = await firmDatabase
-      .prepare("SELECT 1 AS present FROM member WHERE user_id = ?1 LIMIT 1")
-      .bind(userId)
-      .first<{ present: number }>();
+    // The data-access layer's own read, which the chokepoint already makes on every request through
+    // this route — the same question, so it must not be asked in two different dialects. Zero rows
+    // is the never-mirrored window; a DEACTIVATED member never reaches this handler, because the
+    // chokepoint answers the reserved absence for one before the route runs.
+    const { results } = await selectMemberStatusStatement(firmDatabase, userId).all<{
+      status: string;
+    }>();
+    memberRows = results;
   } catch {
     return { state: "unknown" };
   }
-  if (member !== null) return { state: "active" };
+  if (memberRows.length > 0) return { state: "active" };
 
   // A WAIT AND A DEAD END LOOK THE SAME FROM THE MEMBER ROW, and telling somebody to keep waiting
   // for a message the relay has given up on is the failure this whole field exists to avoid. The

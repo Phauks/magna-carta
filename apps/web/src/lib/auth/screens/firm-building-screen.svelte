@@ -105,8 +105,16 @@
         {checking ? "Checking…" : "Check Again"}
       </Button>
 
+      <!--
+        The closing line follows the STATE, not just the kind. On a stopped build "your firm keeps
+        building" sits directly under a step that says it has stopped, and the two cannot both be
+        true — a screen that contradicts itself one line apart is worse than one that says less.
+      -->
       <p class="text-sm text-text-muted">
-        {#if kind === "joining"}
+        {#if stalled}
+          You can close this page. Nothing further happens until the step is restarted, and signing
+          in again brings you back here.
+        {:else if kind === "joining"}
           You can close this page. The work keeps going, and signing in again brings you straight to
           your firm.
         {:else}

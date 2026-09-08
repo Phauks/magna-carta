@@ -12,11 +12,11 @@
 import { describe, expect, it } from "vitest";
 import {
   FIRM_BUILD_UNREPORTED,
-  STALLED_STEP_FAILURE,
   firmBuildComplete,
   firmBuildStalled,
   firmBuildSteps,
   firmBuiltReading,
+  stalledStepFailure,
   type FirmBuildReading,
 } from "../src/lib/auth/firm-build-progress.ts";
 
@@ -92,7 +92,11 @@ describe("the build sequence", () => {
       "pending",
       "pending",
     ]);
-    expect(steps[1]?.failure).toBe(STALLED_STEP_FAILURE);
+    // The failure sentence NAMES the step, because the component shows it instead of the label — a
+    // sequence that says a step stopped and no longer says which one has dropped the one fact
+    // somebody has to give support.
+    expect(steps[1]?.failure).toBe(stalledStepFailure("Setting up your firm's document storage"));
+    expect(steps[1]?.failure).toContain("Setting up your firm's document storage");
     // The steps still to come are NOT failed: the build never reached them, and marking them so
     // would claim work had been attempted and lost.
     expect(steps.slice(2).every((step) => step.failure === undefined)).toBe(true);
@@ -118,7 +122,11 @@ describe("the invitee's wait, which shares only the last step", () => {
     const abandoned = firmBuiltReading({ memberRecord: false, memberRecordStalled: true });
     expect(firmBuildStalled(abandoned)).toBe(true);
     expect(firmBuildSteps(abandoned, "joining")).toEqual([
-      { label: "Adding you to the firm", status: "failed", failure: STALLED_STEP_FAILURE },
+      {
+        label: "Adding you to the firm",
+        status: "failed",
+        failure: stalledStepFailure("Adding you to the firm"),
+      },
     ]);
     expect(statuses(abandoned)).toEqual(["done", "done", "done", "done", "failed"]);
   });
