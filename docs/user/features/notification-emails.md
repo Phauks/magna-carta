@@ -1,6 +1,6 @@
 # Notification emails
 
-_Built, and switched off. Your firm's outbound mail has not been set up yet, so **no notification email can reach anybody today** — nothing is being sent and nothing is being lost. When it is set up, the summaries described here begin arriving. The screens for changing these settings are authored when they ship; today the settings are changed through the API._
+_Built, and switched off. Your firm's outbound mail has not been set up yet, so **no notification email can reach anybody today** — nothing is being sent and nothing is being lost. When it is set up, the summaries described here begin arriving. Your own settings are on **Settings · Notifications**; the firm-wide ones described below are changed through the API until their screen ships._
 
 ## What arrives
 
@@ -118,5 +118,6 @@ the moment you look** rather than at the moment the email was written.
 
 ## Related
 
+- [`your-notifications.md`](your-notifications.md) — the list inside the app that this email counts, and where you choose what reaches you
 - [`case-calendar-and-deadlines.md`](case-calendar-and-deadlines.md) — where deadline items come from
 - [`joining-magna-carta.md`](joining-magna-carta.md) — your account and the email address on it

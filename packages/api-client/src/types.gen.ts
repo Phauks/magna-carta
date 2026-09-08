@@ -7063,6 +7063,7 @@ export type MyDayResponse = {
 export type NotificationPage = {
     data: Array<NotificationItem>;
     nextCursor: string | null;
+    readThroughCursor: string | null;
 };
 
 export type NotificationItem = {

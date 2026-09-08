@@ -30,8 +30,8 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 299 | 45% |
-| Part-built | partial, in-build | 123 | 18% |
+| Done | shipped | 300 | 45% |
+| Part-built | partial, in-build | 122 | 18% |
 | Ahead | designed, planned, researching, not-started | 203 | 31% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **666** | **100%** |
@@ -40,8 +40,8 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 299 | 45% |
-| `partial` | 122 | 18% |
+| `shipped` | 300 | 45% |
+| `partial` | 121 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 299 of 666 (45%). Shipped plus partial is 421 (63%).**
+**Shipped alone is 300 of 666 (45%). Shipped plus partial is 421 (63%).**
 
-The 122 units between those two numbers are work that is engineered and paid for and is not
+The 121 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -81,8 +81,8 @@ ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 80 | 19% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 164 | 39% |
+| A person can open it today (`screen`) | 83 | 20% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 161 | 38% |
 | No user surface by nature (`internal`) | 178 | 42% |
 | Not yet classified | 0 | 0% |
 | **Everything with something built** | **422** | **100%** |
@@ -113,7 +113,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Integrations & Plugins | 16 | 3 | 0 | 1 | 0 | 3 | 15 | 3 | 0 | 41 | 39% |
 | Maintenance Agents | 2 | 2 | 0 | 0 | 0 | 0 | 6 | 0 | 0 | 10 | 20% |
 | Matter Notes and Activity | 7 | 0 | 0 | 2 | 0 | 0 | 2 | 0 | 1 | 12 | 58% |
-| Notifications | 3 | 7 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 21% |
+| Notifications | 4 | 6 | 0 | 0 | 0 | 0 | 1 | 3 | 0 | 14 | 29% |
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **299** | **122** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **666** | **45%** |
+| **All areas** | **300** | **121** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **666** | **45%** |
 
 ## Where we have been
 
@@ -1054,15 +1054,15 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Notifications
 
-[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 14 units of work, 21% shipped. 3 done, 7 part-built, 1 ahead, 3 parked.
+[`roadmap.d/notifications.md`](../roadmap.d/notifications.md) — 14 units of work, 29% shipped. 4 done, 6 part-built, 1 ahead, 3 parked.
 
 - `notifications` · `partial` · **Notifications subsystem** — One home for the decision (event, audience, channels, preferences, read state) and in-app delivery, delegating external delivery to communications-layer ports; replaces per-feature trigger code.
   - `notifications.registry` · `shipped` · **Notification type registry** — Declarative types: key, category, internal/external audience, severity, mandatory flag, eligible channels with default routing, channel-aware templates, cadence, audited flag; fitness-function introspectable. _Note: Twenty types registered. A type declares its production path (raisedBy — outbox-topic, comparison-sweep, or job-coordinator), the emission point it names, its subject kind, its matter anchoring, its non-privileged fact schema, and its email content level. A fitness test asserts each type is indexed under exactly one path, and that a matter-anchored type does not reach a single member unless it is on a list saying why. Each path also declares how long its dedupe key must hold (CONVERGENCE_HORIZON_BY_RAISER in packages/notifications/src/materialize.ts) — the uniqueness lives on a row the retention sweep deletes, so a fourth path is a compile error until it states a horizon shorter than the retention floor, and a condition needing once-per-subject-forever convergence carries it in the owning subsystem's own tables instead._
   - `notifications.recipients-preferences` · `partial` · **Recipients & preferences** — Recipient resolution to a firm member or Directory entity; per-user channel matrix on the settings scope chain; mandatory categories non-silenceable; external routing honors STOP/TCPA consent. _Note: Two channels composing in opposite directions, held by packages/notifications/test/preferences.test.ts - in app the firm tier is a floor a member may not lower, by email the member's choice wins because a firm may not force mail into a mailbox it does not administer. `security` and `trust` are non-silenceable in app from either tier (MANDATORY_CATEGORIES, asserted against every registered type by test/registry-fitness.test.ts). A silenced category writes NO feed row and a counted notification_in_app_suppression row instead, so a member who chose not to hear something stays distinguishable from a member nobody told; packages/notifications/test/preference-enforcement.test.ts proves both the missing feed row and the tally. The email detail level (a member's choice under a firm ceiling) shipped ahead of the matrix, so a firm's stored ceiling is not rewritten when the digest lands._
   - `notifications.firm-policy` · `shipped` · **Firm notification policy** — The firm's own tier of the notification settings - the per-category in-app floor, the retention window, and the local hour the summary email lands - written under a firm-administration capability and audited. _Note: Deliberately NOT the member key notifications:read, which every default role including Read-only carries - reusing it would let any member raise the floor and shorten retention for the whole firm. The two channels still compose in opposite directions: the firm's in-app tier is a floor a member may not lower, and the firm's email tier is only a default a member's own choice overrides. The retention window and digest hour are refused outside their declared bounds rather than clamped, because a firm that asked for five years and silently got one would believe it had the first. Deliberately absent: the firm's email DETAIL-LEVEL ceiling (notifications.emailDetailLevel), which has no write statement in either tier and is not reachable from this surface either._
   - `notifications.trust-compliance-designation` · `shipped` · **Trust-compliance designation** — A firm-tier list of members who join the recipient set of every trust-category notification, written under the trust-management capability and audited by count. _Note: A designation is not a grant of access. The designated member gets an ordinary recipient row and the visible-matter predicate still decides at read, so a notification about a matter they cannot see leaves their feed and unread count byte-identical to a firm where it was never raised - no placeholder, which would be an existence oracle. The audit row carries the recipient COUNT and never the names._
-  - `notifications.center` · `partial` · **In-app notification center** — Per-firm D1 rows (IDs + non-sensitive display fields, seen/read state, canonical deep-link) aggregated into the staff bell: unread badge, grouped/filterable list, mark-read, click-through. _Note: Backend only. The card is assembled at read time from the kind and a visibility-filtered matter join — no title, name, or filename is stored._
-  - `notifications.channels` · `partial` · **Delivery channels** — The channels a notification can route to — in-app, email, SMS, web push, desktop
+  - `notifications.center` · `shipped` · **In-app notification center** — Per-firm D1 rows (IDs + non-sensitive display fields, seen/read state, canonical deep-link) aggregated into the staff bell: unread badge, grouped/filterable list, mark-read, click-through. _Note: The card is assembled at read time from the kind, the declared facts and a visibility-filtered matter join - no title, name, or filename is stored, so the sentence is composed on the client in apps/web/src/lib/notifications/notification-presentation.ts. A kind that module has no entry for renders as its category's own noun rather than being dropped: a client that shipped before a type did must not swallow a notification somebody was meant to see, and a source scan over the server's registry fails when a registered kind has no words. Both filters are query parameters rather than client-side narrowing, so a filtered feed is cheaper rather than merely shorter and the cursor keeps meaning the same thing from page to page. The feed page reports readThroughCursor beside nextCursor - the newest row rather than the oldest - because read-all takes the newest as its bound and nextCursor is null exactly when a member's whole backlog fits on one page._
+  - `notifications.channels` · `partial` · **Delivery channels** — The channels a notification can route to — in-app, email, SMS, web push, desktop _Note: The two built channels do not share a delivery port. In-app writes recipient rows directly and email is a bespoke hourly digest pass with its own reader, renderer and watermark, so adding SMS or push today means a third delivery mechanism rather than an adapter behind one seam. Cutting that port is the work that makes the remaining three channels modular; nothing about the registry, the preference matrix or the read blocks it._
     - `notifications.channels.email` · `partial` · **Email channel** — External delivery via the communications layer: transactional provider for system/billing, matter mailbox for thread-bound mail. _Note: Digest-only, counts-only. A summary carries a fixed matter-free subject holding a count, a line of per-category counts and one link - no title, number, name, filename, date or amount, enforced by a golden test over a fixture whose matter is named after its parties. Composed per member per cadence from a keyset watermark through the SAME shared read the feed composes, so the wall binds at delivery time in one implementation; sends before it marks; and every row it did not mail is settled as a suppressed notification_delivery row naming a closed reason. Cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL are provisioned - absent any of the three the port reports a typed not-configured reason and the pass mails nobody (docs/deploy-queue.md)._
     - `notifications.channels.sms` · `not-started` · **SMS/MMS channel** — Appointment/deadline/payment reminders through the messaging port where type and recipient warrant.
     - `notifications.channels.web-push` · `deferred` · **Web push channel** — Push API subscriptions + VAPID via the app-shell service worker.

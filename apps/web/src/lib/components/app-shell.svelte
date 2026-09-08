@@ -24,19 +24,18 @@
    * destinations.
    *
    * Top-bar seams stay seams: +New renders nothing until its slice ships — the Actions region
-   * reserves its geometry; the shell never fakes function. The notification bell IS a real (if
-   * empty) surface — its honesty is the empty state, not a badge. The Time Sheet's handle is live: it
-   * reads the firm's timer, and opens the firm-wide Time Sheet over whatever is on screen.
+   * reserves its geometry; the shell never fakes function. The notification bell is live and owns
+   * itself ($lib/notifications/notification-tray.svelte): a real unread count and the newest few
+   * items behind it. The Time Sheet's handle is live too: it reads the firm's timer, and opens the
+   * firm-wide Time Sheet over whatever is on screen.
    */
   import { page } from "$app/state";
   import { installCanvasScrollRestoration } from "$lib/navigation/canvas-scroll-restoration.ts";
   import BrandMark from "@magna-carta/design-system/brand-mark";
-  import * as Popover from "@magna-carta/design-system/popover";
   import * as Sidebar from "@magna-carta/design-system/sidebar";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import * as TopBar from "@magna-carta/design-system/top-bar";
   import { isPaletteChord } from "@magna-carta/design-system/internal/platform";
-  import Bell from "@lucide/svelte/icons/bell";
   import Check from "@lucide/svelte/icons/check";
   import Lock from "@lucide/svelte/icons/lock";
   import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
@@ -47,6 +46,7 @@
   import { MaturityBadge, MaturityDot } from "@magna-carta/design-system/maturity";
   import DownloadTray from "$lib/export/download-tray.svelte";
   import UploadTray from "$lib/file-manager/upload-tray.svelte";
+  import NotificationTray from "$lib/notifications/notification-tray.svelte";
   import ProfileMenu from "$lib/components/profile-menu.svelte";
   import { DragReorderController } from "$lib/components/drag-reorder.svelte.ts";
   import {
@@ -112,7 +112,6 @@
   // so a maturity dot yields to the label badge while the rail is peeked wide).
   let peeking = $state(false);
   let paletteOpen = $state(false);
-  let notificationsOpen = $state(false);
   let customizing = $state(false);
   let moveAnnouncement = $state("");
 
@@ -142,12 +141,6 @@
   const footerLeading = footerFixture("settings");
   const footerTrailing = ["downloads", "uploads"].map((id) => footerFixture(id));
   const LeadingIcon = footerLeading.icon;
-
-  // The notification bell is the top-bar entry to the Notifications destination, so its maturity
-  // dot reads the same stage as that destination's sidebar row.
-  const notificationsDestination = DESTINATIONS.find(
-    (destination) => destination.id === "notifications",
-  ) as Destination;
 
   const drag = new DragReorderController();
 
@@ -496,53 +489,10 @@
              those buttons"). The signed-out frame ($lib/auth/auth-frame.svelte) seats it by the
              same rule, so the chip does not move when a visitor signs in. -->
         <VersionChip />
-        <!-- The notification bell — a real surface with an honest empty state (no fake items,
-             no count badge). Its popover states the truth and offers the center; live alerts
-             arrive with the notifications machinery. -->
-        <Popover.Root bind:open={notificationsOpen}>
-          <!-- The hover names the control and nothing else. Every control in this band answers
-               the same question the same way — what is this? — so the four tooltips are four
-               names: Notifications, Time Sheet, Downloads, Build Information. The tooltip and
-               the popover share ONE button through the tooltip trigger's child snippet; two
-               elements would be two controls. -->
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              {#snippet child({ props })}
-                <Popover.Trigger
-                  {...props}
-                  class="mc-top-bar-icon-button relative"
-                  aria-label="Notifications"
-                >
-                  <Bell class="size-16" aria-hidden="true" />
-                  <MaturityDot
-                    stage={destinationStage(notificationsDestination)}
-                    class="absolute end-4 top-4"
-                  />
-                </Popover.Trigger>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content>Notifications</Tooltip.Content>
-          </Tooltip.Root>
-          <Popover.Content
-            align="end"
-            class="flex flex-col gap-8"
-            style="inline-size: var(--mc-size-popover)"
-          >
-            <p class="text-sm font-medium">Notifications</p>
-            <p class="text-sm text-text-muted">You're all caught up.</p>
-            <p class="text-xs text-text-muted">
-              Live notifications arrive with the notifications machinery.
-            </p>
-            <a
-              href="/notifications"
-              class="text-sm font-medium"
-              style="color: var(--mc-accent-default)"
-              onclick={() => (notificationsOpen = false)}
-            >
-              Open notification center
-            </a>
-          </Popover.Content>
-        </Popover.Root>
+        <!-- The notification bell. Its own component, like the download and upload trays beside
+             it: the badge, the tray's read and the settle-on-follow are one subject, and the shell
+             stays a shell. -->
+        <NotificationTray />
         <!-- The Time Sheet's handle: a tabular elapsed readout that reads the firm's timer, and
              opens the sheet over whatever is on screen, firm-wide, because capture must never
              cost a person the place they were working. It wears the same quiet chrome as the

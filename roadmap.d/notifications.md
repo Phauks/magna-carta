@@ -28,8 +28,8 @@
   name: Recipients & preferences
   scope: Recipient resolution to a firm member or Directory entity; per-user channel matrix on the settings scope chain; mandatory categories non-silenceable; external routing honors STOP/TCPA consent.
   status: partial
-  surface: awaiting-screen
-  evidence: packages/notifications/src/recipients.ts resolves the declared audiences off the hot path and applies the per-category in-app floor before anything is written; the matrix itself is packages/notifications/src/preferences.ts on the shipped scope chain. The MEMBER tier is read and written through apps/api-worker/src/routes/notification-preferences.ts; the FIRM tier - the floor itself - through apps/api-worker/src/routes/firm-notification-policy.ts, which until then no route wrote at all, so the floor was read on every fan-out and settable by nobody. Still unbuilt here - the messaging port external routing depends on (ADR-0047) and Directory-entity recipients, since every audience resolver returns firm members.
+  surface: screen
+  evidence: Settings - Notifications (apps/web/src/routes/(app)/settings/notifications/+page.svelte) is the member's own matrix, one row per category carrying both channels, with the in-app switch disabled and the reason stated in words where a mandatory category or the firm's floor holds it, and the count of what the member's own choice has already stopped shown beside the switch that stopped it. packages/notifications/src/recipients.ts resolves the declared audiences off the hot path and applies the per-category in-app floor before anything is written; the matrix itself is packages/notifications/src/preferences.ts on the shipped scope chain. The MEMBER tier is read and written through apps/api-worker/src/routes/notification-preferences.ts; the FIRM tier - the floor itself - through apps/api-worker/src/routes/firm-notification-policy.ts, which until then no route wrote at all, so the floor was read on every fan-out and settable by nobody. Still unbuilt here - the messaging port external routing depends on (ADR-0047) and Directory-entity recipients, since every audience resolver returns firm members.
   notes: Two channels composing in opposite directions, held by packages/notifications/test/preferences.test.ts - in app the firm tier is a floor a member may not lower, by email the member's choice wins because a firm may not force mail into a mailbox it does not administer. `security` and `trust` are non-silenceable in app from either tier (MANDATORY_CATEGORIES, asserted against every registered type by test/registry-fitness.test.ts). A silenced category writes NO feed row and a counted notification_in_app_suppression row instead, so a member who chose not to hear something stays distinguishable from a member nobody told; packages/notifications/test/preference-enforcement.test.ts proves both the missing feed row and the tally. The email detail level (a member's choice under a firm ceiling) shipped ahead of the matrix, so a firm's stored ceiling is not rewritten when the digest lands.
 
 - id: notifications.firm-policy
@@ -52,16 +52,17 @@
 - id: notifications.center
   name: In-app notification center
   scope: Per-firm D1 rows (IDs + non-sensitive display fields, seen/read state, canonical deep-link) aggregated into the staff bell: unread badge, grouped/filterable list, mark-read, click-through.
-  status: partial
-  surface: awaiting-screen
-  evidence: Six per-firm tables plus the member-scoped read API (page, unread count, mark read/dismiss/read-all) behind notifications:read; the bell and the list are UI and unbuilt.
-  notes: Backend only. The card is assembled at read time from the kind and a visibility-filtered matter join — no title, name, or filename is stored.
+  status: shipped
+  surface: screen
+  evidence: Six per-firm tables, the member-scoped read API (page, unread count, mark read/dismiss/read-all) behind notifications:read, and the screens over it - apps/web/src/routes/(app)/notifications/+page.svelte for the feed and apps/web/src/lib/notifications/notification-tray.svelte for the top-bar bell, which carries a live unread badge over the shared count in unread-count.svelte.ts. Held by apps/web/test/notification-presentation.test.ts and apps/api-worker/test/notifications-routes.test.ts.
+  notes: The card is assembled at read time from the kind, the declared facts and a visibility-filtered matter join - no title, name, or filename is stored, so the sentence is composed on the client in apps/web/src/lib/notifications/notification-presentation.ts. A kind that module has no entry for renders as its category's own noun rather than being dropped: a client that shipped before a type did must not swallow a notification somebody was meant to see, and a source scan over the server's registry fails when a registered kind has no words. Both filters are query parameters rather than client-side narrowing, so a filtered feed is cheaper rather than merely shorter and the cursor keeps meaning the same thing from page to page. The feed page reports readThroughCursor beside nextCursor - the newest row rather than the oldest - because read-all takes the newest as its bound and nextCursor is null exactly when a member's whole backlog fits on one page.
 
 - id: notifications.channels
   name: Delivery channels
   scope: The channels a notification can route to — in-app, email, SMS, web push, desktop
   status: partial
-  evidence: In-app is the read API (a feed row is not delivered, it is read, so it carries no delivery row by design) and email is the counts-only digest; SMS, web push and desktop are seeded values in the notification_delivery channel CHECK with nothing written to them.
+  evidence: In-app is the read API and the two screens over it (a feed row is not delivered, it is read, so it carries no delivery row by design) and email is the counts-only digest; SMS, web push and desktop are seeded values in the notification_delivery channel CHECK with nothing written to them.
+  notes: The two built channels do not share a delivery port. In-app writes recipient rows directly and email is a bespoke hourly digest pass with its own reader, renderer and watermark, so adding SMS or push today means a third delivery mechanism rather than an adapter behind one seam. Cutting that port is the work that makes the remaining three channels modular; nothing about the registry, the preference matrix or the read blocks it.
 
 - id: notifications.channels.email
   name: Email channel
@@ -115,15 +116,15 @@
   name: Digest rollup
   scope: Cadence-based rollup of multiple items into one summary notification.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   slices: notifications-delivery
-  evidence: Partial because the email rollup shipped and the in-app one did not. The email digest is the same one notifications.channels.email describes, composed per member per cadence in packages/notifications/src/digest.ts and run hourly per firm by runNotificationDigestPass. Email is digest-ONLY by construction: the cadences in packages/notifications/src/types.ts are periods (off, daily, weekly) with no immediate value, and the only bypass is a registry-declared escalation reserved to the trust-compliance and security categories. What stays deferred is an IN-APP rollup — a feed row that stands for several others — which is a different thing from the email summary and is not built.
+  evidence: Partial because the email rollup shipped and the in-app one did not. The member's per-category cadence is now settable on Settings - Notifications. The email digest is the same one notifications.channels.email describes, composed per member per cadence in packages/notifications/src/digest.ts and run hourly per firm by runNotificationDigestPass. Email is digest-ONLY by construction: the cadences in packages/notifications/src/types.ts are periods (off, daily, weekly) with no immediate value, and the only bypass is a registry-declared escalation reserved to the trust-compliance and security categories. What stays deferred is an IN-APP rollup — a feed row that stands for several others — which is a different thing from the email summary and is not built.
 
 - id: notifications.freshness
   name: Freshness & delivery mechanics
   scope: Durable rows plus refetch-on-focus, cross-tab BroadcastChannel invalidation, cheap unread-count poll; job-completion rides the per-job Durable Object channel.
   status: partial
-  evidence: The durable rows and the cheap unread-count poll are shipped (GET /api/v1/notifications/unread-count, index-covered); focus refetch and cross-tab invalidation are UI and land with the bell. A document assembly's terminal state writes the durable row beside its unchanged socket push (apps/api-worker/src/assemblies/assembly-coordinator.ts), proved by apps/api-worker/test/notifications-comparison-sweep.test.ts.
+  evidence: The durable rows and the cheap unread-count poll are shipped (GET /api/v1/notifications/unread-count, index-covered), and the bell now consumes them - apps/web/src/lib/notifications/unread-count.svelte.ts polls on a slow interval, refetches on window focus, stops while the page is hidden, and never clears a known count on a failed read. Cross-tab BroadcastChannel invalidation is still unbuilt. A document assembly's terminal state writes the durable row beside its unchanged socket push (apps/api-worker/src/assemblies/assembly-coordinator.ts), proved by apps/api-worker/test/notifications-comparison-sweep.test.ts.
   notes: The poll also reports what the retention sweep took while unread, so a member returning from leave is told there is a gap rather than shown a zero. Four of the five job coordinators still write no durable row — three record no requester and the bundle builder is single-flight across several of them.
 
 - id: notifications.freshness.per-user-do-push

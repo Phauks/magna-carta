@@ -196,6 +196,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     commitMode: defaultCommitModeForScope("user"),
     shipped: true,
   },
+  // Notifications
+  {
+    // The member's own per-category matrix over the shipped preference routes. User scope and
+    // instant, by the mode rule: these are personal preferences, reversible at a click. The FIRM's
+    // tier — the floor a member cannot lower, the retention window, the summary hour — is a
+    // different page under a firm-administration right, and putting the two on one screen would
+    // hand every seat in every firm a lever over its colleagues.
+    id: "notifications",
+    label: "Notifications",
+    href: "/settings/notifications",
+    group: "notifications",
+    scope: "user",
+    commitMode: defaultCommitModeForScope("user"),
+    shipped: true,
+  },
   // Firm
   {
     id: "firm-profile",

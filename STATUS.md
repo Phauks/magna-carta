@@ -480,7 +480,7 @@ member can act on, and the truncated-context note. The list read gained a matter
 one backend change the interface needed. The surface polls the turn rather than holding the events
 socket; the socket lands with token streaming, where a frame can carry a partial answer. |
 | R2 object dimensions (matter + object class in object metadata) | [x] Opus 5 | [-] | [-] | [x] Opus 5 | [-] | [-] | [x] Opus 5 | `@magna-carta/object-dimensions` — the two dimensions every object in a firm's bucket carries (`matter` on matter-scoped objects, `object_class` on all of them) and the closed class vocabulary behind them. Stamped at put time by every write path: the presigned PUT signs the metadata headers, so a browser upload that drops one is refused rather than landing an unscopeable object; the multipart create carries them (a multipart object's metadata is fixed there); a version cut inherits its source's matter and only changes class; firm-level objects (bundles, templates, letterheads, conversion artifacts, staged mail, the content-addressed email original) record the class and deliberately no matter. `dimension-backfill-sweep.ts` repairs what predates the stamp on the daily storage pass — candidates come from the R2 listing rather than any new schema, bounded per firm and convergent over failures, and it doubles as the standing detector for a write path that forgets. `apps/api-worker/test/r2-object-dimension-scan.test.ts` is that guard in the suite. `client` and `confidentiality_scope` are reserved and written by nothing. |
-| Notifications — delivery | [-] | [x] Opus 5 | [x] Opus 5 | [~] Opus 5 | [ ] | [ ] | [ ] | Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second
+| Notifications — delivery | [-] | [x] Opus 5 | [x] Opus 5 | [~] Opus 5 | [x] Opus 5 | [ ] | [ ] | Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second
 non-exclusive translator pass on the shipped per-firm queue (no producing package changed —
 thirty-one topics already commit transactionally), the member-scoped read API behind
 `notifications:read`, the firm-ceiling email detail level, and the firm-configurable retention window
@@ -538,9 +538,10 @@ password reset; catastrophic here, because the run would record `sent` rows and 
 for mail printed to a log, and the member would never hear about those notifications again. The
 digest port reports one of three typed not-configured reasons instead, counted every pass.
 
-**Not built, deliberately:** any `apps/web` change. An email template is not a screen, and the
-notification centre and the preference screens stay deferred; `docs/user/` says plainly that the
-digest cannot reach anybody until the firm's outbound mail is provisioned.
+**Not built in slice 4, deliberately:** any `apps/web` change. An email template is not a screen, and
+the notification centre and the preference screens stayed deferred; `docs/user/` says plainly that the
+digest cannot reach anybody until the firm's outbound mail is provisioned. (Slice 5 below builds both
+screens; the provisioning sentence still holds.)
 
 **Repaired in passing:** the per-firm drizzle snapshot had fallen one migration behind the schema
 (the discovery processing-route migration was hand-written without refreshing it), so the next
@@ -598,7 +599,37 @@ failed. Now `GET`/`PATCH /api/v1/firm/notifications/policy` under a new
 `firm:manageNotificationPolicy` seeded to Owner/Admin — deliberately not the member key
 `notifications:read`, which every default role including Read-only carries. Still not written by
 anything: the firm's email DETAIL-LEVEL ceiling, which has no write statement in either tier and is a
-separate gap rather than an omission here. |
+separate gap rather than an omission here.
+
+**Slice 5 built — the interface, and the one contract gap it exposed.** The read API, both preference
+routes and the firm policy route had shipped with no caller: everything above was reachable only by
+`curl`. Built: the notification centre (`/notifications`), which replaces the honest stub with the
+real feed — cursor-paged through the shared `PagedList`, narrowed by state and category as QUERY
+parameters so a filtered feed is cheaper rather than merely shorter, settling a row on follow and
+dismissing separately, and stating what the retention sweep took while unread rather than showing a
+reassuring zero. The top-bar bell became its own component beside the download and upload trays,
+carrying a live unread badge over a shared count both surfaces read, polled on a slow interval and on
+focus, and never cleared by a failed read. And Settings · Notifications gives a member the
+per-category matrix at last: one row per category with both channels on it, the in-app switch
+disabled with the reason in words where the firm's floor or a mandatory category holds it, and the
+count of what their own choice has already stopped shown beside the switch that stopped it.
+
+The card is composed on the client from the kind and the declared facts
+(`apps/web/src/lib/notifications/notification-presentation.ts`), because the row carries no sentence —
+and a kind this client has never heard of renders as the category's own noun rather than being
+dropped, so a client that shipped before a type did cannot swallow a notification somebody was meant
+to see. `apps/web/test/notification-presentation.test.ts` scans the server's registry as text (apps/web
+does not depend on the notifications package and should not start) and fails when a registered kind
+has no words here — the same pairing scan, in the same direction, that the timeline registry gets.
+
+**Contract gap found and closed: `read-all` was unusable by any client.** The route requires a
+`throughCursor` naming the newest row the member saw, and no route handed one out — `nextCursor` names
+the page's OLDEST row and is null at the end of the record, which is precisely the common case of a
+member whose whole backlog fits on one page. The subsystem's own test minted the cursor by hand, which
+is why nothing had noticed. The feed page now reports `readThroughCursor` beside `nextCursor`, and the
+route test uses it instead of hand-minting, so the cursor's encoding stays in the one module that owns
+it. The alternatives were both bad: mint it in the client, putting the encoding in a second place, or
+fire one request per visible row, which is neither atomic nor able to clear the aged-out tally. |
 | Directory pronouns | [-] | [-] | [-] | [x] Opus 5\* | [ ] | [-] | [ ] | Owner override of the shipped no-pronoun-helper default: optional owner-entered pronouns on `directory_person` (the whole declension plus verb agreement, all-or-nothing at the table CHECK, never derived from a name), a `PUT …/persons/{id}/pronouns` route, and the `pronoun()` / `pronounVerb()` template helpers whose unrecorded case renders they/them. No gender field ships — flagged for the owner. Load profile `[-]`: six columns on a row two existing batched reads already join, no new read. UI deferred. |
 | Matter document surface | [-] | [-] | [-] | [~] Opus 5 | [~] Opus 5 | [-] | [ ] | The matter's Files page on real rows: list, add from a file, build from a template, save a new version, read the version history. The editing-session launch is real; the Collabora editor itself needs the deployed `magna-carta-edit` container. |
 | Community 1 — public changelog | [-] | [x] Opus 4.8 | [-] | [x] Opus 5\* | [ ] | [-] | [x] Opus 5\* | The first of the three community surfaces, built alone as the design sequences it. `changelog.d/` fragments gain a required `audience:` key with no default and a `## Public` block; `vp run changelog-build` now folds both halves in one pass — the developer entry into `CHANGELOG.md`, the customer entry into the new `docs/public-changelog.md` — and `pnpm run lint:changelog-fragments` refuses an undecided fragment in the author's own gate. `@magna-carta/product-updates` holds the artifact schema and the strict parser that turns the assembled document into it. No database, no board, no screen. |

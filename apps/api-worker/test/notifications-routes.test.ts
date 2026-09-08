@@ -268,7 +268,11 @@ describe("POST /api/v1/notifications/read-all", () => {
       await SELF.fetch("https://example.com/api/v1/notifications?state=unread&pageSize=2", {
         headers: { cookie: ownerCookie },
       })
-    ).json()) as { data: { id: string }[]; nextCursor: string | null };
+    ).json()) as {
+      data: { id: string }[];
+      nextCursor: string | null;
+      readThroughCursor: string | null;
+    };
     expect(rendered.data).toHaveLength(2);
 
     // Arrives after the page was drawn.
@@ -278,9 +282,10 @@ describe("POST /api/v1/notifications/read-all", () => {
       "2026-08-07T04:00:02.000Z",
     );
 
-    // The newest row the member actually saw is the head of the page they rendered.
-    const seenNewest = rendered.data[0]?.id ?? "";
-    const seenNewestCursor = btoa(JSON.stringify({ c: "2026-08-07T04:00:01.000Z", i: seenNewest }));
+    // The bound comes from the page itself. This used to be minted here by hand, which meant the
+    // cursor's encoding lived in a second place and the one caller that mattered — a client — had
+    // no way to obtain it at all.
+    const seenNewestCursor = rendered.readThroughCursor ?? "";
 
     const response = await SELF.fetch("https://example.com/api/v1/notifications/read-all", {
       method: "POST",
@@ -290,5 +295,45 @@ describe("POST /api/v1/notifications/read-all", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { remainingUnreadCount: number };
     expect(body.remainingUnreadCount).toBe(1);
+  });
+
+  it("clears a backlog that fits on ONE page, where nextCursor is null", async () => {
+    // The ordinary case, and the one the feed's continuation cursor cannot serve: a member whose
+    // whole backlog fits on a single page gets `nextCursor: null`, so a client with only that field
+    // would have nothing to send and would have to leave "mark all read" disabled for exactly the
+    // people who need one press to be done. `readThroughCursor` is present whenever the page is.
+    const page = (await (
+      await SELF.fetch("https://example.com/api/v1/notifications?state=unread", {
+        headers: { cookie: ownerCookie },
+      })
+    ).json()) as {
+      data: { id: string }[];
+      nextCursor: string | null;
+      readThroughCursor: string | null;
+    };
+    expect(page.data.length).toBeGreaterThan(0);
+    expect(page.nextCursor).toBeNull();
+    expect(page.readThroughCursor).not.toBeNull();
+
+    const response = await SELF.fetch("https://example.com/api/v1/notifications/read-all", {
+      method: "POST",
+      headers: { cookie: ownerCookie, "content-type": "application/json" },
+      body: JSON.stringify({ throughCursor: page.readThroughCursor ?? "" }),
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { remainingUnreadCount: number };
+    expect(body.remainingUnreadCount).toBe(0);
+  });
+
+  it("reports no readThroughCursor for an empty page", async () => {
+    // Null because there is no row to name, not because the field was forgotten — the two would be
+    // indistinguishable to a caller, and one of them is a bug.
+    const page = (await (
+      await SELF.fetch("https://example.com/api/v1/notifications?state=unread", {
+        headers: { cookie: ownerCookie },
+      })
+    ).json()) as { data: unknown[]; readThroughCursor: string | null };
+    expect(page.data).toHaveLength(0);
+    expect(page.readThroughCursor).toBeNull();
   });
 });
