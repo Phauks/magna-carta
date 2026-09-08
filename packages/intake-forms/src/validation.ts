@@ -43,6 +43,8 @@ export type IntakeFormValidationCode =
   | "field-unknown"
   | "triage-note-too-long"
   | "triage-unknown-state"
+  | "submission-already-accepted"
+  | "acceptance-needs-a-name"
   // The anonymous side. These are the ONLY refusals a stranger can provoke that are about their own
   // input, and each is a fact about what they typed rather than about what the firm holds.
   | "answer-required"

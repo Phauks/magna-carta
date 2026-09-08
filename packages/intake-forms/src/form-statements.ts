@@ -72,6 +72,9 @@ export interface IntakeFormSubmissionRow {
   readonly form_version_id: IntakeFormVersionId;
   readonly submitted_at: string;
   readonly answers_json: string;
+  readonly source: string;
+  readonly accepted_entity_id: string | null;
+  readonly accepted_matter_id: string | null;
   readonly triage_state: IntakeSubmissionTriageState;
   readonly triaged_at: string | null;
   readonly triaged_by: UserId | null;
@@ -88,8 +91,8 @@ const FIELD_COLUMNS =
   "id, form_version_id, position, kind, label, help_text, required, options_json, created_at, " +
   "updated_at";
 const SUBMISSION_COLUMNS =
-  "id, form_version_id, submitted_at, answers_json, triage_state, triaged_at, triaged_by, " +
-  "triage_note, created_at, updated_at";
+  "id, form_version_id, submitted_at, answers_json, source, accepted_entity_id, " +
+  "accepted_matter_id, triage_state, triaged_at, triaged_by, created_at, updated_at, triage_note";
 
 // ---- the form ----
 
@@ -467,8 +470,9 @@ export function insertSubmissionStatement(
   return database
     .prepare(
       `INSERT INTO ${INTAKE_FORM_SUBMISSION_TABLE} (id, form_version_id, submitted_at, ` +
-        `answers_json, triage_state, triaged_at, triaged_by, triage_note, created_at, updated_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, 'new', NULL, NULL, NULL, ?3, ?3)`,
+        `answers_json, source, accepted_entity_id, accepted_matter_id, triage_state, triaged_at, ` +
+        `triaged_by, triage_note, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, 'public_form', NULL, NULL, 'new', NULL, NULL, NULL, ?3, ?3)`,
     )
     .bind(input.id, input.formVersionId, input.now, input.answersJson);
 }
@@ -578,4 +582,33 @@ export async function countSubmissionsSince(
     .bind(formId, since)
     .all<{ readonly taken: number }>();
   return results[0]?.taken ?? 0;
+}
+
+/**
+ * Link a submission to what a member's acceptance created, and mark it accepted, in one statement.
+ *
+ * THE GUARD IS IN THE WHERE CLAUSE and it is the whole safety of the act: `accepted_entity_id IS
+ * NULL` means a second acceptance of the same submission changes no rows rather than creating a
+ * second person. A double-click must not put two of somebody into a permanent conflicts corpus, and
+ * a check in the service ahead of this would still leave the window between the read and the write.
+ * The caller reads `meta.changes` to tell a real acceptance from a repeat.
+ */
+export function recordAcceptanceStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: IntakeFormSubmissionId;
+    readonly entityId: string;
+    readonly matterId: string;
+    readonly note: string | null;
+    readonly acceptedBy: UserId;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${INTAKE_FORM_SUBMISSION_TABLE} SET accepted_entity_id = ?1, accepted_matter_id = ?2, ` +
+        `triage_state = 'accepted', triaged_at = ?3, triaged_by = ?4, triage_note = ?5, ` +
+        `updated_at = ?3 WHERE id = ?6 AND accepted_entity_id IS NULL`,
+    )
+    .bind(input.entityId, input.matterId, input.now, input.acceptedBy, input.note, input.id);
 }

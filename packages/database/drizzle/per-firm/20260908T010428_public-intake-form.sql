@@ -45,6 +45,9 @@ CREATE TABLE `intake_form_submission` (
 	`form_version_id` text NOT NULL,
 	`submitted_at` text NOT NULL,
 	`answers_json` text NOT NULL,
+	`source` text DEFAULT 'public_form' NOT NULL,
+	`accepted_entity_id` text,
+	`accepted_matter_id` text,
 	`triage_state` text DEFAULT 'new' NOT NULL,
 	`triaged_at` text,
 	`triaged_by` text,
@@ -54,7 +57,10 @@ CREATE TABLE `intake_form_submission` (
 	FOREIGN KEY (`form_version_id`) REFERENCES `intake_form_version`(`id`) ON UPDATE no action ON DELETE no action,
 	CONSTRAINT "intake_form_submission_triage_state_check" CHECK("intake_form_submission"."triage_state" IN ('new', 'accepted', 'declined', 'spam')),
 	CONSTRAINT "intake_form_submission_triage_shape_check" CHECK(("intake_form_submission"."triage_state" = 'new') = ("intake_form_submission"."triaged_at" IS NULL)
-        AND ("intake_form_submission"."triaged_at" IS NULL) = ("intake_form_submission"."triaged_by" IS NULL))
+        AND ("intake_form_submission"."triaged_at" IS NULL) = ("intake_form_submission"."triaged_by" IS NULL)),
+	CONSTRAINT "intake_form_submission_accepted_shape_check" CHECK(("intake_form_submission"."accepted_entity_id" IS NULL) = ("intake_form_submission"."accepted_matter_id" IS NULL)),
+	CONSTRAINT "intake_form_submission_accepted_state_check" CHECK("intake_form_submission"."accepted_entity_id" IS NULL OR "intake_form_submission"."triage_state" = 'accepted'),
+	CONSTRAINT "intake_form_submission_source_nonempty_check" CHECK(length("intake_form_submission"."source") > 0)
 );
 --> statement-breakpoint
 CREATE INDEX `intake_form_submission_version_submitted_index` ON `intake_form_submission` (`form_version_id`,`submitted_at`,`id`);--> statement-breakpoint

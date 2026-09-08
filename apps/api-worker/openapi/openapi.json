@@ -16207,6 +16207,174 @@
           }
         ]
       },
+      "IntakeAcceptanceProposal": {
+        "type": "object",
+        "properties": {
+          "submissionId": {
+            "type": "string"
+          },
+          "suggestedEntityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "personName": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "given": {
+                "type": "string"
+              },
+              "family": {
+                "type": "string"
+              },
+              "middle": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "given",
+              "family",
+              "middle"
+            ]
+          },
+          "organizationName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "telephone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postalAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterTitle": {
+            "type": "string"
+          },
+          "answers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "kind",
+                "value"
+              ]
+            }
+          }
+        },
+        "required": [
+          "submissionId",
+          "suggestedEntityKind",
+          "personName",
+          "organizationName",
+          "email",
+          "telephone",
+          "postalAddress",
+          "matterTitle",
+          "answers"
+        ]
+      },
+      "IntakeAcceptanceRequest": {
+        "type": "object",
+        "properties": {
+          "entityKind": {
+            "type": "string",
+            "enum": [
+              "person",
+              "organization"
+            ]
+          },
+          "given": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "family": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "middle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "legalName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "matterTitle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "responsibleMemberId": {
+            "type": "string",
+            "pattern": "^user_[A-Za-z0-9_-]{21}$"
+          },
+          "matterTypeId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matterType_[A-Za-z0-9_-]{21}$"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "entityKind",
+          "matterTitle",
+          "responsibleMemberId"
+        ]
+      },
       "PublicIntakeForm": {
         "type": "object",
         "properties": {
@@ -68619,6 +68787,245 @@
                   },
                   "required": [
                     "acknowledged"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/submissions/{submissionId}/acceptance-proposal": {
+      "get": {
+        "description": "What accepting this enquiry WOULD create, for a member to check and change. Reads the submission and maps its answers onto the record a member would make; COMMITS NOTHING, so a proposal nobody accepts leaves the database exactly as it found it. Every value came from somebody the firm has not met and every one is editable before it is committed — which is the only thing between a typo on a web form and a permanent row in a conflicts corpus.",
+        "operationId": "intakeForms.proposeAcceptance",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.proposeAcceptance",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:readSubmissions",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeFormSubmission_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "submissionId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What acceptance would create.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeAcceptanceProposal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission, or the human-verification challenge was not solved",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/intake-forms/{formId}/submissions/{submissionId}/acceptance": {
+      "post": {
+        "description": "Accept an enquiry: create the Directory entity and the intake it becomes, from the values a MEMBER confirmed rather than the ones the visitor typed. Everything commits in ONE batch — the entity, the matter, the client's party link and the submission's own record — because the Directory is effectively permanent and an entity written without its matter would be somebody in the firm's conflicts corpus forever with nothing to show for it. Accepting the same submission twice is refused rather than creating a second person.",
+        "operationId": "intakeForms.accept",
+        "tags": [
+          "intakeForms"
+        ],
+        "x-mc-operationId": "intakeForms.accept",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "intakeForms:readSubmissions",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "intakeForms"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeForm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "formId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^intakeFormSubmission_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "submissionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeAcceptanceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The entity and the intake it created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entityId": {
+                      "type": "string"
+                    },
+                    "matterId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "entityId",
+                    "matterId"
                   ]
                 }
               }

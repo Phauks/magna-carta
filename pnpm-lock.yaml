@@ -1955,9 +1955,15 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/directory':
+        specifier: workspace:*
+        version: link:../directory
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../matters
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

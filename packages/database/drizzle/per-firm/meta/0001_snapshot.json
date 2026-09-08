@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0050c300-00d2-484f-a8ac-f938b64e8171",
+  "id": "2f538679-6a1c-4b5c-8780-07878508bb0e",
   "prevId": "3eb60dda-ab90-4a42-9f60-e2a03c7512f3",
   "tables": {
     "account_balance": {
@@ -10331,6 +10331,28 @@
           "notNull": true,
           "autoincrement": false
         },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'public_form'"
+        },
+        "accepted_entity_id": {
+          "name": "accepted_entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "accepted_matter_id": {
+          "name": "accepted_matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "triage_state": {
           "name": "triage_state",
           "type": "text",
@@ -10419,6 +10441,18 @@
         "intake_form_submission_triage_shape_check": {
           "name": "intake_form_submission_triage_shape_check",
           "value": "(\"intake_form_submission\".\"triage_state\" = 'new') = (\"intake_form_submission\".\"triaged_at\" IS NULL)\n        AND (\"intake_form_submission\".\"triaged_at\" IS NULL) = (\"intake_form_submission\".\"triaged_by\" IS NULL)"
+        },
+        "intake_form_submission_accepted_shape_check": {
+          "name": "intake_form_submission_accepted_shape_check",
+          "value": "(\"intake_form_submission\".\"accepted_entity_id\" IS NULL) = (\"intake_form_submission\".\"accepted_matter_id\" IS NULL)"
+        },
+        "intake_form_submission_accepted_state_check": {
+          "name": "intake_form_submission_accepted_state_check",
+          "value": "\"intake_form_submission\".\"accepted_entity_id\" IS NULL OR \"intake_form_submission\".\"triage_state\" = 'accepted'"
+        },
+        "intake_form_submission_source_nonempty_check": {
+          "name": "intake_form_submission_source_nonempty_check",
+          "value": "length(\"intake_form_submission\".\"source\") > 0"
         }
       }
     },

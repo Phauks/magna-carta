@@ -30,6 +30,7 @@ import {
 let poolFirmId: FirmId;
 let ownerCookie: string;
 let paralegalCookie: string;
+let ownerUserId: UserId;
 
 async function mirrorMemberWithRole(userId: UserId, displayName: string, roleName: string) {
   const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
@@ -62,6 +63,7 @@ beforeAll(async () => {
     userName: "Form Owner",
     firmId: poolFirmId,
   });
+  ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "Form Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("form-owner@example.com");
 
@@ -72,6 +74,21 @@ beforeAll(async () => {
   await mirrorMemberWithRole(paralegal.userId, "Form Paralegal", "Paralegal");
   paralegalCookie = await signInForSessionCookie("form-paralegal@example.com");
 });
+
+/*
+ * A fresh caller address per request.
+ *
+ * The public routes ride the `auth` bucket — the tightest the platform has, twenty a minute per
+ * address — which is the enforcement that stands alone while human verification is dormant, and the
+ * authenticated ones ride their own. A suite that sent everything from one address would exhaust
+ * them and start reading 429s as failures, which is the limiter working rather than the routes
+ * breaking. The joining suites take the same approach for the same reason.
+ */
+let nextClientAddress = 0;
+function freshClientAddress(): string {
+  nextClientAddress += 1;
+  return `198.51.100.${String(nextClientAddress % 250)}`;
+}
 
 function send(
   method: string,
@@ -85,6 +102,7 @@ function send(
       "content-type": "application/json",
       origin: "https://example.com",
       cookie,
+      "cf-connecting-ip": freshClientAddress(),
       "Idempotency-Key": crypto.randomUUID(),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -93,15 +111,32 @@ function send(
 
 function get(path: string, cookie = ownerCookie): Promise<Response> {
   return SELF.fetch(`https://example.com${path}`, {
-    headers: { origin: "https://example.com", cookie },
+    headers: {
+      origin: "https://example.com",
+      cookie,
+      "cf-connecting-ip": freshClientAddress(),
+    },
   });
 }
 
+/*
+ * A fresh caller address per anonymous request.
+ *
+ * The public routes ride the `auth` bucket — the tightest the platform has, twenty a minute per
+ * address — which is the enforcement that stands alone while human verification is dormant. A suite
+ * that sent every request from one address would exhaust it and start reading 429s as failures,
+ * which is the limiter working rather than the routes breaking. The joining suites take the same
+ * approach for the same reason.
+ */
 /** The anonymous surface: no cookie, ever. A credential here would invalidate every assertion. */
 function anonymous(method: string, path: string, body?: unknown): Promise<Response> {
   return SELF.fetch(`https://example.com${path}`, {
     method,
-    headers: { "content-type": "application/json", origin: "https://example.com" },
+    headers: {
+      "content-type": "application/json",
+      origin: "https://example.com",
+      "cf-connecting-ip": freshClientAddress(),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
@@ -140,7 +175,16 @@ interface FormDetail {
   fields: { id: string; label: string; kind: string; required: boolean }[];
 }
 
-async function authorPublishedForm(name: string): Promise<FormDetail> {
+/*
+ * Author and publish a form.
+ *
+ * `withStory` is opt-in rather than always-on, and the reason is the rate limiter rather than
+ * tidiness: authenticated requests are keyed by FIRM — one bucket of a hundred a minute for
+ * everybody in it — so a suite that adds a field it does not assert on spends part of its own
+ * budget and starts reading 429s as failures. Ask for the second question only where a test reads
+ * it.
+ */
+async function authorPublishedForm(name: string, withStory = false): Promise<FormDetail> {
   const created = await send("POST", "/api/v1/intake-forms", {
     name,
     title: "Tell us what happened",
@@ -155,11 +199,13 @@ async function authorPublishedForm(name: string): Promise<FormDetail> {
   });
   expect(addedName.status).toBe(201);
 
-  const addedStory = await send("POST", `/api/v1/intake-forms/${id}/fields`, {
-    kind: "matter-description",
-    label: "What happened",
-  });
-  expect(addedStory.status).toBe(201);
+  if (withStory) {
+    const addedStory = await send("POST", `/api/v1/intake-forms/${id}/fields`, {
+      kind: "matter-description",
+      label: "What happened",
+    });
+    expect(addedStory.status).toBe(201);
+  }
 
   const published = await send("POST", `/api/v1/intake-forms/${id}/publication`, undefined);
   expect(published.status).toBe(200);
@@ -314,9 +360,154 @@ describe("what a stranger may be told about their own input", () => {
   });
 });
 
+describe("accepting an enquiry — the firm verifies before anything becomes a record", () => {
+  async function submittedTo(form: FormDetail, answers: Record<string, string>): Promise<string> {
+    await anonymous(
+      "POST",
+      `/api/v1/public/intake-forms/${poolFirmId}/${form.publicToken}/submissions`,
+      { answers },
+    );
+    const queue = await readJson<{ data: { id: string }[] }>(
+      await get(`/api/v1/intake-forms/${form.id}/submissions`),
+    );
+    return queue.data[0]!.id;
+  }
+
+  it("proposes what acceptance would create, and writes nothing", async () => {
+    const form = await authorPublishedForm("Proposal form", true);
+    const nameField = form.fields.find((one) => one.kind === "person-name")!;
+    const storyField = form.fields.find((one) => one.kind === "matter-description")!;
+    const submissionId = await submittedTo(form, {
+      [nameField.id]: "Rowan Ashcroft",
+      [storyField.id]: "A neighbour has built over the boundary.",
+    });
+
+    const proposal = await readJson<{
+      suggestedEntityKind: string;
+      personName: { given: string; family: string } | null;
+      matterTitle: string;
+      answers: { label: string; value: string }[];
+    }>(
+      await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance-proposal`),
+    );
+
+    expect(proposal.suggestedEntityKind).toBe("person");
+    expect(proposal.personName).toEqual({ given: "Rowan", family: "Ashcroft", middle: null });
+    expect(proposal.answers.map((answer) => answer.value)).toContain(
+      "A neighbour has built over the boundary.",
+    );
+
+    // The whole point of a proposal: asking for one changes nothing. The submission is still
+    // waiting, and no directory entity was created behind the reader's back.
+    const stillWaiting = await readJson<{ triageState: string }>(
+      await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}`),
+    );
+    expect(stillWaiting.triageState).toBe("new");
+  });
+
+  it("writes what the MEMBER confirmed, not what the visitor typed", async () => {
+    const form = await authorPublishedForm("Correction form");
+    const nameField = form.fields.find((one) => one.kind === "person-name")!;
+    // Typed in a hurry. This is the spelling that must NOT reach a permanent conflicts corpus.
+    const submissionId = await submittedTo(form, { [nameField.id]: "jonh smtih" });
+
+    const accepted = await send(
+      "POST",
+      `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance`,
+      {
+        entityKind: "person",
+        given: "John",
+        family: "Smith",
+        matterTitle: "Smith — boundary dispute",
+        responsibleMemberId: ownerUserId,
+      },
+    );
+    expect(accepted.status).toBe(201);
+    const { entityId, matterId } = await readJson<{ entityId: string; matterId: string }>(accepted);
+
+    expect(entityId).not.toBe("");
+
+    // And the submission keeps what was actually typed — the record of what somebody sent is the
+    // reason to keep it, and correcting the entity must not rewrite history.
+    const detail = await readJson<{
+      answers: { value: string | null }[];
+      triageState: string;
+    }>(await get(`/api/v1/intake-forms/${form.id}/submissions/${submissionId}`));
+    expect(detail.answers.map((answer) => answer.value)).toContain("jonh smtih");
+    expect(detail.triageState).toBe("accepted");
+
+    // The matter exists, is an intake, and carries the client — which proves two things at once:
+    // the corrected name is what reached the Directory, and the party link was written in the same
+    // batch, so the matter is not readable without the person it is for.
+    const matter = await readJson<{ status: string; title: string; clientDisplayName: string }>(
+      await get(`/api/v1/matters/${matterId}`),
+    );
+    expect(matter.status).toBe("intake");
+    expect(matter.title).toBe("Smith — boundary dispute");
+    expect(matter.clientDisplayName).toContain("Smith");
+    // The spelling the visitor typed in a hurry never reached the permanent corpus.
+    expect(matter.clientDisplayName).not.toContain("smtih");
+  });
+
+  it("refuses a second acceptance rather than creating a second person", async () => {
+    const form = await authorPublishedForm("Double-click form");
+    const nameField = form.fields.find((one) => one.kind === "person-name")!;
+    const submissionId = await submittedTo(form, { [nameField.id]: "Once Only" });
+
+    const body = {
+      entityKind: "person" as const,
+      given: "Once",
+      family: "Only",
+      matterTitle: "Only — enquiry",
+      responsibleMemberId: ownerUserId,
+    };
+    const first = await send(
+      "POST",
+      `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance`,
+      body,
+    );
+    expect(first.status).toBe(201);
+
+    // A fresh key, so this is a genuine second request rather than an idempotent replay — which is
+    // exactly the double-click the guard exists for.
+    const second = await send(
+      "POST",
+      `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance`,
+      body,
+    );
+    expect(second.status).toBe(409);
+
+    // And the proposal refuses too, so the surface cannot offer a second acceptance.
+    const proposal = await get(
+      `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance-proposal`,
+    );
+    expect(proposal.status).toBe(409);
+  });
+
+  it("refuses an entity with no name at all", async () => {
+    const form = await authorPublishedForm("Nameless form");
+    const nameField = form.fields.find((one) => one.kind === "person-name")!;
+    const submissionId = await submittedTo(form, { [nameField.id]: "Somebody" });
+
+    const refused = await send(
+      "POST",
+      `/api/v1/intake-forms/${form.id}/submissions/${submissionId}/acceptance`,
+      {
+        entityKind: "person",
+        given: "  ",
+        family: "  ",
+        matterTitle: "No name",
+        responsibleMemberId: ownerUserId,
+      },
+    );
+    // A row in a permanent conflicts corpus that nothing can ever match against.
+    expect(refused.status).toBe(422);
+  });
+});
+
 describe("the firm's side", () => {
   it("shows a submission's answers under the questions as they were asked", async () => {
-    const form = await authorPublishedForm("Freezing form");
+    const form = await authorPublishedForm("Freezing form", true);
     const nameField = form.fields.find((one) => one.kind === "person-name")!;
 
     await anonymous(

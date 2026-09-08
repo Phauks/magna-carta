@@ -1,3 +1,5 @@
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryNameId, DirectoryOrganizationId } from "@magna-carta/identifiers/types";
@@ -29,6 +31,66 @@ export interface Organization {
   readonly displayName: string | null;
   readonly status: OrganizationStatus;
   readonly mergedIntoId: string | null;
+}
+
+/**
+ * The statements that record an organization, without committing them.
+ *
+ * The organization twin of `composeCreatePerson`, and it exists for the same caller: accepting a
+ * public intake form writes a Directory entity and the matter it belongs to in ONE batch, because
+ * the Directory is effectively permanent and an entity written by a batch that then failed would be
+ * in the firm's conflicts corpus forever with nothing to show for it.
+ */
+export function composeCreateOrganization(
+  database: BatchDatabase,
+  input: CreateOrganizationInput,
+  options: DirectoryWriteOptions,
+): {
+  readonly organizationId: DirectoryOrganizationId;
+  readonly statements: readonly SqlStatement[];
+  readonly outboxMessages: readonly OutboxMessage[];
+} {
+  const organizationId = newIdentifier("directoryOrganization", options.randomSource);
+  const nameId: DirectoryNameId = newIdentifier("directoryName", options.randomSource);
+  const now = options.clock.now();
+
+  const legalName = input.legalName.trim();
+  const displayName = (input.displayName ?? legalName).trim();
+  const normalizedDisplay = normalizeName(legalName);
+  const codes = phoneticCodes(normalizedDisplay);
+
+  return {
+    organizationId,
+    statements: [
+      insertOrganizationStatement(database, {
+        id: organizationId,
+        legalName,
+        displayName,
+        status: "active",
+        needsReview: 0,
+        createdAt: now,
+      }),
+      insertNameStatement(database, {
+        id: nameId,
+        entityId: organizationId,
+        entityKind: "organization",
+        nameRole: "current",
+        prefix: null,
+        given: null,
+        middle: null,
+        family: null,
+        suffix: null,
+        normalizedDisplay,
+        isCurrent: true,
+        validFrom: now,
+        validTo: null,
+        createdAt: now,
+      }),
+      ...insertPhoneticCodeStatements(database, nameId, codes),
+      directoryAuditStatement(database, options, "directory.organization.created", organizationId),
+    ],
+    outboxMessages: [{ topic: DIRECTORY_ENTITY_CREATED_TOPIC, payload: { organizationId } }],
+  };
 }
 
 export async function createOrganization(

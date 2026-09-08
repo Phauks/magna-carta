@@ -1,6 +1,7 @@
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import {
   selectIdempotencyRecordStatement,
   type SqlDatabase,
@@ -482,6 +483,57 @@ export interface CreatedMatter {
   readonly consultationNumber: string | null;
 }
 
+/**
+ * The statements that record an INTAKE, without committing them.
+ *
+ * Separate from `createMatter` so a caller with more to write in the same breath can put all of it
+ * in one batch. Accepting a public intake form is the case that forced it: acceptance creates a
+ * Directory entity AND this matter, and the Directory is effectively permanent — so an entity
+ * written by a batch that then failed to write its matter would be a person in the firm's conflicts
+ * corpus forever with nothing to show for it, and no way for anybody to tell it apart from one
+ * somebody meant to add.
+ *
+ * The intake branch is the only one that composes, and that is not an accident: it touches no
+ * counter. A consultation or an open matter DRAWS A NUMBER, which is a guarded read-and-increment
+ * that has to stay inside its own effect.
+ */
+export function composeCreateIntakeMatter(
+  database: BatchDatabase,
+  input: CreateMatterInput,
+  options: MatterServiceOptions,
+  matterId: MatterId = newIdentifier("matter", options.randomSource),
+): {
+  readonly matterId: MatterId;
+  readonly statements: readonly SqlStatement[];
+  readonly outboxMessages: readonly OutboxMessage[];
+} {
+  requireNonEmptyTitle(input.title);
+  const fields = fieldsFromInput(input);
+  const now = options.clock.now();
+  // An intake in flight. No counter is touched: the consultation number is drawn at graduation, so
+  // an intake that goes nowhere — a caller who never rings back — consumes nothing from either run.
+  // The row exists from the first call so the client is in the conflicts corpus and every intake
+  // step has a matter to be answered on.
+  return {
+    matterId,
+    statements: [
+      insertMatterStatement(database, {
+        id: matterId,
+        ...fields,
+        status: "intake",
+        matterNumber: null,
+        consultationNumber: null,
+        numberedAt: null,
+        openedAt: null,
+        createdAt: now,
+      }),
+      auditStatement(database, options, "matter.created", matterId),
+      ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
+    ],
+    outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
+  };
+}
+
 export async function createMatter(
   database: BatchDatabase,
   input: CreateMatterInput,
@@ -492,31 +544,12 @@ export async function createMatter(
   const fields = fieldsFromInput(input);
 
   if (input.status === "intake") {
-    // An intake in flight. No counter is touched: the consultation number is drawn at graduation,
-    // so an intake that goes nowhere — a caller who never rings back — consumes nothing from either
-    // run. The row exists from the first call so the client is in the conflicts corpus and every
-    // intake step has a matter to be answered on.
-    return runMatterEffect<CreatedMatter>(database, options, 201, () => {
-      const now = options.clock.now();
-      return {
-        statements: [
-          insertMatterStatement(database, {
-            id: matterId,
-            ...fields,
-            status: "intake",
-            matterNumber: null,
-            consultationNumber: null,
-            numberedAt: null,
-            openedAt: null,
-            createdAt: now,
-          }),
-          auditStatement(database, options, "matter.created", matterId),
-          ...clientPartyStatements(database, options, matterId, input.clientEntityId, now),
-        ],
-        outboxMessages: [{ topic: MATTER_CREATED_TOPIC, payload: { matterId } }],
-        value: { matterId, matterNumber: null, consultationNumber: null },
-      };
-    });
+    const composed = composeCreateIntakeMatter(database, input, options, matterId);
+    return runMatterEffect<CreatedMatter>(database, options, 201, () => ({
+      statements: composed.statements,
+      outboxMessages: composed.outboxMessages,
+      value: { matterId, matterNumber: null, consultationNumber: null },
+    }));
   }
 
   if (input.status === "consultation") {

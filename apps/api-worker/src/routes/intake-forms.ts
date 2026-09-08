@@ -12,6 +12,8 @@ import type {
   IntakeFormFieldId,
   IntakeFormId,
   IntakeFormSubmissionId,
+  MatterTypeId,
+  UserId,
 } from "@magna-carta/identifiers/types";
 import {
   addField,
@@ -36,6 +38,8 @@ import {
   type IntakeFormRow,
   type IntakeFormSubmissionRow,
 } from "@magna-carta/intake-forms/form-statements";
+import { proposeAcceptance } from "@magna-carta/intake-forms/acceptance";
+import { acceptSubmission } from "@magna-carta/intake-forms/acceptance-service";
 import { resolvePublicForm } from "@magna-carta/intake-forms/public-read";
 import {
   recordSubmission,
@@ -251,6 +255,36 @@ const SubmissionDetail = SubmissionSummary.extend({
     }),
   ),
 }).openapi("IntakeFormSubmissionDetail");
+
+const AcceptanceProposal = z
+  .object({
+    submissionId: z.string(),
+    suggestedEntityKind: z.enum(["person", "organization"]),
+    personName: z
+      .object({ given: z.string(), family: z.string(), middle: z.string().nullable() })
+      .nullable(),
+    organizationName: z.string().nullable(),
+    email: z.string().nullable(),
+    telephone: z.string().nullable(),
+    postalAddress: z.string().nullable(),
+    matterTitle: z.string(),
+    answers: z.array(z.object({ label: z.string(), kind: z.string(), value: z.string() })),
+  })
+  .openapi("IntakeAcceptanceProposal");
+
+const AcceptanceRequest = z
+  .object({
+    entityKind: z.enum(["person", "organization"]),
+    given: z.string().max(MAX_FIELD_LABEL_LENGTH).nullable().optional(),
+    family: z.string().max(MAX_FIELD_LABEL_LENGTH).nullable().optional(),
+    middle: z.string().max(MAX_FIELD_LABEL_LENGTH).nullable().optional(),
+    legalName: z.string().max(MAX_FORM_TITLE_LENGTH).nullable().optional(),
+    matterTitle: z.string().min(1).max(MAX_FORM_TITLE_LENGTH),
+    responsibleMemberId: identifierField("user"),
+    matterTypeId: identifierField("matterType").nullable().optional(),
+    note: z.string().max(MAX_TRIAGE_NOTE_LENGTH).nullable().optional(),
+  })
+  .openapi("IntakeAcceptanceRequest");
 
 const PublicFormResponse = z
   .object({
@@ -717,6 +751,69 @@ const readSubmissionRoute = defineOpenAPIRoute(submissionsMeta("readSubmission",
   },
 });
 
+const acceptanceProposalRoute = defineOpenAPIRoute(submissionsMeta("proposeAcceptance", false), {
+  method: "get",
+  path: "/api/v1/intake-forms/{formId}/submissions/{submissionId}/acceptance-proposal",
+  description:
+    "What accepting this enquiry WOULD create, for a member to check and change. Reads the " +
+    "submission and maps its answers onto the record a member would make; COMMITS NOTHING, so a " +
+    "proposal nobody accepts leaves the database exactly as it found it. Every value came from " +
+    "somebody the firm has not met and every one is editable before it is committed — which is " +
+    "the only thing between a typo on a web form and a permanent row in a conflicts corpus.",
+  request: {
+    params: z.object({
+      formId: identifierPathParam("intakeForm", "formId"),
+      submissionId: identifierPathParam("intakeFormSubmission", "submissionId"),
+    }),
+  },
+  responses: {
+    200: {
+      description: "What acceptance would create.",
+      content: { "application/json": { schema: AcceptanceProposal } },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+  },
+});
+
+const acceptRoute = defineOpenAPIRoute(submissionsMeta("accept", true), {
+  method: "post",
+  path: "/api/v1/intake-forms/{formId}/submissions/{submissionId}/acceptance",
+  description:
+    "Accept an enquiry: create the Directory entity and the intake it becomes, from the values a " +
+    "MEMBER confirmed rather than the ones the visitor typed. Everything commits in ONE batch — the " +
+    "entity, the matter, the client's party link and the submission's own record — because the " +
+    "Directory is effectively permanent and an entity written without its matter would be somebody " +
+    "in the firm's conflicts corpus forever with nothing to show for it. Accepting the same " +
+    "submission twice is refused rather than creating a second person.",
+  request: {
+    params: z.object({
+      formId: identifierPathParam("intakeForm", "formId"),
+      submissionId: identifierPathParam("intakeFormSubmission", "submissionId"),
+    }),
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: AcceptanceRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The entity and the intake it created.",
+      content: {
+        "application/json": {
+          schema: z.object({ entityId: z.string(), matterId: z.string() }),
+        },
+      },
+    },
+    401: authErrors[401],
+    403: authErrors[403],
+    404: authErrors[404],
+    409: authErrors[409],
+    422: authErrors[422],
+  },
+});
+
 const triageRoute = defineOpenAPIRoute(submissionsMeta("triage", true), {
   method: "put",
   path: "/api/v1/intake-forms/{formId}/submissions/{submissionId}/triage",
@@ -873,6 +970,9 @@ function formErrorResponse(
     // publish, or the form has no questions yet.
     case "form-not-draftable":
     case "form-no-fields":
+    // Already accepted: a well-formed request against a record that has moved on. Refusing it is
+    // what stops a double-click putting two of somebody in a permanent conflicts corpus.
+    case "submission-already-accepted":
       return problemJson(c, {
         type: "conflict",
         title: "That form is not in a state this change applies to",
@@ -938,6 +1038,23 @@ async function commitEffect(
 
 function serviceOptions(userId: string) {
   return { clock: { now: () => new Date().toISOString() }, actorUserId: userId as never };
+}
+
+/**
+ * The matters clock, which carries the civil date as well as the instant.
+ *
+ * Acceptance composes an intake, and the matter service takes one clock shape for every branch. An
+ * intake draws no number so `today()` goes unread here — but handing it a narrower clock would mean
+ * this call site could not grow into the one that opens a consultation.
+ */
+function acceptanceOptions(userId: string) {
+  return {
+    clock: {
+      now: () => new Date().toISOString(),
+      today: () => new Date().toISOString().slice(0, 10),
+    },
+    actorUserId: userId as never,
+  };
 }
 
 function notFound(c: Context, detail: string) {
@@ -1324,6 +1441,81 @@ export function registerIntakeFormRoutes(
       if (!outcome.committed) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
       return c.json({ acknowledged: true } as const, 200);
+    },
+  );
+
+  app.openapi(
+    {
+      ...acceptanceProposalRoute,
+      middleware: chokepointMiddleware(chokepoint, acceptanceProposalRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { formId, submissionId } = c.req.valid("param");
+      const form = await readForm(firm.firmDatabase, formId as IntakeFormId);
+      if (form === undefined) return notFound(c, "That form is not a form in this firm.");
+      try {
+        const proposal = await proposeAcceptance(
+          firm.firmDatabase,
+          submissionId as IntakeFormSubmissionId,
+        );
+        return c.json(
+          {
+            submissionId: proposal.submissionId,
+            suggestedEntityKind: proposal.suggestedEntityKind,
+            personName: proposal.personName,
+            organizationName: proposal.organizationName,
+            email: proposal.email,
+            telephone: proposal.telephone,
+            postalAddress: proposal.postalAddress,
+            matterTitle: proposal.matterTitle,
+            answers: proposal.answers.map((answer) => ({ ...answer })),
+          },
+          200,
+        );
+      } catch (caught) {
+        if (caught instanceof IntakeFormValidationError) return formErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
+
+  app.openapi(
+    { ...acceptRoute, middleware: chokepointMiddleware(chokepoint, acceptRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { formId, submissionId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const form = await readForm(firm.firmDatabase, formId as IntakeFormId);
+      if (form === undefined) return notFound(c, "That form is not a form in this firm.");
+
+      const outcome = await commitEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+        const accepted = await acceptSubmission(
+          firm.firmDatabase,
+          {
+            submissionId: submissionId as IntakeFormSubmissionId,
+            entityKind: request.entityKind,
+            given: request.given,
+            family: request.family,
+            middle: request.middle,
+            legalName: request.legalName,
+            matterTitle: request.matterTitle,
+            responsibleMemberId: request.responsibleMemberId as UserId,
+            matterTypeId: (request.matterTypeId ?? null) as MatterTypeId | null,
+            note: request.note,
+          },
+          acceptanceOptions(userId),
+        );
+        return {
+          body: { entityId: accepted.entityId, matterId: accepted.matterId },
+          effect: accepted.effect,
+        };
+      });
+      if (!outcome.committed) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json(outcome.body as { entityId: string; matterId: string }, 201);
     },
   );
 

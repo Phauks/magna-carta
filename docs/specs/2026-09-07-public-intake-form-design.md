@@ -308,3 +308,81 @@ disagreement.
 And one thing this design named that the build did NOT need: a per-firm uniqueness constraint on the public token
 is a plain `UNIQUE` index, because the token lives in the firm's own database and there is no cross-firm namespace
 to police. The decision that there is no global table is [`an-anonymous-caller-reaches-one-firm-by-the-id-in-its-own-url`](../decisions/pending/an-anonymous-caller-reaches-one-firm-by-the-id-in-its-own-url.md).
+
+---
+
+## 10. Acceptance — the firm verifies before anything becomes a record
+
+**Added 2026-09-08**, on the owner's framing: _"forms are really supposed to act as vectors for clients to input
+information, after which it can be verified by those at the law firm."_ That word — verified — decides the shape
+of this act, and it rules out the obvious reading.
+
+### The obvious reading, and why it is wrong
+
+Accepting a submission could create a Directory person from the name the visitor typed and an intake from their
+description. It would work, and it would be a mistake, because **the Directory is effectively permanent**. It is
+soft-delete only, and a merged-away alias deliberately stays in the corpus so it still surfaces a conflicts hit.
+Anything an anonymous stranger can write into it is in the conflicts corpus forever. A stranger who typed
+`jonh smith` in a hurry, or their company's trading name rather than its legal one, would be in the firm's
+permanent record under that spelling — and the firm would find out when a conflicts check missed.
+
+So the values a stranger typed are **untrusted input to be checked by a person**, not data to be copied.
+
+### The shape, which the platform already has
+
+This is the matter plan's propose-and-confirm, and deliberately the same shape rather than a new one:
+
+```
+GET  .../acceptance-proposal   reads the submission, maps its answers onto the record a member would
+                               create, and COMMITS NOTHING
+POST .../acceptance            takes what the member confirmed — corrected, filled in, overridden —
+                               and writes only that
+```
+
+The proposal is a pure read. It never writes, it never reserves, and a proposal nobody accepts leaves the
+database exactly as it found it. What it hands back is a draft a member edits: the name split into the parts the
+Directory holds, the contact points, and a matter title seeded from the enquiry. Every one of those is editable
+before it is committed, because **every one of them was typed by somebody the firm has not met**.
+
+### What acceptance writes, in one batch
+
+A Directory entity — a person or an organization, the member's choice, because a form cannot know which it is
+being filled in by. The intake, through the same `createMatter` the desk's New Intake already uses, with
+`status: "intake"` and the new entity as `clientEntityId`, so the client's party link is written in the same
+batch and no matter is ever readable without its client. And the submission gains the two handles.
+
+`intake_form_submission` therefore grows three columns:
+
+| Column               | Meaning                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `source`             | `public_form` \| `staff_entered`. Open catalog per the intake design; `telephony` is reserved for call intake |
+| `accepted_entity_id` | The Directory entity acceptance created. Null until then, and never changed after                             |
+| `accepted_matter_id` | The intake acceptance created. Same                                                                           |
+
+Both handles are **provenance, not a live link**. Editing the entity afterwards does not reach back into the
+submission, and the submission's answers are never rewritten to match a correction — the record of what somebody
+actually typed is the point of keeping it.
+
+### Four rules, each with a specific failure behind it
+
+- **Acceptance is idempotent on the submission.** A submission that already names an entity cannot be accepted
+  again; the second attempt is refused rather than creating a second person. A double-click must not put two
+  Rowan Ashcrofts in a permanent corpus.
+- **The member is named, and it is their act.** The audit row's actor is the member, never the stranger — this is
+  the first moment a person enters the firm's record and the platform should be able to say who put them there.
+- **Nothing automated ever calls this.** No queue consumer, no cron, no rule. The design's rule stands: the first
+  thing that writes a person into the permanent corpus is a person.
+- **A submission may still not carry a protected identifier**, and acceptance does not become a back door to one.
+  The form vocabulary has no kind that maps to a `protectedField`, so there is no shape a proposal could carry.
+
+### What this does not do
+
+It does not run a conflicts check as part of acceptance. The check belongs where it already is — the preliminary
+check the New Matter window runs the moment an entity exists — and folding it in here would put a check's result
+inside a create's transaction, where a refusal cannot be reported without also deciding what happened to the
+entity. Flag **J5** (may a decline be recorded before a check completes) is about the decline path and is
+untouched by this.
+
+It does not merge into an existing Directory record. A stranger whose name matches somebody the firm already
+holds is a duplicate-detection question with its own surface, and guessing at it here would be the platform
+asserting a relationship between a firm and somebody who filled in a web form.

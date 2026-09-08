@@ -3842,6 +3842,38 @@ export type IntakeFormSubmissionDetail = IntakeFormSubmissionSummary & {
     }>;
 };
 
+export type IntakeAcceptanceProposal = {
+    submissionId: string;
+    suggestedEntityKind: 'person' | 'organization';
+    personName: {
+        given: string;
+        family: string;
+        middle: string | null;
+    } | null;
+    organizationName: string | null;
+    email: string | null;
+    telephone: string | null;
+    postalAddress: string | null;
+    matterTitle: string;
+    answers: Array<{
+        label: string;
+        kind: string;
+        value: string;
+    }>;
+};
+
+export type IntakeAcceptanceRequest = {
+    entityKind: 'person' | 'organization';
+    given?: string | null;
+    family?: string | null;
+    middle?: string | null;
+    legalName?: string | null;
+    matterTitle: string;
+    responsibleMemberId: string;
+    matterTypeId?: string | null;
+    note?: string | null;
+};
+
 export type PublicIntakeForm = {
     title: string;
     introduction: string | null;
@@ -22387,6 +22419,100 @@ export type IntakeFormsTriageResponses = {
 };
 
 export type IntakeFormsTriageResponse = IntakeFormsTriageResponses[keyof IntakeFormsTriageResponses];
+
+export type IntakeFormsProposeAcceptanceData = {
+    body?: never;
+    path: {
+        formId: string;
+        submissionId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/submissions/{submissionId}/acceptance-proposal';
+};
+
+export type IntakeFormsProposeAcceptanceErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsProposeAcceptanceError = IntakeFormsProposeAcceptanceErrors[keyof IntakeFormsProposeAcceptanceErrors];
+
+export type IntakeFormsProposeAcceptanceResponses = {
+    /**
+     * What acceptance would create.
+     */
+    200: IntakeAcceptanceProposal;
+};
+
+export type IntakeFormsProposeAcceptanceResponse = IntakeFormsProposeAcceptanceResponses[keyof IntakeFormsProposeAcceptanceResponses];
+
+export type IntakeFormsAcceptData = {
+    body: IntakeAcceptanceRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        formId: string;
+        submissionId: string;
+    };
+    query?: never;
+    url: '/api/v1/intake-forms/{formId}/submissions/{submissionId}/acceptance';
+};
+
+export type IntakeFormsAcceptErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or the human-verification challenge was not solved
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the record is unknown. On the public routes this is ALSO the answer for a form in draft, a form the firm has closed, and a token that was rotated away — the cases are deliberately not distinguished
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the record is not in a state this change applies to
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+};
+
+export type IntakeFormsAcceptError = IntakeFormsAcceptErrors[keyof IntakeFormsAcceptErrors];
+
+export type IntakeFormsAcceptResponses = {
+    /**
+     * The entity and the intake it created.
+     */
+    201: {
+        entityId: string;
+        matterId: string;
+    };
+};
+
+export type IntakeFormsAcceptResponse = IntakeFormsAcceptResponses[keyof IntakeFormsAcceptResponses];
 
 export type IntakeFormsReadPublicData = {
     body?: never;

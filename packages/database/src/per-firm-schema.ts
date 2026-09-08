@@ -9958,6 +9958,20 @@ export const intakeFormSubmission = sqliteTable(
       .references(() => intakeFormVersion.id),
     submittedAt: text("submitted_at").notNull(),
     answersJson: text("answers_json").notNull(),
+    // Where it came from. An OPEN catalog per the intake design rather than a CHECK: `telephony` is
+    // reserved for receptionist call intake and a fourth source is a reader's problem, not a
+    // migration's. Defaulted so every row written before the column existed reads as what it was.
+    source: text("source").notNull().default("public_form"),
+    // What a member's acceptance created. Both null until somebody accepts, both set together in
+    // that one batch, and neither changed afterwards — they are PROVENANCE, not a live link. Editing
+    // the entity later does not reach back here, and the answers are never rewritten to match a
+    // correction: the record of what somebody actually typed is the reason to keep it.
+    //
+    // Deliberately NOT foreign keys. The directory entity may be a person or an organization, which
+    // are two tables, and a matter's own row is reached through the matters package; a constraint
+    // naming one of the two would encode a choice the form cannot make.
+    acceptedEntityId: text("accepted_entity_id"),
+    acceptedMatterId: text("accepted_matter_id"),
     // What a member decided. A PLATFORM vocabulary of four, not a firm-renameable label, and it
     // carries no authority beyond describing what a member did — nothing reads it as a gate.
     triageState: text("triage_state", { enum: ["new", "accepted", "declined", "spam"] })
@@ -9988,5 +10002,18 @@ export const intakeFormSubmission = sqliteTable(
       sql`(${table.triageState} = 'new') = (${table.triagedAt} IS NULL)
         AND (${table.triagedAt} IS NULL) = (${table.triagedBy} IS NULL)`,
     ),
+    // The two acceptance handles move together or not at all: a submission that names an entity but
+    // no matter would be a person written into the permanent corpus with nothing to show for it.
+    check(
+      "intake_form_submission_accepted_shape_check",
+      sql`(${table.acceptedEntityId} IS NULL) = (${table.acceptedMatterId} IS NULL)`,
+    ),
+    // And nothing is accepted without somebody having accepted it. The state and the handles cannot
+    // disagree about whether this became a record.
+    check(
+      "intake_form_submission_accepted_state_check",
+      sql`${table.acceptedEntityId} IS NULL OR ${table.triageState} = 'accepted'`,
+    ),
+    check("intake_form_submission_source_nonempty_check", sql`length(${table.source}) > 0`),
   ],
 );

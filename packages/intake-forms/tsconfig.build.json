@@ -21,7 +21,13 @@
       "path": "../database/tsconfig.build.json"
     },
     {
+      "path": "../directory/tsconfig.build.json"
+    },
+    {
       "path": "../identifiers/tsconfig.build.json"
+    },
+    {
+      "path": "../matters/tsconfig.build.json"
     }
   ],
   "include": [

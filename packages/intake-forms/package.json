@@ -10,7 +10,9 @@
     "./form-statements": "./src/form-statements.ts",
     "./form-service": "./src/form-service.ts",
     "./submission-service": "./src/submission-service.ts",
-    "./public-read": "./src/public-read.ts"
+    "./public-read": "./src/public-read.ts",
+    "./acceptance": "./src/acceptance.ts",
+    "./acceptance-service": "./src/acceptance-service.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -18,7 +20,9 @@
   "dependencies": {
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*"
+    "@magna-carta/directory": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/matters": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

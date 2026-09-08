@@ -90,9 +90,16 @@ function validCalendarDate(value: string | null | undefined, field: string): str
   return trimmed;
 }
 
-// Render the display name from the structured parts in reading order, collapsing the blanks so a
-// mononym ("Cher") or a missing middle name produces a clean single-spaced string.
-function renderDisplayName(input: CreatePersonInput): string {
+/**
+ * Render the display name from the structured parts in reading order, collapsing the blanks so a
+ * mononym ("Cher") or a missing middle name produces a clean single-spaced string.
+ *
+ * Exported because a caller that creates a person AND something that carries their name in the same
+ * batch needs the identical string — accepting a public intake form is the case: the matter's own
+ * display-only client name has to read the same as the Directory record it links to, and a second
+ * renderer beside this one would drift the first time a prefix or a suffix was involved.
+ */
+export function renderDisplayName(input: CreatePersonInput): string {
   return [input.prefix, input.given, input.middle, input.family, input.suffix]
     .map((part) => (part ?? "").trim())
     .filter((part) => part.length > 0)
