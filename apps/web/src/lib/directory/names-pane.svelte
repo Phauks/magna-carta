@@ -30,6 +30,7 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
+  import HonorificField from "$lib/names/honorific-field.svelte";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleCivilDate, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import PenLine from "@lucide/svelte/icons/pen-line";
@@ -296,12 +297,12 @@
     <FieldRow>
       <LabelledField label="Prefix">
         {#snippet children({ props })}
-          <Input {...props} disabled={busy} bind:value={prefix} placeholder={placeholderOf("Prefix")} />
+          <HonorificField part="prefix" bind:value={prefix} disabled={busy} inputProps={props} />
         {/snippet}
       </LabelledField>
       <LabelledField label="Suffix">
         {#snippet children({ props })}
-          <Input {...props} disabled={busy} bind:value={suffix} placeholder={placeholderOf("Suffix")} />
+          <HonorificField part="suffix" bind:value={suffix} disabled={busy} inputProps={props} />
         {/snippet}
       </LabelledField>
     </FieldRow>

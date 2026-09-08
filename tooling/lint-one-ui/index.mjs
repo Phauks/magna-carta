@@ -309,8 +309,14 @@ const { STATUS_REGISTER } = await authority(
   "the one home of every status word, its tone and its meaning",
 );
 
-/** The register's own words and its own tones — never a copy of them kept in this tool. */
-const statusLabels = Object.values(STATUS_REGISTER).map((entry) => entry.label);
+/**
+ * The register's own words and its own tones — never a copy of them kept in this tool. Both are
+ * de-duplicated: two vocabularies may legitimately use the same WORD for different meanings (a
+ * matter that is Active and a member who is Active are different facts with the same label), and
+ * the second-register heuristic counts how many distinct status words a file speaks. Counting one
+ * word twice made a file that names it once look like a file that names two.
+ */
+const statusLabels = [...new Set(Object.values(STATUS_REGISTER).map((entry) => entry.label))];
 const statusTones = [...new Set(Object.values(STATUS_REGISTER).map((entry) => entry.tone))];
 
 // --- the source sweeps ------------------------------------------------------------------------

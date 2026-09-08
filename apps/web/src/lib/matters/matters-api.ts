@@ -64,6 +64,17 @@ export interface SessionBootstrap {
   user: { id: string; name: string; email: string };
   firm: { id: string; name: string } | null;
   permissions: readonly string[];
+  /**
+   * The firm's release channel, which the bootstrap has always carried and nothing read. It is a
+   * fact about the FIRM rather than about this member, and it is here rather than behind a read of
+   * its own because every session resolves it anyway to evaluate the feature flags below.
+   *
+   * `alpha` is platform-only: a firm cannot choose it and cannot leave it from inside the product,
+   * which is why the write endpoint's vocabulary is the narrower {stable, beta}.
+   */
+  channel: "stable" | "beta" | "alpha";
+  /** The flags this firm's channel resolves to, keyed by flag id. */
+  flags: Record<string, boolean>;
 }
 
 /** The scope a listing is asked for. "caseload" names no status, which is the working docket. */

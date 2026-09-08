@@ -76,6 +76,13 @@ const StartRegistrationRequest = z
     role: RegistrationRole.optional(),
     email: z.email(),
     name: z.string().trim().min(1).max(200),
+    // The two parts the joining screen already asks for separately, and used to throw away by
+    // joining them with a space. Carried so an account created from today holds real name parts
+    // from its first moment and nobody has to have their name split back apart later — a split
+    // that cannot be done without guessing. Optional, because a caller that only has the one line
+    // (an older client, a door that asks differently) still registers exactly as before.
+    givenName: z.string().trim().max(200).optional(),
+    familyName: z.string().trim().max(200).optional(),
     // The password the visitor chooses, here rather than through a second mail. Hashed in this
     // request and never stored, logged or queued in the clear; what is kept until the token is
     // spent is the scrypt verifier, on a row that expires in 24 hours.
@@ -301,6 +308,8 @@ interface RegistrationRow {
   readonly role: string;
   readonly email: string;
   readonly display_name: string;
+  readonly name_given: string | null;
+  readonly name_family: string | null;
   readonly firm_display_name: string | null;
   readonly confirmation_hash: string;
   readonly status: string;
@@ -406,8 +415,9 @@ export function registerRegistrationRoutes(
               ).bind(email),
               c.env.DB_CONTROL.prepare(
                 "INSERT INTO registration (id, role, email, display_name, firm_display_name, " +
-                  "confirmation_hash, status, expires_at, created_at, credential_hash) " +
-                  "VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8, ?9)",
+                  "confirmation_hash, status, expires_at, created_at, credential_hash, " +
+                  "name_given, name_family) " +
+                  "VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8, ?9, ?10, ?11)",
               ).bind(
                 newIdentifier("registration"),
                 // The row carries the door, and CONFIRMATION branches on the row rather than on
@@ -423,6 +433,8 @@ export function registerRegistrationRoutes(
                 expiresAt,
                 nowInstant,
                 credentialHash,
+                request.givenName ?? null,
+                request.familyName ?? null,
               ),
               insertAuthAuditStatement(c.env.DB_CONTROL, {
                 id: newIdentifier("authAudit"),
@@ -509,7 +521,7 @@ export function registerRegistrationRoutes(
       const { token } = c.req.valid("json");
       const presentedHash = await confirmationTokenHash(token);
       const row = await c.env.DB_CONTROL.prepare(
-        "SELECT id, role, email, display_name, firm_display_name, confirmation_hash, status, " +
+        "SELECT id, role, email, display_name, name_given, name_family, firm_display_name, confirmation_hash, status, " +
           "expires_at, credential_hash FROM registration WHERE confirmation_hash = ?1",
       )
         .bind(presentedHash)
@@ -555,8 +567,8 @@ export function registerRegistrationRoutes(
                   "UPDATE registration SET status = 'confirmed', confirmed_at = ?2 WHERE id = ?1 AND status = 'pending'",
                 ).bind(row.id, nowInstant),
                 c.env.DB_CONTROL.prepare(
-                  'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) ' +
-                    "VALUES (?1, ?2, ?3, ?5, ?4, ?4, NULL)",
+                  'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id, name_given, name_family) ' +
+                    "VALUES (?1, ?2, ?3, ?5, ?4, ?4, NULL, ?6, ?7)",
                 ).bind(
                   createdUserId,
                   row.display_name,
@@ -566,6 +578,10 @@ export function registerRegistrationRoutes(
                   // exists to sign in with. A legacy row carries no password, so it keeps the
                   // unverified shape its own activation mail completes.
                   row.credential_hash === null ? 0 : 1,
+                  // The parts the registration carried, or null where it carried none — never a
+                  // split of `display_name`, which cannot be undone without guessing.
+                  row.name_given,
+                  row.name_family,
                 ),
                 // The credential, in the same batch as the person. Committing the user without it
                 // is the state that made a mail failure an account nobody could ever sign in to.

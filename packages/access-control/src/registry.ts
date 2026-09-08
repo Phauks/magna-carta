@@ -31,6 +31,24 @@ export const PERMISSIONS = [
   // the floor and shorten retention for everybody. Owner/Admin only, mirroring firm:manageScanPolicy.
   "firm:manageNotificationPolicy", // read and update the firm's notification policy: the in-app floor, retention window, and digest hour
   "firm:manageReportPolicy", // read and update the firm's report policy: what its trust-compliance document lists
+  // The firm's own identity as it is PRINTED — the name on an invoice, in the client portal, and on
+  // every generated document. Its own key rather than a corner of firm:manageMembers, on the
+  // reasoning the three policy keys above already carry: administering who works here and deciding
+  // what the firm is called to a client are different acts, and the second one reaches paper that
+  // has already left the building. Owner/Admin only by seed.
+  "firm:manageProfile", // read and update the firm's identity: the name it is known to clients by
+  // The member acting on their OWN record — today their name, and the natural home for the
+  // per-member analytics opt-out and self-service professional profile that sit in the same gap.
+  //
+  // It exists because the chokepoint refuses an authenticated mutation naming no permission
+  // (privilege escalation by omission) and the platform has no self-scoped mutation concept, so a
+  // member could not correct the spelling of their own name: the only door onto their record was
+  // the administrative one behind firm:manageMembers. Seeded to EVERY default role including
+  // Read-only, on the notifications:read reasoning — writing one's own name is not a privilege, and
+  // every statement behind the key is scoped to the session's own user id, so holding it reaches
+  // nothing about anybody else. A firm that withholds it has decided its people's names are set
+  // centrally, which is a real posture and the reason this is a key rather than a hole.
+  "firm:editOwnProfile", // write one's own name; the actor is always the subject
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.
