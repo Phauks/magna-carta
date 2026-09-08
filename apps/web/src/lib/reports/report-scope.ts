@@ -10,6 +10,9 @@
  * screen's pattern, so "Last quarter" can never read over the wrong ninety days. The day-level
  * helpers are the time sheet's own — one arithmetic for a span across the product.
  */
+import { endOfCivilMonth } from "@magna-carta/civil-time/civil-date";
+import { zonedReading } from "@magna-carta/civil-time/time-zone";
+import { CANONICAL_INSTANT_PATTERN } from "@magna-carta/civil-time/instant";
 import {
   customRangeOutcome,
   spanLabel,
@@ -49,7 +52,7 @@ const MONTH_NAMES = [
 
 function lastDayOf(year: number, month: number): string {
   // Day zero of the NEXT month is the last day of this one, so February's leap years are free.
-  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  return endOfCivilMonth(year, month);
 }
 
 function firstDayOf(year: number, month: number): string {
@@ -138,28 +141,21 @@ export function periodLabel(period: ReportPeriod): string {
 export const DEFAULT_KNOWLEDGE_ZONE = "UTC";
 
 /** The shape the knowledge axis is written in; anything else on the address reads as live. */
-const KNOWLEDGE_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const KNOWLEDGE_INSTANT = CANONICAL_INSTANT_PATTERN;
 
 /**
  * The wall-clock reading of an instant in a zone: the civil date and the minutes into that day.
- * Intl is the platform's own zone database; nothing here carries offsets or daylight rules, which
- * is the whole reason an office stores a zone name rather than an offset.
+ *
+ * The reading itself is `zonedReading` — the platform's one projection of an instant into a zone,
+ * and the same one the server's resolver uses, so the two cannot come to different conclusions
+ * about which day an instant fell on. Nothing here carries offsets or daylight rules, which is the
+ * whole reason an office stores a zone name rather than an offset. The minutes into the day are
+ * this module's own, because only this module compares them.
  */
 function wallClockIn(instant: Date, timeZone: string): { date: string; minutesOfDay: number } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).formatToParts(instant);
-  const part = (type: string): string => parts.find((entry) => entry.type === type)?.value ?? "00";
-  return {
-    date: `${part("year")}-${part("month")}-${part("day")}`,
-    minutesOfDay: Number(part("hour")) * 60 + Number(part("minute")),
-  };
+  const reading = zonedReading(instant.getTime(), timeZone);
+  const [hour, minute] = reading.wallClockTime.split(":").map(Number) as [number, number];
+  return { date: reading.civilDate, minutesOfDay: hour * 60 + minute };
 }
 
 function utcMidnightOf(isoDate: string): number {

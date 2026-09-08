@@ -32,6 +32,7 @@
  * ship with the five built narrowings live and show the shape of the finished control on the same
  * day.
  */
+import { formatInstantDate } from "@magna-carta/design-system/formatters";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import type { DiscoveryLoad, RecordCustodian, ReviewDocumentQuery } from "./discovery-api.ts";
 import {
@@ -157,7 +158,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
         context.loads.map((load) => ({
           value: load.id,
           label: load.sourceDescription ?? loadLaneEntry(load.lane).label,
-          hint: new Date(load.initiatedAt).toLocaleDateString(),
+          hint: formatInstantDate(load.initiatedAt),
         })),
     },
     compose: (value, query) => ({ ...query, discoveryLoadId: value }),

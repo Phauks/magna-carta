@@ -34,7 +34,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
-  import { formatInstant } from "@magna-carta/design-system/formatters";
+  import { formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import { MoneySurface, billHref, type MoneySurfaceDensity } from "$lib/money/index.ts";
   import {
@@ -406,6 +406,7 @@
           matterTitle,
           money,
           date: (isoDate) => formatDate(isoDate),
+          instantDate: (instant) => formatInstantDate(instant),
           printedAt: formatInstant(new Date()),
         }),
   );

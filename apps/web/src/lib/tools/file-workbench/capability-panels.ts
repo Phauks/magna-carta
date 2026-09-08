@@ -19,12 +19,14 @@ import OverviewPanel from "./panels/overview-panel.svelte";
 import FileTypePanel from "./panels/file-type-panel.svelte";
 import HashPanel from "./panels/hash-panel.svelte";
 import ConvertPanel from "./panels/convert-panel.svelte";
+import UnlockPanel from "./panels/unlock-panel.svelte";
 
 const PANELS: Readonly<Record<string, Component<CapabilityPanelProps>>> = {
   [OVERVIEW_CAPABILITY]: OverviewPanel,
   [FILE_TYPE_CAPABILITY]: FileTypePanel,
   [HASH_CAPABILITY]: HashPanel,
   convert: ConvertPanel,
+  unlock: UnlockPanel,
 };
 
 /** The panel for a capability, or null where it has none yet. */

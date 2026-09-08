@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   ClosePrecondition,
@@ -45,7 +46,7 @@ async function check(
   const credits = await readOpenClientCreditsForMatter(context.database, context.matterId);
   return credits.map((credit) => ({
     code: CLIENT_CREDIT_BLOCKS_CLOSE,
-    message: `this matter carries ${display(credit.remainingMinor, credit.currency)} the firm owes back to the client, opened by a credit note on ${credit.openedAt.slice(0, 10)}. A matter does not close over money the firm has conceded is not its own: ${WAYS_OUT}.`,
+    message: `this matter carries ${display(credit.remainingMinor, credit.currency)} the firm owes back to the client, opened by a credit note on ${civilDateOf(credit.openedAt)}. A matter does not close over money the firm has conceded is not its own: ${WAYS_OUT}.`,
   }));
 }
 

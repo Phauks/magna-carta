@@ -16,6 +16,7 @@
     "@internationalized/date": "catalog:",
     "@lucide/svelte": "catalog:",
     "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/conversion": "workspace:*",
     "@magna-carta/design-system": "workspace:*",
     "@magna-carta/design-tokens": "workspace:*",

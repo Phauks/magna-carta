@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { env, runInDurableObject } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -19,7 +20,7 @@ const TS = "2026-08-20T16:00:00.000Z";
 // The cron entry point reads the real clock, as it must — it is the thing under test. So the fixture
 // deadline's date is derived from that clock rather than written as a literal: a hard-coded date is
 // a test that passes until the day the calendar catches up with it.
-const OVERDUE_ON = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+const OVERDUE_ON = civilDateOf(new Date(Date.now() - 3 * 86_400_000));
 
 const RESPONSIBLE = "user_comparisonOwner0" as UserId;
 const ASSIGNED = "user_comparisonTeam00" as UserId;

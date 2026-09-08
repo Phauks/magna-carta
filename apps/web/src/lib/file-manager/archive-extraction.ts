@@ -71,6 +71,7 @@ export async function runExtraction(
 const REFUSAL_WORDS: Readonly<Record<ExtractionRefusalReason, string>> = {
   "archive-missing": "the archive's contents are no longer in storage",
   directory: "it is a folder inside the archive, not a file",
+  "not-a-file": "it is a shortcut or a device entry inside the archive, not a file",
   encrypted: "it is password-protected inside the archive",
   "unsupported-compression": "it is packed in a way this application cannot open",
   malformed: "the archive's own record of where it sits does not hold together",

@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { MatterId } from "@magna-carta/identifiers/types";
 import { assetSubjectValues, assetSubjectsIn } from "./asset-bindings.ts";
@@ -549,7 +550,7 @@ export async function resolveMergeContext(
   const assetSubjects = assetSubjectsIn(wantedKeys);
   if (assetSubjects.length > 0) {
     reads.push("asset");
-    const asOfDate = input.assetsAsOfDate ?? input.assembledAt.slice(0, 10);
+    const asOfDate = input.assetsAsOfDate ?? civilDateOf(input.assembledAt);
     const { results } = await selectMatterAssetsForMergeStatement(
       database,
       input.matterId,

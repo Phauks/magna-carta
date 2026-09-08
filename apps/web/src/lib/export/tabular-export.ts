@@ -9,6 +9,7 @@
  * and its conversion edge is the one way a PDF gets made, so neither format may grow a client-side
  * generator here.
  */
+import { formatInstantDate, formatTimeOfDay } from "@magna-carta/design-system/formatters";
 import { saveToTarget } from "./save-target.ts";
 
 /**
@@ -48,11 +49,11 @@ export function exportCellText(cell: TabularExportCell): string {
  * self-evident to whoever the file is forwarded to.
  */
 export function exportGeneratedDateLine(exportDocument: TabularExportDocument): string {
-  return `Generated ${exportDocument.generatedAt.toLocaleDateString()}`;
+  return `Generated ${formatInstantDate(exportDocument.generatedAt)}`;
 }
 
 export function exportGeneratedTimeLine(exportDocument: TabularExportDocument): string {
-  return exportDocument.generatedAt.toLocaleTimeString(undefined, { timeZoneName: "short" });
+  return formatTimeOfDay(exportDocument.generatedAt, { precision: "second", zoneName: true });
 }
 
 /**

@@ -4,6 +4,7 @@
  * (nothing is fetched), and the module stays DOM-free so the derivations are unit-testable
  * (apps/web/test/capture-facts.test.ts).
  */
+import { formatInstant } from "@magna-carta/design-system/formatters";
 
 import type { SafeWebsiteView } from "./safe-browse.ts";
 
@@ -70,16 +71,9 @@ export function screenshotFilename(finalUrl: string, capturedAt: number): string
   return `safe-capture-${sanitizedHost}-${stamp}.png`;
 }
 
-/** When the capture completed, in the member's locale. */
+/** When the capture completed, to the second — a capture is a thing that took a few of them. */
 export function formatCaptureTime(capturedAt: number): string {
-  return new Date(capturedAt).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  return formatInstant(capturedAt, { precision: "second" });
 }
 
 /** How long the capture took, as seconds with one decimal ("12.3s"). */

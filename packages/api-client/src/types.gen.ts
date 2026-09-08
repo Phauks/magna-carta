@@ -1733,7 +1733,7 @@ export type ExtractedArchiveMember = {
 
 export type RefusedArchiveMember = {
     path: string;
-    reason: 'archive-missing' | 'directory' | 'encrypted' | 'unsupported-compression' | 'malformed' | 'too-large' | 'expansion-ratio' | 'corrupt' | 'not-in-archive' | 'policy-size' | 'policy-type';
+    reason: 'archive-missing' | 'directory' | 'not-a-file' | 'encrypted' | 'unsupported-compression' | 'malformed' | 'too-large' | 'expansion-ratio' | 'corrupt' | 'not-in-archive' | 'policy-size' | 'policy-type';
 };
 
 export type ExtractArchiveMembersRequest = {

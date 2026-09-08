@@ -11,6 +11,7 @@
  * zone that observes daylight saving, and storing one is how a hearing moves by an hour when the
  * clocks change.
  */
+import { isResolvableTimeZone } from "$lib/dates";
 
 export interface TimeZoneOption {
   readonly value: string;
@@ -18,17 +19,12 @@ export interface TimeZoneOption {
   readonly label: string;
 }
 
-/** True where the runtime can render a date in the zone; never for a bare offset. */
-export function isResolvableTimeZone(timeZone: string): boolean {
-  if (timeZone.length === 0) return false;
-  if (/^[+-]\d{2}:?\d{2}$/.test(timeZone)) return false;
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone });
-    return true;
-  } catch {
-    return false;
-  }
-}
+/*
+ * True where the runtime can render a date in the zone; never for a bare offset — the platform's own
+ * check, re-exported under this module's name so the form's list and the route's validation cannot
+ * come to different conclusions about a zone somebody chose.
+ */
+export { isResolvableTimeZone };
 
 /** Every zone the runtime can name, or an empty list where it cannot enumerate them. */
 export function supportedTimeZones(): readonly string[] {

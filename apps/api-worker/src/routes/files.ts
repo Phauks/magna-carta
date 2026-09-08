@@ -39,19 +39,22 @@ import {
   ZipCentralDirectoryError,
   type ArchiveSourceBucket,
 } from "@magna-carta/file-manager/zip-central-directory";
-import { extractZipMember } from "@magna-carta/file-manager/zip-member-extract";
 import { readArchiveCaps } from "@magna-carta/file-manager/upload-policy";
 import {
   archiveFormatName,
   archiveFormatOf,
   ARCHIVE_SNIFF_BYTES,
-  supportsExtraction,
-  type ArchiveFormat,
 } from "@magna-carta/file-manager/archive-format";
-import { readTarListing } from "@magna-carta/file-manager/tar-listing";
-import { readRarListing } from "@magna-carta/file-manager/rar-listing";
-import { SevenZipListingError } from "@magna-carta/seven-zip-listing";
-import { readSevenZipArchiveListing } from "../files/seven-zip-archive-listing.ts";
+import {
+  archiveExtractability,
+  ArchiveExtraction,
+  readArchiveContents,
+  SevenZipEngineUnavailableError,
+  type ArchiveEngines,
+  type ArchiveExtractionRefusal,
+} from "@magna-carta/file-manager/archive-members";
+import { SevenZipListingError } from "@magna-carta/seven-zip";
+import { sevenZipEngine } from "../files/seven-zip-engine.ts";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
 import {
   readFlaggedTreatment,
@@ -299,6 +302,9 @@ const ArchiveEntriesResponse = z
 const ArchiveExtractionRefusal = z.enum([
   "archive-missing",
   "directory",
+  // A tar entry that is a symbolic or hard link, a device node or a pipe: it is not a file and has
+  // no content of its own, which is a different fact from being a folder.
+  "not-a-file",
   "encrypted",
   "unsupported-compression",
   "malformed",
@@ -517,47 +523,17 @@ const archiveEntriesMeta: RouteMeta = {
   rateLimit: "default",
 };
 
-// Extract from a zip: the read posture above does not carry here, because this WRITES files into the
-// matter. It rides files:upload — the same capability a direct upload rides, since a member taken out
-// of an archive becomes an ordinary matter file by the ordinary gate — and it is audited, because
-// each filed member is a new document whose only provenance is the row this route writes.
-// rateLimit "expensive": every member is inflated and stored in this isolate.
-/**
- * One archive listing, whatever the archive is.
- *
- * Every reader answers the same shape, so the route, the response contract and the screen do not
- * know which format they are looking at — which is the point: a person browsing a production wants
- * to see what is in it, not to learn which packer produced it. All four formats this platform
- * recognises are listed here, and every one of them is listed from header bytes alone: no archive is
- * fetched, inflated or unpacked to answer what is inside it.
- */
-async function readArchiveListing(
-  format: ArchiveFormat,
-  bucket: ArchiveSourceBucket,
-  key: string,
-  limits: { maxEntries: number },
-): Promise<{
-  entries: readonly {
-    path: string;
-    isDirectory: boolean;
-    compressedSizeBytes: number;
-    uncompressedSizeBytes: number;
-    modifiedAt: string | null;
-  }[];
-  truncated: boolean;
-} | null> {
-  switch (format) {
-    case "tar":
-      return readTarListing(bucket, key, limits);
-    case "zip":
-      return readZipCentralDirectory(bucket, key, limits);
-    case "rar":
-      return readRarListing(bucket, key, limits);
-    case "sevenZip":
-      return readSevenZipArchiveListing(bucket, key, limits);
-  }
-}
+// THE ENGINES THIS DEPLOYMENT HAS. `@magna-carta/file-manager` owns every archive decision and
+// declares the engines it cannot import; this is where they are supplied. A format whose engine is
+// missing refuses by name rather than crashing, so a deployment that has not wired one is a
+// deployment that says so.
+const ARCHIVE_ENGINES: ArchiveEngines = { sevenZip: sevenZipEngine };
 
+// Extract from an archive: the read posture above does not carry here, because this WRITES files
+// into the matter. It rides files:upload — the same capability a direct upload rides, since a member
+// taken out of an archive becomes an ordinary matter file by the ordinary gate — and it is audited,
+// because each filed member is a new document whose only provenance is the row this route writes.
+// rateLimit "expensive": every member is unpacked and stored in this isolate.
 /**
  * What to tell a person about a 7z the engine would not list.
  *
@@ -599,6 +575,13 @@ function sevenZipRefusal(
     // archive's. It is still answered rather than raised as a fault, because whoever is looking at
     // the file needs to know the listing did not happen, and the error log carries the rest.
     case "rangeMismatch":
+    // The four an extraction can raise and a listing cannot. Unreachable from this route, and
+    // answered rather than left to fall off the end of the switch: a code this function does not
+    // recognise must still produce a sentence, never a crash on somebody's archive.
+    case "memberNotFound":
+    case "notAFile":
+    case "memberEncrypted":
+    case "corrupt":
       return {
         type: "archive-unreadable",
         detail:
@@ -1739,9 +1722,13 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         });
       }
       try {
-        const listing = await readArchiveListing(format, bucket, file.currentVersion.r2Key, {
-          maxEntries: caps.maxEntries,
-        });
+        const listing = await readArchiveContents(
+          format,
+          bucket,
+          file.currentVersion.r2Key,
+          { maxEntries: caps.maxEntries },
+          ARCHIVE_ENGINES,
+        );
         if (listing === null) {
           return problemJson(c, {
             type: "not-found",
@@ -1752,18 +1739,32 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         }
         return c.json(
           {
-            entries: listing.entries.map((entry) => ({
-              path: entry.path,
-              isDirectory: entry.isDirectory,
-              compressedSizeBytes: entry.compressedSizeBytes,
-              uncompressedSizeBytes: entry.uncompressedSizeBytes,
-              modifiedAt: entry.modifiedAt,
+            // The locator each member carries is how the extractor finds its bytes and is nobody
+            // else's business — it never crosses the wire.
+            entries: listing.members.map((member) => ({
+              path: member.path,
+              isDirectory: member.isDirectory,
+              compressedSizeBytes: member.compressedSizeBytes,
+              uncompressedSizeBytes: member.uncompressedSizeBytes,
+              modifiedAt: member.modifiedAt,
             })),
             truncated: listing.truncated,
           } as z.infer<typeof ArchiveEntriesResponse>,
           200,
         );
       } catch (caught) {
+        // A deployment with no 7z engine wired. A fact about this application and not about the
+        // file, so it is named rather than reported as an unreadable archive.
+        if (caught instanceof SevenZipEngineUnavailableError) {
+          return problemJson(c, {
+            type: "archive-unreadable",
+            title: "Archive contents not readable",
+            status: 422,
+            detail:
+              "Reading what is inside a 7z archive is not available on this deployment. The " +
+              "archive can still be downloaded.",
+          });
+        }
         // A 7z the engine would not list. Some of those are statements about the archive and some
         // are statements about this application, and they are not the same fact — see
         // `sevenZipRefusal`, which is where the two are told apart.
@@ -1861,22 +1862,30 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
       // A real archive whose members this platform can list and cannot take out. Two different
       // facts, said differently: browsing one works, and the refusal names the format rather than
       // claiming the file has nothing in it — which the person can see on screen is false.
-      if (!supportsExtraction(archiveFormat)) {
+      const extractability = archiveExtractability(archiveFormat, ARCHIVE_ENGINES);
+      if (extractability.kind === "refused") {
         return problemJson(c, {
           type: "archive-unreadable",
           title: "Archive members cannot be taken out",
           status: 422,
           detail:
-            `This is a ${archiveFormatName(archiveFormat)} archive. What is inside it can be ` +
-            "browsed, but taking a member out of one is not built yet — download the archive to " +
-            "open it.",
+            extractability.reason === "format-not-extractable"
+              ? `This is a ${archiveFormatName(archiveFormat)} archive. What is inside it can be ` +
+                "browsed, but taking a member out of one is not something this application can " +
+                "do — download the archive to open it."
+              : `Taking a member out of a ${archiveFormatName(archiveFormat)} archive is not ` +
+                "available on this deployment. The archive can still be downloaded.",
         });
       }
-      let listing;
+      let contents;
       try {
-        listing = await readZipCentralDirectory(bucket, archiveVersion.r2Key, {
-          maxEntries: caps.maxEntries,
-        });
+        contents = await readArchiveContents(
+          archiveFormat,
+          bucket,
+          archiveVersion.r2Key,
+          { maxEntries: caps.maxEntries },
+          ARCHIVE_ENGINES,
+        );
       } catch (caught) {
         if (caught instanceof ZipCentralDirectoryError) {
           return problemJson(c, {
@@ -1886,9 +1895,22 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             detail: "This file's content is not a readable zip archive.",
           });
         }
+        if (
+          caught instanceof SevenZipEngineUnavailableError ||
+          caught instanceof SevenZipListingError
+        ) {
+          return problemJson(c, {
+            type: "archive-unreadable",
+            title: "Archive contents not readable",
+            status: 422,
+            detail:
+              "What is inside this archive could not be read, so there is nothing to take out of " +
+              "it. The archive can still be downloaded.",
+          });
+        }
         throw caught;
       }
-      if (listing === null) {
+      if (contents === null) {
         return problemJson(c, {
           type: "not-found",
           title: "Not found",
@@ -1896,40 +1918,39 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "The file's stored bytes are no longer available.",
         });
       }
-      // The listing is the ONLY source of what a requested path means: the entry it names carries the
-      // local-header offset, the method, the flags and the CRC the extractor works from. A path the
-      // listing does not hold is refused by name rather than searched for by hand.
-      const entriesByPath = new Map(listing.entries.map((entry) => [entry.path, entry]));
+      // The listing is the ONLY source of what a requested path means: each member carries the
+      // locator its own format's extractor works from. A path the listing does not hold is refused
+      // by name rather than searched for by hand.
+      const extraction = new ArchiveExtraction(
+        bucket,
+        archiveVersion.r2Key,
+        contents,
+        {
+          maxUncompressedBytes: caps.maxUncompressedBytes,
+          maxExpansionRatio: caps.maxExpansionRatio,
+          // A TOTAL across the request, not just the firm's per-member ceiling: a hundred members that
+          // each pass individually are still a hundred times that ceiling held in one isolate.
+          requestBudgetBytes: caps.maxUncompressedBytes,
+        },
+        ARCHIVE_ENGINES,
+      );
 
       const extracted: z.infer<typeof ExtractedArchiveMember>[] = [];
       const refused: z.infer<typeof RefusedArchiveMember>[] = [];
-      // A TOTAL budget across the request, not just the firm's per-member ceiling. A hundred members
-      // that each pass individually are still a hundred times that ceiling held in one isolate, so
-      // the running total is spent as members are taken; once the next one would carry it past the
-      // ceiling, that member and every one after it is refused rather than extracted. The request
-      // still answers 202 and says so — a refusal is a fact about the member, not a failed request.
-      let budgetRemaining = caps.maxUncompressedBytes;
-      let budgetSpent = false;
+      // Every decision below the request — which member may be taken, what it is allowed to produce,
+      // what the request has spent so far, and why each refusal happened — belongs to the extraction
+      // session. This loop asks it for bytes and files what comes back. The request still answers
+      // 202 whatever the mix: a refusal is a fact about a member, not a failed request.
       for (const [index, path] of body.paths.entries()) {
-        const entry = entriesByPath.get(path);
-        if (entry === undefined) {
+        if (!extraction.holds(path)) {
           refused.push({ path, reason: "not-in-archive" });
           continue;
         }
-        if (budgetSpent || entry.uncompressedSizeBytes > budgetRemaining) {
-          budgetSpent = true;
-          refused.push({ path, reason: "too-large" });
-          continue;
-        }
-        const taken = await extractZipMember(bucket, archiveVersion.r2Key, entry, {
-          maxUncompressedBytes: caps.maxUncompressedBytes,
-          maxExpansionRatio: caps.maxExpansionRatio,
-        });
+        const taken = await extraction.take(path);
         if (taken.kind === "refused") {
           refused.push({ path, reason: taken.reason });
           continue;
         }
-        budgetRemaining -= taken.bytes.byteLength;
         const name = extractedMemberName(path, index);
         try {
           const filed = await fileExtractedMember(c, {
@@ -1938,7 +1959,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             // ALWAYS the archive's own matter, never a matter from the request.
             matterId: file.matterId,
             folderId: body.folderId ?? null,
-            sourceModifiedAt: entry.modifiedAt,
+            sourceModifiedAt: taken.member.modifiedAt,
             archiveFileId: id,
             archivePath: path,
           });
@@ -1946,7 +1967,18 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         } catch (caught) {
           if (caught instanceof FileManagerValidationError) {
             // The firm's upload policy refusing this member's size or its name is a fact about the
-            // member, exactly like an encrypted one — the other members still go through.
+            // member, exactly like an encrypted one — the other members still go through. It is
+            // recorded on the session as well as answered, so the accounting of what this request
+            // did holds every refusal rather than only the ones the archive itself caused.
+            const policyRefusal: ArchiveExtractionRefusal | null =
+              caught.code === "upload-policy-size"
+                ? "too-large"
+                : caught.code === "upload-policy-type"
+                  ? "unsupported-compression"
+                  : null;
+            if (policyRefusal !== null) {
+              extraction.recordExternalRefusal(path, policyRefusal);
+            }
             if (caught.code === "upload-policy-size") {
               refused.push({ path, reason: "policy-size" });
               continue;

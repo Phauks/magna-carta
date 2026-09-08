@@ -1,3 +1,4 @@
+import { civilDateOf, todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertMemberStatement } from "@magna-carta/data-access/member-statements";
@@ -31,7 +32,6 @@ let trustAccountId: string;
 let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
 const clock = { now: () => new Date().toISOString(), today: () => todayInUtc() };
-const todayInUtc = () => new Date().toISOString().slice(0, 10);
 
 async function mirrorMemberWithDirectGrant(
   userId: UserId,
@@ -520,7 +520,7 @@ describe("trust movement routes", () => {
   // was told the platform had a bug. The route contract declares a 422 for a refused movement.
   it("answers a future effective date with the ledger's 422 rather than a 500", async () => {
     const matterId = await openMatter("Future Dated Matter", "entity_future");
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const tomorrow = civilDateOf(new Date(Date.now() + 86_400_000));
     const refused = await post("/api/v1/trust/deposits", {
       ...depositBody(matterId, 100000),
       effectiveDate: tomorrow,

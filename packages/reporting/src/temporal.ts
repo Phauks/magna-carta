@@ -1,3 +1,5 @@
+import { CANONICAL_INSTANT_PATTERN } from "@magna-carta/civil-time/instant";
+import { addCalendarDays } from "@magna-carta/civil-time/civil-date";
 import { isValidCalendarDate } from "@magna-carta/ledger/validate";
 import { ReportingValidationError } from "./reporting-validation.ts";
 
@@ -57,7 +59,7 @@ export type ReportingReproducibility =
 // permissive: `recorded_at` values compare lexicographically in SQL, and a knowledge instant in a
 // different shape ("2026-08-14T00:00:00+00:00", or a bare date) would compare wrong rather than fail
 // — filtering out rows the caller meant to include, silently.
-const ISO_UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const ISO_UTC_INSTANT = CANONICAL_INSTANT_PATTERN;
 
 function assertCivilDate(value: string, what: string): void {
   if (!isValidCalendarDate(value)) {
@@ -150,9 +152,7 @@ export function knowledgeBoundOf(period: ReportingPeriod, computedAt: string): s
 // was taken at periodStart itself would count the period's first day twice.
 export function dayBefore(date: string): string {
   assertCivilDate(date, "the date");
-  const stepped = new Date(`${date}T00:00:00.000Z`);
-  stepped.setUTCDate(stepped.getUTCDate() - 1);
-  return stepped.toISOString().slice(0, 10);
+  return addCalendarDays(date, -1);
 }
 
 // What the response says about its own reproducibility.

@@ -30,9 +30,9 @@ not](#what-a-roll-up-is-not).
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 301 | 45% |
+| Done | shipped | 302 | 45% |
 | Part-built | partial, in-build | 124 | 19% |
-| Ahead | designed, planned, researching, not-started | 203 | 30% |
+| Ahead | designed, planned, researching, not-started | 202 | 30% |
 | Parked | deferred, cut | 41 | 6% |
 | **All units of work** | | **669** | **100%** |
 
@@ -40,15 +40,15 @@ not](#what-a-roll-up-is-not).
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 301 | 45% |
+| `shipped` | 302 | 45% |
 | `partial` | 123 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 137 | 21% |
+| `not-started` | 136 | 20% |
 | `deferred` | 38 | 6% |
-| `cut` | 3 | 0% |
+| `cut` | 3 | 1% |
 | **All statuses** | **669** | **100%** |
 
 ### What a roll-up is not
@@ -63,7 +63,7 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 301 of 669 (45%). Shipped plus partial is 424 (63%).**
+**Shipped alone is 302 of 669 (45%). Shipped plus partial is 425 (64%).**
 
 The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**425 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**426 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 82 | 19% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 164 | 39% |
+| A person can open it today (`screen`) | 85 | 20% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 162 | 38% |
 | No user surface by nature (`internal`) | 179 | 42% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **425** | **100%** |
+| **Everything with something built** | **426** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -106,7 +106,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 66 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 100 | 66% |
+| Documents | 67 | 11 | 0 | 2 | 0 | 0 | 16 | 3 | 1 | 100 | 67% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 4 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 14 | 29% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **301** | **123** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **669** | **45%** |
+| **All areas** | **302** | **123** | **1** | **46** | **15** | **5** | **136** | **38** | **3** | **669** | **45%** |
 
 ## Where we have been
 
@@ -733,7 +733,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 66% shipped. 66 done, 11 part-built, 19 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 67% shipped. 67 done, 11 part-built, 18 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -752,7 +752,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.upload.quarantine` · `shipped` · **Quarantine-on-arrival** — Bytes land at their final key not visible/servable/indexed until the async ingest consumer clears them (gates, SHA-256, scan port, version commit in one read).
     - `documents.upload.archive-opacity` · `shipped` · **Opaque archive storage** — An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.
     - `documents.file-manager.archive-browse` · `shipped` · **Browse inside an archive** — Read an archive's entry listing over ranged reads of its headers, without unpacking a byte, for a live or a soft-deleted archive alike. Four formats, each decided from the object's own signature rather than its name - zip, tar, 7z and rar.
-    - `documents.file-manager.archive-extract` · `shipped` · **Extract an archive's members** — Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate. _Note: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built._
+    - `documents.file-manager.archive-extract` · `shipped` · **Extract an archive's members** — Take named members out of a stored zip, tar or 7z by ranged read, and file each on the matter through the ordinary ingest gate. One module owns the dispatch, one refusal vocabulary, the firm's caps and the per-attempt accounting, for every format at once. _Note: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Refused by name and never silently: an encrypted member (a 7z locks them one at a time), a packing method no decoder here covers, an entry that is a link or a device rather than a file, and bytes that disagree with what the archive recorded. A rar is deliberately not extractable - listing one needs no decoder and decoding one has no memory-safe implementation to build against - and the control says so rather than refusing after the click. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built._
   - `documents.scanning` · `partial` · **Malware scanning** — Async scan of every uploaded byte behind a swappable port; verdict stored as file metadata; quarantine, never auto-delete. _Note: EICAR live check deferred (no production users yet)._
     - `documents.scanning.port` · `shipped` · **Scan port** — ScanPort seam in the file-manager package so scan engines are swappable without touching the pipeline.
     - `documents.scanning.engine` · `shipped` · **In-house scan engine (YARA + raw facts)** — YARA Forge rule packs plus a raw-facts extraction engine running in a dedicated scan container behind its own worker.
@@ -839,7 +839,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.decryption.unlock` · `shipped` · **Inspect & unlock** — PDF/ZIP/OOXML inspect + unlock via a FormatAdapter, pure Rust compiled to both WASM and native.
     - `documents.decryption.recovery` · `shipped` · **Password recovery orchestration** — Durable-Object-coordinated fan-out over recovery-worker shards with a hash-only boundary (privileged bytes never leave; only hashes are distributed).
     - `documents.decryption.gpu` · `partial` · **GPU recovery rungs** — GPU-accelerated recovery tiers above the CPU shards. _Note: Partial rather than in-build: Stage 1 is built and Stage 2 is named next, with no stream open on it._
-    - `documents.decryption.ui` · `not-started` · **Unlock/recovery UI** — End-user unlock and recovery surface.
+    - `documents.decryption.ui` · `shipped` · **Unlock/recovery UI** — End-user unlock and recovery surface, and the connection from a password wall a reader actually hits (a locked PDF) to that surface.
   - `documents.metadata` · `partial` · **Metadata inspector & scrubber** — Inspect and scrub embedded metadata from files before sharing/production.
     - `documents.metadata.ooxml` · `shipped` · **OOXML metadata** — Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
     - `documents.metadata.image` · `shipped` · **Image metadata** — Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.

@@ -392,7 +392,7 @@
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Archives are no longer opaque to a person: browsing one reads its headers over ranged reads and never unpacks a byte, for all four formats the platform recognises - zip, tar, 7z and rar, each decided from the object's own signature rather than its name - and extracting a member (zip) reads only that member's bytes and files it through the ordinary ingest gate. Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7. The numbering editor landed on 2026-09-06: Settings · Matter Numbering edits the matter and consultation schemes over the existing routes with a server-rendered preview, and the status window sets a matter's number by hand (only where the matter has been active; the service refuses the unnumbered rungs)."
+      "notes": "Archives are no longer opaque to a person: browsing one reads its headers over ranged reads and never unpacks a byte, for all four formats the platform recognises - zip, tar, 7z and rar, each decided from the object's own signature rather than its name - and extracting a member (zip, tar, 7z) reads only that member's bytes - or, for a 7z, only the block holding it - and files it through the ordinary ingest gate. Every extraction goes through one module that owns the format dispatch, one refusal vocabulary, the firm's caps and the record of what each attempt cost. Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7. The numbering editor landed on 2026-09-06: Settings · Matter Numbering edits the matter and consultation schemes over the existing routes with a server-rendered preview, and the status window sets a matter's number by hand (only where the matter has been active; the service refuses the unnumbered rungs)."
     },
     {
       "slice": "1·2 — `protected()` crypto module",
@@ -1803,7 +1803,8 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "todo"
+          "state": "done",
+          "by": "Sonnet 5"
         },
         "load-profile": {
           "state": "n/a"
@@ -1815,8 +1816,8 @@
         }
       },
       "branch": "main",
-      "activeWork": null,
-      "next": "GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; end-user UI (post-0·7); connect the magna-carta-recovery Worker to Workers Builds",
+      "activeWork": "docs/active-work/claude/text-document-editor-support-arvpgv.md",
+      "next": "GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; connect the magna-carta-recovery Worker to Workers Builds",
       "links": {
         "spec": "docs/specs/2026-06-26-decryption-tool-design.md",
         "plan": "docs/specs/2026-06-26-decryption-slice-2-plan-2-orchestration-implementation-plan.md",
@@ -1826,7 +1827,7 @@
         ]
       },
       "blockedBy": [],
-      "notes": "`crates/decryption-core` (pure Rust → wasm + native) behind `FormatAdapter`: unlock (`/decryption/inspect` + `/unlock`) and recover (DO-coordinated fan-out over `apps/recovery-worker` shards, `/decryption/recover*`). PDF/ZIP/OOXML; hash-only recovery boundary; GPU rungs + UI deferred."
+      "notes": "`crates/decryption-core` (pure Rust → wasm + native) behind `FormatAdapter`: unlock (`/decryption/inspect` + `/unlock`) and recover (DO-coordinated fan-out over `apps/recovery-worker` shards, `/decryption/recover*`). PDF/ZIP/OOXML; hash-only recovery boundary; GPU rungs deferred. The File Workbench's Unlock capability is now real (attest, unlock with a known password, or start a recovery search that hands off to its own addressable job screen — poll, cancel, one-time password reveal, an honest needsGpu answer rather than a spinner that never finishes). A PDF's own reader also unlocks a known password without leaving the page: `@magna-carta/pdf` already carries `inspectSecurity`/`decryptDocument`, loaded client-side in the same worker that rasterizes pages, so trying a password costs nothing server-side and a reader who does not have one is linked straight to the workbench's Unlock capability, where Recover lives."
     },
     {
       "slice": "File-manager UI primitives (FileIcon · Breadcrumb · ContextMenu · Tree · Dropzone)",
@@ -2428,6 +2429,48 @@
       },
       "blockedBy": [],
       "notes": "The Tools host every file capability is run from: the file-workbench route, a file dropped once and read by all ten. Two capabilities are real in the browser today — the file's true type, read from its leading bytes against what its name claims, and its SHA-256 and SHA-1. The eight whose engines run in a container render their own control disabled with the dependency named. The capability set is a registry, so adding one is a module and an array entry; the Overview is contributed by the modules rather than written by hand. Conversion acts on the whole selection, and offers only the formats every selected file can reach. Two rounds of owner review are recorded in `docs/conventions/file-workbench-rulings.md`; the second turned the file list into the product's one grid and moved four of its rulings into the standing set."
+    },
+    {
+      "slice": "One home for dates",
+      "group": "cross-cutting",
+      "order": 41,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "claude/date-handling-audit-xx8q3o",
+      "activeWork": "docs/active-work/claude/date-handling-audit-xx8q3o.md",
+      "next": "Owner call on whether the fifteen surfaces still on a native date input move to the DatePicker",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": [
+          "ADR-a-date-has-two-authorities-and-a-gate-that-keeps-it-so"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/civil-time` (shape) + the design system's `formatters/` (display), with `lint:date-handling` holding the line; about seventy duplicates removed, two of which had already drifted."
     },
     {
       "slice": "3·1 — Time tracking + WIP + rate engine",
