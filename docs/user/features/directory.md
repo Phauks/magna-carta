@@ -8,14 +8,24 @@ once serves every file they appear on.
 ## Finding a record
 
 Open **Directory** from the sidebar. The list shows everyone the firm holds, people and organizations
-together, in name order, with the count beside it. Use the filter to see one kind, and the search to
-find a record by any name it has ever held: a maiden name, a former trading name or a typo still
-finds the right record, and the results say which name matched.
+together, in name order, with the count beside it. Each row carries the record's kind, the email
+address and telephone number a message would go to, the city it is in, and when it was added.
+
+Every column's own heading is where you narrow and sort: Kind holds people, organizations or both;
+City and Region pick out who is local; any column sorts. The heading menu also offers columns the
+list does not show — first, middle and last name, an organization's legal name, the country, and when
+the record last changed — so the book can be sorted by surname or scanned by country on the day you
+need that, and stays a list of names on the day you do not. When something is narrowing the list,
+**Clear Filters** appears at the top of the screen to put it back.
+
+The search finds a record by any name it has ever held: a maiden name, a former trading name or a
+typo still finds the right record, and the results say which name matched.
 
 Press **New** to record a person or an organization. A person is recorded whole: the screen puts
 the record's sections down its left side, each with a count of what it holds, and the section you
-are on beside it, so a name, a way to reach them, their pronouns, dates, sealed identifiers and the
-organizations they belong to can all be entered before the record exists. On the right, as you type
+are on beside it, so a name, a way to reach them, an address, their pronouns, dates, sealed
+identifiers and the organizations they belong to can all be entered before the record exists. Moving between the
+sections never changes the size of the window. On the right, as you type
 the name, the Directory shows records that may already be the same person, with a way to open each
 beside your draft, so the same client does not end up in the book twice under two spellings.
 Everything you entered is recorded together when you press Record Person, or not at all.
@@ -36,14 +46,28 @@ record's window already open.
 A record answers the questions the firm keeps an answer to:
 
 - **Names**: every name the record has held, with the current one marked. Recording a marriage or a
-  rename keeps the old name findable.
-- **Contact**: one line per way to reach them. Choose the kind first — Email, Telephone, Fax or
-  Address — and the fields follow: an email address is checked as you type; a number takes its
-  country from the dial code and is formatted as you type it, so a Chicago number reads as
-  (312) 555-0148 and a London one as +44 20 7946 0000. Each line shows what it is used for, whether
-  the person asked the firm not to use it, and which one they prefer. A number that turned out to be
-  disconnected, or mail that came back, is recorded as failed rather than deleted, so the next
-  person does not ring it again.
+  rename keeps the old name findable. A person's name is a first name, a middle name and a last name,
+  with a prefix and any number of suffixes chosen from a list you can add to — somebody who is both
+  Jr. and Esq. is recorded as both. Only the first name is required: a person who has one name is
+  recorded under it, with a note on screen saying that is what the firm will file and search them
+  under.
+- **Contact**: one line per way to reach them. Choose the kind first — Email, Telephone or Fax — and
+  the fields follow: an email address is checked as you type; a number takes its country from the
+  dial code and is formatted as you type it, so a Chicago number reads as (312) 555-0148 and a London
+  one as +44 20 7946 0000. Each line shows what it is used for, whether the person asked the firm not
+  to use it, and which one they prefer. A number that turned out to be disconnected, or mail that
+  came back, is recorded as failed rather than deleted, so the next person does not ring it again.
+  A value entered wrongly is corrected in place: press the pencil on its line and it comes back into
+  the fields it was entered in, so a mistyped digit does not cost you the whole line and everything
+  recorded against it.
+- **Address**: the postal addresses the firm holds, entered in the shape the country actually uses.
+  Choose the country first and the rest of the form follows it — an Irish address asks for a county
+  and an Eircode, a German one puts the postal code before the town, a Japanese one starts with the
+  postal code and reads down to the street, and none of them is asked for a state that does not
+  exist. Nothing is required: an address the firm holds half of is still worth recording. Each
+  address also says what it is for and whether the place physically exists, which is the difference
+  between somewhere a document can be served and a delivery point that cannot. Addresses are
+  corrected in place, the same way.
 - **Pronouns** and **Dates** on a person: what the person stated, and their dates of birth and death.
 - **Identifiers**: sealed values such as a social security number, a driver's licence, a bar
   number or an account. The type decides what is asked for: nine digits for a social security

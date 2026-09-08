@@ -7977,8 +7977,7 @@
             "minLength": 1
           },
           "family": {
-            "type": "string",
-            "minLength": 1
+            "type": "string"
           },
           "prefix": {
             "type": [
@@ -8057,8 +8056,7 @@
           }
         },
         "required": [
-          "given",
-          "family"
+          "given"
         ]
       },
       "CreateDirectoryPersonOtherName": {
@@ -8930,9 +8928,69 @@
             ],
             "description": "An organization's legal name where it differs from what the firm calls it; null for a person, and null where the two are the same word."
           },
+          "givenName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A person's first name. Null for an organization."
+          },
+          "middleName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A person's middle name, where the firm recorded one."
+          },
+          "familyName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A person's last name. Null for an organization, and null for a person who has one name — a record with no family name is one the firm keeps, not one it refuses."
+          },
+          "emailAddress": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The record's default email address — the primary row where one is marked, else the oldest. Null where the firm holds none. Not a contact register: the record's own contact-points read is where every channel lives."
+          },
+          "phoneNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The record's default number, exactly as it was entered and never rewritten."
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The locality of the record's default address."
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The administrative area of the default address — state, province, prefecture — where the country has one."
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The default address's country, ISO 3166-1 alpha-2."
+          },
           "recordedAt": {
             "type": "string",
             "description": "When the firm wrote the record down."
+          },
+          "changedAt": {
+            "type": "string",
+            "description": "When the record itself last changed. A change to something hanging off it — a name appended, an address added — does not move this."
           }
         },
         "required": [
@@ -8940,7 +8998,16 @@
           "entityKind",
           "displayName",
           "legalName",
-          "recordedAt"
+          "givenName",
+          "middleName",
+          "familyName",
+          "emailAddress",
+          "phoneNumber",
+          "city",
+          "region",
+          "country",
+          "recordedAt",
+          "changedAt"
         ]
       },
       "DirectoryEntityDisplayNamesResponse": {
