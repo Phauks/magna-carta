@@ -87,6 +87,47 @@ export async function readVisibleReviewSetsForMatter(
   return assemblePage(results, pageSize, (row) => row);
 }
 
+// EVERY review set this member may reach, across every matter — the firm-wide register's read.
+//
+// It is the matter-scoped builder above with its matter clause removed, and that is the whole
+// difference: the wall is the access list and never matter access, so scoping this by the matters a
+// member can open would hide from a contract reviewer precisely the corpora they were brought in to
+// work. The order is the matter-scoped read's, so a member holding review sets on four matters walks
+// one list in one order rather than four interleaved by a client-side merge.
+export function selectVisibleReviewSetsStatement(
+  database: SqlDatabase,
+  access: ReviewSetAccessPredicate,
+  limit: number,
+  cursor?: SortCursor,
+): SqlStatement {
+  const bindings: unknown[] = [...access.bindings];
+  const cursorClause = keysetClause(bindings, cursor, "created_at", "id", false);
+  bindings.push(limit);
+  return database
+    .prepare(
+      `SELECT ${REVIEW_SET_COLUMNS} FROM ${REVIEW_SET_TABLE} ` +
+        `WHERE ${access.fragmentFor(`${REVIEW_SET_TABLE}.id`)} ` +
+        cursorClause +
+        `ORDER BY created_at DESC, id DESC LIMIT ?`,
+    )
+    .bind(...bindings);
+}
+
+export async function readVisibleReviewSets(
+  database: SqlDatabase,
+  access: ReviewSetAccessPredicate,
+  pageSize: number,
+  cursor?: string,
+): Promise<Page<ReviewSetRow>> {
+  const { results } = await selectVisibleReviewSetsStatement(
+    database,
+    access,
+    pageSize + 1,
+    decodeCursor(cursor),
+  ).all<ReviewSetRow>();
+  return assemblePage(results, pageSize, (row) => row);
+}
+
 export function selectVisibleReviewSetStatement(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,
@@ -483,6 +524,121 @@ export async function readReviewDocumentPage(
 // ---------------------------------------------------------------------------------------------
 // The exception report read
 
+// ---------------------------------------------------------------------------------------------
+// One document, and the reasons it is what it is
+
+// THE READ THE REVIEWER'S PANE SITS ON. The list read answers "what is in this corpus"; this answers
+// "what is this document", which is a different question with different columns — the digests a
+// defensibility challenge asks for, the pointer the document came from, the fingerprint the
+// near-duplicate work will cluster on, and the family it arrived in.
+//
+// It carries the R2 keys because the routes above it need them to serve the text; a wire shape
+// derived from this row must NOT, since an object key is an internal address and a client holding
+// one has been handed something it can only misuse.
+export interface ReviewDocumentDetailRow extends ReviewDocumentListRow {
+  readonly review_set_id: ReviewSetId;
+  readonly source_kind: string;
+  readonly file_version_id: string | null;
+  readonly email_message_id: string | null;
+  readonly content_sha256: string | null;
+  readonly content_md5: string | null;
+  readonly content_sha1: string | null;
+  readonly text_r2_key: string | null;
+  readonly metadata_r2_key: string | null;
+  readonly text_fingerprint: string | null;
+  readonly dedup_group_id: string | null;
+}
+
+const DETAIL_COLUMNS =
+  `${LIST_COLUMNS}, ` +
+  `${REVIEW_DOCUMENT_TABLE}.review_set_id AS review_set_id, ` +
+  `${REVIEW_DOCUMENT_TABLE}.source_kind AS source_kind, ` +
+  `${REVIEW_DOCUMENT_TABLE}.file_version_id AS file_version_id, ` +
+  `${REVIEW_DOCUMENT_TABLE}.email_message_id AS email_message_id, ` +
+  `${REVIEW_DOCUMENT_TABLE}.content_sha256 AS content_sha256, ` +
+  `${REVIEW_DOCUMENT_TABLE}.content_md5 AS content_md5, ` +
+  `${REVIEW_DOCUMENT_TABLE}.content_sha1 AS content_sha1, ` +
+  `${REVIEW_DOCUMENT_TABLE}.text_r2_key AS text_r2_key, ` +
+  `${REVIEW_DOCUMENT_TABLE}.metadata_r2_key AS metadata_r2_key, ` +
+  `${REVIEW_DOCUMENT_TABLE}.text_fingerprint AS text_fingerprint, ` +
+  `${REVIEW_DOCUMENT_TABLE}.dedup_group_id AS dedup_group_id`;
+
+export function selectVisibleReviewDocumentStatement(
+  database: SqlDatabase,
+  reviewDocumentId: ReviewDocumentId,
+  access: ReviewSetAccessPredicate,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${DETAIL_COLUMNS} FROM ${REVIEW_DOCUMENT_TABLE} ` +
+        `WHERE ${REVIEW_DOCUMENT_TABLE}.id = ? ` +
+        `AND ${access.fragmentFor(`${REVIEW_DOCUMENT_TABLE}.review_set_id`)} LIMIT ?`,
+    )
+    .bind(reviewDocumentId, ...access.bindings, 1);
+}
+
+// Undefined means ABSENT, on the same rule as every other read here: a document in a corpus the
+// member is not on the list for is not there, rather than there and refused.
+export async function readVisibleReviewDocument(
+  database: SqlDatabase,
+  reviewDocumentId: ReviewDocumentId,
+  access: ReviewSetAccessPredicate,
+): Promise<ReviewDocumentDetailRow | undefined> {
+  const { results } = await selectVisibleReviewDocumentStatement(
+    database,
+    reviewDocumentId,
+    access,
+  ).all<ReviewDocumentDetailRow>();
+  return results[0];
+}
+
+// One document's reasons. A document may carry several and usually carries none, and the reviewer's
+// pane shows them beside the document rather than making somebody find it in the set-wide report.
+export function selectVisibleReviewDocumentExceptionsStatement(
+  database: SqlDatabase,
+  reviewDocumentId: ReviewDocumentId,
+  access: ReviewSetAccessPredicate,
+  limit: number,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${REVIEW_DOCUMENT_EXCEPTION_TABLE}.id AS id, ` +
+        `${REVIEW_DOCUMENT_EXCEPTION_TABLE}.stage AS stage, ` +
+        `${REVIEW_DOCUMENT_EXCEPTION_TABLE}.code AS code, ` +
+        `${REVIEW_DOCUMENT_EXCEPTION_TABLE}.detail AS detail, ` +
+        `${REVIEW_DOCUMENT_EXCEPTION_TABLE}.created_at AS created_at ` +
+        `FROM ${REVIEW_DOCUMENT_EXCEPTION_TABLE} ` +
+        `WHERE ${REVIEW_DOCUMENT_EXCEPTION_TABLE}.review_document_id = ? ` +
+        `AND ${access.fragmentFor(`${REVIEW_DOCUMENT_EXCEPTION_TABLE}.review_set_id`)} ` +
+        `ORDER BY ${REVIEW_DOCUMENT_EXCEPTION_TABLE}.created_at ASC, ` +
+        `${REVIEW_DOCUMENT_EXCEPTION_TABLE}.id ASC LIMIT ?`,
+    )
+    .bind(reviewDocumentId, ...access.bindings, limit);
+}
+
+export interface ReviewDocumentExceptionRow {
+  readonly id: string;
+  readonly stage: ReviewDocumentExceptionStage;
+  readonly code: ReviewDocumentExceptionCode;
+  readonly detail: string | null;
+  readonly created_at: string;
+}
+
+export async function readVisibleReviewDocumentExceptions(
+  database: SqlDatabase,
+  reviewDocumentId: ReviewDocumentId,
+  access: ReviewSetAccessPredicate,
+  limit: number,
+): Promise<ReviewDocumentExceptionRow[]> {
+  const { results } = await selectVisibleReviewDocumentExceptionsStatement(
+    database,
+    reviewDocumentId,
+    access,
+    limit,
+  ).all<ReviewDocumentExceptionRow>();
+  return results;
+}
+
 export interface ReviewSetExceptionRow {
   readonly exception_id: string;
   readonly review_document_id: ReviewDocumentId;
@@ -697,6 +853,11 @@ export const ACCESS_SCOPED_REVIEW_READS: readonly AccessScopedReviewRead[] = [
       selectVisibleReviewSetsForMatterStatement(database, SAMPLE_MATTER, access, 50),
   },
   {
+    key: "selectVisibleReviewSets",
+    pages: true,
+    build: (database, access) => selectVisibleReviewSetsStatement(database, access, 50),
+  },
+  {
     key: "selectVisibleReviewSet",
     pages: true,
     build: (database, access) =>
@@ -738,6 +899,18 @@ export const ACCESS_SCOPED_REVIEW_READS: readonly AccessScopedReviewRead[] = [
         { sortDate: null, id: SAMPLE_DOCUMENT },
         50,
       ),
+  },
+  {
+    key: "selectVisibleReviewDocument",
+    pages: true,
+    build: (database, access) =>
+      selectVisibleReviewDocumentStatement(database, SAMPLE_DOCUMENT, access),
+  },
+  {
+    key: "selectVisibleReviewDocumentExceptions",
+    pages: true,
+    build: (database, access) =>
+      selectVisibleReviewDocumentExceptionsStatement(database, SAMPLE_DOCUMENT, access, 50),
   },
   {
     key: "selectReviewSetExceptionPage",

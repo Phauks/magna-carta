@@ -6,10 +6,13 @@ import {
   readReviewSetExceptionPage,
   readVisibleExceptionCounts,
   readVisibleOccurrences,
+  readVisibleReviewDocument,
+  readVisibleReviewDocumentExceptions,
   readVisibleReviewSet,
   type ReviewDocumentListCursor,
   type ReviewDocumentListFilters,
 } from "@magna-carta/discovery/review-reads";
+import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import { reviewSetAccessPredicate } from "@magna-carta/discovery/review-set-visibility";
 import {
   REVIEW_DOCUMENT_EXCEPTION_CODES,
@@ -52,6 +55,10 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 const READ = "discovery:read";
 const DEFAULT_PAGE_SIZE = 100;
 const MAXIMUM_PAGE_SIZE = 200;
+
+// How many reasons one document's pane shows. A document with more than this many named reasons is
+// not a document anybody is going to read; the set-wide exception report is where that is counted.
+const EXCEPTIONS_PER_DOCUMENT = 20;
 
 const authErrors = {
   401: {
@@ -119,6 +126,55 @@ const ReviewDocumentListItem = z
     createdAt: z.string(),
   })
   .openapi("ReviewDocument");
+
+// ONE DOCUMENT, as the reviewer's pane reads it — the list row plus what only this question needs:
+// the digests a defensibility challenge asks for, the family it arrived in, the fingerprint the
+// near-duplicate work will cluster on, and every reason it is not readable.
+//
+// IT CARRIES NO R2 KEY. The row holds two, and neither leaves: an object key is an internal address,
+// and a client holding one has been handed something it can only misuse. Whether text exists is a
+// boolean here, and the text itself is served by the route below, which re-authorizes.
+const ReviewDocumentDetail = z
+  .object({
+    id: z.string(),
+    reviewSetId: z.string(),
+    recordCustodianId: z.string(),
+    discoveryLoadId: z.string(),
+    sourceKind: z.enum(["file_version", "email_message", "email_attachment"]),
+    familyId: z.string(),
+    familyRole: z.enum(REVIEW_DOCUMENT_FAMILY_ROLES),
+    familySequence: z.number(),
+    sourceName: z.string().nullable(),
+    sourcePath: z.string().nullable(),
+    sizeBytes: z.number().nullable(),
+    pageCount: z.number().nullable(),
+    formatIdentified: z.string().nullable(),
+    sortDate: z.string().nullable(),
+    sortDateSource: z.string().nullable(),
+    processingState: z.enum(REVIEW_DOCUMENT_PROCESSING_STATES),
+    processingDeferredReason: z.string().nullable(),
+    indexState: z.enum(REVIEW_DOCUMENT_INDEX_STATES).nullable(),
+    isDedupPrimary: z.boolean(),
+    dedupGroupId: z.string().nullable(),
+    extractionRoute: z.string().nullable(),
+    pagesRecognized: z.number().nullable(),
+    contentSha256: z.string().nullable(),
+    contentMd5: z.string().nullable(),
+    contentSha1: z.string().nullable(),
+    textFingerprint: z.string().nullable(),
+    hasExtractedText: z.boolean(),
+    createdAt: z.string(),
+    exceptions: z.array(
+      z.object({
+        id: z.string(),
+        stage: z.enum(REVIEW_DOCUMENT_EXCEPTION_STAGES),
+        code: z.enum(REVIEW_DOCUMENT_EXCEPTION_CODES),
+        detail: z.string().nullable(),
+        createdAt: z.string(),
+      }),
+    ),
+  })
+  .openapi("ReviewDocumentDetail");
 
 const ReviewSetExceptionItem = z
   .object({
@@ -198,6 +254,46 @@ const listReviewDocumentsRoute = defineOpenAPIRoute(readMeta("listReviewDocument
             .openapi("ReviewDocumentPage"),
         },
       },
+    },
+    ...authErrors,
+  },
+});
+
+const getReviewDocumentRoute = defineOpenAPIRoute(readMeta("getReviewDocument"), {
+  method: "get",
+  path: "/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}",
+  description:
+    "One document as the reviewer reads it: what it was called where it came from, whose records " +
+    "it was, the delivery it arrived on, the family it arrived in, how far it got, the digests " +
+    "recorded for it, and every named reason it could not be read. A document in a review set the " +
+    "member is not on the list for is absent, not refused.",
+  request: { params: reviewDocumentParams },
+  responses: {
+    200: {
+      description: "The document",
+      content: { "application/json": { schema: ReviewDocumentDetail } },
+    },
+    ...authErrors,
+  },
+});
+
+const getReviewDocumentTextRoute = defineOpenAPIRoute(readMeta("getReviewDocumentText"), {
+  method: "get",
+  path: "/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/text",
+  description:
+    "The text the discovery engine extracted from this document, as plain text. 404 while none " +
+    "exists, which is the ordinary state of a document that has not been read yet and the " +
+    "permanent state of one that could not be. " +
+    "SERVED THROUGH THIS ROUTE RATHER THAN AS A REDIRECT TO THE OBJECT, and gated by the review " +
+    "set's own access list rather than by the file permissions the native bytes are gated by: a " +
+    "reviewer brought in for one production is on that list and may hold no file permission at " +
+    "all, and the extracted text is exactly what they need to code a document. The native file " +
+    "stays behind its own gate, where it belongs.",
+  request: { params: reviewDocumentParams },
+  responses: {
+    200: {
+      description: "The extracted text",
+      content: { "text/plain": { schema: z.string() } },
     },
     ...authErrors,
   },
@@ -332,6 +428,112 @@ function encodeDocumentCursor(cursor: ReviewDocumentListCursor | null): string |
 }
 
 export function registerDiscoveryReviewReadRoutes(app: DiscoveryApp, chokepoint: Chokepoint): void {
+  app.openapi(
+    {
+      ...getReviewDocumentRoute,
+      middleware: chokepointMiddleware(chokepoint, getReviewDocumentRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { reviewDocumentId } = c.req.valid("param");
+      const access = accessFor(c);
+      // ONE read carries the wall: the statement composes the access predicate against the
+      // document's own review set, so a document in a corpus the member is not on is simply not
+      // found — the address they used tells them nothing they did not already have.
+      const document = await readVisibleReviewDocument(
+        firm.firmDatabase,
+        reviewDocumentId as ReviewDocumentId,
+        access,
+      );
+      if (document === undefined) return notOnTheList(c);
+      const exceptions = await readVisibleReviewDocumentExceptions(
+        firm.firmDatabase,
+        reviewDocumentId as ReviewDocumentId,
+        access,
+        EXCEPTIONS_PER_DOCUMENT,
+      );
+      return c.json(
+        {
+          id: document.id,
+          reviewSetId: document.review_set_id,
+          recordCustodianId: document.record_custodian_id,
+          discoveryLoadId: document.discovery_load_id,
+          sourceKind: document.source_kind as "file_version" | "email_message" | "email_attachment",
+          familyId: document.family_id,
+          familyRole: document.family_role,
+          familySequence: document.family_sequence,
+          sourceName: document.source_name,
+          sourcePath: document.source_path,
+          sizeBytes: document.size_bytes,
+          pageCount: document.page_count,
+          formatIdentified: document.format_identified,
+          sortDate: document.sort_date,
+          sortDateSource: document.sort_date_source,
+          processingState: document.processing_state,
+          processingDeferredReason: document.processing_deferred_reason,
+          indexState: document.index_state,
+          isDedupPrimary: document.is_dedup_primary === 1,
+          dedupGroupId: document.dedup_group_id,
+          extractionRoute: document.extraction_route,
+          pagesRecognized: document.pages_recognized,
+          contentSha256: document.content_sha256,
+          contentMd5: document.content_md5,
+          contentSha1: document.content_sha1,
+          textFingerprint: document.text_fingerprint,
+          // The key itself never leaves; whether there is one to serve does.
+          hasExtractedText: document.text_r2_key !== null,
+          createdAt: document.created_at,
+          exceptions: exceptions.map((exception) => ({
+            id: exception.id,
+            stage: exception.stage,
+            code: exception.code,
+            detail: exception.detail,
+            createdAt: exception.created_at,
+          })),
+        },
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    {
+      ...getReviewDocumentTextRoute,
+      middleware: chokepointMiddleware(chokepoint, getReviewDocumentTextRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { reviewDocumentId } = c.req.valid("param");
+      const document = await readVisibleReviewDocument(
+        firm.firmDatabase,
+        reviewDocumentId as ReviewDocumentId,
+        accessFor(c),
+      );
+      if (document === undefined || document.text_r2_key === null) return notOnTheList(c);
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      const object = await bucket.get(document.text_r2_key);
+      // The row says there is text and the object is not there. That is a real state — a review set
+      // whose derived artifacts were released at close keeps its rows — and it is reported as an
+      // absence rather than as a fault, because nothing is wrong with the record.
+      if (object === null) return notOnTheList(c);
+      // READ WHOLE RATHER THAN STREAMED, which is the one place this file departs from "stream,
+      // don't buffer". The object is one document's extracted text and is bounded by construction:
+      // the extraction pipeline refuses a document it would have to read past its own size limit
+      // and records `oversize` against it instead, so nothing that reaches here is unbounded. The
+      // contract says the response is text, and a caller reading a document into a pane wants it
+      // whole; a stream would buy nothing and cost the contract its shape.
+      return c.text(await object.text(), 200, {
+        // Never cached by a shared cache: this is an opposing party's material behind a
+        // per-review-set access list, and the response varies by who asked.
+        "cache-control": "private, no-store",
+        // The bytes came out of an untrusted document. Nothing should sniff them into anything
+        // executable, and nothing should render them as a document of their own.
+        "x-content-type-options": "nosniff",
+        "content-security-policy": "default-src 'none'; sandbox",
+      });
+    },
+  );
+
   app.openapi(
     {
       ...listReviewDocumentsRoute,

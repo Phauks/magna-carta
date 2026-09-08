@@ -1,3 +1,4 @@
+import { MEMBER_TABLE } from "@magna-carta/data-access/member-statements";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { ReviewSetAccessId, ReviewSetId, UserId } from "@magna-carta/identifiers/types";
 import { REVIEW_SET_ACCESS_TABLE, type ReviewSetAccessPredicate } from "./review-set-visibility.ts";
@@ -109,16 +110,27 @@ export async function memberHasReviewSetAccess(
   return results.length > 0;
 }
 
-// The seat count, for the route's response. A review set with one member on its list is an
-// attorneys'-eyes-only corpus, and a surface that shows the number makes that visible without
-// listing anybody.
+// The seat count, for the route's response and for the guard that stops the list reaching empty. A
+// review set with one member on its list is an attorneys'-eyes-only corpus, and a surface that shows
+// the number makes that visible without listing anybody.
+//
+// IT COUNTS MEMBERS WHO CAN ACTUALLY ACT, NOT ROWS, and the difference is the whole reason this
+// statement joins a second table. A deactivated member keeps every row they had — that is deliberate,
+// because history is not rewritten when somebody leaves — while the platform's permission reads gate
+// on `member.status = 'active'` and treat them as absent everywhere else. A count of rows would
+// therefore let the revoke guard believe a list has two people on it when one of them left the firm
+// last year, and removing the other would strand the corpus permanently: the list is fail-closed, so
+// nobody could read it, nobody could close it, and nobody could grant access back.
 export function selectReviewSetAccessCountStatement(
   database: SqlDatabase,
   reviewSetId: ReviewSetId,
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT COUNT(*) AS member_count FROM ${REVIEW_SET_ACCESS_TABLE} WHERE review_set_id = ?`,
+      `SELECT COUNT(*) AS member_count FROM ${REVIEW_SET_ACCESS_TABLE} ` +
+        `JOIN ${MEMBER_TABLE} ON ${MEMBER_TABLE}.user_id = ${REVIEW_SET_ACCESS_TABLE}.member_user_id ` +
+        `AND ${MEMBER_TABLE}.status = 'active' ` +
+        `WHERE ${REVIEW_SET_ACCESS_TABLE}.review_set_id = ?`,
     )
     .bind(reviewSetId);
 }
@@ -131,4 +143,62 @@ export async function readReviewSetAccessCount(
     member_count: number;
   }>();
   return results[0]?.member_count ?? 0;
+}
+
+// THE OTHER HALF OF THE SAME HOLE, and the one the guard above structurally cannot close.
+//
+// The guard is on REVOKING. Deactivating a member is a different verb, performed somewhere else, by
+// somebody who has never heard of this review set — and it strands a corpus just as completely,
+// because a deactivated member is absent to every read while their access row stays put. Nothing is
+// revoked, so nothing refuses.
+//
+// This is the read the deactivation path must run first: every review set where this member is the
+// only ACTIVE person on the list. A non-empty answer means deactivating them makes those corpora
+// unreachable by everybody, permanently, with no operator override and no Owner bypass — so the
+// deactivation is refused until somebody else is added to each one. There is deliberately no escape
+// hatch on the other side: every one of them would weaken the exact property the list exists to
+// provide, which is that no role sees through the wall.
+export interface StrandedReviewSet {
+  readonly review_set_id: ReviewSetId;
+  readonly name: string;
+}
+
+export function selectReviewSetsHeldOnlyByStatement(
+  database: SqlDatabase,
+  memberUserId: UserId,
+  limit: number,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT ${REVIEW_SET_ACCESS_TABLE}.review_set_id AS review_set_id, review_set.name AS name ` +
+        `FROM ${REVIEW_SET_ACCESS_TABLE} ` +
+        `JOIN review_set ON review_set.id = ${REVIEW_SET_ACCESS_TABLE}.review_set_id ` +
+        `WHERE ${REVIEW_SET_ACCESS_TABLE}.member_user_id = ? ` +
+        // The member being asked about is excluded from the count, so this reads "nobody else who
+        // can act is on this list" rather than "one person is". Written as a correlated NOT EXISTS
+        // rather than a grouped count: the answer is wanted per review set, and a HAVING over a
+        // join to `member` would have to re-state the active rule a third time.
+        `AND NOT EXISTS (` +
+        `SELECT 1 FROM ${REVIEW_SET_ACCESS_TABLE} AS other ` +
+        `JOIN ${MEMBER_TABLE} ON ${MEMBER_TABLE}.user_id = other.member_user_id ` +
+        `AND ${MEMBER_TABLE}.status = 'active' ` +
+        `WHERE other.review_set_id = ${REVIEW_SET_ACCESS_TABLE}.review_set_id ` +
+        `AND other.member_user_id <> ?` +
+        `) ` +
+        `ORDER BY review_set.name ASC, ${REVIEW_SET_ACCESS_TABLE}.review_set_id ASC LIMIT ?`,
+    )
+    .bind(memberUserId, memberUserId, limit);
+}
+
+export async function readReviewSetsHeldOnlyBy(
+  database: SqlDatabase,
+  memberUserId: UserId,
+  limit: number,
+): Promise<StrandedReviewSet[]> {
+  const { results } = await selectReviewSetsHeldOnlyByStatement(
+    database,
+    memberUserId,
+    limit,
+  ).all<StrandedReviewSet>();
+  return results;
 }
