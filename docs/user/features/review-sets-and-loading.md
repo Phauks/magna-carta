@@ -1,7 +1,8 @@
 # Review sets — gathering the documents in a case
 
 _The screens are here: a matter's **Discovery** section lists its review sets and starts one, the
-**Discovery** row in the sidebar lists every review set you can open across every case, and opening
+**Discovery** row in the sidebar lists every review set you can open across every case and starts one
+there too, and opening
 one gives you its documents and its loads. Loading a production received from another party still
 goes through the same upload path any file takes. Coding documents, reading one on screen, and
 searching a set are the next pieces of work, and each says so where it would be._
@@ -37,14 +38,25 @@ name and the date on it.
 
 ## Making a review set
 
-1. Open the matter, go to **Discovery**, and choose **New** → **New Review Set**.
-2. Give it a name you would use in a letter: "Our collection", "Defendant's second production". It is
+Two ways in, and they open the same panel.
+
+1. Open the matter, go to **Discovery**, and choose **New** → **New Review Set**. The matter is
+   already known, so nothing asks you about it.
+2. Or start from the **Discovery** screen in the sidebar and press **New** there. Because that screen
+   spans every case, it asks which matter first — a review set always belongs to one, and the matter
+   decides the document limit the set carries and the lifecycle it lives under.
+
+Then, either way:
+
+1. Give it a name you would use in a letter: "Our collection", "Defendant's second production". It is
    what everybody will call this body of material for the rest of the case.
-3. It starts empty and open, and **only you can see it** until you add somebody — a review set's list
+2. It starts empty and open, and **only you can see it** until you add somebody — a review set's list
    is separate from who works the matter. It carries a **document limit** — a large one — and it will
    tell you before you go past it rather than after.
 
-Searching a set is not switched on yet, in either form. The set records whether the semantic half is
+Searching a set's documents by their TEXT is not switched on yet, in either form — searching them by
+what they are called works today, and so does searching your review sets by name. The set records
+whether the semantic half is
 wanted, and nothing acts on that answer, so the choice is not put in front of you: turning it on
 would start a real, metered cost for a benefit nobody has measured on legal material, and the
 decision cannot be unmade once the first document has been prepared. It is left until there is an
@@ -58,8 +70,10 @@ one **New** control at the top: **New Load** and **New Custodian of Record**. If
 available to you — you may load but not manage the set, or the set is locked — it says so rather than
 disappearing.
 
-Beside it is the search. It narrows the loads on the screen by what their rows show, which on a set
-with a dozen deliveries is how you find the one you are looking for without reading the column.
+Beside it is the search, which finds a delivery by the **source description** you gave it when you
+declared it — across every load in the set, not just the ones on screen. A load you described as
+"Defendant's second production" is one word away; a load nobody described is named on screen by where
+it came from, and a search cannot find it, which is one more reason to describe it.
 
 Always the full phrase: "Custodian of Record". The firm's safe custody register also has custodians,
 and they are a completely different thing (the person a physical original belongs to). You will meet
@@ -165,9 +179,10 @@ leaves a record of when you did and who decided to.
   matter and not the set, that is the system working — and a set you are not on does not appear at
   all rather than appearing and refusing you.
 - **`/discovery` in the sidebar is the screen to live on if reviewing is most of your work.** It
-  lists every review set you can open across every case, with the case named on the row, and it
-  searches: type a set's name or a case's and the list narrows to it. A case you have no access to
-  shows as unnamed, which is the same rule running the other way.
+  lists every review set you can open across every case, with the case named on the row, it searches
+  by a set's name, and it starts one. It searches the NAME and not the case — a case you have no
+  access to shows as unnamed on the row, and a search that matched it would find you a set through a
+  fact you cannot see.
 - **A large selection of files takes several passes.** The platform adds documents in batches; if it
   stops partway, opening the same load again continues from where it got to rather than adding
   anything twice.

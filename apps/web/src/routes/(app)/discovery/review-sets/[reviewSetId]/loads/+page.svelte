@@ -18,6 +18,12 @@
    * THE CUSTODIANS OF RECORD LIVE HERE because they are the thing a load cannot be run without:
    * every review document carries one, and it is the first thing a review is narrowed by.
    *
+   * THE SEARCH IS THE SERVER'S, over every load rather than the page in hand. A rolling production
+   * can put a great many deliveries in one review set, and a field that narrowed the loads already
+   * fetched would answer about the first page and read as the whole provenance record — which is
+   * the one thing this screen exists to be. It matches a load's source DESCRIPTION, because a
+   * delivery's other columns are counts and an instant and nobody looks for one by its count.
+   *
    * BOTH ACTS ARE ONE CREATE CONTROL. This screen used to carry a button per act — New Custodian of
    * Record beside New Load, one secondary and one primary — which is the shape the standing ruling
    * on list screens (docs/conventions/design-corrections.md) names outright: where a screen would
@@ -74,15 +80,32 @@
   let addFilesOpen = $state(false);
   let bootstrappedFor = $state<string | null>(null);
 
+  /*
+   * The field's own text, and the term the listing is actually on.
+   *
+   * Two states rather than one because the search leaves the machine: `searchOn="pause"` hands the
+   * query over once typing settles and the read runs on THAT, so the field keeps up with the keys
+   * while the listing re-reads once per thought. It matches a load's source description, which is
+   * the only thing about a delivery a person looks for it by.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+  const searching = $derived(appliedSearch.trim() !== "");
+
   const list = new PagedList<DiscoveryLoad>("The loads could not be read.");
   const loads = $derived(list.items);
 
   function read(cursor?: string) {
-    return listLoads(fetch, reviewSet.id, cursor);
+    const term = appliedSearch.trim() === "" ? undefined : appliedSearch.trim();
+    return listLoads(fetch, reviewSet.id, cursor, term);
   }
 
+  // A changed review set OR a changed search is a different question, and therefore a fresh read
+  // from the top rather than a filter over what is already here.
+  const subject = $derived(`${reviewSet.id}|${appliedSearch.trim()}`);
+
   $effect(() => {
-    const asked = reviewSet.id;
+    const asked = subject;
     if (list.showing(asked)) return;
     list.reset(asked);
     void list.load(read);
@@ -105,7 +128,7 @@
   }
 
   function rereadLoads(): void {
-    list.reset(reviewSet.id);
+    list.reset(subject);
     void list.load(read);
   }
 
@@ -155,9 +178,6 @@
     return undefined;
   }
 
-  /** What the search field holds. It narrows the loads already read, by what their rows show. */
-  let searchText = $state("");
-  const searching = $derived(searchText.trim() !== "");
 
   const columns = $derived<DataTable.GridColumn<DiscoveryLoad>[]>([
     {
@@ -186,7 +206,7 @@
 
   const grid = DataTable.createDataTableGrid<DiscoveryLoad>({
     columns: () => columns,
-    rows: () => DataTable.gridRowsMatchingSearch(columns, loads ?? [], searchText),
+    rows: () => loads ?? [],
     rowKey: (load) => load.id,
     initialSort: { columnId: "initiatedAt", direction: "descending" },
     itemNoun: { singular: "load", plural: "loads" },
@@ -222,8 +242,12 @@
       bind:value={searchText}
       label="Search the loads"
       placeholder={placeholderOf("Search the loads")}
+      searchOn="pause"
       fieldClass="w-2xs sm:w-xs"
       class="ms-auto"
+      onsearch={(next) => {
+        appliedSearch = next;
+      }}
     />
 
     <DataTable.ClearFilters
@@ -233,6 +257,7 @@
         summary: "Show every load",
         clear: () => {
           searchText = "";
+          appliedSearch = "";
           grid.clearAllFilters();
         },
       }}

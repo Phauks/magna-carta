@@ -39,6 +39,39 @@ import type {
 // argument first and a fitness failure second, rather than a review comment nobody makes.
 
 // ---------------------------------------------------------------------------------------------
+// Matching text a reader typed
+
+/**
+ * A typed term as a LIKE pattern, with the reader's own text escaped.
+ *
+ * `%` and `_` are wildcards to SQLite and characters to a person: a production whose files are named
+ * `100%_final` must not turn every following character into a match-anything. Escaped here, once,
+ * and every pattern this file builds declares `ESCAPE '\\'` beside it so the escape means what it
+ * says. Nothing else is normalized — folding accents or stemming would make the match rule something
+ * a reader has to learn rather than guess, which is the same rule the rest of the product searches
+ * by.
+ */
+function likePattern(term: string): string {
+  return `%${term.replace(/[\\%_]/gu, (character) => `\\${character}`)}%`;
+}
+
+/**
+ * The review set's own name, matched as a bounded scan, or nothing at all for an empty term.
+ *
+ * Returned as a clause fragment rather than pushed into a list because both review-set builders
+ * assemble their WHERE by concatenation, and the bindings have to be pushed in the same order the
+ * fragments appear. A leading wildcard cannot use an index; what bounds this is the access predicate
+ * that has already run — a member sees the review sets they are on the list for, which is a handful,
+ * not a firm's whole record.
+ */
+function reviewSetNameClause(search: string | undefined, bindings: unknown[]): string {
+  const term = search?.trim();
+  if (term === undefined || term === "") return "";
+  bindings.push(likePattern(term));
+  return ` AND ${REVIEW_SET_TABLE}.name LIKE ? ESCAPE '\\'`;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Review sets
 
 // The matter's review sets a member may actually reach — the list surface, and the answer to "does
@@ -53,8 +86,10 @@ export function selectVisibleReviewSetsForMatterStatement(
   access: ReviewSetAccessPredicate,
   limit: number,
   cursor?: SortCursor,
+  search?: string,
 ): SqlStatement {
   const bindings: unknown[] = [matterId, ...access.bindings];
+  const nameClause = reviewSetNameClause(search, bindings);
   // The keyset clause goes between the access fragment and the ORDER BY, so the predicate still
   // precedes the LIMIT — the property the visibility fitness pass asserts on every builder here.
   const cursorClause = keysetClause(bindings, cursor, "created_at", "id", false);
@@ -62,7 +97,9 @@ export function selectVisibleReviewSetsForMatterStatement(
   return database
     .prepare(
       `SELECT ${REVIEW_SET_COLUMNS} FROM ${REVIEW_SET_TABLE} ` +
-        `WHERE matter_id = ? AND ${access.fragmentFor(`${REVIEW_SET_TABLE}.id`)} ` +
+        `WHERE matter_id = ? AND ${access.fragmentFor(`${REVIEW_SET_TABLE}.id`)}` +
+        nameClause +
+        " " +
         cursorClause +
         `ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
@@ -75,6 +112,7 @@ export async function readVisibleReviewSetsForMatter(
   access: ReviewSetAccessPredicate,
   pageSize: number,
   cursor?: string,
+  search?: string,
 ): Promise<Page<ReviewSetRow>> {
   const { results } = await selectVisibleReviewSetsForMatterStatement(
     database,
@@ -83,6 +121,7 @@ export async function readVisibleReviewSetsForMatter(
     // One more than the page, as the has-more probe.
     pageSize + 1,
     decodeCursor(cursor),
+    search,
   ).all<ReviewSetRow>();
   return assemblePage(results, pageSize, (row) => row);
 }
@@ -99,14 +138,18 @@ export function selectVisibleReviewSetsStatement(
   access: ReviewSetAccessPredicate,
   limit: number,
   cursor?: SortCursor,
+  search?: string,
 ): SqlStatement {
   const bindings: unknown[] = [...access.bindings];
+  const nameClause = reviewSetNameClause(search, bindings);
   const cursorClause = keysetClause(bindings, cursor, "created_at", "id", false);
   bindings.push(limit);
   return database
     .prepare(
       `SELECT ${REVIEW_SET_COLUMNS} FROM ${REVIEW_SET_TABLE} ` +
-        `WHERE ${access.fragmentFor(`${REVIEW_SET_TABLE}.id`)} ` +
+        `WHERE ${access.fragmentFor(`${REVIEW_SET_TABLE}.id`)}` +
+        nameClause +
+        " " +
         cursorClause +
         `ORDER BY created_at DESC, id DESC LIMIT ?`,
     )
@@ -118,12 +161,14 @@ export async function readVisibleReviewSets(
   access: ReviewSetAccessPredicate,
   pageSize: number,
   cursor?: string,
+  search?: string,
 ): Promise<Page<ReviewSetRow>> {
   const { results } = await selectVisibleReviewSetsStatement(
     database,
     access,
     pageSize + 1,
     decodeCursor(cursor),
+    search,
   ).all<ReviewSetRow>();
   return assemblePage(results, pageSize, (row) => row);
 }
@@ -204,15 +249,29 @@ export function selectVisibleDiscoveryLoadsStatement(
   access: ReviewSetAccessPredicate,
   limit: number,
   cursor?: SortCursor,
+  search?: string,
 ): SqlStatement {
   const bindings: unknown[] = [reviewSetId, ...access.bindings];
+  // Matched against what the delivery was CALLED, which is the only thing a person has to go on: a
+  // load's other columns are counts and an instant, and nobody looks for a delivery by its count.
+  // A load with no description is named on screen by its lane, and a search that reached that word
+  // would be matching text the database does not hold — so an undescribed load answers no search,
+  // which is the honest behaviour and the reason the description is asked for at declaration.
+  const term = search?.trim();
+  let searchFragment = "";
+  if (term !== undefined && term !== "") {
+    bindings.push(likePattern(term));
+    searchFragment = ` AND ${DISCOVERY_LOAD_TABLE}.source_description LIKE ? ESCAPE '\\'`;
+  }
   const cursorClause = keysetClause(bindings, cursor, "initiated_at", "id", false);
   bindings.push(limit);
   return database
     .prepare(
       `SELECT ${DISCOVERY_LOAD_COLUMNS} FROM ${DISCOVERY_LOAD_TABLE} ` +
         `WHERE review_set_id = ? ` +
-        `AND ${access.fragmentFor(`${DISCOVERY_LOAD_TABLE}.review_set_id`)} ` +
+        `AND ${access.fragmentFor(`${DISCOVERY_LOAD_TABLE}.review_set_id`)}` +
+        searchFragment +
+        " " +
         cursorClause +
         `ORDER BY initiated_at DESC, id DESC LIMIT ?`,
     )
@@ -231,6 +290,7 @@ export async function readVisibleDiscoveryLoads(
   access: ReviewSetAccessPredicate,
   pageSize: number,
   cursor?: string,
+  search?: string,
 ): Promise<Page<DiscoveryLoadRow>> {
   const { results } = await selectVisibleDiscoveryLoadsStatement(
     database,
@@ -239,6 +299,7 @@ export async function readVisibleDiscoveryLoads(
     // One more than the page, as the has-more probe.
     pageSize + 1,
     decodeCursor(cursor),
+    search,
   ).all<DiscoveryLoadRow>();
   const hasMore = results.length > pageSize;
   const rows = hasMore ? results.slice(0, pageSize) : results;
@@ -301,15 +362,51 @@ const LIST_COLUMNS =
   `${REVIEW_DOCUMENT_TABLE}.pages_recognized AS pages_recognized, ` +
   `${REVIEW_DOCUMENT_TABLE}.created_at AS created_at`;
 
-// The filters the review surface actually offers. Each one is a column on the row except the last,
-// which is a semi-join to the exception table — the one filter that cannot be a column, because a
-// document has several reasons or none.
+// The filters the review surface actually offers. Each one is a column on the row except two: the
+// exception code, a semi-join to the exception table — the one filter that cannot be a column,
+// because a document has several reasons or none — and the search, which is a match over two of
+// them.
 export interface ReviewDocumentListFilters {
   readonly recordCustodianId?: RecordCustodianId;
   readonly discoveryLoadId?: DiscoveryLoadId;
   readonly familyId?: ReviewDocumentId;
   readonly processingState?: ReviewDocumentProcessingState;
   readonly exceptionCode?: ReviewDocumentExceptionCode;
+  /**
+   * Finding a document again by what it is CALLED — its name, or where in the production it sat.
+   *
+   * NOT THE DOCUMENT'S TEXT, and the distinction is the whole reason this is a filter here rather
+   * than an answer from somewhere else. Searching what is INSIDE a document is the review set's own
+   * index, which is a different read against a different store and returns a ranked answer; this is
+   * a narrowing of the listing, so it composes with the other filters, keeps the listing's order,
+   * and pages like every other page of it. A surface that let one wear the other's clothes would be
+   * telling a reviewer they had searched a corpus when they had searched its file names.
+   */
+  readonly search?: string;
+}
+
+/**
+ * The name match, as a bounded scan.
+ *
+ * A LIKE with a leading wildcard cannot use an index, and that is accepted here rather than worked
+ * around, for the reason the same decision was taken on notes: every clause that CAN use one has
+ * already run. The review-set predicate and the access predicate bound the rows this touches to one
+ * corpus the member may see, the sort index supplies the order, and the LIMIT stops the walk at a
+ * full page — so a query that matches anything is cheap and the worst case, a query that matches
+ * nothing, is one pass over one review set. Anchoring it to the start of the name would make it an
+ * index seek and would also stop "ridgeway" finding `2019-ridgeway-memo.pdf`, which is how a person
+ * actually remembers a document.
+ *
+ * It matches the name and the path, because half of what a reader remembers about a produced
+ * document is the folder it came out of. The reader's own wildcards are escaped by likePattern.
+ */
+function searchClause(search: string, bindings: unknown[]): string {
+  const pattern = likePattern(search);
+  bindings.push(pattern, pattern);
+  return (
+    `(${REVIEW_DOCUMENT_TABLE}.source_name LIKE ? ESCAPE '\\' ` +
+    `OR ${REVIEW_DOCUMENT_TABLE}.source_path LIKE ? ESCAPE '\\')`
+  );
 }
 
 // WHERE THE LAST PAGE ENDED, as the pair the order is on.
@@ -362,6 +459,12 @@ function filterClauses(filters: ReviewDocumentListFilters, bindings: unknown[]):
         `AND filtered_exception.code = ?)`,
     );
     bindings.push(filters.exceptionCode);
+  }
+  // Last among the filters on purpose: every equality clause above narrows on an index, and the
+  // scan should run over what they left rather than over the corpus.
+  const term = filters.search?.trim();
+  if (term !== undefined && term !== "") {
+    clauses.push(searchClause(term, bindings));
   }
   return clauses;
 }

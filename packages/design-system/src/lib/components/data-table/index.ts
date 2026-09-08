@@ -66,7 +66,6 @@ export {
   rowPassesGridColumnFilter,
   rowPassesGridFilters,
 } from "./grid-filters.ts";
-export { gridRowMatchesSearch, gridRowsMatchingSearch } from "./grid-search.ts";
 export {
   type GridRowGrouping,
   type GridRowMark,

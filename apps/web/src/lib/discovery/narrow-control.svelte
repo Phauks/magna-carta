@@ -15,6 +15,13 @@
    * being surprised later; showing them says what this corpus will be askable and what each one
    * waits on. It is also what makes lighting one up a stage flip rather than a redesign.
    *
+   * A CRITERION SET SOMEWHERE ELSE RENDERS TOO, SAYING WHERE. Two of them are: a family is named by
+   * opening a document, and the name search is the screen's own search field, which is the
+   * product's one control for searching within a screen and lives in the action row beside this
+   * one. They still appear here, with the line their `setFrom` gives them and the way to clear
+   * them, because this is the ONE control that answers "why is this list short" — and a reason
+   * missing from it is exactly the empty table with a filter set on a control nobody is looking at.
+   *
    * THE CONTROL SAYS HOW MANY ARE SET, AND THERE IS ONE WAY TO EMPTY IT — visible, not only on a
    * key. A keyboard way out is not an affordance: nothing advertises it, and a pointer user is left
    * to work it out.
@@ -97,18 +104,21 @@
             {soonDependencySentence(provider.waitsOn)}
             It will narrow through {provider.willComposeInto}.
           </p>
+        {:else if provider.setFrom !== undefined}
+          <!-- Set from its own control, named. No editing control here: one that did nothing would
+               be worse than the sentence saying where the real one is. -->
+          <p class="text-text-muted text-sm">Set from {provider.setFrom}.</p>
+          {#if value !== ""}
+            <p class="text-sm">{value}</p>
+            <Button variant="ghost" onclick={() => set(provider.key, "")}>Clear</Button>
+          {/if}
         {:else if provider.shape.kind === "choice"}
           {@const options = provider.shape.options(context)}
           {#if options.length === 0}
-            <!-- A narrowing with nothing to pick from is not a missing control: a family is named by
-                 opening a document rather than chosen from a menu, and a review set with no
-                 Custodian of Record yet has nothing to offer here. -->
-            <p class="text-text-muted text-sm">
-              {value === "" ? "Nothing to pick from yet." : "Set from a document."}
-            </p>
-            {#if value !== ""}
-              <Button variant="ghost" onclick={() => set(provider.key, "")}>Clear</Button>
-            {/if}
+            <!-- A narrowing with nothing to pick from is not a missing control: a review set with
+                 no Custodian of Record yet, or no load, has nothing to offer here. A criterion that
+                 is never picked from a menu says so through `setFrom` above instead. -->
+            <p class="text-text-muted text-sm">Nothing to pick from yet.</p>
           {:else}
             <Select.Root
               type="single"

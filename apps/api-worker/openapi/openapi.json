@@ -77534,7 +77534,7 @@
     },
     "/api/v1/review-sets/{reviewSetId}/documents": {
       "get": {
-        "description": "One page of the review set's documents, newest document first and documents with no known date last. Filterable by Custodian of Record, by the load that brought the document in, by family, by where the document got to in processing, and by the reason it did not get further. Paged by cursor rather than by page number: a corpus is added to while it is being read, and a numbered page silently shows the same document twice or skips one.",
+        "description": "One page of the review set's documents, newest document first and documents with no known date last. Filterable by Custodian of Record, by the load that brought the document in, by family, by where the document got to in processing, by the reason it did not get further, and by a search over what each document is called. Paged by cursor rather than by page number: a corpus is added to while it is being read, and a numbered page silently shows the same document twice or skips one.",
         "operationId": "discovery.listReviewDocuments",
         "tags": [
           "discovery"
@@ -77646,6 +77646,18 @@
             },
             "required": false,
             "name": "exceptionCode",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Narrows to documents whose name or path contains this text. It matches what a document is CALLED and never what is inside it: searching a document's text is the review set's own index, which is a different read returning a ranked answer rather than a page of this listing."
+            },
+            "required": false,
+            "description": "Narrows to documents whose name or path contains this text. It matches what a document is CALLED and never what is inside it: searching a document's text is the review set's own index, which is a different read returning a ranked answer rather than a page of this listing.",
+            "name": "search",
             "in": "query"
           }
         ],
@@ -78063,6 +78075,18 @@
             "required": false,
             "name": "cursor",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Narrows to review sets whose name contains this text."
+            },
+            "required": false,
+            "description": "Narrows to review sets whose name contains this text.",
+            "name": "search",
+            "in": "query"
           }
         ],
         "responses": {
@@ -78301,6 +78325,18 @@
             },
             "required": false,
             "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Narrows to review sets whose name contains this text."
+            },
+            "required": false,
+            "description": "Narrows to review sets whose name contains this text.",
+            "name": "search",
             "in": "query"
           }
         ],
@@ -79262,6 +79298,18 @@
             },
             "required": false,
             "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Narrows to loads whose source description contains this text."
+            },
+            "required": false,
+            "description": "Narrows to loads whose source description contains this text.",
+            "name": "search",
             "in": "query"
           }
         ],

@@ -1,21 +1,27 @@
 ---
 worktree: /home/user/magna-carta
-area: Discovery's three screens take the product's shared search and create controls
+area: Discovery's screens take the product's search and create controls, and the search is served on the server
 status: building
-touches: apps/web/src/lib/discovery, apps/web/src/routes/(app)/discovery, packages/design-system/src/lib/components/data-table, packages/design-system/test, apps/web/test, docs/user/features, changelog.d
+touches: packages/discovery/src/review-reads.ts, packages/discovery/test, apps/api-worker/src/routes/discovery.ts, apps/api-worker/src/routes/discovery-review-reads.ts, apps/api-worker/openapi/openapi.json, apps/api-worker/test, apps/web/src/lib/discovery, apps/web/src/routes/(app)/discovery, apps/web/test, packages/design-system/src/lib/components/data-table/index.ts, docs/user/features, changelog.d
 ---
 
-Brings the discovery surface onto the two controls every other list screen already uses:
-`ScreenSearch` in the action row of the register, the document list and the loads screen, and one
-`CreateControl` menu on the loads screen in place of the two labelled buttons it shipped with.
+Brings the discovery surface onto the two controls every other list screen uses — `ScreenSearch` on
+the register, the document list and Loads, and one `CreateControl` on each screen that creates — and
+makes every one of those searches a server-side narrowing rather than a filter over the page in hand.
 
-The only shared-package edit is additive: `grid-search.ts` beside the data table's other pure
-modules (`grid-columns`, `grid-filters`, `grid-rows`), holding the match rules for a query over a
-grid's rows — the catalogue's grammar, matched against the text the column model renders. It is
-exported from `@magna-carta/design-system/data-table` and nothing existing changed, so a stream
-touching the data table collides only on `index.ts`'s export list.
+On the server it is one new optional filter per listing, in `packages/discovery/src/review-reads.ts`:
+the document list over `source_name`/`source_path`, both review-set listings over `name`, the loads
+listing over `source_description`, each a LIKE scan placed after every clause that can use an index,
+with one shared `likePattern` escaping the reader's own wildcards. Signatures gained a trailing
+optional argument, so the access-scoped read registry and its visibility fitness pass are unchanged.
+`openapi.json` is regenerated — the usual touch-overlap with any stream adding a route.
 
-Nothing on the server moves: no discovery listing takes a `search` parameter, so every one of these
-narrows the rows already read, which is the scope the grid's own column filters run at. The document
-screen says so on the control, because keyword search of a document's text is a different thing and
-is still `soon` in `criteria.ts`.
+On the web the document search is a BUILT criteria provider (`search`) rather than a control beside
+them, so it rides the address and composes with the other filters; providers gained `setFrom` for the
+two whose control is not the narrowing popover. `NewReviewSetDialog` gained `chooseMatter` and a
+caseload matter picker, which is what lets the firm-wide register create.
+
+The only shared-package edit is one line in the data table's `index.ts`. An earlier commit on this
+branch added `grid-search.ts` there for client-side row matching; moving all three searches to the
+server left it with no consumer, so this commit removes it again — a stream that wants a client-side
+grid search should take it from that commit's history rather than assume it is on `main`.
