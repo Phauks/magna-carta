@@ -68,7 +68,7 @@ describe("the money sections", () => {
 
 describe("the way out to a section's firm-wide twin", () => {
   it("names the sidebar destination, so the rail and the toolbar cannot call one place two things", () => {
-    for (const slug of ["time", "costs", "billing"] as const) {
+    for (const slug of ["time", "fees", "costs", "billing"] as const) {
       const named = moneySectionFirmDestination(slug);
       expect(named).toBe(slug);
       // The href, the label and the glyph all come from the registry entry this id resolves to.
@@ -80,8 +80,8 @@ describe("the way out to a section's firm-wide twin", () => {
 
   it("answers nothing where the firm-wide surface does not exist", () => {
     // A way out to a page that is not built is worse than no way out: the toolbar renders nothing
-    // rather than a link to a Soon row. A fee is not its own record yet, and Trust is announced.
-    expect(moneySectionFirmDestination("fees")).toBeNull();
+    // rather than a link to a Soon row. Trust is announced and unbuilt, which is the whole of what
+    // is left — Fees answered null here until it had a record of its own to read across matters.
     expect(moneySectionFirmDestination("trust")).toBeNull();
     expect(destinationById("trust")?.shipped).toBe(false);
   });

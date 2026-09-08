@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   logCommunication,
   routeCommunication,
+  setCommunicationDisposition,
   unrouteCommunication,
+  updateCommunication,
 } from "../src/communication-service.ts";
 import {
   countUnroutedCommunicationsStatement,
@@ -325,5 +327,180 @@ describe("searching and narrowing the log", () => {
     expect(await listAll(database, { channel: "sms" })).toHaveLength(1);
     expect(await listAll(database, { scope: "unrouted" })).toHaveLength(0);
     expect(await listAll(database, { scope: "routed" })).toHaveLength(2);
+  });
+});
+
+describe("setting a call aside as something that is not a matter", () => {
+  // The reason this exists: a wrong number can never be filed, because there is no matter to file
+  // it onto. Before it could be set aside it sat in the queue forever, and a queue nobody can empty
+  // is a queue nobody works.
+  it("takes a row out of the queue without filing it and without deleting it", async () => {
+    const database = fresh();
+    const id = await log(database, callInput({ summary: "Somebody selling copier toner." }));
+
+    const { effect } = await setCommunicationDisposition(database.database, id, "spam", options);
+    await commit(database.database, effect);
+
+    const row = await readCommunication(database.database, id, visibility, true);
+    expect(row?.disposition).toBe("spam");
+    // Nothing was destroyed: the words, the number and the instant are all still there.
+    expect(row?.summary).toBe("Somebody selling copier toner.");
+    expect(row?.counterparty_number).toBe("(702) 555-0143");
+    expect(await listAll(database, { scope: "unrouted" })).toHaveLength(0);
+    expect(await listAll(database, { scope: "setAside" })).toHaveLength(1);
+    // And it is still part of the record, so browsing everything still finds it.
+    expect(await listAll(database)).toHaveLength(1);
+  });
+
+  it("keeps a set-aside row out of the queue count", async () => {
+    const database = fresh();
+    const waiting = await log(database, callInput());
+    const aside = await log(database, callInput({ counterpartyNumber: "(702) 555-0199" }));
+    const { effect } = await setCommunicationDisposition(
+      database.database,
+      aside,
+      "firmBusiness",
+      options,
+    );
+    await commit(database.database, effect);
+
+    const { results } = await countUnroutedCommunicationsStatement(database.database).all<{
+      count: number;
+    }>();
+    expect(results[0]?.count).toBe(1);
+    expect(waiting).not.toBe(aside);
+  });
+
+  it("puts one back in the queue", async () => {
+    const database = fresh();
+    const id = await log(database, callInput());
+    const set = await setCommunicationDisposition(database.database, id, "noAction", options);
+    await commit(database.database, set.effect);
+
+    const cleared = await setCommunicationDisposition(database.database, id, null, options);
+    await commit(database.database, cleared.effect);
+
+    const row = await readCommunication(database.database, id, visibility, true);
+    expect(row?.disposition).toBeNull();
+    expect(await listAll(database, { scope: "unrouted" })).toHaveLength(1);
+  });
+
+  it("refuses a row that is already on a matter", async () => {
+    const database = fresh();
+    const id = await log(database, callInput({ matterId: MATTER }));
+    await expect(
+      setCommunicationDisposition(database.database, id, "spam", options),
+    ).rejects.toMatchObject({ code: "communication-already-routed" });
+  });
+
+  it("refuses a reason that is not in the vocabulary", async () => {
+    const database = fresh();
+    const id = await log(database, callInput());
+    await expect(
+      setCommunicationDisposition(database.database, id, "whatever", options),
+    ).rejects.toMatchObject({ code: "communication-invalid-disposition" });
+  });
+
+  it("refuses a record that claims both a matter and a reason", async () => {
+    const database = fresh();
+    await expect(
+      logCommunication(
+        database.database,
+        callInput({ matterId: MATTER, disposition: "spam" }),
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "communication-anchor-conflict" });
+  });
+
+  it("clears the reason when the row is later filed onto a matter", async () => {
+    const database = fresh();
+    const id = await log(database, callInput());
+    const set = await setCommunicationDisposition(database.database, id, "noAction", options);
+    await commit(database.database, set.effect);
+
+    const filed = await routeCommunication(database.database, id, INTAKE_MATTER, options);
+    await commit(database.database, filed.effect);
+
+    const row = await readCommunication(database.database, id, visibility, true);
+    expect(row?.matter_id).toBe(INTAKE_MATTER);
+    // A row on a matter is not also set aside. A firm that decides a written-off call was real work
+    // after all gets one answer about it, not two.
+    expect(row?.disposition).toBeNull();
+  });
+});
+
+describe("correcting a record somebody typed", () => {
+  it("changes only what it names and keeps the rest", async () => {
+    const database = fresh();
+    const id = await log(database, callInput({ matterId: MATTER }));
+
+    const { effect } = await updateCommunication(
+      database.database,
+      id,
+      { counterpartyNumber: "+17025559999", direction: "inbound" },
+      options,
+    );
+    await commit(database.database, effect);
+
+    const row = await readCommunication(database.database, id, visibility, true);
+    expect(row?.counterparty_number).toBe("+17025559999");
+    expect(row?.direction).toBe("inbound");
+    expect(row?.summary).toBe("Talked the offer through. She wants to sleep on it.");
+    expect(row?.duration_seconds).toBe(720);
+    // The anchor is not this operation's to move.
+    expect(row?.matter_id).toBe(MATTER);
+  });
+
+  it("re-validates the whole record against the channel it ends up with", async () => {
+    const database = fresh();
+    const id = await log(database, callInput());
+    // A call's length cannot survive its becoming a text: the database refuses the pair outright, so
+    // the refusal has to happen before the write rather than as a constraint violation.
+    await expect(
+      updateCommunication(
+        database.database,
+        id,
+        { channel: "sms", body: "changed my mind" },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "communication-duration-on-message" });
+  });
+
+  it("refuses a record the carrier wrote", async () => {
+    const database = fresh();
+    const id = await log(database, callInput({ matterId: MATTER }));
+    database.raw.exec(
+      `UPDATE communication SET producer = 'carrier', logged_by_user_id = NULL, ` +
+        `carrier_reference = 'telnyx-1' WHERE id = '${id}'`,
+    );
+
+    await expect(
+      updateCommunication(database.database, id, { direction: "inbound" }, options),
+    ).rejects.toMatchObject({ code: "communication-not-editable" });
+  });
+
+  it("cannot reach a record the reader could not list", async () => {
+    const database = fresh();
+    const id = await log(database, callInput());
+    // An unrouted row is invisible without the queue capability, and an id-addressed write must not
+    // be a way around that.
+    await expect(
+      updateCommunication(database.database, id, { direction: "inbound" }, optionsWithoutQueue),
+    ).rejects.toMatchObject({ code: "communication-unknown" });
+  });
+});
+
+describe("finding a conversation by its matter", () => {
+  it("matches the matter's title and its number as well as the words", async () => {
+    const database = fresh();
+    await log(database, callInput({ matterId: MATTER, summary: "nothing memorable" }));
+    await log(database, callInput({ matterId: CONSULTATION_MATTER, summary: "nothing memorable" }));
+
+    // "What did we say on the Herrera file" is a question about a case, not about a phrase, and it
+    // is the half people reach for first.
+    expect(await listAll(database, { search: "Herrera" })).toHaveLength(1);
+    expect(await listAll(database, { search: "2026-0041" })).toHaveLength(1);
+    // An unnumbered anchor is findable by its consultation number, which is the only one it has.
+    expect(await listAll(database, { search: "C-2026-0009" })).toHaveLength(1);
   });
 });

@@ -85,6 +85,7 @@ export type NonBillableCategoryId = Identifier<"nonBillableCategory">;
 export type NarrativeTemplateId = Identifier<"narrativeTemplate">;
 export type ConversionJobId = Identifier<"conversionJob">;
 export type CostEntryId = Identifier<"costEntry">;
+export type FeeEntryId = Identifier<"feeEntry">;
 export type PlatformStaffId = Identifier<"platformStaff">;
 export type SupportGrantId = Identifier<"supportGrant">;
 export type RegistrationId = Identifier<"registration">;

@@ -1,7 +1,14 @@
 <script lang="ts">
   /*
-   * Running a conflicts check — the composable runner, so the standalone surface and the intake
-   * flow ask the same question in the same words rather than growing two forms that drift.
+   * The conflicts check form — the fields a check is composed from, and the one place they are
+   * asked. It is the body of the New Check panel and nothing else draws these fields, so the
+   * standalone surface and a matter's own section ask the same question in the same words rather
+   * than growing two forms that drift.
+   *
+   * IT ASKS; IT DOES NOT COMMIT. The panel around it owns the commit, the busy state and what a
+   * refusal reads like — this hands back the request it has composed, or null with the reason it
+   * cannot be composed yet. That division is what lets the same fields sit in a panel opened from
+   * the firm's log and in one opened from a matter without either surface reimplementing the form.
    *
    * WHAT THE OPERATOR TYPES, AND WHAT THE SYSTEM DOES WITH IT. The operator names the parties and
    * the band; the engine expands each party out through the firm's recorded relationships and
@@ -9,6 +16,10 @@
    * through a name, which is why the traversal is part of the form rather than buried in a setting:
    * a check that walked nowhere is a different search from one that walked two relationships out,
    * and the person running it has to be able to say which they ran.
+   *
+   * NAMING A MATTER CHANGES WHAT CAN BE SEARCHED. With a matter, the matter's own parties join the
+   * subjects and the imputation class has something to join the firm's members against. Without
+   * one, imputation records unavailable — which the check says out loud rather than leaving out.
    *
    * THE FLOOR IS THE FIRM'S, NOT THIS FORM'S. A narrower request is raised to the firm's floor
    * before the search runs, and the check records that it was raised. So the party class is offered
@@ -19,29 +30,24 @@
    * rest name a corpus change or the clock, and filing a manual run under one of those would claim
    * the firm's system caught something when somebody clicked.
    */
-  import * as Alert from "@magna-carta/design-system/alert";
-  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
-  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
-  import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
+  import FieldLabel from "@magna-carta/design-system/field-label";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Separator from "@magna-carta/design-system/separator";
-  import ShieldAlert from "@lucide/svelte/icons/shield-alert";
   import { MaturityBadge, soonControlProperties } from "@magna-carta/design-system/maturity";
   import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
   import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
-  import { gapReason } from "./conflicts-gaps.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import {
     readFirmConflictsPolicy,
-    runConflictsCheck,
     RUN_CHECK_PERMISSION,
     type FirmConflictsPolicy,
     type BudgetedEdgeClass,
     type ConflictsTrigger,
+    type RunCheckRequest,
     type SourceClass,
     type Strictness,
   } from "./conflicts-api.ts";
@@ -60,20 +66,26 @@
 
   let {
     matterId = null,
-    matterLabel = null,
     permissions = null,
     defaultTrigger = "comprehensive",
-    onRan,
+    busy = false,
+    refusal = $bindable(null),
+    request = $bindable(null),
+    started = $bindable(false),
   }: {
-    /** The matter the check is for, where the consumer has one. Lets imputation run. */
+    /** The matter the check is for, where the surface has one. Lets imputation run. */
     matterId?: string | null;
-    /** How that matter reads, so the form states what it is checking against. */
-    matterLabel?: string | null;
     /** The signed-in member's permissions; null until the session lands. */
     permissions?: readonly string[] | null;
     defaultTrigger?: ConflictsTrigger;
-    /** The check was written. The consumer decides where that leads. */
-    onRan: (checkId: string) => void;
+    /** True while the panel's commit is in flight, so every field holds still. */
+    busy?: boolean;
+    /** Why the check cannot be asked for yet, or null when it can. Read by the panel's commit. */
+    refusal?: string | null;
+    /** The composed request, or null while `refusal` stands. The panel sends exactly this. */
+    request?: RunCheckRequest | null;
+    /** Whether any field has been touched — what the panel's close guard asks before discarding. */
+    started?: boolean;
   } = $props();
 
   const fieldPrefix = $props.id();
@@ -100,8 +112,6 @@
   });
   let closureCap = $state("");
   let candidateCap = $state("");
-  let running = $state(false);
-  let failure = $state<StatedFailure | null>(null);
 
   const soonContent = soonControlProperties(CONTENT_DEPENDENCY, contentDescription);
 
@@ -139,7 +149,13 @@
     return text.trim() !== "" && budgetOf(text) === undefined;
   }
 
-  const refusal = $derived.by((): string | null => {
+  /*
+   * Why the check cannot be asked for yet, or null when it can. Composed here rather than in the
+   * panel because every reason is a fact about a FIELD — a permission the account lacks, a subject
+   * nobody named, a budget that is not a number — and the panel that renders the commit has no
+   * business knowing what the fields are.
+   */
+  const composedRefusal = $derived.by((): string | null => {
     if (permissions !== null && !mayRun) {
       return permissionRefusal("Running a check", "conflicts:run");
     }
@@ -177,56 +193,56 @@
     return resolved;
   }
 
-  async function run(): Promise<void> {
-    if (refusal !== null || running) return;
-    running = true;
-    failure = null;
+  /** The request these fields compose, or null while the refusal above stands. */
+  const composedRequest = $derived.by((): RunCheckRequest | null => {
+    if (composedRefusal !== null) return null;
     const edgeClassBudgets = resolvedBudgets();
     const closure = budgetOf(closureCap);
     const candidates = budgetOf(candidateCap);
-
-    const outcome = await runConflictsCheck(
-      fetch,
-      {
-        trigger,
-        ...(matterId === null ? {} : { matterId }),
-        subjectEntityIds: parties.map((party) => party.identifier),
-        scope: {
-          sources: sourcesAsked(),
-          strictness,
-          ...(Object.keys(edgeClassBudgets).length === 0 ? {} : { edgeClassBudgets }),
-          ...(closure === undefined ? {} : { closureCap: closure }),
-          ...(candidates === undefined ? {} : { candidateCap: candidates }),
-        },
+    return {
+      trigger,
+      ...(matterId === null ? {} : { matterId }),
+      subjectEntityIds: parties.map((party) => party.identifier),
+      scope: {
+        sources: sourcesAsked(),
+        strictness,
+        ...(Object.keys(edgeClassBudgets).length === 0 ? {} : { edgeClassBudgets }),
+        ...(closure === undefined ? {} : { closureCap: closure }),
+        ...(candidates === undefined ? {} : { candidateCap: candidates }),
       },
-      // A retried submit must not write a second check into the firm's append-only log.
-      crypto.randomUUID(),
-    );
-    running = false;
-    if (outcome.kind === "ok") {
-      onRan(outcome.value.id);
-      return;
-    }
-    failure = stated(
-      outcome.failure,
-      "The check was refused.",
-      "The check could not be sent. Nothing was recorded.",
-    );
-  }
+    };
+  });
+
+  /*
+   * Whether anything has been entered. A form still holding its opening values has nothing to lose,
+   * so the panel's close guard lets a reader walk away without a question. It is composed here for
+   * the same reason the refusal is: only the form knows what its opening values were.
+   */
+  const composedStarted = $derived(
+    parties.length > 0 ||
+      trigger !== defaultTrigger ||
+      strictness !== "balanced" ||
+      !searchGraph ||
+      !searchImputation ||
+      budgets.control !== "" ||
+      budgets.family !== "" ||
+      budgets.representation !== "" ||
+      closureCap !== "" ||
+      candidateCap !== "",
+  );
+
+  // Handed back to the panel, which owns the commit. They move together, so a panel can never hold
+  // a request from one keystroke beside a refusal from another.
+  $effect(() => {
+    refusal = composedRefusal;
+    request = composedRequest;
+    started = composedStarted;
+  });
 </script>
 
-<div class="flex max-w-3xl flex-col gap-24">
-  {#if failure !== null}
-    <FailureNotice
-      failure={failure.failure}
-      title="The Check Did Not Run"
-      fallback={failure.fallback}
-      whenSilent={failure.whenSilent}
-    />
-  {/if}
-
+<div class="flex flex-col gap-24">
   <section class="flex flex-col gap-16">
-    <h2 class="text-base font-semibold">Who The Check Is About</h2>
+    <FieldLabel as="h4">Who The Check Is About</FieldLabel>
 
     <div class="flex flex-col gap-8">
       <Label for="{fieldPrefix}-parties">Subject Parties</Label>
@@ -237,17 +253,10 @@
         bind:values={parties}
         label="Subject party"
         inputId="{fieldPrefix}-parties"
-        disabled={running}
-        disabledReason={running ? "The check is running." : undefined}
+        disabled={busy}
+        disabledReason={busy ? "The check is running." : undefined}
       />
     </div>
-
-    {#if matterLabel !== null}
-      <div class="flex flex-col gap-8">
-        <Label>Matter</Label>
-        <p class="text-sm">{matterLabel}</p>
-      </div>
-    {/if}
 
     <div class="flex flex-col gap-8">
       <Label id="{fieldPrefix}-trigger-label">Trigger</Label>
@@ -266,7 +275,7 @@
   <Separator />
 
   <section class="flex flex-col gap-16">
-    <h2 class="text-base font-semibold">What To Search</h2>
+    <FieldLabel as="h4">What To Search</FieldLabel>
 
     <div class="flex flex-col gap-8">
       <div class="flex items-center gap-8">
@@ -282,7 +291,7 @@
       </div>
 
       <div class="flex items-center gap-8">
-        <Checkbox id="{fieldPrefix}-source-graph" bind:checked={searchGraph} disabled={running} />
+        <Checkbox id="{fieldPrefix}-source-graph" bind:checked={searchGraph} disabled={busy} />
         <Label for="{fieldPrefix}-source-graph" title={SOURCE_VOCABULARY.graph?.meaning}>
           {SOURCE_VOCABULARY.graph?.label}
         </Label>
@@ -292,7 +301,7 @@
         <Checkbox
           id="{fieldPrefix}-source-imputation"
           bind:checked={searchImputation}
-          disabled={running || !imputationAvailable}
+          disabled={busy || !imputationAvailable}
           title={imputationAvailable
             ? undefined
             : "No matter is named, so there are no matter parties to join the firm's members against."}
@@ -329,7 +338,7 @@
   <Separator />
 
   <section class="flex flex-col gap-16">
-    <h2 class="text-base font-semibold">How Far To Search</h2>
+    <FieldLabel as="h4">How Far To Search</FieldLabel>
 
     <div class="grid grid-cols-1 gap-16 sm:grid-cols-3">
       {#each BUDGETED_EDGE_CLASSES as edgeClass (edgeClass)}
@@ -347,7 +356,7 @@
             max="6"
             inputmode="numeric"
             placeholder={edgeClassLabel(edgeClass)}
-            disabled={running}
+            disabled={busy}
             value={budgets[edgeClass]}
             oninput={(event) =>
               (budgets = { ...budgets, [edgeClass]: event.currentTarget.value })}
@@ -374,7 +383,7 @@
           min="0"
           inputmode="numeric"
           placeholder="Closure Cap"
-          disabled={running}
+          disabled={busy}
           bind:value={closureCap}
         />
       </div>
@@ -386,7 +395,7 @@
           min="0"
           inputmode="numeric"
           placeholder="Candidate Cap"
-          disabled={running}
+          disabled={busy}
           bind:value={candidateCap}
         />
       </div>
@@ -415,19 +424,4 @@
       </dl>
     {/if}
   </section>
-
-  <div class="flex flex-wrap items-center gap-16">
-    <Button
-      variant="primary"
-      disabled={refusal !== null || running}
-      title={refusal ?? undefined}
-      onclick={() => void run()}
-    >
-      <ShieldAlert class="size-16" aria-hidden="true" />
-      {running ? "Running the check" : "Run the check"}
-    </Button>
-    {#if refusal !== null}
-      <span class="text-xs text-text-muted">{refusal}</span>
-    {/if}
-  </div>
 </div>

@@ -40,7 +40,23 @@ export const REVIEW_UNROUTED_PERMISSION = "communications:reviewUnrouted";
 export type CommunicationChannel = "voice" | "sms" | "mms";
 export type CommunicationDirection = "inbound" | "outbound";
 export type CommunicationProducer = "member" | "carrier";
-export type CommunicationScope = "all" | "routed" | "unrouted";
+export type CommunicationScope = "all" | "routed" | "unrouted" | "setAside";
+
+/**
+ * Why a call or a text belongs to no matter.
+ *
+ * The alternative to a matter, and the reason the queue can be emptied at all: not every call a firm
+ * takes is about a case. Some are spam or a wrong number, some are the firm's own business, and some
+ * are a real prospect nothing ever came of. None of them can be filed, because there is no matter.
+ */
+export type CommunicationDisposition = "spam" | "firmBusiness" | "noAction";
+
+/** The channels a PERSON chooses between. A picture is a text that carries one, not a third kind. */
+export const LOGGABLE_CHANNELS: readonly CommunicationChannel[] = ["voice", "sms"];
+
+export function isCommunicationChannel(value: string): value is CommunicationChannel {
+  return value === "voice" || value === "sms" || value === "mms";
+}
 
 /** One call or message as the log answers it. */
 export interface Communication {
@@ -59,6 +75,8 @@ export interface Communication {
   /** Null on exactly the unnumbered anchors; the consultation's own number stands in its place. */
   matterNumber: string | null;
   consultationNumber: string | null;
+  /** Why it belongs to no matter, where somebody said so. Null on a filed row and on an undecided one. */
+  disposition: CommunicationDisposition | null;
   counterpartyNumber: string;
   counterpartyEntityId: string | null;
   memberUserId: string | null;
@@ -142,6 +160,8 @@ export interface LogCommunicationInput {
   durationSeconds?: number | null;
   body?: string | null;
   summary?: string | null;
+  /** Set aside as it is recorded. Refused together with a matter — a row has one anchor, never two. */
+  disposition?: CommunicationDisposition | null;
 }
 
 export function logCommunication(
@@ -190,4 +210,75 @@ export function unfileCommunicationFromMatter(
 /** A fresh idempotency key per submitted write, so a retry of THAT write is the same write. */
 export function newWriteKey(): string {
   return crypto.randomUUID();
+}
+
+/** One call or message by its id — what the record window reads when it is opened from a row. */
+export function readCommunication(
+  fetchImpl: typeof fetch,
+  communicationId: string,
+): Promise<ApiOutcome<Communication>> {
+  return requestJson(fetchImpl, `/api/v1/communications/${encodeURIComponent(communicationId)}`);
+}
+
+/**
+ * What a correction may change. Every field optional, and an omitted one keeps what the record
+ * holds — the matter and the set-aside reason are absent on purpose, because each moves the row
+ * between queues through its own act.
+ */
+export interface UpdateCommunicationInput {
+  channel?: CommunicationChannel;
+  direction?: CommunicationDirection;
+  counterpartyNumber?: string;
+  counterpartyEntityId?: string | null;
+  memberUserId?: string | null;
+  occurredAt?: string;
+  durationSeconds?: number | null;
+  body?: string | null;
+  summary?: string | null;
+}
+
+/** Corrects a record somebody typed. A carrier-written one is refused by the server. */
+export function updateCommunication(
+  fetchImpl: typeof fetch,
+  communicationId: string,
+  input: UpdateCommunicationInput,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: true }>> {
+  return requestJson(fetchImpl, `/api/v1/communications/${encodeURIComponent(communicationId)}`, {
+    method: "PATCH",
+    body: input,
+    idempotencyKey,
+  });
+}
+
+/**
+ * Sets a call or a message aside as something that belongs to no matter.
+ *
+ * It leaves the queue without being filed and without being deleted: what was said still happened,
+ * and a firm that later decides a written-off call was real work puts it back with the call below.
+ */
+export function setCommunicationDisposition(
+  fetchImpl: typeof fetch,
+  communicationId: string,
+  disposition: CommunicationDisposition,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: true }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/communications/${encodeURIComponent(communicationId)}/disposition`,
+    { method: "POST", body: { disposition }, idempotencyKey },
+  );
+}
+
+/** Returns a set-aside call or message to the queue. */
+export function clearCommunicationDisposition(
+  fetchImpl: typeof fetch,
+  communicationId: string,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ ok: true }>> {
+  return requestJson(
+    fetchImpl,
+    `/api/v1/communications/${encodeURIComponent(communicationId)}/disposition`,
+    { method: "DELETE", idempotencyKey },
+  );
 }

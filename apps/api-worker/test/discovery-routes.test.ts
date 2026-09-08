@@ -226,6 +226,23 @@ describe("the review set", () => {
     expect(set.documentCeiling).toBe(250_000);
   });
 
+  it("lists every review set the member may reach, across matters, from one address", async () => {
+    // The firm-wide register's read. It is scoped by the per-review-set access list rather than by
+    // matter access, which is the whole reason it exists: a reviewer brought in for one production
+    // is on that review set's list and may hold no access at all to the matter it belongs to.
+    const response = await get("/api/v1/review-sets");
+    expect(response.status).toBe(200);
+    const page = (await response.json()) as { data: { name: string; matterId: string }[] };
+    expect(page.data.map((row) => row.name)).toContain("Our collection");
+    // The matter rides the row, because that is how a person tells four review sets apart.
+    expect(page.data.every((row) => typeof row.matterId === "string")).toBe(true);
+  });
+
+  it("refuses the firm-wide register to a member with matter access and no discovery grant", async () => {
+    const response = await get("/api/v1/review-sets", matterOnlyCookie);
+    expect(response.status).toBe(403);
+  });
+
   it("refuses a second review set with the same name on the same matter", async () => {
     const response = await post(`/api/v1/matters/${matterId}/review-sets`, {
       name: "Our collection",
@@ -259,6 +276,42 @@ describe("the review set", () => {
     const problem = (await reopened.json()) as { type: string; detail: string };
     expect(problem.type).toContain("discovery-review-set-reopen-refused");
     expect(problem.detail).toContain("what was reviewed");
+  });
+
+  // The two records the whole ingest lane exists to produce, and the only way to reach them. Before
+  // this route they were an R2 key on a row: written, correct, and unreachable by anybody.
+  it("answers 404 for a load's records until the load has written them", async () => {
+    const setId = await createReviewSet("Records not yet written");
+    await createRecordCustodian(setId, "A. Keeper");
+    const declared = await declareLoad(setId, {
+      lane: "internal-files",
+      transcriptScope: "exclude",
+      declaredDocumentCount: 1,
+    });
+    expect(declared.status).toBe(201);
+    const loadId = declared.body.id as string;
+
+    for (const artifact of ["manifest", "exception-report"]) {
+      for (const format of ["json", "text"]) {
+        const response = await get(
+          `/api/v1/loads/${loadId}/artifacts/${artifact}?format=${format}`,
+        );
+        expect(response.status).toBe(404);
+        const problem = (await response.json()) as ProblemBody;
+        // The 404 says WHY rather than only refusing: a record is written once, when every document
+        // in the load has reached a terminal state, and a firm looking for it early needs to know
+        // that it is early rather than that something is broken.
+        expect(problem.detail).toContain("terminal state");
+      }
+    }
+  });
+
+  it("refuses a load's records to a member with matter access and no discovery grant", async () => {
+    const response = await get(
+      `/api/v1/loads/discoveryLoad_absent00000000000000/artifacts/manifest`,
+      matterOnlyCookie,
+    );
+    expect(response.status).toBe(403);
   });
 
   it("refuses a load into a review set that no longer takes material", async () => {

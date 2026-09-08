@@ -14,10 +14,11 @@
    * leads and the runner sits below it: the record is the destination, running is the exception.
    *
    * THE HEADER CARRIES THE RUN CONTROL, NOT THIS PAGE. New Check is the matter header's one create
-   * control, claimed here while this section is mounted, and it opens the composer below rather
-   * than firing a search from a press — a check is a professional-responsibility act and choosing
-   * its scope is part of it. Re-check now is a DIFFERENT act and keeps its own control inside the
-   * panel: it takes no scope, because what runs is the firm's own floor.
+   * control, claimed here while this section is mounted, and it opens the same panel the firm's own
+   * conflicts log opens rather than firing a search from a press — a check is a
+   * professional-responsibility act and choosing its scope is part of it. Re-check now is a
+   * DIFFERENT act and keeps its own control inside the standing panel: it takes no scope, because
+   * what runs is the firm's own floor.
    *
    * A SAMPLE MATTER HAS NO FIRM BEHIND IT, so it has no log to read and nothing to record against.
    * It says so rather than showing a matter that has never been checked, which is a different fact
@@ -27,10 +28,9 @@
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
-  import Separator from "@magna-carta/design-system/separator";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { goto } from "$app/navigation";
-  import CheckRunner from "$lib/conflicts/check-runner.svelte";
+  import NewCheckDialog from "$lib/conflicts/new-check-dialog.svelte";
   import PosturePanel from "$lib/conflicts/posture-panel.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -76,24 +76,17 @@
   });
 
   /*
-   * The header's New Check. It takes the reader to the composer rather than running anything: the
-   * scope a check runs under is a choice on the record, and a create control that searched on one
-   * press would make that choice silently on the reader's behalf.
+   * The header's New Check. It opens the composer rather than running anything: the scope a check
+   * runs under is a choice on the record, and a create control that searched on one press would
+   * make that choice silently on the reader's behalf.
    */
+  let composerOpen = $state(false);
+
   claimMatterCreate("conflicts", () => ({
     title: "Run a conflicts check for this matter. It writes a new entry in the firm's log.",
     refusal: isSample ? SAMPLE_MATTER_REFUSAL : !mayRun ? RUN_REFUSAL : undefined,
-    run: composeCheck,
+    run: () => (composerOpen = true),
   }));
-
-  function composeCheck(): void {
-    const composer = document.getElementById("conflicts-run");
-    composer?.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Focus follows the scroll, so the control works the same way from the keyboard. The heading
-    // takes it rather than the first field: a reader arriving here is choosing a scope, and landing
-    // mid-form skips what the choice is about.
-    composer?.querySelector("h3")?.focus();
-  }
 
   async function read(): Promise<void> {
     loading = true;
@@ -175,7 +168,7 @@
   const summary = $derived.by(() => {
     if (posture === null) return "";
     const latest = posture.latestCheck;
-    if (latest === null) return "No conflicts check has been run for this matter.";
+    if (latest === null) return "A conflicts check has not been run for this matter.";
     const open = posture.undisposedByTier.reduce((total, entry) => total + entry.count, 0);
     return open === 0
       ? "Every candidate the last check surfaced has been answered."
@@ -196,7 +189,7 @@
   </div>
 
   {#if isSample}
-    <EmptyState title="A sample matter has no conflicts record">
+    <EmptyState title="A sample matter has no check record">
       This matter is one of the in-repo samples and has no firm behind it, so there is no log to
       read and nothing a check could be recorded against.
     </EmptyState>
@@ -242,19 +235,17 @@
             </Button>
           {/snippet}
         </PosturePanel>
-
-        <Separator />
-
-        <section id="conflicts-run" class="flex flex-col gap-16">
-          <h3 class="text-base font-semibold" tabindex="-1">Run A Check For This Matter</h3>
-          <CheckRunner
-            {matterId}
-            {matterLabel}
-            {permissions}
-            onRan={(checkId) => void goto(`/conflicts/checks/${checkId}`)}
-          />
-        </section>
       </div>
     {/if}
   {/if}
 </div>
+
+<!-- The same panel the firm's conflicts log opens, with this matter already named: one form, two
+     doors. A sample matter has no firm behind it, so the header's control refuses before this. -->
+<NewCheckDialog
+  bind:open={composerOpen}
+  {matterId}
+  {matterLabel}
+  {permissions}
+  onRan={(checkId) => void goto(`/conflicts/checks/${checkId}`)}
+/>

@@ -94,21 +94,21 @@ export function billHref(matterId: string, invoiceId: string): string {
 /**
  * The FIRM-wide surface a money section has a sibling on, or null where it has none yet.
  *
- * Three of the five now exist at both scopes — a matter's Time, Costs and Billing each have a
+ * Four of the five now exist at both scopes — a matter's Time, Fees, Costs and Billing each have a
  * firm-wide screen answering the question the matter's own section cannot: what the whole firm
- * recorded this week, advanced this month, or is owed. The toolbar's way out is what makes that
- * pair discoverable rather than something a member finds by noticing a sidebar row; without it the
- * two scopes are two places that happen to be about the same thing.
+ * recorded this week, charged this month, advanced this month, or is owed. The toolbar's way out is
+ * what makes that pair discoverable rather than something a member finds by noticing a sidebar row;
+ * without it the two scopes are two places that happen to be about the same thing.
  *
  * The addresses come from the sidebar's own registry rather than being spelled here, so a section
- * cannot point at a destination the sidebar calls something else or that has moved. Fees has no
- * firm-wide surface because a fee is not its own record yet, and Trust's is announced and unbuilt;
- * both answer null, and the toolbar renders nothing rather than a link to a Soon page.
+ * cannot point at a destination the sidebar calls something else or that has moved. Trust's is
+ * announced and unbuilt, so it answers null and the toolbar renders nothing rather than a link to a
+ * Soon page.
  */
 export function moneySectionFirmDestination(slug: MoneySectionSlug): DestinationId | null {
   const named: Readonly<Record<MoneySectionSlug, DestinationId | null>> = {
     time: "time",
-    fees: null,
+    fees: "fees",
     costs: "costs",
     billing: "billing",
     trust: null,

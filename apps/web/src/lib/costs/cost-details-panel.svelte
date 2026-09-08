@@ -38,17 +38,8 @@
   import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { matterCostSummary, selectionSummary } from "./cost-figures.ts";
   import type { CostLedgerEntry } from "./cost-operations.ts";
-  import {
-    GONE_PAYEE_NOTE,
-    GONE_RECORDER_NOTE,
-    billingSentence,
-    payeeState,
-    payeeText,
-    recorderState,
-    recorderText,
-    returnedDraftReason,
-    sourceLabel,
-  } from "./cost-vocabulary.ts";
+  import { GONE_PAYEE_NOTE, billingSentence, payeeState, payeeText, sourceLabel } from "./cost-vocabulary.ts";
+import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
 
   let {
     costs,

@@ -120,6 +120,84 @@ describe("sweepOutbox", () => {
     expect(report.deadLettered).toBe(0);
   });
 
+  /*
+   * THE CASCADE. A control-plane consumer runs inside the pass and commits its own next row into the
+   * table being swept — activating a firm queues the member mirror its owner's every permission
+   * resolves through. These four pin that the pass finishes the chain when asked to, that it still
+   * does not when it is not, and that re-reading never costs a row its attempts.
+   */
+  it("a row a consumer queued mid-pass is dispatched by the same pass when rounds allow it", async () => {
+    const stub = stubD1();
+    const queue = [pendingRow("outbox_firm")];
+    stub.onAll("FROM outbox", () => [...queue]);
+    const published: string[] = [];
+    const report = await sweepOutbox({
+      database: stub.database,
+      maxRounds: 4,
+      publish: (row) => {
+        published.push(row.id);
+        // What consumeFirmProvision does: the firm goes active and the member mirror is queued.
+        if (row.id === "outbox_firm") queue.push(pendingRow("outbox_member"));
+        return Promise.resolve();
+      },
+      now: NOW,
+    });
+    expect(published).toEqual(["outbox_firm", "outbox_member"]);
+    expect(report).toEqual({ dispatched: 2, failed: 0, deadLettered: 0 });
+  });
+
+  it("one round is the default: the queued row waits for the next pass", async () => {
+    const stub = stubD1();
+    const queue = [pendingRow("outbox_firm")];
+    stub.onAll("FROM outbox", () => [...queue]);
+    const published: string[] = [];
+    await sweepOutbox({
+      database: stub.database,
+      publish: (row) => {
+        published.push(row.id);
+        if (row.id === "outbox_firm") queue.push(pendingRow("outbox_member"));
+        return Promise.resolve();
+      },
+      now: NOW,
+    });
+    expect(published).toEqual(["outbox_firm"]);
+  });
+
+  it("a round never re-publishes a row this pass already tried and failed", async () => {
+    const stub = stubD1();
+    // The failed row stays pending and sorts first, so every later round reads it back.
+    stub.onAll("FROM outbox", [pendingRow("outbox_bad"), pendingRow("outbox_good")]);
+    const published: string[] = [];
+    const report = await sweepOutbox({
+      database: stub.database,
+      maxRounds: 4,
+      publish: (row) => {
+        published.push(row.id);
+        return row.id === "outbox_bad"
+          ? Promise.reject(new Error("queue unavailable"))
+          : Promise.resolve();
+      },
+      now: NOW,
+    });
+    // One attempt each. Retrying seconds later would spend the row's five attempts on one fault.
+    expect(published).toEqual(["outbox_bad", "outbox_good"]);
+    expect(report).toEqual({ dispatched: 1, failed: 1, deadLettered: 0 });
+  });
+
+  it("stops at the end of the cascade rather than running its rounds out", async () => {
+    const stub = stubD1();
+    stub.onAll("FROM outbox", [pendingRow("outbox_only")]);
+    await sweepOutbox({
+      database: stub.database,
+      maxRounds: 4,
+      publish: () => Promise.resolve(),
+      now: NOW,
+    });
+    // Two selects: the round that found the row, and the one that found nothing new and stopped.
+    const selects = stub.executed.filter((entry) => entry.sql.includes("FROM outbox"));
+    expect(selects).toHaveLength(2);
+  });
+
   it("respects batchSize in the select", async () => {
     const stub = stubD1();
     stub.onAll("FROM outbox", []);

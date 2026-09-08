@@ -16,14 +16,16 @@
    * whose job is to show the record whole never clips it, never scrolls it sideways and never hides
    * it behind an ellipsis. The internal memo beside it behaves the same way.
    *
-   * EACH FACT HAS ONE HOME. The entry number is the subtitle and nowhere else; the entered date and
-   * the person who entered it are the History tab's first event, which is where a reader goes for
-   * when-and-by-whom. Repeating any of them in the record pane makes a reader check whether the two
-   * agree.
+   * EACH FACT HAS ONE HOME. The entered date and the person who entered it sit under the fields on
+   * the record pane, which is where a reader goes for when-and-by-whom; the History rail beside them
+   * is for what happened to the record AFTERWARDS. Repeating either in both places makes a reader
+   * check whether the two agree.
    *
-   * NOTHING HERE SAVES YET. No route writes a fee record (fee-gaps.ts), so the commit renders where
-   * the design puts it, refused, with its Soon mark and one line naming what it waits on. The
-   * fields, their validation and their words are real: what is missing is the store behind them.
+   * A RETURNED DRAFT SAYS SO, ABOVE THE FIELDS IT WANTS CHANGED. A fee a reviewer sent back is the
+   * same status as one nobody has submitted and looks identical everywhere else, so without this the
+   * person who has to fix it is told only that it is a draft. It shows whether or not the firm runs
+   * review, unlike the review VERBS: a reason already written on the record is a fact about this
+   * fee, and hiding it would lose the one explanation the record carries.
    */
   import * as Select from "@magna-carta/design-system/select";
   import Badge from "@magna-carta/design-system/badge";
@@ -42,13 +44,24 @@
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
   import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
-  import { gapCellTitle, gapReason, REVIEW_GATE_ENABLED } from "./fee-gaps.ts";
+  import * as Alert from "@magna-carta/design-system/alert";
+  import SquarePen from "@lucide/svelte/icons/square-pen";
+  import { billHref } from "$lib/money/index.ts";
+  import MatterPicker from "$lib/time/matter-picker.svelte";
+  import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
+  import {
+    GONE_RECORDER_NOTE,
+    recorderState,
+    recorderText,
+    returnedDraftReason,
+  } from "$lib/records/work-in-progress-record.ts";
+  import { FEE_LEDGER_GAPS, gapCellTitle, gapReason, REVIEW_GATE_ENABLED } from "./fee-gaps.ts";
   import { feeEntrySheet } from "./fee-print-sheet.ts";
+  import { createFee, patchFee, writeKey } from "./fee-operations.ts";
   import {
     billingSentence,
     feeDraftRefusal,
     feeStatusKey,
-    incompleteNote,
     parseAmountMinor,
     type FeeRecord,
   } from "./fee-record.ts";
@@ -57,10 +70,14 @@
     open = $bindable(false),
     fee = null,
     editing = $bindable(false),
+    matterId,
     matterTitle,
     matterNumber = null,
+    matters = [],
+    mattersCapped = false,
     currency,
     canWorkDraft,
+    onSaved,
   }: {
     open?: boolean;
     /** The fee being read, or null while a new one is being written. */
@@ -71,29 +88,62 @@
      * straight into its fields.
      */
     editing?: boolean;
+    /** The matter a NEW fee is written against, where the surface stands on one. */
+    matterId: string;
     matterTitle: string;
     matterNumber?: string | null;
+    /**
+     * The firm's matters, for a NEW fee written from a surface that stands on none.
+     *
+     * Empty is the matter ledger's case and the default: the matter is already decided, the field
+     * is absent, and `matterId` above is what a new fee is written against. Non-empty is the firm's
+     * own period screen, where the reader picks the matter per fee — the same arrangement the cost
+     * window and the Time Sheet have, and for the same reason: a charge with no matter has nobody
+     * to bill it to, so the choice is made at capture rather than left for somebody to file later.
+     */
+    matters?: readonly SheetMatter[];
+    /** Whether the list above is a page of the record rather than all of it. */
+    mattersCapped?: boolean;
     currency: string;
     /** Whether this account may work this draft, and why not when it may not. */
     canWorkDraft: (fee: FeeRecord) => { allowed: boolean; reason: string };
+    /** A write landed. The consumer re-reads the matter's fees. */
+    onSaved: () => void;
   } = $props();
 
   const creating = $derived(fee === null);
   const fieldPrefix = $props.id();
 
-  let feeDateText = $state("");
+  /*
+   * Which matter a NEW fee is written against.
+   *
+   * On a surface standing in a matter it is that matter and the picker is absent. On one standing
+   * in none it starts unchosen: a fee pre-filled with whichever matter happened to be first would
+   * be a wrong answer arriving faster than no answer, and a charge lands on the wrong client's bill
+   * exactly once before somebody stops trusting the ledger.
+   */
+  const picksItsMatter = $derived(matters.length > 0);
+  let chosenMatterId = $state<string | null>(null);
+  const writingAgainst = $derived(picksItsMatter ? chosenMatterId : matterId);
+  const chosenMatterTitle = $derived(
+    matters.find((candidate) => candidate.id === chosenMatterId)?.title ?? null,
+  );
+
+  let serviceDateText = $state("");
   let amountText = $state("");
   let descriptionText = $state("");
   let memoText = $state("");
   let billingChoice = $state("billable");
   let printOpen = $state(false);
+  let saving = $state(false);
+  let saveFailure = $state<string | null>(null);
 
   /*
    * What the fields held when they were last seeded. Keeping it is what lets this window answer
    * honestly whether walking away would lose anything, and it is what abandoning puts back.
    */
   const seeded = $state({
-    feeDate: "",
+    serviceDate: "",
     amount: "",
     description: "",
     memo: "",
@@ -101,7 +151,7 @@
   });
 
   function rememberWhatIsInTheFields(): void {
-    seeded.feeDate = feeDateText;
+    seeded.serviceDate = serviceDateText;
     seeded.amount = amountText;
     seeded.description = descriptionText;
     seeded.memo = memoText;
@@ -121,8 +171,8 @@
     }
     if (seededFor === identity) return;
     seededFor = identity;
-    feeDateText = fee?.feeDate ?? new Date().toISOString().slice(0, 10);
-    amountText = fee === null || fee.amountMinor === null ? "" : (fee.amountMinor / 100).toFixed(2);
+    serviceDateText = fee?.serviceDate ?? new Date().toISOString().slice(0, 10);
+    amountText = fee === null ? "" : (fee.amountMinor / 100).toFixed(2);
     descriptionText = fee?.description ?? "";
     memoText = fee?.memo ?? "";
     billingChoice = fee === null || fee.billable ? "billable" : "nonbillable";
@@ -130,7 +180,7 @@
   });
 
   const unsavedChanges = $derived(
-    feeDateText !== seeded.feeDate ||
+    serviceDateText !== seeded.serviceDate ||
       amountText !== seeded.amount ||
       descriptionText !== seeded.description ||
       memoText !== seeded.memo ||
@@ -138,7 +188,7 @@
   );
 
   function forgetChanges(): void {
-    feeDateText = seeded.feeDate;
+    serviceDateText = seeded.serviceDate;
     amountText = seeded.amount;
     descriptionText = seeded.description;
     memoText = seeded.memo;
@@ -163,15 +213,70 @@
   );
 
   const refusal = $derived(
-    editing ? feeDraftRefusal({ amountText, description: descriptionText }) : null,
+    editing
+      ? // The matter leads the refusals for a new fee on a matterless surface: it is the one field
+        // whose absence makes the record meaningless rather than merely incomplete.
+        (creating && picksItsMatter && writingAgainst === null
+          ? "Name the matter this fee charges."
+          : feeDraftRefusal({ amountText, description: descriptionText }))
+      : null,
   );
 
+  /** Why the change cannot be committed as it stands. A save in flight is one of those reasons. */
+  const saveRefusal = $derived(saving ? "Saving this fee." : (refusal ?? undefined));
+
   /*
-   * Why the change cannot be committed. The field-level refusal leads where there is one, because
-   * it is the thing the reader can act on; the missing store is what stands behind a form that is
-   * otherwise complete.
+   * The write. A new fee is a capture; an open one is a patch of exactly the fields this window
+   * offers. The memo is not among them: it is on the record and on the contract, and the field is
+   * still waiting on the read that would show a reader what they were about to overwrite.
    */
-  const saveRefusal = $derived(refusal ?? soonDependencySentence(gapReason("store")));
+  async function save(): Promise<void> {
+    if (refusal !== null || saving) return;
+    const minor = parseAmountMinor(amountText);
+    if (minor === null) return;
+    saving = true;
+    saveFailure = null;
+    const outcome =
+      fee === null
+        ? await createFee(
+            fetch,
+            {
+              matterId: writingAgainst ?? matterId,
+              serviceDate: serviceDateText,
+              timekeeperUserId: null,
+              description: descriptionText.trim(),
+              amountMinor: minor,
+              currency,
+              billable,
+              memo: null,
+            },
+            writeKey(),
+          )
+        : await patchFee(
+            fetch,
+            fee.id,
+            {
+              serviceDate: serviceDateText,
+              description: descriptionText.trim(),
+              amountMinor: minor,
+              billable,
+            },
+            writeKey(),
+          );
+    saving = false;
+    if (outcome.kind !== "ok") {
+      saveFailure =
+        outcome.kind === "problem"
+          ? `The fee was not saved. The server answered ${String(outcome.problem.status)}.${
+              outcome.problem.detail === undefined ? "" : ` ${outcome.problem.detail}`
+            }`
+          : "Nothing answered. The fee was not saved and the record is unchanged.";
+      return;
+    }
+    onSaved();
+    editing = false;
+    open = false;
+  }
 
   const heading = $derived(creating ? "New Fee" : editing ? "Edit Fee" : "Fee");
 
@@ -200,24 +305,24 @@
           matterNumber,
           money: (amount) => formatMoney(amount, { currency: fee.currency }),
           date: (isoDate) => formatDate(isoDate),
+          instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
         }),
   );
 
-  /* A fee that carries files opens on them: the attachment is in front, not one click away. */
-  const openingTab = $derived((fee?.attachmentCount ?? 0) > 0 ? "attachments" : "billing");
+  const recorder = $derived(fee === null ? null : recorderState(fee));
 </script>
 
 {#snippet subtitle()}
   {#if fee === null}
-    <span>{matterTitle}</span>
-  {:else if fee.entryNumber === null}
-    <span title={gapCellTitle("entryNumber")}>Entry Number not yet recorded</span>
-    <Badge {...statusBadgeAttributes(feeStatusKey(fee.status))}>
-      {statusEntry(feeStatusKey(fee.status)).label}
-    </Badge>
+    <!-- On a matterless surface the subtitle follows the pick, so the window's own heading answers
+         "which matter" as soon as it has been decided rather than standing empty above a filled
+         form. -->
+    <span>{picksItsMatter ? (chosenMatterTitle ?? "No matter chosen yet") : matterTitle}</span>
   {:else}
-    <span class="tabular-nums">{fee.entryNumber}</span>
+    <span title={gapCellTitle("entryNumber")}>
+      {FEE_LEDGER_GAPS.entryNumber.field} not yet recorded
+    </span>
     <Badge {...statusBadgeAttributes(feeStatusKey(fee.status))}>
       {statusEntry(feeStatusKey(fee.status)).label}
     </Badge>
@@ -232,11 +337,35 @@
 {#snippet record({ editing: fieldsOpen }: { editing: boolean })}
   {@const readOnly = !fieldsOpen}
   <div class="flex flex-col gap-16">
-    {#if fee !== null && fee.incomplete}
-      <p class="flex items-start gap-8 text-sm text-status-warning-subtle-foreground">
-        <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
-        <span>{incompleteNote(fee)}</span>
-      </p>
+    {#if saveFailure !== null}
+      <Alert.Root variant="danger">
+        <Alert.Title>Not Saved</Alert.Title>
+        <Alert.Description>{saveFailure}</Alert.Description>
+      </Alert.Root>
+    {/if}
+
+    {#if fee !== null && returnedDraftReason(fee) !== null}
+      <Alert.Root variant="warning">
+        <Alert.Title>Sent Back For Changes</Alert.Title>
+        <Alert.Description>{returnedDraftReason(fee)}</Alert.Description>
+      </Alert.Root>
+    {/if}
+
+    {#if creating && picksItsMatter}
+      <!-- First, because a fee is a fact about a matter before it is a fact about an amount, and
+           because the refusal that names it leads the others. -->
+      <div class="flex flex-col gap-4">
+        <Label for="{fieldPrefix}-pick-matter">Matter</Label>
+        <MatterPicker
+          {matters}
+          value={chosenMatterId}
+          inputId="{fieldPrefix}-pick-matter"
+          disabled={readOnly}
+          capped={mattersCapped}
+          title="The matter this fee charges. A charge with no matter has nobody to bill it to."
+          onpick={(picked) => (chosenMatterId = picked)}
+        />
+      </div>
     {/if}
 
     <!-- The description leads: it is the line the client reads, and it grows to fit. -->
@@ -256,14 +385,18 @@
     <div class="grid gap-12 sm:grid-cols-3">
       <div class="flex flex-col gap-4">
         <Label for="{fieldPrefix}-date">Date</Label>
-        <Input id="{fieldPrefix}-date" type="date" disabled={readOnly} bind:value={feeDateText} />
+        <Input id="{fieldPrefix}-date" type="date" disabled={readOnly} bind:value={serviceDateText} />
       </div>
 
       <div class="flex flex-col gap-4">
         <Label for="{fieldPrefix}-matter">Matter</Label>
         <Input
           id="{fieldPrefix}-matter"
-          value={matterNumber === null ? matterTitle : `${matterNumber} — ${matterTitle}`}
+          value={matterTitle === ""
+            ? "Not resolved"
+            : matterNumber === null
+              ? matterTitle
+              : `${matterNumber} — ${matterTitle}`}
           title={gapCellTitle("matterMove")}
           disabled
         />
@@ -343,6 +476,20 @@
       </p>
       <p class="text-xs text-text-muted">{soonDependencySentence(gapReason("memo"))}</p>
     </div>
+
+    <!--
+      WHEN AND BY WHOM, under the fields rather than in them. It is not editable and never was: it
+      is what the record says about its own capture, and it is here because a reader checking a
+      figure that looks wrong wants to know who to ask before they want anything else.
+    -->
+    {#if fee !== null}
+      <p class="text-xs text-text-muted">
+        Recorded {formatInstant(fee.createdAt)} by <span
+          title={recorder?.kind === "gone" ? GONE_RECORDER_NOTE : undefined}
+          >{recorderText(fee)}</span
+        >.
+      </p>
+    {/if}
   </div>
 {/snippet}
 
@@ -383,11 +530,13 @@
         <Info class="mt-4 size-16 shrink-0" aria-hidden="true" />
         <span>
           {#if fee.status === "billed"}
-            {#if fee.invoiceNumber === null}
-              Billed. Which invoice took it up is not served yet: waiting on {gapReason("invoice")}.
+            {#if fee.invoiceId === null}
+              Billed. Which bill took it up is not recorded on this fee, so there is nothing to open
+              from here.
             {:else}
-              Billed on {fee.invoiceNumber}. A record on a finalized bill is evidence; the
-              correction is a credit note beside it.
+              Billed. <a class="underline underline-offset-2" href={billHref(fee.matterId, fee.invoiceId)}
+                >Open the bill this fee is charged on</a
+              >. A record on a finalized bill is evidence; the correction is a credit note beside it.
             {/if}
           {:else if fee.status === "void"}
             Withdrawn. A void fee stays on the record and counts toward nothing.
@@ -404,17 +553,9 @@
         </div>
         <div class="flex items-baseline justify-between gap-16">
           <dt class="text-text-muted">Date</dt>
-          <dd class="tabular-nums">{formatDate(fee.feeDate)}</dd>
+          <dd class="tabular-nums">{formatDate(fee.serviceDate)}</dd>
         </div>
       </dl>
-      {#if fee.provenance !== null}
-        <p class="text-xs text-text-muted">
-          Moved here from the {fee.provenance.fromRecordName} ledger on
-          <span class="tabular-nums">{formatDate(fee.provenance.movedOn)}</span>
-          by {fee.provenance.movedByName}. It kept its entry number, so the number's shape records
-          where it was first written down rather than what it is now.
-        </p>
-      {/if}
     {/if}
   </div>
 {/snippet}
@@ -431,9 +572,9 @@
       {lockLine}
     </span>
   {:else if fieldsOpen}
-    <span class="mr-auto flex items-center gap-8 text-xs text-text-muted">
-      <MaturityBadge stage="soon" />
-      {soonDependencySentence(gapReason("store"))}
+    <span class="mr-auto flex items-center gap-4 text-xs text-text-muted">
+      <SquarePen class="size-12" aria-hidden="true" />
+      Saves as a draft.
     </span>
   {/if}
   {#if !fieldsOpen}
@@ -453,11 +594,11 @@
     { key: "history", label: "History", content: historyTab },
     { key: "billing", label: "Billing", content: billingTab },
   ] satisfies RecordWindowTab[]}
-  defaultTab={openingTab}
+  defaultTab="billing"
   editDisabledReason={editRefusal}
   saveDisabledReason={saveRefusal}
   {unsavedChanges}
-  onSave={() => undefined}
+  onSave={() => void save()}
   onCancel={forgetChanges}
   onPrint={() => (printOpen = true)}
 />

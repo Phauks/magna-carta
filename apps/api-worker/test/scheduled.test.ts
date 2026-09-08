@@ -254,6 +254,72 @@ describe("runScheduledSweep — member.provision consumption", () => {
   });
 });
 
+/*
+ * THE FOUNDING CASCADE — the one control-plane chain whose second link is written by the first.
+ *
+ * Activating a firm queues the member.provision row that mirrors its owner into the firm's own
+ * database, and it is queued by a consumer running INSIDE the pass. A sweep that read its pending
+ * set once had already read past it: the firm went active, the owner was attached to a firm whose
+ * database had never heard of them, and every screen that checks a permission refused until the
+ * next cron fire minutes later. This is the pin that the pass carries the chain to its end.
+ */
+describe("runScheduledSweep — the founding cascade", () => {
+  it("activates a firm and mirrors its owner in ONE pass", async () => {
+    // The account-first founding door's shape (POST /api/v1/me/firm): the founder already holds an
+    // account, so provisioning adopts it rather than creating one and no activation mail is sent.
+    const registrationId = newIdentifier("registration");
+    const founderUserId = newIdentifier("user");
+    const email = `cascade-founder-${registrationId}@example.com`;
+    const nowInstant = new Date().toISOString();
+
+    await env.DB_CONTROL.prepare(
+      'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 1, ?4, ?4, NULL)',
+    )
+      .bind(founderUserId, "Cascade Founder", email, Date.now())
+      .run();
+    await env.DB_CONTROL.prepare(
+      "INSERT INTO registration (id, role, email, display_name, firm_display_name, confirmation_hash, status, expires_at, confirmed_at, created_at) " +
+        "VALUES (?1, 'foundFirm', ?2, ?3, ?4, ?5, 'confirmed', ?6, ?6, ?6)",
+    )
+      .bind(registrationId, email, "Cascade Founder", "Cascade and Company", "unused", nowInstant)
+      .run();
+    await env.DB_CONTROL.prepare(
+      "INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'firm.provision', ?2, NULL, NULL, 'pending', 0, ?3)",
+    )
+      .bind(
+        newIdentifier("outbox"),
+        canonicalJsonStringify({
+          registrationId,
+          firmDisplayName: "Cascade and Company",
+          owner: { email, name: "Cascade Founder", userId: founderUserId },
+        }),
+        nowInstant,
+      )
+      .run();
+
+    const report = await runScheduledSweep(env);
+    expect(report.controlPlane.failed).toBe(0);
+
+    // The firm is active and the founder is attached to it — the half that always worked.
+    const firm = await env.DB_CONTROL.prepare("SELECT id, status FROM firm WHERE name = ?1")
+      .bind(registrationId)
+      .first<{ id: string; status: string }>();
+    expect(firm?.status).toBe("active");
+
+    // And the half that did not: the member row every permission resolves through, in the firm's
+    // OWN database, written by a row this same pass had to go back for.
+    const memberResults = await firmDatabaseFor(env.FIRM_DATABASE, (firm?.id ?? "") as FirmId)
+      .prepare(
+        "SELECT member.status AS status, role.name AS role_name FROM member " +
+          "LEFT JOIN member_role ON member_role.member_user_id = member.user_id " +
+          "LEFT JOIN role ON role.id = member_role.role_id WHERE member.user_id = ?1",
+      )
+      .bind(founderUserId)
+      .all<{ status: string; role_name: string | null }>();
+    expect(memberResults.results).toEqual([{ status: "active", role_name: "Owner/Admin" }]);
+  });
+});
+
 describe("runScheduledSweep — per-firm relay and TTL purge", () => {
   it("sweeps an active firm's outbox to env.QUEUE and marks rows dispatched", async () => {
     // Nothing consumes the per-firm queue yet this slice — publishing + the dispatched mark IS
