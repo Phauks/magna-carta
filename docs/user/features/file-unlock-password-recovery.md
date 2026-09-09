@@ -13,6 +13,12 @@ Both operations only ever run when you start them — nothing unlocks or searche
 
 Your file is never stored. The tool works on it, returns the result, and keeps no copy in Magna Carta.
 
+## Opening a locked PDF straight from the reader
+
+If you open a password-protected PDF from a matter's Files page, the reader asks for the password right there instead of failing to open. Type it and the document opens normally — the password is checked in this browser and never sent anywhere. If it is wrong, the reader tells you and lets you try again.
+
+If you do not have the password, the reader points you to this tool to start a recovery search — download the document first, since File Unlock & Password Recovery works on its own copy of a file rather than reaching into a matter for one.
+
 ## When to use it
 
 - A client sends a password-protected PDF or Word document and you need a clean copy for the matter file.
@@ -49,6 +55,10 @@ More formats (7-Zip, older Office formats, RAR) are planned but not yet supporte
    - **Found** — the password is shown to you. Copy it, then use Unlock to open the file.
    - **Not found** — the search tried its full list without success. The file's password is not a common or predictable one.
    - **Needs more powerful hardware** — the file uses a modern, deliberately slow form of encryption that ordinary computers cannot search quickly. This kind of recovery needs specialized hardware, offered in a later version.
+
+## Where the search runs
+
+Starting a recovery search opens its own screen, addressed by that search rather than by the file you started it from. You can leave it, close the tab, and come back to the same link later — the search keeps running in the background either way, and this is also what lets you cancel it whenever you like.
 
 ## Tips and edge cases
 

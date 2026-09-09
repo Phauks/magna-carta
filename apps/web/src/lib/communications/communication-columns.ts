@@ -128,7 +128,7 @@ export function communicationColumns(
     },
     {
       id: "duration",
-      label: "Length",
+      label: "Duration",
       // Blank on a message, which has no length in seconds. Not a gap: a text does not have one.
       value: (communication) => durationText(communication.durationSeconds) ?? "",
     },

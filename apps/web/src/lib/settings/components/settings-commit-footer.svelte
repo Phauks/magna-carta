@@ -37,9 +37,16 @@
   let stagedPopoverOpen = $state(false);
 
   const awake = $derived(draft.stagedCount > 0);
+  /*
+   * Why the save cannot land as it stands, from the draft itself. A page whose settings are all
+   * selects and switches never has one — a control cannot produce a value its own definition does
+   * not carry — but a setting somebody types into can hold something the server would refuse, and
+   * the refusal belongs at the button rather than as a press that silently does nothing.
+   */
+  const refusal = $derived(draft.saveRefusal);
 
   function requestSave(): void {
-    if (draft.stagedCount === 0) return;
+    if (draft.stagedCount === 0 || refusal !== undefined) return;
     confirmOpen = true;
   }
 
@@ -99,6 +106,11 @@
   </span>
 
   <div class="flex items-center gap-8">
+    <!-- The refusal reads beside the buttons it disables, so the reason and the dead control are
+         in the same glance. -->
+    {#if awake && refusal !== undefined}
+      <span class="text-sm text-text-muted">{refusal}</span>
+    {/if}
     <!-- "Cancel", not "Discard" (owner-directed): the everyday word for backing out of unsaved
          edits; the store method keeps its precise name. -->
     <Button
@@ -112,9 +124,9 @@
     <!-- The gilt is reserved for the live action: Save only takes the primary variant once
          there is something to commit. -->
     <Button
-      variant={awake ? "primary" : "secondary"}
+      variant={awake && refusal === undefined ? "primary" : "secondary"}
       size="sm"
-      disabled={!awake}
+      disabled={!awake || refusal !== undefined}
       onclick={requestSave}
     >
       Save

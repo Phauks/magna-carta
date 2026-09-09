@@ -62,7 +62,7 @@ export function communicationSheet(
             value: counterpartyNumberText(communication.counterpartyNumber),
             ...(context.counterpartyName === null ? {} : { secondary: context.counterpartyName }),
           },
-          ...(length === null ? [] : [{ label: "Length", value: length }]),
+          ...(length === null ? [] : [{ label: "Duration", value: length }]),
           ...(carried === null ? [] : [{ label: "Carried", value: carried }]),
         ],
       },

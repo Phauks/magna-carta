@@ -158,7 +158,7 @@ function tarOf(members: readonly { name: string; body: string }[]): Uint8Array {
   return archive;
 }
 
-// `crates/seven-zip-listing-core/tests/fixtures/mixed-members.7z`, inlined because the workerd pool
+// `crates/seven-zip-core/tests/fixtures/mixed-members.7z`, inlined because the workerd pool
 // cannot read the host source tree. Written by sevenz-rust2's own encoder — see that directory's
 // README for what it holds and how to regenerate it. Four members, and a file list the encoder
 // compressed, so listing it is the three-ranged-read path.

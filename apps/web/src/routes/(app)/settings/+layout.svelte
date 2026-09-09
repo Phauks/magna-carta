@@ -37,11 +37,20 @@
     type SettingsSection,
   } from "$lib/settings/settings-sections.ts";
   import { canEditFirmSettings } from "$lib/settings/settings-permissions.ts";
+  import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
 
   const bands = bandedSettingsSections();
+
+  // Every posture on this surface — each page's editable-or-read-only standing, and the nav's own
+  // "View" tag — is an answer about the signed-in member, so the read is started once here rather
+  // than by each page. It is shared and at-most-once, so a page that also reads the session for a
+  // narrower right of its own costs nothing extra.
+  $effect(() => {
+    void sessionPermissions.load(fetch);
+  });
 
   // "View" appears only where an edit right EXISTS and this member lacks it; sections with no
   // declared area (pure diagnostics) are readable by design and need no standing stated.

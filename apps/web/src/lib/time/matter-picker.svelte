@@ -16,6 +16,13 @@
    * belongs, so the list leads with a row that says so and takes the matter back off. Leaving it
    * blank by deleting the text would work too, but a choice somebody has to discover is a choice
    * most people never make.
+   *
+   * A CALLER MAY ADD ANSWERS THAT ARE NOT MATTERS. The call log asks one question — where does this
+   * belong — and three of its answers are not matters at all: spam, the firm's own business, a
+   * prospect nothing came of. Those arrive as `extraChoices` under their own heading, so the reader
+   * types into ONE field and gets every answer the question has (owner ruling, 2026-09-08), rather
+   * than choosing a category in one control and then a matter in a second one that appears. The
+   * picker stays the common component either way; nothing about a matter is duplicated to add them.
    */
   import * as Combobox from "@magna-carta/design-system/combobox";
   import { matterDisplay, matterMatches, type SheetMatter } from "./time-sheet-model.ts";
@@ -35,7 +42,12 @@
     disabled = false,
     title,
     capped = false,
+    noMatterLabel = "No matter",
+    extraChoices = [],
+    extraHeading,
+    extraValue = null,
     onpick,
+    onpickExtra,
   }: {
     /** The firm's matters, as they were read. Narrowing happens here, not at the caller. */
     matters: readonly SheetMatter[];
@@ -48,8 +60,18 @@
     title?: string;
     /** Whether the list is a page of the record rather than all of it, so the panel can say so. */
     capped?: boolean;
+    /** What the row that takes it off every matter is called, where "No matter" is not the words. */
+    noMatterLabel?: string;
+    /** Answers that are not matters, offered after them under `extraHeading`. */
+    extraChoices?: readonly { value: string; label: string; meaning?: string }[];
+    /** What those answers are called as a group, so a reader knows they are not matters. */
+    extraHeading?: string;
+    /** The extra answer the field holds, so it names that rather than showing empty. */
+    extraValue?: string | null;
     /** Called with the chosen matter, or null where the row was taken back off a matter. */
     onpick: (matterId: string | null) => void;
+    /** Called with an extra answer, which is never a matter and never writes `value`. */
+    onpickExtra?: (value: string) => void;
   } = $props();
 
   /** What has been typed. Meaningful only while the field is being searched. */
@@ -65,11 +87,17 @@
   let searching = $state(false);
 
   const selectedText = $derived.by(() => {
+    if (extraValue !== null) {
+      return extraChoices.find((choice) => choice.value === extraValue)?.label ?? "";
+    }
     const chosen = matters.find((matter) => matter.id === value);
     return chosen === undefined ? "" : matterDisplay(chosen);
   });
 
   const matching = $derived(matters.filter((matter) => matterMatches(matter, query)));
+  const matchingExtras = $derived(
+    extraChoices.filter((choice) => choice.label.toLowerCase().includes(query.trim().toLowerCase())),
+  );
 
   function settle(): void {
     searching = false;
@@ -79,6 +107,10 @@
   function pick(picked: string | string[]): void {
     const chosen = Array.isArray(picked) ? (picked[0] ?? "") : picked;
     settle();
+    if (extraChoices.some((choice) => choice.value === chosen)) {
+      onpickExtra?.(chosen);
+      return;
+    }
     onpick(chosen === "" || chosen === NO_MATTER_VALUE ? null : chosen);
   }
 </script>
@@ -87,10 +119,11 @@
   type="single"
   {disabled}
   items={[
-    { value: NO_MATTER_VALUE, label: "No matter" },
+    { value: NO_MATTER_VALUE, label: noMatterLabel },
     ...matching.map((matter) => ({ value: matter.id, label: matterDisplay(matter) })),
+    ...matchingExtras.map((choice) => ({ value: choice.value, label: choice.label })),
   ]}
-  value={value ?? ""}
+  value={extraValue ?? value ?? ""}
   inputValue={searching ? query : selectedText}
   open={listOpen}
   onValueChange={pick}
@@ -122,14 +155,26 @@
     }}
   />
   <Combobox.Content>
-    <Combobox.Item value={NO_MATTER_VALUE} label="No matter" />
+    <Combobox.Item value={NO_MATTER_VALUE} label={noMatterLabel} />
     {#each matching as matter (matter.id)}
       <Combobox.Item value={matter.id} label={matterDisplay(matter)} />
     {/each}
+    {#if matchingExtras.length > 0}
+      <!-- Not matters, and said so above them: a reader who has just typed a word that matches both
+           a case and a reason has to be able to tell which row is which. -->
+      <Combobox.Group>
+        {#if extraHeading !== undefined}
+          <Combobox.GroupHeading>{extraHeading}</Combobox.GroupHeading>
+        {/if}
+        {#each matchingExtras as choice (choice.value)}
+          <Combobox.Item value={choice.value} label={choice.label} title={choice.meaning} />
+        {/each}
+      </Combobox.Group>
+    {/if}
     <!-- A HEADING SITS INSIDE A GROUP. The group is where the heading finds the identity it labels,
          so a bare one throws the moment the listbox opens — which is invisible until somebody
          clicks the field, and is exactly how this picker crashed the Messaging screen. -->
-    {#if matching.length === 0}
+    {#if matching.length === 0 && matchingExtras.length === 0}
       <Combobox.Group>
         <Combobox.GroupHeading>
           {matters.length === 0

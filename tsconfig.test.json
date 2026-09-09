@@ -212,7 +212,7 @@
       "path": "packages/sequence-numbering/tsconfig.test.json"
     },
     {
-      "path": "packages/seven-zip-listing/tsconfig.test.json"
+      "path": "packages/seven-zip/tsconfig.test.json"
     },
     {
       "path": "packages/shipping/tsconfig.test.json"

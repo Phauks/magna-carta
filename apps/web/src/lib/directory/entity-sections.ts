@@ -1,11 +1,11 @@
 /*
  * The entity record's panes, and how finished each one is.
  *
- * A directory record answers ten questions about one person or organization, and every one of them
- * is now answered from the firm's own record: the names it has held, how the firm can reach it, the
- * pronouns it stated, when the person was born and died, the identifiers it holds, the records it
- * may duplicate, the relationships it has, the people inside it or the organizations it is inside,
- * the matters it is a party to, and how the firm files it.
+ * A directory record answers eleven questions about one person or organization, and every one of
+ * them is now answered from the firm's own record: the names it has held, how the firm can reach
+ * it, where it is, the pronouns it stated, when the person was born and died, the identifiers it
+ * holds, the records it may duplicate, the relationships it has, the people inside it or the
+ * organizations it is inside, the matters it is a party to, and how the firm files it.
  *
  * `waitingOn` survives because the rule it serves does: a pane whose read does not exist renders
  * its real anatomy with the mark beside it and one line naming what its arrival waits on, rather
@@ -29,6 +29,9 @@ export interface EntitySection {
 export const ENTITY_SECTIONS: readonly EntitySection[] = [
   { id: "names", label: "Names", stage: "alpha", appliesTo: "both" },
   { id: "contact", label: "Contact", stage: "alpha", appliesTo: "both" },
+  // Beside Contact rather than inside it: an address is a form whose shape is the country's, not a
+  // one-line value like an email or a number, and the two read as one list when they are not one.
+  { id: "address", label: "Address", stage: "alpha", appliesTo: "both" },
   { id: "pronouns", label: "Pronouns", stage: "alpha", appliesTo: "person" },
   { id: "dates", label: "Dates", stage: "alpha", appliesTo: "person" },
   { id: "identifiers", label: "Identifiers", stage: "alpha", appliesTo: "both" },
