@@ -144,10 +144,8 @@ export function newWriteKey(): string {
   return crypto.randomUUID();
 }
 
-/**
+/*
  * The zone a note's wall-clock time is read in, defaulted to the writer's own. The server requires
  * a zone whenever there is a time, and the browser knows the only honest default there is.
  */
-export function viewerTimeZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
+export { viewerTimeZone } from "$lib/dates";

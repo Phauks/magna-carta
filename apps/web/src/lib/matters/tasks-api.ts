@@ -10,6 +10,7 @@
  * is read, because a stored flag is stale in exactly the window where it matters. `isOverdue` below
  * is that comparison and nothing is persisted from it.
  */
+import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
 
 /** One of the matter's documents, pointed at by a task. */
@@ -322,13 +323,11 @@ export function newWriteKey(): string {
   return crypto.randomUUID();
 }
 
-/**
+/*
  * The zone a task's due date is read in, defaulted to the reader's own. The server requires a zone
  * whenever there is a date, and the browser knows the only honest default there is.
  */
-export function viewerTimeZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
+export { viewerTimeZone } from "$lib/dates";
 
 /**
  * IS THIS TASK PAST DUE — the comparison, made here because here is where somebody is reading it.
@@ -338,34 +337,16 @@ export function viewerTimeZone(): string {
  *
  * A task with a date and no time is due at the END of that civil day in its own zone: rendering it
  * as midnight would report a whole working day of tasks as already missed. The zone comparison uses
- * the same locale projection the server's resolver does, so the two agree about "Friday".
+ * the same projection the server's resolver uses (zonedReading), so the two agree about "Friday".
  */
 export function isOverdue(task: MatterTask, now: Date = new Date()): boolean {
   if (task.state !== "open" || task.dueOn === null || task.timeZone === null) return false;
-  const readingNow = civilReading(now, task.timeZone);
-  if (readingNow > task.dueOn) return true;
-  if (readingNow < task.dueOn) return false;
+  const reading = zonedReading(now.getTime(), task.timeZone);
+  if (reading.civilDate > task.dueOn) return true;
+  if (reading.civilDate < task.dueOn) return false;
   // Same civil day. Without a time the task has the rest of the day; with one, compare the clock.
   if (task.dueAtTime === null) return false;
-  return clockReading(now, task.timeZone) > task.dueAtTime;
-}
-
-function civilReading(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(instant);
-}
-
-function clockReading(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(instant);
+  return reading.wallClockTime > task.dueAtTime;
 }
 
 /** The reader-facing name of each priority. */

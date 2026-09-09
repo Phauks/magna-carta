@@ -329,7 +329,10 @@ describe("end-to-end", () => {
         "files:manageDocumentTypes",
         "files:organize",
         "files:upload",
-        // Seeded to Owner/Admin ALONE by 20260908T050000_seed-ai-settings-permission, and
+        // Writing one's own name reaches every seat, Read-only included: it is the platform's one
+        // self-scoped mutation, and every statement behind it is scoped to the session's own user id.
+        "firm:editOwnProfile",
+        // Seeded to Owner/Admin ALONE by 20260908T070000_seed-ai-settings-permission, and
         // deliberately not to the seats that hold magnus:converse: asking the assistant a
         // question is ordinary work, deciding that the firm's privileged content may leave for
         // a third-party model is not.
@@ -339,6 +342,10 @@ describe("end-to-end", () => {
         // reaches Owner/Admin only. Deliberately NOT notifications:read, which every default role
         // including Read-only carries (20260819T140000_seed-notification-policy-permission).
         "firm:manageNotificationPolicy",
+        // What the firm is CALLED to its clients. Owner/Admin alone, and its own key rather than a
+        // corner of firm:manageMembers: administering who works here and deciding what the firm is
+        // called are different acts, and the second reaches paper that has already left the building.
+        "firm:manageProfile",
         "firm:manageReleaseChannel",
         // Seeded to Owner/Admin alone by 20260907T090000_seed-report-policy-permission.
         "firm:manageReportPolicy",
@@ -691,7 +698,7 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     const platformAdminSurface = publicSurface.filter(
       (entry) => !ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string),
     );
-    expect(platformAdminSurface.map((entry) => entry.operation["operationId"]).sort()).toEqual([
+    expect(platformAdminSurface.map((entry) => entry.operation["operationId"]).toSorted()).toEqual([
       "firms.provision",
       "platform.setFirmReleaseChannel",
       "platformStatus.clearComponentOverride",
@@ -715,8 +722,8 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
           ANONYMOUS_JOINING_OPERATIONS.has(entry.operation["operationId"] as string),
         )
         .map((entry) => entry.operation["operationId"])
-        .sort(),
-    ).toEqual([...ANONYMOUS_JOINING_OPERATIONS].sort());
+        .toSorted(),
+    ).toEqual([...ANONYMOUS_JOINING_OPERATIONS].toSorted());
 
     // Every other /v1 operation is an app-surface (session cookie) operation.
     const publicOperations = new Set(publicSurface.map((entry) => entry.operation));

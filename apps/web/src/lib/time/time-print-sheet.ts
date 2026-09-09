@@ -35,6 +35,15 @@ export interface TimeSheetContext {
   readonly money: (amount: number) => string;
   /** A work date as a reader sees it. */
   readonly date: (isoDate: string) => string;
+  /**
+   * The day a recorded MOMENT fell on, as the reader sees it.
+   *
+   * Separate from `date` because the two are not the same question and differ by a day: `date`
+   * takes a day the firm wrote down and pins it to UTC so it never moves, while an instant is a day
+   * only once somebody names a zone. Passing `createdAt.slice(0, 10)` through `date` gave the UTC
+   * day and named the wrong one for every entry made after late afternoon in an American office.
+   */
+  readonly instantDate: (instant: string) => string;
   /** When the sheet was taken, already stated as an instant. */
   readonly printedAt: string;
 }
@@ -67,7 +76,7 @@ export function timeEntrySheet(
           // whose work it is and who typed it.
           ...(entry.createdAt === undefined
             ? []
-            : [{ label: "Date Entered", value: context.date(entry.createdAt.slice(0, 10)) }]),
+            : [{ label: "Date Entered", value: context.instantDate(entry.createdAt) }]),
           { label: "Timekeeper", value: timekeeperOf(entry) },
           ...(entry.createdByName === null || entry.createdByName === undefined
             ? []

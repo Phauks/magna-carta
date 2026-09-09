@@ -232,9 +232,13 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // documents:* governs in-app editing of matter-rooted file objects (the same tenancy root files:*
   // carries), so its routes carry the matter resource.
   documents: "matter",
-  // time:* governs time entries and the rate engine, all scoped to matters; the matter resource
-  // is the nearest tenancy root for every time-entry mutation and read.
-  time: "matter",
+  // time:* governs time entries and the rate engine, all scoped to matters, and the FIRM's own
+  // capture policy, which is scoped to no matter at all. The matter resource is the nearest tenancy
+  // root for every time-entry mutation and read; the firm resource is the root of the one setting a
+  // firm decides once and every capture is then measured by (the increment and the rounding
+  // direction). Two roots on the intake:* precedent immediately above, and for the same structural
+  // reason: the second half of this namespace operates on a row that has no matter to be rooted in.
+  time: ["matter", "firm"],
   // costs:* governs disbursement WIP entries, all scoped to matters; the matter resource is the
   // nearest tenancy root for every cost-entry mutation and read (mirrors the time precedent).
   costs: "matter",
@@ -1091,8 +1095,11 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "firmAiSettings.update",
       "firmNotificationPolicy.get",
       "firmNotificationPolicy.update",
+      "firmProfile.set",
       "firmReportPolicy.get",
       "firmReportPolicy.update",
+      "firmTimePolicy.get",
+      "firmTimePolicy.update",
       "firmUsage.get",
       "firms.provision",
       "folders.create",
@@ -1194,10 +1201,15 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matters.setEstate",
       "matters.update",
       "me.get",
+      "me.name",
+      "me.setName",
+      "members.deactivate",
       "members.invite",
       "members.list",
       "members.professionalProfile",
+      "members.reactivate",
       "members.setProfessionalProfile",
+      "members.setRoles",
       "meta.databaseHealth",
       "meta.versions",
       "metadata.inspect",
@@ -1247,6 +1259,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "registrations.start",
       "reports.exportRender",
       "reports.trustCompliancePack",
+      "roles.list",
       "safeBrowse.post",
       "safeBrowse.stream",
       "scan.diagnose",

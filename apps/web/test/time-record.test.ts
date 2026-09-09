@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 /*
  * The time record: what a person may type, what stops a save, and what reaches the paper.
  *
@@ -35,6 +36,9 @@ const context: TimeSheetContext = {
   matterNumber: "2026-0147",
   money: (amount) => `$${amount.toFixed(2)}`,
   date: (isoDate) => isoDate,
+  // The day an instant fell on, pinned to UTC here so the sheet reads the same on every machine.
+  // The real supplier passes formatInstantDate, which reads in the viewer's own zone instead.
+  instantDate: (instant) => civilDateOf(instant),
   printedAt: "Aug 30, 2026, 9:00 AM",
 };
 

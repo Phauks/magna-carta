@@ -38,7 +38,9 @@ import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categ
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerFirmNotificationPolicyRoutes } from "./routes/firm-notification-policy.ts";
+import { registerFirmProfileRoutes } from "./routes/firm-profile.ts";
 import { registerFirmReportPolicyRoutes } from "./routes/firm-report-policy.ts";
+import { registerFirmTimePolicyRoutes } from "./routes/firm-time-policy.ts";
 import { registerFirmAiSettingsRoutes } from "./routes/firm-ai-settings.ts";
 import { registerNotificationPreferencesRoutes } from "./routes/notification-preferences.ts";
 import { registerNotificationsRoutes } from "./routes/notifications.ts";
@@ -116,6 +118,8 @@ import { devControlPlaneMigrationMiddleware } from "./dev-control-plane-bootstra
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMetaDatabaseHealthRoute } from "./routes/meta-database-health.ts";
 import { registerMetaVersionsRoute } from "./routes/meta-versions.ts";
+import { registerMeNameRoutes } from "./routes/me-name.ts";
+import { registerMemberAdministrationRoutes } from "./routes/member-administration.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerInvitationRoutes } from "./routes/invitations.ts";
 import { registerRegistrationRoutes } from "./routes/registrations.ts";
@@ -714,6 +718,8 @@ export function createApp(options: CreateAppOptions = {}) {
   registerAiDetectionRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
+  registerMemberAdministrationRoutes(app, chokepoint);
+  registerMeNameRoutes(app, chokepoint);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   // Joining the platform: the anonymous registration pair and the invitation pair (one issued
@@ -861,7 +867,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // and the local hour the summary email lands. A firm-administration act, so it carries its own
   // permission rather than the member key beside it.
   registerFirmNotificationPolicyRoutes(app, chokepoint);
+  registerFirmProfileRoutes(app, chokepoint);
   registerFirmReportPolicyRoutes(app, chokepoint);
+  registerFirmTimePolicyRoutes(app, chokepoint);
   // The firm's AI settings: the two consent gates read by apps/api-worker/src/magnus/consent.ts,
   // plus the assistant's daily ceiling and the stated facts about the model in force. The only
   // writer of those gates — until this landed, a firm could not open either one.
@@ -977,7 +985,7 @@ export function emitOpenAPIDocument(
   }
   // Sorted on a fresh copy, not `toSorted`: that method is absent from this worker's lib target, and
   // an autofixer will offer the swap again.
-  document.tags = [...tagNames].sort().map((name) => ({ name }));
+  document.tags = [...tagNames].toSorted().map((name) => ({ name }));
   return document;
 }
 

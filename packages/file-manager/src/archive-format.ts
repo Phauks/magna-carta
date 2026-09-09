@@ -79,16 +79,3 @@ const FORMAT_NAMES: Readonly<Record<ArchiveFormat, string>> = {
 export function archiveFormatName(format: ArchiveFormat): string {
   return FORMAT_NAMES[format];
 }
-
-/**
- * Whether this platform can take a member OUT of an archive of this format, as opposed to listing
- * what is in it. Listing is a header read; extracting needs a decompressor for the format's own
- * methods, and this platform has one only for zip's stored and deflate.
- *
- * The two answers are deliberately separate. An archive whose members cannot be extracted is still
- * worth opening — seeing what a production or a client's bundle contains is most of the value — and
- * a surface that hid it because it could not also extract would be hiding the part it can do.
- */
-export function supportsExtraction(format: ArchiveFormat): boolean {
-  return format === "zip";
-}

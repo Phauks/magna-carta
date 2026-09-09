@@ -1,24 +1,31 @@
 /*
  * The settings permission seam — the one place settings pages ask "may this member edit this firm
- * area?". A pure function, no storage, no session: today it is still a mock (the member may edit
- * "billing" and nothing else), so every page posture stays demonstrable — Billing renders the
- * editable draft flow, Firm profile renders read-only. The real check reads the member's permission
- * grants when the settings areas map onto registry keys; callers keep the same call site.
+ * area?".
+ *
+ * It used to be a mock: a constant that said yes to "billing" and no to everything else, so that
+ * one page could demonstrate the editable draft flow and another the read-only one. That made every
+ * firm page's posture theatre, and it made each new page choose between the mock and a hand-rolled
+ * session read — which is why Calendar, Reports and Matter Numbering each grew their own. It now
+ * asks the session, through the shared reader every other control uses
+ * (src/lib/access/session-permissions.svelte.ts). The call sites are unchanged.
+ *
+ * AN AREA IS COARSER THAN A PERMISSION, DELIBERATELY. A section declares the area its edits belong
+ * to, and this maps the area to the capability that stands for "may set this firm's policy here".
+ * Where a page's own controls are governed by something narrower — the matter-plan editor by
+ * `tasks:managePlans`, the intake editor by `intake:manageProcedures` — the page reads that key
+ * from the session itself and this answer decides only the page's posture and the nav's "View" tag.
+ * The two never contradict each other: the server refuses on the narrow key regardless, so the
+ * worst a coarse yes can do is offer a control that is then honestly refused, and a coarse no never
+ * hides a capability the member holds because every such page checks its own key.
+ *
+ * FALSE UNTIL THE READ LANDS, and false when it fails. A settings page that renders read-only for a
+ * moment and then becomes editable is right; one that offers an edit and then refuses it is not.
  *
  * The firm ROSTER used to live here too, as a fixed cast of four invented colleagues. It does not
  * any more: the firm's own members are a real read (`$lib/members/firm-roster.svelte.ts` over
  * `GET /api/v1/members`), and a mock roster beside a real one is a second answer to who works here.
- *
- * What went with it is `administratorsForPermissionArea`, and its absence is deliberate rather than
- * pending. That function narrowed the invented roster by an invented field — which settings areas
- * each mock colleague could edit — and nothing on the server answers that question: the roster
- * carries a member's ROLES, not the settings surfaces their permissions reach. Keeping the name
- * over the real roster would have meant either returning everyone under a label that says
- * "administrators", or guessing from role names. The composer now offers the firm's colleagues with
- * each one's role beside their name and lets the person choose, which is true today; a real
- * narrowing lands when settings areas are expressed as registry permissions and the server can be
- * asked who holds one.
  */
+import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
 
 /** Mirrors SettingsSection.editPermissionArea (settings-sections.ts). */
 export type SettingsPermissionArea =
@@ -31,10 +38,29 @@ export type SettingsPermissionArea =
   | "ai";
 
 /**
- * Still the mock described above. The "calendar" area is the first whose real answer exists —
- * the session's `calendar:manage` — and its page reads that from the session directly rather than
- * through here, so the nav's "View" tag on it is the mock's answer until this seam reads grants.
+ * The capability that stands for each area — what a firm grants when it means "you may set our
+ * policy here". Each is a real registry key checked by the routes behind that area's pages.
  */
+const AREA_PERMISSIONS: Readonly<Record<SettingsPermissionArea, string>> = {
+  // The firm administering itself: who is a member, and what they hold. The Firm group's other
+  // pages carry narrower rights of their own and read them directly.
+  firm: "firm:manageMembers",
+  // The firm's billing arrangements, tax rates, numbering and account-role map.
+  billing: "billing:configure",
+  // What uploads are allowed to do — the per-firm scan policy behind File Safety.
+  documents: "firm:manageScanPolicy",
+  // Integration credentials live in the per-firm encrypted secret store, so the right to manage
+  // that store is the right to connect the firm to anything.
+  integrations: "firm:manageSecrets",
+  calendar: "calendar:manage",
+  reports: "firm:manageReportPolicy",
+  // Whether the firm's content may reach a model at all, and whether the assistant may send it.
+  // Its own key rather than firm:manageMembers: consenting to privileged client content leaving
+  // the platform is not an act of administering who works here.
+  ai: "firm:manageAiSettings",
+};
+
+/** Whether the signed-in member may edit this firm area. False until the session read lands. */
 export function canEditFirmSettings(area: SettingsPermissionArea): boolean {
-  return area === "billing";
+  return sessionPermissions.holds(AREA_PERMISSIONS[area]);
 }

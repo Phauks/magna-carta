@@ -13,8 +13,8 @@ export const MAX_NOTE_BODY_LENGTH = 20_000;
 export const MAX_NOTE_PAGE_SIZE = 50;
 export const MAX_NOTE_DOCUMENT_COUNT = 50;
 
-export const CIVIL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
-export const WALL_CLOCK_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/u;
+// The civil-date and wall-clock shapes are @magna-carta/civil-time's, not restated here. Import
+// them from there: a local copy is a shape that can be loosened on its own.
 
 // What a note says about when the thing it describes happened. All three are optional together: a
 // standing instruction ("do not call this client before 10am") records no moment at all.

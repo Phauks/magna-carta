@@ -19,6 +19,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/civil-time": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

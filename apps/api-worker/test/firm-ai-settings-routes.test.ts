@@ -90,7 +90,7 @@ beforeAll(async () => {
     firmId,
   });
   await insertMemberStatement(firmDatabase, {
-    userId: converser.userId as UserId,
+    userId: converser.userId,
     displayName: "Settings Converser",
     now: clock.now(),
   }).run();

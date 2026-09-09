@@ -177,6 +177,20 @@ export class SettingsDraft {
     return this.stagedEntries.some((entry) => entry.definition.confirm === true);
   }
 
+  /**
+   * Why this draft cannot be saved as it stands, or undefined when it can.
+   *
+   * Always undefined here: a local-storage draft takes whatever its controls produce, and a
+   * select or a switch cannot produce a value its definition does not carry. It exists on the
+   * base because the FOOTER is shared — a draft that knows a staged value will not land has to
+   * be able to say so where the Save button is, rather than letting somebody press a button that
+   * silently does nothing. The server-backed draft is the one that answers it today, for the
+   * settings a person can type a number into.
+   */
+  get saveRefusal(): string | undefined {
+    return undefined;
+  }
+
   discard(): void {
     this.#staged = {};
   }

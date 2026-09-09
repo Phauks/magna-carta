@@ -39,7 +39,8 @@
   import Textarea from "@magna-carta/design-system/textarea";
   import Separator from "@magna-carta/design-system/separator";
   import { personName } from "@magna-carta/design-system/formatters";
-  import { parseDate, type DateValue } from "@internationalized/date";
+  import type { DateValue } from "@internationalized/date";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
   import DirectoryEntityPicker from "$lib/directory/directory-entity-picker.svelte";
   import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
@@ -122,17 +123,10 @@
   );
 
   /** The typed date as a calendar date, or undefined while it is empty or half-entered. */
-  const givenOnValue = $derived.by(() => {
-    if (givenOn === "") return undefined;
-    try {
-      return parseDate(givenOn);
-    } catch {
-      return undefined;
-    }
-  });
+  const givenOnValue = $derived(civilDateValue(givenOn));
 
   function recordGivenOn(next: DateValue | undefined): void {
-    givenOn = next ? next.toString() : "";
+    givenOn = civilDateTextOrEmpty(next);
   }
 
   const refusal = $derived.by((): string | undefined => {

@@ -22,7 +22,7 @@ saved — so you can see what will be true before you save it.
 
 ## The model your content reaches
 
-Under the switches, the page states which model your content is sent to once you open the gate, the
+Under the switches, the page states which model your content may be sent to once you open the gate, the
 exact release behind any given answer, and two facts about it:
 
 - **Zero Data Retention** — the provider keeps nothing that is sent to it.

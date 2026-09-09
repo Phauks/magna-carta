@@ -22,6 +22,8 @@
 // rule structural: a type that wants to carry a sentence cannot be written, rather than being
 // written and caught in review by whoever happens to be reading carefully that day.
 
+import { CANONICAL_INSTANT_PATTERN } from "@magna-carta/civil-time/instant";
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 // The value kinds a fact may take. `enum` additionally names the labels it may take, so a fact
 // field cannot become a free-text field by declaring an open enum.
 export type FactValueKind =
@@ -39,11 +41,12 @@ export type FactsSchema = Readonly<Record<string, FactValueKind>>;
 export type FactValue = string | number | boolean;
 export type Facts = Readonly<Record<string, FactValue>>;
 
-// The canonical instant shape the whole platform sorts on. Kept exact rather than lenient: a
-// variant precision reorders a text comparison ('.' precedes 'Z' in byte order), which is a class
-// of bug no test of the ordering itself would catch.
-const CANONICAL_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// The canonical instant shape the whole platform sorts on, and the civil date. Both come from
+// @magna-carta/civil-time rather than being restated: kept exact rather than lenient, a variant
+// precision reorders a text comparison ('.' precedes 'Z' in byte order), which is a class of bug no
+// test of the ordering itself would catch.
+const CANONICAL_INSTANT = CANONICAL_INSTANT_PATTERN;
+const CIVIL_DATE = CIVIL_DATE_PATTERN;
 // A platform handle: a registered prefix, an underscore, then the generated body. The grammar does
 // not resolve the prefix against the identifier registry — that would make this module depend on
 // every producing subsystem's vocabulary — it only insists the value has the SHAPE of a handle,

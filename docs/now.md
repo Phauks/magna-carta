@@ -1,7 +1,7 @@
 # Now — the build register
 
 Every capability in the program, with its real status, and the arithmetic over the whole set. This
-is the complete register rather than a digest: all 812 nodes of the feature ledger in
+is the complete register rather than a digest: all 819 nodes of the feature ledger in
 [`roadmap.d/`](../roadmap.d/) are listed below, at the status the ledger actually holds, with
 nothing collapsed and nothing curated away.
 
@@ -21,39 +21,39 @@ is doing lives in [`ROADMAP.md`](../ROADMAP.md), and what each of the nine statu
 
 ## Where the program stands
 
-**812 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
-below. 141 of them are roll-up parents — a node another node sits beneath — and the totals here
-count the **671 that are units of work**, for the reason set out under [What a roll-up is
+**819 capabilities across 31 areas.** Every one of them is listed in [the register](#the-register)
+below. 142 of them are roll-up parents — a node another node sits beneath — and the totals here
+count the **677 that are units of work**, for the reason set out under [What a roll-up is
 not](#what-a-roll-up-is-not).
 
 ### The roll-up
 
 | Where it stands | Statuses counted | Nodes | Share |
 | --- | --- | ---: | ---: |
-| Done | shipped | 302 | 45% |
-| Part-built | partial, in-build | 125 | 19% |
-| Ahead | designed, planned, researching, not-started | 203 | 30% |
+| Done | shipped | 311 | 46% |
+| Part-built | partial, in-build | 124 | 18% |
+| Ahead | designed, planned, researching, not-started | 201 | 30% |
 | Parked | deferred, cut | 41 | 6% |
-| **All units of work** | | **671** | **100%** |
+| **All units of work** | | **677** | **100%** |
 
 ### Every status
 
 | Status | Nodes | Share |
 | --- | ---: | ---: |
-| `shipped` | 302 | 45% |
-| `partial` | 124 | 19% |
+| `shipped` | 311 | 46% |
+| `partial` | 123 | 18% |
 | `in-build` | 1 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
-| `not-started` | 137 | 20% |
+| `not-started` | 135 | 20% |
 | `deferred` | 38 | 6% |
 | `cut` | 3 | 0% |
-| **All statuses** | **671** | **100%** |
+| **All statuses** | **677** | **100%** |
 
 ### What a roll-up is not
 
-**141 of the 812 nodes are parents, and 110 of those parents are `partial`.** A parent's status is a
+**142 of the 819 nodes are parents, and 111 of those parents are `partial`.** A parent's status is a
 summary of its children, so a parent goes `partial` the moment its children stop agreeing — which
 means counting parents beside leaves does not add work, it adds the same work a second time under a
 status nobody chose. The distortion is not spread evenly either: it lands almost entirely on
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 302 of 671 (45%). Shipped plus partial is 426 (63%).**
+**Shipped alone is 311 of 677 (46%). Shipped plus partial is 434 (64%).**
 
-The 124 units between those two numbers are work that is engineered and paid for and is not
+The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -74,18 +74,18 @@ which reads a fact the status field does not hold.
 
 ### Built, and can anybody reach it
 
-**427 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
+**435 units of work have something built behind them** — `shipped`, `partial` or `in-build`. Whether
 a person can reach any of them is a different fact from how complete it is, and `status` has never
 held it: a backend nobody can open and a screen somebody uses every day are both `shipped`. The
 ledger records it separately, in `surface:`.
 
 | Reach | Units | Share of what is built |
 | --- | ---: | ---: |
-| A person can open it today (`screen`) | 85 | 20% |
-| Built — the screen is the only thing missing (`awaiting-screen`) | 163 | 38% |
-| No user surface by nature (`internal`) | 179 | 42% |
+| A person can open it today (`screen`) | 94 | 22% |
+| Built — the screen is the only thing missing (`awaiting-screen`) | 161 | 37% |
+| No user surface by nature (`internal`) | 180 | 41% |
 | Not yet classified | 0 | 0% |
-| **Everything with something built** | **427** | **100%** |
+| **Everything with something built** | **435** | **100%** |
 
 `awaiting-screen` is the program's interface debt stated directly rather than inferred from
 `partial`: capabilities that work, that are paid for, and that nobody can get to. `internal` is not
@@ -103,10 +103,10 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Conflicts Check | 6 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 8 | 75% |
 | Core Domain — Directory, Matters & Locations | 33 | 20 | 0 | 1 | 2 | 0 | 4 | 1 | 0 | 61 | 54% |
 | Custodian (Safe Custody) | 6 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | 55% |
-| Design System, UI Consistency & Design Quality | 12 | 5 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 18 | 67% |
+| Design System, UI Consistency & Design Quality | 12 | 6 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 19 | 63% |
 | Discovery (e-discovery) | 8 | 8 | 0 | 2 | 0 | 0 | 2 | 2 | 0 | 22 | 36% |
 | Document Automation | 3 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | 33% |
-| Documents | 66 | 11 | 0 | 2 | 0 | 0 | 17 | 3 | 1 | 100 | 66% |
+| Documents | 67 | 11 | 0 | 2 | 0 | 0 | 16 | 3 | 1 | 100 | 67% |
 | Exhibits and Exhibit Lists | 0 | 0 | 0 | 0 | 7 | 0 | 0 | 1 | 0 | 8 | 0% |
 | Financial Core | 21 | 19 | 0 | 11 | 0 | 0 | 8 | 3 | 0 | 62 | 34% |
 | Client Intake / CRM | 2 | 2 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 8 | 25% |
@@ -123,10 +123,10 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
 | Reports | 1 | 3 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | 11 | 9% |
 | Self-Serve Provisioning and Entitlements | 1 | 0 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 7 | 14% |
-| Settings & Configuration | 5 | 6 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | 15 | 33% |
+| Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **302** | **124** | **1** | **46** | **15** | **5** | **137** | **38** | **3** | **671** | **45%** |
+| **All areas** | **311** | **123** | **1** | **46** | **15** | **5** | **135** | **38** | **3** | **677** | **46%** |
 
 ## Where we have been
 
@@ -561,10 +561,10 @@ to change a line here, edit the node in its area file and re-run the build.
 [`roadmap.d/core-domain.md`](../roadmap.d/core-domain.md) — 61 units of work, 54% shipped. 33 done, 20 part-built, 7 ahead, 1 parked.
 
 - `directory` · `partial` · **Directory** — Single source of truth for every person and organization, modeled as a graph of entities and typed edges. _Note: Backend complete; the list, the entity window and its panes are built and owner-reviewed; edge creation, category management and the deeper edge catalog remain (docs/specs/2026-09-02-directory-linking-design.md)._
-  - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling._
+  - `directory.entities` · `partial` · **Person and Organization entities** — Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role. _Note: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling. Postal addresses have their own section over the country-shaped AddressFields component, and both panels hold one height whichever rail section is chosen (owner ruling, 2026-09-08)._
     - `directory.entities.categories` · `partial` · **Entity categories** — Per-firm classification labels (attorney, judge, court, expert, vendor, client) that are not schema variants. _Note: Backend shipped; assignment and creation are on the record's window. Archiving a category has no route yet._
     - `directory.entities.category-fields` · `partial` · **Category-specific custom fields** — Category-specific data (bar number, jurisdiction, specialty/rate) defined through the shared custom-fields engine; add-only, equal depth preserved. _Note: Engine shipped (see custom-fields.\*); field-definition and entry UI not built._
-  - `directory.names` · `partial` · **Structured names and name history** — Structured person names (prefix/first/middle/last/suffix), aliases/AKAs, maiden and former names, preferred/display name; org legal name, DBAs/trade names, former names; retained name-change history. _Note: Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. display_text and the legal/preferred roles remain._
+  - `directory.names` · `partial` · **Structured names and name history** — Structured person names (prefix/first/middle/last/suffix), aliases/AKAs, maiden and former names, preferred/display name; org legal name, DBAs/trade names, former names; retained name-change history. _Note: Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. A person is recorded with a first name and no more required — a mononym is indexed from the given name — and carries as many suffixes as they hold, comma-separated in the one column (owner ruling, 2026-09-08). display_text and the legal/preferred roles remain._
   - `directory.pronouns` · `partial` · **Pronouns on a person** — Optional, owner-entered pronouns on a Directory person — the whole declension plus verb agreement — feeding the document-assembly pronoun helpers; never inferred from a name, a title, or a gender attribute. _Note: Backend shipped and the Pronouns pane on the record screen enters them. A separate gender field is deliberately not built and is flagged for the owner._
   - `directory.edges` · `partial` · **Typed edges** — First-class typed, dated edges between entities (affiliations, relationships, representation, role assignments) with valid-from/valid-to. _Note: Backend and the record screen shipped. The tighter constituent class for the conflicts traversal waits for the conflicts pass; every constituent type is classed control meanwhile._
     - `directory.edges.affiliations` · `partial` · **Affiliations (person-org)** — Typed, dated person-to-organization links (officer, employee, partner, member, registered agent, attorney-at-firm) with per-contact flags (primary, billing, do-not-contact). _Note: The membership family is built and offered; affiliation stays for the rows already recorded. The promised per-contact flags (primary/billing/do-not-contact) are not built; contact permission and preference live on the contact points instead, and do-not-contact is a per-matter derivation by the entity-model design._
@@ -658,7 +658,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Design System, UI Consistency & Design Quality
 
-[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 18 units of work, 67% shipped. 12 done, 5 part-built, 1 ahead, 0 parked.
+[`roadmap.d/design-system.md`](../roadmap.d/design-system.md) — 19 units of work, 63% shipped. 12 done, 6 part-built, 1 ahead, 0 parked.
 
 - `design-system` · `partial` · **Design system** — UI consistency prevented by construction (tokens, one component source, CI) and design quality set by a human foundation with an enforced review step. _Note: Foundation built and merged; close-out items open (NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass)._
   - `design-system.tokens` · `partial` · **Design tokens** — Every color/spacing/radius/shadow/type/z/motion/breakpoint value a named DTCG token; no raw values elsewhere.
@@ -668,6 +668,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `design-system.tokens.per-firm-branding` · `partial` · **Per-firm branding generation** — Generated accessible palettes from firm anchor colors via the Culori engine. _Note: Engine built but unexposed to firms, matching the white paper's built-but-unexposed framing._
     - `design-system.tokens.tailwind-theme` · `shipped` · **Tailwind v4 token binding** — Tailwind configured via @theme to consume only generated tokens so off-scale values cannot be expressed naturally.
   - `design-system.components` · `shipped` · **Component library** — In-house @magna-carta/design-system styled directly on headless Bits UI v2 — the only primitives the app may compose. _Note: shadcn-svelte (original choice) replaced after an adversarial stress test; Bits scroll-lock CSP patch carried in patches/._
+    - `design-system.components.address-fields` · `partial` · **Country-shaped address fields** — One address form for the whole product whose field set, labels and order follow the country the address is in; the stored columns are the international field set, so changing the country re-labels and re-orders without moving a value between fields. _Note: Partial because the table is a curated shape rather than the full address-metadata corpus: it carries no postal-code patterns and no administrative-area lists, so it cannot validate a code or offer a state. A country nobody has entered yet takes the international form, which is honest rather than a guess. Adopting libaddressinput's dataset is the open question, and it is a dependency that goes stale monthly._
     - `design-system.components.storybook-catalog` · `shipped` · **Component catalog** — Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks. _Note: Histoire dead without Svelte 5 support, as the white paper records._
     - `design-system.components.icons` · `shipped` · **Lucide icons, no emojis** — Lucide as the only icon source; emojis banned everywhere and machine-enforced.
   - `design-system.enforcement` · `partial` · **Machine enforcement** — Lint forbids arbitrary/off-token values; catalog plus visual regression catch drift in CI.
@@ -734,7 +735,7 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Documents
 
-[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 66% shipped. 66 done, 11 part-built, 19 ahead, 4 parked.
+[`roadmap.d/documents.md`](../roadmap.d/documents.md) — 100 units of work, 67% shipped. 67 done, 11 part-built, 18 ahead, 4 parked.
 
 - `documents` · `partial` · **Documents** — Matter document storage and tooling — file manager, upload/ingest, malware scanning, editing, versioning/tiering, preview, conversion, PDF services, e-signature, bundling, OCR, repair, decryption, metadata, integrity, type verification, email parsing. _Note: Backend/engine depth far ahead of user-facing surfaces; web file surface in flight._
   - `documents.file-manager` · `partial` · **File Manager** — Navigation over the matter's versioned R2 files — folders, document types, drag/drop, bulk download, content hashing, storage metering. _Note: Backend shipped; user-facing surface is the file-surface-web stream._
@@ -753,7 +754,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.upload.quarantine` · `shipped` · **Quarantine-on-arrival** — Bytes land at their final key not visible/servable/indexed until the async ingest consumer clears them (gates, SHA-256, scan port, version commit in one read).
     - `documents.upload.archive-opacity` · `shipped` · **Opaque archive storage** — An uploaded archive is stored versioned and hashed on the matter and is never expanded on arrival — nothing walks into a container as a side effect of receiving it.
     - `documents.file-manager.archive-browse` · `shipped` · **Browse inside an archive** — Read an archive's entry listing over ranged reads of its headers, without unpacking a byte, for a live or a soft-deleted archive alike. Four formats, each decided from the object's own signature rather than its name - zip, tar, 7z and rar.
-    - `documents.file-manager.archive-extract` · `shipped` · **Extract an archive's members** — Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate. _Note: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built._
+    - `documents.file-manager.archive-extract` · `shipped` · **Extract an archive's members** — Take named members out of a stored zip, tar or 7z by ranged read, and file each on the matter through the ordinary ingest gate. One module owns the dispatch, one refusal vocabulary, the firm's caps and the per-attempt accounting, for every format at once. _Note: Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Refused by name and never silently: an encrypted member (a 7z locks them one at a time), a packing method no decoder here covers, an entry that is a link or a device rather than a file, and bytes that disagree with what the archive recorded. A rar is deliberately not extractable - listing one needs no decoder and decoding one has no memory-safe implementation to build against - and the control says so rather than refusing after the click. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built._
   - `documents.scanning` · `partial` · **Malware scanning** — Async scan of every uploaded byte behind a swappable port; verdict stored as file metadata; quarantine, never auto-delete. _Note: EICAR live check deferred (no production users yet)._
     - `documents.scanning.port` · `shipped` · **Scan port** — ScanPort seam in the file-manager package so scan engines are swappable without touching the pipeline.
     - `documents.scanning.engine` · `shipped` · **In-house scan engine (YARA + raw facts)** — YARA Forge rule packs plus a raw-facts extraction engine running in a dedicated scan container behind its own worker.
@@ -840,7 +841,7 @@ to change a line here, edit the node in its area file and re-run the build.
     - `documents.decryption.unlock` · `shipped` · **Inspect & unlock** — PDF/ZIP/OOXML inspect + unlock via a FormatAdapter, pure Rust compiled to both WASM and native.
     - `documents.decryption.recovery` · `shipped` · **Password recovery orchestration** — Durable-Object-coordinated fan-out over recovery-worker shards with a hash-only boundary (privileged bytes never leave; only hashes are distributed).
     - `documents.decryption.gpu` · `partial` · **GPU recovery rungs** — GPU-accelerated recovery tiers above the CPU shards. _Note: Partial rather than in-build: Stage 1 is built and Stage 2 is named next, with no stream open on it._
-    - `documents.decryption.ui` · `not-started` · **Unlock/recovery UI** — End-user unlock and recovery surface.
+    - `documents.decryption.ui` · `shipped` · **Unlock/recovery UI** — End-user unlock and recovery surface, and the connection from a password wall a reader actually hits (a locked PDF) to that surface.
   - `documents.metadata` · `partial` · **Metadata inspector & scrubber** — Inspect and scrub embedded metadata from files before sharing/production.
     - `documents.metadata.ooxml` · `shipped` · **OOXML metadata** — Inspect/scrub DOCX/XLSX/PPTX metadata, stateless.
     - `documents.metadata.image` · `shipped` · **Image metadata** — Inspect/scrub JPEG/PNG/TIFF metadata (EXIF et al.), stateless.
@@ -1317,25 +1318,31 @@ to change a line here, edit the node in its area file and re-run the build.
 
 ### Settings & Configuration
 
-[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 15 units of work, 33% shipped. 5 done, 6 part-built, 4 ahead, 0 parked.
+[`roadmap.d/settings.md`](../roadmap.d/settings.md) — 20 units of work, 65% shipped. 13 done, 4 part-built, 3 ahead, 0 parked.
 
 - `settings` · `partial` · **Settings & configuration framework** — Declarative settings registry, scope-chain resolution, role-gated access enforced in the data-access layer, storage placement per tenancy, and the registry-driven Settings area.
   - `settings.registry` · `partial` · **Declarative settings registry** — Each setting declared once (key, type, scope, default, access, validation, audited/effective-dated flags).
     - `settings.registry.backend-definitions` · `shipped` · **Backend firm-setting definitions** — Per-package setting definitions with validated write paths and total reads (safe defaults).
-    - `settings.registry.generated-ui` · `partial` · **Registry-generated settings pages** — One renderer generating pages from the registry — a standard page is a registry entry plus definitions.
+    - `settings.registry.generated-ui` · `partial` · **Registry-generated settings pages** — One renderer generating pages from the registry — a standard page is a registry entry plus definitions. _Note: A server-backed page composes the same rows and footer through apps/web/src/lib/settings/server-backed-draft.svelte.ts rather than settings-page.svelte, because settings-definitions.ts's committed values are local storage and firm policy may not keep a per-browser copy. Calendar and File Safety both go through it; a third such page declares a field list and writes no machinery._
+    - `settings.registry.server-backed-draft` · `shipped` · **Server-backed settings drafts** — One draft implementation for every settings page whose committed values live on the server — staging, the pending count, the confirmation recap, the save refusal, and the audited write.
   - `settings.scope-resolution` · `shipped` · **Scope chain resolution** — Most-specific-wins precedence: entity override, user, location, firm default, system default; settings opt into scopes.
-  - `settings.access-rbac` · `partial` · **Per-setting view/edit access** — Role required to view and to edit each setting, enforced server-side in the firm-scoped data-access layer, mirrored in the UI.
+  - `settings.access-rbac` · `shipped` · **Per-setting view/edit access** — Role required to view and to edit each setting, enforced server-side in the firm-scoped data-access layer, mirrored in the UI.
   - `settings.storage-placement` · `shipped` · **Storage placement (no duplication)** — Identity prefs on the control plane, per-user firm-scoped prefs on the member row, firm business settings in per-firm D1; framework registers data subsystems own.
   - `settings.change-discipline` · `partial` · **Audited & effective-dated changes** — Settings writes through the data-access layer; financial/security/firm settings audited; effective-dated where it matters.
   - `settings.area-ui` · `partial` · **The Settings area** — Banded settings navigation (My / Firm / Platform), posture badges, draft staging with confirmation recap, change-history pull-out, command-palette listing.
     - `settings.area-ui.my-account` · `partial` · **My Account (identity & security)** — Person-scoped /account secure shell: profile (name, email, avatar) and security (password, 2FA, sessions), no app chrome.
-    - `settings.area-ui.personal-preferences` · `shipped` · **Personal preferences (Theme, Accessibility, Text)** — Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast axis. _Note: The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one._
-    - `settings.area-ui.firm-band` · `partial` · **Firm settings band** — Firm Profile, Users, Matter Numbering, Billing, File Safety & Scanning as staged draft pages with Save/Cancel commit flow.
-    - `settings.area-ui.platform-band` · `partial` · **Platform band (AI and the Assistant, Beta Access, Versions, Developer)** — The firm's AI consent gates, its release-channel stance, the versioned-component ledger, and the developer master switch and console.
+      - `settings.area-ui.my-account.name` · `shipped` · **A member's own name** — The member's name as five parts (prefix, given, middle, family, suffix) with the printed line rendered from them, editable on Account · Profile and mirrored into the firm's roster. _Note: Nothing splits an existing single-line name on the server. An account that predates the columns answers partsStated false with null parts, and the screen offers splitNameForReview as a form seed the person confirms; registration carries the parts it already collects so an account created from today never meets that path._
+    - `settings.area-ui.personal-preferences` · `shipped` · **Personal preferences (Theme, Accessibility, Text)** — Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast and Scroll Edge Markers axes. _Note: Scroll Edge Markers turns off the gilt rule the sidebar and every register draw at a scroll edge, suppressed in the recipe on a root data attribute rather than threaded as a prop through both consumers and everything after them. The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one._
+    - `settings.area-ui.firm-band` · `partial` · **Firm settings band** — Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety & Scanning as pages whose posture follows the signed-in member's real capability.
+    - `settings.area-ui.billing-time-policy` · `shipped` · **Billing (time capture)** — How the firm measures the time it bills - the increment a captured duration rounds to, and the direction it rounds in. _Note: The route reads and writes the FIRM tier only; a matter, client, timekeeper or location override stands above it and is left alone, which the page states rather than leaving somebody to discover. The server takes any whole number of minutes up to an hour and the select offers the seven firms actually bill at, so a firm holding something else has its value stated rather than a control that cannot express it._
+    - `settings.area-ui.file-safety` · `shipped` · **File Safety & Scanning** — The firm's scan policy — scan depth, the suspicion threshold, what a flagged file may do, and whether opening one asks the member to confirm who they are. _Note: The suspicion threshold is a typed number. The engine publishes the score distribution of its own rule corpus (/api/v1/firm/scan-policy/score-histogram), which is what would make the threshold answerable rather than a number in a vacuum; that plotted control is its own piece of work and the plain field stands until it lands._
+    - `settings.area-ui.firm-profile` · `shipped` · **Firm Profile** — What the firm is called to its clients — the name on an invoice, in the portal, and on every generated document. _Note: The write reaches firm.display_name and never firm.name, which is the UNIQUE provisioning handle a crashed provisioning run resumes by. Instant with its own Save rather than the firm scope's draft footer — one field, and the staged-count-and-recap anatomy over a single row is more machinery than the act. An address, a telephone number and a letterhead root belong to an office and stay under Offices rather than becoming a second firm-wide answer no letterhead reads._
+    - `settings.area-ui.member-administration` · `shipped` · **Users and Roles and Permissions** — The firm's roster with its three acts (invite naming a role, change what a member holds, withdraw and restore access), and the read-only surface stating what each role allows. _Note: Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing._
+    - `settings.area-ui.platform-band` · `partial` · **Platform band (AI and the Assistant, Beta Access, Versions, Developer)** — The firm's AI consent gates, its release-channel stance, the versioned-component ledger, and the developer master switch and console. _Note: Beta Access is instant with its own consent dialog rather than the shared draft footer — entering beta takes an explicit acknowledgement the footer's generic staged-changes recap cannot express, and leaving takes none because the route asks none. A firm on the platform-only alpha channel is told so and offered no control. AI and the Assistant is draft mode, on the opposite reasoning: opening the processing gate is not a decision to make by brushing a switch._
   - `settings.control-kinds` · `shipped` · **Setting control kinds** — The closed set of controls a registered setting renders as — a dropdown for an enumeration (never a radio group), a switch for a boolean, a text field, and a bounded integer field carrying the same interval its backend schema enforces.
     - `settings.area-ui.integrations-category` · `not-started` · **Integrations settings category** — Plugin credential management UI per firm.
     - `settings.area-ui.diagnostics-category` · `not-started` · **Diagnostics settings category** — UI for the diagnostics consent/level setting.
-    - `settings.area-ui.notifications-category` · `not-started` · **Notification preferences category** — Per-user type/category-by-channel routing matrix with locked mandatory categories.
+    - `settings.area-ui.notifications-category` · `shipped` · **Notification preferences category** — Per-user type/category-by-channel routing matrix with locked mandatory categories, and the firm's own tier beside it. _Note: Neither page composes the two tiers — resolveCategoryPreference in @magna-carta/notifications stays the one place that happens, and the member rows arrive resolved with inAppLockedBy saying whether a switch may be moved and who decided. The member page renders the server's suppression tallies beside the switch that caused them, so a silenced category says what it has held back. The wire vocabulary is mirrored by hand in apps/web/src/lib/notifications/category-vocabulary.ts and checked against the emitted contract by apps/web/test/notification-category-vocabulary.test.ts; the web app deliberately does not depend on @magna-carta/notifications, whose closure would reshape the gate's computed lint scope._
     - `settings.area-ui.documents-templates-category` · `not-started` · **Documents & templates category** — Settings surface for document types and templates.
 
 ### Tasks and Workflows / Matter Plans

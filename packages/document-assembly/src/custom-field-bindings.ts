@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { effectiveNumberScale } from "@magna-carta/custom-fields/number-scale";
 import type { CustomFieldKind } from "@magna-carta/custom-fields/types";
 import { MONEY_SCALE } from "@magna-carta/money/money";
@@ -272,7 +273,7 @@ export function mergeValueForCustomField(
 // backs a `date` custom field is a bare `text` with no CHECK, so what is stored is whatever a writer
 // once put there — this is the boundary that constructs the merge value, and therefore the one place
 // the shape can be established once instead of re-asserted at each consumer.
-const ISO_CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_CALENDAR_DATE = CIVIL_DATE_PATTERN;
 
 // A `date` field stores a calendar date and renders in the matter's office time zone like every other
 // date; a `time` field stores a time of day, which has no calendar rendering, so it is text.

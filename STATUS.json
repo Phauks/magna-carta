@@ -392,7 +392,7 @@
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Archives are no longer opaque to a person: browsing one reads its headers over ranged reads and never unpacks a byte, for all four formats the platform recognises - zip, tar, 7z and rar, each decided from the object's own signature rather than its name - and extracting a member (zip) reads only that member's bytes and files it through the ordinary ingest gate. Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7. The numbering editor landed on 2026-09-06: Settings · Matter Numbering edits the matter and consultation schemes over the existing routes with a server-rendered preview, and the status window sets a matter's number by hand (only where the matter has been active; the service refuses the unnumbered rungs)."
+      "notes": "Archives are no longer opaque to a person: browsing one reads its headers over ranged reads and never unpacks a byte, for all four formats the platform recognises - zip, tar, 7z and rar, each decided from the object's own signature rather than its name - and extracting a member (zip, tar, 7z) reads only that member's bytes - or, for a 7z, only the block holding it - and files it through the ordinary ingest gate. Every extraction goes through one module that owns the format dispatch, one refusal vocabulary, the firm's caps and the record of what each attempt cost. Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7. The numbering editor landed on 2026-09-06: Settings · Matter Numbering edits the matter and consultation schemes over the existing routes with a server-rendered preview, and the status window sets a matter's number by hand (only where the matter has been active; the service refuses the unnumbered rungs)."
     },
     {
       "slice": "1·2 — `protected()` crypto module",
@@ -1803,7 +1803,8 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "todo"
+          "state": "done",
+          "by": "Sonnet 5"
         },
         "load-profile": {
           "state": "n/a"
@@ -1815,8 +1816,8 @@
         }
       },
       "branch": "main",
-      "activeWork": null,
-      "next": "GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; end-user UI (post-0·7); connect the magna-carta-recovery Worker to Workers Builds",
+      "activeWork": "docs/active-work/claude/text-document-editor-support-arvpgv.md",
+      "next": "GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; connect the magna-carta-recovery Worker to Workers Builds",
       "links": {
         "spec": "docs/specs/2026-06-26-decryption-tool-design.md",
         "plan": "docs/specs/2026-06-26-decryption-slice-2-plan-2-orchestration-implementation-plan.md",
@@ -1826,7 +1827,7 @@
         ]
       },
       "blockedBy": [],
-      "notes": "`crates/decryption-core` (pure Rust → wasm + native) behind `FormatAdapter`: unlock (`/decryption/inspect` + `/unlock`) and recover (DO-coordinated fan-out over `apps/recovery-worker` shards, `/decryption/recover*`). PDF/ZIP/OOXML; hash-only recovery boundary; GPU rungs + UI deferred."
+      "notes": "`crates/decryption-core` (pure Rust → wasm + native) behind `FormatAdapter`: unlock (`/decryption/inspect` + `/unlock`) and recover (DO-coordinated fan-out over `apps/recovery-worker` shards, `/decryption/recover*`). PDF/ZIP/OOXML; hash-only recovery boundary; GPU rungs deferred. The File Workbench's Unlock capability is now real (attest, unlock with a known password, or start a recovery search that hands off to its own addressable job screen — poll, cancel, one-time password reveal, an honest needsGpu answer rather than a spinner that never finishes). A PDF's own reader also unlocks a known password without leaving the page: `@magna-carta/pdf` already carries `inspectSecurity`/`decryptDocument`, loaded client-side in the same worker that rasterizes pages, so trying a password costs nothing server-side and a reader who does not have one is linked straight to the workbench's Unlock capability, where Recover lives."
     },
     {
       "slice": "File-manager UI primitives (FileIcon · Breadcrumb · ContextMenu · Tree · Dropzone)",
@@ -2428,6 +2429,86 @@
       },
       "blockedBy": [],
       "notes": "The Tools host every file capability is run from: the file-workbench route, a file dropped once and read by all ten. Two capabilities are real in the browser today — the file's true type, read from its leading bytes against what its name claims, and its SHA-256 and SHA-1. The eight whose engines run in a container render their own control disabled with the dependency named. The capability set is a registry, so adding one is a module and an array entry; the Overview is contributed by the modules rather than written by hand. Conversion acts on the whole selection, and offers only the formats every selected file can reach. Two rounds of owner review are recorded in `docs/conventions/file-workbench-rulings.md`; the second turned the file list into the product's one grid and moved four of its rulings into the standing set."
+    },
+    {
+      "slice": "One home for dates",
+      "group": "cross-cutting",
+      "order": 41,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "claude/date-handling-audit-xx8q3o",
+      "activeWork": "docs/active-work/claude/date-handling-audit-xx8q3o.md",
+      "next": "Owner call on whether the fifteen surfaces still on a native date input move to the DatePicker",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": [
+          "ADR-a-date-has-two-authorities-and-a-gate-that-keeps-it-so"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/civil-time` (shape) + the design system's `formatters/` (display), with `lint:date-handling` holding the line; about seventy duplicates removed, two of which had already drifted."
+    },
+    {
+      "slice": "The settings surface, wired — every stubbed section given the server behind it, from firm members and their rights through to how the firm measures the time it bills",
+      "group": "cross-cutting",
+      "order": 42,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "done"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "claude/settings-implementation-plan-asr0l6",
+      "activeWork": "docs/active-work/claude/settings-implementation-plan-asr0l6.md",
+      "next": "Retiring settings-page.svelte and the local-storage committed-value layer, which now have no call sites - blocked only on giving the read-only member's Request a change affordance a home on the server-backed pages. Also open: authoring custom roles and per-member direct grants over the schema that already carries both; Documents & templates and Integrations; Diagnostics, which wants a design before an endpoint; the account surface's remaining seams; and the histogram-plotted control the suspicion threshold wants",
+      "links": {
+        "spec": "docs/specs/2026-09-07-settings-completion-implementation-plan.md",
+        "plan": "docs/specs/2026-09-07-settings-completion-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The firm can administer its own people. `GET /api/v1/roles` reads the five seeded roles with the permissions each carries and how many active members hold it; `PUT /api/v1/members/{userId}/roles` sets what a member holds as a whole set and diffs it server-side; `POST /api/v1/members/{userId}/deactivation` and `/reactivation` withdraw and restore access without touching the record; and the invitation route accepts a role by name so a new member arrives holding something rather than nothing. Two refusals are enforced in the routes: nobody administers themselves, and a firm keeps somebody who can administer it. `/settings/users` becomes the roster with its three acts, `/settings/roles` states what each role allows in the firm's own words, and `canEditFirmSettings` stops being a constant — every firm page's posture is now the signed-in member's real capability. A member's OWN name follows: five parts on the control-plane user row with the printed line rendered from them, `GET`/`PUT /api/v1/me/name` behind the new `firm:editOwnProfile` (seeded to every role, because one's own name is not a privilege), the firm roster mirrored on every save, the parts carried through registration, and Account · Profile live over all of it. Prefix and suffix are one control across the Directory and the account alike: a suggestion list that takes several honorifics and anything typed. File Safety & Scanning follows: four real settings over GET/PATCH /api/v1/firm/scan-policy, staged through a new shared server-backed draft (apps/web/src/lib/settings/server-backed-draft.svelte.ts) that the calendar's own draft now goes through as well, so the settings surface has one implementation of server-backed staging rather than one per page. Then Notifications, both tiers at once: the member's per-category matrix under My Settings and the firm's own tier under Practice, each a table rather than a page of rows, with the composition between them left where it already lives on the server. Then Beta Access, which needed no new endpoint at all — the channel was always in the session bootstrap and the write has existed behind firm:manageReleaseChannel since release channels landed, so the page became one decision (instant, with its own consent dialog) rather than the two rows that were one fact asked twice. Firm Profile closes the band: PUT /api/v1/firm/profile behind a new firm:manageProfile seeded to Owner/Admin alone, writing firm.display_name and never the unique provisioning handle behind it, with no GET because the session already answers what the firm is called. Billing finishes the surface: GET/PATCH /api/v1/firm/time-policy behind time:manageSettings, reading and writing the FIRM tier of the increment and the rounding direction while a matter's or a timekeeper's own override stands untouched above it. With that, SETTING_DEFINITIONS - the local-storage registry every preview row used to live in - is empty, and the mode-purity fitness check was re-pointed at the whole surface with a non-vacuity guard so it keeps its teeth. And the gilt scroll-edge rule the sidebar and every register draw becomes the member's own choice (Settings - Accessibility - Scroll Edge Markers), on the theme-preference seam beside contrast, motion and density: suppressed in the recipe on a root data attribute rather than threaded as a prop through both consumers, and the one axis the no-flash boot script deliberately does not mirror."
     },
     {
       "slice": "3·1 — Time tracking + WIP + rate engine",
@@ -3298,6 +3379,44 @@
       },
       "blockedBy": [],
       "notes": "The owner reviewed the deployed screen on 2026-09-08 and the round is their list, worked end to end. Most of it is vocabulary and layout, one item is a crash, and two are real capabilities the log did not have.\n\n**The crash first, because it was not this screen's alone.** Pressing the matter field returned an error report: the picker's \"no matches\" line was a `Combobox.GroupHeading` with no `Group` above it, which throws when the listbox opens — invisible until somebody clicks a field whose list is empty or fully narrowed, which is exactly when that line renders. The same one-line defect had shipped in four pickers (matter, time zone, calendar participants, the time record window's documents) and all four are fixed. The design system had already written this down, in `undo-redo-controls.svelte`: \"Both hand-built copies of this control shipped without it.\"\n\n**Selects rendered the value the database stores.** The form opened reading `voice` and `outbound`, because bits resolves a select's label from its `items` list and neither select passed one — the labels appeared only after the listbox had been opened once. The same omission put raw channels in the matter Activity section's Type column.\n\n**A call and a text are one record and now look like one.** Type and Direction rather than Kind and Which way; the date and the time as two fields rather than one combined control; and one **Description** for both, which is the message on a text and the member's account on a call. The columns behind them stay two — `body` is what was sent and `summary` is what somebody remembered, so a read never has to ask which it is holding — but nobody typing has to care. A note recorded beside a text under the old two-field form is carried through a correction untouched rather than silently dropped. **Picture** is gone as a kind: a picture is something a text carries, so `mms` reads as Text everywhere and states what it carries beside the row. The commit is Save, and the wordy \"a call or a text needs the number at the other end\" that stood in the action bar for the whole time somebody was filling the form is now \"The number.\"\n\n**The number carries its country.** A dial-code control beside the digits, grouping as they are typed in that country's own national form, and the international form stored — which makes storing E.164 honest for the first time. The server still refuses to canonicalize on its own, because that needs a country it has no way to know; the form knows, because somebody picked it. All of it reuses `$lib/directory/phone-entry.ts` rather than re-deriving a country's grouping rules. Display reformats only what is already canonical: handing a free-text number to a parser that assumes a country turns \"ext 4102\" into \"4102\".\n\n**A row opens into the record window, and a member-produced record is correctable there** (`communications.update`; a carrier row is refused, because editing one would turn an observation into a recollection wearing an observation's badge). The window's fields ARE the entry form's, rendered by one component, so the two cannot drift. Where the record belongs stays out of those fields and lives in the action bar, because a matter and a set-aside reason each move the row between queues through their own concurrency-safe act — folding them into the field patch was built first and discarded, since it turned one Save into three writes with a partial-failure state to explain.\n\n**A call that belongs to no matter can finally be put somewhere.** `communication.disposition` — spam, firm business, nothing came of it — is the other anchor, and the unrouted queue is redefined as rows carrying neither, so it is a list that can be emptied. Nothing is deleted and nothing leaves the record; a set-aside row goes back to the queue on request, and filing one clears its reason in the same statement. The vocabulary is enforced in the domain package rather than as a CHECK, because the column lands on a populated table and SQLite cannot add a CHECK to one without the rebuild expand-contract forbids.\n\n**Two smaller things the list asked for.** An **intake** starts from a call's own record, seeded with the caller and filing the call onto the matter it opens — the matters subsystem's own window, given a prefill, rather than this screen learning to open a matter. And the search now matches the matter's title and both its numbers as well as the words and the number dialled, because \"what did we say on the Herrera file\" is the question people actually bring.\n\nThe screen moved from `/communications` to `/messaging`; the sidebar id stays `communications`, because a member's stars are stored under it. 84 tests: 45 in the package, 18 over the routes, 21 over the form's model."
+    },
+    {
+      "slice": "6·8 — Record Communication: two columns, typed choices, one phone field, and a duration worked out from the clock",
+      "group": "phase-6",
+      "order": 8,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "done"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "claude/exciting-pascal-qfr3la",
+      "activeWork": "docs/active-work/claude/exciting-pascal-qfr3la.md",
+      "next": "the right column becomes tabs — the message, a transcript, the recording — once the carrier is connected; the design system's own PhoneInput, if a package ever needs the field the app now owns",
+      "links": {
+        "spec": "docs/specs/2026-09-07-call-and-text-log-design.md",
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The owner's second round on the deployed form, worked end to end: the panel is Record Communication, laid out as the measurable beside the written, every closed choice a combobox, the country and the number one field shared with the Directory, and the duration worked out from a start and an end rather than typed. The backspace defect behind \"I cannot backspace unless I re-enter it\" was the as-you-type formatter being fed its own output."
     }
   ]
 }

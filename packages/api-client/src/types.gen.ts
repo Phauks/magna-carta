@@ -760,11 +760,91 @@ export type InviteMemberResponse = {
     id: string;
     email: string;
     name: string;
+    /**
+     * The role the invitation names, or null where it names none.
+     */
+    roleName: string | null;
 };
 
 export type InviteMemberRequest = {
     email: string;
     name: string;
+    /**
+     * A role of this firm, by name, for the invited member to hold on arrival. A name that is not one of the firm's roles is refused rather than dropped — an invitation quietly landing without the role somebody chose is worse than one that does not land.
+     */
+    roleName?: string;
+};
+
+export type FirmRoleListResponse = {
+    data: Array<FirmRole>;
+};
+
+export type FirmRole = {
+    id: string;
+    name: string;
+    /**
+     * The permission keys this role carries, in registry form. Empty where the role carries none, which is a real state rather than a missing answer.
+     */
+    permissions: Array<string>;
+    /**
+     * How many ACTIVE members hold this role — who a change to it would reach.
+     */
+    memberCount: number;
+};
+
+export type MemberRolesResponse = {
+    userId: string;
+    roleIds: Array<string>;
+};
+
+export type SetMemberRolesRequest = {
+    /**
+     * The roles this member is to hold, as a whole set rather than a change to it. The server diffs against what they hold now, so a role in both lists is never momentarily removed. An empty array leaves the member holding nothing.
+     */
+    roleIds: Array<string>;
+};
+
+export type MemberStatusResponse = {
+    userId: string;
+    status: 'active' | 'deactivated';
+};
+
+export type MemberNameResponse = {
+    parts: {
+        /**
+         * What goes before the name, as the whole line: several honorifics is ordinary, and the line as written is what is printed. Free text — the suggestions a screen offers constrain nothing.
+         */
+        prefix: string | null;
+        given: string | null;
+        middle: string | null;
+        family: string | null;
+        /**
+         * What follows the name, as the whole line — "III, Esq." is one person's suffix.
+         */
+        suffix: string | null;
+    };
+    /**
+     * The line the parts read as, and what the platform prints. Rendered from the parts where the person has stated any; otherwise the name their account was created with.
+     */
+    displayName: string;
+    /**
+     * Whether the person has ever stated their parts. False means the display name is the one line their account was created with, and a screen may offer a reading of it for them to confirm — never store one on their behalf.
+     */
+    partsStated: boolean;
+};
+
+export type SetMemberNameRequest = {
+    /**
+     * What goes before the name, as the whole line: several honorifics is ordinary, and the line as written is what is printed. Free text — the suggestions a screen offers constrain nothing.
+     */
+    prefix: string | null;
+    given: string | null;
+    middle: string | null;
+    family: string | null;
+    /**
+     * What follows the name, as the whole line — "III, Esq." is one person's suffix.
+     */
+    suffix: string | null;
 };
 
 export type SetReleaseChannelResponse = {
@@ -806,6 +886,8 @@ export type StartRegistrationRequest = {
     role?: 'account' | 'clientOfFirm' | 'firmMember' | 'foundFirm';
     email: string;
     name: string;
+    givenName?: string;
+    familyName?: string;
     /**
      * The password the person is choosing, 8-128 characters. Required for the doors that create an account (`account`, `foundFirm`); ignored by the two invitation doors, which create nothing.
      */
@@ -1733,7 +1815,7 @@ export type ExtractedArchiveMember = {
 
 export type RefusedArchiveMember = {
     path: string;
-    reason: 'archive-missing' | 'directory' | 'encrypted' | 'unsupported-compression' | 'malformed' | 'too-large' | 'expansion-ratio' | 'corrupt' | 'not-in-archive' | 'policy-size' | 'policy-type';
+    reason: 'archive-missing' | 'directory' | 'not-a-file' | 'encrypted' | 'unsupported-compression' | 'malformed' | 'too-large' | 'expansion-ratio' | 'corrupt' | 'not-in-archive' | 'policy-size' | 'policy-type';
 };
 
 export type ExtractArchiveMembersRequest = {
@@ -1894,7 +1976,7 @@ export type CreatedDirectoryEntityResponse = {
 
 export type CreateDirectoryPersonRequest = {
     given: string;
-    family: string;
+    family?: string;
     prefix?: string | null;
     middle?: string | null;
     suffix?: string | null;
@@ -2159,9 +2241,45 @@ export type DirectoryEntityListing = {
      */
     legalName: string | null;
     /**
+     * A person's first name. Null for an organization.
+     */
+    givenName: string | null;
+    /**
+     * A person's middle name, where the firm recorded one.
+     */
+    middleName: string | null;
+    /**
+     * A person's last name. Null for an organization, and null for a person who has one name — a record with no family name is one the firm keeps, not one it refuses.
+     */
+    familyName: string | null;
+    /**
+     * The record's default email address — the primary row where one is marked, else the oldest. Null where the firm holds none. Not a contact register: the record's own contact-points read is where every channel lives.
+     */
+    emailAddress: string | null;
+    /**
+     * The record's default number, exactly as it was entered and never rewritten.
+     */
+    phoneNumber: string | null;
+    /**
+     * The locality of the record's default address.
+     */
+    city: string | null;
+    /**
+     * The administrative area of the default address — state, province, prefecture — where the country has one.
+     */
+    region: string | null;
+    /**
+     * The default address's country, ISO 3166-1 alpha-2.
+     */
+    country: string | null;
+    /**
      * When the firm wrote the record down.
      */
     recordedAt: string;
+    /**
+     * When the record itself last changed. A change to something hanging off it — a name appended, an address added — does not move this.
+     */
+    changedAt: string;
 };
 
 export type DirectoryEntityDisplayNamesResponse = {
@@ -7332,6 +7450,20 @@ export type PatchFirmNotificationPolicyRequest = {
     digestLocalHour?: number;
 };
 
+export type FirmProfileResponse = {
+    /**
+     * What the firm is called to its clients — on invoices, in the portal, and on every generated document. Never the provisioning handle behind it.
+     */
+    displayName: string;
+};
+
+export type SetFirmProfileRequest = {
+    /**
+     * The firm's human-facing name. Required and non-empty: a firm with no name prints none on the documents it sends.
+     */
+    displayName: string;
+};
+
 export type FirmReportPolicyResponse = {
     trustCompliance: {
         zeroBalanceLedgers: TrustComplianceListing;
@@ -7346,6 +7478,22 @@ export type PatchFirmReportPolicyRequest = {
         zeroBalanceLedgers?: TrustComplianceListing;
         authorizers?: TrustComplianceListing;
     };
+};
+
+export type FirmTimePolicyResponse = {
+    /**
+     * The firm's minimum billing increment: what a captured duration rounds TO, in minutes. Six — a tenth of an hour — is the prevailing default. It is also what one BILLING UNIT is worth, so a firm on quarter hours and a firm on tenths mean different amounts of work by the same number of units.
+     */
+    incrementMinutes: number;
+    /**
+     * How the firm resolves a duration that falls between increments.
+     */
+    roundingDirection: 'up' | 'nearest' | 'down';
+};
+
+export type PatchFirmTimePolicyRequest = {
+    incrementMinutes?: number;
+    roundingDirection?: 'up' | 'nearest' | 'down';
 };
 
 export type FirmAiSettingsResponse = {
@@ -10621,7 +10769,7 @@ export type MembersInviteErrors = {
      */
     409: Problem;
     /**
-     * The email is already in use, or the Idempotency-Key was reused with a different payload
+     * The email is already in use, the named role is not one of this firm's, or the Idempotency-Key was reused with a different payload
      */
     422: Problem;
     /**
@@ -10640,6 +10788,279 @@ export type MembersInviteResponses = {
 };
 
 export type MembersInviteResponse = MembersInviteResponses[keyof MembersInviteResponses];
+
+export type RolesListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/roles';
+};
+
+export type RolesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is the subject of their own request
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or no such member in this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RolesListError = RolesListErrors[keyof RolesListErrors];
+
+export type RolesListResponses = {
+    /**
+     * The firm's roles, ordered by name
+     */
+    200: FirmRoleListResponse;
+};
+
+export type RolesListResponse = RolesListResponses[keyof RolesListResponses];
+
+export type MembersSetRolesData = {
+    body: SetMemberRolesRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/members/{userId}/roles';
+};
+
+export type MembersSetRolesErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is the subject of their own request
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or no such member in this firm
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MembersSetRolesError = MembersSetRolesErrors[keyof MembersSetRolesErrors];
+
+export type MembersSetRolesResponses = {
+    /**
+     * The roles the member holds after the write
+     */
+    200: MemberRolesResponse;
+};
+
+export type MembersSetRolesResponse = MembersSetRolesResponses[keyof MembersSetRolesResponses];
+
+export type MembersDeactivateData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/members/{userId}/deactivation';
+};
+
+export type MembersDeactivateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is the subject of their own request
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or no such member in this firm
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MembersDeactivateError = MembersDeactivateErrors[keyof MembersDeactivateErrors];
+
+export type MembersDeactivateResponses = {
+    /**
+     * The member's status after the write
+     */
+    200: MemberStatusResponse;
+};
+
+export type MembersDeactivateResponse = MembersDeactivateResponses[keyof MembersDeactivateResponses];
+
+export type MembersReactivateData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/members/{userId}/reactivation';
+};
+
+export type MembersReactivateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission, or is the subject of their own request
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the session member is deactivated, or no such member in this firm
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * A named role does not exist, the change would leave the firm with nobody who can administer its members, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MembersReactivateError = MembersReactivateErrors[keyof MembersReactivateErrors];
+
+export type MembersReactivateResponses = {
+    /**
+     * The member's status after the write
+     */
+    200: MemberStatusResponse;
+};
+
+export type MembersReactivateResponse = MembersReactivateResponses[keyof MembersReactivateResponses];
+
+export type MeNameData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/name';
+};
+
+export type MeNameErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, or the session member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeNameError = MeNameErrors[keyof MeNameErrors];
+
+export type MeNameResponses = {
+    /**
+     * The member's name
+     */
+    200: MemberNameResponse;
+};
+
+export type MeNameResponse = MeNameResponses[keyof MeNameResponses];
+
+export type MeSetNameData = {
+    body: SetMemberNameRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/name';
+};
+
+export type MeSetNameErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:editOwnProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the session member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request body is invalid, or every part is empty
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MeSetNameError = MeSetNameErrors[keyof MeSetNameErrors];
+
+export type MeSetNameResponses = {
+    /**
+     * The member's name after the write
+     */
+    200: MemberNameResponse;
+};
+
+export type MeSetNameResponse = MeSetNameResponses[keyof MeSetNameResponses];
 
 export type FirmSetReleaseChannelData = {
     body: SetReleaseChannelRequest;
@@ -34815,6 +35236,58 @@ export type FirmNotificationPolicyUpdateResponses = {
 
 export type FirmNotificationPolicyUpdateResponse = FirmNotificationPolicyUpdateResponses[keyof FirmNotificationPolicyUpdateResponses];
 
+export type FirmProfileSetData = {
+    body: SetFirmProfileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/profile';
+};
+
+export type FirmProfileSetErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageProfile
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The name is empty or too long, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmProfileSetError = FirmProfileSetErrors[keyof FirmProfileSetErrors];
+
+export type FirmProfileSetResponses = {
+    /**
+     * The firm's name after the write
+     */
+    200: FirmProfileResponse;
+};
+
+export type FirmProfileSetResponse = FirmProfileSetResponses[keyof FirmProfileSetResponses];
+
 export type FirmReportPolicyGetData = {
     body?: never;
     path?: never;
@@ -34903,6 +35376,95 @@ export type FirmReportPolicyUpdateResponses = {
 };
 
 export type FirmReportPolicyUpdateResponse = FirmReportPolicyUpdateResponses[keyof FirmReportPolicyUpdateResponses];
+
+export type FirmTimePolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/time-policy';
+};
+
+export type FirmTimePolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmTimePolicyGetError = FirmTimePolicyGetErrors[keyof FirmTimePolicyGetErrors];
+
+export type FirmTimePolicyGetResponses = {
+    /**
+     * The firm's time-capture policy
+     */
+    200: FirmTimePolicyResponse;
+};
+
+export type FirmTimePolicyGetResponse = FirmTimePolicyGetResponses[keyof FirmTimePolicyGetResponses];
+
+export type FirmTimePolicyUpdateData = {
+    body: PatchFirmTimePolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/time-policy';
+};
+
+export type FirmTimePolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The increment is not a whole number of minutes between 1 and 60, the direction is not one of the three, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmTimePolicyUpdateError = FirmTimePolicyUpdateErrors[keyof FirmTimePolicyUpdateErrors];
+
+export type FirmTimePolicyUpdateResponses = {
+    /**
+     * The firm's time-capture policy after the write
+     */
+    200: FirmTimePolicyResponse;
+};
+
+export type FirmTimePolicyUpdateResponse = FirmTimePolicyUpdateResponses[keyof FirmTimePolicyUpdateResponses];
 
 export type FirmAiSettingsGetData = {
     body?: never;

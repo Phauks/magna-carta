@@ -4,7 +4,9 @@ import baselineSql from "@magna-carta/database/drizzle/per-firm/20260908T000000_
 import communicationDispositionSql from "@magna-carta/database/drizzle/per-firm/20260908T022553_communication-disposition.sql";
 import feeEntryWorkInProgressStoreSql from "@magna-carta/database/drizzle/per-firm/20260908T030000_fee-entry-work-in-progress-store.sql";
 import invoiceWipClaimAdmitsAFeeSql from "@magna-carta/database/drizzle/per-firm/20260908T040000_invoice-wip-claim-admits-a-fee.sql";
-import seedAiSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20260908T050000_seed-ai-settings-permission.sql";
+import seedEditOwnProfileSql from "@magna-carta/database/drizzle/per-firm/20260908T050000_seed-edit-own-profile.sql";
+import seedManageProfileSql from "@magna-carta/database/drizzle/per-firm/20260908T060000_seed-manage-profile.sql";
+import seedAiSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20260908T070000_seed-ai-settings-permission.sql";
 
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
 // add the new import alongside its journal entry, keyed by its monotonic timestamp id. The test
@@ -15,7 +17,9 @@ export function perFirmMigrations(): Migration[] {
     "20260908T022553_communication-disposition": communicationDispositionSql,
     "20260908T030000_fee-entry-work-in-progress-store": feeEntryWorkInProgressStoreSql,
     "20260908T040000_invoice-wip-claim-admits-a-fee": invoiceWipClaimAdmitsAFeeSql,
-    "20260908T050000_seed-ai-settings-permission": seedAiSettingsPermissionSql,
+    "20260908T050000_seed-edit-own-profile": seedEditOwnProfileSql,
+    "20260908T060000_seed-manage-profile": seedManageProfileSql,
+    "20260908T070000_seed-ai-settings-permission": seedAiSettingsPermissionSql,
   });
 }
 

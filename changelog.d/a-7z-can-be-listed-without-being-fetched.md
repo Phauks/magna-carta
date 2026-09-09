@@ -3,7 +3,7 @@ category: Added
 audience: internal
 ---
 
-**A 7z archive's contents can be listed from its header alone.** `@magna-carta/seven-zip-listing`, over the new `seven-zip-listing-core` crate compiled to WebAssembly, answers names, sizes, the directory flag, timestamps and a per-member encrypted flag in the same shape the zip and tar listings already use.
+**A 7z archive's contents can be listed from its header alone.** `@magna-carta/seven-zip`, over the new `seven-zip-core` crate compiled to WebAssembly, answers names, sizes, the directory flag, timestamps and a per-member encrypted flag in the same shape the zip and tar listings already use.
 
 It costs two ranged reads, or three when the archive's file list is compressed, and nothing else however large the archive is — the property that makes listing a multi-gigabyte object cheap. A 7z keeps its file list at the END of the file and normally LZMA-compresses it, so unlike zip and tar it cannot be read with arithmetic; the crate drives `sevenz-rust2`, which this repository already builds to WRITE the 7z bundles people download, so the codec was already in the tree and already consented. The engine returns the next range it needs rather than taking a reader, which is what keeps the caller in charge of what gets fetched.
 

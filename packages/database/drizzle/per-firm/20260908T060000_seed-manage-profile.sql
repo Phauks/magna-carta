@@ -1,0 +1,12 @@
+-- Seed firm:manageProfile onto the default roles. Owner/Admin ONLY, mirroring the three firm policy
+-- keys beside it (firm:manageScanPolicy, firm:manageNotificationPolicy, firm:manageReportPolicy).
+--
+-- The firm's display name is what a client reads on an invoice, in the portal and on every
+-- generated document, so changing it reaches paper that has already left the building. That is a
+-- different act from administering who works here, which is why it is not a corner of
+-- firm:manageMembers -- a firm that lets a practice manager invite people has not thereby decided
+-- they may rename the firm to its clients.
+--
+-- The rolePermission_ handle is minted once and committed as a literal; the role_id is the
+-- Owner/Admin role from the baseline's member-rbac seed.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_manageProfileOwnAdmin', 'role_Gw-zKO8hOHQuNv2bWokMp', 'firm:manageProfile');

@@ -212,18 +212,24 @@
     </SettingsPlate>
 
     <!--
-      THE EFFECTIVE ANSWER, STATED. The two switches compose, and an assistant switched on above a
-      closed processing gate does nothing at all — a member who reads only "Magnus: On" has been
-      told it works. So the page says what the server will actually do, over the STAGED values, so
-      the sentence tracks what is about to be saved rather than what was saved last. The assistant's
-      own surface says the same thing to the member who reaches it and finds it shut; this is that
-      sentence for the person who can do something about it.
+      THE EFFECTIVE ANSWER, STATED — AND ONLY AS FAR AS THIS PAGE CAN SEE. The two switches compose,
+      and an assistant switched on above a closed processing gate does nothing at all, so a member
+      who reads only "Magnus: On" has been told it works. The sentence reads the STAGED values, so it
+      tracks what is about to be saved rather than what was saved last.
+      What it deliberately does NOT claim is that anything reaches a provider. There is a THIRD gate
+      this page cannot see: the deployment's own `MAGNUS_INFERENCE_ADAPTER`
+      (apps/api-worker/src/magnus/inference-port-binding.ts), absent by default, which resolves to a
+      stub reaching no provider — so "both switches open" means the FIRM has consented, not that
+      content is in flight. Claiming the latter would be false in every deployment where that
+      variable is unset, and on this page of all pages a confident overstatement about where client
+      content goes is the worst available error. Reporting the third gate here needs the route to
+      expose it, which is a deliberate open question, not an oversight.
     -->
     {#if draft.loaded}
       <p class="text-sm text-text-muted">
         {#if draft.magnusReachesAModel}
-          Members with permission can ask the assistant questions, and what they type is sent to the
-          model above.
+          Your firm has consented: members with permission can ask the assistant questions, and what
+          they type may be sent to the model above.
         {:else if draft.stagedValue(AI_PROCESSING_ELIGIBILITY_DEFINITION) !== true}
           Nothing is sent to any model. Third-party AI processing is off, so the assistant is off
           with it — turning Magnus on alone changes nothing.

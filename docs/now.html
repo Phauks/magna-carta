@@ -102,29 +102,29 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <div class="wrap">
 <header style="display:flex;flex-direction:column;gap:13px">
   <p class="eyebrow">Magna Carta &middot; feature ledger</p>
-  <h1>812 things, and where every one of them stands</h1>
+  <h1>819 things, and where every one of them stands</h1>
   <p class="lede">Every node in <code>roadmap.d/</code>, at its real status — not banded, not curated, not
   summarised. This is the build instrument: what is done, what is moving, what has not been started.</p>
 </header>
 
 <section style="display:flex;flex-direction:column;gap:16px">
   <div class="band">
-    <div class="k g"><span>Shipped</span><b>302</b><em>The artifact exists on main</em></div>
-    <div class="k y"><span>Part-built</span><b>125</b><em>124 partial &middot; 1 in build</em></div>
-    <div class="k n"><span>Ahead of us</span><b>203</b><em>137 not started &middot; 66 specified</em></div>
+    <div class="k g"><span>Shipped</span><b>311</b><em>The artifact exists on main</em></div>
+    <div class="k y"><span>Part-built</span><b>124</b><em>123 partial &middot; 1 in build</em></div>
+    <div class="k n"><span>Ahead of us</span><b>201</b><em>135 not started &middot; 66 specified</em></div>
     <div class="k"><span>Parked</span><b>41</b><em>38 deferred &middot; 3 cut</em></div>
   </div>
-  <div class="meter" role="img" aria-label="302 shipped, 125 part-built, 203 ahead, 41 parked, of 671">
-    <i style="flex:302;background:var(--done)"></i>
-    <i style="flex:124;background:var(--part)"></i>
+  <div class="meter" role="img" aria-label="311 shipped, 124 part-built, 201 ahead, 41 parked, of 677">
+    <i style="flex:311;background:var(--done)"></i>
+    <i style="flex:123;background:var(--part)"></i>
     <i style="flex:1;background:var(--live)"></i>
     <i style="flex:66;background:var(--plan)"></i>
-    <i style="flex:137;background:var(--todo-b)"></i>
+    <i style="flex:135;background:var(--todo-b)"></i>
     <i style="flex:41;background:var(--park-b)"></i>
   </div>
-  <p class="legend"><span><i class="sw" style="background:var(--done)"></i><b>302</b> Shipped</span><span><i class="sw" style="background:var(--part)"></i><b>124</b> Partial</span><span><i class="sw" style="background:var(--live)"></i><b>1</b> In build</span><span><i class="sw" style="background:var(--plan)"></i><b>46</b> Designed</span><span><i class="sw" style="background:var(--plan)"></i><b>15</b> Planned</span><span><i class="sw" style="background:var(--plan)"></i><b>5</b> Researching</span><span><i class="sw" style="background:var(--todo)"></i><b>137</b> Not started</span><span><i class="sw" style="background:var(--park)"></i><b>38</b> Deferred</span><span><i class="sw" style="background:var(--park)"></i><b>3</b> Cut</span></p>
-  <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Counted over the 671
-  nodes that are units of work. The other 141 are roll-up parents
+  <p class="legend"><span><i class="sw" style="background:var(--done)"></i><b>311</b> Shipped</span><span><i class="sw" style="background:var(--part)"></i><b>123</b> Partial</span><span><i class="sw" style="background:var(--live)"></i><b>1</b> In build</span><span><i class="sw" style="background:var(--plan)"></i><b>46</b> Designed</span><span><i class="sw" style="background:var(--plan)"></i><b>15</b> Planned</span><span><i class="sw" style="background:var(--plan)"></i><b>5</b> Researching</span><span><i class="sw" style="background:var(--todo)"></i><b>135</b> Not started</span><span><i class="sw" style="background:var(--park)"></i><b>38</b> Deferred</span><span><i class="sw" style="background:var(--park)"></i><b>3</b> Cut</span></p>
+  <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Counted over the 677
+  nodes that are units of work. The other 142 are roll-up parents
   &mdash; a node another node sits beneath &mdash; and a parent goes <em>partial</em> the moment its
   children stop agreeing, so counting them here would add the same work twice under a status nobody
   chose. Every node, parents included, is listed further down.</p>
@@ -133,25 +133,25 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <section class="callout">
   <h2>Read &ldquo;Partial&rdquo; carefully</h2>
   <p>It is the single most misleading number here, and it is the third largest.
-  <strong>124 units of work are partial</strong> — delivered in part, and not finished.
+  <strong>123 units of work are partial</strong> — delivered in part, and not finished.
   Counting those as progress is honest; counting them as done is not. A further
-  110 roll-up parents are also partial and are deliberately not counted: a parent is
+  111 roll-up parents are also partial and are deliberately not counted: a parent is
   partial by definition once its children disagree, so it reports its subtree rather than any work of
   its own.</p>
-  <p style="color:var(--soft)">Shipped plus partial is 426 of 671
-  (63%). Shipped alone is 45%. Which of the
+  <p style="color:var(--soft)">Shipped plus partial is 434 of 677
+  (64%). Shipped alone is 46%. Which of the
   two a reader wants is usually really a question about reach, which is the band below.</p>
 </section>
 
 <section style="display:flex;flex-direction:column;gap:14px">
   <h2>Built, and can anybody reach it</h2>
-  <p class="lede">427 units of work have something built behind them. Whether a person
+  <p class="lede">435 units of work have something built behind them. Whether a person
   can reach one is a separate fact from how complete it is, and no status holds it: a backend nobody
   can open and a screen somebody uses every day are both shipped. The ledger records it separately.</p>
   <div class="band">
-    <div class="k g"><span>Reachable</span><b>85</b><em>A person can open it in the application today.</em></div>
-    <div class="k y"><span>Waiting on a screen</span><b>163</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
-    <div class="k b"><span>Under the floor</span><b>179</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
+    <div class="k g"><span>Reachable</span><b>94</b><em>A person can open it in the application today.</em></div>
+    <div class="k y"><span>Waiting on a screen</span><b>161</b><em>It works. Nobody can get to it, because its interface is not built.</em></div>
+    <div class="k b"><span>Under the floor</span><b>180</b><em>A port, a table, a queue. Finished without a screen, and always will be.</em></div>
   </div>
   <p style="color:var(--soft);font-size:13.5px;max-width:70ch">Every one of them is classified. The middle figure is the interface debt stated directly rather than guessed at from
   <em>partial</em>: work that is engineered, paid for, and unreachable.</p>
@@ -161,8 +161,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
   <h2>By area</h2>
   <div class="scroll"><table>
     <thead><tr><th scope="col" style="text-align:left">Area</th><th scope="col">Shipped</th><th scope="col">Partial</th><th scope="col">In build</th><th scope="col">Designed</th><th scope="col">Planned</th><th scope="col">Researching</th><th scope="col">Not started</th><th scope="col">Deferred</th><th scope="col">Cut</th><th scope="col">Total</th><th scope="col">Shipped</th></tr></thead>
-    <tbody><tr><th scope="row"><a href="#area-ai.md">AI &amp; Inference</a></th><td>17</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>4</td><td>3</td><td class="zero">·</td><td class="tot">30</td><td class="bar"><span style="--p:57%"></span><em>57%</em></td></tr><tr><th scope="row"><a href="#area-auth.md">Authentication, Access Control &amp; Encryption</a></th><td>13</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td>3</td><td class="zero">·</td><td class="tot">26</td><td class="bar"><span style="--p:50%"></span><em>50%</em></td></tr><tr><th scope="row"><a href="#area-calendar.md">Calendar and Rules-Based Docketing</a></th><td>13</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">19</td><td class="bar"><span style="--p:68%"></span><em>68%</em></td></tr><tr><th scope="row"><a href="#area-communications.md">Communications Layer</a></th><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>11</td><td>1</td><td class="zero">·</td><td class="tot">17</td><td class="bar"><span style="--p:29%"></span><em>29%</em></td></tr><tr><th scope="row"><a href="#area-community.md">Community &amp; Feedback Forum</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>9</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-conflicts.md">Conflicts Check</a></th><td>6</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:75%"></span><em>75%</em></td></tr><tr><th scope="row"><a href="#area-core-domain.md">Core Domain — Directory, Matters &amp; Locations</a></th><td>33</td><td>20</td><td class="zero">·</td><td>1</td><td>2</td><td class="zero">·</td><td>4</td><td>1</td><td class="zero">·</td><td class="tot">61</td><td class="bar"><span style="--p:54%"></span><em>54%</em></td></tr><tr><th scope="row"><a href="#area-custodian.md">Custodian (Safe Custody)</a></th><td>6</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-design-system.md">Design System, UI Consistency &amp; Design Quality</a></th><td>12</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="tot">18</td><td class="bar"><span style="--p:67%"></span><em>67%</em></td></tr><tr><th scope="row"><a href="#area-discovery.md">Discovery (e-discovery)</a></th><td>8</td><td>8</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td>2</td><td class="zero">·</td><td class="tot">22</td><td class="bar"><span style="--p:36%"></span><em>36%</em></td></tr><tr><th scope="row"><a href="#area-document-automation.md">Document Automation</a></th><td>3</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">9</td><td class="bar"><span style="--p:33%"></span><em>33%</em></td></tr><tr><th scope="row"><a href="#area-documents.md">Documents</a></th><td>66</td><td>11</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>17</td><td>3</td><td>1</td><td class="tot">100</td><td class="bar"><span style="--p:66%"></span><em>66%</em></td></tr><tr><th scope="row"><a href="#area-exhibits.md">Exhibits and Exhibit Lists</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>7</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-financial.md">Financial Core</a></th><td>21</td><td>19</td><td class="zero">·</td><td>11</td><td class="zero">·</td><td class="zero">·</td><td>8</td><td>3</td><td class="zero">·</td><td class="tot">62</td><td class="bar"><span style="--p:34%"></span><em>34%</em></td></tr><tr><th scope="row"><a href="#area-intake.md">Client Intake / CRM</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:25%"></span><em>25%</em></td></tr><tr><th scope="row"><a href="#area-integrations.md">Integrations &amp; Plugins</a></th><td>16</td><td>3</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td>3</td><td>15</td><td>3</td><td class="zero">·</td><td class="tot">41</td><td class="bar"><span style="--p:39%"></span><em>39%</em></td></tr><tr><th scope="row"><a href="#area-maintenance-agents.md">Maintenance Agents</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:20%"></span><em>20%</em></td></tr><tr><th scope="row"><a href="#area-notes.md">Matter Notes and Activity</a></th><td>7</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td>1</td><td class="tot">12</td><td class="bar"><span style="--p:58%"></span><em>58%</em></td></tr><tr><th scope="row"><a href="#area-notifications.md">Notifications</a></th><td>3</td><td>7</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>3</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:21%"></span><em>21%</em></td></tr><tr><th scope="row"><a href="#area-observability.md">Observability &amp; Diagnostics</a></th><td>14</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td>2</td><td class="zero">·</td><td class="tot">20</td><td class="bar"><span style="--p:70%"></span><em>70%</em></td></tr><tr><th scope="row"><a href="#area-payments.md">Payments</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td class="tot">9</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-performance.md">Performance &amp; Concurrency</a></th><td>6</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>2</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-platform.md">Platform — Delivery, Architecture, Tenancy &amp; Data Conventions</a></th><td>31</td><td>6</td><td>1</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td>20</td><td>6</td><td>1</td><td class="tot">66</td><td class="bar"><span style="--p:47%"></span><em>47%</em></td></tr><tr><th scope="row"><a href="#area-portal.md">Client Portal</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>13</td><td>1</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-product-updates.md">Product Updates &amp; User-Facing Documentation</a></th><td>2</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>8</td><td class="zero">·</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:14%"></span><em>14%</em></td></tr><tr><th scope="row"><a href="#area-release-channels.md">Release Channels</a></th><td>7</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:88%"></span><em>88%</em></td></tr><tr><th scope="row"><a href="#area-reports.md">Reports</a></th><td>1</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:9%"></span><em>9%</em></td></tr><tr><th scope="row"><a href="#area-self-serve.md">Self-Serve Provisioning and Entitlements</a></th><td>1</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">7</td><td class="bar"><span style="--p:14%"></span><em>14%</em></td></tr><tr><th scope="row"><a href="#area-settings.md">Settings &amp; Configuration</a></th><td>5</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">15</td><td class="bar"><span style="--p:33%"></span><em>33%</em></td></tr><tr><th scope="row"><a href="#area-tasks.md">Tasks and Workflows / Matter Plans</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">4</td><td class="bar"><span style="--p:50%"></span><em>50%</em></td></tr><tr><th scope="row"><a href="#area-translation.md">Translation Services</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">6</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr></tbody>
-    <tfoot><tr><th scope="row" style="text-align:left">All areas</th><td>302</td><td>124</td><td>1</td><td>46</td><td>15</td><td>5</td><td>137</td><td>38</td><td>3</td><td class="tot">671</td><td>45%</td></tr></tfoot>
+    <tbody><tr><th scope="row"><a href="#area-ai.md">AI &amp; Inference</a></th><td>17</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>4</td><td>3</td><td class="zero">·</td><td class="tot">30</td><td class="bar"><span style="--p:57%"></span><em>57%</em></td></tr><tr><th scope="row"><a href="#area-auth.md">Authentication, Access Control &amp; Encryption</a></th><td>13</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td>3</td><td class="zero">·</td><td class="tot">26</td><td class="bar"><span style="--p:50%"></span><em>50%</em></td></tr><tr><th scope="row"><a href="#area-calendar.md">Calendar and Rules-Based Docketing</a></th><td>13</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">19</td><td class="bar"><span style="--p:68%"></span><em>68%</em></td></tr><tr><th scope="row"><a href="#area-communications.md">Communications Layer</a></th><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>11</td><td>1</td><td class="zero">·</td><td class="tot">17</td><td class="bar"><span style="--p:29%"></span><em>29%</em></td></tr><tr><th scope="row"><a href="#area-community.md">Community &amp; Feedback Forum</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>9</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-conflicts.md">Conflicts Check</a></th><td>6</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:75%"></span><em>75%</em></td></tr><tr><th scope="row"><a href="#area-core-domain.md">Core Domain — Directory, Matters &amp; Locations</a></th><td>33</td><td>20</td><td class="zero">·</td><td>1</td><td>2</td><td class="zero">·</td><td>4</td><td>1</td><td class="zero">·</td><td class="tot">61</td><td class="bar"><span style="--p:54%"></span><em>54%</em></td></tr><tr><th scope="row"><a href="#area-custodian.md">Custodian (Safe Custody)</a></th><td>6</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-design-system.md">Design System, UI Consistency &amp; Design Quality</a></th><td>12</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="tot">19</td><td class="bar"><span style="--p:63%"></span><em>63%</em></td></tr><tr><th scope="row"><a href="#area-discovery.md">Discovery (e-discovery)</a></th><td>8</td><td>8</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td>2</td><td class="zero">·</td><td class="tot">22</td><td class="bar"><span style="--p:36%"></span><em>36%</em></td></tr><tr><th scope="row"><a href="#area-document-automation.md">Document Automation</a></th><td>3</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">9</td><td class="bar"><span style="--p:33%"></span><em>33%</em></td></tr><tr><th scope="row"><a href="#area-documents.md">Documents</a></th><td>67</td><td>11</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>16</td><td>3</td><td>1</td><td class="tot">100</td><td class="bar"><span style="--p:67%"></span><em>67%</em></td></tr><tr><th scope="row"><a href="#area-exhibits.md">Exhibits and Exhibit Lists</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>7</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-financial.md">Financial Core</a></th><td>21</td><td>19</td><td class="zero">·</td><td>11</td><td class="zero">·</td><td class="zero">·</td><td>8</td><td>3</td><td class="zero">·</td><td class="tot">62</td><td class="bar"><span style="--p:34%"></span><em>34%</em></td></tr><tr><th scope="row"><a href="#area-intake.md">Client Intake / CRM</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:25%"></span><em>25%</em></td></tr><tr><th scope="row"><a href="#area-integrations.md">Integrations &amp; Plugins</a></th><td>16</td><td>3</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td>3</td><td>15</td><td>3</td><td class="zero">·</td><td class="tot">41</td><td class="bar"><span style="--p:39%"></span><em>39%</em></td></tr><tr><th scope="row"><a href="#area-maintenance-agents.md">Maintenance Agents</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="tot">10</td><td class="bar"><span style="--p:20%"></span><em>20%</em></td></tr><tr><th scope="row"><a href="#area-notes.md">Matter Notes and Activity</a></th><td>7</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td>1</td><td class="tot">12</td><td class="bar"><span style="--p:58%"></span><em>58%</em></td></tr><tr><th scope="row"><a href="#area-notifications.md">Notifications</a></th><td>3</td><td>7</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>3</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:21%"></span><em>21%</em></td></tr><tr><th scope="row"><a href="#area-observability.md">Observability &amp; Diagnostics</a></th><td>14</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>4</td><td>2</td><td class="zero">·</td><td class="tot">20</td><td class="bar"><span style="--p:70%"></span><em>70%</em></td></tr><tr><th scope="row"><a href="#area-payments.md">Payments</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td class="tot">9</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-performance.md">Performance &amp; Concurrency</a></th><td>6</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td>2</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:55%"></span><em>55%</em></td></tr><tr><th scope="row"><a href="#area-platform.md">Platform — Delivery, Architecture, Tenancy &amp; Data Conventions</a></th><td>31</td><td>6</td><td>1</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td>20</td><td>6</td><td>1</td><td class="tot">66</td><td class="bar"><span style="--p:47%"></span><em>47%</em></td></tr><tr><th scope="row"><a href="#area-portal.md">Client Portal</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>13</td><td>1</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr><tr><th scope="row"><a href="#area-product-updates.md">Product Updates &amp; User-Facing Documentation</a></th><td>2</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>8</td><td class="zero">·</td><td class="zero">·</td><td class="tot">14</td><td class="bar"><span style="--p:14%"></span><em>14%</em></td></tr><tr><th scope="row"><a href="#area-release-channels.md">Release Channels</a></th><td>7</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">8</td><td class="bar"><span style="--p:88%"></span><em>88%</em></td></tr><tr><th scope="row"><a href="#area-reports.md">Reports</a></th><td>1</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td>2</td><td class="zero">·</td><td class="tot">11</td><td class="bar"><span style="--p:9%"></span><em>9%</em></td></tr><tr><th scope="row"><a href="#area-self-serve.md">Self-Serve Provisioning and Entitlements</a></th><td>1</td><td class="zero">·</td><td class="zero">·</td><td>6</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">7</td><td class="bar"><span style="--p:14%"></span><em>14%</em></td></tr><tr><th scope="row"><a href="#area-settings.md">Settings &amp; Configuration</a></th><td>13</td><td>4</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>3</td><td class="zero">·</td><td class="zero">·</td><td class="tot">20</td><td class="bar"><span style="--p:65%"></span><em>65%</em></td></tr><tr><th scope="row"><a href="#area-tasks.md">Tasks and Workflows / Matter Plans</a></th><td>2</td><td>2</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td class="tot">4</td><td class="bar"><span style="--p:50%"></span><em>50%</em></td></tr><tr><th scope="row"><a href="#area-translation.md">Translation Services</a></th><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>5</td><td class="zero">·</td><td class="zero">·</td><td class="zero">·</td><td>1</td><td class="zero">·</td><td class="tot">6</td><td class="bar"><span style="--p:0%"></span><em>0%</em></td></tr></tbody>
+    <tfoot><tr><th scope="row" style="text-align:left">All areas</th><td>311</td><td>123</td><td>1</td><td>46</td><td>15</td><td>5</td><td>135</td><td>38</td><td>3</td><td class="tot">677</td><td>46%</td></tr></tfoot>
   </table></div>
 </section>
 
@@ -177,13 +177,13 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 
 <section style="display:flex;flex-direction:column;gap:6px">
   <h2>Every node</h2>
-  <p class="lede">All 812, in ledger order, indented by depth. Filter by status or search the
+  <p class="lede">All 819, in ledger order, indented by depth. Filter by status or search the
   names, ids and scope text.</p>
   <div class="controls">
-    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>320</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>234</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>1</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>52</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>16</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>142</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>38</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>3</b></button>
+    <button class="f" data-s="shipped" aria-pressed="false">Shipped <b>329</b></button><button class="f" data-s="partial" aria-pressed="false">Partial <b>234</b></button><button class="f" data-s="in-build" aria-pressed="false">In build <b>1</b></button><button class="f" data-s="designed" aria-pressed="false">Designed <b>52</b></button><button class="f" data-s="planned" aria-pressed="false">Planned <b>16</b></button><button class="f" data-s="researching" aria-pressed="false">Researching <b>6</b></button><button class="f" data-s="not-started" aria-pressed="false">Not started <b>140</b></button><button class="f" data-s="deferred" aria-pressed="false">Deferred <b>38</b></button><button class="f" data-s="cut" aria-pressed="false">Cut <b>3</b></button>
     <button class="f" id="clear" aria-pressed="true">All</button>
     <input id="q" type="search" placeholder="Search names, ids, scope" aria-label="Search the register">
-    <span id="hits">812 shown</span>
+    <span id="hits">819 shown</span>
   </div>
 <section class="area" id="area-ai.md">
 <h3>AI &amp; Inference <span class="ac">17 of 30 shipped</span></h3>
@@ -943,7 +943,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Person and Organization entities</span>
 <code>directory.entities</code>
 <p>Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role.</p>
-<p class="note">Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling.</p>
+<p class="note">Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling. Postal addresses have their own section over the country-shaped AddressFields component, and both panels hold one height whichever rail section is chosen (owner ruling, 2026-09-08).</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Entity categories</span>
@@ -961,7 +961,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Structured names and name history</span>
 <code>directory.names</code>
 <p>Structured person names (prefix/first/middle/last/suffix), aliases/AKAs, maiden and former names, preferred/display name; org legal name, DBAs/trade names, former names; retained name-change history.</p>
-<p class="note">Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. display_text and the legal/preferred roles remain.</p>
+<p class="note">Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. A person is recorded with a first name and no more required — a mononym is indexed from the given name — and carries as many suffixes as they hold, comma-separated in the one column (owner ruling, 2026-09-08). display_text and the legal/preferred roles remain.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Pronouns on a person</span>
@@ -1466,7 +1466,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 </li></ol>
 </section>
 <section class="area" id="area-design-system.md">
-<h3>Design System, UI Consistency &amp; Design Quality <span class="ac">12 of 18 shipped</span></h3>
+<h3>Design System, UI Consistency &amp; Design Quality <span class="ac">12 of 19 shipped</span></h3>
 <ol class="nodes"><li class="n d0" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Design system</span>
@@ -1510,6 +1510,12 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <code>design-system.components</code>
 <p>In-house @magna-carta/design-system styled directly on headless Bits UI v2 — the only primitives the app may compose.</p>
 <p class="note">shadcn-svelte (original choice) replaced after an adversarial stress test; Bits scroll-lock CSP patch carried in patches/.</p>
+</li><li class="n d2" data-s="partial">
+<span class="chip part">Partial</span>
+<span class="nm">Country-shaped address fields</span>
+<code>design-system.components.address-fields</code>
+<p>One address form for the whole product whose field set, labels and order follow the country the address is in; the stored columns are the international field set, so changing the country re-labels and re-orders without moving a value between fields.</p>
+<p class="note">Partial because the table is a curated shape rather than the full address-metadata corpus: it carries no postal-code patterns and no administrative-area lists, so it cannot validate a code or offer a state. A country nobody has entered yet takes the international form, which is honest rather than a guess. Adopting libaddressinput's dataset is the open question, and it is a dependency that goes stale monthly.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Component catalog</span>
@@ -1821,7 +1827,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 </li></ol>
 </section>
 <section class="area" id="area-documents.md">
-<h3>Documents <span class="ac">66 of 100 shipped</span></h3>
+<h3>Documents <span class="ac">67 of 100 shipped</span></h3>
 <ol class="nodes"><li class="n d0" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Documents</span>
@@ -1917,8 +1923,8 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="chip done">Shipped</span>
 <span class="nm">Extract an archive's members</span>
 <code>documents.file-manager.archive-extract</code>
-<p>Take named members out of a stored zip by ranged read and inflate, and file each on the matter through the ordinary ingest gate.</p>
-<p class="note">Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Encrypted members, methods other than stored and deflate, and members whose bytes disagree with the archive's own record are refused by name. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built.</p>
+<p>Take named members out of a stored zip, tar or 7z by ranged read, and file each on the matter through the ordinary ingest gate. One module owns the dispatch, one refusal vocabulary, the firm's caps and the per-attempt accounting, for every format at once.</p>
+<p class="note">Every member re-enters through the scan gate with no declared type, so an archive is never a way past the checks. Refused by name and never silently: an encrypted member (a 7z locks them one at a time), a packing method no decoder here covers, an entry that is a link or a device rather than a file, and bytes that disagree with what the archive recorded. A rar is deliberately not extractable - listing one needs no decoder and decoding one has no memory-safe implementation to build against - and the control says so rather than refusing after the click. The destination is the archive's own folder; the folder picker the deleted-archive restore ruling describes is not built.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Malware scanning</span>
@@ -2378,11 +2384,11 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <code>documents.decryption.gpu</code>
 <p>GPU-accelerated recovery tiers above the CPU shards.</p>
 <p class="note">Partial rather than in-build: Stage 1 is built and Stage 2 is named next, with no stream open on it.</p>
-</li><li class="n d2" data-s="not-started">
-<span class="chip todo">Not started</span>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
 <span class="nm">Unlock/recovery UI</span>
 <code>documents.decryption.ui</code>
-<p>End-user unlock and recovery surface.</p>
+<p>End-user unlock and recovery surface, and the connection from a password wall a reader actually hits (a locked PDF) to that surface.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Metadata inspector &amp; scrubber</span>
@@ -4612,7 +4618,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 </li></ol>
 </section>
 <section class="area" id="area-settings.md">
-<h3>Settings &amp; Configuration <span class="ac">5 of 15 shipped</span></h3>
+<h3>Settings &amp; Configuration <span class="ac">13 of 20 shipped</span></h3>
 <ol class="nodes"><li class="n d0" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Settings &amp; configuration framework</span>
@@ -4633,13 +4639,19 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Registry-generated settings pages</span>
 <code>settings.registry.generated-ui</code>
 <p>One renderer generating pages from the registry — a standard page is a registry entry plus definitions.</p>
+<p class="note">A server-backed page composes the same rows and footer through apps/web/src/lib/settings/server-backed-draft.svelte.ts rather than settings-page.svelte, because settings-definitions.ts's committed values are local storage and firm policy may not keep a per-browser copy. Calendar and File Safety both go through it; a third such page declares a field list and writes no machinery.</p>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">Server-backed settings drafts</span>
+<code>settings.registry.server-backed-draft</code>
+<p>One draft implementation for every settings page whose committed values live on the server — staging, the pending count, the confirmation recap, the save refusal, and the audited write.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Scope chain resolution</span>
 <code>settings.scope-resolution</code>
 <p>Most-specific-wins precedence: entity override, user, location, firm default, system default; settings opt into scopes.</p>
-</li><li class="n d1" data-s="partial">
-<span class="chip part">Partial</span>
+</li><li class="n d1" data-s="shipped">
+<span class="chip done">Shipped</span>
 <span class="nm">Per-setting view/edit access</span>
 <code>settings.access-rbac</code>
 <p>Role required to view and to edit each setting, enforced server-side in the firm-scoped data-access layer, mirrored in the UI.</p>
@@ -4663,22 +4675,53 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">My Account (identity &amp; security)</span>
 <code>settings.area-ui.my-account</code>
 <p>Person-scoped /account secure shell: profile (name, email, avatar) and security (password, 2FA, sessions), no app chrome.</p>
+</li><li class="n d3" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">A member's own name</span>
+<code>settings.area-ui.my-account.name</code>
+<p>The member's name as five parts (prefix, given, middle, family, suffix) with the printed line rendered from them, editable on Account · Profile and mirrored into the firm's roster.</p>
+<p class="note">Nothing splits an existing single-line name on the server. An account that predates the columns answers partsStated false with null parts, and the screen offers splitNameForReview as a form seed the person confirms; registration carries the parts it already collects so an account created from today never meets that path.</p>
 </li><li class="n d2" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Personal preferences (Theme, Accessibility, Text)</span>
 <code>settings.area-ui.personal-preferences</code>
-<p>Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast axis.</p>
-<p class="note">The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one.</p>
+<p>Apply-immediately user settings with cross-tab sync; real end-to-end High Contrast and Scroll Edge Markers axes.</p>
+<p class="note">Scroll Edge Markers turns off the gilt rule the sidebar and every register draw at a scroll edge, suppressed in the recipe on a root data attribute rather than threaded as a prop through both consumers and everything after them. The High Contrast axis is end to end as a PREFERENCE — seed-then-own from prefers-contrast, persisted, and stamped on the document as data-contrast="high" — but only two components answer it (the checkbox and the switch), and the token layer's high-contrast context is deliberately unpopulated, so the axis is a working switch over a mostly unwritten theme rather than a finished one.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Firm settings band</span>
 <code>settings.area-ui.firm-band</code>
-<p>Firm Profile, Users, Matter Numbering, Billing, File Safety &amp; Scanning as staged draft pages with Save/Cancel commit flow.</p>
+<p>Firm Profile, Users, Roles and Permissions, Matter Numbering, Billing, File Safety &amp; Scanning as pages whose posture follows the signed-in member's real capability.</p>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">Billing (time capture)</span>
+<code>settings.area-ui.billing-time-policy</code>
+<p>How the firm measures the time it bills - the increment a captured duration rounds to, and the direction it rounds in.</p>
+<p class="note">The route reads and writes the FIRM tier only; a matter, client, timekeeper or location override stands above it and is left alone, which the page states rather than leaving somebody to discover. The server takes any whole number of minutes up to an hour and the select offers the seven firms actually bill at, so a firm holding something else has its value stated rather than a control that cannot express it.</p>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">File Safety &amp; Scanning</span>
+<code>settings.area-ui.file-safety</code>
+<p>The firm's scan policy — scan depth, the suspicion threshold, what a flagged file may do, and whether opening one asks the member to confirm who they are.</p>
+<p class="note">The suspicion threshold is a typed number. The engine publishes the score distribution of its own rule corpus (/api/v1/firm/scan-policy/score-histogram), which is what would make the threshold answerable rather than a number in a vacuum; that plotted control is its own piece of work and the plain field stands until it lands.</p>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">Firm Profile</span>
+<code>settings.area-ui.firm-profile</code>
+<p>What the firm is called to its clients — the name on an invoice, in the portal, and on every generated document.</p>
+<p class="note">The write reaches firm.display_name and never firm.name, which is the UNIQUE provisioning handle a crashed provisioning run resumes by. Instant with its own Save rather than the firm scope's draft footer — one field, and the staged-count-and-recap anatomy over a single row is more machinery than the act. An address, a telephone number and a letterhead root belong to an office and stay under Offices rather than becoming a second firm-wide answer no letterhead reads.</p>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
+<span class="nm">Users and Roles and Permissions</span>
+<code>settings.area-ui.member-administration</code>
+<p>The firm's roster with its three acts (invite naming a role, change what a member holds, withdraw and restore access), and the read-only surface stating what each role allows.</p>
+<p class="note">Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing.</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Platform band (AI and the Assistant, Beta Access, Versions, Developer)</span>
 <code>settings.area-ui.platform-band</code>
 <p>The firm's AI consent gates, its release-channel stance, the versioned-component ledger, and the developer master switch and console.</p>
+<p class="note">Beta Access is instant with its own consent dialog rather than the shared draft footer — entering beta takes an explicit acknowledgement the footer's generic staged-changes recap cannot express, and leaving takes none because the route asks none. A firm on the platform-only alpha channel is told so and offered no control. AI and the Assistant is draft mode, on the opposite reasoning: opening the processing gate is not a decision to make by brushing a switch.</p>
 </li><li class="n d1" data-s="shipped">
 <span class="chip done">Shipped</span>
 <span class="nm">Setting control kinds</span>
@@ -4694,11 +4737,12 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Diagnostics settings category</span>
 <code>settings.area-ui.diagnostics-category</code>
 <p>UI for the diagnostics consent/level setting.</p>
-</li><li class="n d2" data-s="not-started">
-<span class="chip todo">Not started</span>
+</li><li class="n d2" data-s="shipped">
+<span class="chip done">Shipped</span>
 <span class="nm">Notification preferences category</span>
 <code>settings.area-ui.notifications-category</code>
-<p>Per-user type/category-by-channel routing matrix with locked mandatory categories.</p>
+<p>Per-user type/category-by-channel routing matrix with locked mandatory categories, and the firm's own tier beside it.</p>
+<p class="note">Neither page composes the two tiers — resolveCategoryPreference in @magna-carta/notifications stays the one place that happens, and the member rows arrive resolved with inAppLockedBy saying whether a switch may be moved and who decided. The member page renders the server's suppression tallies beside the switch that caused them, so a silenced category says what it has held back. The wire vocabulary is mirrored by hand in apps/web/src/lib/notifications/category-vocabulary.ts and checked against the emitted contract by apps/web/test/notification-category-vocabulary.test.ts; the web app deliberately does not depend on @magna-carta/notifications, whose closure would reshape the gate's computed lint scope.</p>
 </li><li class="n d2" data-s="not-started">
 <span class="chip todo">Not started</span>
 <span class="nm">Documents &amp; templates category</span>

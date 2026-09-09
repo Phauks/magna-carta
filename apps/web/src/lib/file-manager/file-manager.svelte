@@ -95,7 +95,10 @@
     archivePathSegments,
     type ArchiveRow,
   } from "./archive-browse.ts";
-  import { looksLikeBrowsableArchive } from "./archive-names.ts";
+  import {
+    looksLikeBrowsableArchive,
+    nameSuggestsExtractableArchive,
+  } from "./archive-names.ts";
   import { extractionSentence, runExtraction } from "./archive-extraction.ts";
   import { uploadIntoFolder } from "./file-upload.ts";
   import { matterUploadRevision, startUploadBatch } from "./upload-queue.svelte.ts";
@@ -1413,8 +1416,17 @@
     readonly fileName: string;
     /** Entered from Deleted Files. Browsing restores nothing, and the bar says where it came from. */
     readonly deleted: boolean;
-    /** The zip's own safety check has not come back clean, which the reader sees before trusting it. */
+    /** The archive's own safety check has not come back clean, which the reader sees before trusting it. */
     readonly unscanned: boolean;
+  }
+
+  /**
+   * Whether this archive's members can be taken out, as opposed to only looked at. A rar lists from
+   * its headers and cannot be unpacked here, so the control says that rather than being offered and
+   * then refusing.
+   */
+  function archiveIsExtractable(): boolean {
+    return archiveBrowse !== null && nameSuggestsExtractableArchive(archiveBrowse.fileName);
   }
 
   let archiveBrowse = $state<ArchiveBrowseState | null>(null);
@@ -1477,6 +1489,14 @@
    * reader sees afterwards is what actually landed rather than what was asked for.
    */
   let extracting = $state(false);
+
+  /**
+   * Why Extract is off for a rar. Stated rather than left silent, because a control that is off and
+   * says nothing is the reader's problem to solve and this one has a plain answer.
+   */
+  const NOT_EXTRACTABLE_REASON =
+    "What is inside this archive can be read, but its files cannot be taken out here. Download " +
+    "the archive to open it.";
 
   async function extract(paths: readonly string[]): Promise<void> {
     const archive = archiveBrowse;
@@ -2153,7 +2173,8 @@
     <Button
       variant="secondary"
       size="sm"
-      disabled={extracting}
+      disabled={extracting || !archiveIsExtractable()}
+      title={archiveIsExtractable() ? undefined : NOT_EXTRACTABLE_REASON}
       onclick={() => void extract(archiveGrid.selectedKeys)}
     >
       {extracting ? "Extracting" : `Extract ${countPhrase(archiveGrid.selectedKeys.length, "Item")}`}
@@ -2162,10 +2183,15 @@
     <Button
       variant="secondary"
       size="sm"
-      disabled={extracting || archiveLoading || everyArchiveMemberPath().length === 0}
-      title={everyArchiveMemberPath().length === 0
-        ? "This archive holds no files to extract."
-        : undefined}
+      disabled={extracting ||
+        archiveLoading ||
+        !archiveIsExtractable() ||
+        everyArchiveMemberPath().length === 0}
+      title={!archiveIsExtractable()
+        ? NOT_EXTRACTABLE_REASON
+        : everyArchiveMemberPath().length === 0
+          ? "This archive holds no files to extract."
+          : undefined}
       onclick={() => void extract(everyArchiveMemberPath())}
     >
       {extracting ? "Extracting" : "Extract Into This Matter"}

@@ -1,3 +1,5 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
+import { WALL_CLOCK_TIME_PATTERN } from "@magna-carta/civil-time/wall-clock";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -71,8 +73,8 @@ const READ = "tasks:read" as const;
 const WRITE = "tasks:write" as const;
 const ASSIGN = "tasks:assign" as const;
 
-const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const WALL_CLOCK_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const CIVIL_DATE = CIVIL_DATE_PATTERN;
+const WALL_CLOCK_TIME = WALL_CLOCK_TIME_PATTERN;
 
 // ---- contracts ----
 

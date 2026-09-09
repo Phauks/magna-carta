@@ -11,6 +11,8 @@
  * "Today" is the one fact that needs a zone, and it is the READER'S: the today mark answers where
  * the reader is, and it is resolved once through Intl rather than taken from any row.
  */
+import { formatDateRange, formatMonth } from "@magna-carta/design-system/formatters";
+import { isCivilDate } from "$lib/dates";
 import {
   CalendarDate,
   endOfMonth,
@@ -38,7 +40,6 @@ export interface CalendarWindow {
   readonly to: string;
 }
 
-const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** The locale used for week arithmetic only; the first day of the week is passed explicitly. */
 const WEEK_LOCALE = "en-US";
 /**
@@ -52,16 +53,14 @@ function firstDayOf(weekStartsOn: WeekStart): "sun" | "mon" {
   return weekStartsOn === 1 ? "mon" : "sun";
 }
 
-/** True for a well-formed civil date the calendar can read. */
-export function isCivilDate(text: string | null | undefined): text is string {
-  if (typeof text !== "string" || !CIVIL_DATE.test(text)) return false;
-  try {
-    parseDate(text);
-    return true;
-  } catch {
-    return false;
-  }
-}
+/*
+ * True for a well-formed civil date the calendar can read.
+ *
+ * Re-exported under this module's own name rather than reimplemented: this was the app's copy of a
+ * check that also existed in packages/conflicts, packages/ledger, packages/notes and
+ * packages/tasks, and the browser agreeing with the route about what a date is is the whole point.
+ */
+export { isCivilDate };
 
 /** True for one of the three view names. */
 export function isCalendarView(text: string | null | undefined): text is CalendarView {
@@ -142,18 +141,9 @@ export function civilDateAsUtc(civilDate: string): Date {
  */
 export function windowTitle(window: CalendarWindow, locale?: string): string {
   if (window.view === "month") {
-    return new Intl.DateTimeFormat(locale, {
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC",
-    }).format(civilDateAsUtc(window.anchor));
+    return formatMonth(civilDateAsUtc(window.anchor), { locale });
   }
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).formatRange(civilDateAsUtc(window.from), civilDateAsUtc(window.to));
+  return formatDateRange(civilDateAsUtc(window.from), civilDateAsUtc(window.to), { locale });
 }
 
 /** Whether a civil date falls inside the window, inclusive at both ends. */
