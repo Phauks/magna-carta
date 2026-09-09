@@ -32,17 +32,18 @@ The button is unavailable when yours is the only session, because there would be
 
 **Sign out of this device**
 
-Your initials at the top right, then **Sign out**. See [Signing in and out](signing-in.md).
+Not from this page — Account Settings has its own stripped header, with only the Magna Carta mark and a **Close** button. Select **Close** (the X, top right) to return to where you came from, then your initials at the top right, then **Sign out**. See [Signing in and out](signing-in.md).
 
 ## Tips and edge cases
 
 - **A device you sign out here can take up to five minutes to be turned away.** It stops being able to sign in again immediately, but a request already on its way may still be answered for a few minutes. This is normal and the screen says so.
-- **If you think somebody else has your account, change your password as well.** Signing their device out is only half of it — a password they know lets them start a new session a moment later. Password changes live under **Account → Security**.
+- **If you think somebody else has your account, reset your password as well.** Signing their device out is only half of it — a password they know lets them start a new session a moment later. Use **Forgot Password** on the sign-in screen: it emails you a reset link. (The **Password** row under **Account → Security** is not working yet, which is why the reset is the route to take.)
 - **One person, several rows, is ordinary.** Your office computer, your laptop and your phone are three sessions, and signing in again on the same computer after a session expired makes a new row rather than reusing the old one.
+- **An iPad usually shows as "Safari on macOS".** Recent iPads describe themselves to websites exactly as a Mac does, and Magna Carta would rather name the device vaguely than name it wrongly on a screen you are using to spot a stranger. Read the row alongside when it signed in and from where.
 - **An address you do not recognise is worth a second look, not a panic.** Mobile networks and office connections change the address a session signed in from, so an unfamiliar one is not proof of anything on its own. Read it alongside the device and the time.
-- **A row that will not go away** — if a sign-out reports that the device could not be signed out, it is still signed in. Try again, and if it keeps failing, change your password and contact your firm's administrator.
+- **A row that will not go away** — if a sign-out reports that the device could not be signed out, it is still signed in. Try again, and if it keeps failing, reset your password and contact your firm's administrator.
 
 ## Related features
 
 - [Signing in and out](signing-in.md) — the sign-in steps, staying signed in, and ending the session you are on.
-- Your password and authenticator settings live under **Account → Security**.
+- **Account → Security** is where your password and authenticator settings will live; both rows are marked *Soon* and do nothing yet. To change your password today, use **Forgot Password** on the sign-in screen.

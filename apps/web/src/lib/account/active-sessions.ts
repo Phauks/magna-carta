@@ -75,9 +75,15 @@ export const REVOKE_FAILED =
  * they believe an account is compromised needs that fact in front of them — it is the difference
  * between "it did not work" and "wait a moment" — and it is also why the sentence names a password
  * change, which invalidates what the cookie proves rather than waiting for it to lapse.
+ *
+ * IT NAMES THE DOOR THAT IS ACTUALLY OPEN. The sentence used to say "change your password", and
+ * Account -> Security's password row is a disabled Soon seam — so the one instruction given to
+ * somebody who believes their account is compromised pointed at a control that does nothing. What
+ * works today is the reset from the sign-in screen, so that is what it says. When the in-account
+ * change lands, this sentence is the thing to update with it.
  */
 export const REVOCATION_LAG_NOTE =
-  "A device signed out here can take up to five minutes to be turned away. If you think somebody else has your account, change your password as well.";
+  "A device signed out here can take up to five minutes to be turned away. If you think somebody else has your account, reset your password too — Forgot Password, on the sign-in screen.";
 
 /*
  * USER AGENT → DEVICE, in the only way this is honestly done: a short table of exact tokens, tried
@@ -96,6 +102,15 @@ const BROWSERS: readonly (readonly [token: string, name: string])[] = [
   ["Safari/", "Safari"],
 ];
 
+//
+// ONE LIMIT WORTH STATING RATHER THAN PAPERING OVER: an iPad on iPadOS 13 or later reports itself as
+// `Macintosh; Intel Mac OS X` and is genuinely indistinguishable from a Mac in this string — Apple
+// removed the difference deliberately. Such a row therefore reads "Safari on macOS". The `iPad`
+// token below still earns its place (older iPads, and any iPad asked for the mobile site, do send
+// it), but nothing here can recover the rest, and the honest recovery is not in the user agent at
+// all: it is the browser telling us at sign-in. Until something does, a Mac-shaped iPad says Mac
+// rather than being guessed into place — a wrong device name on this screen is worse than a vague
+// one, because the whole screen is somebody deciding which row is not them.
 const PLATFORMS: readonly (readonly [token: string, name: string])[] = [
   ["Windows", "Windows"],
   ["Android", "Android"],
@@ -132,8 +147,13 @@ export function describeDevice(userAgent: string | null | undefined): string {
  * else" — then the rest newest first, because a session somebody did not expect is far likelier to
  * be a recent one than an old one.
  *
- * `currentToken` may be null when the current session could not be identified; no row is then
- * marked, which costs a badge and never mislabels somebody else's device as this one.
+ * `currentToken` may be null when the current session could not be identified. No row is then
+ * marked — and that is NOT merely a missing badge, which is what this comment used to claim. The
+ * badge is also what tells the screen which row it must not offer to end: unmarked, the reader's own
+ * session grows a Sign out button that works, and using it leaves them browsing a session the server
+ * has already deleted, still believed for the length of the cookie cache. So the page treats an
+ * unidentifiable current session as a reason to withhold the per-row action entirely
+ * ({@link canEndIndividualSessions}), rather than as a cosmetic loss.
  */
 export function activeSessionRows(
   sessions: readonly ActiveSessionRecord[],
@@ -168,11 +188,32 @@ export function otherDeviceRows(rows: readonly ActiveSessionRow[]): ActiveSessio
 }
 
 /**
+ * Whether the screen may offer to end ONE named session.
+ *
+ * It may only when it knows which row is the reader's own. With no row marked, every button on the
+ * screen is a button that might end the session pressing it — and the press would appear to work:
+ * the server deletes the row, and the cookie cache goes on believing the session for its five
+ * minutes, so the reader carries on until the application starts refusing them for no stated reason.
+ *
+ * "Sign out everywhere else" is deliberately NOT gated on this. The server resolves "everywhere
+ * else" from the request's own session rather than from anything this screen sends, so it cannot
+ * end the caller's session whatever the screen believes — which makes it exactly the control to
+ * leave standing when the screen's own knowledge is the thing that failed.
+ */
+export function canEndIndividualSessions(rows: readonly ActiveSessionRow[]): boolean {
+  return rows.some((row) => row.isCurrent);
+}
+
+/**
  * What to say after signing other devices out. The count is stated because it is the confirmation:
  * a person who expected one other device and is told four has learned the thing this screen exists
  * to tell them.
  */
-export function signedOutElsewhereMessage(count: number): string {
+export function signedOutElsewhereMessage(count: number | null): string {
+  // A null count is the screen admitting it could not identify its own row, so it does not know how
+  // many of the rows it listed were "other". It says the act succeeded and states no number: the
+  // count is the confirmation, and a confirmation that might be off by one is not one.
+  if (count === null) return "Signed out of your other devices.";
   if (count <= 0) return "There were no other devices to sign out.";
   return count === 1 ? "Signed out of 1 other device." : `Signed out of ${count} other devices.`;
 }

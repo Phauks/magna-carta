@@ -14,9 +14,11 @@
    * front that a device signed out here keeps working for a few minutes
    * ($lib/account/active-sessions.ts holds both rulings and the sentences).
    *
-   * THIS DEVICE HAS NO SIGN OUT BUTTON. Ending the session you are reading on is signing out, it
-   * lives in the profile menu where somebody looking to leave will look for it, and a second door
-   * to it here would be one that navigates the screen out from under itself.
+   * THIS DEVICE HAS NO SIGN OUT BUTTON. Ending the session you are reading on is signing out, and
+   * signing out lives in the profile menu; a second door to it here would be one that navigates the
+   * screen out from under itself. Worth knowing when writing about this screen: that menu is NOT on
+   * this page — the account surface renders in the Secure Shell, whose chrome band carries only the
+   * brand mark and Close (secure-shell.svelte) — so the way back to it is Close first.
    *
    * Every call goes through the Better Auth client ($lib/auth/client.ts); listing and revoking are
    * its own /list-sessions and /revoke-session routes, which are scoped to the caller's own account
@@ -33,6 +35,7 @@
   import AccountMasthead from "$lib/account/components/account-masthead.svelte";
   import {
     activeSessionRows,
+    canEndIndividualSessions,
     otherDeviceRows,
     REVOCATION_LAG_NOTE,
     REVOKE_FAILED,
@@ -55,6 +58,10 @@
   let revokingOthers = $state(false);
 
   let others = $derived(otherDeviceRows(rows));
+  // False when this device could not be identified among the rows: every per-row Sign out is then a
+  // button that might end the session pressing it, so none is offered. "Sign out everywhere else"
+  // stays, because the server resolves "else" from the request rather than from this screen.
+  let canEndOne = $derived(canEndIndividualSessions(rows));
 
   async function load(): Promise<void> {
     loading = true;
@@ -103,7 +110,9 @@
 
   async function signOutEverywhereElse(): Promise<void> {
     if (revokingOthers || revoking !== null) return;
-    const count = others.length;
+    // Only a count this screen can stand behind: with no row marked as this device, it does not
+    // know which of the rows it listed were somebody else's.
+    const count = canEndOne ? others.length : null;
     revokingOthers = true;
     let revoked = false;
     try {
@@ -161,12 +170,23 @@
           <Button
             variant="destructive"
             size="sm"
-            disabled={others.length === 0 || revokingOthers || revoking !== null}
+            disabled={(canEndOne && others.length === 0) || revokingOthers || revoking !== null}
             onclick={() => void signOutEverywhereElse()}
           >
             {revokingOthers ? "Signing out…" : "Sign out everywhere else"}
           </Button>
         </div>
+
+        {#if !canEndOne}
+          <!-- Said out loud rather than left as an absence of buttons: a reader who expects to end
+               one device and finds no way to should learn why, and that the one control still on
+               the screen does something they can rely on. -->
+          <p class="text-xs text-text-muted">
+            This device could not be identified among the sessions below, so individual sign-out is
+            unavailable — ending one might end the session you are reading on. Sign out everywhere
+            else still works, and never ends this session.
+          </p>
+        {/if}
 
         <ul
           class="flex flex-col divide-y divide-border-default border-y border-border-strong"
@@ -193,7 +213,7 @@
                   </time>
                 </p>
               </div>
-              {#if !row.isCurrent}
+              {#if !row.isCurrent && canEndOne}
                 <Button
                   variant="secondary"
                   size="sm"

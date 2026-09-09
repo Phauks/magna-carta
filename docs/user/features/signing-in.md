@@ -45,7 +45,7 @@ Select **Forgot Password**, next to the password box, or ask your firm's adminis
 
 **Sign out**
 
-Select your initials at the top right of any screen, then **Sign out**. This ends your session on the computer you are using and returns you to the sign-in screen; nothing you were looking at stays behind in the browser. Signing out on one computer does not sign you out on your others — [Signed-in devices](signed-in-devices.md) is where you do that.
+Select your initials at the top right, then **Sign out**. The initials are on every workspace screen; Account Settings and the other full-screen surfaces show only the Magna Carta mark and a **Close** button, so close out of one of those first. This ends your session on the computer you are using and returns you to the sign-in screen; nothing you were looking at stays behind in the browser. Signing out on one computer does not sign you out on your others — [Signed-in devices](signed-in-devices.md) is where you do that.
 
 ## Tips and edge cases
 

@@ -301,35 +301,57 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
           },
         },
         delete: {
-          // WHICH SESSION DELETION MEANT SOMETHING, decided by the endpoint it happened under.
+          // WHICH SESSION DELETION MEANT SOMETHING — decided by the endpoint AND by whether the row
+          // that went is the one that endpoint was asked to remove. The endpoint alone is not
+          // enough, and the reason is worth stating because it is not visible from here.
           //
           // A session row is deleted by half a dozen paths in the pinned 1.6.22 that are not a
-          // person ending a session: sweeping an expired row on a read, and the rotation the
-          // two-factor plugin performs when a factor is enabled or disabled mid-session all come
-          // through this same hook. Auditing every deletion would put a departure in the trail at
-          // the exact moment somebody was signing IN with a second factor, and a trail that says
-          // the opposite of what happened is worse than one that says nothing. So the endpoint
-          // decides, and an endpoint not in this table is not an event.
+          // person ending a session: sweeping an EXPIRED row on a read, and the rotation the
+          // two-factor plugin performs when a factor is enabled or disabled mid-session. Auditing
+          // every deletion would put a departure in the trail at the moment somebody was signing IN
+          // with a second factor, and a trail that says the opposite of what happened is worse than
+          // one that says nothing.
           //
-          // The two that are: leaving on this device, and ending some OTHER device's session from
-          // the signed-in-devices screen — two different acts by the same person, which is why
-          // they are two event names rather than one. /revoke-other-sessions deletes each session
-          // through this same single-row path, so ending four devices files four rows; that is the
-          // record wanted, one per session actually ended. /revoke-sessions is deliberately absent:
-          // it deletes through the MANY path, which does not reach this hook at all, and listing it
-          // here would claim an audit row that never gets written. Nothing in this application
-          // calls it.
+          // The endpoint gate alone still let one through. better-call resolves a nested endpoint's
+          // path as `context.path || path` (better-call/dist/context.mjs), so the `getSession` the
+          // revoke endpoints' own session middleware performs INHERITS the outer path — and when
+          // that call finds the caller's session expired it deletes it, here, wearing the name
+          // `/revoke-session`. The request then 401s, having revoked nothing, and an
+          // endpoint-only gate filed `session.revoked` for it (test/auth-audit.test.ts pins this).
           //
-          // A null context (a deletion outside any endpoint) is skipped rather than guessed at —
-          // the same posture the two_factor transition detector above takes.
+          // So each path also says which row it means:
+          //   /sign-out              — the caller's own session, and the endpoint deletes exactly
+          //                            one row it read from the cookie. No nested getSession runs
+          //                            under it, so the path is the whole test.
+          //   /revoke-session        — the row whose token the request NAMED. A swept session is
+          //                            the caller's cookie token, which is not the asked-for one.
+          //   /revoke-other-sessions — any row that is NOT the caller's own. A sweep deletes
+          //                            precisely the caller's own, and during that sweep the
+          //                            endpoint's session is not yet established at all, so an
+          //                            unresolvable caller is skipped rather than guessed at.
+          //
+          // /revoke-sessions is deliberately absent: it deletes through the MANY path, which does
+          // not reach this hook, so listing it would claim a row that never gets written. Nothing
+          // in this application calls it. A null context (a deletion outside any endpoint) is
+          // skipped too — the same posture the two_factor transition detector above takes.
           after: async (session, endpointContext) => {
-            const path = endpointContext?.path;
-            const event =
-              path === "/sign-out"
-                ? "logout"
-                : path === "/revoke-session" || path === "/revoke-other-sessions"
-                  ? "session.revoked"
-                  : null;
+            const deletedToken = session.token;
+            let event: string | null = null;
+            if (endpointContext?.path === "/sign-out") {
+              event = "logout";
+            } else if (endpointContext?.path === "/revoke-session") {
+              const body: unknown = endpointContext.body;
+              const askedFor =
+                typeof body === "object" && body !== null && "token" in body
+                  ? (body as { token?: unknown }).token
+                  : undefined;
+              if (askedFor === deletedToken) event = "session.revoked";
+            } else if (endpointContext?.path === "/revoke-other-sessions") {
+              const callerToken = endpointContext.context.session?.session.token;
+              if (callerToken !== undefined && callerToken !== deletedToken) {
+                event = "session.revoked";
+              }
+            }
             if (event === null) return;
             await writeAuthAuditGuarded(env, { event, userId: session.userId });
           },

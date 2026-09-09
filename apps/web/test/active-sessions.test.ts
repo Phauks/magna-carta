@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activeSessionRows,
+  canEndIndividualSessions,
   describeDevice,
   otherDeviceRows,
   REVOCATION_LAG_NOTE,
@@ -108,6 +109,18 @@ describe("the rows the screen renders", () => {
     expect(sessions.map((one) => one.token)).toEqual(["ses_a", "ses_b"]);
   });
 
+  // THE SAFETY THIS UNMARKED CASE ACTUALLY COSTS. With no row known to be this device, a per-row
+  // Sign out is a button that might end the session pressing it — and it would look like it worked,
+  // because the cookie cache keeps believing the deleted session for its five minutes. So the
+  // screen withholds the per-row action rather than offering a coin flip.
+  it("refuses individual sign-out when this device is not among the marked rows", () => {
+    const unknown = activeSessionRows([session(), session({ token: "ses_two" })], null);
+    expect(canEndIndividualSessions(unknown)).toBe(false);
+
+    const known = activeSessionRows([session(), session({ token: "ses_two" })], "ses_two");
+    expect(canEndIndividualSessions(known)).toBe(true);
+  });
+
   it("counts every row but this one as somewhere else", () => {
     const rows = activeSessionRows(
       [session({ token: "ses_here" }), session({ token: "ses_two" }), session({ token: "ses_3" })],
@@ -124,10 +137,27 @@ describe("what the screen says", () => {
     expect(signedOutElsewhereMessage(0)).toContain("no other devices");
   });
 
+  // The count is the confirmation — a person who expected one other device and is told four has
+  // learned the thing this screen exists to tell them. So a count the screen cannot stand behind
+  // (this device unidentified, so "other" is unknowable) is omitted rather than guessed.
+  it("states no count when the screen could not tell which row was its own", () => {
+    const message = signedOutElsewhereMessage(null);
+    expect(message).toBe("Signed out of your other devices.");
+    expect(message).not.toMatch(/\d/);
+  });
+
   // The lag note is the sentence this screen exists to not leave out: a revoked device keeps
-  // working for up to the cookie cache's five minutes, and the remedy is a password change.
+  // working for up to the cookie cache's five minutes, and the remedy is a password reset.
   it("names both the delay and the remedy in the lag note", () => {
     expect(REVOCATION_LAG_NOTE).toContain("five minutes");
     expect(REVOCATION_LAG_NOTE).toContain("password");
+  });
+
+  // The remedy has to be a door that opens. Account -> Security's password row is still a disabled
+  // Soon seam, so the note names the sign-in screen's reset — the one that works today. If this
+  // ever points back at a change-password control, the control has to exist first.
+  it("points at the password reset that works, not the in-account seam", () => {
+    expect(REVOCATION_LAG_NOTE).toContain("Forgot Password");
+    expect(REVOCATION_LAG_NOTE).not.toContain("Security");
   });
 });

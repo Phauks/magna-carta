@@ -74,6 +74,26 @@ describe("auth audit hooks", () => {
     expect(events).not.toContain("logout");
   });
 
+  // THE NESTED-PATH TRAP, pinned. better-call gives a nested endpoint call the OUTER endpoint's
+  // path, so the getSession that /revoke-session's own session middleware performs arrives at the
+  // delete hook wearing "/revoke-session". When that call finds the caller's session expired it
+  // deletes it — and an endpoint-only gate filed session.revoked for a request that then 401s
+  // having revoked nothing. The hook also asks whether the row that went is the row the request
+  // NAMED, which is what makes this pass.
+  it("files nothing when a revoke request only sweeps the caller's own expired session", async () => {
+    const { userId } = await seedCredentialedUser("audit-sweep@example.com");
+    const cookie = await signInForSessionCookie("audit-sweep@example.com");
+    await env.DB_CONTROL.prepare("UPDATE session SET expires_at = ?2 WHERE user_id = ?1")
+      .bind(userId, Date.now() - 60_000)
+      .run();
+
+    const response = await postJson("/api/auth/revoke-session", { token: "ses_whatever" }, cookie);
+
+    // Nothing was revoked — the request could not even authenticate — so nothing is recorded.
+    expect(response.status).toBe(401);
+    expect(await auditEvents(userId)).toEqual(["login.success"]);
+  });
+
   it("writes two_factor.enabled exactly at the verify-totp transition, and two_factor.disabled on disable", async () => {
     const { userId } = await seedCredentialedUser("audit-totp@example.com");
     const sessionCookie = await signInForSessionCookie("audit-totp@example.com");
