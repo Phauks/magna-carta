@@ -22,8 +22,8 @@
   scope: Distinct Person and Organization types with equal data depth; full contact core (typed emails/phones/addresses, notes) on every entity regardless of role.
   status: partial
   slices: 1-3-directory
-  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts, person-record.ts (a whole person in one batch); apps/web/src/lib/directory/new-person-dialog.svelte (every section reachable at creation, on the side rail) and apps/web/src/lib/directory/entity-window.svelte, the one window a record opens in from the directory, a matter or a conflicts hit, with the Names, Contact, Pronouns, Dates, Identifiers, Duplicates, Relationships, Matters and (organizations only) Categories panes on the same rail
-  notes: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling.
+  evidence: packages/directory/src/person.ts, organization.ts, entity-kind.ts, person-record.ts (a whole person in one batch); apps/web/src/lib/directory/new-person-dialog.svelte (every section reachable at creation, on the side rail) and apps/web/src/lib/directory/entity-window.svelte, the one window a record opens in from the directory, a matter or a conflicts hit, with the Names, Contact, Address, Pronouns, Dates, Identifiers, Duplicates, Relationships, Matters and (organizations only) Categories panes on the same rail; a recorded email, number or address is corrected in place through the same entry row it was entered in (apps/web/src/lib/directory/sections/contact-section.svelte and address-section.svelte over updateDirectoryContactPoint)
+  notes: Backend shipped; the record opens in one window wherever it is reached (owner ruling, 2026-09-05). The organization stays thin by the owner's ruling. Postal addresses have their own section over the country-shaped AddressFields component, and both panels hold one height whichever rail section is chosen (owner ruling, 2026-09-08).
 
 - id: directory.entities.categories
   name: Entity categories
@@ -50,8 +50,8 @@
   status: partial
   surface: screen
   slices: 1-3-directory
-  evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts; apps/web/src/lib/directory/names-pane.svelte
-  notes: Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. display_text and the legal/preferred roles remain.
+  evidence: packages/directory/src/name-history.ts (current-to-former flip, alias/aka/maiden/dba roles), normalize-name.ts; apps/web/src/lib/directory/names-pane.svelte and sections/names-section.svelte, over the shared honorific field at apps/web/src/lib/names/honorific-field.svelte
+  notes: Backend shipped including phonetic codes on every name row; the Names pane adds and changes names. A person is recorded with a first name and no more required — a mononym is indexed from the given name — and carries as many suffixes as they hold, comma-separated in the one column (owner ruling, 2026-09-08). display_text and the legal/preferred roles remain.
 
 - id: directory.pronouns
   name: Pronouns on a person
