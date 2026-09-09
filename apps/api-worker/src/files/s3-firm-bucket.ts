@@ -22,11 +22,27 @@ import { r2S3Endpoint } from "./r2-s3-endpoint.ts";
 // `include` HEADs each object) or throws. A field silently left undefined is how a sweep comes to
 // believe every object is unstamped and rewrites a firm's whole bucket.
 
+/**
+ * What signs this bucket's calls, resolved per operation rather than fixed at construction.
+ *
+ * A resolver rather than a key pair because the credential is not always a constant: the deployed
+ * path mints one scoped to THIS bucket with a lifetime (firm-bucket-credentials.ts), so the key
+ * actually on the object plane reaches one firm for one window instead of every bucket in the
+ * account forever. Resolving per operation is what lets it be re-minted when it ages out without
+ * anything reconstructing this object — and it costs nothing, because every call here was already
+ * awaiting the signature.
+ */
+export type S3Credentials = {
+  readonly accessKeyId: string;
+  readonly secretAccessKey: string;
+  /** Present on a minted credential; sent as X-Amz-Security-Token. Absent on a parent key. */
+  readonly sessionToken?: string;
+};
+
 export interface S3FirmBucketOptions {
   readonly bucketName: string;
   readonly accountId: string;
-  readonly accessKeyId: string;
-  readonly secretAccessKey: string;
+  readonly credentials: () => Promise<S3Credentials>;
   readonly region: DataRegion;
   // Injectable for tests; defaults to the runtime fetch. The Miniflare pool has no S3 endpoint, so
   // every test of this module drives it through a stub.
@@ -237,21 +253,31 @@ function escapeXmlText(value: string): string {
 
 export function createS3FirmBucket(options: S3FirmBucketOptions): R2Bucket {
   const endpoint = r2S3Endpoint(options.accountId, options.region);
-  // region "auto" is R2's S3 signing region (distinct from the firm's DATA region, which selects the
-  // endpoint host above); service "s3" selects the S3 canonicalization.
-  const client = new AwsClient({
-    accessKeyId: options.accessKeyId,
-    secretAccessKey: options.secretAccessKey,
-    service: "s3",
-    region: "auto",
-  });
   const doFetch = options.fetchImpl ?? ((request: Request) => fetch(request));
   const objectUrl = (key: string) => `${endpoint}/${options.bucketName}/${encodeKey(key)}`;
+
+  /**
+   * The signer for one call. Built per operation because the credential behind it can be re-minted
+   * between calls; the resolver does its own caching, so this is a map lookup in the ordinary case.
+   * region "auto" is R2's S3 SIGNING region — distinct from the firm's data region, which selected
+   * the endpoint host above; service "s3" selects the S3 canonicalization.
+   */
+  async function signer(): Promise<AwsClient> {
+    const credentials = await options.credentials();
+    return new AwsClient({
+      accessKeyId: credentials.accessKeyId,
+      secretAccessKey: credentials.secretAccessKey,
+      ...(credentials.sessionToken === undefined ? {} : { sessionToken: credentials.sessionToken }),
+      service: "s3",
+      region: "auto",
+    });
+  }
 
   async function send(
     url: string,
     init: { method: string; headers?: HeadersInit; body?: BodyInit | null },
   ): Promise<Response> {
+    const client = await signer();
     return doFetch(await client.sign(url, init));
   }
 
