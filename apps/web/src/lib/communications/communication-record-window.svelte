@@ -1,27 +1,41 @@
 <script lang="ts">
   /*
-   * One call or text, opened.
+   * One call or text — recorded, read, and corrected. ONE WINDOW FOR ALL THREE.
    *
-   * WHY THE ROW OPENS AT ALL. The first cut of this screen deliberately had no record window: every
-   * field was on the row, so a window would have been a second way to read what was already on
-   * screen, and a row's activation did the thing a reader was actually reaching for — it went to the
-   * matter. That reasoning did not survive contact with the screen (owner, 2026-09-08). A record you
-   * cannot open is a record you cannot CORRECT, and a hand-logged call is somebody's recollection
-   * typed at speed, so it is wrong sometimes — a digit in the number, the wrong direction, a length
-   * in the wrong units. A log nobody can correct is a log people stop trusting, which is worse than
-   * one that is occasionally re-opened to read what was already visible.
+   * WHY THERE IS NOT A SECOND ONE (owner ruling, 2026-09-08: "we now have two modals for creating a
+   * call which is weird"). There were two. A dialog recorded a call and this window read one, they
+   * rendered the same fields through the same component, and they still disagreed about everything
+   * around those fields: one had tabs and the other did not, one printed and the other did not, one
+   * called its commit Save under a heading and the other under an action bar. Two surfaces for one
+   * record is two things for a reader to learn and two places for the next field to be added to only
+   * one of. So opening a row and recording a new one are the same window, and the only difference
+   * between them is whether it starts with a record in it.
    *
-   * THE FIELDS ARE THE ENTRY FORM'S, LITERALLY. communication-fields.svelte renders both, so
-   * correcting a record asks exactly the questions recording one asked, in the same places. Two
-   * layouts would disagree within a week about where the number sits.
+   * WHAT THE TWO STATES ACTUALLY DIFFER IN, and it is a short list. A new record opens straight into
+   * the fields, because there is nothing to read yet. It asks WHERE IT BELONGS, because at that
+   * moment the anchor is simply one of the things being said — where a record already on the log
+   * moves between anchors through its own concurrency-safe acts in the action bar, and offering a
+   * field as well would be two ways to do one thing. And it carries the number it is ABOUT to be
+   * given rather than the one it has.
    *
-   * CORRECTING THE RECORD AND DECIDING WHERE IT BELONGS ARE DIFFERENT ACTS, and they are in
-   * different places. Edit changes what the record SAYS — the number, the direction, the date, the
+   * THE NUMBER IS SHOWN BEFORE THE RECORD EXISTS (owner ruling, 2026-09-08: a call should be
+   * identifiable in the log "before it has been created"). Somebody still on the telephone needs
+   * something to write on a slip and read back to the caller, and the save is too late for the
+   * sentence they are in the middle of. It is a preview and the window says so: nothing is drawn by
+   * asking, so a call recorded first takes that number and this one moves on — which is why the
+   * subtitle switches to the record's own number the moment there is a record.
+   *
+   * AN INTAKE STARTS FROM HERE, AND FROM THE FORM AS WELL (owner ruling, 2026-09-08). A call from
+   * somebody who wants the firm to act is where an intake starts, and the person taking that call is
+   * in this window, not in the matters screen. Starting one from a record being ENTERED records the
+   * call first — an intake with no account of the call that caused it is the one thing this window
+   * exists to prevent — and then hands the saved record up.
+   *
+   * CORRECTING THE RECORD AND DECIDING WHERE IT BELONGS ARE DIFFERENT ACTS on a record that already
+   * exists. Edit changes what the record SAYS — the number, the direction, the date, the
    * description. Where it belongs is a decision about the firm's work rather than a field of the
    * record, it is what the queue exists to collect, and each of its moves is a concurrency-safe act
    * of its own so that two people filing the same message in the same instant cannot both succeed.
-   * So those live in the action bar, one press from an opened row, and the entry form's own
-   * "Belongs to" control is absent here rather than offering a second way to do the same thing.
    *
    * A CARRIER-WRITTEN RECORD IS NOT EDITABLE, and it says so rather than hiding Edit. It is what the
    * network reported; a member changing it would turn an observation into a recollection wearing an
@@ -30,6 +44,8 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
+  import EventRail from "@magna-carta/design-system/event-rail";
+  import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
@@ -57,21 +73,26 @@
     directionEntry,
     dispositionEntry,
     durationText,
+    spanText,
   } from "./communication-vocabulary.ts";
   import {
     clearCommunicationDisposition,
     fileCommunicationToMatter,
+    logCommunication,
     newWriteKey,
     readCommunication,
-    setCommunicationDisposition,
+    readNextCommunicationNumber,
     unfileCommunicationFromMatter,
     updateCommunication,
     type Communication,
+    type IntakeSource,
   } from "./communications-api.ts";
   import {
     draftFromCommunication,
+    draftOccurredAt,
     emptyLogDraft,
     logDraftReady,
+    logDraftRequest,
     logDraftShortfalls,
     updateDraftRequest,
     type LogDraft,
@@ -82,17 +103,37 @@
     communicationId,
     matters,
     mattersCapped = false,
+    matterId = null,
+    matterFixed = false,
+    matterName = null,
     canWrite = true,
     canReviewQueue = false,
     onChanged,
     onStartIntake,
   }: {
     open?: boolean;
-    /** The record being read. Null while nothing is chosen, which keeps the window closed. */
+    /**
+     * The record being read, or NULL to record a new one.
+     *
+     * Null is the create state rather than an absence: the window is shown by `open` alone, so a
+     * surface opens it with no id when somebody presses New and with an id when they open a row.
+     */
     communicationId: string | null;
     /** The anchors a row may be filed onto — caseload, consultations AND intakes. */
     matters: readonly SheetMatter[];
     mattersCapped?: boolean;
+    /** The matter a new record is being made on, where the window was opened from inside one. */
+    matterId?: string | null;
+    /**
+     * Whether that matter is settled rather than merely suggested.
+     *
+     * True inside a matter, where the decision is already made — and there the anchor control is not
+     * disabled, it is ABSENT. A disabled control implies a choice is being withheld, and an empty one
+     * implies the row is on no matter, which is the opposite of what is true.
+     */
+    matterFixed?: boolean;
+    /** What that settled matter is called, so the line names it rather than printing a handle. */
+    matterName?: string | null;
     /** Whether this account may change the log at all. */
     canWrite?: boolean;
     /** Whether it may work the queue, which is what moving a row between anchors reads on its way. */
@@ -106,10 +147,13 @@
      * subsystem's own window, and a call log that learned how to create matters would be the second
      * place in the product that knows what opening one requires.
      */
-    onStartIntake?: (communication: Communication) => void;
+    onStartIntake?: (communication: IntakeSource) => void;
   } = $props();
 
   const now = (): string => new Date().toISOString();
+
+  /** Whether this window is making a record rather than showing one. */
+  const creating = $derived(communicationId === null);
 
   let record = $state<Communication | null>(null);
   let readFailure = $state<StatedFailure | null>(null);
@@ -127,6 +171,14 @@
   let anchorProblem = $state<string | null>(null);
   let draft = $state<LogDraft>(emptyLogDraft(new Date().toISOString()));
   let printOpen = $state(false);
+
+  /**
+   * The number a record being entered WOULD draw, or null while nothing has answered.
+   *
+   * Null rather than a guess: a made-up number on a message slip is worse than none, and the line
+   * under the heading simply says the number is drawn when it is saved until this arrives.
+   */
+  let previewedNumber = $state<string | null>(null);
 
   const nameOf = $derived((userId: string | null): string | null => {
     if (userId === null) return null;
@@ -153,12 +205,44 @@
   }
 
   $effect(() => {
-    if (!open || communicationId === null) return;
-    editing = false;
+    if (!open) return;
     saveFailure = null;
     anchorProblem = null;
-    readRecord();
     void firmRoster.load(fetch);
+    if (communicationId === null) {
+      // A record being made opens in the fields, because there is nothing yet to read.
+      record = null;
+      readFailure = null;
+      editing = true;
+      draft = {
+        ...emptyLogDraft(now()),
+        matterId,
+        anchor: matterId === null ? "undecided" : "matter",
+      };
+      return;
+    }
+    editing = false;
+    readRecord();
+  });
+
+  /*
+   * The number a record being entered would draw, kept in step with the DAY it says it happened.
+   *
+   * Its own effect, and it reads the two date fields rather than the whole draft, so typing a
+   * description does not ask the server anything — and so that somebody writing up Tuesday's call on
+   * Thursday is shown Tuesday's next number rather than today's. It writes only the previewed number,
+   * which nothing here reads back, so it cannot re-enter.
+   */
+  $effect(() => {
+    if (!open || communicationId !== null) return;
+    const occurredAt = draftOccurredAt(draft);
+    previewedNumber = null;
+    void (async () => {
+      const outcome = await readNextCommunicationNumber(fetch, occurredAt);
+      // A preview that lands after the record has been saved is about a record that no longer needs
+      // one; the record's own number is what the subtitle shows from then on.
+      if (outcome.kind === "ok") previewedNumber = outcome.value.referenceNumber;
+    })();
   });
 
   /**
@@ -199,16 +283,26 @@
     }
   });
 
-  const heading = $derived(record === null ? "" : channelEntry(record.channel).label);
+  /*
+   * ONE NAME FOR THE PANEL WHILE A RECORD IS BEING MADE, whichever type is being recorded (owner
+   * ruling, 2026-09-08): Record Communication. The heading used to change to Record A Text the
+   * moment somebody switched the type — a panel renaming itself under the hand of the person filling
+   * it in. Once there IS a record, the heading is what the record is.
+   */
+  const heading = $derived(
+    creating ? "Record Communication" : record === null ? "" : channelEntry(record.channel).label,
+  );
 
   const carried = $derived(record === null ? null : attachmentNote(record.channel));
   const length = $derived(record === null ? null : durationText(record.durationSeconds));
-  const description = $derived(
-    record === null ? "" : (record.body ?? record.summary ?? ""),
-  );
+  const span = $derived(record === null ? null : spanText(record.occurredAt, record.endedAt));
+  const description = $derived(record === null ? "" : (record.body ?? record.summary ?? ""));
 
   const editRefusal = $derived.by((): string | undefined => {
     if (!canWrite) return "Your account cannot change the firm's call and text log.";
+    // A record being made has no read state to fall back to, so the toggle out of the fields is
+    // refused rather than offered: the way out of an entry is Save or the abandon beside it.
+    if (creating) return "This one has not been recorded yet.";
     if (record === null) return "Reading the record.";
     if (record.producer === "carrier") {
       return "The carrier reported this one. A member's correction would make it read as something it is not.";
@@ -217,12 +311,47 @@
   });
 
   const saveRefusal = $derived.by((): string | undefined => {
-    if (record === null) return "Reading the record.";
+    if (!creating && record === null) return "Reading the record.";
     if (saving) return "Saving.";
     return logDraftReady(draft, now()) ? undefined : logDraftShortfalls(draft, now())[0];
   });
 
-  async function save(): Promise<void> {
+  /** Whether anything has been entered. A blank new record has nothing to lose, so leaving never asks. */
+  const started = $derived(
+    draft.counterpartyNumber.trim() !== "" ||
+      draft.description.trim() !== "" ||
+      draft.durationText.trim() !== "" ||
+      draft.counterpartyEntityId !== null ||
+      draft.matterId !== null ||
+      draft.disposition !== null,
+  );
+
+  /**
+   * Record what was entered, and answer with the new row.
+   *
+   * Every attempt carries its own key, so a retried submit — or a first attempt that died on a
+   * dropped connection — cannot put two identical accounts of one phone call on the matter.
+   */
+  async function writeNewRecord(): Promise<string | null> {
+    saving = true;
+    saveFailure = null;
+    const written = await logCommunication(fetch, logDraftRequest(draft), newWriteKey());
+    saving = false;
+    if (written.kind !== "ok") {
+      saveFailure = stated(
+        written.failure,
+        "The call or text could not be recorded.",
+        // Nothing answered is a stronger statement than a refusal, and it is the one a person about
+        // to press the button again needs: nothing was written, so pressing again records one row.
+        "Nothing answered. Nothing was recorded.",
+      );
+      return null;
+    }
+    onChanged();
+    return written.value.id;
+  }
+
+  async function correct(): Promise<void> {
     const held = record;
     if (held === null) return;
     saving = true;
@@ -245,6 +374,35 @@
     editing = false;
     readRecord();
     onChanged();
+  }
+
+  async function save(): Promise<void> {
+    if (!creating) {
+      await correct();
+      return;
+    }
+    // The window closes on a record it has just made: what it would otherwise show is a record the
+    // reader is already looking at on the log behind it, with nothing left to do to it.
+    if ((await writeNewRecord()) !== null) open = false;
+  }
+
+  /**
+   * Record what has been entered, then open an intake for whoever was at the other end.
+   *
+   * The save comes FIRST and the intake only follows a save that landed. An intake opened from an
+   * unrecorded call would leave the receptionist's account of the first contact as the one thing the
+   * new matter does not have, which is the whole reason this control is here rather than on the
+   * matters screen.
+   */
+  async function recordThenIntake(): Promise<void> {
+    const contact = draft.counterpartyEntityId;
+    const id = await writeNewRecord();
+    if (id === null) return;
+    open = false;
+    // The two facts an intake needs from the call: which row to file onto the matter it opens, and
+    // who to seed as the client. Both are held here rather than read back, so an intake still opens
+    // when the log is momentarily unreadable — the call is already recorded either way.
+    onStartIntake?.({ id, counterpartyEntityId: contact });
   }
 
   // ---- where it belongs, as acts rather than as fields -----------------------------------------
@@ -296,11 +454,60 @@
     onChanged();
   }
 
+  /**
+   * Abandon the change — and, on a record being MADE, abandon the record.
+   *
+   * The shell has already left editing by the time this runs, which is right for a correction and
+   * wrong for an entry: there is nothing behind the fields of a new record to fall back to, so the
+   * window would sit open showing an empty pane. Cancelling an entry closes it, which is what
+   * cancelling an entry means.
+   */
   function forgetChanges(): void {
-    if (record !== null) draft = draftFromCommunication(record, counterpartyName);
     saveFailure = null;
     anchorProblem = null;
+    if (creating) {
+      open = false;
+      return;
+    }
+    if (record !== null) draft = draftFromCommunication(record, counterpartyName);
   }
+
+  /**
+   * The record's own history, from what the record holds.
+   *
+   * NOT AN AUDIT FEED, and the difference is worth stating rather than hiding: the log's audit rows
+   * are a compliance record with their own retention and their own readers, and no route serves them
+   * to a screen. What this rail carries is what the RECORD itself says about how it came to exist —
+   * who wrote it down and when, and whether it has been changed since. That answers the question a
+   * reader of a hand-logged call actually brings, which is whether they are reading an observation
+   * or somebody's recollection, and how old the recollection is.
+   */
+  const historyEvents = $derived.by((): readonly EventRailEvent[] => {
+    const held = record;
+    if (held === null) return [];
+    const carrierWritten = held.producer === "carrier";
+    const events: EventRailEvent[] = [
+      {
+        id: `${held.id}:recorded`,
+        action: carrierWritten ? "Reported by the carrier" : "Written down by a member",
+        at: held.createdAt,
+        source: carrierWritten
+          ? "The carrier"
+          : (nameOf(held.loggedByUserId) ?? "Nobody recorded"),
+      },
+    ];
+    // Only where it has actually moved: a record saved once carries the same instant in both
+    // columns, and a "Changed" row on it would say something untrue.
+    if (held.updatedAt !== held.createdAt) {
+      events.push({
+        id: `${held.id}:changed`,
+        action: "Changed",
+        at: held.updatedAt,
+        source: "A member",
+      });
+    }
+    return events;
+  });
 
   const sheet = $derived(
     record === null
@@ -316,7 +523,18 @@
 </script>
 
 {#snippet subtitle()}
-  {#if record !== null}
+  {#if creating}
+    <!-- The number this record will carry, said before it exists, because the person entering it is
+         usually still on the telephone. A preview and not a reservation, and it says so. -->
+    {#if previewedNumber === null}
+      A number is drawn when this is saved.
+    {:else}
+      <span class="tabular-nums">{previewedNumber}</span> &middot; drawn when this is saved
+    {/if}
+  {:else if record !== null}
+    {#if record.referenceNumber !== null}
+      <span class="tabular-nums">{record.referenceNumber}</span> &middot;
+    {/if}
     {directionEntry(record.direction).label} &middot; {formatInstant(record.occurredAt)}
   {/if}
 {/snippet}
@@ -340,7 +558,7 @@
     {:else if saveFailure !== null}
       <FailureNotice
         failure={saveFailure.failure}
-        title="Nothing Was Changed"
+        title={creating ? "Nothing Was Recorded" : "Nothing Was Changed"}
         fallback={saveFailure.fallback}
         whenSilent={saveFailure.whenSilent}
       />
@@ -354,9 +572,18 @@
     {/if}
 
     {#if inEdit}
-      <!-- No "Belongs to" here: where a record belongs is a decision, not a field, and it is made
-           in the action bar below where it is one press from a row somebody just opened. -->
-      <CommunicationFields bind:draft busy={saving} matters={[]} showAnchor={false} />
+      <!-- The anchor is a FIELD only while the record is being made. On one already on the log,
+           where it belongs is a decision rather than a field, and it is made in the action bar
+           below where it is one press from a row somebody just opened. -->
+      <CommunicationFields
+        bind:draft
+        busy={saving}
+        matters={creating ? matters : []}
+        {mattersCapped}
+        {matterFixed}
+        {matterName}
+        showAnchor={creating}
+      />
     {:else if record !== null}
       <div class="flex flex-wrap items-center gap-8">
         <Badge variant="neutral" title={channelEntry(record.channel).meaning}>
@@ -378,6 +605,11 @@
       <dl class="flex flex-col gap-4 text-sm">
         {@render fact("When", formatInstant(record.occurredAt))}
         {@render fact("Number", counterpartyNumberText(record.counterpartyNumber))}
+        {#if span !== null && span !== length}
+          <!-- Only where it DIFFERS from the length. A call whose span and length agree has one
+               fact, said once; a call put on hold has two, and both of them are true. -->
+          {@render fact("On the line", span)}
+        {/if}
         {#if length !== null}
           {@render fact("Duration", length)}
         {/if}
@@ -396,28 +628,37 @@
   </div>
 {/snippet}
 
-{#snippet provenanceTab()}
-  {#if record !== null}
-    <dl class="flex flex-col gap-4 text-sm">
-      {@render fact(
-        "Source",
-        record.producer === "carrier" ? "Reported by the carrier" : "Written down by a member",
-      )}
-      {@render fact("Firm's side", nameOf(record.memberUserId) ?? "Nobody recorded")}
-      {@render fact("Recorded by", nameOf(record.loggedByUserId) ?? "Nobody recorded")}
-      {@render fact("Recorded", formatInstant(record.createdAt))}
-      {@render fact("Last changed", formatInstant(record.updatedAt))}
-    </dl>
-    <p class="mt-16 text-xs text-text-muted">
-      A member's account of a call and a carrier's report of the same call carry different weight.
-      Nothing is sent or received from the platform yet, so every record here was written down by
-      whoever made or took the call.
-    </p>
-  {/if}
+{#snippet historyTab()}
+  <EventRail
+    events={historyEvents}
+    label="This call or text's history"
+    emptyMessage={creating
+      ? "Nothing yet. Saving this records who wrote it down and when, which is the first thing this history carries."
+      : "Nothing has been recorded about this record yet."}
+  />
+  <p class="mt-16 text-xs text-text-muted">
+    A member's account of a call and a carrier's report of the same call carry different weight.
+    Nothing is sent or received from the platform yet, so every record here was written down by
+    whoever made or took the call.
+  </p>
 {/snippet}
 
 {#snippet actions({ editing: inEdit }: { editing: boolean })}
-  {#if !inEdit && record !== null}
+  {#if creating}
+    <!-- The one act a record being ENTERED offers besides saving it. It saves first: an intake with
+         no account of the call that started it is exactly what this control exists to prevent. -->
+    {#if onStartIntake !== undefined}
+      <Button
+        variant="secondary"
+        disabled={saveRefusal !== undefined}
+        title={saveRefusal}
+        onclick={() => void recordThenIntake()}
+      >
+        <FilePlus2 aria-hidden="true" />
+        Save And Start An Intake
+      </Button>
+    {/if}
+  {:else if !inEdit && record !== null}
     {@const held = record}
     {#if held.matterId !== null}
       <!-- The rest of this case's conversation, which is where a reader who opened a filed row from
@@ -483,10 +724,10 @@
   record={recordPane}
   {actions}
   {menu}
-  tabs={[{ key: "provenance", label: "How this was recorded", content: provenanceTab }] satisfies RecordWindowTab[]}
+  tabs={[{ key: "history", label: "History", content: historyTab }] satisfies RecordWindowTab[]}
   editDisabledReason={editRefusal}
   saveDisabledReason={saveRefusal}
-  unsavedChanges={editing}
+  unsavedChanges={creating ? started : editing}
   onSave={() => void save()}
   onCancel={forgetChanges}
   onPrint={() => (printOpen = true)}

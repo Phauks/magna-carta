@@ -28,7 +28,6 @@
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import CommunicationLog from "$lib/communications/communication-log.svelte";
   import CommunicationRecordWindow from "$lib/communications/communication-record-window.svelte";
-  import LogCommunicationDialog from "$lib/communications/log-communication-dialog.svelte";
   import {
     LOG_COMMUNICATIONS_PERMISSION,
     REVIEW_UNROUTED_PERMISSION,
@@ -44,17 +43,24 @@
   if (!section) throw new Error('The matter section registry is missing "messaging".');
 
   let session = $state<SessionBootstrap | null>(null);
-  let dialogOpen = $state(false);
   let rereadLog = $state<() => void>(() => {});
   let bootstrapped = false;
 
-  // A row opens into its own record here exactly as it does on the firm-wide screen: one listing,
-  // one way to open what is in it. Taking a row back off this matter is one of the acts inside it.
+  // A row opens into its own record here exactly as it does on the firm-wide screen, and so does
+  // recording a new one: one listing, one window, and the only difference between the window's two
+  // states is whether it opened with a record in it. Taking a row back off this matter is one of the
+  // acts inside it.
   let recordOpen = $state(false);
+  /** Which record the window is on, or null while it is recording a new one. */
   let openedId = $state<string | null>(null);
 
   function openRow(row: Communication): void {
     openedId = row.id;
+    recordOpen = true;
+  }
+
+  function openNew(): void {
+    openedId = null;
     recordOpen = true;
   }
 
@@ -84,7 +90,7 @@
   claimMatterCreate("messaging", () => ({
     title: "Record a call or a text on this matter.",
     refusal: isSample ? SAMPLE_MATTER_REFUSAL : createRefusal,
-    run: () => (dialogOpen = true),
+    run: openNew,
   }));
 </script>
 
@@ -123,21 +129,16 @@
   {/if}
 </section>
 
-<!-- No picker: the matter is settled, so the form states it rather than offering a choice that
-     does not exist here. That is also why the anchor list is empty — nothing here needs one. -->
-<LogCommunicationDialog
-  bind:open={dialogOpen}
-  matters={[]}
-  matterId={matter.id}
-  matterFixed
-  matterName={matter.title}
-  onLogged={() => rereadLog()}
-/>
-
+<!-- No picker: inside a matter the matter is settled, so a record being made states it rather than
+     offering a choice that does not exist here. That is also why the anchor list is empty — nothing
+     here needs one. -->
 <CommunicationRecordWindow
   bind:open={recordOpen}
   communicationId={openedId}
   matters={[]}
+  matterId={matter.id}
+  matterFixed
+  matterName={matter.title}
   canWrite={session?.permissions.includes(LOG_COMMUNICATIONS_PERMISSION) ?? false}
   canReviewQueue={session?.permissions.includes(REVIEW_UNROUTED_PERMISSION) ?? false}
   onChanged={() => rereadLog()}

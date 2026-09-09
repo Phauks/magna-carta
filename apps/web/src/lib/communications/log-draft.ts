@@ -8,13 +8,22 @@
  *
  * A CALL AND A TEXT ASK THE SAME QUESTIONS (owner ruling, 2026-09-08). One type control, one
  * direction, one number, one date, one start, one description. The only fields a call has that a
- * text does not are its end and the length worked out from it, because a text has no length in
- * seconds and the database refuses one outright.
+ * text does not are its end and its length, because a text happens at one moment and has no length
+ * in seconds — the database refuses both outright.
  *
- * THE LENGTH IS DERIVED FROM TWO CLOCK TIMES, AND STORED AS A LENGTH (owner ruling, 2026-09-08). The
- * form asks when the call started and when it ended; the record holds seconds. `draftEndTime` and
- * `durationFromEnd` are the bridge, and the draft keeps the LENGTH rather than the two times so a
- * record read back and saved untouched writes exactly the seconds it held.
+ * THE LENGTH IS TYPED, AND IT IS NOT THE SPAN (owner ruling, 2026-09-08: "you should be able to type
+ * in the length of time for the call, and this doesn't need to match calculation, considering people
+ * can be put on hold"). The form asks three things and stores three things — when the call started,
+ * when the line closed, and how long the call actually took — because a caller left on hold occupies
+ * an hour of the line and spends twenty minutes of anybody's attention, and both of those are facts
+ * a firm records. The end still FILLS the length, once, while the length is empty, because that is
+ * the ordinary case and typing the same answer twice is what the earlier derivation was avoiding;
+ * what it never does is overwrite a length somebody typed. That is the whole of the ruling.
+ *
+ * SO THE LENGTH IS FREE TEXT UNTIL IT IS READ. Somebody who has just put the phone down says "twenty
+ * minutes", "1h 5m" or "1:20", not "the integer 65" — `parseDurationMinutes` is the one place those
+ * are understood, and the draft keeps what was typed so a half-typed "1h" is not rewritten under the
+ * cursor.
  *
  * WHAT IS REQUIRED IS STILL DIFFERENT PER TYPE, and that is not cosmetic. A text needs the words: a
  * text with no words is not a text. A call needs neither its words nor its length in principle — a
@@ -25,7 +34,11 @@
  * THE ANCHOR IS ONE THING. A matter, or a reason it belongs to none, or neither while nobody has
  * decided. Never both, which is what the server says too.
  */
-import { checkPhoneEntry, DEFAULT_PHONE_REGION } from "$lib/directory/phone-entry.ts";
+import {
+  checkPhoneEntry,
+  formatPhoneAsTyped,
+  DEFAULT_PHONE_REGION,
+} from "$lib/directory/phone-entry.ts";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/min";
 import type {
   Communication,
@@ -34,7 +47,7 @@ import type {
   CommunicationDisposition,
 } from "./communications-api.ts";
 import {
-  clockTimeAfter,
+  endInstantFromLocalParts,
   instantFromLocalParts,
   localDateValue,
   localTimeValue,
@@ -78,26 +91,36 @@ export interface LogDraft {
   region: string;
   /** The number as typed, grouped in that country's national form. */
   counterpartyNumber: string;
+  /**
+   * The direct dial behind it, digits only.
+   *
+   * Its own draft field and its own control, but NOT its own column: the record stores one number,
+   * and the extension rides in it as `+13125550148x4102` (phone-entry.ts says why). Split back out
+   * when a record is read for correction, so the two halves are edited where they were typed.
+   */
+  counterpartyExtension: string;
   /** The Directory entity behind that number, where the person picked one. */
   counterpartyEntityId: string | null;
   /** The name of that entity, for the field to show at rest. Never sent; the server holds handles. */
   counterpartyName: string | null;
   /** The calendar date it happened, in the reader's own zone. */
   occurredDate: string;
-  /** The clock time it happened, in the reader's own zone. */
+  /** The clock time it started, in the reader's own zone. */
   occurredTime: string;
   /**
-   * How long a call ran, in whole minutes. Converted to seconds on the way out.
+   * The clock time the line closed, in the reader's own zone. Empty where nobody recorded one.
    *
-   * IT IS THE STORED FACT, AND THE END TIME IS DERIVED FROM IT (owner ruling, 2026-09-08: a duration
-   * "should auto-calculate off start and stop"). The form asks for a start and an end, because that
-   * is what somebody who has just put the phone down actually knows, and the duration follows —
-   * `draftEndTime` renders the end, `durationFromEnd` reads one back. The record stores the length
-   * rather than the two times, so keeping the length as the draft's own field is what makes a
-   * correction round-trip exactly: a record read back, rendered and saved untouched writes the same
-   * seconds it held, with nothing recomputed through a clock on the way.
+   * ITS OWN STORED FACT rather than a rendering of the length: the two are allowed to disagree, and
+   * a rendered end would make the disagreement invisible the moment the record was read back.
    */
-  durationMinutes: string;
+  endTime: string;
+  /**
+   * How long the call actually took, exactly as it was typed — "20", "1h 5m", "1:20".
+   *
+   * Kept as text rather than as minutes so a half-typed answer is not rewritten under the cursor,
+   * and read through `parseDurationMinutes` at every point that needs a number.
+   */
+  durationText: string;
   /** What was said — the member's account of a call, or the words of a text. One field for both. */
   description: string;
   /**
@@ -122,11 +145,13 @@ export function emptyLogDraft(now: string): LogDraft {
     disposition: null,
     region: DEFAULT_PHONE_REGION,
     counterpartyNumber: "",
+    counterpartyExtension: "",
     counterpartyEntityId: null,
     counterpartyName: null,
     occurredDate: localDateValue(now),
     occurredTime: localTimeValue(now),
-    durationMinutes: "",
+    endTime: "",
+    durationText: "",
     description: "",
     preservedTextNote: null,
   };
@@ -142,26 +167,43 @@ export function draftOccurredAt(draft: LogDraft): string {
   return instantFromLocalParts(draft.occurredDate, draft.occurredTime);
 }
 
-/**
- * The clock time the call ended at: its start plus its length.
- *
- * Empty where either half is missing, which is the ordinary state of a form somebody is still
- * filling in — a call whose length nobody recorded has no end to show, and a made-up one would read
- * as a fact.
- */
-export function draftEndTime(draft: LogDraft): string {
-  const minutes = Number(draft.durationMinutes.trim());
-  if (draft.durationMinutes.trim() === "" || !Number.isFinite(minutes)) return "";
-  return clockTimeAfter(draft.occurredTime, minutes);
+/** The instant the line closed, or the empty string while the end has not been given. */
+export function draftEndedAt(draft: LogDraft): string {
+  if (draft.endTime.trim() === "") return "";
+  return endInstantFromLocalParts(draft.occurredDate, draft.occurredTime, draft.endTime);
 }
 
 /**
- * The length a typed end time means, as the draft's own field holds it: whole minutes, or the empty
- * string where the two clock times do not make one.
+ * A typed length as whole minutes, or null where it is not a length.
+ *
+ * FOUR SPELLINGS, BECAUSE PEOPLE USE FOUR. A bare number is minutes, which is what somebody typing
+ * fast writes; `1h`, `1h 5m` and `45m` are what somebody writes when they are being careful; `1:20`
+ * is what a phone's own call log shows them. Anything else is not a length and says so rather than
+ * being rounded into one — "about twenty" is a note, and it belongs in the description.
  */
-export function durationFromEnd(draft: LogDraft, end: string): string {
-  const minutes = minutesBetweenClockTimes(draft.occurredTime, end);
-  return minutes === null ? "" : String(minutes);
+export function parseDurationMinutes(typed: string): number | null {
+  const text = typed.trim().toLowerCase();
+  if (text === "") return null;
+  const clock = /^(\d{1,3}):([0-5]\d)$/u.exec(text);
+  if (clock !== null) return Number(clock[1]) * 60 + Number(clock[2]);
+  const bare = /^\d{1,5}$/u.exec(text);
+  if (bare !== null) return Number(text);
+  const spelled = /^(?:(\d{1,3})\s*h)?\s*(?:(\d{1,3})\s*m)?$/u.exec(text);
+  if (spelled === null || (spelled[1] === undefined && spelled[2] === undefined)) return null;
+  return Number(spelled[1] ?? 0) * 60 + Number(spelled[2] ?? 0);
+}
+
+/**
+ * How long the line was open, in minutes, from the two clock times — or null where either is
+ * missing.
+ *
+ * OFFERED RATHER THAN IMPOSED. The form fills an empty length with it and never replaces a typed
+ * one, and the window states it beside the length so a reader can see the difference between the
+ * span and the call rather than having to work it out.
+ */
+export function draftSpanMinutes(draft: LogDraft): number | null {
+  if (draft.endTime.trim() === "") return null;
+  return minutesBetweenClockTimes(draft.occurredTime, draft.endTime);
 }
 
 /**
@@ -179,7 +221,11 @@ export function logDraftShortfalls(draft: LogDraft, now: string): readonly strin
   if (draft.counterpartyNumber.trim() === "") {
     shortfalls.push("The number.");
   } else {
-    const checked = checkPhoneEntry(draft.region as CountryCode, draft.counterpartyNumber);
+    const checked = checkPhoneEntry(
+      draft.region as CountryCode,
+      draft.counterpartyNumber,
+      draft.counterpartyExtension,
+    );
     if (!checked.ok) shortfalls.push(checked.reason);
   }
 
@@ -200,15 +246,18 @@ export function logDraftShortfalls(draft: LogDraft, now: string): readonly strin
 
   if (isTextDraft(draft)) {
     if (draft.description.trim() === "") shortfalls.push("What the text said.");
-  } else if (draft.description.trim() === "" && draft.durationMinutes.trim() === "") {
-    shortfalls.push("What was said, or when the call ended.");
+  } else if (draft.description.trim() === "" && draft.durationText.trim() === "") {
+    shortfalls.push("What was said, or how long the call ran.");
   }
 
-  if (!isTextDraft(draft) && draft.durationMinutes.trim() !== "") {
-    const minutes = Number(draft.durationMinutes);
-    if (!Number.isFinite(minutes) || minutes < 0 || !Number.isInteger(minutes)) {
-      shortfalls.push("A length is a whole number of minutes.");
+  if (!isTextDraft(draft) && draft.durationText.trim() !== "") {
+    if (parseDurationMinutes(draft.durationText) === null) {
+      shortfalls.push("A length reads as 20, 1h 5m or 1:20.");
     }
+  }
+
+  if (!isTextDraft(draft) && draft.endTime.trim() !== "" && draftEndedAt(draft) === "") {
+    shortfalls.push("When the call ended.");
   }
 
   if (draft.anchor === "matter" && draft.matterId === null) {
@@ -245,7 +294,11 @@ export function draftChannel(draft: LogDraft): CommunicationChannel {
  * a person picks it beside the digits — so the composition happens here, where the fact exists.
  */
 export function draftStoredNumber(draft: LogDraft): string {
-  const checked = checkPhoneEntry(draft.region as CountryCode, draft.counterpartyNumber);
+  const checked = checkPhoneEntry(
+    draft.region as CountryCode,
+    draft.counterpartyNumber,
+    draft.counterpartyExtension,
+  );
   return checked.ok ? checked.number : draft.counterpartyNumber.trim();
 }
 
@@ -264,12 +317,14 @@ export function logDraftRequest(draft: LogDraft): {
   counterpartyNumber: string;
   counterpartyEntityId: string | null;
   occurredAt: string;
+  endedAt: string | null;
   durationSeconds: number | null;
   body: string | null;
   summary: string | null;
 } {
   const text = isTextDraft(draft);
-  const minutes = draft.durationMinutes.trim();
+  const minutes = parseDurationMinutes(draft.durationText);
+  const endedAt = draftEndedAt(draft);
   const description = draft.description.trim();
   return {
     channel: draftChannel(draft),
@@ -279,7 +334,8 @@ export function logDraftRequest(draft: LogDraft): {
     counterpartyNumber: draftStoredNumber(draft),
     counterpartyEntityId: draft.counterpartyEntityId,
     occurredAt: draftOccurredAt(draft),
-    durationSeconds: text || minutes === "" ? null : Number(minutes) * 60,
+    endedAt: text || endedAt === "" ? null : endedAt,
+    durationSeconds: text || minutes === null ? null : minutes * 60,
     // ONE FIELD, TWO COLUMNS, and the split is the record's rather than the reader's: `body` is what
     // was actually sent and `summary` is what a member remembered, so a read never has to ask which
     // it is holding. What a person types is called the description on either type.
@@ -317,12 +373,19 @@ export function draftFromCommunication(
     disposition: communication.disposition,
     region: parsed?.country ?? DEFAULT_PHONE_REGION,
     counterpartyNumber:
-      parsed === undefined ? communication.counterpartyNumber : parsed.formatNational(),
+      parsed === undefined
+        ? communication.counterpartyNumber
+        : // The national form WITHOUT the extension: the extension has its own field beside it, and
+          // formatNational appends "ext. 4102" to the digits, which would then be typed into the
+          // number half and stored twice.
+          formatPhoneAsTyped(parsed.country ?? DEFAULT_PHONE_REGION, parsed.nationalNumber),
+    counterpartyExtension: parsed?.ext ?? "",
     counterpartyEntityId: communication.counterpartyEntityId,
     counterpartyName,
     occurredDate: localDateValue(communication.occurredAt),
     occurredTime: localTimeValue(communication.occurredAt),
-    durationMinutes:
+    endTime: communication.endedAt === null ? "" : localTimeValue(communication.endedAt),
+    durationText:
       communication.durationSeconds === null
         ? ""
         : String(Math.round(communication.durationSeconds / 60)),
