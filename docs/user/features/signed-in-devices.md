@@ -46,4 +46,4 @@ Not from this page — Account Settings has its own stripped header, with only t
 ## Related features
 
 - [Signing in and out](signing-in.md) — the sign-in steps, staying signed in, and ending the session you are on.
-- **Account → Security** is where your password and authenticator settings will live; both rows are marked *Soon* and do nothing yet. To change your password today, use **Forgot Password** on the sign-in screen.
+- **Account → Security** is where your password and authenticator settings will live; both rows are marked _Soon_ and do nothing yet. To change your password today, use **Forgot Password** on the sign-in screen.
