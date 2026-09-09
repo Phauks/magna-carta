@@ -4,6 +4,7 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
   assemblePage,
   decodeCursor,
+  encodeCursor,
   DEFAULT_PAGE_SIZE,
 } from "@magna-carta/data-access/cursor-pagination";
 import {
@@ -84,7 +85,18 @@ const NotificationItem = z
   })
   .openapi("NotificationItem");
 
-const NotificationPage = paginated(NotificationItem).openapi("NotificationPage");
+// The feed page carries ONE field beyond the uniform envelope: a cursor naming the NEWEST row it
+// returned. `nextCursor` cannot serve here — it names the page's oldest row and is null at the end
+// of the record, which is exactly the common case of a member with one page of notifications.
+// Without this field a client has only two ways to offer "mark all read": mint the cursor itself,
+// which puts the cursor's encoding in a second place and guarantees the two drift, or fire one
+// request per visible row, which is neither atomic nor able to clear the aged-out tally. So the
+// route that mints cursors hands this one back too.
+const NotificationPage = paginated(NotificationItem)
+  .extend({
+    readThroughCursor: z.string().nullable(),
+  })
+  .openapi("NotificationPage");
 
 const UnreadCountResponse = z
   .object({
@@ -176,7 +188,9 @@ const listRoute = defineOpenAPIRoute(listMeta, {
     "holding matters, and any further restriction composes into the same read when it exists. " +
     "A notification carries identifiers, closed labels, counts and dates only — never a title, a name, " +
     "a filename or a subject line; follow the link to resolve the record it points at through that " +
-    "subsystem's own access-checked read.",
+    "subsystem's own access-checked read. " +
+    "readThroughCursor names the newest row on this page and is what read-all takes as its bound; " +
+    "it is null only when the page is empty.",
   request: {
     query: z.object({
       cursor: z.string().optional(),
@@ -407,7 +421,19 @@ export function registerNotificationsRoutes(app: NotificationsApp, chokepoint: C
         Math.min(query.pageSize ?? DEFAULT_PAGE_SIZE, MAX_FEED_PAGE_SIZE),
         notificationView,
       );
-      return c.json({ data: [...page.data], nextCursor: page.nextCursor }, 200);
+      // The head of the page the caller is about to render — the bound `read-all` takes. Read from
+      // `results` rather than from the mapped page because the cursor is over the storage sort key,
+      // which the view does not carry.
+      const newest = results[0];
+      return c.json(
+        {
+          data: [...page.data],
+          nextCursor: page.nextCursor,
+          readThroughCursor:
+            newest === undefined ? null : encodeCursor(newest.created_at, newest.id),
+        },
+        200,
+      );
     },
   );
 
