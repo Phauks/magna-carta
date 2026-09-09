@@ -7505,6 +7505,34 @@ export type PatchFirmTimePolicyRequest = {
     roundingDirection?: 'up' | 'nearest' | 'down';
 };
 
+export type FirmAiSettingsResponse = {
+    aiProcessing: {
+        eligible: boolean;
+    };
+    model: AiModelFacts;
+    magnus: {
+        enabled: boolean;
+        dailyTurnCeiling: number;
+    };
+};
+
+export type AiModelFacts = {
+    modelId: string;
+    snapshotId: string;
+    zeroDataRetention: boolean;
+    noTraining: boolean;
+} | null;
+
+export type PatchFirmAiSettingsRequest = {
+    aiProcessing?: {
+        eligible?: boolean;
+    };
+    magnus?: {
+        enabled?: boolean;
+        dailyTurnCeiling?: number;
+    };
+};
+
 export type ConversionUploadResponse = {
     jobId: string;
     uploadUrl: string;
@@ -35485,6 +35513,95 @@ export type FirmTimePolicyUpdateResponses = {
 };
 
 export type FirmTimePolicyUpdateResponse = FirmTimePolicyUpdateResponses[keyof FirmTimePolicyUpdateResponses];
+
+export type FirmAiSettingsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/ai/settings';
+};
+
+export type FirmAiSettingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageAiSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmAiSettingsGetError = FirmAiSettingsGetErrors[keyof FirmAiSettingsGetErrors];
+
+export type FirmAiSettingsGetResponses = {
+    /**
+     * The firm's AI settings
+     */
+    200: FirmAiSettingsResponse;
+};
+
+export type FirmAiSettingsGetResponse = FirmAiSettingsGetResponses[keyof FirmAiSettingsGetResponses];
+
+export type FirmAiSettingsUpdateData = {
+    body: PatchFirmAiSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/ai/settings';
+};
+
+export type FirmAiSettingsUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageAiSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmAiSettingsUpdateError = FirmAiSettingsUpdateErrors[keyof FirmAiSettingsUpdateErrors];
+
+export type FirmAiSettingsUpdateResponses = {
+    /**
+     * The firm's AI settings after the write
+     */
+    200: FirmAiSettingsResponse;
+};
+
+export type FirmAiSettingsUpdateResponse = FirmAiSettingsUpdateResponses[keyof FirmAiSettingsUpdateResponses];
 
 export type ConversionsUploadData = {
     body?: never;

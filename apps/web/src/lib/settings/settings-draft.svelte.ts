@@ -39,6 +39,16 @@ function normalizeValue(definition: SettingDefinition, candidate: unknown): Sett
         definition.options?.some((option) => option.value === candidate)
         ? candidate
         : definition.defaultValue;
+    case "number":
+      // Out of the definition's stated interval is as unrepresentable as a select option that no
+      // longer exists — the field could not have produced it, so the default wins rather than a
+      // control rendering a value the server would refuse.
+      return typeof candidate === "number" &&
+        Number.isInteger(candidate) &&
+        candidate >= (definition.minimum ?? Number.NEGATIVE_INFINITY) &&
+        candidate <= (definition.maximum ?? Number.POSITIVE_INFINITY)
+        ? candidate
+        : definition.defaultValue;
   }
 }
 

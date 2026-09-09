@@ -50,6 +50,13 @@
       "when": 1788904467410,
       "tag": "20260908T215427_communication-reference-number-and-end",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788904567410,
+      "tag": "20260909T000000_seed-ai-settings-permission",
+      "breakpoints": true
     }
   ]
 }

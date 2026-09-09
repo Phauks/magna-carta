@@ -164,6 +164,11 @@ describe("GET /api/v1/me", () => {
         // Writing one's own name reaches every seat, Read-only included: it is the platform's one
         // self-scoped mutation, and every statement behind it is scoped to the session's own user id.
         "firm:editOwnProfile",
+        // Seeded to Owner/Admin ALONE by 20260909T000000_seed-ai-settings-permission, and
+        // deliberately not to the seats that hold magnus:converse: asking the assistant a
+        // question is ordinary work, deciding that the firm's privileged content may leave for
+        // a third-party model is not.
+        "firm:manageAiSettings",
         "firm:manageMembers",
         // The firm's notification policy — the in-app floor, retention window and digest hour —
         // reaches Owner/Admin only. Deliberately NOT notifications:read, which every default role

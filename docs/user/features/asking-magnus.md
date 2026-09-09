@@ -91,7 +91,7 @@ a client's confidence is not something to leave lying in a list.
 Magnus is **off until the firm turns it on**, and it takes two separate decisions to turn on: the
 firm must allow its information to reach an AI provider at all, and it must enable Magnus
 specifically. If either is closed, the page says which one, and only the firm's administrator can
-change it.
+change it — see [turning AI on for your firm](../admin/ai-and-the-assistant.md).
 
 Your role also has to include using Magnus. If the page tells you your role does not grant it, ask
 whoever manages roles at the firm.
@@ -102,3 +102,5 @@ whoever manages roles at the firm.
   question from asking about it.
 - [Asking a question of a matter's documents](asking-a-question-of-a-matters-documents.md) — reading passages out of
   your own documents, which is the feature that does look at your files.
+- [Turning AI on for your firm](../admin/ai-and-the-assistant.md) — for the administrator who has to
+  open the two switches, and what the firm is deciding by opening them.

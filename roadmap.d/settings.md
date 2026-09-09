@@ -137,12 +137,19 @@
   notes: Authoring custom roles and per-member direct grants are deliberately not built. The schema carries both (role, role_permission, direct_grant in packages/database/src/per-firm-schema.ts) and neither is needed for a firm to operate; the routes are shaped so adding them reshapes nothing.
 
 - id: settings.area-ui.platform-band
-  name: Platform band (Beta Access, Versions, Developer)
-  scope: Firm release-channel stance, versioned-component ledger, developer master switch and console.
+  name: Platform band (AI and the Assistant, Beta Access, Versions, Developer)
+  scope: The firm's AI consent gates, its release-channel stance, the versioned-component ledger, and the developer master switch and console.
   status: partial
   surface: screen
-  evidence: Beta Access is live over the session bootstrap's channel and PUT /api/v1/firm/release-channel, gated on firm:manageReleaseChannel (apps/web/src/routes/(app)/settings/beta-access/ and apps/web/src/lib/settings/release-channel-api.ts). Most Versions rows remain honest seams pending backend endpoints (page comments cite docs/research/fable-backend-review-2026-07.md).
-  notes: Beta Access is instant with its own consent dialog rather than the shared draft footer — entering beta takes an explicit acknowledgement the footer's generic staged-changes recap cannot express, and leaving takes none because the route asks none. A firm on the platform-only alpha channel is told so and offered no control.
+  evidence: Pages shipped. AI and the Assistant is fully server-backed (GET/PATCH /api/v1/firm/ai/settings, gated on firm:manageAiSettings). Beta Access is live over the session bootstrap's channel and PUT /api/v1/firm/release-channel, gated on firm:manageReleaseChannel (apps/web/src/routes/(app)/settings/beta-access/ and apps/web/src/lib/settings/release-channel-api.ts). Most Versions rows remain honest seams pending backend endpoints (page comments cite docs/research/fable-backend-review-2026-07.md).
+  notes: Beta Access is instant with its own consent dialog rather than the shared draft footer — entering beta takes an explicit acknowledgement the footer's generic staged-changes recap cannot express, and leaving takes none because the route asks none. A firm on the platform-only alpha channel is told so and offered no control. AI and the Assistant is draft mode, on the opposite reasoning: opening the processing gate is not a decision to make by brushing a switch.
+
+- id: settings.control-kinds
+  name: Setting control kinds
+  scope: The closed set of controls a registered setting renders as — a dropdown for an enumeration (never a radio group), a switch for a boolean, a text field, and a bounded integer field carrying the same interval its backend schema enforces.
+  status: shipped
+  surface: screen
+  evidence: SettingKind in apps/web/src/lib/settings/settings-definitions.ts rendered by components/settings-row.svelte; the number kind's bounds are required rather than optional, enforced by apps/web/test/settings-mode-purity.test.ts, so an unbounded numeric field cannot ship and be refused by the server.
 
 - id: settings.area-ui.integrations-category
   name: Integrations settings category

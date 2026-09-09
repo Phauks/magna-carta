@@ -32520,6 +32520,97 @@
           }
         }
       },
+      "FirmAiSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "aiProcessing": {
+            "type": "object",
+            "properties": {
+              "eligible": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "eligible"
+            ]
+          },
+          "model": {
+            "$ref": "#/components/schemas/AiModelFacts"
+          },
+          "magnus": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "dailyTurnCeiling": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enabled",
+              "dailyTurnCeiling"
+            ]
+          }
+        },
+        "required": [
+          "aiProcessing",
+          "model",
+          "magnus"
+        ]
+      },
+      "AiModelFacts": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "modelId": {
+            "type": "string"
+          },
+          "snapshotId": {
+            "type": "string"
+          },
+          "zeroDataRetention": {
+            "type": "boolean"
+          },
+          "noTraining": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "modelId",
+          "snapshotId",
+          "zeroDataRetention",
+          "noTraining"
+        ]
+      },
+      "PatchFirmAiSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "aiProcessing": {
+            "type": "object",
+            "properties": {
+              "eligible": {
+                "type": "boolean"
+              }
+            }
+          },
+          "magnus": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "dailyTurnCeiling": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000
+              }
+            }
+          }
+        }
+      },
       "ConversionUploadResponse": {
         "type": "object",
         "properties": {
@@ -100054,6 +100145,203 @@
         }
       }
     },
+    "/api/v1/firm/ai/settings": {
+      "get": {
+        "description": "Reads the firm's AI settings: whether its content may reach a third-party model at all, whether the assistant may send it, the assistant's daily question allowance, and the facts about the model in force — which model, the exact snapshot behind an answer, and whether the provider retains or trains on what it receives. Both gates are closed until a firm opens them.",
+        "operationId": "firmAiSettings.get",
+        "tags": [
+          "firmAiSettings"
+        ],
+        "x-mc-operationId": "firmAiSettings.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageAiSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmAiSettings"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's AI settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmAiSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageAiSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates the firm's AI settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. The model in force is reported, never written. Returns the settings after the write.",
+        "operationId": "firmAiSettings.update",
+        "tags": [
+          "firmAiSettings"
+        ],
+        "x-mc-operationId": "firmAiSettings.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageAiSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "firmAiSettings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchFirmAiSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's AI settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmAiSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageAiSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversions/upload": {
       "post": {
         "description": "Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.",
@@ -103178,6 +103466,9 @@
     },
     {
       "name": "firm"
+    },
+    {
+      "name": "firmAiSettings"
     },
     {
       "name": "firmNotificationPolicy"

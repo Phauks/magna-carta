@@ -41,6 +41,7 @@ import { registerFirmNotificationPolicyRoutes } from "./routes/firm-notification
 import { registerFirmProfileRoutes } from "./routes/firm-profile.ts";
 import { registerFirmReportPolicyRoutes } from "./routes/firm-report-policy.ts";
 import { registerFirmTimePolicyRoutes } from "./routes/firm-time-policy.ts";
+import { registerFirmAiSettingsRoutes } from "./routes/firm-ai-settings.ts";
 import { registerNotificationPreferencesRoutes } from "./routes/notification-preferences.ts";
 import { registerNotificationsRoutes } from "./routes/notifications.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
@@ -869,6 +870,10 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFirmProfileRoutes(app, chokepoint);
   registerFirmReportPolicyRoutes(app, chokepoint);
   registerFirmTimePolicyRoutes(app, chokepoint);
+  // The firm's AI settings: the two consent gates read by apps/api-worker/src/magnus/consent.ts,
+  // plus the assistant's daily ceiling and the stated facts about the model in force. The only
+  // writer of those gates — until this landed, a firm could not open either one.
+  registerFirmAiSettingsRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);
@@ -980,7 +985,7 @@ export function emitOpenAPIDocument(
   }
   // Sorted on a fresh copy, not `toSorted`: that method is absent from this worker's lib target, and
   // an autofixer will offer the swap again.
-  document.tags = [...tagNames].sort().map((name) => ({ name }));
+  document.tags = [...tagNames].toSorted().map((name) => ({ name }));
   return document;
 }
 

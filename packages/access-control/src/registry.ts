@@ -49,6 +49,14 @@ export const PERMISSIONS = [
   // nothing about anybody else. A firm that withholds it has decided its people's names are set
   // centrally, which is a real posture and the reason this is a key rather than a hole.
   "firm:editOwnProfile", // write one's own name; the actor is always the subject
+  // Whether the firm's content may reach a model at all, and whether the assistant is one of the
+  // things that may send it. Deliberately NOT magnus:converse: that key says a member may hold a
+  // conversation, and it seeds to the seats that do firm work — reusing it here would let any of them
+  // decide, for the whole firm, that privileged content may leave for a third-party provider. Consent
+  // to that is the firm's act and nobody else's, so this seeds to Owner/Admin alone, the
+  // firm:manageScanPolicy bracket. It also covers the assistant's daily ceiling, which is a spend
+  // control on the same traffic and belongs with the decision that opened it.
+  "firm:manageAiSettings", // read and update the firm's AI settings: the third-party processing gate, the assistant gate, and its daily ceiling
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.

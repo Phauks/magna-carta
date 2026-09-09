@@ -103,7 +103,8 @@ export interface SettingsSection {
     | "documents"
     | "integrations"
     | "calendar"
-    | "reports";
+    | "reports"
+    | "ai";
   /**
    * The section renders platform/diagnostic data only — no editable settings. `commitMode`
    * is vacuous on such a page and set to "instant" (nothing staged, nothing to commit); the
@@ -459,6 +460,27 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     scope: "firm",
     commitMode: "instant",
     editPermissionArea: "firm",
+    shipped: true,
+  },
+  {
+    // The firm's two AI consent gates and the assistant's daily ceiling. Under Data & Platform
+    // rather than Practice because it is a statement about where this firm's content may go, not
+    // about how the firm runs its work — the neighbours are Beta Access and Versions, the other
+    // two sections about the platform underneath rather than the practice on top.
+    //
+    // Server-backed from the start on the Reports page's pattern: the draft reads and writes
+    // GET/PATCH /api/v1/firm/ai/settings and stages nothing into local storage, because a firm
+    // setting with a server behind it must not keep a per-browser copy that can disagree with it.
+    // Draft mode, emphatically not instant: opening the processing gate is the firm consenting to
+    // privileged client content leaving for a third party, which is not a decision anybody should
+    // make by brushing a switch.
+    id: "ai",
+    label: "AI and the Assistant",
+    href: "/settings/ai",
+    group: "data-platform",
+    scope: "firm",
+    commitMode: "draft",
+    editPermissionArea: "ai",
     shipped: true,
   },
   {

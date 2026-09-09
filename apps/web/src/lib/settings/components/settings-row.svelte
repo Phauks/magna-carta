@@ -210,6 +210,37 @@
         id={controlId}
         bind:checked={() => currentValue() === true, (next) => applyNext(next)}
       />
+    {:else if definition.kind === "number"}
+      <!-- A native number field carrying the definition's own bounds, so the browser refuses out
+           of range before a request is composed. The bounds are the SAME interval the backend's
+           setting schema enforces at the write path — the field is the polite statement of a rule
+           the server keeps regardless. An emptied field is not staged as a change: `next` is the
+           empty string while somebody is retyping, and staging 0 mid-keystroke would silently
+           propose a real value (a ceiling of nothing) they never chose. -->
+      <Input
+        id={controlId}
+        type="number"
+        inputmode="numeric"
+        min={definition.minimum}
+        max={definition.maximum}
+        step={1}
+        class="tabular-nums"
+        bind:value={
+          () => String(currentValue()),
+          (next) => {
+            // A number field hands back whatever the runtime coerced it to — a number where the
+            // native `type` coercion applied, the raw string where it did not (Input spreads `type`
+            // through its rest props, so that is not statically decidable here), and undefined or ""
+            // for an emptied field. Only an integer stages; a half-typed or emptied field is left
+            // alone, because staging 0 mid-keystroke would silently propose a ceiling of nothing
+            // that nobody chose.
+            if (next === undefined || next === "") return;
+            const parsed = Number(next);
+            if (!Number.isInteger(parsed)) return;
+            applyNext(parsed);
+          }
+        }
+      />
     {:else}
       <Input id={controlId} bind:value={() => String(currentValue()), (next) => applyNext(next ?? "")} />
     {/if}

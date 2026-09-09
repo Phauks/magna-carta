@@ -18,6 +18,11 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
 - [The first day of the week](calendar-week-start.md) — the day every calendar in the firm begins
   its week on, why it is the firm's setting and not each member's, who can change it, and what a
   change does and does not move.
+- [Turning AI on for your firm](ai-and-the-assistant.md) — the two separate switches (whether your
+  firm's content may reach a model at all, and whether the assistant is one of the things that may
+  send it), why one does not follow from the other, the model your content reaches and the two facts
+  stated about it, the daily question ceiling, who may change any of it, and what closing a switch
+  does to questions already sent.
 - [Turning on question-and-answer document search](natural-language-document-search.md) — what the
   feature copies and where, the two things the disclosure declines to guarantee (data residency, and
   provable erasure from the managed store), leaving a matter out, what turning it off can and cannot

@@ -124,6 +124,32 @@ describe("settings mode purity", () => {
             `definition "${definition.id}" (text) default must be a string`,
           ).toBe("string");
           break;
+        case "number": {
+          expect(
+            typeof definition.defaultValue,
+            `definition "${definition.id}" (number) default must be a number`,
+          ).toBe("number");
+          // Both bounds are required, not merely honoured when present: an unbounded numeric field
+          // renders as one that takes anything and is refused by the server, which teaches the
+          // wrong thing about what the firm may choose.
+          expect(
+            definition.minimum,
+            `definition "${definition.id}" (number) declares no minimum`,
+          ).toBeTypeOf("number");
+          expect(
+            definition.maximum,
+            `definition "${definition.id}" (number) declares no maximum`,
+          ).toBeTypeOf("number");
+          expect(
+            definition.defaultValue,
+            `definition "${definition.id}" default falls outside its own bounds`,
+          ).toBeGreaterThanOrEqual(definition.minimum as number);
+          expect(
+            definition.defaultValue,
+            `definition "${definition.id}" default falls outside its own bounds`,
+          ).toBeLessThanOrEqual(definition.maximum as number);
+          break;
+        }
       }
     }
   });

@@ -34,7 +34,8 @@ export type SettingsPermissionArea =
   | "documents"
   | "integrations"
   | "calendar"
-  | "reports";
+  | "reports"
+  | "ai";
 
 /**
  * The capability that stands for each area — what a firm grants when it means "you may set our
@@ -53,6 +54,10 @@ const AREA_PERMISSIONS: Readonly<Record<SettingsPermissionArea, string>> = {
   integrations: "firm:manageSecrets",
   calendar: "calendar:manage",
   reports: "firm:manageReportPolicy",
+  // Whether the firm's content may reach a model at all, and whether the assistant may send it.
+  // Its own key rather than firm:manageMembers: consenting to privileged client content leaving
+  // the platform is not an act of administering who works here.
+  ai: "firm:manageAiSettings",
 };
 
 /** Whether the signed-in member may edit this firm area. False until the session read lands. */
