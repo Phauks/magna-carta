@@ -25,6 +25,11 @@ export type CommunicationValidationCode =
   | "communication-empty-content"
   | "communication-invalid-instant"
   | "communication-future-instant"
+  // The END of a call, which is a fact about the line rather than about the length. A message has no
+  // end, and an end before the start is a typo rather than a call that ran backwards.
+  | "communication-ended-on-message"
+  | "communication-ended-before-start"
+  | "communication-span-too-long"
   // A row this reader cannot reach, or one that is not where the caller said it was. Kept distinct
   // because they are fixed differently, and neither reveals which by its message.
   | "communication-unknown"
@@ -215,6 +220,40 @@ export function assertOneAnchor(
       "a call is either on a matter or set aside, never both",
     );
   }
+}
+
+// WHEN THE LINE CLOSED, and it is deliberately not the same fact as how long the call ran (owner
+// ruling, 2026-09-08: a typed length "doesn't need to match calculation, considering people can be
+// put on hold"). A call that started at ten and ended at eleven with forty minutes of hold in the
+// middle is a twenty-minute call over an hour-long span, and both numbers are true. So this is
+// stored beside `duration_seconds` rather than derived from it, and nothing here checks that the two
+// agree — a check that they agree would be the very rule the ruling removes.
+//
+// What IS checked is that the span is a span: a call cannot close before it opened, and one that ran
+// longer than a day is a mistyped date rather than a call.
+export function normalizeEndedAt(
+  value: string | null | undefined,
+  channel: CommunicationChannel,
+  occurredAt: string,
+): string | null {
+  if (value === null || value === undefined || value.trim() === "") return null;
+  if (isTextChannel(channel)) {
+    refuse("communication-ended-on-message", "a message has no end; it happened at one moment");
+  }
+  const ended = Date.parse(value);
+  if (Number.isNaN(ended)) {
+    refuse("communication-invalid-instant", "that is not a date and time");
+  }
+  const started = Date.parse(occurredAt);
+  if (!Number.isNaN(started)) {
+    if (ended < started) {
+      refuse("communication-ended-before-start", "a call cannot end before it started");
+    }
+    if (ended - started > MAX_CALL_DURATION_SECONDS * 1000) {
+      refuse("communication-span-too-long", "that call ran for longer than a day");
+    }
+  }
+  return new Date(ended).toISOString();
 }
 
 export function normalizeOccurredAt(value: string, now: string): string {

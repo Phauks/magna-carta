@@ -6,6 +6,7 @@ import feeEntryWorkInProgressStoreSql from "@magna-carta/database/drizzle/per-fi
 import invoiceWipClaimAdmitsAFeeSql from "@magna-carta/database/drizzle/per-firm/20260908T040000_invoice-wip-claim-admits-a-fee.sql";
 import seedEditOwnProfileSql from "@magna-carta/database/drizzle/per-firm/20260908T050000_seed-edit-own-profile.sql";
 import seedManageProfileSql from "@magna-carta/database/drizzle/per-firm/20260908T060000_seed-manage-profile.sql";
+import communicationReferenceNumberAndEndSql from "@magna-carta/database/drizzle/per-firm/20260908T215427_communication-reference-number-and-end.sql";
 
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
 // add the new import alongside its journal entry, keyed by its monotonic timestamp id. The test
@@ -18,6 +19,7 @@ export function perFirmMigrations(): Migration[] {
     "20260908T040000_invoice-wip-claim-admits-a-fee": invoiceWipClaimAdmitsAFeeSql,
     "20260908T050000_seed-edit-own-profile": seedEditOwnProfileSql,
     "20260908T060000_seed-manage-profile": seedManageProfileSql,
+    "20260908T215427_communication-reference-number-and-end": communicationReferenceNumberAndEndSql,
   });
 }
 

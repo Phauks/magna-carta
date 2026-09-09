@@ -1607,7 +1607,7 @@
             </p>
           </div>
         {:else}
-          <ul class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+          <ul class="mc-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
             {#each stagedFiles as file (file.id)}
               <li class="flex items-center gap-8 rounded-md border border-border-default p-8">
                 <Paperclip class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
@@ -1641,7 +1641,7 @@
           </p>
         </div>
       {:else}
-        <ul class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        <ul class="mc-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           {#each attachments as attachment (attachment.fileId)}
             <li class="flex items-center gap-8 rounded-md border border-border-default p-8">
               <Paperclip class="size-16 shrink-0 text-text-muted" aria-hidden="true" />

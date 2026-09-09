@@ -25,6 +25,7 @@ import type { GridColumn } from "@magna-carta/design-system/data-table";
 import { personName } from "@magna-carta/design-system/formatters";
 import type { ConflictsCheckSummary } from "./conflicts-api.ts";
 import {
+  NAME_MATCHING_LABEL,
   strictnessVocabulary,
   triggerVocabulary,
   TRIGGER_VOCABULARY,
@@ -116,7 +117,7 @@ export function conflictsCheckColumns(
     },
     {
       id: "strictness",
-      label: "Band",
+      label: NAME_MATCHING_LABEL,
       filter: "set",
       value: (check) => strictnessVocabulary(check.strictness).label,
     },

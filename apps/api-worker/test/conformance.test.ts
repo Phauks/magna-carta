@@ -848,6 +848,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "communications.list",
       "communications.listForMatter",
       "communications.log",
+      "communications.nextNumber",
       "communications.routeToMatter",
       "communications.setDisposition",
       "communications.unrouteFromMatter",

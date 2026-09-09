@@ -215,7 +215,7 @@
 
 <!-- The rail, written once for the record and for the shape it takes while it is read. -->
 {#snippet sectionRail(entries: readonly EntitySection[])}
-  <Tabs.List class="shrink-0 overflow-y-auto" style="width: 11rem">
+  <Tabs.List class="mc-scrollbar shrink-0 overflow-y-auto" style="width: 11rem">
     {#each entries as entry (entry.id)}
       <Tabs.Trigger value={entry.id}>{entry.label}</Tabs.Trigger>
     {/each}
@@ -260,7 +260,7 @@
         {#snippet fixture()}
           <Tabs.Root value="names" orientation="vertical" class="gap-16" style={RECORD_PANEL_BODY_STYLE}>
             {@render sectionRail(FIXTURE_SECTIONS)}
-            <Tabs.Content value="names" class="min-w-0 flex-auto overflow-y-auto">
+            <Tabs.Content value="names" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
               <section class="flex flex-col gap-16">
                 <h3 class="text-sm font-semibold" data-loading-keep>Names on the record</h3>
                 <DataTable.Root>
@@ -301,23 +301,23 @@
           <Tabs.Root bind:value={section} orientation="vertical" class="gap-16" style={RECORD_PANEL_BODY_STYLE}>
             {@render sectionRail(sections)}
 
-            <Tabs.Content value="names" class="min-w-0 flex-auto overflow-y-auto">
+            <Tabs.Content value="names" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
               <NamesPane {entity} {mayEdit} {editDisabledReason} onRecorded={recorded} />
             </Tabs.Content>
 
-            <Tabs.Content value="contact" class="min-w-0 flex-auto overflow-y-auto">
+            <Tabs.Content value="contact" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
               <ContactPane {entityId} {mayEdit} {editDisabledReason} />
             </Tabs.Content>
 
             <!-- The same read, the other half of it. An address is a form whose shape is the
                  country's, so it stands beside the one-line ways to reach somebody, not inside
                  the list of them. -->
-            <Tabs.Content value="address" class="min-w-0 flex-auto overflow-y-auto">
+            <Tabs.Content value="address" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
               <ContactPane {entityId} {mayEdit} {editDisabledReason} channel="addresses" />
             </Tabs.Content>
 
             {#if entity.kind === "person"}
-              <Tabs.Content value="pronouns" class="min-w-0 flex-auto overflow-y-auto">
+              <Tabs.Content value="pronouns" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
                 <PronounsPane
                   person={entity.person}
                   {mayEdit}
@@ -326,7 +326,7 @@
                 />
               </Tabs.Content>
 
-              <Tabs.Content value="dates" class="min-w-0 flex-auto overflow-y-auto">
+              <Tabs.Content value="dates" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
                 <LifeDatesPane
                   person={entity.person}
                   {mayEdit}
@@ -336,7 +336,7 @@
               </Tabs.Content>
             {/if}
 
-            <Tabs.Content value="identifiers" class="min-w-0 flex-auto overflow-y-auto">
+            <Tabs.Content value="identifiers" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
               <IdentifiersPane
                 {entityId}
                 kind={entity.kind}
@@ -347,7 +347,7 @@
               />
             </Tabs.Content>
 
-            <Tabs.Content value="duplicates" class="min-w-0 flex-auto overflow-y-auto">
+            <Tabs.Content value="duplicates" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
               <DuplicatesPane
                 {entity}
                 {mayEdit}
@@ -359,7 +359,7 @@
 
             <!-- One pane, three filters: every relationship, and the membership family read from
                  whichever side this record is on. -->
-            <Tabs.Content value="relationships" class="min-w-0 flex-auto overflow-y-auto">
+            <Tabs.Content value="relationships" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
               <EdgesPane
                 {entityId}
                 kind={entity.kind}
@@ -372,7 +372,7 @@
             </Tabs.Content>
 
             {#if entity.kind === "organization"}
-              <Tabs.Content value="people" class="min-w-0 flex-auto overflow-y-auto">
+              <Tabs.Content value="people" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
                 <EdgesPane
                   {entityId}
                   kind={entity.kind}
@@ -384,7 +384,7 @@
                 />
               </Tabs.Content>
             {:else}
-              <Tabs.Content value="organizations" class="min-w-0 flex-auto overflow-y-auto">
+              <Tabs.Content value="organizations" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
                 <EdgesPane
                   {entityId}
                   kind={entity.kind}
@@ -397,12 +397,12 @@
               </Tabs.Content>
             {/if}
 
-            <Tabs.Content value="matters" class="min-w-0 flex-auto overflow-y-auto">
+            <Tabs.Content value="matters" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
               <MattersPane {entityId} />
             </Tabs.Content>
 
             {#if entity.kind === "organization"}
-              <Tabs.Content value="categories" class="min-w-0 flex-auto overflow-y-auto">
+              <Tabs.Content value="categories" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
                 <CategoriesPane {entityId} kind={entity.kind} {mayEdit} {editDisabledReason} />
               </Tabs.Content>
             {/if}
@@ -415,7 +415,7 @@
   {#snippet context()}
     <!-- The same height as the panes beside it, so what stands about the record never decides how
          tall the window is either. -->
-    <div class="flex flex-col gap-16 overflow-y-auto" style={RECORD_PANEL_BODY_STYLE}>
+    <div class="mc-scrollbar flex flex-col gap-16 overflow-y-auto" style={RECORD_PANEL_BODY_STYLE}>
       {#if mergedInto !== null}
         <!-- A folded-away record still opens: somebody following an old link lands on something
              that says where the record went, not on a record quietly pretending to stand alone. -->

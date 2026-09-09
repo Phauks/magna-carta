@@ -830,7 +830,7 @@
       <MagnusUnavailable state={firmGate} />
     {:else if rail === "column"}
       <div class="flex min-h-0 flex-1 gap-24">
-        <div class="flex w-2xs shrink-0 flex-col gap-8 overflow-y-auto">
+        <div class="mc-scrollbar flex w-2xs shrink-0 flex-col gap-8 overflow-y-auto">
           {@render railColumn()}
         </div>
         <div class="flex min-h-0 flex-1 flex-col gap-16">

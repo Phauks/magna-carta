@@ -61,6 +61,13 @@ export function isCommunicationChannel(value: string): value is CommunicationCha
 /** One call or message as the log answers it. */
 export interface Communication {
   id: string;
+  /**
+   * The number the firm says out loud — the day and that day's own sequence, `2026-09-08-0042`.
+   *
+   * Null only on rows recorded before the sequence existed and never numbered. A surface renders the
+   * handle nowhere, so a null here reads as "no number" rather than falling back to one.
+   */
+  referenceNumber: string | null;
   channel: CommunicationChannel;
   direction: CommunicationDirection;
   /** Null while the row is in the queue, waiting for somebody to file it. */
@@ -81,6 +88,12 @@ export interface Communication {
   counterpartyEntityId: string | null;
   memberUserId: string | null;
   occurredAt: string;
+  /**
+   * When the line closed, which is not how long the call ran. A caller left on hold occupies the
+   * span without spending it, so the two are separate facts and neither is worked out from the
+   * other. Null on a text, and on a call whose end nobody recorded.
+   */
+  endedAt: string | null;
   durationSeconds: number | null;
   body: string | null;
   summary: string | null;
@@ -93,6 +106,19 @@ export interface Communication {
   loggedByUserId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * The two facts an intake needs from the call that started it: which row to file onto the matter it
+ * opens, and who to seed as the client.
+ *
+ * Narrower than a whole record on purpose. A call being recorded hands these up the moment its write
+ * lands, without waiting on a read-back it does not need — and a surface that opens an intake should
+ * not be able to reach into the rest of a call's content on the way.
+ */
+export interface IntakeSource {
+  readonly id: string;
+  readonly counterpartyEntityId: string | null;
 }
 
 /** What the log may be narrowed by. Every one of these is the server's own filter. */
@@ -139,6 +165,23 @@ export function listCommunications(
       );
 }
 
+/**
+ * The number the next call or text recorded for that day would carry.
+ *
+ * A PREVIEW AND NOT A RESERVATION. Somebody still on the telephone needs something to write on the
+ * slip and read back to the caller, and waiting for the save to answer is too late for the sentence
+ * they are in the middle of — so the form asks what the number would be. Nothing is drawn by asking,
+ * so a call recorded first takes it and this one moves on; the record's own number is always read
+ * back from the record.
+ */
+export function readNextCommunicationNumber(
+  fetchImpl: typeof fetch,
+  occurredAt: string,
+): Promise<ApiOutcome<{ referenceNumber: string }>> {
+  const suffix = occurredAt === "" ? "" : `?occurredAt=${encodeURIComponent(occurredAt)}`;
+  return requestJson(fetchImpl, `/api/v1/communications/next-number${suffix}`);
+}
+
 /** How many calls and texts are waiting to be filed. Refused without the review capability. */
 export function readUnroutedCount(fetchImpl: typeof fetch): Promise<ApiOutcome<{ count: number }>> {
   return requestJson(fetchImpl, "/api/v1/communications/unrouted-count");
@@ -157,6 +200,7 @@ export interface LogCommunicationInput {
   counterpartyEntityId?: string | null;
   memberUserId?: string | null;
   occurredAt: string;
+  endedAt?: string | null;
   durationSeconds?: number | null;
   body?: string | null;
   summary?: string | null;
@@ -232,6 +276,7 @@ export interface UpdateCommunicationInput {
   counterpartyEntityId?: string | null;
   memberUserId?: string | null;
   occurredAt?: string;
+  endedAt?: string | null;
   durationSeconds?: number | null;
   body?: string | null;
   summary?: string | null;

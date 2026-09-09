@@ -1,34 +1,38 @@
 <script lang="ts">
   /*
-   * What a call or a text IS, as fields — the one layout, shared by the window that records one and
-   * the window that corrects one.
+   * What a call or a text IS, as fields — the one layout, shared by every window that records one
+   * and corrects one. There is only one such window now (communication-record-window.svelte), which
+   * is what this component was always for.
    *
-   * TWO COLUMNS: THE MEASURABLE AND THE WRITTEN (owner ruling, 2026-09-08). The left side is
-   * everything about the call that is a quantity or a fact somebody could look up — type, direction,
-   * who, which number, when it started, when it ended, how long it ran, where it belongs. The right
-   * side is what was actually said. They are different kinds of answer and they are answered at
-   * different moments: the left is filled in from the phone's own record of the call in a few
-   * seconds, and the right is written. Putting the description beside the facts rather than under
-   * them also leaves the right side room to become tabs — the text, a transcript, the recording —
-   * which is where this screen is going once the carrier is connected.
+   * THE DESCRIPTION IS A LINE BENEATH THE OTHER INFORMATION (owner ruling, 2026-09-08), not a column
+   * beside it. It was put in a second column a round earlier, on the reasoning that the measurable
+   * facts and the written account are different kinds of answer given at different moments. They
+   * are — and it still read wrong, because the description is PROSE and prose wants the width of the
+   * thing it is in, while every fact above it is a few characters in a labelled box. The same shape
+   * the time sheet reaches for: the facts on the row, the description underneath it with the whole
+   * width to wrap in.
    *
    * A CALL AND A TEXT LOOK THE SAME (owner ruling, 2026-09-08), and switching between them MOVES
-   * NOTHING. Every field a call has, a text has: the length of a text is simply not a fact, so its
-   * end and its duration stand refused rather than vanishing. A control that disappears reflows the
-   * form under the hand of the person filling it in, which is worse than a control that is plainly
-   * unavailable.
+   * NOTHING. Every field a call has, a text has: a text simply has no end and no length, so those
+   * two stand refused rather than vanishing. A control that disappears reflows the form under the
+   * hand of the person filling it in, which is worse than a control that is plainly unavailable.
    *
-   * A DURATION IS NOT TYPED, IT IS WORKED OUT. The form asks when the call started and when it
-   * ended, because that is what somebody who has just put the phone down knows; the length follows
-   * from the two (log-draft.ts). The three sit together, because they are one answer in three parts.
+   * THE LENGTH IS TYPED, AND IT NEED NOT BE THE SPAN (owner ruling, 2026-09-08: "you should be able
+   * to type in the length of time for the call, and this doesn't need to match calculation,
+   * considering people can be put on hold"). Start and End say how long the line was open; Duration
+   * says how long the call took. Typing an End fills an EMPTY Duration, because that is the ordinary
+   * case and nobody should type one answer twice — and it never overwrites one somebody typed, which
+   * is the whole of the ruling. Where the two disagree the form says so in a line under them, so the
+   * difference reads as a fact about the call rather than as a mistake nobody noticed.
    *
    * EVERY CHOICE IS TYPED INTO. Type, direction, the country, where it belongs: each is a combobox
    * over a closed set ($lib/components/choice-picker.svelte), never a select. A reader should not
    * have to find out which lists accept typing.
    *
-   * THE NUMBER AND ITS COUNTRY ARE ONE FIELD, and it is the Directory's
+   * THE NUMBER, ITS COUNTRY AND ITS EXTENSION ARE ONE FIELD, and it is the Directory's
    * ($lib/directory/phone-number-field.svelte) — the same field the firm's contact records are
-   * entered in. One place in the product knows how a country writes its numbers.
+   * entered in. One place in the product knows how a country writes its numbers, and one place knows
+   * what to do with the digits a direct dial adds past the end of them.
    *
    * WHERE IT BELONGS IS ONE FIELD WITH EVERY ANSWER IN IT. A matter, searched by number or name; or
    * a reason it is on no matter — spam, the firm's own business, a prospect nothing came of; or
@@ -59,9 +63,9 @@
     CommunicationDisposition,
   } from "./communications-api.ts";
   import {
-    draftEndTime,
-    durationFromEnd,
+    draftSpanMinutes,
     isTextDraft,
+    parseDurationMinutes,
     type LogDraft,
     type LogKind,
   } from "./log-draft.ts";
@@ -96,9 +100,10 @@
     /**
      * Whether the form asks where the record belongs.
      *
-     * False in the record window, where that is not a field at all: it is a decision about the
-     * firm's work, each of its moves is its own concurrency-safe act, and those live in that
-     * window's action bar. Asking it here as well would be two ways to do one thing.
+     * False when a record already on the log is being corrected: there, where it belongs is not a
+     * field at all. It is a decision about the firm's work, each of its moves is its own
+     * concurrency-safe act, and those live in the window's action bar. It is TRUE when a record is
+     * being made, because at that moment the anchor is simply one of the things being said.
      */
     showAnchor?: boolean;
   } = $props();
@@ -123,15 +128,42 @@
     meaning: choice.meaning,
   }));
 
-  /** Why the length of a text is refused rather than asked for. */
-  const NO_LENGTH_ON_A_TEXT = "A text has no length.";
+  /** Why the end and the length of a text are refused rather than asked for. */
+  const NO_LENGTH_ON_A_TEXT = "A text happens at one moment. It has no end and no length.";
 
-  const endTime = $derived(draftEndTime(draft));
-  const lengthShown = $derived.by(() => {
-    const minutes = Number(draft.durationMinutes.trim());
-    if (draft.durationMinutes.trim() === "" || !Number.isFinite(minutes)) return "";
-    return durationText(Math.round(minutes) * 60) ?? "";
+  const spanMinutes = $derived(draftSpanMinutes(draft));
+  const takenMinutes = $derived(parseDurationMinutes(draft.durationText));
+
+  /**
+   * What the line under the two says, or null when there is nothing worth saying.
+   *
+   * It appears only where the length and the span DIFFER, because that is the only case a reader
+   * might otherwise take for a mistake — and it states both, in the words that explain the gap,
+   * rather than warning about it. A call is put on hold; that is not an error.
+   */
+  const spanNote = $derived.by((): string | null => {
+    if (text || spanMinutes === null || takenMinutes === null) return null;
+    if (spanMinutes === takenMinutes) return null;
+    const span = durationText(spanMinutes * 60) ?? "";
+    const taken = durationText(takenMinutes * 60) ?? "";
+    return spanMinutes > takenMinutes
+      ? `The line was open ${span}; ${taken} of it was the call. The rest reads as hold.`
+      : `The length is longer than the ${span} between the start and the end.`;
   });
+
+  /**
+   * An end typed fills the length, ONCE, while the length is empty.
+   *
+   * The convenience without the derivation: somebody who has just put the phone down knows both
+   * times and should not have to work the subtraction out, and somebody who has typed a length knows
+   * something the subtraction does not.
+   */
+  function endTyped(value: string): void {
+    draft.endTime = value;
+    if (draft.durationText.trim() !== "") return;
+    const span = draftSpanMinutes(draft);
+    if (span !== null) draft.durationText = String(span);
+  }
 
   /*
    * The selection the contact field shows at rest.
@@ -174,6 +206,9 @@
     if (draft.counterpartyNumber.trim() !== "") return;
     if (chosen.countryRegionCode !== null) draft.region = chosen.countryRegionCode;
     draft.counterpartyNumber = formatPhoneAsTyped(draft.region as CountryCode, chosen.number);
+    // The contact's own extension comes with it. It is part of how they are reached, and a person
+    // who has to retype it beside a number the platform just filled in will not.
+    if (chosen.extension !== null) draft.counterpartyExtension = chosen.extension;
   }
 
   function chooseContact(entity: PickableEntity): void {
@@ -203,160 +238,164 @@
 </script>
 
 <!-- The container is a WRAPPER rather than the grid itself: a container query answers about an
-     ancestor's width and never the element's own, so a `@container` on the grid would silently never
-     match. The query is on the fields' own box rather than the viewport, which is what lets the
-     record window's narrower pane stack the two columns without a second layout. -->
-<div class="@container">
-  <div class="grid gap-24 @3xl:grid-cols-2">
-    <!-- The facts of the call: what it was, who it was with, when, and where it belongs. -->
-    <div class="@container flex flex-col gap-16">
-      <div class="grid gap-12 @sm:grid-cols-2">
-        <LabelledField label="Type" id="{identity}-type">
-          {#snippet children({ props })}
-            <ChoicePicker
-              inputId={props.id}
-              label="Type"
-              options={TYPE_OPTIONS}
-              disabled={busy}
-              bind:value={() => draft.kind, (chosen) => (draft.kind = chosen as LogKind)}
-            />
-          {/snippet}
-        </LabelledField>
+     ancestor's width and never the element's own, so a `@container` on the row would silently never
+     match. The query is on the fields' own box rather than the viewport, which is what lets a narrow
+     pane stack the paired fields without a second layout. -->
+<div class="@container flex flex-col gap-16">
+  <div class="grid gap-12 @sm:grid-cols-2">
+    <LabelledField label="Type" id="{identity}-type">
+      {#snippet children({ props })}
+        <ChoicePicker
+          inputId={props.id}
+          label="Type"
+          options={TYPE_OPTIONS}
+          disabled={busy}
+          bind:value={() => draft.kind, (chosen) => (draft.kind = chosen as LogKind)}
+        />
+      {/snippet}
+    </LabelledField>
 
-        <LabelledField label="Direction" id="{identity}-direction">
-          {#snippet children({ props })}
-            <ChoicePicker
-              inputId={props.id}
-              label="Direction"
-              options={DIRECTION_OPTIONS}
-              disabled={busy}
-              bind:value={
-                () => draft.direction,
-                (chosen) => (draft.direction = chosen as CommunicationDirection)
-              }
-            />
-          {/snippet}
-        </LabelledField>
+    <LabelledField label="Direction" id="{identity}-direction">
+      {#snippet children({ props })}
+        <ChoicePicker
+          inputId={props.id}
+          label="Direction"
+          options={DIRECTION_OPTIONS}
+          disabled={busy}
+          bind:value={
+            () => draft.direction,
+            (chosen) => (draft.direction = chosen as CommunicationDirection)
+          }
+        />
+      {/snippet}
+    </LabelledField>
+  </div>
+
+  <LabelledField label="Contact" id="{identity}-contact">
+    {#snippet children({ props })}
+      <!-- The Directory record at the other end. Optional: a number nobody has recorded is exactly
+           the case the queue exists for, and demanding a contact first would put a lookup in front
+           of the one act this form exists to make quick. A record that is not there yet is made
+           from inside the list, which is why no New control stands beside the field. -->
+      <DirectoryEntityPicker
+        inputId={props.id}
+        label="Contact"
+        disabled={busy}
+        createBeside={false}
+        value={contactSelection}
+        onSelect={chooseContact}
+        onClear={clearContact}
+      />
+    {/snippet}
+  </LabelledField>
+
+  <PhoneNumberField
+    bind:region={draft.region}
+    bind:number={draft.counterpartyNumber}
+    bind:extension={draft.counterpartyExtension}
+    countryInputId="{identity}-country"
+    numberInputId="{identity}-number"
+    extensionInputId="{identity}-extension"
+    disabled={busy}
+  />
+
+  <div class="flex flex-col gap-4">
+    <div class="grid gap-12 @sm:grid-cols-2 @lg:grid-cols-4">
+      <!-- The wall clock, read in the reader's own zone in both directions: the person typing it is
+           saying what their own clock said. The day is its own field, because changing the day of a
+           call recorded this morning must not mean stepping through a combined control. -->
+      <!-- The picker renders its own label, so it takes a track of its own rather than a
+           LabelledField: its label and its field are siblings and a grid would split them. -->
+      <div class="flex flex-col gap-8">
+        <DatePicker
+          label="Date"
+          value={civilDateValue(draft.occurredDate)}
+          onValueChange={(next) => (draft.occurredDate = civilDateTextOrEmpty(next))}
+          disabled={busy}
+        />
       </div>
 
-      <LabelledField label="Contact" id="{identity}-contact">
+      <LabelledField label="Start" id="{identity}-start">
         {#snippet children({ props })}
-          <!-- The Directory record at the other end. Optional: a number nobody has recorded is exactly
-               the case the queue exists for, and demanding a contact first would put a lookup in front
-               of the one act this form exists to make quick. A record that is not there yet is made
-               from inside the list, which is why no New control stands beside the field. -->
-          <DirectoryEntityPicker
-            inputId={props.id}
-            label="Contact"
-            disabled={busy}
-            createBeside={false}
-            value={contactSelection}
-            onSelect={chooseContact}
-            onClear={clearContact}
+          <Input {...props} type="time" disabled={busy} bind:value={draft.occurredTime} />
+        {/snippet}
+      </LabelledField>
+
+      <LabelledField label="End" id="{identity}-end">
+        {#snippet children({ props })}
+          <Input
+            {...props}
+            type="time"
+            disabled={busy || text}
+            title={text ? NO_LENGTH_ON_A_TEXT : "When the line closed."}
+            value={draft.endTime}
+            oninput={(event) => {
+              endTyped(event.currentTarget.value);
+            }}
           />
         {/snippet}
       </LabelledField>
 
-      <PhoneNumberField
-        bind:region={draft.region}
-        bind:number={draft.counterpartyNumber}
-        countryInputId="{identity}-country"
-        numberInputId="{identity}-number"
-        disabled={busy}
-      />
-
-      <div class="grid gap-12 @sm:grid-cols-2 @lg:grid-cols-4">
-        <!-- The wall clock, read in the reader's own zone in both directions: the person typing it is
-             saying what their own clock said. The day is its own field, because changing the day of a
-             call recorded this morning must not mean stepping through a combined control. -->
-        <!-- The picker renders its own label, so it takes a track of its own rather than a
-             LabelledField: its label and its field are siblings and a grid would split them. -->
-        <div class="flex flex-col gap-8">
-          <DatePicker
-            label="Date"
-            value={civilDateValue(draft.occurredDate)}
-            onValueChange={(next) => (draft.occurredDate = civilDateTextOrEmpty(next))}
-            disabled={busy}
+      <LabelledField label="Duration" id="{identity}-duration">
+        {#snippet children({ props })}
+          <!-- Typed, and free: "20", "1h 5m" and "1:20" all read as the same length. It is filled
+               from the end when it is empty and never against what somebody wrote. -->
+          <Input
+            {...props}
+            class="tabular-nums"
+            disabled={busy || text}
+            title={text ? NO_LENGTH_ON_A_TEXT : "How long the call took. 20, 1h 5m or 1:20."}
+            placeholder={placeholderOf("Duration")}
+            bind:value={draft.durationText}
           />
-        </div>
-
-        <LabelledField label="Start" id="{identity}-start">
-          {#snippet children({ props })}
-            <Input {...props} type="time" disabled={busy} bind:value={draft.occurredTime} />
-          {/snippet}
-        </LabelledField>
-
-        <LabelledField label="End" id="{identity}-end">
-          {#snippet children({ props })}
-            <Input
-              {...props}
-              type="time"
-              disabled={busy || text}
-              title={text ? NO_LENGTH_ON_A_TEXT : undefined}
-              value={endTime}
-              oninput={(event) => {
-                draft.durationMinutes = durationFromEnd(draft, event.currentTarget.value);
-              }}
-            />
-          {/snippet}
-        </LabelledField>
-
-        <LabelledField label="Duration" id="{identity}-duration">
-          {#snippet children({ props })}
-            <!-- Worked out, never typed: it is the distance between the two fields beside it, and a
-                 length that disagreed with them would be a third answer to one question. -->
-            <Input
-              {...props}
-              readonly
-              class="tabular-nums"
-              disabled={busy || text}
-              title={text ? NO_LENGTH_ON_A_TEXT : "Worked out from the start and the end."}
-              value={lengthShown}
-            />
-          {/snippet}
-        </LabelledField>
-      </div>
-
-      {#if showAnchor && !matterFixed}
-        <LabelledField label="Belongs to" id="{identity}-anchor">
-          {#snippet children({ props })}
-            <!-- One field, every answer: a matter — including the unnumbered ones, since an intake and
-                 a consultation are where a first contact lands — or a reason there is no matter, or
-                 the row left in the queue for somebody to decide later. -->
-            <MatterPicker
-              {matters}
-              capped={mattersCapped}
-              disabled={busy}
-              inputId={props.id}
-              noMatterLabel="Decide later"
-              extraChoices={DISPOSITION_OPTIONS}
-              extraHeading="Not a matter"
-              extraValue={draft.anchor === "setAside" ? draft.disposition : null}
-              value={draft.anchor === "matter" ? draft.matterId : null}
-              onpick={anchorToMatter}
-              onpickExtra={anchorToReason}
-            />
-          {/snippet}
-        </LabelledField>
-      {:else if matterFixed && matterName !== null}
-        <p class="text-xs text-text-muted">Recorded on {matterName}.</p>
-      {/if}
+        {/snippet}
+      </LabelledField>
     </div>
 
-    <!-- What was said. One word for both types: on a text it is the message, on a call it is what the
-         member wrote down. The record keeps the two in different columns so a read never has to ask
-         which it is holding, and the person typing does not have to care. -->
-    <div class="flex min-h-0 flex-col gap-8">
-      <Label for="{identity}-description">Description</Label>
-      <Textarea
-        id="{identity}-description"
-        class="min-h-0 flex-auto"
-        rows={10}
-        resizable={false}
-        disabled={busy}
-        placeholder={placeholderOf("Description")}
-        bind:value={draft.description}
-      />
-    </div>
+    {#if spanNote !== null}
+      <p class="text-xs text-text-muted">{spanNote}</p>
+    {/if}
+  </div>
+
+  {#if showAnchor && !matterFixed}
+    <LabelledField label="Belongs to" id="{identity}-anchor">
+      {#snippet children({ props })}
+        <!-- One field, every answer: a matter — including the unnumbered ones, since an intake and
+             a consultation are where a first contact lands — or a reason there is no matter, or
+             the row left in the queue for somebody to decide later. -->
+        <MatterPicker
+          {matters}
+          capped={mattersCapped}
+          disabled={busy}
+          inputId={props.id}
+          noMatterLabel="Decide later"
+          extraChoices={DISPOSITION_OPTIONS}
+          extraHeading="Not a matter"
+          extraValue={draft.anchor === "setAside" ? draft.disposition : null}
+          value={draft.anchor === "matter" ? draft.matterId : null}
+          onpick={anchorToMatter}
+          onpickExtra={anchorToReason}
+        />
+      {/snippet}
+    </LabelledField>
+  {:else if matterFixed && matterName !== null}
+    <p class="text-xs text-text-muted">Recorded on {matterName}.</p>
+  {/if}
+
+  <!-- What was said, beneath everything else and across the whole of it. One word for both types: on
+       a text it is the message, on a call it is what the member wrote down. The record keeps the two
+       in different columns so a read never has to ask which it is holding, and the person typing does
+       not have to care. -->
+  <div class="flex flex-col gap-8">
+    <Label for="{identity}-description">Description</Label>
+    <Textarea
+      id="{identity}-description"
+      class="resize-none"
+      rows={6}
+      resizable={false}
+      disabled={busy}
+      placeholder={placeholderOf("Description")}
+      bind:value={draft.description}
+    />
   </div>
 </div>

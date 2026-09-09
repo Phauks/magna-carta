@@ -5,19 +5,22 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./types": "./src/types.ts",
-    "./validation": "./src/validation.ts",
+    "./communication-service": "./src/communication-service.ts",
     "./communication-statements": "./src/communication-statements.ts",
-    "./communication-service": "./src/communication-service.ts"
+    "./numbering": "./src/numbering.ts",
+    "./types": "./src/types.ts",
+    "./validation": "./src/validation.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
     "@magna-carta/calendar": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*"
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/sequence-numbering": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",
