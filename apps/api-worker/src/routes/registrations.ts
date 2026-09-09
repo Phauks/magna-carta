@@ -288,9 +288,10 @@ export const confirmRegistrationRoute = defineOpenAPIRoute(confirmRegistrationMe
   path: "/api/v1/registrations/confirmations",
   description:
     "Completes a registration by presenting the emailed token: the account is created with the " +
-    "password chosen at registration, so the person can sign in immediately, and a founding " +
-    "registration additionally queues its firm's build. An unknown, spent or expired token answers " +
-    "one refusal that does not distinguish between them.",
+    "password chosen at registration and the response carries a session for it, because the token " +
+    "travelled by email and spending it proves the mailbox. A founding registration additionally " +
+    "queues its firm's build. An unknown, spent or expired token answers one refusal that does not " +
+    "distinguish between them.",
   request: {
     body: {
       content: { "application/json": { schema: ConfirmRegistrationRequest } },
@@ -300,7 +301,8 @@ export const confirmRegistrationRoute = defineOpenAPIRoute(confirmRegistrationMe
   responses: {
     200: {
       description:
-        "The registration is confirmed; `next` says whether the account can be signed in to now",
+        "The registration is confirmed; `next` says whether a session came with it, and if not, " +
+        "what the person does instead",
       content: { "application/json": { schema: ConfirmRegistrationResponse } },
     },
     422: {
@@ -377,11 +379,12 @@ export function registerRegistrationRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
   sendEmailForEnv: (env: Bindings) => SendEmail,
-  // Better Auth is reached for two things here: its configured password hasher (the one sign-in
-  // verifies against, so the credential this route writes is the credential that route reads), and
-  // — only for a registration started before passwords were chosen at registration — its reset
-  // flow. Passed in on the terms invitations.ts takes it: the instance's lifetime belongs to the
-  // app, one per isolate.
+  // Better Auth is reached for three things here: its configured password hasher (the one sign-in
+  // verifies against, so the credential this route writes is the credential that route reads); its
+  // verify-email endpoint, which is what hands a confirmed registration its session
+  // (sessionForConfirmedAccount above); and — only for a registration started before passwords were
+  // chosen at registration — its reset flow. Passed in on the terms invitations.ts takes it: the
+  // instance's lifetime belongs to the app, one per isolate.
   authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
   humanVerification: HumanVerificationGateOptions = {},
 ): void {

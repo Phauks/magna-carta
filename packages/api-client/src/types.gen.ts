@@ -11229,7 +11229,7 @@ export type RegistrationsConfirmError = RegistrationsConfirmErrors[keyof Registr
 
 export type RegistrationsConfirmResponses = {
     /**
-     * The registration is confirmed; `next` says whether the account can be signed in to now
+     * The registration is confirmed; `next` says whether a session came with it, and if not, what the person does instead
      */
     200: ConfirmRegistrationResponse;
 };
