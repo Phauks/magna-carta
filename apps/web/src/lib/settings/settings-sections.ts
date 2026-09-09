@@ -196,13 +196,32 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     commitMode: defaultCommitModeForScope("user"),
     shipped: true,
   },
+  // Firm
+  {
+    // What the firm is called to its clients. The read is the session — every request resolves the
+    // firm's display name already — so the page has one write and no read of its own.
+    //
+    // Instant rather than the firm scope's draft default: it is one field, and the footer's
+    // staged-count-and-recap anatomy over a single row would be more machinery than the act. The
+    // rest of "identity" — an address, a telephone number, a letterhead root — belongs to an
+    // office, which has its own page, rather than being a second firm-wide answer no letterhead
+    // reads.
+    id: "firm-profile",
+    label: "Firm Profile",
+    href: "/settings/firm-profile",
+    group: "firm",
+    scope: "firm",
+    commitMode: "instant",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
   // Notifications
   {
-    // The member's own per-category matrix over the shipped preference routes. User scope and
-    // instant, by the mode rule: these are personal preferences, reversible at a click. The FIRM's
-    // tier — the floor a member cannot lower, the retention window, the summary hour — is a
-    // different page under a firm-administration right, and putting the two on one screen would
-    // hand every seat in every firm a lever over its colleagues.
+    // What THIS member hears, category by category. A matrix rather than a page of rows: one
+    // subject with two independent answers (a feed row, and a line in a summary mail), and the
+    // server resolves how the member's tier and the firm's compose before the page renders either.
+    // Instant, and its own scope: a Save button between a person and their own mail settings is
+    // ceremony over their own business.
     id: "notifications",
     label: "Notifications",
     href: "/settings/notifications",
@@ -213,26 +232,37 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   // Firm
   {
-    id: "firm-profile",
-    label: "Firm Profile",
-    href: "/settings/firm-profile",
-    group: "firm",
-    scope: "firm",
-    commitMode: "draft",
-    editPermissionArea: "firm",
-    shipped: true,
-  },
-  // Firm
-  {
     // The firm administering its members ("us"). A member's OWN identity and credentials live
     // in the separate Account Settings surface reached from the profile menu ("me") — the two
     // are never mixed (owner-settled).
+    //
+    // A CATALOG page rather than a settings form, so its mode is "instant" and it departs from
+    // the mode-follows-scope rule deliberately: inviting somebody, changing what they hold and
+    // withdrawing their access are acts committed one at a time through their own dialogs
+    // against the member routes, on the Rooms and Resources precedent. There is nothing to
+    // stage, and staging a batch of people behind one Save would make "who works here" a
+    // document with a draft.
     id: "users",
     label: "Users",
     href: "/settings/users",
     group: "firm",
     scope: "firm",
-    commitMode: "draft",
+    commitMode: "instant",
+    editPermissionArea: "firm",
+    shipped: true,
+  },
+  {
+    // What each role allows, read-only. Its own page rather than a plate on Users because it
+    // answers a different question — "what am I about to give this person" rather than "who is
+    // here" — and because authoring roles lands here later, which is a write with a different
+    // shape from anything on the roster.
+    id: "roles",
+    label: "Roles and Permissions",
+    href: "/settings/roles",
+    group: "firm",
+    scope: "firm",
+    commitMode: "instant",
+    readOnly: true,
     editPermissionArea: "firm",
     shipped: true,
   },
@@ -310,6 +340,26 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
+    // The firm's side of what the platform tells people: which categories reach everybody whatever
+    // they choose, how long a member's feed keeps what it was told, and when the summary mail
+    // lands. Its member-facing twin is the Notifications section under My Settings, and the two
+    // are separate surfaces because one binds the person reading it and the other binds everybody
+    // else — the permissions differ for the same reason (firm:manageNotificationPolicy here,
+    // notifications:read there).
+    //
+    // Instant rather than draft, the departure Users makes and for the same reason: it is a matrix
+    // of twelve rows plus two scalars, every one of them independently meaningful and separately
+    // audited, and staging twenty-six of them behind one Save would make the pending count
+    // meaningless and its recap unreadable.
+    id: "notification-policy",
+    label: "Notification Policy",
+    href: "/settings/notification-policy",
+    group: "practice",
+    scope: "firm",
+    commitMode: "instant",
+    shipped: true,
+  },
+  {
     // The firm's matter plans: what a kind of matter takes, as a template that PROPOSES tasks. Sits
     // under Practice beside matter numbering because both are statements about how the firm runs its
     // work rather than settings that change a screen. The controls inside are gated on
@@ -364,8 +414,11 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   // Documents
   {
-    // The per-firm scan policy engine and its routes already exist server-side — this section
-    // is the first candidate for real wiring when the authenticated settings integration lands.
+    // The firm's scan policy: how much of the engine's rule set an upload is checked against, how
+    // confident a suspicious match must be to count, and what the firm may do with a file the scan
+    // flagged. Server-backed over GET/PATCH /api/v1/firm/scan-policy — the same policy the ingest
+    // consumer reads at queue-consume time and the download route reads at access time, so a save
+    // here reaches both without re-ingesting anything.
     id: "file-safety",
     label: "File Safety & Scanning",
     href: "/settings/file-safety",
@@ -390,16 +443,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   // Data & Platform
   {
-    // The firm's stance toward pre-release features (release channel + beta opt-in). Draft
-    // mode with no registered definitions yet: the rows are honest seams until the
-    // release-channel frontend ships, but the section already declares who may edit and how
-    // edits will land.
+    // Whether the firm runs the released build or the one ahead of it. The channel was always in
+    // the session bootstrap and the write has existed behind firm:manageReleaseChannel since
+    // release channels landed, so this section needed no endpoint of its own — and its two former
+    // rows ("release channel" and "beta opt-in") were one fact asked twice.
+    //
+    // Instant rather than draft, and the reason is the consent: entering beta takes an explicit
+    // acknowledgement that the firm accepts pre-release behavior on live client data, which the
+    // shared footer's generic recap of staged changes is exactly not. The one act that needs
+    // saying carries its own dialog saying it.
     id: "beta-access",
     label: "Beta Access",
     href: "/settings/beta-access",
     group: "data-platform",
     scope: "firm",
-    commitMode: "draft",
+    commitMode: "instant",
     editPermissionArea: "firm",
     shipped: true,
   },

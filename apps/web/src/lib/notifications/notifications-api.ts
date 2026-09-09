@@ -1,7 +1,10 @@
 /*
- * The member's own notification feed and preference matrix. Mirrors the `notifications.*` and
- * `notificationPreferences.*` operations in apps/api-worker/openapi/openapi.json; the transport
- * envelope lives in $lib/api/request.ts.
+ * The member's own notification FEED. Mirrors the `notifications.*` operations in
+ * apps/api-worker/openapi/openapi.json; the transport envelope lives in $lib/api/request.ts.
+ *
+ * The preference matrix is NOT here. Its transport is ./preferences-api.ts and the words for a
+ * category are ./category-vocabulary.ts, both of which the settings screen already reads — one home
+ * per fact, so a category renamed for a reader is renamed once.
  *
  * EVERY READ HERE IS THE SESSION'S OWN. None of these calls takes a member handle, because none of
  * the routes does: a feed is resolved from the session and never from a path parameter, so there is
@@ -16,28 +19,12 @@
  * matter behind it was renumbered.
  */
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
+import type { NotificationCategory } from "./category-vocabulary.ts";
 
-/** The categories a member sets preferences at, in the order the settings matrix lists them. */
-export const NOTIFICATION_CATEGORIES = [
-  "deadlines",
-  "calendar",
-  "tasks",
-  "trust",
-  "billing",
-  "documents",
-  "custody",
-  "email",
-  "conflicts",
-  "jobs",
-  "security",
-  "system",
-] as const;
-export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+export type { NotificationCategory };
 
 export type NotificationSeverity = "informational" | "attention" | "critical";
 export type NotificationState = "unread" | "read" | "dismissed";
-export type NotificationInAppChoice = "on" | "off";
-export type NotificationEmailCadence = "off" | "daily" | "weekly";
 
 /**
  * One row of the feed. `facts` is the declared non-privileged slot — identifiers, integers,
@@ -168,79 +155,4 @@ export function markNotificationsReadThrough(
     "/api/v1/notifications/read-all",
     { method: "POST", body: { throughCursor } },
   );
-}
-
-// --- preferences ---
-
-/** A tier's raw choice. Null where that tier has set nothing and the one below it applies. */
-export interface NotificationCategoryChoice {
-  inApp?: NotificationInAppChoice;
-  email?: NotificationEmailCadence;
-}
-
-/**
- * What actually applies for one category, and why.
- *
- * `inApp` and `email` are the RESOLVED answers — what the platform will do. The two raw tiers are
- * reported beside them because the composition is not symmetric and a member who could not see it
- * would be unable to tell a firm's floor from their own choice: in app the firm's setting is a
- * floor a member may not lower, while by email the member's own choice wins outright, since a firm
- * cannot make somebody's mailbox carry more than they asked for.
- */
-export interface ResolvedCategoryPreference {
-  category: NotificationCategory;
-  inApp: NotificationInAppChoice;
-  email: NotificationEmailCadence;
-  /** Why the in-app switch cannot be moved, where it cannot. Null where the member is free. */
-  inAppLockedBy: "mandatory" | "firm-policy" | null;
-  memberChoice: NotificationCategoryChoice | null;
-  firmChoice: NotificationCategoryChoice | null;
-}
-
-/**
- * What a member's own settings have stopped, per category, inside the firm's retention window.
- *
- * Reported because a suppressed notification is a COUNTED fact and never an absence: without it,
- * "nobody told me" and "I asked not to be told" look identical on the screen, so a member cannot be
- * reassured and a real fan-out fault cannot be found.
- */
-export interface NotificationSuppressionTally {
-  category: NotificationCategory;
-  reason: "member-preference" | "firm-policy";
-  count: number;
-  lastSuppressedAt: string;
-}
-
-export interface NotificationPreferences {
-  categories: ResolvedCategoryPreference[];
-  suppressedInApp: NotificationSuppressionTally[];
-  /** The civil date the tallies count from — the near edge of the firm's retention window. */
-  suppressedSinceCivilDate: string;
-}
-
-export function readNotificationPreferences(
-  fetchImpl: typeof fetch,
-): Promise<ApiOutcome<NotificationPreferences>> {
-  return requestJson<NotificationPreferences>(fetchImpl, "/api/v1/notifications/preferences");
-}
-
-/**
- * One category's edit. Sparse in two directions, and both matter: a category absent from the patch
- * is left alone, and a channel set to `null` CLEARS the member's choice, so the firm's setting and
- * then the platform default apply again. That is why the fields are nullable rather than optional —
- * "I have no opinion" has to be expressible, and it is not the same as "off".
- */
-export interface CategoryPreferencePatch {
-  inApp?: NotificationInAppChoice | null;
-  email?: NotificationEmailCadence | null;
-}
-
-export function updateNotificationPreferences(
-  fetchImpl: typeof fetch,
-  categories: Partial<Record<NotificationCategory, CategoryPreferencePatch>>,
-): Promise<ApiOutcome<NotificationPreferences>> {
-  return requestJson<NotificationPreferences>(fetchImpl, "/api/v1/notifications/preferences", {
-    method: "PATCH",
-    body: { categories },
-  });
 }

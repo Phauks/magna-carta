@@ -25,6 +25,7 @@
   import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
   import Check from "@lucide/svelte/icons/check";
   import X from "@lucide/svelte/icons/x";
+  import { notificationCategoryLabel } from "./category-vocabulary.ts";
   import {
     CATEGORY_PRESENTATION,
     SEVERITY_BADGE,
@@ -56,6 +57,7 @@
   {#each items as item (item.id)}
     {@const described = describeNotification(item)}
     {@const category = CATEGORY_PRESENTATION[item.category]}
+    {@const categoryLabel = notificationCategoryLabel(item.category)}
     {@const unread = item.state === "unread"}
     <!-- A kind whose type has been retired resolves to no deep link, and the server sends an empty
          string rather than dropping the row. An `<a href="">` reloads the page the reader is
@@ -106,7 +108,7 @@
         </div>
 
         <p class="flex flex-wrap items-center gap-x-8 gap-y-2 text-xs text-text-muted">
-          <span>{category.label}</span>
+          <span>{categoryLabel}</span>
           {#if item.matterNumber !== null}
             <span aria-hidden="true">·</span>
             <span>Matter {item.matterNumber}</span>

@@ -152,6 +152,7 @@
     safety: "File Safety",
     custody: "What The Firm Holds",
     matterLifecycle: "A Matter's Lifecycle",
+    memberStanding: "A Member's Standing In The Firm",
     conflictHit: "How A Conflict Hit Stands",
   };
 

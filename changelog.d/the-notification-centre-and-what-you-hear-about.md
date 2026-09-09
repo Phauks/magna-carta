@@ -3,8 +3,8 @@ category: Added
 audience: public
 ---
 
-**The notification centre, the live bell, and the member's preference matrix** — the three screens
-that were `awaiting-screen` over an API that had shipped with no caller.
+**The notification centre and the live bell** — the two screens that were still `awaiting-screen`
+over a read API that had shipped with no caller.
 
 `apps/web/src/routes/(app)/notifications/+page.svelte` replaces the stub with the real feed: cursor
 paged through the shared `PagedList`, narrowed by state and category as QUERY parameters so a
@@ -12,9 +12,10 @@ filtered read is cheaper rather than merely shorter, settling a row on follow an
 separately, and reporting what the retention sweep took while unread. The top-bar bell became
 `$lib/notifications/notification-tray.svelte` beside the download and upload trays, over a shared
 count (`$lib/notifications/unread-count.svelte.ts`) polled slowly and on focus, paused while the page
-is hidden, and never cleared by a failed read. `settings/notifications` is the member's per-category
-matrix — one row, both channels — with the in-app switch disabled and its reason stated in words
-where a mandatory category or the firm's floor holds it.
+is hidden, and never cleared by a failed read. The preference matrix at `settings/notifications` landed
+from the settings stream while this was in flight and stands as it is; what this branch does there
+is give its vocabulary and its transport one home each (`category-vocabulary.ts`,
+`preferences-api.ts`) rather than the second copy this branch had grown independently.
 
 A notification row carries no sentence, so the card is composed on the client from the kind and the
 declared facts (`$lib/notifications/notification-presentation.ts`). A kind that module has no entry
@@ -42,9 +43,8 @@ have not read yet, with the record behind each item one click away. Following an
 dismissing one is a separate, deliberate act, because having seen something and having dealt with it
 are different statements.
 
-**Settings · Notifications** is where you decide what reaches you. One row per category, with both
-channels on it: whether it appears in the application, and whether it joins a daily or weekly summary
-email or none at all. Your firm can require a category in the application — trust and security are
+**Settings · Notifications** is where you decide what reaches you, category by category: whether it
+appears in the application, and whether it joins a daily or weekly summary email or none at all. Your firm can require a category in the application — trust and security are
 always on — and where it has, the row says so in words rather than leaving you with a switch that
 silently refuses to move. Your firm can never raise what your mailbox carries: by email the choice is
 yours.

@@ -1,46 +1,65 @@
 <script lang="ts">
   /*
-   * Settings · File Safety & Scanning — the firm's stance toward what uploads are allowed to
-   * do, under Documents. A BESPOKE stub in the Beta Access pattern: the per-firm scan policy
-   * engine and its routes ALREADY EXIST server-side (the score histogram read and the policy
-   * update, both behind the firm's manage-scan-policy right), so this page is the FIRST
-   * candidate for real wiring when the authenticated settings integration lands — its rows are
-   * honest Soon seams until then, never invented live controls. When wired, the rows become
-   * real draft settings and the page collapses toward the standard settings-page composition.
+   * Settings · File Safety & Scanning — the firm's stance toward what its uploads are allowed to
+   * do, under Documents.
+   *
+   * LIVE, over GET/PATCH /api/v1/firm/scan-policy. The per-firm scan-policy engine was already
+   * there — the ingest consumer reads it at queue-consume time and the download route reads it at
+   * access time — so what changes here reaches both without re-ingesting anything, and a save is
+   * audited by the route rather than remembered by this browser.
+   *
+   * The page stages through the shared server-backed draft, so the rows, the footer's pending count
+   * and its confirmation recap are the settings surface's own anatomy rather than a second copy of
+   * it. Nothing touches local storage: a firm setting with a server behind it must not keep a
+   * per-browser copy that can disagree with the firm.
+   *
+   * HISTORY IS WITHHELD, for the reason the calendar page withholds it: the record of a change is
+   * the audit row the server writes, and a per-browser ledger would be one browser's recollection
+   * of a firm-wide fact, silent about every change a colleague made.
+   *
+   * THE THRESHOLD IS A NUMBER HERE, AND WANTS TO BE A PLOT. The engine publishes the score
+   * distribution of its own rule corpus (`/api/v1/firm/scan-policy/score-histogram`), which is what
+   * makes a threshold answerable rather than a number in a vacuum — a firm should be able to see
+   * how many rules it is about to start trusting. That control is its own piece of work; until it
+   * lands the field is the plain number, which is honest and settable, rather than absent.
    */
-  import * as Select from "@magna-carta/design-system/select";
-  import Badge from "@magna-carta/design-system/badge";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import {
+    createScanPolicyDraft,
+    FILE_SAFETY_DEFINITIONS,
+    FILE_SAFETY_SECTION_ID,
+  } from "$lib/file-manager/scan-policy-draft.svelte.ts";
+  import { MANAGE_SCAN_POLICY_PERMISSION } from "$lib/file-manager/scan-policy-api.ts";
+  import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
-  import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
-  import { SettingsDraft } from "$lib/settings/settings-draft.svelte.ts";
-  import { canEditFirmSettings } from "$lib/settings/settings-permissions.ts";
 
-  const canEdit = canEditFirmSettings("documents");
-  const draft = new SettingsDraft("file-safety");
+  const draft = createScanPolicyDraft(fetch);
 
-  const SCANNING_STRICTNESS_DEFINITION: SettingDefinition = {
-    id: "file-safety.scanning-strictness",
-    sectionId: "file-safety",
-    label: "Scanning Strictness",
-    description: "How aggressively uploads are scored and blocked.",
-    kind: "select",
-    defaultValue: "",
-    sensitivity: "open",
-  };
+  // Read-only until the session says otherwise: a control that appears and then vanishes when the
+  // permission turns out to be missing reads as a broken page.
+  const canEdit = $derived(sessionPermissions.holds(MANAGE_SCAN_POLICY_PERMISSION));
 
-  const QUARANTINE_BEHAVIOR_DEFINITION: SettingDefinition = {
-    id: "file-safety.quarantine-behavior",
-    sectionId: "file-safety",
-    label: "Quarantine Behavior",
-    description: "What happens to a file that fails scanning.",
-    kind: "select",
-    defaultValue: "",
-    sensitivity: "open",
-  };
+  $effect(() => {
+    void draft.load();
+    void sessionPermissions.load(fetch);
+  });
+
+  /** The plates, in the order their definitions declare — the page never re-groups them itself. */
+  const plates = $derived.by(() => {
+    const grouped: { label: string; definitions: (typeof FILE_SAFETY_DEFINITIONS)[number][] }[] = [];
+    for (const definition of FILE_SAFETY_DEFINITIONS) {
+      const label = definition.plateLabel ?? "General";
+      const plate = grouped.find((candidate) => candidate.label === label);
+      if (plate === undefined) grouped.push({ label, definitions: [definition] });
+      else plate.definitions.push(definition);
+    }
+    return grouped;
+  });
 </script>
 
 <svelte:head>
@@ -48,48 +67,67 @@
 </svelte:head>
 
 <SettingsMasthead
-  sectionId="file-safety"
+  sectionId={FILE_SAFETY_SECTION_ID}
   title="File Safety & Scanning"
   posture={canEdit ? "draft" : "readOnly"}
   draft={canEdit ? draft : undefined}
+  showHistory={false}
 />
 
 <!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
      room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. Full canvas width (owner-directed): the table uses the space. -->
+     identical width. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
-  <SettingsDescription>How the firm's uploads are scanned, scored, and held when they fail.</SettingsDescription>
+    <SettingsDescription>
+      How the firm's uploads are scanned, and what it can do with a file the scan distrusts.
+    </SettingsDescription>
 
-  <SettingsPlate heading="Scan Policy">
-    <SettingsRow definition={SCANNING_STRICTNESS_DEFINITION}>
-      {#snippet control()}
-        <Badge variant="neutral">Soon</Badge>
-        <Select.Root type="single" items={[]} disabled>
-          <Select.Trigger
-            class="w-full"
-            aria-label="Scanning Strictness (arrives with the settings integration)"
-          >
-            <Select.Value placeholder="—" />
-          </Select.Trigger>
-        </Select.Root>
-      {/snippet}
-    </SettingsRow>
+    {#if draft.saveFailure !== null}
+      <FailureNotice
+        failure={draft.saveFailure}
+        title="The Change Was Not Saved"
+        fallback="The scan policy is unchanged. What you chose is still staged."
+        whenSilent="Nothing answered, so the scan policy is unchanged. What you chose is still staged."
+        onRetry={() => void draft.commit()}
+      />
+    {/if}
 
-    <SettingsRow definition={QUARANTINE_BEHAVIOR_DEFINITION}>
-      {#snippet control()}
-        <Badge variant="neutral">Soon</Badge>
-        <Select.Root type="single" items={[]} disabled>
-          <Select.Trigger
-            class="w-full"
-            aria-label="Quarantine Behavior (arrives with the settings integration)"
-          >
-            <Select.Value placeholder="—" />
-          </Select.Trigger>
-        </Select.Root>
-      {/snippet}
-    </SettingsRow>
-  </SettingsPlate>
+    {#each plates as plate (plate.label)}
+      <SettingsPlate heading={plate.label}>
+        <LoadingRegion
+          loading={!draft.loaded}
+          failed={draft.readFailure !== null && !draft.loaded}
+          label="Reading the firm's scan policy"
+          onRetry={() => void draft.load()}
+        >
+          {#snippet failure()}
+            {#if draft.readFailure !== null}
+              <FailureNotice
+                failure={draft.readFailure}
+                title="The Scan Policy Could Not Be Read"
+                fallback="The firm's scan policy was not read."
+                onRetry={() => void draft.load()}
+              />
+            {/if}
+          {/snippet}
+          <!-- The rows keep their own shape while the read is out: the setting's name stays
+               readable and its value grey, so the plate does not change height when it lands. -->
+          {#snippet fixture()}
+            {#each plate.definitions as definition (definition.id)}
+              <SettingsRow {definition} value={definition.defaultValue} />
+            {/each}
+          {/snippet}
+          {#each plate.definitions as definition (definition.id)}
+            {#if canEdit}
+              <SettingsRow {definition} {draft} />
+            {:else}
+              <SettingsRow {definition} value={draft.value(definition)} />
+            {/if}
+          {/each}
+        </LoadingRegion>
+      </SettingsPlate>
+    {/each}
   </div>
 </div>
 

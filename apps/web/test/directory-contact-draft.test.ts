@@ -6,6 +6,7 @@ import {
   contactRowFromDraft,
   contactRowsFrom,
   emptyContactDraft,
+  type AddressDraft,
 } from "../src/lib/directory/contact-draft.ts";
 import type { DirectoryContactPointState } from "../src/lib/directory/directory-api.ts";
 
@@ -40,9 +41,17 @@ describe("the kind decides the fields and checks them", () => {
     expect(contactDraftRefusal({ ...short, number: "(312) 555-0148" })).toBeNull();
   });
 
-  it("refuses an address with neither a street nor a city", () => {
-    expect(contactDraftRefusal(emptyContactDraft("address"))).toBe("A street or a city.");
-    expect(contactDraftStarted(emptyContactDraft("address"))).toBe(false);
+  // ONE LINE OF IT IS ENOUGH, and which line is the country's business rather than this rule's: an
+  // address a firm holds half of is still the address it holds, and refusing it sends it into a
+  // free-text note where no envelope and no duplicate check can reach it.
+  it("refuses an address with no line at all, and takes one with any", () => {
+    const blank = emptyContactDraft("address") as AddressDraft;
+    expect(contactDraftRefusal(blank)).toBe("At least one line of the address.");
+    expect(contactDraftStarted(blank)).toBe(false);
+    // Any line will do, and which one is the country's business rather than this rule's: a
+    // Brazilian address is its neighbourhood, an Irish one can be a townland and an Eircode.
+    expect(contactDraftRefusal({ ...blank, dependentLocality: "Copacabana" })).toBeNull();
+    expect(contactDraftRefusal({ ...blank, postal: "D02 XY45" })).toBeNull();
   });
 });
 
@@ -59,15 +68,12 @@ describe("what is sent", () => {
       },
       { kind: "fax", region: "GB", number: "020 7946 0000", extension: "", use: "work" },
       {
-        kind: "address",
+        ...(emptyContactDraft("address") as AddressDraft),
         street: "1 N State St",
-        streetTwo: "",
         city: "Chicago",
         region: "IL",
         postal: "60602",
         country: "US",
-        use: "business",
-        type: "physical",
       },
     ]);
     expect(requests.emails).toEqual([{ address: "m.okafor@example.com", contactUse: "work" }]);

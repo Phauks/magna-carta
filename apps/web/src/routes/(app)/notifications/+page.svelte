@@ -29,15 +29,17 @@
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import NotificationRows from "$lib/notifications/notification-rows.svelte";
-  import { CATEGORY_PRESENTATION } from "$lib/notifications/notification-presentation.ts";
-  import { unreadNotificationCount } from "$lib/notifications/unread-count.svelte.ts";
   import {
     NOTIFICATION_CATEGORIES,
+    notificationCategoryLabel,
+    type NotificationCategory,
+  } from "$lib/notifications/category-vocabulary.ts";
+  import { unreadNotificationCount } from "$lib/notifications/unread-count.svelte.ts";
+  import {
     dismissNotification,
     listNotifications,
     markNotificationRead,
     markNotificationsReadThrough,
-    type NotificationCategory,
     type NotificationItem,
   } from "$lib/notifications/notifications-api.ts";
   import { formatInstant } from "@magna-carta/design-system/formatters";
@@ -50,7 +52,7 @@
     { value: ALL, label: "All categories" },
     ...NOTIFICATION_CATEGORIES.map((category) => ({
       value: category,
-      label: CATEGORY_PRESENTATION[category].label,
+      label: notificationCategoryLabel(category),
     })),
   ];
 

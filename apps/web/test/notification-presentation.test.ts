@@ -8,10 +8,8 @@ import {
   SEVERITY_LABEL,
   describeNotification,
 } from "$lib/notifications/notification-presentation.ts";
-import {
-  NOTIFICATION_CATEGORIES,
-  type NotificationItem,
-} from "$lib/notifications/notifications-api.ts";
+import { NOTIFICATION_CATEGORIES } from "$lib/notifications/category-vocabulary.ts";
+import type { NotificationItem } from "$lib/notifications/notifications-api.ts";
 
 /*
  * The pairing between the platform's notification registry and the words this client puts on its
@@ -72,12 +70,15 @@ describe("the notification presentation registry", () => {
     expect(missing).toEqual([]);
   });
 
-  it("names every category, with a label and a description", () => {
+  it("gives every category the two things a FEED adds to its name", () => {
+    // The name and the one line are the vocabulary's, pinned by
+    // apps/web/test/notification-category-vocabulary.test.ts against the contract. What this module
+    // owns is the glyph and the fallback noun, so those are what this asserts — re-checking the
+    // labels here would be a second opinion about a fact with one home.
     for (const category of NOTIFICATION_CATEGORIES) {
       const presentation = CATEGORY_PRESENTATION[category];
-      expect(presentation.label.length).toBeGreaterThan(0);
-      expect(presentation.description.length).toBeGreaterThan(0);
-      expect(presentation.noun.length).toBeGreaterThan(0);
+      expect(presentation.icon, `${category} has a glyph`).toBeDefined();
+      expect(presentation.noun.length, `${category} has a fallback noun`).toBeGreaterThan(0);
     }
   });
 

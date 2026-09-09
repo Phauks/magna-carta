@@ -17,6 +17,12 @@
  * Nothing in this file may interpolate a fact whose value is free text. It cannot: the server's
  * grammar refuses a text-valued declaration, so every value reaching `facts` is an identifier, an
  * integer, a boolean, a declared enum label or a date.
+ *
+ * WHAT A CATEGORY IS CALLED IS NOT DECIDED HERE. Its name and its one line live in
+ * ./category-vocabulary.ts, which the settings matrix already reads; this module adds only what a
+ * FEED needs on top of them — a glyph, the noun an unrecognised kind falls back to, and the
+ * per-kind sentences. Restating a label here would give one category two names, and the two would
+ * drift the first time either was edited.
  */
 import type {
   NotificationCategory,
@@ -38,92 +44,65 @@ import Shield from "@lucide/svelte/icons/shield";
 import ShieldAlert from "@lucide/svelte/icons/shield-alert";
 import type { Component } from "svelte";
 
-/** What a category is called on screen, the glyph that stands for it, and the noun its rows take. */
+/** What a FEED needs for a category beyond its name: the glyph, and the noun its rows fall back to. */
 interface CategoryPresentation {
-  readonly label: string;
   readonly icon: Component;
   /**
    * The house word for what a row in this category points at, used to describe a kind this client
    * does not know. "A trust update", not "a trust.ledger.entry.posted".
    */
   readonly noun: string;
-  /** What the category is for, in one line — the settings matrix reads this beside its switches. */
-  readonly description: string;
 }
 
 export const CATEGORY_PRESENTATION: Readonly<Record<NotificationCategory, CategoryPresentation>> =
   Object.freeze({
     deadlines: {
-      label: "Deadlines",
       icon: AlarmClock,
       noun: "a deadline",
-      description: "What a court or a rule requires of the firm, and when it falls due.",
     },
     calendar: {
-      label: "Calendar",
       icon: CalendarDays,
       noun: "a calendar entry",
-      description: "Hearings, appointments and events as they are booked, moved and cancelled.",
     },
     tasks: {
-      label: "Tasks",
       icon: ListChecks,
       noun: "a task",
-      description: "Work with your name on it, as it is assigned and passed on.",
     },
     trust: {
-      label: "Trust",
       icon: Landmark,
       noun: "a trust movement",
-      description: "Movements on client money. Always shown in the application.",
     },
     billing: {
-      label: "Billing",
       icon: ReceiptText,
       noun: "a billing change",
-      description: "Invoices as they are raised, delivered, credited and voided.",
     },
     documents: {
-      label: "Documents",
       icon: FileText,
       noun: "a document",
-      description: "Files arriving, checking in and out, and what scanning finds in them.",
     },
     custody: {
-      label: "Custody",
       icon: Archive,
       noun: "a custody item",
-      description: "Items in safe custody that are due for review or overdue back.",
     },
     email: {
-      label: "Email",
       icon: Mail,
       noun: "an email",
-      description: "Mail filed to a matter from a capture address.",
     },
     conflicts: {
-      label: "Conflicts",
       icon: ShieldAlert,
       noun: "a conflicts finding",
-      description: "What a conflicts check turned up, and when one needs running again.",
     },
     jobs: {
-      label: "Jobs",
       icon: Cog,
       noun: "a job",
-      description: "Long-running work you started, when it finishes.",
     },
     security: {
-      label: "Security",
       icon: Shield,
       noun: "a security event",
-      description: "Events touching access and credentials. Always shown in the application.",
     },
     system: {
-      label: "System",
       icon: Info,
       noun: "a change",
-      description: "Matter lifecycle changes and what the platform reports about itself.",
     },
   });
 

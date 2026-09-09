@@ -21,6 +21,11 @@ export interface PersonNameDraft {
   given: string;
   middle: string;
   family: string;
+  /**
+   * As many as the person holds, comma-separated on the one line — "III, Esq.". That is how they
+   * are written after a name and it is what the column stores; the honorific field
+   * ($lib/names/honorific-field.svelte) is what enters them.
+   */
   suffix: string;
 }
 
@@ -139,6 +144,7 @@ export function emptyPersonDraft(): PersonDraft {
 export type PersonSectionId =
   | "names"
   | "contact"
+  | "address"
   | "pronouns"
   | "dates"
   | "identifiers"
@@ -153,9 +159,13 @@ export interface PersonSectionCount {
 
 export function personSectionCounts(draft: PersonDraft): readonly PersonSectionCount[] {
   const currentName = draft.name.given.trim() !== "" || draft.name.family.trim() !== "" ? 1 : 0;
+  // The two halves of the draft's contact points, counted apart, because they are entered apart:
+  // an address is a form of its own and its own rail item, beside the one-line ways to reach them.
+  const addresses = draft.contacts.filter((contact) => contact.kind === "address").length;
   return [
     { id: "names", label: "Names", count: currentName + draft.otherNames.length },
-    { id: "contact", label: "Contact", count: draft.contacts.length },
+    { id: "contact", label: "Contact", count: draft.contacts.length - addresses },
+    { id: "address", label: "Address", count: addresses },
     { id: "pronouns", label: "Pronouns", count: null },
     {
       id: "dates",
@@ -201,22 +211,26 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
           : `${name} · ${plural(draft.otherNames.length, "other name", "other names")}`,
     });
   }
-  if (draft.contacts.length > 0) {
-    const emails = draft.contacts.filter((contact) => contact.kind === "email").length;
-    const numbers = draft.contacts.filter(
-      (contact) => contact.kind === "telephone" || contact.kind === "fax",
-    ).length;
-    const addresses = draft.contacts.filter((contact) => contact.kind === "address").length;
+  const emails = draft.contacts.filter((contact) => contact.kind === "email").length;
+  const numbers = draft.contacts.filter(
+    (contact) => contact.kind === "telephone" || contact.kind === "fax",
+  ).length;
+  const addresses = draft.contacts.filter((contact) => contact.kind === "address").length;
+  // Two lines, because they are two sections of the panel. A summary that folded them together
+  // would name a section the rail does not have and leave both of the ones it does have unnamed.
+  if (emails > 0 || numbers > 0) {
     lines.push({
       label: "Contact",
       value: [
         emails > 0 ? plural(emails, "email", "emails") : null,
         numbers > 0 ? plural(numbers, "number", "numbers") : null,
-        addresses > 0 ? plural(addresses, "address", "addresses") : null,
       ]
         .filter((part): part is string => part !== null)
         .join(" · "),
     });
+  }
+  if (addresses > 0) {
+    lines.push({ label: "Address", value: plural(addresses, "address", "addresses") });
   }
   if (draft.pronouns !== null) {
     lines.push({
@@ -250,11 +264,34 @@ export function personDraftSummary(draft: PersonDraft): readonly PersonSummaryLi
   return lines;
 }
 
-/** Why the draft cannot be recorded yet, or undefined when it can. */
+/**
+ * Why the draft cannot be recorded yet, or undefined when it can.
+ *
+ * A NAME, NOT TWO NAMES. The one thing a person record cannot be without is something to call the
+ * person by; a family name is not that thing. Plenty of people have one name — it is the ordinary
+ * form of a name in much of the world — and a firm that cannot file a client under the name that
+ * client actually has files them under a wrong one, or in a note where no conflicts check can reach
+ * it. So the refusal asks for the first name and stops there; the missing family name is a
+ * `personDraftWarning`, which states the gap and records anyway.
+ */
 export function personDraftRefusal(draft: PersonDraft): string | undefined {
-  return draft.name.given.trim() !== "" && draft.name.family.trim() !== ""
-    ? undefined
-    : "Give the person's given name and family name.";
+  return draft.name.given.trim() === "" ? "Give the person's first name." : undefined;
+}
+
+/**
+ * What the reader should know about the draft before recording it, or null when there is nothing.
+ *
+ * A warning is not a refusal and must never read as one: everything here records exactly as it
+ * stands. It exists because a missing last name is far more often a half-finished entry than a
+ * person with one name, and the person filling the panel is the only one who can tell the two
+ * apart — after the record exists, nobody looking at it can.
+ */
+export function personDraftWarning(draft: PersonDraft): string | null {
+  if (draft.name.given.trim() === "") return null;
+  return draft.name.family.trim() === ""
+    ? "This person will be recorded with no last name. Their first name is what the firm will " +
+        "file, search and check conflicts under."
+    : null;
 }
 
 /** Whether anything has been entered anywhere. A blank draft has nothing to lose on dismissal. */
@@ -279,13 +316,16 @@ function optional(value: string): string | null {
 /** The one request that records the whole draft. The edge direction is the type's, as on the record. */
 export function personCreateRequest(draft: PersonDraft): CreateDirectoryPersonRequest {
   const contacts = contactRequestsFrom(draft.contacts);
+  const family = draft.name.family.trim();
   const request: CreateDirectoryPersonRequest = {
     given: draft.name.given.trim(),
-    family: draft.name.family.trim(),
     prefix: optional(draft.name.prefix),
     middle: optional(draft.name.middle),
     suffix: optional(draft.name.suffix),
   };
+  // Absent rather than empty: a person with one name has no family name, which is a different
+  // fact from a family name recorded as nothing at all.
+  if (family !== "") request.family = family;
   if (draft.otherNames.length > 0) {
     request.otherNames = draft.otherNames.map((name) => ({
       given: name.given.trim(),

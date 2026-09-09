@@ -147,10 +147,13 @@ parameters so a filtered feed is cheaper rather than merely shorter, settling a 
 dismissing separately, and stating what the retention sweep took while unread rather than showing a
 reassuring zero. The top-bar bell became its own component beside the download and upload trays,
 carrying a live unread badge over a shared count both surfaces read, polled on a slow interval and on
-focus, and never cleared by a failed read. And Settings · Notifications gives a member the
-per-category matrix at last: one row per category with both channels on it, the in-app switch
-disabled with the reason in words where the firm's floor or a mandatory category holds it, and the
-count of what their own choice has already stopped shown beside the switch that stopped it.
+focus, and never cleared by a failed read. Settings · Notifications — the per-category
+matrix — arrived on `main` from the settings stream while this one was in flight, and **that one
+stands**: it is a table rather than a page of rows, it tracks a write per row, and it landed first.
+This stream's own copy of that screen was dropped at the merge, and what survives from it is the
+reconciliation the collision forced — the category's words and the preference transport now have
+ONE home each (`category-vocabulary.ts`, `preferences-api.ts`), which the feed and the bell read
+too, rather than a second vocabulary that would have drifted the first time either was edited.
 
 The card is composed on the client from the kind and the declared facts
 (`apps/web/src/lib/notifications/notification-presentation.ts`), because the row carries no sentence —
