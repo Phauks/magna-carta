@@ -71,6 +71,7 @@
   import SquarePen from "@lucide/svelte/icons/square-pen";
   import StatusMark from "@magna-carta/design-system/status-mark";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
+  import { formatInstantDate } from "@magna-carta/design-system/formatters";
   import AmendAgreementDialog from "$lib/billing/amend-agreement-dialog.svelte";
   import {
     BILLING_PERMISSIONS,
@@ -591,7 +592,7 @@
             <div class="grid grid-cols-2 items-baseline gap-16">
               <dt class="text-text-muted">Since</dt>
               <dd class="tabular-nums">
-                {matter.heldAt === null ? "Not recorded" : formatDate(matter.heldAt)}
+                {matter.heldAt === null ? "Not recorded" : formatInstantDate(matter.heldAt)}
               </dd>
             </div>
             <div class="grid grid-cols-2 items-baseline gap-16">

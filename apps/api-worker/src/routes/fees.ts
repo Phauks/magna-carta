@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -67,7 +68,7 @@ const READ = "billing:read" as const;
 const RECORD = "billing:draft" as const;
 const APPROVE = "billing:finalize" as const;
 
-const serviceDateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const serviceDateField = z.string().regex(CIVIL_DATE_PATTERN);
 
 const CreateFeeRequest = z
   .object({

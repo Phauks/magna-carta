@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { describe, expect, it } from "vitest";
 import type { CatalogEntry } from "../src/catalog.ts";
 import {
@@ -33,7 +34,7 @@ const reasons = (findings: readonly { reason: string }[]) => findings.map((f) =>
 // The fixture's recorded dates are all 2026-08-01, so every "today" in these cases is expressed as an
 // offset from it rather than as a second literal that has to be kept in step by hand.
 const daysAfter = (days: number) =>
-  new Date(Date.parse("2026-08-01T00:00:00Z") + days * 86_400_000).toISOString().slice(0, 10);
+  civilDateOf(new Date(Date.parse("2026-08-01T00:00:00Z") + days * 86_400_000));
 
 describe("a published retirement date", () => {
   it("is silent while the date is far away", () => {

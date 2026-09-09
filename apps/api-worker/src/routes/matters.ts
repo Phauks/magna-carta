@@ -1,3 +1,4 @@
+import { todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
@@ -327,7 +328,7 @@ const CLOSE_ADVISORIES: readonly CloseAdvisory[] = [
 function serviceClock() {
   return {
     now: () => new Date().toISOString(),
-    today: () => new Date().toISOString().slice(0, 10),
+    today: () => todayInUtc(),
   };
 }
 

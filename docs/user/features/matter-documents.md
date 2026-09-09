@@ -23,12 +23,19 @@ makes a place to put them.
 
 The Upload panel has two sides.
 
-**On the right are your files.** Press **Add** and choose **Files**, or **A Folder, With Everything
-Inside It**; or drag files and folders from your computer and drop them anywhere on that side. A
-folder arrives with its contents, in the folders they came from, and you can add several folders
-before you send anything. Fold a folder to hide what is inside it. Filter the list from its column
-headers if there is a lot of it, and remove anything you did not mean to include with **Remove
-Selected**. Nothing is sent until you press **Upload**.
+**On the right are your files.** Press **Add** to choose files. For a folder, use the small arrow
+beside Add and choose **A Folder, With Everything Inside It** — a browser will not let one picker
+offer files and folders together. Dragging has no such limit: drop any mix of files and folders from
+your computer anywhere on that side of the panel. A folder arrives with its contents, in the folders
+they came from, and you can add several folders before you send anything. Fold a folder to hide what
+is inside it. Nothing is sent until you press **Upload**.
+
+The list is the same table you use everywhere else in Magna Carta. Click a column heading to sort by
+it — folders stay with the files inside them, so a sort still reads as the tree it is. Right-click a
+heading to filter on that column, to hide it, or to bring back one that is hidden; filtering flattens
+the list to the files that match, with a **Folder** column saying where each one sits. When something
+is filtered, **Clear Filters** appears above the list, and the strip underneath says how many of your
+files you are looking at. Remove anything you did not mean to include with **Remove Selected**.
 
 **On the left is where they go and what they become.**
 
@@ -36,10 +43,19 @@ Selected**. Nothing is sent until you press **Upload**.
   number to find it.
 - **Folder** — the folder you were looking at, the matter's Home, or any folder you pick from the
   tree. A folder you upload is recreated inside the one you choose.
+  **Advanced Settings**, at the foot of that side, is folded shut and holds the two answers most
+  uploads never need to change:
+
 - **Date Created** — whether each file keeps the date it already carries, or takes the date of the
   upload. Files keep their own date unless you say otherwise; that date is kept on the record either
   way, and shows in the file's details as **File's Own Date**.
-- **Document Type** — a type to give every file in this upload, if your firm uses them.
+- **Files the Firm Already Holds** — whether a file your firm already has is sent again. It is not,
+  by default; see _Files you already have_ below.
+
+**A document type is set per file, not for the whole upload.** If your firm uses document types,
+select the rows you want — a folder row means everything inside it — and choose **Document Type**
+above the list. The **Document Type** column shows what each file will carry, so one upload can file
+correspondence as correspondence and pleadings as pleadings without sending them separately.
 
 Press **Upload**. The list on the right shows each file's progress, with how much of it has been
 sent, and the bar above it measures the whole batch. You do not have to wait: close the panel and
@@ -60,6 +76,12 @@ reads **Uploaded** as usual. So if a batch fails part-way and you send the same 
 the files that did not land are sent. The read happens on your computer, a chunk at a time, with
 the row reading **Reading** and the share done, so a file of any size is asked about before a byte
 of it is sent.
+
+**Reading starts as soon as you choose a file**, while you are still deciding where it goes, so by
+the time you press **Upload** most of the answers are already in and nothing waits on a read that
+could have happened earlier. If you would rather send everything regardless of what your firm holds,
+turn **Files the Firm Already Holds** to **Send Every File** under Advanced Settings; no reading is
+then done at all.
 
 ### Watching an upload
 
@@ -82,6 +104,12 @@ files that had not finished would need to be uploaded again.
 Its row reads **Upload failed**, and pointing at it tells you why, with an Error ID you can quote to
 support. The file is not added to the matter — a failed upload leaves nothing behind — and the rest
 of the upload carries on.
+
+If the reason says **the firm's storage did not answer**, the fault is not with your file, your
+matter, or your connection to Magna Carta — the rest of the application is plainly still answering.
+Files go from your browser straight to your firm's storage, and that route is the one that failed.
+Try again; if it keeps happening, quote that message to whoever administers your firm's Magna Carta,
+because it is settled there rather than by anything you can do from this screen.
 
 ### From a template
 
@@ -186,21 +214,25 @@ broken. Both can still be downloaded.
 
 ### Taking files out
 
-Files can be taken out of a **zip**. The other three formats can be looked inside but not unpacked
-here yet; download one to open it.
+Files can be taken out of a **zip**, a **tar** and a **7z**. A **rar** can be looked inside but not
+unpacked here — the control says so rather than being offered and then refusing — so download a rar
+to open it.
 
 Select what you want and choose **Extract**, or choose **Extract Into This Matter** with nothing
-selected to take out everything in the archive. Files land in the folder the zip itself sits in.
+selected to take out everything in the archive. Files land in the folder the archive itself sits in.
 
 Each extracted file is checked on the way in exactly like a file you upload: it is scanned, its type
 is read from its actual contents rather than from its name inside the archive, and it becomes an
-ordinary document on the matter with its own version history. Extracting never changes the zip,
+ordinary document on the matter with its own version history. Extracting never changes the archive,
 which stays on the matter as it was.
 
 Some members will not come out, and the screen names the reason rather than only counting them:
 
-- **Password-protected inside the archive.** Magna Carta holds no password for it.
-- **Packed in a way the application cannot open.** Most zips use a format it reads; a few do not.
+- **Password-protected inside the archive.** Magna Carta holds no password for it. A 7z can lock its
+  files one at a time, so some members of one archive may come out while others do not.
+- **Packed in a way the application cannot open.** Most archives use a form it reads; a few do not.
+- **Not a file.** Some archives carry entries that are shortcuts to somewhere else, or devices,
+  rather than content. There is nothing in them to take out.
 - **Its contents do not match what the archive recorded.** The zip's own checksum for that file
   disagrees with the file itself, which is what a damaged or altered member looks like. It is
   refused rather than filed.
@@ -221,6 +253,11 @@ for the end of it.
 Some PDFs will not open. One that is larger than the reader holds, one whose contents cannot be
 read, and one built in a way that is unsafe to open all say so on the screen and offer you the
 download instead. The file is stored either way, and nothing about it is changed by trying.
+
+A password-protected PDF asks for its password right there instead of failing outright — type it
+and the document opens normally. The password is checked in this browser and never sent anywhere.
+If you do not have it, the reader points you to File Unlock & Password Recovery in Tools, which can
+search for a common or predictable one.
 
 A PDF is read-only here. There is no editing, and nothing you do in the reader changes the document
 or adds a version.

@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { describe, expect, it } from "vitest";
 import { JURISDICTIONS, NATIONAL_RESOURCES } from "../src/registry.ts";
 import type { WellbeingResource } from "../src/types.ts";
@@ -16,7 +17,7 @@ const SERVICES = new Set([
   "familySupport",
   "monitoring",
 ]);
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE = CIVIL_DATE_PATTERN;
 
 function checkResource(where: string, r: WellbeingResource): void {
   expect(r.name, `${where}: name`).toBeTruthy();

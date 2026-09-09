@@ -12,6 +12,12 @@
    * resets the read rather than filtering the rows on screen: the listing is cursor-paged, so
    * filtering what has been loaded would answer confidently about a fraction of the log.
    *
+   * THE DESCRIPTION IS THE ROW'S SECOND LINE, NOT A COLUMN (owner ruling, 2026-09-08). It is prose,
+   * and usually longer than every other fact on the row put together — as a column it was either
+   * truncated to a few words, which is not a description, or wide enough to push the facts off the
+   * screen. So it takes the row's whole width underneath the facts and wraps there, through the one
+   * table's own row-detail, which is exactly what the time sheet does with its own description.
+   *
    * THE CHROME IS THE SURFACE'S. The clear-filters control belongs to the screen's one action row,
    * so the grid is lent back to whoever mounted this listing rather than being fenced behind a
    * second strip of controls above the table.
@@ -33,7 +39,12 @@
     EMPTY_COMMUNICATION_VOCABULARY,
     type CommunicationVocabulary,
   } from "./communication-columns.ts";
-  import { anchorStatusLabel, channelEntry, directionEntry } from "./communication-vocabulary.ts";
+  import {
+    anchorStatusLabel,
+    channelEntry,
+    directionEntry,
+    saidText,
+  } from "./communication-vocabulary.ts";
 
   let {
     query,
@@ -154,12 +165,27 @@
   {:else if column.id === "duration" && text === ""}
     <!-- Blank, not a dash: a text does not have a length, so there is nothing missing here. -->
     <span></span>
-  {:else if column.id === "said" && row.summary === null && row.body === null}
-    <span class="text-text-muted">{text}</span>
+  {:else if column.id === "referenceNumber"}
+    <span class="tabular-nums" class:text-text-muted={row.referenceNumber === null}>{text}</span>
   {:else if text === ""}
     <span class="text-text-muted">—</span>
   {:else}
     {text}
+  {/if}
+{/snippet}
+
+<!-- The row's second line: the whole description, wrapping across the row's own width. A row with
+     nothing written says so quietly rather than leaving a blank line, which would read as a record
+     the platform failed to fill. -->
+{#snippet rowDetail(row: Communication)}
+  {@const said = saidText(row)}
+  {#if said !== ""}
+    <p
+      class="w-full whitespace-pre-wrap text-sm"
+      class:text-text-muted={row.summary === null && row.body === null}
+    >
+      {said}
+    </p>
   {/if}
 {/snippet}
 
@@ -179,6 +205,7 @@
       class="min-h-0 flex-1"
       {caption}
       cell={logCell}
+      {rowDetail}
       loading={rows === null}
     >
       {#snippet empty()}

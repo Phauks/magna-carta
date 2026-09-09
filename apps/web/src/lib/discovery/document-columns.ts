@@ -20,6 +20,7 @@
  * rows sort last rather than being hidden, and the cell says the date is unknown rather than
  * printing the day the row was made.
  */
+import { formatInstantDate } from "@magna-carta/design-system/formatters";
 import type { GridColumn } from "@magna-carta/design-system/data-table";
 import type { ReviewDocument } from "./discovery-api.ts";
 import { processingStateEntry, indexStateEntry } from "./discovery-vocabulary.ts";
@@ -78,9 +79,7 @@ export function reviewDocumentColumns(
       type: "date",
       value: (document) => document.sortDate,
       text: (document) =>
-        document.sortDate === null
-          ? NO_KNOWN_DATE
-          : new Date(document.sortDate).toLocaleDateString(),
+        document.sortDate === null ? NO_KNOWN_DATE : formatInstantDate(document.sortDate),
     },
     {
       id: "load",

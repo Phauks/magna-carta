@@ -9,6 +9,14 @@
    * username and a secret — each checked by the shape the API checks, so the plus is live only for
    * a value that will be accepted.
    *
+   * NO BOX AROUND THE ENTRY ROW, AND IT WRAPS. It is the last row of the same list, under the same
+   * rule as every other row, rather than a panel sitting beneath one. And its fields WRAP rather
+   * than sharing one grid line: an account is a type, an institution, a number, a username and a
+   * secret, which is five controls, and one grid row of five inside a modal pane ran off the right
+   * edge — every field after the second was unreachable without scrolling sideways in a panel that
+   * does not scroll sideways. Wrapped, each control keeps a width it can actually be typed into and
+   * the row grows downward, which a panel has room for.
+   *
    * Data-blind: it lists what it is given and hands a checked draft to whoever owns the record. A
    * pane that can reveal a value renders its own control through `rowEnd`; the dialog, whose values
    * are not yet sealed, renders nothing there.
@@ -93,19 +101,23 @@
     draft = emptyIdentifierDraft(draft.type);
   }
 
+  /*
+   * How wide each field wants to be. A basis rather than a grid track, because the row wraps: a
+   * field that will not fit beside the one before it takes the next line at the width it needs,
+   * instead of every field being squeezed into a share of one line that has run out of room.
+   */
   function widthOf(key: "label" | "number" | "username" | "secret"): string {
-    return key === "label" ? "minmax(9rem, 1fr)" : key === "number" ? "minmax(9rem, 1.2fr)" : "minmax(7rem, 1fr)";
+    return key === "number" ? "12rem" : key === "label" ? "11rem" : "9rem";
   }
 </script>
 
 <section class="flex flex-col gap-12">
   <SectionHeading label="Sealed Identifiers" count={rows.length} />
 
-  {#if rows.length > 0}
-    <ul class="flex flex-col">
-      {#each rows as row (row.id)}
-        {@const shown = shownValue?.(row) ?? null}
-        <li class="flex items-center gap-8 border-b border-border-default py-4">
+  <ul class="flex flex-col">
+    {#each rows as row (row.id)}
+      {@const shown = shownValue?.(row) ?? null}
+      <li class="flex items-center gap-8 border-b border-border-default py-4">
           <Lock class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
           <span class="flex min-w-0 flex-auto flex-wrap items-baseline gap-x-8">
             <span>{row.typeLabel}</span>
@@ -129,17 +141,15 @@
               onclick={() => onRemove?.(row)}
             >
               <Trash2 class="size-16" aria-hidden="true" />
-            </Button>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  {/if}
+          </Button>
+        {/if}
+      </li>
+    {/each}
 
-  <!-- The type first; the fields it decides; the plus live once the value fits its shape. -->
-  <div class="flex flex-col gap-12 rounded-md border border-border-default bg-surface-raised p-12">
-    <div class="grid items-end gap-8" style="grid-template-columns: 12rem {fields.map((field) => widthOf(field.key)).join(' ')} auto">
-      <div class="flex flex-col gap-8">
+    <!-- The entry row: the last line of the same list. The type first; the fields it decides; the
+         plus live once the value fits its shape. It wraps rather than sharing one grid line. -->
+    <li class="flex flex-wrap items-end gap-8 py-8">
+      <div class="flex flex-col gap-8" style="width: 12rem">
         <Label id={typeLabelId}>Type</Label>
         <Select.Root
           type="single"
@@ -161,6 +171,7 @@
       {#each fields as field (field.key)}
         <!-- The refusal sits on the number, the field every type has and the one it is usually
              about; it appears once something has been typed, so a blank row is not nagged. -->
+        <div class="min-w-0 flex-auto" style="flex-basis: {widthOf(field.key)}">
         <LabelledField
           label={field.label}
           error={field.key === "number" && started && refusal !== null ? refusal : undefined}
@@ -197,6 +208,7 @@
             {/if}
           {/snippet}
         </LabelledField>
+        </div>
       {/each}
       <Button
         variant="secondary"
@@ -208,6 +220,6 @@
       >
         <Plus class="size-16" aria-hidden="true" />
       </Button>
-    </div>
-  </div>
+    </li>
+  </ul>
 </section>

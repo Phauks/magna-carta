@@ -89,10 +89,6 @@ export const DEFAULT_TIMELINE_PAGE_SIZE = 50;
 // instants sort chronologically that way — see the canonical-instant obligation in src/merge.ts.
 export type TimeColumnShape = "instant" | "civilDate";
 
-// A canonical UTC instant: exactly what Date.prototype.toISOString emits — a fixed three-digit
-// fraction and a literal Z. The whole federated sort rests on this being the only shape stored.
-export const CANONICAL_INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-
-export const CIVIL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-export const WALL_CLOCK_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+// The three shapes a calendar row is written in — the canonical UTC instant the federated sort
+// rests on, the civil date, and the wall-clock time — all live in @magna-carta/civil-time. They are
+// not restated here: a fourth copy of the instant shape is how a timeline starts sorting wrong.

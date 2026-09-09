@@ -42,7 +42,7 @@
   } from "@magna-carta/design-system/calendar-grid";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
-  import { formatInstant, placeholderOf } from "@magna-carta/design-system/formatters";
+  import { formatInstant, formatInstantDate, placeholderOf } from "@magna-carta/design-system/formatters";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
@@ -671,7 +671,10 @@
                 : null,
           officeName: record.kind === "firmEvent" ? context.locationName(record.event.locationId) : null,
           participantName,
+          // This sheet keeps its own long form ("Tuesday, September 15, 2026") rather than the
+          // standard one, which is a per-sheet choice; the instant half is the shared answer.
           date: longDate,
+          instantDate: formatInstantDate,
           time: (time, timeZone) => formatWallClock(time, timeZone, context.readerTimeZone),
           printedAt: formatInstant(new Date()),
         }),

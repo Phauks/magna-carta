@@ -29,6 +29,27 @@
       "when": 1788836100000,
       "tag": "20260908T040000_invoice-wip-claim-admits-a-fee",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788836200000,
+      "tag": "20260908T050000_seed-edit-own-profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788836300000,
+      "tag": "20260908T060000_seed-manage-profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788904467410,
+      "tag": "20260908T215427_communication-reference-number-and-end",
+      "breakpoints": true
     }
   ]
 }

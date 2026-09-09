@@ -31,6 +31,8 @@
     type DeliveryOutcome,
   } from "./billing-api.ts";
   import { civilToday, type InvoiceRow } from "./invoice-standing.ts";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   let {
     open = $bindable(false),
@@ -150,8 +152,12 @@
           </Select.Root>
         </div>
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-date">Date It Reached Them</Label>
-          <Input id="{fieldPrefix}-date" type="date" disabled={busy} bind:value={deliveryDate} />
+          <DatePicker
+            label="Date It Reached Them"
+            value={civilDateValue(deliveryDate)}
+            onValueChange={(next) => (deliveryDate = civilDateTextOrEmpty(next))}
+            disabled={busy}
+          />
         </div>
       </div>
 

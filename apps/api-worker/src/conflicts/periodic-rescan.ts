@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { recordRecheckRequests } from "@magna-carta/conflicts/recheck-request";
 import {
@@ -46,7 +47,7 @@ async function selectRescanMatters(database: ProxyBatchDatabase, limit: number):
 // ledger's partial unique index this makes a pass that fires twice in one day a no-op for a matter it
 // already enqueued, while next period's pass is a genuinely new request.
 function rescanCauseReference(now: string): string {
-  return now.slice(0, 10);
+  return civilDateOf(now);
 }
 
 export interface PeriodicRescanOutcome {

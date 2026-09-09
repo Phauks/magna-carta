@@ -11,6 +11,7 @@
   import Button from "@magna-carta/design-system/button";
   import * as Card from "@magna-carta/design-system/card";
   import { formatDate } from "@magna-carta/design-system/data-table";
+  import { formatInstantDate } from "@magna-carta/design-system/formatters";
   import EntityIdentity, { type EntityKind } from "@magna-carta/design-system/entity-identity";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ActivityRegister from "$lib/activity/activity-register.svelte";
@@ -81,18 +82,18 @@
       });
     }
     if (matter.openedAt) {
-      facts.push({ label: "Opened", value: formatDate(matter.openedAt) });
+      facts.push({ label: "Opened", value: formatInstantDate(matter.openedAt) });
     }
     // The pause is stated where the status is: when it began and why, because a reader who sees
     // On Hold on the seal asks both at once.
     if (matter.status === "hold" && matter.heldAt) {
-      facts.push({ label: "On hold since", value: formatDate(matter.heldAt) });
+      facts.push({ label: "On hold since", value: formatInstantDate(matter.heldAt) });
     }
     if (matter.status === "hold" && matter.holdReason) {
       facts.push({ label: "Hold reason", value: matter.holdReason });
     }
     if (matter.closedAt) {
-      facts.push({ label: "Closed", value: formatDate(matter.closedAt) });
+      facts.push({ label: "Closed", value: formatInstantDate(matter.closedAt) });
     }
     // Absent, not false: the matter read does not carry this yet, and "Not enabled" would assert
     // something about the firm's billing setup that nothing here has established.

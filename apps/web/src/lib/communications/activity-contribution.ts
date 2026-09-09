@@ -61,7 +61,7 @@ export const communicationActivityContribution: ActivityContribution = {
     if (direction !== null)
       result.push({ value: direction === "inbound" ? "Incoming" : "Outgoing" });
     const length = durationText(factNumber(row.facts, "durationSeconds"));
-    if (length !== null) result.push({ label: "Length", value: length });
+    if (length !== null) result.push({ label: "Duration", value: length });
     // A carrier-written row and a member's recollection of the same call carry different weight, so
     // the chronology says which. Only the hand-written case is marked: once the carrier is
     // connected, most rows are its own and a badge on every one of them stops being read.

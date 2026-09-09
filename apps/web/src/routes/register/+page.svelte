@@ -70,9 +70,12 @@
     rejection = null;
     supportErrorId = null;
     const outcome = await startRegistration(fetch, {
-      // One display name is what the registration row holds; the two fields exist because that is
-      // how a person reads their own name back, not because the server stores them apart.
+      // Both the line and its parts. The line is what a screen prints; the parts are what the
+      // account keeps, so nobody has to have their name split back apart later — a split that
+      // cannot be done without guessing at somebody's own name.
       name: `${firstName.trim()} ${lastName.trim()}`,
+      givenName: firstName.trim(),
+      familyName: lastName.trim(),
       email: email.trim(),
       // NOT trimmed. Leading and trailing spaces are part of a password — trimming one here would
       // hash something the person never typed and lock them out of their own account at sign-in.

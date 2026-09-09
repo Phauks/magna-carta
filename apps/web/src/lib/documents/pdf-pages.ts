@@ -52,11 +52,21 @@ export type PdfFailureReason =
   /** The engine refused the document as a decompression bomb. */
   | "decompression-bomb"
   /** The page could not be rasterized, though the document opened. */
-  | "render-failed";
+  | "render-failed"
+  /** The document needs a password. Ask for one and open again with `unlock`. */
+  | "encrypted"
+  /** A password was tried and did not open the document. Ask again. */
+  | "wrong-password";
 
 /** What the page asks the worker to do. */
 export type PdfWorkerRequest =
   | { readonly kind: "open"; readonly id: number; readonly bytes: ArrayBuffer }
+  /**
+   * Try the bytes from the most recent `open` again, decrypted with this password. Reaches for the
+   * copy the worker kept when that `open` came back "encrypted" or "wrong-password" — carries no
+   * bytes of its own, so a password never rides the same message as a document a second time.
+   */
+  | { readonly kind: "unlock"; readonly id: number; readonly password: string }
   | { readonly kind: "render"; readonly id: number; readonly page: number; readonly dpi: number }
   | { readonly kind: "close" };
 
@@ -134,6 +144,18 @@ export class PdfDocumentSource {
    */
   async open(bytes: ArrayBuffer): Promise<PdfFailureReason | null> {
     const reply = await this.ask({ kind: "open", id: this.nextId, bytes }, [bytes]);
+    if (reply.kind === "failed") return reply.reason;
+    if (reply.kind !== "opened") return "unreadable";
+    this.pages = reply.pages;
+    return null;
+  }
+
+  /**
+   * Retry the last `open` with a password, after it came back "encrypted" or "wrong-password". The
+   * worker still holds those bytes; nothing is re-fetched or re-sent here.
+   */
+  async unlock(password: string): Promise<PdfFailureReason | null> {
+    const reply = await this.ask({ kind: "unlock", id: this.nextId, password });
     if (reply.kind === "failed") return reply.reason;
     if (reply.kind !== "opened") return "unreadable";
     this.pages = reply.pages;

@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { loadEffectivePermissions } from "../session-context.ts";
 import { runConflictsCheck } from "@magna-carta/conflicts/run-check";
@@ -613,7 +614,7 @@ const WaiverRequest = z
     // Omitted or null where the firm has not filed the confirmation here yet.
     documentFileId: identifierField("file").nullable().optional(),
     // The civil date the waiver was given, YYYY-MM-DD. Not the instant it is being recorded.
-    givenOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    givenOn: z.string().regex(CIVIL_DATE_PATTERN),
   })
   .openapi("ConflictsWaiverRequest");
 

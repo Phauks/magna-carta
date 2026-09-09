@@ -79,3 +79,106 @@ export async function entriesFromDataTransfer(transfer: DataTransfer): Promise<D
   for (const entry of entries) await walk(entry, "", out);
   return out;
 }
+
+/*
+ * THE PICKER PATH, AND WHY IT IS NOT AN <input type="file">.
+ *
+ * A folder chosen through `<input webkitdirectory>` makes the browser raise its own confirmation
+ * over the top of ours — "Upload 240 files to this site?" — which is a second question about a
+ * choice the reader has already made, in a dialog we do not control and cannot word. The file
+ * picker of the File System Access API asks nothing of the sort: choosing files raises no
+ * confirmation at all, and choosing a folder asks once for permission to READ it, which is a
+ * different and honest question. So where the API exists the pickers below are the way in, and the
+ * hidden inputs remain only as the fallback for an engine that has not got it.
+ *
+ * The handle types are declared here rather than taken from the DOM library, which does not yet
+ * carry them: only the members this walk touches, so a browser without them is a `undefined` check
+ * rather than a type error.
+ */
+
+interface FileSystemHandleLike {
+  readonly kind: "file" | "directory";
+  readonly name: string;
+}
+
+export interface FileHandleLike extends FileSystemHandleLike {
+  readonly kind: "file";
+  getFile: () => Promise<File>;
+}
+
+export interface DirectoryHandleLike extends FileSystemHandleLike {
+  readonly kind: "directory";
+  values: () => AsyncIterable<FileHandleLike | DirectoryHandleLike>;
+}
+
+interface FilePickerWindow {
+  showOpenFilePicker?: (options?: { multiple?: boolean }) => Promise<FileHandleLike[]>;
+  showDirectoryPicker?: (options?: { mode?: "read" | "readwrite" }) => Promise<DirectoryHandleLike>;
+}
+
+/** Whether this engine has the file picker that asks no confirmation of its own. */
+export function nativeFilePickerAvailable(): boolean {
+  if (typeof window === "undefined") return false;
+  const picker = window as unknown as FilePickerWindow;
+  return typeof picker.showOpenFilePicker === "function";
+}
+
+/** Whether this engine has the directory picker. Chromium has both; the two ship together. */
+export function nativeDirectoryPickerAvailable(): boolean {
+  if (typeof window === "undefined") return false;
+  const picker = window as unknown as FilePickerWindow;
+  return typeof picker.showDirectoryPicker === "function";
+}
+
+/** The files behind picked file handles, each on its own — a picked file belongs to no folder. */
+export async function entriesFromFileHandles(
+  handles: readonly FileHandleLike[],
+): Promise<DroppedEntry[]> {
+  const entries: DroppedEntry[] = [];
+  for (const handle of handles) entries.push({ file: await handle.getFile(), relativePath: "" });
+  return entries;
+}
+
+/**
+ * Every file under a picked directory, walked, each carrying the path convention the rest of this
+ * module speaks: the picked folder's own name first, then each level beneath it.
+ */
+export async function entriesFromDirectoryHandle(
+  handle: DirectoryHandleLike,
+): Promise<DroppedEntry[]> {
+  const entries: DroppedEntry[] = [];
+  const walkHandle = async (directory: DirectoryHandleLike, folderPath: string): Promise<void> => {
+    for await (const child of directory.values()) {
+      const path = folderPath === "" ? child.name : `${folderPath}/${child.name}`;
+      if (child.kind === "file") entries.push({ file: await child.getFile(), relativePath: path });
+      else await walkHandle(child, path);
+    }
+  };
+  await walkHandle(handle, handle.name);
+  return entries;
+}
+
+/**
+ * Ask for files through the native picker. An empty answer is a reader who cancelled, which is not
+ * a failure and is reported the same way as one: nothing was chosen.
+ */
+export async function pickFiles(): Promise<DroppedEntry[]> {
+  const picker = window as unknown as FilePickerWindow;
+  if (picker.showOpenFilePicker === undefined) return [];
+  try {
+    return await entriesFromFileHandles(await picker.showOpenFilePicker({ multiple: true }));
+  } catch {
+    return [];
+  }
+}
+
+/** Ask for one folder through the native picker, and answer with everything inside it. */
+export async function pickFolder(): Promise<DroppedEntry[]> {
+  const picker = window as unknown as FilePickerWindow;
+  if (picker.showDirectoryPicker === undefined) return [];
+  try {
+    return await entriesFromDirectoryHandle(await picker.showDirectoryPicker({ mode: "read" }));
+  } catch {
+    return [];
+  }
+}

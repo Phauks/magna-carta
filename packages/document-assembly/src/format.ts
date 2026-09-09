@@ -1,3 +1,5 @@
+import { civilDateParts } from "@magna-carta/civil-time/civil-date";
+import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import { currencyFromCode, money } from "@magna-carta/money/money";
 import { format as formatMoney } from "@magna-carta/money/format";
 import type { MergeValue, MergeValueType } from "./types.ts";
@@ -178,16 +180,10 @@ interface CalendarDate {
 function calendarDateInZone(isoInstant: string, timeZone: string): CalendarDate | undefined {
   const instant = new Date(isoInstant);
   if (Number.isNaN(instant.getTime())) return undefined;
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(instant);
-  const read = (type: string): number => Number(parts.find((part) => part.type === type)?.value);
-  const year = read("year");
-  const month = read("month");
-  const day = read("day");
+  // The projection is `zonedReading` — the platform's one answer to "which day was this instant in
+  // that place", shared with the calendar's deadline arithmetic and the task overdue comparison, so
+  // a document and a due date cannot disagree about which day a filing landed on.
+  const { year, month, day } = civilDateParts(zonedReading(instant.getTime(), timeZone).civilDate);
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return undefined;
   return { year, month, day };
 }

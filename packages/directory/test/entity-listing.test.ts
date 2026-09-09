@@ -2,6 +2,9 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { seededRandomSource } from "@magna-carta/identifiers/random";
 import { describe, expect, test } from "vitest";
+import { addAddress } from "../src/contact-address.ts";
+import { addEmail } from "../src/contact-email.ts";
+import { addPhone } from "../src/contact-phone.ts";
 import { readEntityListing } from "../src/entity-listing.ts";
 import { createOrganization } from "../src/organization.ts";
 import { createPerson } from "../src/person.ts";
@@ -144,6 +147,76 @@ describe("readEntityListing", () => {
     });
     // The same word twice is noise, so it is not repeated.
     expect(quill?.legalName).toBeNull();
+  });
+
+  test("carries the parts a person's name was assembled from, so a book of names sorts by any of them", async () => {
+    const database = freshDatabase();
+    await createPerson(
+      database,
+      { given: "Ada", middle: "Byron", family: "Lovelace" },
+      options("2026-06-01T00:00:00.000Z", "listing-h"),
+    );
+
+    const [row] = (await readEntityListing(database, { kind: "person" })).data;
+
+    expect(row).toMatchObject({ givenName: "Ada", middleName: "Byron", familyName: "Lovelace" });
+  });
+
+  test("carries the default way to reach a record — one per channel, not a contact register", async () => {
+    const database = freshDatabase();
+    const person = await createPerson(
+      database,
+      { given: "Grace", family: "Hopper" },
+      options("2026-06-01T00:00:00.000Z", "listing-i"),
+    );
+    const written = options("2026-06-02T00:00:00.000Z", "listing-j");
+    await addEmail(database, { entityId: person, address: "spare@example.test" }, written);
+    await addEmail(
+      database,
+      { entityId: person, address: "grace@example.test", isPrimary: true },
+      options("2026-06-03T00:00:00.000Z", "listing-k"),
+    );
+    await addPhone(
+      database,
+      { entityId: person, number: "+17755550148", isPrimary: true },
+      options("2026-06-04T00:00:00.000Z", "listing-l"),
+    );
+    await addAddress(
+      database,
+      { entityId: person, street: "1400 Meridian Way", city: "Reno", region: "NV", country: "US" },
+      options("2026-06-05T00:00:00.000Z", "listing-m"),
+    );
+
+    const [row] = (await readEntityListing(database, { kind: "person" })).data;
+
+    // The row a message would go to, not every row the record holds: the spare address is on the
+    // record and is not what a directory column shows.
+    expect(row).toMatchObject({
+      emailAddress: "grace@example.test",
+      phoneNumber: "+17755550148",
+      city: "Reno",
+      region: "NV",
+      country: "US",
+    });
+  });
+
+  test("states nothing rather than guessing where the firm holds no way to reach a record", async () => {
+    const database = freshDatabase();
+    await createPerson(
+      database,
+      { given: "Ada", family: "Lovelace" },
+      options("2026-06-01T00:00:00.000Z", "listing-n"),
+    );
+
+    const [row] = (await readEntityListing(database, { kind: "person" })).data;
+
+    expect(row).toMatchObject({
+      emailAddress: null,
+      phoneNumber: null,
+      city: null,
+      region: null,
+      country: null,
+    });
   });
 
   test("answers an empty directory with an empty page rather than a failure", async () => {

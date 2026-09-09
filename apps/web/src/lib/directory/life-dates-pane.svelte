@@ -18,9 +18,9 @@
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
-  import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
-  import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import {
     setDirectoryPersonLifeDates,
     type DirectoryPersonDetail,
@@ -100,27 +100,24 @@
 <section class="flex flex-col gap-16">
   <h3 class="text-sm font-semibold">Dates</h3>
 
+  <!-- The reason editing is refused sits on the WRAPPER, not on the field: the picker's spread lands
+       on a root element that renders no DOM, so a `title` written on it would say nothing to anyone.
+       The Record button below carries the same reason, which is where a reader looks first. -->
   <div class="grid max-w-xl grid-cols-2 gap-16">
-    <div class="flex flex-col gap-8">
-      <Label for="person-date-of-birth">Date of birth</Label>
-      <Input
-        id="person-date-of-birth"
-        type="date"
-        bind:value={dateOfBirth}
+    <div class="flex flex-col gap-8" title={editDisabledReason}>
+      <DatePicker
+        label="Date of birth"
+        value={civilDateValue(dateOfBirth)}
+        onValueChange={(next) => (dateOfBirth = civilDateTextOrEmpty(next))}
         disabled={!mayEdit}
-        title={editDisabledReason}
-        placeholder={placeholderOf("Date of birth")}
       />
     </div>
-    <div class="flex flex-col gap-8">
-      <Label for="person-date-of-death">Date of death</Label>
-      <Input
-        id="person-date-of-death"
-        type="date"
-        bind:value={dateOfDeath}
+    <div class="flex flex-col gap-8" title={editDisabledReason}>
+      <DatePicker
+        label="Date of death"
+        value={civilDateValue(dateOfDeath)}
+        onValueChange={(next) => (dateOfDeath = civilDateTextOrEmpty(next))}
         disabled={!mayEdit}
-        title={editDisabledReason}
-        placeholder={placeholderOf("Date of death")}
       />
     </div>
   </div>

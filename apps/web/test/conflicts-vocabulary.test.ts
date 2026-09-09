@@ -16,6 +16,7 @@ import {
   adjudicationChip,
   causeTopicLabel,
   dispositionVocabulary,
+  edgeClassLabel,
   edgeTypeLabel,
   evidenceTier,
   pathSummary,
@@ -83,12 +84,12 @@ describe("only an open question is loud", () => {
   });
 });
 
-describe("what a person may claim when they run a check by hand", () => {
-  it("offers only the triggers a person can honestly claim", () => {
+describe("what a check somebody ran by hand may be filed under", () => {
+  it("is the two triggers a person can honestly claim, and no others", () => {
     expect([...OPERATOR_TRIGGERS]).toEqual(["preliminary", "comprehensive"]);
   });
 
-  it("never offers a trigger that names a corpus change or the clock", () => {
+  it("never includes a trigger that names a corpus change or the clock", () => {
     for (const trigger of OPERATOR_TRIGGERS) {
       expect(["entity_merged", "periodic_rescan", "personnel_changed"]).not.toContain(trigger);
     }
@@ -113,8 +114,8 @@ describe("how a hit was reached", () => {
 
 describe("an edge type reads as its class", () => {
   it("names the class a relationship belongs to", () => {
-    expect(edgeTypeLabel("corporate_parent")).toContain("Corporate family");
-    expect(edgeTypeLabel("affiliation")).toContain("Control");
-    expect(edgeTypeLabel("relationship")).toContain("Family");
+    expect(edgeTypeLabel("corporate_parent")).toContain(edgeClassLabel("corporate"));
+    expect(edgeTypeLabel("affiliation")).toContain(edgeClassLabel("control"));
+    expect(edgeTypeLabel("relationship")).toContain(edgeClassLabel("family"));
   });
 });

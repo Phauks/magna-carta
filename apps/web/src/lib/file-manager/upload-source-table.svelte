@@ -8,9 +8,11 @@
    * running is laid out in full. Two tables would be two answers to "what does an upload look
    * like"; the rulings ledger records what this one looks like, once.
    *
-   * The grid is built here and stays here. What a caller needs of it — which rows are selected,
-   * and a way to clear them — comes out through `onSelectionChange` and the exported clear, so no
-   * caller reaches into the grid's state and two callers cannot drift in how they use it.
+   * The grid is built here, once, and every caller gets THIS one: selection comes out through
+   * `onSelectionChange`, the way to let go of it is the exported clear, and the state itself is
+   * exported for the shared controls that have to read it — the clear-filters button belongs in the
+   * surface's own control row, above the table rather than inside it. What no caller does is build
+   * a second grid, which is the drift this component exists to prevent.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import type { GridColumn } from "@magna-carta/design-system/data-table";
@@ -43,6 +45,8 @@
     emptyTitle = "Nothing chosen yet",
     emptyLine = "",
     selectable = true,
+    documentTypeName = () => "",
+    hasDocumentTypes = false,
     onSelectionChange,
     class: className = "",
   }: {
@@ -55,6 +59,10 @@
     emptyLine?: string;
     /** Whether rows may be selected (a batch that has started has nothing to select for). */
     selectable?: boolean;
+    /** What each file's classification is called, by intake key; "" for a file carrying none. */
+    documentTypeName?: (key: string) => string;
+    /** Whether the firm defines any classifications at all — the column is not drawn where none do. */
+    hasDocumentTypes?: boolean;
     onSelectionChange?: (keys: readonly string[]) => void;
     class?: string;
   } = $props();
@@ -71,10 +79,18 @@
   // calls `columns()` once while it is being built, before the constant below exists.
   let built: DataTable.DataTableGridState<IntakeRow> | null = null;
   const filtering = (): boolean => built?.isFiltered ?? false;
-  const grid = DataTable.createDataTableGrid<IntakeRow>({
-    columns: (): GridColumn<IntakeRow>[] => intakeColumns({ filtering: filtering() }),
+  /*
+   * The grid is EXPORTED, not just built here: a table's control row belongs to the surface the
+   * table sits on (the Upload panel's own header line, the uploads page's), and the clear-filters
+   * control that every other table surface carries reads the grid's filter state. Exporting the
+   * state is how a caller renders the shared control over THIS table rather than growing a second
+   * one of its own.
+   */
+  export const grid = DataTable.createDataTableGrid<IntakeRow>({
+    columns: (): GridColumn<IntakeRow>[] =>
+      intakeColumns({ filtering: filtering(), documentTypes: hasDocumentTypes }),
     // A filter flattens the tree to the files that answer it (upload-intake.ts says why).
-    rows: () => intakeRows(entries, progress, filtering() ? null : expanded),
+    rows: () => intakeRows(entries, progress, filtering() ? null : expanded, documentTypeName),
     rowKey: (row) => row.key,
     itemNoun: { singular: "item", plural: "items" },
     orderRows: orderIntakeRows,

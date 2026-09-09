@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { CustodyValidationError } from "./validation.ts";
 
 // THE WILL-DEPOSIT DUTY CATALOG: jurisdiction-keyed reference data about what a law says a holder of
@@ -393,7 +394,7 @@ export function custodyWillDeliveryDueDate(
   if (duty.deadlineBasis !== "daysAfterTrigger" || duty.deadlineDays === null) return null;
   const start = civilDateAsUtcOrRefuse(triggerDate);
   const due = new Date(start + duty.deadlineDays * 86_400_000);
-  return due.toISOString().slice(0, 10);
+  return civilDateOf(due);
 }
 
 const BARE_CIVIL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;

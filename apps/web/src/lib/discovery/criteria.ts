@@ -39,6 +39,7 @@
  * hand, it rides the address so a searched queue is a link somebody can send, and a bulk coding act
  * over it composes on the same day, because it is a criteria set like any other.
  */
+import { formatInstantDate } from "@magna-carta/design-system/formatters";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
 import type { DiscoveryLoad, RecordCustodian, ReviewDocumentQuery } from "./discovery-api.ts";
 import {
@@ -182,7 +183,7 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
         context.loads.map((load) => ({
           value: load.id,
           label: load.sourceDescription ?? loadLaneEntry(load.lane).label,
-          hint: new Date(load.initiatedAt).toLocaleDateString(),
+          hint: formatInstantDate(load.initiatedAt),
         })),
     },
     compose: (value, query) => ({ ...query, discoveryLoadId: value }),

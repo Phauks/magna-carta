@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { loadEffectivePermissions } from "../session-context.ts";
 import {
@@ -315,7 +316,9 @@ const AckResponse = z.object({ ok: z.boolean() }).openapi("DirectoryAckResponse"
 // half-applied.
 const ChangeNameRequest = z
   .object({
-    // Person fields.
+    // Person fields. `family` is omitted for a person who has one name, on the same reasoning the
+    // create route carries: a mononym is an ordinary name, and the domain indexes it from the given
+    // name. An empty string is still refused — that is a value that cannot be a name.
     given: z.string().min(1).optional(),
     family: z.string().min(1).optional(),
     prefix: z.string().nullable().optional(),
@@ -630,8 +633,20 @@ const EntityDisplayNamesResponse = z
 
 // ---- the index: the whole directory, in name order ----
 
-// One row of the firm's directory as an index reads it. The same display-identity discipline the
-// naming read above carries: no identifier, no contact row, nothing a list of names could become.
+// One row of the firm's directory as an index reads it.
+//
+// NO IDENTIFIER, EVER. Reading a sealed identifier is a decrypt: permission-gated, and audited
+// before any plaintext exists. A page of fifty rows cannot ask that, so nothing here touches one.
+//
+// The DEFAULT way to reach the record is a different question, and the index answers it. Each row
+// carries at most one email, one number and the locality of one address — the row a message goes to
+// when the sender named none — because "who is in Reno", "does the firm hold a number for her" and
+// "sort this book by family name" are what a reader asks of a directory and had to open records one
+// at a time to answer. It grants no reach a member did not already have: the same member can read
+// every contact point on any record through the contact-points route with the same session and no
+// further permission. The bulk NAMING read above still joins no contact row, and that distinction
+// is deliberate — it is called for every row of every screen that mentions a person, where this is
+// the directory itself being read as a directory.
 const DirectoryEntityListing = z
   .object({
     entityId: z.string(),
@@ -652,7 +667,56 @@ const DirectoryEntityListing = z
           "An organization's legal name where it differs from what the firm calls it; null for a " +
           "person, and null where the two are the same word.",
       }),
+    givenName: z
+      .string()
+      .nullable()
+      .openapi({ description: "A person's first name. Null for an organization." }),
+    middleName: z
+      .string()
+      .nullable()
+      .openapi({ description: "A person's middle name, where the firm recorded one." }),
+    familyName: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "A person's last name. Null for an organization, and null for a person who has one " +
+          "name — a record with no family name is one the firm keeps, not one it refuses.",
+      }),
+    emailAddress: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "The record's default email address — the primary row where one is marked, else the " +
+          "oldest. Null where the firm holds none. Not a contact register: the record's own " +
+          "contact-points read is where every channel lives.",
+      }),
+    phoneNumber: z.string().nullable().openapi({
+      description: "The record's default number, exactly as it was entered and never rewritten.",
+    }),
+    city: z
+      .string()
+      .nullable()
+      .openapi({ description: "The locality of the record's default address." }),
+    region: z
+      .string()
+      .nullable()
+      .openapi({
+        description:
+          "The administrative area of the default address — state, province, prefecture — where " +
+          "the country has one.",
+      }),
+    country: z
+      .string()
+      .nullable()
+      .openapi({ description: "The default address's country, ISO 3166-1 alpha-2." }),
     recordedAt: z.string().openapi({ description: "When the firm wrote the record down." }),
+    changedAt: z.string().openapi({
+      description:
+        "When the record itself last changed. A change to something hanging off it — a name " +
+        "appended, an address added — does not move this.",
+    }),
   })
   .openapi("DirectoryEntityListing");
 
@@ -1082,8 +1146,9 @@ const listNamesRoute = defineOpenAPIRoute(readMeta("listNames", null), {
 });
 
 // The index. It names no permission beyond an authenticated session, on the same reasoning the name
-// search carries: it discloses display identity and nothing else, which is what any member already
-// meets on every matter they can open.
+// search carries: what it discloses — display identity, and the one default way to reach a record —
+// is what any member already meets on every matter they can open and can already read a record at a
+// time through the contact-points route with this same session.
 const listEntitiesRoute = defineOpenAPIRoute(readMeta("listEntities", null), {
   method: "get",
   path: "/api/v1/directory/entities",
@@ -1768,7 +1833,7 @@ const SetPersonLifeDatesRequest = z
   .object({
     dateOfBirth: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .regex(CIVIL_DATE_PATTERN)
       .nullish()
       .openapi({
         description:
@@ -1776,10 +1841,7 @@ const SetPersonLifeDatesRequest = z
           "birth is a range — is this client a minor, has a limitation period tolled — and a range " +
           "query over ciphertext is not a query.",
       }),
-    dateOfDeath: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .nullish(),
+    dateOfDeath: z.string().regex(CIVIL_DATE_PATTERN).nullish(),
     deceased: z
       .boolean()
       .optional()
@@ -1823,10 +1885,17 @@ const PersonOrganizationRequest = z
   })
   .openapi("CreateDirectoryPersonOrganization");
 
+// A PERSON NEEDS A NAME, NOT TWO NAMES. A family name is optional here because plenty of people
+// do not have one — a mononym is the ordinary form of a name in much of the world, and a firm that
+// cannot file its client under the name that client actually has files them under a wrong one. The
+// domain already carries this: `createPerson` computes the phonetic blocking codes from the family
+// name where there is one and from the given name where there is not, so a mononym is indexed, is
+// searchable and is checked for conflicts exactly like anybody else. A GIVEN name is still required
+// — a person row with no name at all is a record nobody can find or refer to.
 const CreatePersonRequest = z
   .object({
     given: z.string().min(1),
-    family: z.string().min(1),
+    family: z.string().optional(),
     prefix: z.string().nullable().optional(),
     middle: z.string().nullable().optional(),
     suffix: z.string().nullable().optional(),
@@ -2294,7 +2363,7 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
         const id = await createPersonRecord(context, {
           name: {
             given: request.given,
-            family: request.family,
+            family: request.family ?? "",
             prefix: request.prefix ?? null,
             middle: request.middle ?? null,
             suffix: request.suffix ?? null,

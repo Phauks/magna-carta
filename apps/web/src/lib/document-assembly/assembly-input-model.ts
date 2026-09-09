@@ -13,6 +13,7 @@
  * half-filled form can be handed around (draft, restore, hand-off) without a codec. The typed value
  * objects appear at the boundary where an assembly is actually submitted.
  */
+import { isCivilDate } from "@magna-carta/civil-time/civil-date";
 import {
   mergeFieldGroupLabel,
   MERGE_FIELD_GROUP_ORDER,
@@ -248,20 +249,10 @@ export interface AssemblyValidationSummary {
  */
 const DECIMAL_AMOUNT_PATTERN = /^-?\d+(\.\d{1,2})?$/;
 const PLAIN_NUMBER_PATTERN = /^-?\d+(\.\d+)?$/;
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const BOOLEAN_VALUES = new Set(["yes", "no"]);
 
 /** Whether an ISO date string names a day that exists (rejects 2026-02-30). */
-function isRealCalendarDate(value: string): boolean {
-  if (!ISO_DATE_PATTERN.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number) as [number, number, number];
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  return (
-    parsed.getUTCFullYear() === year &&
-    parsed.getUTCMonth() === month - 1 &&
-    parsed.getUTCDate() === day
-  );
-}
+const isRealCalendarDate = isCivilDate;
 
 /** The per-type shape check. Returns a message, or null when the text is acceptable. */
 function typeIssueMessage(field: AssemblyInputField, value: string): string | null {

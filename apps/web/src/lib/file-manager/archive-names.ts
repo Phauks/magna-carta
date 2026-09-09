@@ -47,3 +47,21 @@ export function looksLikeBrowsableArchive(
   const sniffed = (sniffedContentType ?? "").toLowerCase().split(";")[0]?.trim() ?? "";
   return BROWSABLE_ARCHIVE_CONTENT_TYPES.has(sniffed) || nameLooksLikeBrowsableArchive(name);
 }
+
+/**
+ * Extensions whose members this application can take OUT, which is a smaller set than the ones it
+ * can look inside.
+ *
+ * Listing an archive reads its headers and needs no decoder. Extracting a member needs one for that
+ * format's own packing, and there is no memory-safe rar decoder to build against — so a rar browses
+ * and does not unpack. The server settles this from the object's bytes; this decides only whether
+ * the control is offered, and the control says why when it is not.
+ */
+const EXTRACTABLE_ARCHIVE_EXTENSIONS: ReadonlySet<string> = new Set(["zip", "tar", "7z"]);
+
+/** Whether members can be taken out of an archive with this name. */
+export function nameSuggestsExtractableArchive(name: string): boolean {
+  const lastDot = name.lastIndexOf(".");
+  if (lastDot === -1 || lastDot === name.length - 1) return false;
+  return EXTRACTABLE_ARCHIVE_EXTENSIONS.has(name.slice(lastDot + 1).toLowerCase());
+}

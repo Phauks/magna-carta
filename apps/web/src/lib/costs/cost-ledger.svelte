@@ -72,6 +72,7 @@
   import { REVIEW_GATE_ENABLED, gapCellTitle } from "./cost-gaps.ts";
   import { costEntrySheet } from "./cost-print-sheet.ts";
   import { costRecordMenu, type CostMenuRecord } from "./cost-record-menu.ts";
+  import { printSheetDates } from "$lib/print-sheet";
   import {
     approveCost,
     canWorkDraft,
@@ -384,7 +385,7 @@
           matterTitle,
           matterNumber,
           money: (amount) => formatMoney(amount, { currency }),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
           expenseCodeLabels: expenseCodes.labelFor,

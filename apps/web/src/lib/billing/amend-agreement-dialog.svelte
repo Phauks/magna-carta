@@ -47,6 +47,8 @@
     takesAdvanceDeposit,
   } from "./fee-agreement.ts";
   import { civilToday } from "./invoice-standing.ts";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   let {
     open = $bindable(false),
@@ -232,8 +234,12 @@
             </Select.Root>
           </div>
           <div class="flex flex-col gap-8">
-            <Label for="{fieldPrefix}-from">Effective From</Label>
-            <Input id="{fieldPrefix}-from" type="date" disabled={busy} bind:value={validFrom} />
+            <DatePicker
+              label="Effective From"
+              value={civilDateValue(validFrom)}
+              onValueChange={(next) => (validFrom = civilDateTextOrEmpty(next))}
+              disabled={busy}
+            />
           </div>
           {#if takesAdvanceDeposit(kind)}
             <div class="flex flex-col gap-8">

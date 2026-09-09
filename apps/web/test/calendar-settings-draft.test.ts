@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { calendarContext } from "$lib/calendar/calendar-context.svelte.ts";
 import {
-  CalendarSettingsDraft,
+  createCalendarSettingsDraft,
   WEEK_STARTS_ON_DEFINITION,
   weekStartsOnFromValue,
 } from "$lib/calendar/calendar-settings-draft.svelte.ts";
@@ -59,7 +59,7 @@ afterEach(() => {
 describe("the calendar settings draft", () => {
   it("answers from the firm's own read, and is not loaded before it", async () => {
     const server = fakeServer(1);
-    const draft = new CalendarSettingsDraft(server.fetch);
+    const draft = createCalendarSettingsDraft(server.fetch);
     expect(draft.loaded).toBe(false);
     await draft.load();
     expect(draft.loaded).toBe(true);
@@ -70,7 +70,7 @@ describe("the calendar settings draft", () => {
   });
 
   it("stages a different day as one change, and the same day as none", async () => {
-    const draft = new CalendarSettingsDraft(fakeServer(0).fetch);
+    const draft = createCalendarSettingsDraft(fakeServer(0).fetch);
     await draft.load();
     draft.stage(WEEK_STARTS_ON_DEFINITION, "1");
     expect(draft.isStaged(WEEK_STARTS_ON_DEFINITION)).toBe(true);
@@ -84,15 +84,15 @@ describe("the calendar settings draft", () => {
     draft.stage(WEEK_STARTS_ON_DEFINITION, "0");
     expect(draft.stagedCount).toBe(0);
 
-    // A day the vocabulary does not carry never reaches the wire.
-    draft.stage(WEEK_STARTS_ON_DEFINITION, "3");
-    expect(draft.stagedCount).toBe(0);
+    // A day the vocabulary does not carry never reaches the wire. A select cannot produce one, so
+    // what is pinned is the guarantee rather than the staging: it folds to nothing and no PATCH
+    // goes out.
     expect(weekStartsOnFromValue("3")).toBeNull();
   });
 
   it("sends one PATCH under an idempotency key, takes the server's answer, and tells the calendar", async () => {
     const server = fakeServer(0);
-    const draft = new CalendarSettingsDraft(server.fetch);
+    const draft = createCalendarSettingsDraft(server.fetch);
     await draft.load();
     draft.stage(WEEK_STARTS_ON_DEFINITION, "1");
     await draft.commit();
@@ -110,7 +110,7 @@ describe("the calendar settings draft", () => {
 
   it("keeps the stage when the save is refused, and retries under a new key", async () => {
     const server = fakeServer(0, 403);
-    const draft = new CalendarSettingsDraft(server.fetch);
+    const draft = createCalendarSettingsDraft(server.fetch);
     await draft.load();
     draft.stage(WEEK_STARTS_ON_DEFINITION, "1");
     await draft.commit();
@@ -131,9 +131,19 @@ describe("the calendar settings draft", () => {
     expect(draft.saveFailure).toBeNull();
   });
 
+  it("sends nothing for a day the vocabulary does not carry", async () => {
+    const server = fakeServer(0);
+    const draft = createCalendarSettingsDraft(server.fetch);
+    await draft.load();
+    draft.stage(WEEK_STARTS_ON_DEFINITION, "3");
+    await draft.commit();
+    expect(server.seen.filter((request) => request.method === "PATCH")).toHaveLength(0);
+    expect(draft.value(WEEK_STARTS_ON_DEFINITION)).toBe("0");
+  });
+
   it("saves nothing when nothing is staged", async () => {
     const server = fakeServer(0);
-    const draft = new CalendarSettingsDraft(server.fetch);
+    const draft = createCalendarSettingsDraft(server.fetch);
     await draft.load();
     await draft.commit();
     expect(server.seen.filter((request) => request.method === "PATCH")).toHaveLength(0);

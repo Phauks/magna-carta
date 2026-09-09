@@ -30,7 +30,8 @@
   import Textarea from "@magna-carta/design-system/textarea";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import { parseDate, type DateValue } from "@internationalized/date";
+  import type { DateValue } from "@internationalized/date";
+  import { civilDateText, civilDateValue } from "$lib/dates";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import X from "@lucide/svelte/icons/x";
@@ -96,17 +97,10 @@
   );
 
   /** The deposit date as a calendar date, or undefined while it is empty or half-entered. */
-  const depositedAtValue = $derived.by(() => {
-    if (draft.depositedAt === null) return undefined;
-    try {
-      return parseDate(draft.depositedAt);
-    } catch {
-      return undefined;
-    }
-  });
+  const depositedAtValue = $derived(civilDateValue(draft.depositedAt));
 
   function recordDepositedAt(next: DateValue | undefined): void {
-    draft.depositedAt = next ? next.toString() : null;
+    draft.depositedAt = civilDateText(next);
   }
 
   function addOwner(hit: DirectorySearchHit): void {

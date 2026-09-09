@@ -22,11 +22,11 @@
    * is whatever was said to the firm's number before anybody decided where it belonged, so reading
    * it takes its own capability — the way a firm decides who opens the post.
    *
-   * A ROW OPENS INTO ITS OWN RECORD. It used to navigate to the row's matter instead, on the
-   * reasoning that every field was already on the row and a window would be a second way to read
-   * what was on screen. That is true of READING and false of everything else: a hand-logged call is
-   * somebody's recollection typed at speed, and a record nobody can open is a record nobody can
-   * correct. Getting to the matter is still one press, from inside the record.
+   * A ROW OPENS INTO ITS OWN RECORD, AND SO DOES NEW (owner ruling, 2026-09-08: "double clicking to
+   * open a log should open the same creation modal ... we now have two modals for creating a call
+   * which is weird"). One window records a call, reads one and corrects one; the only difference
+   * between the states is whether it opened with a record in it. This screen therefore holds one
+   * piece of state for it — which record, or none — rather than two windows and two open flags.
    *
    * EMAIL IS DELIBERATELY NOT HERE. Mail already lives in the firm's own mailbox and is FILED onto a
    * matter from there, so its verb is route-what-exists; a call leaves no trace at all unless the
@@ -61,7 +61,6 @@
   import { AnchorMatters } from "$lib/communications/anchor-matters.svelte.ts";
   import CommunicationLog from "$lib/communications/communication-log.svelte";
   import CommunicationRecordWindow from "$lib/communications/communication-record-window.svelte";
-  import LogCommunicationDialog from "$lib/communications/log-communication-dialog.svelte";
   import {
     fileCommunicationToMatter,
     newWriteKey,
@@ -70,6 +69,7 @@
     REVIEW_UNROUTED_PERMISSION,
     type Communication,
     type CommunicationScope,
+    type IntakeSource,
   } from "$lib/communications/communications-api.ts";
 
   // ---- who is asking, and what they may do ------------------------------------------------------
@@ -117,8 +117,8 @@
   let grid = $state<DataTable.DataTableGridState<Communication> | null>(null);
   let rereadLog = $state<() => void>(() => {});
 
-  let logDialogOpen = $state(false);
   let recordOpen = $state(false);
+  /** Which record the window is on, or null while it is recording a new one. */
   let openedId = $state<string | null>(null);
 
   const query = $derived({
@@ -148,6 +148,12 @@
   /** Activating a row opens the record. Every act a row offers is inside it. */
   function openRow(row: Communication): void {
     openedId = row.id;
+    recordOpen = true;
+  }
+
+  /** Recording a new one is the same window with no record in it yet. */
+  function openNew(): void {
+    openedId = null;
     recordOpen = true;
   }
 
@@ -184,7 +190,7 @@
     if (places.kind === "ok") locations = places.value.data;
   }
 
-  async function startIntake(communication: Communication): Promise<void> {
+  async function startIntake(communication: IntakeSource): Promise<void> {
     intakeProblem = null;
     intakeSourceId = communication.id;
     await readIntakeReferences();
@@ -202,6 +208,9 @@
       }
     }
     intakePrefill = { client };
+    // The record window has already closed itself by the time a saved entry hands one up; closing it
+    // here as well is what covers the other door, where an intake starts from a row already on the
+    // log.
     recordOpen = false;
     intakeOpen = true;
   }
@@ -244,7 +253,7 @@
         noun="Call"
         title="Record a call or a text that happened."
         refusal={createRefusal}
-        onpress={() => (logDialogOpen = true)}
+        onpress={openNew}
       />
 
       <DataTable.ClearFilters
@@ -325,18 +334,11 @@
     {/snippet}
     {#snippet emptyActions()}
       {#if scope !== "unrouted" && scope !== "setAside" && createRefusal === undefined}
-        <Button onclick={() => (logDialogOpen = true)}>Record A Call</Button>
+        <Button onclick={openNew}>Record A Call</Button>
       {/if}
     {/snippet}
   </CommunicationLog>
 </div>
-
-<LogCommunicationDialog
-  bind:open={logDialogOpen}
-  matters={anchors.matters ?? []}
-  mattersCapped={anchors.capped}
-  onLogged={onFiled}
-/>
 
 <CommunicationRecordWindow
   bind:open={recordOpen}

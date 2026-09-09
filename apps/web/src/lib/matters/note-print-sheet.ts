@@ -9,11 +9,12 @@
  *
  * The sheet is data, never markup: what reaches the paper is the closed set of strings below.
  */
+import type { PrintSheetDates } from "$lib/print-sheet";
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
 import type { MatterNote } from "./notes-api.ts";
 
 /** Everything the sheet needs that is not the note itself. */
-export interface NoteSheetContext {
+export interface NoteSheetContext extends PrintSheetDates {
   readonly matterTitle: string;
   /** The note's author, as a name. Never an account identifier. */
   readonly authorName: string;
@@ -21,8 +22,6 @@ export interface NoteSheetContext {
   readonly lastEditedByName: string | null;
   /** A stored instant as a reader sees it. */
   readonly instant: (at: string) => string;
-  /** A civil date as a reader sees it. */
-  readonly date: (isoDate: string) => string;
   /** The documents the note points at, by name. */
   readonly attachedNames: readonly string[];
   /** When the sheet was taken, already stated as an instant. */

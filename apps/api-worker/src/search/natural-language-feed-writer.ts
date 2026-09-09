@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { FileId, MatterId } from "@magna-carta/identifiers/types";
 import {
@@ -42,7 +43,7 @@ export const ESTIMATED_INGESTION_BYTES_PER_TOKEN = 4;
 
 // The civil day (UTC) a meter row buckets under.
 function civilDay(instant: string): string {
-  return instant.slice(0, 10);
+  return civilDateOf(instant);
 }
 
 export interface FeedWriteInput {

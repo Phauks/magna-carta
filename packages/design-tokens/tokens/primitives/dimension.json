@@ -48,6 +48,11 @@
       "$value": { "value": 56, "unit": "px" }
     },
     "popover": { "$type": "dimension", "$value": { "value": 224, "unit": "px" } },
+    "transfer-pace": {
+      "$description": "The room a transfer's pace line holds beside its progress bar — \"1.2 GB of 4.5 GB \u00b7 2.4 MB/s \u00b7 about 20 min left\". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label.",
+      "$type": "dimension",
+      "$value": { "value": 224, "unit": "px" }
+    },
     "create-control": {
       "$description": "The one create control in the matter header, fixed at the width its longest label needs (\"New Packet\" plus the plus glyph, a menu chevron and the button's own padding). Fixed rather than fitted so the control never changes width as the reader moves between sections: a label that grows shoves the search beside it, and the search is a control a member reaches for by position.",
       "$type": "dimension",

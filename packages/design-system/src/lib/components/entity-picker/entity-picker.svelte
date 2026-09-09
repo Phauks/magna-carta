@@ -34,6 +34,12 @@
    * makes the record and writes it back as the selection. The control is top-level on purpose
    * (owner's direction, 2026-09-05): a way to add a record that only appears after a failed search
    * is a way you find by accident.
+   *
+   * `createBeside` false drops that control and keeps the rows, for the one shape where the reason
+   * above does not hold: a dense form where the field is one of many and the record is made from
+   * inside the list every time anyway (owner ruling, 2026-09-08, on the call log's contact field —
+   * "get rid of the New button since new can be made within the dropdown"). It is off by exception
+   * and on by default, so the 2026-09-05 direction still governs every field that says nothing.
    */
   import type { HTMLAttributes } from "svelte/elements";
   import * as Combobox from "../combobox/index.ts";
@@ -90,6 +96,7 @@
     onClear,
     onCreate,
     createRefusal,
+    createBeside = true,
     ref = $bindable(null),
     class: className,
     ...restProps
@@ -133,6 +140,11 @@
      * control that vanishes reads as a capability that does not exist.
      */
     createRefusal?: string;
+    /**
+     * Whether the New control stands beside the field. False leaves the list's own add rows as the
+     * one way to make a record here — for a dense form where a control per field is chrome.
+     */
+    createBeside?: boolean;
   } = $props();
 
   /** What is in the input, controlled so the field can be returned to naming its selection. */
@@ -463,7 +475,9 @@
       </button>
     {/if}
 
-    {#if creatable.length === 1}
+    {#if !createBeside}
+      <!-- Nothing beside the field: the list's add row is the way a record is made here. -->
+    {:else if creatable.length === 1}
       <!-- One kind: the control makes it. Refused with the field, and saying why. It stands after
            the selection's own remove control, which belongs to the field's content; this belongs
            to the row. -->

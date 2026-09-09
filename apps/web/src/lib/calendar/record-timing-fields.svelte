@@ -19,6 +19,7 @@
   import { civilDateValue } from "./draft-text.ts";
   import type { EventTimingDraft } from "./event-draft.ts";
   import TimeZonePicker from "./time-zone-picker.svelte";
+  import { civilDateText } from "$lib/dates";
 
   let {
     draft = $bindable(),
@@ -39,11 +40,11 @@
   const endsOnValue = $derived(civilDateValue(draft.endsOn));
 
   function recordStartsOn(next: DateValue | undefined): void {
-    draft.startsOn = next ? next.toString() : null;
+    draft.startsOn = civilDateText(next);
   }
 
   function recordEndsOn(next: DateValue | undefined): void {
-    draft.endsOn = next ? next.toString() : null;
+    draft.endsOn = civilDateText(next);
   }
 </script>
 

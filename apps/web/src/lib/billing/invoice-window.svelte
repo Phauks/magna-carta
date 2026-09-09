@@ -32,7 +32,7 @@
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
-  import { formatInstant } from "@magna-carta/design-system/formatters";
+  import { formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import type { EventRailEvent } from "@magna-carta/design-system/event-rail";
   import Calendar from "@lucide/svelte/icons/calendar";
@@ -57,6 +57,7 @@
     type BillActionContext,
   } from "./bill-actions.ts";
   import { invoiceRecordSheet } from "./invoice-print-sheet.ts";
+  import { printSheetDates } from "$lib/print-sheet";
   import {
     billUnpaidMinor,
     creditedMinor,
@@ -265,7 +266,7 @@
           matterNumber,
           clientName,
           money: (amount) => formatMoney(amount, { currency }),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           printedAt: formatInstant(new Date()),
         }),
   );
@@ -382,7 +383,7 @@
             )}
           {/if}
         {/if}
-        {@render fact("Created", formatDate(row.summary.createdAt))}
+        {@render fact("Created", formatInstantDate(row.summary.createdAt))}
         {@render fact(
           "Finalized By",
           "Not carried by this read",
@@ -776,7 +777,7 @@
               </Card.Header>
               <Card.Content class="flex flex-col gap-4 px-12">
                 <p class="text-xs text-text-subtle">
-                  Opened {formatDate(credit.openedAt)} by the credit note against this bill. The firm
+                  Opened {formatInstantDate(credit.openedAt)} by the credit note against this bill. The firm
                   holds money it has said is not its own; the matter will not close while this is
                   open.
                 </p>

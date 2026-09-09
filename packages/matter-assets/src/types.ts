@@ -171,4 +171,4 @@ export const MAX_IDENTIFIER_DISPLAY_SUFFIX = 4;
 // answer, and saying so is better than truncating.
 export const MAX_MATTER_ASSET_SCHEDULE = 500;
 
-export const CIVIL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+// The civil-date shape is @magna-carta/civil-time's, not restated here.

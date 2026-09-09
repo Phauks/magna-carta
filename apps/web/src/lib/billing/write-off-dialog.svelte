@@ -22,6 +22,8 @@
   import { billingFailure, writeOffBalance } from "./billing-api.ts";
   import { amountFieldText, readBoundedAmountMinor } from "./amount-entry.ts";
   import { civilToday, matterUnpaidMinor, type InvoiceRow } from "./invoice-standing.ts";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   let {
     open = $bindable(false),
@@ -123,12 +125,11 @@
           <Input id="{fieldPrefix}-amount" disabled={busy} bind:value={amountText} />
         </div>
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-effective">Effective Date</Label>
-          <Input
-            id="{fieldPrefix}-effective"
-            type="date"
+          <DatePicker
+            label="Effective Date"
+            value={civilDateValue(effectiveDate)}
+            onValueChange={(next) => (effectiveDate = civilDateTextOrEmpty(next))}
             disabled={busy}
-            bind:value={effectiveDate}
           />
         </div>
       </div>

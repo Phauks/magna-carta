@@ -287,7 +287,7 @@
           <Card.Content>
             {#if outcome.result.raw}
               <pre
-                class="overflow-x-auto font-mono text-sm break-words whitespace-pre-wrap text-text-default">{outcome.result.raw}</pre>
+                class="mc-scrollbar overflow-x-auto font-mono text-sm break-words whitespace-pre-wrap text-text-default">{outcome.result.raw}</pre>
             {:else}
               <p class="text-sm text-text-muted">The registry returned no text.</p>
             {/if}

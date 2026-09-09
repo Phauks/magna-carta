@@ -1,10 +1,15 @@
 /*
- * The account honest-seam guard — the CI teeth behind "no account control functions before
- * authentication". A source scan (the node pool cannot render Svelte, so this mirrors the
- * canvas-ink-purity fitness check): every interactive control on an account page must be
- * disabled, no SettingsRow may take a live-write posture (a draft/instant prop), and each page
- * must carry the Soon badge. A real control landing here fails this test until someone updates
- * it deliberately.
+ * The account honest-seam guard — the CI teeth behind "no account control functions before its
+ * backend does". A source scan (the node pool cannot render Svelte, so this mirrors the
+ * canvas-ink-purity fitness check): every interactive control on a SEAM page must be disabled, no
+ * SettingsRow may take a live-write posture (a draft/instant prop), and each page must carry the
+ * Soon badge. A real control landing there fails this test until someone updates it deliberately.
+ *
+ * PAGES IS THE LIST OF SEAM PAGES, NOT OF ACCOUNT PAGES, and the difference is the point. Active
+ * Sessions (routes/account/sessions) is deliberately absent: it is a built surface over Better
+ * Auth's own list and revoke routes, with live controls that are supposed to be live, and its
+ * behaviour is pinned by test/active-sessions.test.ts instead. A page leaves this list when its
+ * backend lands — never to quiet a failure.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

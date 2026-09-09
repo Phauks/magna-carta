@@ -82,16 +82,14 @@ export function normalizeLastName(lastName: string): string {
     .replace(/[\s'’\-.]/g, "");
 }
 
-// A date of birth as the calendar date it is, with no timezone anywhere near it: the string the form
-// submits, validated to shape, is the string the verifier is computed over.
-const DATE_OF_BIRTH_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Whether a submitted date of birth is a real calendar date in `YYYY-MM-DD` form. */
-export function isCalendarDate(value: string): boolean {
-  if (!DATE_OF_BIRTH_PATTERN.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
+/*
+ * A date of birth as the calendar date it is, with no timezone anywhere near it: the string the form
+ * submits, validated to shape, is the string the verifier is computed over.
+ *
+ * Both halves of the check — the shape, and the day being one the calendar has — are
+ * @magna-carta/civil-time's, under this module's own name.
+ */
+export { isCivilDate as isCalendarDate } from "@magna-carta/civil-time/civil-date";
 
 const textEncoder = new TextEncoder();
 

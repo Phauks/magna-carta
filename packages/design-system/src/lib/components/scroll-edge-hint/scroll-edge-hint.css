@@ -47,4 +47,15 @@
       animation-duration: var(--mc-duration-instant);
     }
   }
+  /*
+   * The member's own choice, off the theme-preference seam (internal/theme-preference.ts). Hidden
+   * here rather than at the component: the rule is drawn by the sidebar and by every register, and
+   * a preference threaded as a prop through both would have to be threaded through every consumer
+   * after them. Reduced motion is a different answer to a different question and already has one
+   * above — it shortens the draw to instant, because somebody who wants less movement has not
+   * thereby said they want less information about where a list ends.
+   */
+  :root[data-scroll-edge-hints="hidden"] .mc-scroll-edge-hint {
+    display: none;
+  }
 }

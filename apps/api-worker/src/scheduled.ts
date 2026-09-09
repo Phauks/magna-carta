@@ -57,7 +57,7 @@ import {
 } from "@magna-carta/notifications/types";
 import { sweepFirmComparisonNotifications } from "@magna-carta/notifications/sweep";
 import { visibleMatterPredicate } from "@magna-carta/calendar/visibility";
-import { zonedReading } from "@magna-carta/calendar/time-zone";
+import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import {
   DIGEST_MESSAGE_CLASS,
   resolveNotificationDigestSendPort,

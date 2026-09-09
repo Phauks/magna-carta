@@ -51,6 +51,7 @@
   } from "./deadline-draft.ts";
   import { civilDateValue } from "./draft-text.ts";
   import TimeZonePicker from "./time-zone-picker.svelte";
+  import { civilDateText } from "$lib/dates";
 
   const SOURCES: readonly DeadlineSource[] = ["member", "court_order"];
 
@@ -119,7 +120,7 @@
   const dueOnValue = $derived(civilDateValue(draft.dueOn));
 
   function recordDueOn(next: DateValue | undefined): void {
-    draft.dueOn = next ? next.toString() : null;
+    draft.dueOn = civilDateText(next);
   }
 
   /** The replaced deadline, named once in the subtitle. */

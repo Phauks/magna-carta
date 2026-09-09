@@ -161,11 +161,19 @@ describe("GET /api/v1/me", () => {
         "files:manageDocumentTypes",
         "files:organize",
         "files:upload",
+        // Writing one's own name reaches every seat, Read-only included: it is the platform's one
+        // self-scoped mutation, and every statement behind it is scoped to the session's own user id.
+        "firm:editOwnProfile",
         "firm:manageMembers",
         // The firm's notification policy — the in-app floor, retention window and digest hour —
         // reaches Owner/Admin only. Deliberately NOT notifications:read, which every default role
         // including Read-only carries (20260819T140000_seed-notification-policy-permission).
         "firm:manageNotificationPolicy",
+        // What the firm is CALLED to its clients — the name on an invoice, in the portal and on
+        // every generated document. Owner/Admin alone, and its own key rather than a corner of
+        // firm:manageMembers: administering who works here and deciding what the firm is called
+        // are different acts, and the second reaches paper that has already left the building.
+        "firm:manageProfile",
         "firm:manageReleaseChannel",
         // Seeded to Owner/Admin alone by 20260907T090000_seed-report-policy-permission.
         "firm:manageReportPolicy",
