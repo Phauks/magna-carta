@@ -391,7 +391,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="nm">Login and 2FA UI</span>
 <code>auth.first-party-login.auth-ui</code>
 <p>The login/2FA surface over the auth backend — the design system's first consumer.</p>
-<p class="note">Sign-in shipped, and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.</p>
+<p class="note">Sign-in shipped, so has signing out (and signing another device out), and so are the joining screens — apps/web/src/routes/register (the role fork), register/firm, register/confirm and register/invitation each call startRegistration, confirmRegistration or redeemInvitation against the real endpoints. The two-factor ENROLMENT screens are still missing, which is the half of auth.two-factor.totp nobody can reach: a code is verified at sign-in and no screen sets one up. Passkeys, the one-time sign-in link, firm identity providers, workspace selection and the second-factor channel choice remain server-side gaps. Human verification is no longer one of them — the server side exists (auth.hardening.human-verification); what the sign-in surface's Turnstile slot still lacks is a widget that mints a token, which is UI.</p>
 </li><li class="n d1" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Second factors</span>
@@ -428,7 +428,7 @@ footer{color:var(--faint);font-size:12.5px;border-top:1px solid var(--rule);padd
 <span class="chip done">Shipped</span>
 <span class="nm">Auth audit log</span>
 <code>auth.hardening.auth-audit-log</code>
-<p>Immutable control-plane auth audit (login success, 2FA transitions, password reset, key shred, alpha-door writes).</p>
+<p>Immutable control-plane auth audit (login success, logout, session revocation, 2FA transitions, password reset, key shred, alpha-door writes).</p>
 </li><li class="n d2" data-s="partial">
 <span class="chip part">Partial</span>
 <span class="nm">Rate limiting</span>

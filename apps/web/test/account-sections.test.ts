@@ -11,8 +11,12 @@ import {
 } from "../src/lib/account/account-sections.ts";
 
 describe("account section registry", () => {
-  it("lists Profile then Security in canonical order", () => {
-    expect(accountSections().map((section) => section.id)).toEqual(["profile", "security"]);
+  it("lists Profile, Security then Active Sessions in canonical order", () => {
+    expect(accountSections().map((section) => section.id)).toEqual([
+      "profile",
+      "security",
+      "sessions",
+    ]);
   });
 
   it("gives every section a unique id", () => {

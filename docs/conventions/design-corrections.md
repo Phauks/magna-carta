@@ -1081,6 +1081,7 @@ visible before the record exists and carrying the date. What binds:
 - **Local, and not promoted:** Save And Start An Intake records the call first and hands the saved row
   up. An intake with no account of the call that caused it is the thing the control exists to prevent,
   which is why it commits rather than carrying a draft across.
+
 ### 2026-09-08 — the New Check panel: two panes, names that say what they search, and one scrollbar
 
 The owner, on the panel the previous round had just built: "conflict check ui, scrollbar needs to use
@@ -1139,6 +1140,7 @@ don't know what half of them mean, meaning we need better naming." What binds:
 - **A matter is where a check is filed, not what it is checked against.** The field is optional in
   what it says as well as in what it accepts, because finding the matters that might conflict is the
   point of running one.
+
 ### 2026-09-08 — the tasks screen: the closed work moves to the foot
 
 The owner, on the tasks screen: "remove the done and cancelled boxes. this should be handled in the
