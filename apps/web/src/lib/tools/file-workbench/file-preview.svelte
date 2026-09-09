@@ -18,7 +18,7 @@
 <div class="flex h-full min-h-0 flex-col p-20">
   {#if preview.kind === "image"}
     <div
-      class="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-md border border-border-default bg-surface-sunken p-16"
+      class="mc-scrollbar flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-md border border-border-default bg-surface-sunken p-16"
     >
       <img src={preview.objectUrl} alt="The contents of {name}" class="max-h-full object-contain" />
     </div>

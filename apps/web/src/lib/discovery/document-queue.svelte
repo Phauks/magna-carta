@@ -115,7 +115,7 @@
       No document in this review set answers to what is asked.
     </EmptyState>
   {:else}
-    <ul class="min-h-0 flex-1 overflow-y-auto">
+    <ul class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
       {#each documents ?? [] as one (one.id)}
         {@const state = processingStateEntry(one.processingState)}
         {@const here = one.id === documentId}

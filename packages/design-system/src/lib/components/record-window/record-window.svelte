@@ -386,7 +386,7 @@
     </div>
 
     <div class="mc-modal-frame-body mc-record-window-body">
-      <div class="mc-modal-frame-pane mc-record-window-record">
+      <div class="mc-modal-frame-pane mc-record-window-record mc-scrollbar">
         {@render record({ editing })}
       </div>
       <div class="mc-modal-frame-context mc-record-window-context">

@@ -5,132 +5,121 @@
    * WHY IT IS A PANEL AND NOT A SCREEN (owner's direction, 2026-09-08). The conflicts destination
    * is the firm's LOG: what has been searched, when, by whom. Running a check is an act performed
    * over that log, and an act is asked for in the one panel the product asks acts in, reached from
-   * the register's own create control. Before this, the composer sat permanently above the log on
-   * the firm-wide screen and permanently below the standing inside a matter, so the thing a reader
-   * came for was pushed down the page by a form almost nobody was filling in that visit.
+   * the register's own create control.
    *
-   * THE SAME PANEL FROM BOTH DOORS. Opened from the firm's log it asks which matter, if any; opened
-   * from a matter it states the matter and asks nothing about it. Everything else is identical by
-   * construction, because it is the same form (check-form.svelte) either way.
+   * WHY IT HAS TWO PANES (owner's direction, same day). "Left would be general information, right
+   * would be advanced and technical settings. Left side is the input. Right side is the engine
+   * settings." So the panel takes the frame's context pane: the left pane holds the two things a
+   * member always fills in — the parties, and where the check is filed — and the right pane holds
+   * everything that tunes the search. One column put the parties and a bank of hop budgets on the
+   * same footing, which is how a form comes to look like a control panel for something nobody can
+   * name.
    *
-   * A CHECK MAY NAME NO MATTER AT ALL, and the field says so rather than being required. The
-   * pre-engagement screen — parties named on the phone, before a file exists — is the case the
-   * whole preliminary trigger exists for, and demanding a matter would make the platform's own
-   * earliest check the one it refused to record.
+   * THE SAME PANEL FROM BOTH DOORS. Opened from the firm's log it asks which matter, if any;
+   * opened from a matter it states the matter and asks nothing about it. Everything else is
+   * identical by construction, because both panes bind to one draft (check-draft.svelte.ts) and
+   * the request is composed from that draft in one place (check-request.ts).
+   *
+   * A CHECK MAY NAME NO MATTER AT ALL. The pre-engagement screen — parties named on the telephone,
+   * before a file exists — is the case the preliminary trigger exists for, and demanding a matter
+   * would make the platform's own earliest check the one it refused to record.
+   *
+   * IT NO LONGER ASKS WHICH TRIGGER TO FILE UNDER. Preliminary and comprehensive name WHEN a check
+   * ran, not how it searched, and the record already knows: a check filed against a matter the firm
+   * has taken on is comprehensive, and every other check is preliminary. The panel says which, in
+   * the left pane's read-back, rather than asking a member to classify their own act.
    *
    * WHAT IT WRITES IS APPEND-ONLY, so the commit carries an idempotency key: a retried submit must
    * not leave the firm's record showing two searches where a member asked for one.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
-  import * as Combobox from "@magna-carta/design-system/combobox";
-  import FieldLabel from "@magna-carta/design-system/field-label";
-  import Label from "@magna-carta/design-system/label";
-  import Separator from "@magna-carta/design-system/separator";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
-  import CheckForm from "./check-form.svelte";
+  import CheckScope from "./check-scope.svelte";
+  import CheckSubject from "./check-subject.svelte";
+  import { CheckDraft } from "./check-draft.svelte.ts";
+  import { checkPlan, composeCheck, type CheckSurface } from "./check-request.ts";
   import {
+    readFirmConflictsPolicy,
     runConflictsCheck,
-    type ConflictsTrigger,
-    type RunCheckRequest,
+    type FirmConflictsPolicy,
   } from "./conflicts-api.ts";
-  import { listMatters, type MatterSummary } from "$lib/matters/matters-api.ts";
 
   let {
     open = $bindable(false),
     matterId = null,
     matterLabel = null,
+    matterEngaged = false,
     chooseMatter = false,
     permissions = null,
-    defaultTrigger = "comprehensive",
     onRan,
   }: {
-    /** The matter this check is for, where the surface already knows it. */
+    /** The matter this check is filed under, where the surface already knows it. */
     matterId?: string | null;
     open?: boolean;
-    /** How that matter reads, so the panel states what it is checking against. */
+    /** How that matter reads, so the panel states what the check is filed against. */
     matterLabel?: string | null;
+    /**
+     * Whether the firm has taken that matter on — it carries a matter number rather than only a
+     * consultation number. It is what decides the trigger, and nothing else.
+     */
+    matterEngaged?: boolean;
     /** Whether the panel asks which matter. The firm-wide log does; a matter's own section cannot. */
     chooseMatter?: boolean;
     /** The signed-in member's permissions; null until the session lands. */
     permissions?: readonly string[] | null;
-    defaultTrigger?: ConflictsTrigger;
     /** The check was written. Where that leads belongs to the surface. */
     onRan: (checkId: string) => void;
   } = $props();
 
   /*
-   * Bumped on every opening, and keyed on below. A panel reopened after a run must not still be
-   * holding the last run's parties: remounting the form is the whole reset, so there is no second
-   * copy of the opening values for a hand-written one to drift from.
+   * A draft per opening. A panel reopened after a run must not still be holding the last run's
+   * parties, and a fresh draft is the whole reset — there is no second copy of the opening values
+   * for a hand-written one to drift from.
    */
-  let opening = $state(0);
+  let draft = $state(new CheckDraft());
 
-  let matters = $state<readonly MatterSummary[]>([]);
-  let matterQuery = $state("");
-  let settledMatterQuery = $state("");
-  let chosenMatter = $state<MatterSummary | null>(null);
-
-  let refusal = $state<string | null>(null);
-  let request = $state<RunCheckRequest | null>(null);
-  let started = $state(false);
+  let policy = $state<FirmConflictsPolicy | null>(null);
+  let policyAsked = false;
   let failure = $state<StatedFailure | null>(null);
 
-  /** The matter the check runs against: the surface's, or the one chosen here. */
-  const runsAgainstId = $derived(matterId ?? chosenMatter?.id ?? null);
-  const runsAgainstLabel = $derived(
-    matterLabel ?? (chosenMatter === null ? null : matterLine(chosenMatter)),
-  );
-
-  // The typed query settles before it is sent: a docket read per keystroke is a request per
-  // keystroke, and the firm's own search over title, number and client is the authoritative one.
-  $effect(() => {
-    const typed = matterQuery;
-    const timer = setTimeout(() => (settledMatterQuery = typed), 250);
-    return () => clearTimeout(timer);
-  });
-
-  $effect(() => {
-    if (!open || !chooseMatter) return;
-    const asked = settledMatterQuery.trim();
-    let live = true;
-    void (async () => {
-      const outcome = await listMatters(fetch, { scope: "caseload", search: asked });
-      if (!live) return;
-      // A docket that cannot be read leaves the picker empty; the check itself does not need one.
-      matters = outcome.kind === "ok" ? outcome.value.data : [];
-    })();
-    return () => {
-      live = false;
-    };
-  });
-
-  /**
-   * How a matter reads in the picker and back on the form: its number where it has one. A
-   * consultation's tentative number counts — running a check against one is the whole point of
-   * taking the consultation, and the number is what the result will be filed under.
+  /*
+   * The firm's own policy, read so a blank bound can show the number it will actually take, and so
+   * the right pane can state the floor. Read on the first OPENING rather than on mount: this panel
+   * sits mounted behind a screen almost nobody opens it from, and a firm's floor moves about as
+   * often as a firm's letterhead. A policy that cannot be read is left unstated rather than guessed
+   * at — a blank field takes the firm's setting whether or not the panel can name it.
    */
-  function matterLine(matter: MatterSummary): string {
-    const number = matter.matterNumber ?? matter.consultationNumber;
-    return number === null ? matter.title : `${number} · ${matter.title}`;
-  }
+  $effect(() => {
+    if (!open || policyAsked) return;
+    policyAsked = true;
+    void (async () => {
+      const outcome = await readFirmConflictsPolicy(fetch);
+      if (outcome.kind === "ok") policy = outcome.value;
+    })();
+  });
 
-  function recordMatter(value: string | string[]): void {
-    const id = Array.isArray(value) ? (value[0] ?? "") : value;
-    chosenMatter = matters.find((matter) => matter.id === id) ?? null;
-  }
+  /** The matter the check is filed under: the surface's, or the one chosen in the left pane. */
+  const surface: CheckSurface = $derived({
+    matterId: matterId ?? draft.chosenMatter?.id ?? null,
+    // A matter carrying a matter number has been taken on; one carrying only a consultation number
+    // has not. That is the whole of what decides the trigger.
+    matterEngaged:
+      matterId === null ? (draft.chosenMatter?.matterNumber ?? null) !== null : matterEngaged,
+    permissions,
+  });
+
+  const composed = $derived(composeCheck(draft, surface));
+  const plan = $derived(checkPlan(draft, surface, policy));
 
   function reset(): void {
-    opening += 1;
-    matterQuery = "";
-    settledMatterQuery = "";
-    chosenMatter = null;
+    draft = new CheckDraft();
     failure = null;
   }
 
   async function submit(): Promise<ActionOutcome> {
-    const asked = request;
+    const asked = composed.request;
     if (asked === null) return "refused";
     failure = null;
     // A retried submit must not write a second check into the firm's append-only log.
@@ -153,12 +142,10 @@
 <ActionDialog
   bind:open
   heading="New Check"
-  subtitle="A conflicts check searches the firm's own record and writes what it searched into the log. It is not a verdict; what it surfaces is answered by a reviewer, one candidate at a time."
   commitLabel="Run Check"
   commitBusyLabel="Running"
-  commitRefusal={refusal ?? undefined}
-  width="wide"
-  unsavedChanges={started || chosenMatter !== null}
+  commitRefusal={composed.refusal ?? undefined}
+  unsavedChanges={composed.started}
   onOpen={reset}
   onCommit={submit}
 >
@@ -174,62 +161,10 @@
   {/snippet}
 
   {#snippet fields({ busy }: { busy: boolean })}
-    {#key opening}
-      <div class="flex flex-col gap-24">
-        <section class="flex flex-col gap-16">
-          <FieldLabel as="h4">The Matter</FieldLabel>
-          {#if chooseMatter}
-            <div class="flex flex-col gap-8">
-              <Label for="conflicts-check-matter">Matter</Label>
-              <Combobox.Root
-                type="single"
-                items={matters.map((matter) => ({
-                  value: matter.id,
-                  label: matterLine(matter),
-                }))}
-                inputValue={matterQuery}
-                onValueChange={recordMatter}
-                disabled={busy}
-              >
-                <Combobox.Input
-                  id="conflicts-check-matter"
-                  placeholder="Matter"
-                  autocomplete="off"
-                  oninput={(event) => (matterQuery = event.currentTarget.value)}
-                />
-                <Combobox.Content>
-                  {#each matters as matter (matter.id)}
-                    <Combobox.Item value={matter.id} label={matterLine(matter)}>
-                      {matterLine(matter)}
-                    </Combobox.Item>
-                  {/each}
-                </Combobox.Content>
-              </Combobox.Root>
-              <!-- The consequence of leaving it empty, which is a real choice rather than an
-                   omission: the firm's members have no matter parties to be joined against, so
-                   imputation records unavailable instead of searched. -->
-              <p class="text-xs text-text-muted">
-                A check may name no matter. Without one the imputation class has nothing to join
-                the firm's members against, and the check records it as unavailable.
-              </p>
-            </div>
-          {:else if runsAgainstLabel !== null}
-            <p class="text-sm">{runsAgainstLabel}</p>
-          {/if}
-        </section>
+    <CheckSubject {draft} {chooseMatter} {matterLabel} {plan} {busy} />
+  {/snippet}
 
-        <Separator />
-
-        <CheckForm
-          matterId={runsAgainstId}
-          {permissions}
-          {defaultTrigger}
-          {busy}
-          bind:refusal
-          bind:request
-          bind:started
-        />
-      </div>
-    {/key}
+  {#snippet context({ busy }: { busy: boolean })}
+    <CheckScope {draft} {policy} matterNamed={surface.matterId !== null} {busy} />
   {/snippet}
 </ActionDialog>

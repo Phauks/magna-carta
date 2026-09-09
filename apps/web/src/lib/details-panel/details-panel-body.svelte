@@ -8,6 +8,6 @@
   let { children }: { children: Snippet } = $props();
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
+<div class="mc-scrollbar flex min-h-0 flex-1 flex-col gap-16 overflow-y-auto p-16">
   {@render children()}
 </div>
