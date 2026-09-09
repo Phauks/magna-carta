@@ -147,7 +147,8 @@ describe("the firm's AI settings", () => {
       magnus: { enabled: true, dailyTurnCeiling: 42 },
     });
     expect(response.status).toBe(200);
-    expect(((await response.json()) as AiSettings).magnus).toEqual({
+    const body = (await response.json()) as AiSettings;
+    expect(body.magnus).toEqual({
       enabled: true,
       dailyTurnCeiling: 42,
     });
