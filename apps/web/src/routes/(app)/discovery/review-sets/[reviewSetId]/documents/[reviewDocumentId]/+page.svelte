@@ -170,7 +170,7 @@
     {#each panels as panel (panel.id)}
       {#if openPanel === panel.id && panelIsBuilt(panel)}
         {@const Panel = panel.component}
-        <div class="min-h-0 flex-1 overflow-y-auto">
+        <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
           <p class="text-text-muted mb-8 text-sm">{panel.answers}</p>
           <Panel reviewSetId={reviewSet.id} {documentId} />
         </div>

@@ -154,6 +154,7 @@ export default defineConfig({
       "tooling/lint-one-ui/vitest.config.ts",
       "tooling/lint-page-inset/vitest.config.ts",
       "tooling/lint-screen-headers/vitest.config.ts",
+      "tooling/lint-scrollbar/vitest.config.ts",
       "tooling/lint-ungranted-permissions/vitest.config.ts",
       "tooling/lint-unwired-writes/vitest.config.ts",
       "tooling/lint-test-collection/vitest.config.ts",

@@ -1,67 +1,111 @@
 <script lang="ts">
   /*
-   * Settings · Beta Access — the firm's stance toward pre-release features, under the Platform
-   * band. A BESPOKE page composing the standard parts (settings-masthead, settings-plate,
-   * settings-row): both rows are honest seams today, so it cannot ride the registry-driven
-   * settings-page composition yet —
+   * Settings · Beta Access — whether the firm runs the shipped build or the one ahead of it, under
+   * the Platform band.
    *
-   * - Release Channel: the firm's channel (stable/beta/alpha) lives on the control plane and no
-   *   member-reachable endpoint exposes it yet, so the value is the same em-dash seam the
-   *   Versions page uses — never a faked number. It joins the aggregated versions payload when
-   *   that endpoint ships (requirement filed in docs/research/fable-backend-review-2026-07.md).
-   * - Participate in the Beta Program: the opt-in becomes a real firm draft setting (a
-   *   definitions-registry entry, at which point this page collapses into the standard
-   *   settings-page composition) when the release-channel frontend ships. Until then the row's
-   *   control slot carries a disabled control WITH the "Soon" badge — the deliberate
-   *   honest-seam device (the badge states why the control is inert), distinct from the
-   *   dead-control rule the engraved rows follow: this control's job is to announce a coming
-   *   choice, not to state a current value.
+   * LIVE, and it needed no new endpoint. The channel was always in the session bootstrap (every
+   * session resolves it to evaluate the feature flags it carries) and the write has existed behind
+   * `firm:manageReleaseChannel` since release channels landed — the page was a pair of seams over a
+   * working subsystem. What it renders now is one decision rather than the two rows it used to
+   * show: "release channel" and "participate in the beta programme" were the same fact asked twice.
    *
-   * Neither row is a definitions-registry entry yet, so with the edit right the exit footer
-   * renders rested (No Changes Pending, Cancel/Save disabled) with nothing stageable — that
-   * formality is deliberate: the page already speaks the draft contract its future settings
-   * will land in.
+   * INSTANT WITH A CONSENT, rather than the draft footer every other firm page uses, and the reason
+   * is the consent itself. Entering beta requires an explicit acknowledgement that the firm accepts
+   * pre-release behavior on live client data — the server refuses it otherwise — and the shared
+   * footer's recap is a generic list of staged changes, which is exactly not that. So the one act
+   * that needs saying carries its own dialog saying it, and stepping back to stable is immediate,
+   * because the server asks nothing to go back and neither should the screen.
+   *
+   * A FIRM ON ALPHA IS TOLD AND OFFERED NOTHING. Alpha is a platform channel a firm can neither
+   * enter nor leave from inside the product; the write's vocabulary is the narrower {stable, beta}.
+   * Rendering a control that would answer 422 for a reason the firm cannot act on would be worse
+   * than stating where they are.
+   *
+   * THE CHANNEL IS RE-READ FROM THE SESSION after a change, not taken from the write's answer: what
+   * actually changes the product is the flag set the new channel resolves to, and that arrives with
+   * the next bootstrap.
    */
+  import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Badge from "@magna-carta/design-system/badge";
+  import LoadingRegion from "@magna-carta/design-system/loading-region";
   import Switch from "@magna-carta/design-system/switch";
-  import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
+  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
+  import {
+    MANAGE_RELEASE_CHANNEL_PERMISSION,
+    setReleaseChannel,
+  } from "$lib/settings/release-channel-api.ts";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
-  import { SettingsDraft } from "$lib/settings/settings-draft.svelte.ts";
-  import { canEditFirmSettings } from "$lib/settings/settings-permissions.ts";
 
-  const canEdit = canEditFirmSettings("firm");
-
-  // One draft for the whole page, same as every draft-posture firm page — empty today (no
-  // stageable rows), carrying the future settings when they register.
-  const draft = new SettingsDraft("beta-access");
-
-  // Page-local definitions for the seam rows: rendering through SettingsRow keeps the shared
-  // table grid; the em-dash is the honest "not reported yet" value.
-  const RELEASE_CHANNEL_DEFINITION: SettingDefinition = {
+  const CHANNEL_DEFINITION: SettingDefinition = {
     id: "beta-access.release-channel",
     sectionId: "beta-access",
-    label: "Release Channel",
-    description: "Which release stream the firm's deployment follows — stable, beta, or alpha.",
-    kind: "text",
-    defaultValue: "—",
-    sensitivity: "open",
-  };
-
-  const BETA_PROGRAM_DEFINITION: SettingDefinition = {
-    id: "beta-access.beta-program",
-    sectionId: "beta-access",
-    label: "Participate in the Beta Program",
+    label: "Beta Programme",
     description:
-      "Opt the whole firm into beta features before general release — every member sees them, " +
-      "so the choice carries firm-wide weight.",
+      "Run the build ahead of the shipped one, so the firm sees new work before it is released.",
     kind: "switch",
     defaultValue: false,
     sensitivity: "open",
+    audited: true,
   };
+
+  const channel = $derived(sessionPermissions.session?.channel ?? null);
+  const canEdit = $derived(sessionPermissions.holds(MANAGE_RELEASE_CHANNEL_PERMISSION));
+  const onAlpha = $derived(channel === "alpha");
+  const onBeta = $derived(channel === "beta");
+
+  let consentOpen = $state(false);
+  let moving = $state(false);
+  let failure = $state<StatedFailure | null>(null);
+
+  $effect(() => {
+    void sessionPermissions.load(fetch);
+  });
+
+  /** Re-reads the session, because the flag set the new channel resolves to is what changed. */
+  async function rereadSession(): Promise<void> {
+    sessionPermissions.settled = false;
+    await sessionPermissions.load(fetch);
+  }
+
+  async function move(next: "stable" | "beta"): Promise<boolean> {
+    failure = null;
+    moving = true;
+    const outcome = await setReleaseChannel(fetch, next, crypto.randomUUID());
+    if (outcome.kind === "ok") {
+      await rereadSession();
+      moving = false;
+      return true;
+    }
+    moving = false;
+    failure = stated(
+      outcome.failure,
+      next === "beta"
+        ? "The firm was not moved to the beta programme."
+        : "The firm was not moved back to the released build.",
+      "Nothing answered, so the release channel is unchanged; trying again is safe.",
+    );
+    return false;
+  }
+
+  function requested(next: boolean): void {
+    // Joining asks first; leaving does not, because the server asks nothing to go back.
+    if (next) {
+      consentOpen = true;
+      return;
+    }
+    void move("stable");
+  }
+
+  async function confirmJoin(): Promise<ActionOutcome> {
+    return (await move("beta")) ? "committed" : "refused";
+  }
 </script>
 
 <svelte:head>
@@ -71,35 +115,100 @@
 <SettingsMasthead
   sectionId="beta-access"
   title="Beta Access"
-  posture={canEdit ? "draft" : "readOnly"}
-  draft={canEdit ? draft : undefined}
+  posture={canEdit && !onAlpha ? "instant" : "readOnly"}
+  showHistory={false}
 />
 
 <!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
      room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. Full canvas width (owner-directed): the table uses the space. -->
+     identical width. -->
 <div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
   <div class="flex flex-col gap-24 p-24">
-  <SettingsDescription>Early access to features before general release — a choice the firm makes as a firm.</SettingsDescription>
+    <SettingsDescription>
+      Whether this firm runs the released build or the one ahead of it.
+    </SettingsDescription>
 
-  <SettingsPlate heading="Release Program">
-    <SettingsRow definition={RELEASE_CHANNEL_DEFINITION} value="—" />
+    {#if failure !== null}
+      <FailureNotice
+        failure={failure.failure}
+        fallback={failure.fallback}
+        whenSilent={failure.whenSilent}
+      />
+    {/if}
 
-    <SettingsRow definition={BETA_PROGRAM_DEFINITION}>
-      {#snippet control()}
-        <Badge variant="neutral">Soon</Badge>
-        <Switch
-          disabled
-          aria-label="Participate in the Beta Program (arrives with the release-channel controls)"
-        />
-      {/snippet}
-    </SettingsRow>
-  </SettingsPlate>
+    <SettingsPlate heading="Release Channel">
+      <LoadingRegion
+        loading={channel === null && !sessionPermissions.settled}
+        failed={sessionPermissions.settled && channel === null}
+        label="Reading the firm's release channel"
+        onRetry={() => void rereadSession()}
+        class="flex flex-col"
+      >
+        {#snippet failure()}
+          <p class="py-12 text-sm text-text-muted">
+            The firm's release channel could not be read, so it is not shown rather than guessed at.
+          </p>
+        {/snippet}
+        {#snippet fixture()}
+          <SettingsRow definition={CHANNEL_DEFINITION} value={false} />
+        {/snippet}
+
+        {#if onAlpha}
+          <!-- Stated rather than controlled: a firm cannot enter or leave alpha from here, so a
+               switch would be a control whose only outcome is a refusal. -->
+          <SettingsRow definition={CHANNEL_DEFINITION}>
+            {#snippet control()}
+              <Badge variant="info">Alpha</Badge>
+            {/snippet}
+          </SettingsRow>
+          <p class="py-8 text-sm text-text-muted">
+            This firm is on the alpha channel, which is set by the platform rather than from here.
+          </p>
+        {:else if canEdit}
+          <SettingsRow definition={CHANNEL_DEFINITION}>
+            {#snippet control()}
+              {#if onBeta}
+                <Badge variant="info">Beta</Badge>
+              {/if}
+              <Switch
+                checked={onBeta}
+                disabled={moving}
+                aria-label="Participate in the beta programme"
+                onCheckedChange={requested}
+              />
+            {/snippet}
+          </SettingsRow>
+        {:else}
+          <SettingsRow definition={CHANNEL_DEFINITION} value={onBeta} />
+        {/if}
+      </LoadingRegion>
+    </SettingsPlate>
   </div>
 </div>
 
-{#if canEdit}
-  <!-- The exit rail, rested with nothing stageable — the deliberate formality (see the head
-       comment). -->
-  <SettingsCommitFooter {draft} />
-{/if}
+<ActionDialog
+  bind:open={consentOpen}
+  kind="confirm"
+  heading="Join the Beta Programme"
+  subtitle="The firm runs pre-release behavior on its live client data."
+  commitLabel="Join the Beta Programme"
+  commitBusyLabel="Joining"
+  unsavedChanges={false}
+  onCommit={confirmJoin}
+>
+  {#snippet fields()}
+    <div class="flex flex-col gap-12 text-sm">
+      <p>
+        Beta builds carry work that has passed our own review and has not yet been released. They
+        run against the firm's real matters, real client money and real documents — not a copy.
+      </p>
+      <p>
+        The firm can step back to the released build at any time, from this page, without asking
+        anybody. What a beta build has already recorded stays recorded.
+      </p>
+      <p class="text-text-muted">
+        Joining is recorded in the firm's audit log against the member who joined.
+      </p>
+    </div>
+  {/snippet}
+</ActionDialog>

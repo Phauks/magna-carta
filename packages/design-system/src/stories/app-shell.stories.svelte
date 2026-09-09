@@ -169,7 +169,7 @@
 
           <!-- Work canvas — light and calm. The Masthead is the page's ceremonial edge (the one
                place the display serif appears); identity recedes below it. -->
-          <main class="grow overflow-auto p-24">
+          <main class="mc-scrollbar grow overflow-auto p-24">
             <Masthead.Root class="mb-16">
               <Masthead.Heading>
                 <Masthead.Title>Matters</Masthead.Title>

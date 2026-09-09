@@ -105,6 +105,15 @@ is usually the fastest way to understand the rule.
 
 ### Lists and tables
 
+- **A list OFFERS more columns than it SHOWS, and the difference is where the design lives.** A
+  register is read for a different reason on a different day — sorted by surname to work down it,
+  narrowed to one place to see who is local, scanned for whether a fact was ever recorded — and a
+  table carrying every one of those at once is unreadable on the day somebody wanted only the names.
+  So the column model declares every column the rows can answer, the few a reader most often wants
+  start visible, and the rest start hidden and are turned on from the header menu's Columns
+  submenu. A reader asking for one more column is then a press, not a screen change, and the
+  question "why is this not a column" has one place to be answered. _(the directory index,
+  2026-09-08)_
 - **A list screen shows its whole record by default, and the table is the only thing that narrows
   it.** A second control offering the same slices the Status column already offers — a scope
   dropdown reading "the working docket / open / closed / consultations" — is removed, not moved.
@@ -166,7 +175,16 @@ is usually the fastest way to understand the rule.
 - **Every scroll region we own wears the app's scrollbar, corner included.** A themed track and
   thumb still leave the corner where a horizontal and a vertical bar meet painted by the user
   agent, and a table wide enough to scroll sideways is where it shows first. _(matters docket,
-  2026-08-30)_
+  2026-08-30)_ — **and it is every region, not every table.** One class: the `mc-scrollbar` recipe,
+  or `mc-scrollbar-hidden` with a `ScrollEdgeHint` where a scrollbar appearing would reflow the
+  strip it sits in. A region wearing neither gets the operating system's, which is the only chrome
+  on the screen we did not draw and which appears exactly when content outgrows its box — on real
+  data, and never in the state the screen was built in. It binds where the overflow comes from a
+  recipe as much as from a utility: `.mc-modal-frame-pane` scrolls in CSS and named no recipe, so
+  every panel in the product had it, and so did `Dialog`, `AlertDialog`, `Sheet` and
+  `RecordWindow`. Enforced by `pnpm run lint:scrollbar`, which derives what scrolls from the
+  Tailwind utilities and from the design system's own stylesheets rather than from a list.
+  _(the New Check panel, 2026-09-08)_
 - **A column's controls are summoned from the column, not from a control anywhere else.**
   Right-clicking a column heading opens that column's menu, and everything a column can be ASKED is
   in it: filter it, hide it, pin it, and — one arrow to the right — the full roster of columns,
@@ -198,6 +216,58 @@ is usually the fastest way to understand the rule.
   being created are not module navigation; the owner chose the side rail for New Person from a
   canvas of four directions on 2026-09-03, with a count on each section and the gate beside it.
   _(new person, 2026-09-03)_
+- **A form whose result is invisible reads back what it will do.** Where a form configures machinery
+  the reader cannot watch — a search, an import, a run — it ends in plain sentences saying what
+  pressing the commit will actually do, composed from the SAME values the request is composed from,
+  so it can never describe one thing and send another. It is the only honest answer to "what does
+  this setting do" when the setting's effect is a query nobody sees. _(the New Check panel,
+  2026-09-08)_
+- **A default a field will take is that field's placeholder, never a footnote.** A blank number that
+  falls back to a firm setting shows the setting's own value inside its own box. Stating it once at
+  the bottom of a form — "an empty field takes the firm's own setting", over a block of shorthand —
+  puts the fact somewhere other than where the decision is made, and leaves the reader to work out
+  which number belongs to which box. _(the New Check panel, 2026-09-08)_
+- **Do not ask somebody to classify their own act when the record already knows.** A field whose
+  right answer is derivable from what the surface already holds is a field with a wrong answer and
+  no way to tell you that you gave it. The conflicts panel stopped asking whether a check was
+  preliminary or comprehensive: both name WHEN the check ran, and whether the firm has taken the
+  matter on is a fact the record carries. _(the New Check panel, 2026-09-08)_
+- **A record needs a name, not the parts of one somebody expects it to have.** Refusing to record a
+  person without a family name refuses a person who has one name, which is the ordinary form of a
+  name in much of the world; the record then gets filed under something they are not called, or in a
+  note where nothing can find it. Require the one thing the record cannot be without — something to
+  call it — and state the rest as a WARNING beside the commit, which records exactly what is on
+  screen. A warning is not a refusal and must never read as one. _(new person, 2026-09-08)_
+- **A vocabulary that is not closed but is not free either is the product's dropdown-with-add.** A
+  courtesy title, a post-nominal, a payee, a document type: the firm writes the same twenty and will
+  one day need a twenty-first. A free-text box gives one file "Mr", "Mr." and "mr." and makes the
+  firm's own spelling undiscoverable; a closed dropdown refuses the rank nobody put on the list. The
+  Combobox over the offered spellings with `AddOption` at the end of the list is the answer, and it
+  is the same control in every such field. _(new person, 2026-09-08)_
+- **A field holds as many values as the fact has.** A person is "Jr." and "Esq." at once; a field
+  that holds one of them loses the other, and the record then states something false about somebody
+  by omission. Where the fact is plural, the chosen values stand as their own removable rows above
+  the control that adds another. _(new person, 2026-09-08)_
+- **An entry row is the last row of its list, under the same rule as every other row.** A bordered,
+  raised box around the add row makes one section read as two things — a list, and a form beneath it
+  — when it is one list that ends in an empty line. The box also has to be styled, and every section
+  that draws one draws it slightly differently. _(the directory record, 2026-09-08)_
+- **A recorded value is CORRECTED, never deleted and retyped.** Delete-and-retype is not a
+  correction: the removal is its own fact on the record, and everything attached to the value — the
+  permission, the preference, the confirmation, the history — goes with it, to fix one mistyped
+  character. Every list of recorded values offers a pencil that loads the row back into the fields it
+  was entered in, and the row it left says it is being corrected so nobody thinks a second copy is
+  about to be added. _(the directory record, 2026-09-08)_
+- **An address is a form whose shape is the country's, and it gets its own section.** Which boxes an
+  address has, what each is called and what order they read in are properties of the COUNTRY:
+  Ireland has no state, Japan writes the code first, Germany puts the code before the town, Brazil
+  carries a neighbourhood line. One form asking every country for "State" and "ZIP Code" produces
+  addresses that do not deliver. So there is ONE address component
+  (`@magna-carta/design-system/address-fields`), the country is its first field because it decides
+  the rest, changing it re-labels and re-orders without ever moving a value between fields, and a
+  value the new country has no line for is STATED rather than silently dropped. It never stands as
+  one option in a dropdown beside one-line fields: it is six to nine boxes and they are one, and
+  putting them under one control makes them read as alike. _(the directory record, 2026-09-08)_
 - **A data-entry surface carries no helper prose.** Every visible line is a label, a value, or the
   one honest sentence a Soon capability owes about what it waits on. A block with nothing in it is
   not drawn at all rather than announcing its own emptiness. _(new matter, 2026-08-30)_
@@ -335,6 +405,25 @@ is usually the fastest way to understand the rule.
   absent. _(the intake desk's client field, and every picker over the directory, 2026-09-05)_
 
 ### Controls and patterns
+
+- **A settings-heavy panel splits along "what I am asking" and "how the engine answers".** The
+  primary pane takes the fields a member fills in every time; the context pane takes the machinery.
+  In one column the two read as equals, and a form asking for two names and eleven engine settings
+  reads as a control panel for something nobody can name. _(the New Check panel, 2026-09-08)_
+- **A control that tunes something invisible carries its sentence in place, not on hover.** A hover
+  title does not exist on a touch device and a screen reader reaches it only by asking, so a setting
+  whose whole meaning lives in a `title` has no meaning for most readers. It goes under the control,
+  in the reader's words. _(the New Check panel, 2026-09-08)_
+- **Name the thing, not the dial, and say the capability out loud.** A label naming a mechanism
+  ("Strictness", "Imputation", "Closure cap") asks the reader to have built the engine. Name what it
+  searches instead ("Name matching", "The firm's own people", "Related parties to reach"), and where
+  a capability already runs and is mentioned nowhere — sound-alike name matching, which the owner
+  asked for as a new feature — say so on the control. A capability that is not on the screen does not
+  exist. _(the New Check panel, 2026-09-08)_
+- **A panel does not explain its own subject, and a refusal does not lecture.** The subtitle names
+  what is being acted on; it is not the place for a paragraph on what the subsystem is for. A
+  refusal states what to do in as few words as that takes — "Name at least one party.", not a
+  sentence about what a check is. _(the New Check panel, 2026-09-08)_
 
 - **A screen makes something new through ONE control, and it is the same control on every screen.**
   The design system's `CreateControl`: a primary button reading "New" and one noun ("New Fee",
@@ -660,6 +749,15 @@ surface, which is most of the product.
   sentence under it, cost three rows of a screen whose subject is a list. Where a screen would carry
   a button per variant of one action ("New person", "New organization"), it carries ONE primary
   action with a menu instead. _(matters list, 2026-08-30)_
+- **A control that WIDENS the list does not sit in the row that narrows it.** The row above a list
+  holds the acts a reader arrives wanting — searching, and making a new record — and the one way
+  back to everything. Asking to see what is CLOSED (done, cancelled, archived, closed out) adds
+  records rather than holding them back, so it belongs at the foot of the list, met after
+  everything the list is actually for has been read, and undone by its own label ("Show Done"
+  becoming "Hide Done") rather than by the clear control. The task list carried Done and Cancelled
+  as two boxes over its rows, where they took the space the search was reached for in and made the
+  clear control appear because MORE was on screen, which answers the wrong question.
+  _(tasks, 2026-09-08)_
 - **The table holds the vertical space it would occupy when full.** The list region takes the
   remaining height and keeps it, so the screen does not reflow as rows arrive, as a filter narrows
   them, or as an empty state replaces them. In practice: the page is a full-height column and the
@@ -813,6 +911,20 @@ name, which is every screen outside a matter.
 
 ### Layout
 
+- **A panel with a side rail holds ONE size, whichever rail item is chosen.** A modal sized to its
+  content is right for a panel whose content is fixed and wrong for one whose content the reader
+  picks from a rail beside it: four fields, then a table, then a list whose length the firm's own
+  data decides, and the panel jumps taller and shorter under the pointer on every press — so the
+  rail item somebody was reaching for next has moved by the time they get there. The panel takes one
+  height for the SCREEN it opens on (a share of the viewport, capped at a comfortable measure, so it
+  neither overflows a laptop nor wastes a monitor) and the chosen section scrolls inside it. The
+  right-hand pane takes the same height, or a long list there decides the geometry instead.
+  _(the directory record and New Person, 2026-09-08)_
+- **A row of fields WRAPS; it never scrolls sideways inside a panel.** Five controls on one grid line
+  inside a modal pane put everything after the second past the right edge of a panel that does not
+  scroll sideways, so the fields were unreachable rather than merely cramped. Each control keeps a
+  width it can be typed into and the row grows downward, which a panel has room for.
+  _(the directory record, 2026-09-08)_
 - **The five money sections are one surface, and it wears the file manager's frame.** Time, Fees,
   Costs, Billing and Trust each render inside `MoneySurface` (`apps/web/src/lib/money/`), which is
   the file manager's arrangement applied to a ledger: the surface runs to the edges of the work
@@ -969,6 +1081,142 @@ visible before the record exists and carrying the date. What binds:
 - **Local, and not promoted:** Save And Start An Intake records the call first and hands the saved row
   up. An intake with no account of the call that caused it is the thing the control exists to prevent,
   which is why it commits rather than carrying a draft across.
+### 2026-09-08 — the New Check panel: two panes, names that say what they search, and one scrollbar
+
+The owner, on the panel the previous round had just built: "conflict check ui, scrollbar needs to use
+common scrollbar component… conflict check should be a two-column modal… a conflict check does not
+need to check against a matter, the whole point is to find the matters that are potential conflicts…
+what is difference between preliminary and comprehensive conflict check? not sure why we would have
+both… what do party, graph, imputation, and content search? what does strictness search for? we need
+more modular control, rather than these one off buttons. that is where the left and right side would
+work well. left would be general information, right would be advanced and technical settings. left
+side is the input. right side is the 'engine' settings… overall, you have so many settings and i
+don't know what half of them mean, meaning we need better naming." What binds:
+
+- **Every scroll region wears the design system's scrollbar** — a rule that already stood under
+  _Lists and tables_ for tables, now widened there to every region and made mechanical by
+  `pnpm run lint:scrollbar`. This was not a conflicts defect: `.mc-modal-frame-pane` scrolls in CSS
+  and named no recipe, so every `ActionDialog` in the product had it, and so did `Dialog`,
+  `AlertDialog`, `Sheet` and `RecordWindow`.
+- **A settings-heavy panel splits along "what I am asking" and "how the engine answers".** The left
+  pane takes the fields a member fills in every time; the context pane takes the machinery. One
+  column had put the parties and a bank of hop budgets on the same footing, which is how a form comes
+  to read as a control panel for something nobody can name. Generalizes to any act whose scope is
+  configurable, and is promoted into _Controls and patterns_ above.
+- **A control that tunes something invisible carries its sentence in place, not on hover.** A hover
+  title does not exist on a touch device and a screen reader reaches it only by asking. Every setting
+  on the right pane says what it searches, under it, in the reader's words. Promoted.
+- **A form whose result is invisible reads back what it will do.** The left pane ends in sentences
+  composed from the very values the request is composed from, so it can never describe a search other
+  than the one that runs. It is the only honest answer to "what does this setting do" for an engine
+  nobody can watch. Promoted into _Data entry_ above.
+- **Do not ask a member to classify their own act when the record already knows.** Preliminary and
+  comprehensive name WHEN a check ran, not how it searched. The panel derives it — a check filed
+  against a matter the firm has taken on is comprehensive, every other check is preliminary — and
+  states which. Generalizes: a field with a wrong answer and no way to tell you that you gave it does
+  not belong on a form.
+- **Name the thing, not the dial.** `Strictness` became **Name matching**, because what the dial
+  moves is how many ways a name may be written and still count. `Party`/`Graph`/`Imputation`/
+  `Content` became **Name or identifier**, **Relationship**, **The firm's own people** and
+  **Documents and messages**; `Control` and `Family` became **Ownership and control** and **Family
+  and personal**; `Closure cap` and `Candidate cap` became **Related parties to reach** and
+  **Candidates to record**. The stored values did not move — only the words a reader sees, and they
+  moved everywhere at once because one vocabulary map serves the form, the log's columns, the
+  settings screen and the printed report.
+- **Sound-alike matching is named out loud.** It ran in both bands and was mentioned nowhere, which
+  is why the owner asked for it as a new feature. A capability that is not on the screen does not
+  exist.
+- **A default a field will take is the field's placeholder, never a footnote.** The panel's closing
+  block — "An empty field takes the firm's own setting. Firm floor · Party · Balanced · Defaults
+  depth 1 · closure cap 500 · candidate cap 5000" — was four facts in a shorthand that required
+  having built the engine. Each field now shows the firm's own number inside its own box. Promoted
+  into _Data entry_ above.
+- **A panel does not explain its own subject in its subtitle.** "A conflicts check searches the
+  firm's own record and writes what it searched into the log. It is not a verdict…" was removed on
+  the owner's instruction, and so was the refusal that lectured — "A check searches for the parties
+  it is given. Name at least one." now reads "Name at least one party." A refusal states what to do,
+  in as few words as that takes.
+- **A matter is where a check is filed, not what it is checked against.** The field is optional in
+  what it says as well as in what it accepts, because finding the matters that might conflict is the
+  point of running one.
+### 2026-09-08 — the tasks screen: the closed work moves to the foot
+
+The owner, on the tasks screen: "remove the done and cancelled boxes. this should be handled in the
+lower area, make sure that the search and new icons are in the same place as they would be on other
+screen." What binds:
+
+- **The Done and Cancelled boxes are gone from the row above the list.** What is closed is asked for
+  below the rows, by two controls that name the act and then name its undo. Generalizes, and is
+  promoted into _List screens_ above: a control that widens a list does not sit in the row that
+  narrows it.
+- **A screen with a masthead seats its search and its create control in the masthead's action
+  row**, at the position every other main screen keeps them, rather than in a second row the
+  content below draws for itself. Tasks was drawing its own band under the header because the list
+  component owned the controls; the component now hands them to its host to seat, so a matter's
+  Tasks section — which has no masthead of its own — still draws the row under its heading. This is
+  the placement half of the standing compact-action-row rule, and where a shared component is
+  involved the placement is the HOST's decision, never the component's.
+
+### 2026-09-08 — the Directory: the index's columns, and the record panel
+
+The owner, on the directory page and the panel a person is recorded and read in: "we need to
+increase the number of columns we can show. get rid of the out of table filters button, as that
+functionality is handled within the table. allow for saving an individual without a last name, some
+people don't have a last name, save with a warning though. prefix and suffix should use common
+component we already use for that elsewhere in the application. allow for multiple suffixes. rename
+given to First Name. Middle Name. Last Name. contact should not have contacts within a box, that is
+weird. we don't have any way to edit contact information once set besides deleting it. identifiers
+also have this box format which i don't like. these identifiers also are all in one line and scroll
+off the right side. address format should reflect the country identified, since they all can be
+different. look at making a common component. address should be in the left side of the modal,
+separate from contact. when changing left sidebar sections, don't change size of the modal. modal
+should always be the same size, which may depend on the size of the screen of course." What binds:
+
+- **A list offers more columns than it shows.** The directory carried three; it now declares twelve
+  and starts with six, the rest reachable from the header menu's Columns submenu. Generalizes, and
+  is promoted into _Lists and tables_.
+- **A screen adds no filter control of its own.** The filter popover above the table narrowed to
+  people or organizations, which the Kind column's own set filter already did. The standing rule
+  that filtering belongs to the columns was already recorded (_Data entry_, from the matter activity
+  round); what this round adds is that the rule also refuses a control that merely DUPLICATES a
+  column's filter, not only one that invents a narrowing the columns cannot express.
+- **A person needs a name, not two names.** Recording refused without a family name; a mononym is the
+  ordinary form of a name in much of the world. It records with the missing last name stated as a
+  warning above the commit. Generalizes, and is promoted into _Data entry_.
+- **A closed-but-growable vocabulary is the product's dropdown-with-add, never a text box.** The
+  prefix and the suffix were free-text, which is how one firm's file held "Mr", "Mr." and "mr.".
+  Generalizes, and is promoted into _Data entry_.
+- **A field holds as many values as the fact has.** A person is "Jr." and "Esq." at once, and a
+  suffix field that held one lost the other. Promoted into _Data entry_.
+- **A field's label is the word the reader uses.** Given and Family became First Name and Last Name.
+  The plain-word rule was already standing; this is it applied.
+- **An entry row is the last row of its list, not a panel beneath it.** Contact and Identifiers each
+  drew a bordered, raised box around their add row, so each section read as a list and a form.
+  Generalizes, and is promoted into _Data entry_.
+- **A recorded value is corrected, not deleted and retyped.** Promoted into _Data entry_.
+- **A row of fields wraps; it never scrolls sideways inside a panel.** The identifier entry row put
+  five controls on one grid line and ran off the right edge of a panel that does not scroll
+  sideways. Promoted into _Layout_.
+- **An address is a form whose shape is the country's, and it is its own section.** It was a fourth
+  choice in the Contact section's kind dropdown — one option that grew a whole form beneath it
+  beside three that did not. Promoted into _Data entry_.
+- **A panel with a side rail holds one size.** Promoted into _Layout_.
+
+Local to this surface, and not promoted:
+
+- The index's contact columns are the record's DEFAULT row per channel — one email, one number, one
+  place — and never a contact register. A sealed identifier is never a column: reading one is a
+  permission-gated, audited decrypt, and a page of fifty rows cannot ask that.
+- The name parts start hidden and the assembled name leads, because the assembled name is what a
+  book of names is read by; the parts exist so it can be SORTED by surname, which the assembled name
+  cannot do.
+- The address form's country field, and the address section's Use and Type, are comboboxes rather
+  than selects — the ruling from the call-log round the same day, applied to the code this round
+  wrote. The country field is the case that ruling names: two hundred rows in a select is a list
+  nobody can use. The prefix and suffix fields are NOT that control: `ChoicePicker` is for a set the
+  firm cannot add to, and those two are open by design, so they are the Combobox with the add row —
+  which is `apps/web/src/lib/names/honorific-field.svelte`, built for the settings round on the same
+  day and used here rather than copied.
 
 ### 2026-09-08 — Record Communication: two columns, typed choices, and a number that can be shortened
 

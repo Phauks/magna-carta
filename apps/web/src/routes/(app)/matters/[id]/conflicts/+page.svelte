@@ -246,6 +246,7 @@
   bind:open={composerOpen}
   {matterId}
   {matterLabel}
+  matterEngaged={matter.matterNumber !== null}
   {permissions}
   onRan={(checkId) => void goto(`/conflicts/checks/${checkId}`)}
 />

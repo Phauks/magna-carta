@@ -20,7 +20,11 @@
   import Badge from "@magna-carta/design-system/badge";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import type { ScopeInForceRecord } from "./conflicts-api.ts";
-  import { sourceVocabulary, strictnessVocabulary } from "./conflicts-vocabulary.ts";
+  import {
+    NAME_MATCHING_LABEL,
+    sourceVocabulary,
+    strictnessVocabulary,
+  } from "./conflicts-vocabulary.ts";
 
   let { scope }: { scope: ScopeInForceRecord } = $props();
 
@@ -70,7 +74,7 @@
     <FieldLabel as="h3">How It Compared</FieldLabel>
     <dl class="flex flex-col gap-4 text-sm">
       {@render fact(
-        "Strictness",
+        NAME_MATCHING_LABEL,
         strictnessVocabulary(scope.strictness).label,
         strictnessVocabulary(scope.strictness).meaning,
       )}

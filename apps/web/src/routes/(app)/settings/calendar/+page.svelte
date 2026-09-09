@@ -21,13 +21,13 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { mayManageCalendar } from "$lib/calendar/calendar-permission.ts";
   import {
-    CalendarSettingsDraft,
+    createCalendarSettingsDraft,
     CALENDAR_SETTINGS_SECTION_ID,
     WEEK_STARTS_ON_DEFINITION,
   } from "$lib/calendar/calendar-settings-draft.svelte.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
 
-  const draft = new CalendarSettingsDraft(fetch);
+  const draft = createCalendarSettingsDraft(fetch);
 
   let session = $state<SessionBootstrap | null>(null);
   // Read-only until the session says otherwise: a control that appears and then vanishes when

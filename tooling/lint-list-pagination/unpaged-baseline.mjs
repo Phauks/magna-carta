@@ -132,6 +132,15 @@ export const BOUNDED_BY_CONSTRUCTION = {
     "whole on purpose: a listing resolving responsible-attorney names needs the whole lookup " +
     "before it can render any row honestly, and a half-read roster prints blanks that read as " +
     "missing data.",
+  "roles.list":
+    "The firm's roles, bounded by the five the per-firm migration seeds " +
+    "(packages/database/drizzle/per-firm/20260704T041516_baseline.sql) plus whatever the firm " +
+    "authors by hand. The `role` table has NO insert statement in the workspace at all — the " +
+    "seeded rows are committed literals in that migration, and role authoring is not built — so " +
+    "this read cannot grow with anything a firm does until a write path lands, at which point it " +
+    "is a person naming a role rather than an activity producing rows. Read whole on purpose: " +
+    "the surface that assigns a role has to offer every role before it can offer any, and a " +
+    "half-read list silently withholds the one somebody was looking for.",
 
   // --- Fixed catalogs the firm cannot add to ---------------------------------------------------
   "matterAssets.listAssetClasses":

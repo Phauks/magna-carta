@@ -65,72 +65,31 @@ export interface SettingDefinition {
 }
 
 /*
- * ONLY REAL SETTINGS (owner-directed): every row here mirrors something that actually exists
- * server-side. Earlier demonstration rows with no backend counterpart (a retainer-floor alert
- * switch, a week-start select, an SSO-enforcement switch) were deleted for that reason — as a
- * consequence NO current row exercises `confirm: true` or `sensitivity: "restricted"`; both
- * mechanisms stay built and covered (types, draft store, confirm dialog, visibility filtering)
- * and light up with the first real consequential or restricted setting.
- *
- * The week-start select came back as a REAL firm setting (GET/PATCH /api/v1/calendar/settings),
- * and it is deliberately not a row here: this registry's committed values live in local storage,
- * and a firm setting with a server behind it must not keep a per-browser copy that can disagree
- * with it. Its definition sits beside its server-backed draft in
- * src/lib/calendar/calendar-settings-draft.svelte.ts, which the Calendar settings page renders
- * through the same row and footer as every other draft page.
+ * ONLY REAL SETTINGS (owner-directed): a row exists only where something exists server-side to
+ * carry it. Demonstration rows with no backend counterpart (a retainer-floor alert switch, an
+ * SSO-enforcement switch) were deleted for that reason, and the rule then finished the job — see
+ * the array below, which is empty.
  */
 export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
-  // Section "billing" — mirrors the backend's scoped time-capture settings.
-  {
-    id: "billing.time-increment",
-    sectionId: "billing",
-    plateLabel: "Time Capture",
-    label: "Time Increment",
-    description: "The smallest unit a time entry rounds to on invoices.",
-    kind: "select",
-    // Mirrors backend `time.increment_minutes`, which accepts ANY positive integer and can be
-    // scoped per matter/client/timekeeper — the 6/15 menu is the common-case presentation;
-    // revisit when this row wires to the real API.
-    options: [
-      { value: "6", label: "6 minutes (0.1 hour)" },
-      { value: "15", label: "15 minutes (0.25 hour)" },
-    ],
-    defaultValue: "6",
-    sensitivity: "open",
-  },
-  {
-    id: "billing.time-rounding",
-    sectionId: "billing",
-    plateLabel: "Time Capture",
-    label: "Time Rounding",
-    description: "How a time entry that falls between increments lands.",
-    kind: "select",
-    // Matches backend `time.rounding_direction` exactly: enum ["up", "nearest", "down"],
-    // default "nearest".
-    options: [
-      { value: "nearest", label: "Round to the nearest increment" },
-      { value: "up", label: "Always round up" },
-      { value: "down", label: "Always round down" },
-    ],
-    defaultValue: "nearest",
-    sensitivity: "open",
-  },
-  // Section "firm-profile"
-  {
-    // The firm's name really exists on the control plane, so the read-only display is honest;
-    // member EDITING of it arrives with a real display-name field on the backend.
-    id: "firm.display-name",
-    sectionId: "firm-profile",
-    plateLabel: "Identity",
-    label: "Firm Display Name",
-    description: "The name on invoices, the client portal, and generated documents.",
-    kind: "text",
-    defaultValue: "Goldsmith & Associates",
-    sensitivity: "open",
-  },
-  // The earlier interim Matter Numbering row (a two-preset enum summarizing the real
-  // segment-template model) moved out: the dedicated Matter Numbering section under Practice
-  // supersedes it — see /settings/matter-numbering.
+  // EMPTY, and that is the finished state rather than a gap. Every settings row on the surface now
+  // has a server behind it and declares itself beside the draft that reads and writes it:
+  //
+  //   Billing      -> src/lib/settings/firm-time-policy-draft.svelte.ts
+  //   Calendar     -> src/lib/calendar/calendar-settings-draft.svelte.ts
+  //   File Safety  -> src/lib/file-manager/scan-policy-draft.svelte.ts
+  //   Firm Profile -> the page itself (one field, read from the session)
+  //   Beta Access  -> the page itself (one decision, read from the session)
+  //
+  // The rule that emptied it: a firm setting with a server behind it must not keep a per-browser
+  // copy that can disagree with the firm, and this registry's committed values live in local
+  // storage. So a row moves out the moment its endpoint exists, and no new row belongs here.
+  //
+  // What is left standing above this array is the SHAPE — SettingDefinition and the helpers over
+  // it — which every server-backed draft uses. settings-page.svelte, the component that renders a
+  // whole page from these rows, now has no call sites. It is kept rather than deleted because it
+  // is the only host of the read-only member's "Request a change" affordance
+  // (components/request-change-dialog.svelte); retiring it means giving that affordance a home on
+  // the server-backed pages first, which is its own piece of work.
 ];
 
 /** Every definition registered to a section, in registry order. */

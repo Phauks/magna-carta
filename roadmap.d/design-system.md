@@ -63,6 +63,14 @@
   evidence: packages/design-system/src/lib/components holds sixty component directories across four tiers, DataTable, Sidebar, Resizable and the brand components among them
   notes: shadcn-svelte (original choice) replaced after an adversarial stress test; Bits scroll-lock CSP patch carried in patches/.
 
+- id: design-system.components.address-fields
+  name: Country-shaped address fields
+  scope: One address form for the whole product whose field set, labels and order follow the country the address is in; the stored columns are the international field set, so changing the country re-labels and re-orders without moving a value between fields.
+  status: partial
+  surface: screen
+  evidence: packages/design-system/src/lib/components/address-fields — address-format.ts is the per-country table (twenty-two countries plus an international default, adding one is a single entry), address-fields.svelte renders it with the country as the first field, and a value the new country's form has no line for is stated rather than dropped; held by packages/design-system/test/address-format.test.ts and the per-country stories in src/stories/address-fields.stories.svelte. Its first consumer is the Directory record's Address section.
+  notes: Partial because the table is a curated shape rather than the full address-metadata corpus: it carries no postal-code patterns and no administrative-area lists, so it cannot validate a code or offer a state. A country nobody has entered yet takes the international form, which is honest rather than a guess. Adopting libaddressinput's dataset is the open question, and it is a dependency that goes stale monthly.
+
 - id: design-system.components.storybook-catalog
   name: Component catalog
   scope: Storybook as the single place components are defined and reviewed; stories triple as behavior tests and axe accessibility checks.

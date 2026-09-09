@@ -12,6 +12,7 @@
 import { describe, expect, it } from "vitest";
 import type { CheckWithHits } from "../src/lib/conflicts/conflicts-api.ts";
 import { checkReportSheet, reportedParty } from "../src/lib/conflicts/conflicts-report.ts";
+import { sourceVocabulary } from "../src/lib/conflicts/conflicts-vocabulary.ts";
 
 function result(overrides: Partial<CheckWithHits["check"]> = {}): CheckWithHits {
   return {
@@ -77,8 +78,8 @@ describe("the report prints the engine's own account", () => {
 describe("a source that could not run", () => {
   it("reads as not searched, never as searched and empty", () => {
     const sheet = checkReportSheet(result(), { printedAt: new Date() });
-    expect(fieldValue(sheet, "Content")).toBe("Not searched");
-    expect(fieldValue(sheet, "Party")).toBe("Searched");
+    expect(fieldValue(sheet, sourceVocabulary("content").label)).toBe("Not searched");
+    expect(fieldValue(sheet, sourceVocabulary("party").label)).toBe("Searched");
   });
 });
 

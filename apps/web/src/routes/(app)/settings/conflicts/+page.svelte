@@ -59,6 +59,10 @@
     edgeClassLabel,
     nameRoleVocabulary,
   } from "$lib/conflicts/conflicts-vocabulary.ts";
+  import {
+    CANDIDATE_LIMIT_LABEL,
+    RELATED_PARTY_LIMIT_LABEL,
+  } from "$lib/conflicts/check-request.ts";
   import { newWriteKey } from "$lib/matters/tasks-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
 
@@ -382,7 +386,7 @@
         <Separator />
 
         <section class="flex flex-col gap-16">
-          <FieldLabel as="h2">The Band Every Check Must Reach</FieldLabel>
+          <FieldLabel as="h2">The Name Matching Every Check Must Reach</FieldLabel>
           <!-- Stated because it is the invariant that makes the choice safe: the wider band searches
                every name role and every phonetic scheme, so raising this can only add candidates. -->
           <p class="text-sm text-text-muted">
@@ -413,7 +417,7 @@
         <Separator />
 
         <section class="flex flex-col gap-16">
-          <FieldLabel as="h2">Which Names The Narrower Band Compares</FieldLabel>
+          <FieldLabel as="h2">Which Names Standard Matching Compares</FieldLabel>
           <!-- The wider band is not configurable here, and saying so is what keeps the superset
                claim above legible: whatever is chosen, it is a subset of "every role". -->
           <p class="text-sm text-text-muted">
@@ -448,7 +452,7 @@
         <Separator />
 
         <section class="flex flex-col gap-16">
-          <FieldLabel as="h2">How Far A Check Walks</FieldLabel>
+          <FieldLabel as="h2">How Far A Check Follows Relationships</FieldLabel>
           <p class="text-sm text-text-muted">
             A budget is how many hops of that kind of relationship one check may follow. They are
             spent separately, so a walk that has used up its family budget can still follow a control
@@ -479,12 +483,13 @@
                  or successor chain of any length is the same legal person continuing, so it carries
                  no hop budget for anyone to set. -->
             <p class="text-sm text-text-muted">
-              Traversed transitively at no hop cost, bounded only by the closure cap.
+              Followed all the way at no hop cost, bounded only by how many related parties a check
+            may reach.
             </p>
           </div>
 
           <div class="flex flex-col gap-8">
-            <Label for="conflicts-default-depth">Default Depth</Label>
+            <Label for="conflicts-default-depth">Relationships To Follow By Default</Label>
             <Input
               id="conflicts-default-depth"
               type="number"
@@ -509,7 +514,7 @@
         <Separator />
 
         <section class="flex flex-col gap-16">
-          <FieldLabel as="h2">The Bounds A Run Is Held To</FieldLabel>
+          <FieldLabel as="h2">Where A Check Stops</FieldLabel>
           <p class="text-sm text-text-muted">
             Both bounds are recorded and reported when they bite. A check that reached one says so in
             words and names how much it did not reach, so a shortened search is never read as a
@@ -517,7 +522,7 @@
           </p>
           <div class="grid grid-cols-1 gap-16 sm:grid-cols-2">
             <div class="flex flex-col gap-8">
-              <Label for="conflicts-closure-cap">Closure Cap</Label>
+              <Label for="conflicts-closure-cap">{RELATED_PARTY_LIMIT_LABEL}</Label>
               <Input
                 id="conflicts-closure-cap"
                 type="number"
@@ -532,11 +537,11 @@
                 }}
               />
               <p class="text-xs text-text-muted">
-                The most entities one check may walk out to.
+                The most connected parties one check may walk out to before it stops walking.
               </p>
             </div>
             <div class="flex flex-col gap-8">
-              <Label for="conflicts-candidate-cap">Candidate Cap</Label>
+              <Label for="conflicts-candidate-cap">{CANDIDATE_LIMIT_LABEL}</Label>
               <Input
                 id="conflicts-candidate-cap"
                 type="number"

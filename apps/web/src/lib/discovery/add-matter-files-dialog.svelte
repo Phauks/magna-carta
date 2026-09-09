@@ -222,7 +222,7 @@
           </span>
         </div>
 
-        <ul class="border-border flex max-h-96 flex-col gap-4 overflow-y-auto rounded border p-8">
+        <ul class="mc-scrollbar border-border flex max-h-96 flex-col gap-4 overflow-y-auto rounded border p-8">
           {#each files as file (file.id)}
             {@const refused = refusalFor(file)}
             <li class="flex items-center gap-8">
