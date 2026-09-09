@@ -2,6 +2,7 @@ import { flushSync } from "svelte";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DroppedEntry } from "@magna-carta/design-system/dropzone";
 import type { UploadOutcome, UploadRequest } from "$lib/file-manager/file-upload.ts";
+import { intakeEntryKey } from "$lib/file-manager/upload-intake.ts";
 import {
   batchTallyText,
   cancelUploadBatch,
@@ -36,7 +37,8 @@ function plan(entries: DroppedEntry[], over: Partial<UploadBatchPlan> = {}): Upl
     destinationLabel: "Discovery",
     entries,
     createdAtBasis: "source",
-    documentTypeId: null,
+    documentTypeIds: new Map<string, string | null>(),
+    checkDuplicates: true,
     folders: [{ id: "discovery", parentFolderId: null, name: "Discovery" }],
     files: [
       {
@@ -77,7 +79,7 @@ function dependencies(
   let folderNumber = 0;
   return {
     fetchImpl: fetch,
-    hash: async () => null,
+    digest: async () => null,
     upload: async (request) => {
       record.uploads.push(request);
       request.onStage?.("uploading");
@@ -146,11 +148,68 @@ describe("startUploadBatch", () => {
   it("carries the dating and the document type the reader chose onto every reservation", async () => {
     const record: Recorded = { uploads: [], folders: [] };
     startUploadBatch(
-      plan([entry("", "a.pdf")], { createdAtBasis: "upload", documentTypeId: "type-9" }),
+      plan([entry("", "a.pdf")], {
+        createdAtBasis: "upload",
+        documentTypeIds: new Map([[intakeEntryKey(entry("", "a.pdf")), "type-9"]]),
+      }),
       dependencies(record),
     );
     await settled();
     expect(record.uploads[0]).toMatchObject({ createdAtBasis: "upload", documentTypeId: "type-9" });
+  });
+
+  it("carries a different document type per file, so one batch files as several kinds", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    const brief = entry("", "brief.pdf");
+    const note = entry("", "note.txt");
+    const untyped = entry("", "misc.bin");
+    startUploadBatch(
+      plan([brief, note, untyped], {
+        documentTypeIds: new Map([
+          [intakeEntryKey(brief), "type-pleading"],
+          [intakeEntryKey(note), "type-correspondence"],
+        ]),
+      }),
+      dependencies(record),
+    );
+    await settled();
+    const filed = new Map(
+      record.uploads.map((request) => [request.file.name, request.documentTypeId]),
+    );
+    expect(filed.get("brief.pdf")).toBe("type-pleading");
+    expect(filed.get("note.txt")).toBe("type-correspondence");
+    // A file the reader never classified carries none, which is the honest answer, not a default.
+    expect(filed.get("misc.bin")).toBeNull();
+  });
+
+  it("reads nothing and asks nothing when the reader turns the duplicate question off", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    let reads = 0;
+    const batch = startUploadBatch(plan([entry("", "a.pdf")], { checkDuplicates: false }), {
+      ...dependencies(record),
+      digest: async () => {
+        reads += 1;
+        return "unused-digest";
+      },
+    });
+    await settled();
+    expect(reads).toBe(0);
+    expect(record.uploads[0]?.sha256).toBeUndefined();
+    expect(batch.items[0]?.stage).toBe("settled");
+  });
+
+  it("names the storage as the thing that did not answer when the byte write gets nothing", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    const batch = startUploadBatch(
+      plan([entry("", "a.pdf")]),
+      dependencies(record, () => ({ kind: "transport", stage: "uploading" })),
+    );
+    await settled();
+    const reason = batch.items[0]?.reason ?? "";
+    // The bytes never go through the app, so the line has to say where the fault actually is —
+    // "nothing answered" alone sent readers looking at their own connection.
+    expect(reason).toContain("storage did not answer");
+    expect(reason).toContain("nothing was saved");
   });
 
   it("names the stage a failure happened at, and bumps the matter's revision when it finishes", async () => {
@@ -265,12 +324,12 @@ describe("startUploadBatch", () => {
           ? { kind: "already", fileId: "held", name: "held.pdf", folderId: null }
           : { kind: "committed", fileId: `file-${request.file.name}`, versionId: "v" },
       ),
-      hash: async (file, options) => {
+      digest: async (chosen, options) => {
         hashed += 1;
         // The read reports as it goes, and the row reads it back as the share done.
-        options.onProgress?.(Math.floor(file.size / 2));
-        options.onProgress?.(file.size);
-        return `${file.name}-digest`;
+        options.onProgress(Math.floor(chosen.file.size / 2));
+        options.onProgress(chosen.file.size);
+        return `${chosen.file.name}-digest`;
       },
     };
     const batch = startUploadBatch(plan([entry("", "held.pdf"), entry("", "new.pdf")]), withHash);

@@ -1278,6 +1278,58 @@ get a modal to go through doing a conflicts check." What binds:
   matter it states the matter and asks nothing about it. The fields are one component either way — a
   surface that carried its own copy of the composer is how the two came to differ in the first place.
 
+### 2026-09-08 — the Upload panel, eighteenth file-manager round
+
+The owner, having watched an upload fail and read the Worker log for it: "having issues uploading
+files. not sure what document type dropdown will help for. the +new file and + New folder should be
+one click, on button, that handles both functionalities. hashing of files should start before
+upload, while they are waiting for the upload to commence… the upload bar should be fixed in width,
+so that variable length of text for uploading size can be accounted for"; then "table functionality
+in upload modal should have full functionality of main table component, with sorting and filtering";
+then "rename on arrival to Advanced Settings. make it a carrot menu so it isn't always open, since
+it may be default behaviours. consider other advanced settings"; then "when uploading a folder,
+don't force dialog through the broswer to confirm multifile upload". Asked whether a batch-wide
+document type should go or stay, the ruling was to remove it "unless you can find way to associate
+different document types to different files at the same time". What binds:
+
+- **One control, one press, for the common ask.** A control whose every use begins with opening a
+  menu is a control that costs two gestures to do the one thing it is for. Add opens the file
+  picker; the second ask rides a chevron ON the same control rather than as a peer item in a menu
+  above it. Where a browser genuinely cannot merge two asks — no engine offers a picker that takes
+  files and folders together — the split is stated as the browser's limit, not designed around as
+  though it were a choice, and the gesture that HAS no such limit (the drop, which takes any mix) is
+  named where the reader is looking.
+- **A classification is a fact about a file, never about a batch.** One type for everything in an
+  upload is wrong about every folder a firm actually keeps: discovery holds correspondence,
+  pleadings and exhibits together, and a batch-wide control makes the reader upload three times to
+  say so. It is a COLUMN on the source table, set on the rows selected — which is also why it needed
+  no new mechanism: the table already selects, sorts and filters.
+- **A section of defaults folds shut.** "On Arrival" stood permanently open asking two questions
+  whose answers nearly every reader accepts. Renamed **Advanced Settings** and collapsed, so it is
+  reached when there is a reason and costs nothing when there is not. What belongs inside it is
+  anything with a right default: how a file is dated, and whether the firm is asked if it already
+  holds the bytes.
+- **Work that can start early starts early.** The digest that lets the firm answer "we already hold
+  this" was read when a file's upload lane reached it, so three lanes each stalled on a read with
+  the connection idle. It is read from the moment the file is CHOSEN — the panel is open, nothing is
+  moving, and the read costs the reader nothing they can feel. Generalizes: where a preparatory step
+  is independent of the act, it belongs at the choice, not at the act.
+- **A figure that changes length gets fixed room; the thing beside it holds still.** The pace line
+  reads "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left" and every figure in it grows and shrinks
+  as the transfer runs, which resized the progress bar several times a second. The measure is a
+  token, the way the create control's width is, and the bar is what does not move.
+- **A second browser dialog over ours is a defect, not a browser fact to accept.** An `<input
+webkitdirectory>` makes Chrome ask "Upload N files to this site?" about a folder the reader has
+  just chosen, in a dialog we neither control nor word. The File System Access pickers raise no such
+  confirmation and are used wherever the engine has them.
+- **A failure states WHERE the fault is, not only that there was one.** The byte write is the one
+  step that does not go through the app's own host, so its refusal reaches no log and the browser
+  reports it as silence. "Nothing answered" sent readers to check their own connection for a fault
+  on the storage's side; the line now says it is the storage that did not answer, that nothing was
+  saved, and that an administrator is who puts it right. The log signature that identifies it — a
+  201 reservation, no part calls, an abort seven to nine seconds later — is in the operations
+  runbook, where the next person reading a log will be.
+
 ### 2026-09-07 — the sidebar's foot: the transfer registers join Settings and Customize
 
 The owner, on where Downloads lives: "I want to move access to the full downloads section from the

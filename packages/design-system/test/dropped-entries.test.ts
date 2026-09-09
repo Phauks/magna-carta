@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   entriesFromDataTransfer,
+  entriesFromDirectoryHandle,
+  entriesFromFileHandles,
   entriesFromFileList,
   folderPathOf,
+  type DirectoryHandleLike,
   type EntryLike,
+  type FileHandleLike,
 } from "../src/lib/components/dropzone/dropped-entries.ts";
 
 /*
@@ -91,5 +95,58 @@ describe("entriesFromFileList and folderPathOf", () => {
     expect(entries.map((entry) => entry.relativePath)).toEqual(["Client/Notes/notes.docx", ""]);
     expect(folderPathOf(entries[0] as { relativePath: string })).toBe("Client/Notes");
     expect(folderPathOf(entries[1] as { relativePath: string })).toBe("");
+  });
+});
+
+/*
+ * The picker path — the File System Access handles, which is how a folder is chosen where the
+ * engine has them, precisely so the browser does not raise its own "Upload N files to this site?"
+ * over the top of the panel. What it answers has to be indistinguishable from the drop's answer:
+ * the same path convention, the picked folder's own name first, every level walked to the end.
+ */
+function fileHandle(name: string): FileHandleLike {
+  return { kind: "file", name, getFile: () => Promise.resolve(new File(["x"], name)) };
+}
+
+function directoryHandle(
+  name: string,
+  children: (FileHandleLike | DirectoryHandleLike)[],
+): DirectoryHandleLike {
+  return {
+    kind: "directory",
+    name,
+    values: () => ({
+      // eslint-disable-next-line @typescript-eslint/require-await
+      async *[Symbol.asyncIterator]() {
+        for (const child of children) yield child;
+      },
+    }),
+  };
+}
+
+describe("the native picker handles", () => {
+  it("walks a picked directory to the leaves, under the same paths a drop would give", async () => {
+    const entries = await entriesFromDirectoryHandle(
+      directoryHandle("Discovery", [
+        fileHandle("index.txt"),
+        directoryHandle("2024", [
+          fileHandle("letter.pdf"),
+          directoryHandle("exhibits", [fileHandle("a.pdf")]),
+        ]),
+      ]),
+    );
+    expect(entries.map((entry) => entry.relativePath)).toEqual([
+      "Discovery/index.txt",
+      "Discovery/2024/letter.pdf",
+      "Discovery/2024/exhibits/a.pdf",
+    ]);
+  });
+
+  it("gives picked files no path at all — a file chosen on its own belongs to no folder", async () => {
+    const entries = await entriesFromFileHandles([fileHandle("brief.pdf"), fileHandle("note.txt")]);
+    expect(entries.map((entry) => [entry.file.name, entry.relativePath])).toEqual([
+      ["brief.pdf", ""],
+      ["note.txt", ""],
+    ]);
   });
 });

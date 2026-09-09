@@ -7,6 +7,8 @@ import {
   intakeFolderKey,
   intakeFolderPaths,
   intakeFileKey,
+  intakeEntryKey,
+  intakeKeysOfRows,
   intakePhrase,
   intakeRows,
   orderIntakeRows,
@@ -111,14 +113,18 @@ describe("the tree", () => {
     const rows = intakeRows(ALL, progress, new Set());
     const discovery = rows.find((row) => row.kind === "folder" && row.name === "Discovery");
     expect(discovery).toMatchObject({ uploaded: 1, failed: 1, inFlight: 0 });
-    const status = intakeColumns({ filtering: false }).find((column) => column.id === "status");
+    const status = intakeColumns({ filtering: false, documentTypes: false }).find(
+      (column) => column.id === "status",
+    );
     expect(status?.value(discovery as IntakeRow)).toBe("1 of 2 uploaded · 1 failed");
   });
 
   it("flattens to files alone when asked, which is what a filter wants", () => {
     const rows = intakeRows(ALL, NO_PROGRESS, null);
     expect(rows.every((row) => row.kind === "file" && row.depth === 0)).toBe(true);
-    const folder = intakeColumns({ filtering: true }).find((column) => column.id === "folder");
+    const folder = intakeColumns({ filtering: true, documentTypes: false }).find(
+      (column) => column.id === "folder",
+    );
     expect(rows.map((row) => folder?.value(row))).toEqual([
       "Discovery / 2024",
       "Discovery",
@@ -133,10 +139,10 @@ describe("the tree", () => {
 });
 
 describe("ordering inside the tree", () => {
-  const nameColumn = intakeColumns({ filtering: false }).find(
+  const nameColumn = intakeColumns({ filtering: false, documentTypes: false }).find(
     (column) => column.id === "name",
   ) as GridColumn<IntakeRow>;
-  const sizeColumn = intakeColumns({ filtering: false }).find(
+  const sizeColumn = intakeColumns({ filtering: false, documentTypes: false }).find(
     (column) => column.id === "size",
   ) as GridColumn<IntakeRow>;
   it("sorts siblings by the grid's comparator and keeps every child under its parent", () => {
@@ -190,5 +196,41 @@ describe("the phrase", () => {
   it("counts files alone, or folders with the files inside them", () => {
     expect(intakePhrase([NOTES])).toBe("1 file");
     expect(intakePhrase(ALL)).toBe("2 folders, 4 files inside");
+  });
+});
+
+/*
+ * A document type belongs to a FILE, not to a batch: one folder of discovery holds correspondence,
+ * pleadings and exhibits together, so the classification is a column the reader sets on the rows
+ * they have selected. Selecting a FOLDER row means every file beneath it, however deep, which is
+ * the rule Remove Selected already follows.
+ */
+describe("the document type, per file", () => {
+  it("resolves a selection of folder and file rows to the files it stands for", () => {
+    const keys = intakeKeysOfRows(ALL, [intakeFolderKey("Discovery"), intakeFileKey(INVOICE)]);
+    expect(keys).toEqual([intakeEntryKey(LETTER), intakeEntryKey(MEMO), intakeEntryKey(INVOICE)]);
+  });
+
+  it("shows each file's own type, and says None where a file carries none", () => {
+    const named = new Map([[intakeEntryKey(LETTER), "Correspondence"]]);
+    const rows = intakeRows(ALL, NO_PROGRESS, null, (key) => named.get(key) ?? "");
+    const column = intakeColumns({ filtering: true, documentTypes: true }).find(
+      (candidate) => candidate.id === "documentType",
+    ) as GridColumn<IntakeRow>;
+    expect(column).toBeDefined();
+    const letter = rows.find((row) => row.name === "letter.pdf") as IntakeRow;
+    const memo = rows.find((row) => row.name === "memo.docx") as IntakeRow;
+    expect(column.value(letter)).toBe("Correspondence");
+    // "None" is the value rather than a text override, so it is a choice in the column's filter.
+    expect(column.value(memo)).toBe("None");
+  });
+
+  it("is left out of the model entirely where the firm defines no classifications", () => {
+    // Out of the model rather than declared hidden: the hidden flag is read once, when the grid is
+    // built, so a column declared hidden before the types loaded could never come back.
+    const column = intakeColumns({ filtering: false, documentTypes: false }).find(
+      (candidate) => candidate.id === "documentType",
+    );
+    expect(column).toBeUndefined();
   });
 });
