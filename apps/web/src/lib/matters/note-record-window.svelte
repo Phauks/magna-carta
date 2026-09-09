@@ -49,6 +49,9 @@
     pendingAttachmentsOf,
   } from "./note-attachable-documents.ts";
   import { noteSheet, occurrenceLine } from "./note-print-sheet.ts";
+  import { printSheetDates } from "$lib/print-sheet";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import {
     attachNoteDocument,
     createMatterNote,
@@ -211,7 +214,7 @@
           authorName: nameOf(note.authorUserId),
           lastEditedByName: note.lastEditedBy === null ? null : nameOf(note.lastEditedBy),
           instant: (at) => formatInstant(at),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           attachedNames: note.documents.map((document) => document.fileName),
           printedAt: formatInstant(new Date()),
         }),
@@ -402,8 +405,12 @@
     {#if fieldsOpen}
       <div class="grid grid-cols-2 gap-12 @md:grid-cols-4">
         <div class="flex flex-col gap-4">
-          <Label for="note-occurred-on">Date</Label>
-          <Input id="note-occurred-on" type="date" disabled={saving} bind:value={occurredOnText} />
+          <DatePicker
+            label="Date"
+            value={civilDateValue(occurredOnText)}
+            onValueChange={(next) => (occurredOnText = civilDateTextOrEmpty(next))}
+            disabled={saving}
+          />
         </div>
         <div class="flex flex-col gap-4">
           <Label for="note-occurred-at">Time</Label>

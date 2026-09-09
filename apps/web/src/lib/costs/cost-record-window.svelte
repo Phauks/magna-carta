@@ -63,6 +63,9 @@
   } from "./cost-operations.ts";
   import { billingSentence, payeeText } from "./cost-vocabulary.ts";
 import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
+  import { printSheetDates } from "$lib/print-sheet";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   let {
     open = $bindable(false),
@@ -269,7 +272,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
           matterTitle,
           matterNumber,
           money: (amount) => formatMoney(amount, { currency: entry.currency }),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
           expenseCodeLabels: expenseCodes.labelFor,
@@ -422,12 +425,11 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
 
     <div class="grid gap-12 sm:grid-cols-2">
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-incurred">Date Incurred</Label>
-        <Input
-          id="{fieldPrefix}-incurred"
-          type="date"
+        <DatePicker
+          label="Date Incurred"
+          value={civilDateValue(incurredDateText)}
+          onValueChange={(next) => (incurredDateText = civilDateTextOrEmpty(next))}
           disabled={readOnly}
-          bind:value={incurredDateText}
         />
       </div>
 

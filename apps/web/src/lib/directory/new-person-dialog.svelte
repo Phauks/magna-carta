@@ -178,7 +178,7 @@
          ONE HEIGHT, WHICHEVER SECTION IS CHOSEN (record-panel.ts): the section scrolls inside the
          panel rather than the panel resizing under the rail the reader is using. -->
     <Tabs.Root bind:value={section} orientation="vertical" class="gap-16" style={RECORD_PANEL_BODY_STYLE}>
-      <Tabs.List class="shrink-0 overflow-y-auto" style="width: 11rem">
+      <Tabs.List class="mc-scrollbar shrink-0 overflow-y-auto" style="width: 11rem">
         {#each counts as entry (entry.id)}
           <Tabs.Trigger value={entry.id} class="justify-between">
             <span>{entry.label}</span>
@@ -189,7 +189,7 @@
         {/each}
       </Tabs.List>
 
-      <Tabs.Content value="names" class="min-w-0 flex-auto overflow-y-auto">
+      <Tabs.Content value="names" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
         <NamesSection
           bind:name={draft.name}
           otherNames={draft.otherNames}
@@ -199,7 +199,7 @@
         />
       </Tabs.Content>
 
-      <Tabs.Content value="contact" class="min-w-0 flex-auto overflow-y-auto">
+      <Tabs.Content value="contact" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
         <ContactSection
           rows={contactRows}
           canEdit={!busy}
@@ -212,7 +212,7 @@
 
       <!-- Beside Contact rather than a fourth kind inside it: an address is a form of six to nine
            boxes whose shape is the country's, and the record reads it back on its own section too. -->
-      <Tabs.Content value="address" class="min-w-0 flex-auto overflow-y-auto">
+      <Tabs.Content value="address" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
         <AddressSection
           rows={addressRows}
           canEdit={!busy}
@@ -223,15 +223,15 @@
         />
       </Tabs.Content>
 
-      <Tabs.Content value="pronouns" class="min-w-0 flex-auto overflow-y-auto">
+      <Tabs.Content value="pronouns" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
         <PronounsSection bind:value={draft.pronouns} disabled={busy} />
       </Tabs.Content>
 
-      <Tabs.Content value="dates" class="min-w-0 flex-auto overflow-y-auto">
+      <Tabs.Content value="dates" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
         <DatesSection bind:dateOfBirth={draft.dateOfBirth} bind:dateOfDeath={draft.dateOfDeath} disabled={busy} />
       </Tabs.Content>
 
-      <Tabs.Content value="identifiers" class="min-w-0 flex-auto overflow-y-auto">
+      <Tabs.Content value="identifiers" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
         <IdentifiersSection
           rows={identifierRows}
           kind="person"
@@ -241,7 +241,7 @@
         />
       </Tabs.Content>
 
-      <Tabs.Content value="organizations" class="min-w-0 flex-auto overflow-y-auto">
+      <Tabs.Content value="organizations" class="mc-scrollbar min-w-0 flex-auto overflow-y-auto">
         <OrganizationsSection
           rows={draft.organizations}
           {search}
@@ -256,7 +256,7 @@
   {#snippet context()}
     <!-- The same height as the sections beside it, for the same reason: a long duplicate list must
          not decide how tall the panel is either. -->
-    <div class="flex flex-col gap-16 overflow-y-auto" style={RECORD_PANEL_BODY_STYLE}>
+    <div class="mc-scrollbar flex flex-col gap-16 overflow-y-auto" style={RECORD_PANEL_BODY_STYLE}>
       <DuplicateGate kind="person" given={draft.name.given} family={draft.name.family} />
       {#if summary.length > 0}
         <div class="flex flex-col gap-8">

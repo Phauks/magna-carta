@@ -250,7 +250,7 @@
     />
   {/each}
 
-  <div class="min-h-0 flex-1 overflow-y-auto">
+  <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
     {#if view === "month"}
       <CalendarGrid.Month
         entries={painted}

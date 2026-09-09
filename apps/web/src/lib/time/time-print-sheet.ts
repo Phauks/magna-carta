@@ -16,6 +16,7 @@
  * beside it. Money and dates arrive already rendered, because the currency and the locale belong to
  * the surface doing the printing, not to the description of what the paper says.
  */
+import type { PrintSheetDates } from "$lib/print-sheet";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
 import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
@@ -28,22 +29,11 @@ import {
 } from "./time-columns.ts";
 
 /** Everything the sheet needs that is not the entry itself. */
-export interface TimeSheetContext {
+export interface TimeSheetContext extends PrintSheetDates {
   readonly matterTitle: string;
   readonly matterNumber?: string;
   /** Money in the matter's own currency, given the amount in major units. */
   readonly money: (amount: number) => string;
-  /** A work date as a reader sees it. */
-  readonly date: (isoDate: string) => string;
-  /**
-   * The day a recorded MOMENT fell on, as the reader sees it.
-   *
-   * Separate from `date` because the two are not the same question and differ by a day: `date`
-   * takes a day the firm wrote down and pins it to UTC so it never moves, while an instant is a day
-   * only once somebody names a zone. Passing `createdAt.slice(0, 10)` through `date` gave the UTC
-   * day and named the wrong one for every entry made after late afternoon in an American office.
-   */
-  readonly instantDate: (instant: string) => string;
   /** When the sheet was taken, already stated as an instant. */
   readonly printedAt: string;
 }

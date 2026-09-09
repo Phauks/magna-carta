@@ -111,6 +111,32 @@ export function removeIntakeRows(
   });
 }
 
+/**
+ * The intake keys of every file the given table rows stand for: a file row is itself, a folder row
+ * is everything beneath it. What a control acting on the selection — setting a document type,
+ * removing what was chosen — actually operates on.
+ */
+export function intakeKeysOfRows(
+  entries: readonly DroppedEntry[],
+  rowKeys: Iterable<string>,
+): string[] {
+  const fileKeys = new Set<string>();
+  const folderPaths: string[] = [];
+  for (const key of rowKeys) {
+    if (key.startsWith(FILE_KEY_PREFIX)) fileKeys.add(key.slice(FILE_KEY_PREFIX.length));
+    else if (key.startsWith(FOLDER_KEY_PREFIX)) {
+      folderPaths.push(key.slice(FOLDER_KEY_PREFIX.length));
+    }
+  }
+  return entries
+    .filter((entry) => {
+      if (fileKeys.has(intakeEntryKey(entry))) return true;
+      const folder = folderPathOf(entry);
+      return folderPaths.some((path) => folder === path || folder.startsWith(`${path}/`));
+    })
+    .map(intakeEntryKey);
+}
+
 /** A folder's own name from its path — the last segment. */
 function folderName(path: string): string {
   const cut = path.lastIndexOf("/");
@@ -161,6 +187,8 @@ export interface IntakeFileRow {
   readonly sentBytes: number;
   /** Bytes read so far, while the file is being hashed. */
   readonly hashedBytes: number;
+  /** The firm's classification this file will carry, as the reader named it; "" for none. */
+  readonly documentType: string;
 }
 
 export type IntakeRow = IntakeFolderRow | IntakeFileRow;
@@ -259,12 +287,19 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
   return total;
 }
 
+/** What a file's document type is called, by intake key. Absent, no file carries one. */
+export type IntakeDocumentTypeName = (key: string) => string;
+
+const NO_DOCUMENT_TYPE: IntakeDocumentTypeName = () => "";
+
 function fileRow(
   entry: DroppedEntry,
   depth: number,
   progress: ReadonlyMap<string, IntakeProgress>,
+  documentTypeName: IntakeDocumentTypeName,
 ): IntakeFileRow {
-  const state = progress.get(intakeEntryKey(entry));
+  const key = intakeEntryKey(entry);
+  const state = progress.get(key);
   return {
     kind: "file",
     key: intakeFileKey(entry),
@@ -276,6 +311,7 @@ function fileRow(
     ...(state?.reason === undefined ? {} : { reason: state.reason }),
     sentBytes: sentBytesOf(entry.file.size, state),
     hashedBytes: Math.min(entry.file.size, state?.hashedBytes ?? 0),
+    documentType: documentTypeName(key),
   };
 }
 
@@ -288,8 +324,11 @@ export function intakeRows(
   entries: readonly DroppedEntry[],
   progress: ReadonlyMap<string, IntakeProgress>,
   expanded: ReadonlySet<string> | null,
+  documentTypeName: IntakeDocumentTypeName = NO_DOCUMENT_TYPE,
 ): IntakeRow[] {
-  if (expanded === null) return entries.map((entry) => fileRow(entry, 0, progress));
+  if (expanded === null) {
+    return entries.map((entry) => fileRow(entry, 0, progress, documentTypeName));
+  }
   const rows: IntakeRow[] = [];
   const walk = (node: FolderNode, depth: number): void => {
     for (const child of node.children.values()) {
@@ -305,7 +344,9 @@ export function intakeRows(
       });
       if (open) walk(child, depth + 1);
     }
-    for (const entry of node.files) rows.push(fileRow(entry, depth, progress));
+    for (const entry of node.files) {
+      rows.push(fileRow(entry, depth, progress, documentTypeName));
+    }
   };
   walk(buildTree(entries), 0);
   return rows;
@@ -460,7 +501,14 @@ export function intakeExtension(name: string): string {
  * file, plus where each stands in the transfer; the Folder column is on only while a filter has
  * flattened the tree, because inside the tree the indent already says it.
  */
-export function intakeColumns(context: { readonly filtering: boolean }): GridColumn<IntakeRow>[] {
+export function intakeColumns(context: {
+  readonly filtering: boolean;
+  /**
+   * Whether the firm has classifications at all. With none defined the column would be a column of
+   * blanks with a filter offering nothing, so it is not drawn.
+   */
+  readonly documentTypes: boolean;
+}): GridColumn<IntakeRow>[] {
   return [
     {
       id: "name",
@@ -502,6 +550,27 @@ export function intakeColumns(context: { readonly filtering: boolean }): GridCol
           ? `${formatBytes(row.totalBytes)} · ${countPhrase(row.fileCount, "file")}`
           : formatBytes(row.entry.file.size),
     },
+    /*
+     * The classification, where the firm has any. It is left OUT of the model entirely rather than
+     * declared hidden when there are none: a column's hidden flag is read once, when the grid is
+     * built, so a firm whose types had not finished loading at that moment would have a column it
+     * could never see. Absent from the model, it appears the moment the types are in.
+     */
+    ...(context.documentTypes
+      ? [
+          {
+            id: "documentType",
+            label: "Document Type",
+            type: "text",
+            filter: "set",
+            // "None" is the VALUE, not a text override, so the column filter offers it as a
+            // choice the reader can actually pick — an untyped file is a thing to select for on
+            // this panel, where the whole point of the column is deciding what each file carries.
+            value: (row: IntakeRow) =>
+              row.kind === "folder" ? "" : row.documentType === "" ? "None" : row.documentType,
+          } satisfies GridColumn<IntakeRow>,
+        ]
+      : []),
     {
       id: "modified",
       label: "Date Modified",

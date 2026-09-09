@@ -36,7 +36,7 @@ import {
   type UploadRequest,
 } from "./file-upload.ts";
 import type { MatterFile } from "./matter-file-api.ts";
-import { sha256OfFile, type HashProgressOptions } from "./upload-hash.ts";
+import { digestOf } from "./upload-digests.svelte.ts";
 import { paceOf, paceText, withSample, type Pace, type PaceSample } from "./upload-pace.ts";
 import {
   intakeEntryKey,
@@ -60,7 +60,19 @@ export interface UploadBatchPlan {
   readonly destinationLabel: string;
   readonly entries: readonly DroppedEntry[];
   readonly createdAtBasis: "upload" | "source";
-  readonly documentTypeId: string | null;
+  /**
+   * The document type each file carries, by intake key. A batch is not one classification: a
+   * folder of discovery holds correspondence, pleadings and exhibits together, and asking the
+   * reader to send it three times to say so is the question the batch-wide control put to them.
+   * A key the map does not name carries no type, which is the default.
+   */
+  readonly documentTypeIds: ReadonlyMap<string, string | null>;
+  /**
+   * Whether the firm is asked, before any byte moves, if it already holds the bytes. On (the
+   * default) a file the matter holds is never sent and one the firm holds elsewhere is copied
+   * server-side. Off, every file is sent whatever the firm holds.
+   */
+  readonly checkDuplicates: boolean;
   /** The destination matter's folders and files as last read, for landing folders and names. */
   readonly folders: readonly FolderSummary[];
   readonly files: readonly MatterFile[];
@@ -89,10 +101,14 @@ export interface UploadQueueDependencies {
   readonly fetchImpl: typeof fetch;
   readonly upload: (request: UploadRequest) => Promise<UploadOutcome>;
   /**
-   * The file's SHA-256, or null to send it without asking whether the firm already holds it.
-   * Reports the bytes read as it goes and stops on the signal.
+   * The file's SHA-256, or null to send it without asking whether the firm already holds it. The
+   * read has usually STARTED already — the register begins reading when a file is chosen — so this
+   * reports from wherever the read has got to and the signal stops the watching, not the read.
    */
-  readonly hash: (file: File, options: HashProgressOptions) => Promise<string | null>;
+  readonly digest: (
+    entry: DroppedEntry,
+    options: { onProgress: (readBytes: number) => void; signal: AbortSignal },
+  ) => Promise<string | null>;
   readonly createFolder: (
     input: { matterId: string; parentFolderId: string | null; name: string },
     idempotencyKey: string,
@@ -107,12 +123,35 @@ function realDependencies(): UploadQueueDependencies {
   return {
     fetchImpl: fetch,
     upload: uploadIntoFolder,
-    hash: sha256OfFile,
+    digest: (entry, options) => digestOf(entry, options),
     createFolder: (input, idempotencyKey) => createFolderRequest(fetch, input, idempotencyKey),
     now: () => new Date().toISOString(),
     newIdentifier: () => crypto.randomUUID(),
   };
 }
+
+/*
+ * WHY THE BYTE WRITE GETS A LINE OF ITS OWN.
+ *
+ * Every step of an upload but one goes to the app's own host, where a failure comes back as a
+ * problem with an Error ID and the host's log holds the other half of the story. The byte write
+ * does not: the browser writes STRAIGHT to the firm's object storage on a signed URL, so a refusal
+ * there reaches neither the app nor its log, and a browser reports every one of them the same way
+ * — no status, no body, nothing to read. The shape it leaves behind is a reservation, no bytes,
+ * and an abort a few seconds later; that ladder of retries is what the seconds are.
+ *
+ * So the line says where the fault is rather than only that there was one. It is the storage that
+ * did not answer, not the app — which is provable from the reservation that had just succeeded —
+ * and the ordinary cause is a bucket that does not allow this site to write to it, which no amount
+ * of retrying by the reader will change. Saying "nothing answered" there sent readers to look at
+ * their connection for a fault that is not on their side of it.
+ */
+const STORAGE_UNREACHABLE =
+  "The firm's storage did not answer, so this file was not sent and nothing was saved. These " +
+  "bytes go from this browser straight to storage rather than through the rest of the " +
+  "application, which is answering normally — so the fault is on that route, not with the file " +
+  "or with the matter. Try again; if it keeps happening, the storage is refusing writes from " +
+  "this site and an administrator has to put that right.";
 
 /** The failure line carries the stage and the Error ID, because a report needs both. */
 export function uploadFailureReason(outcome: UploadOutcome): string {
@@ -126,6 +165,7 @@ export function uploadFailureReason(outcome: UploadOutcome): string {
     );
   }
   if (outcome.kind === "transport") {
+    if (outcome.stage === "uploading") return STORAGE_UNREACHABLE;
     return `Nothing answered while ${UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase()}.`;
   }
   return "";
@@ -140,7 +180,8 @@ export class UploadBatch {
   readonly destinationFolderId: string | null;
   readonly destinationLabel: string;
   readonly createdAtBasis: "upload" | "source";
-  readonly documentTypeId: string | null;
+  readonly documentTypeIds: ReadonlyMap<string, string | null>;
+  readonly checkDuplicates: boolean;
   readonly startedAt: string;
   items = $state<UploadBatchItem[]>([]);
   finishedAt = $state<string | null>(null);
@@ -167,7 +208,8 @@ export class UploadBatch {
     this.destinationFolderId = plan.destinationFolderId;
     this.destinationLabel = plan.destinationLabel;
     this.createdAtBasis = plan.createdAtBasis;
-    this.documentTypeId = plan.documentTypeId;
+    this.documentTypeIds = new Map(plan.documentTypeIds);
+    this.checkDuplicates = plan.checkDuplicates;
     this.startedAt = dependencies.now();
     this.index = new MatterFileIndex(plan.folders, plan.files);
     this.#dependencies = dependencies;
@@ -312,14 +354,17 @@ export class UploadBatch {
       this.#takenIn.set(landing.id, taken);
     }
     const filedAs = disambiguated(item.entry.file.name, taken);
-    // The digest is taken before the reservation, once per item, and kept: a retry asks the same
-    // question with the same answer rather than reading the file twice.
-    item.stage = "hashing";
+    /*
+     * The digest, which the register began reading when the file was CHOSEN. Usually it is already
+     * answered by the time this lane reaches the file and this is one microtask; where it is not,
+     * the lane waits and the row reports the read from wherever it has got to. Either way the file
+     * is read once per tab, so a retry asks the same question with the same answer.
+     */
     item.sentBytes = 0;
-    item.hashedBytes = 0;
     delete item.reason;
-    if (item.sha256 === undefined) {
-      item.sha256 = await this.#dependencies.hash(item.entry.file, {
+    if (this.checkDuplicates && item.sha256 === undefined) {
+      item.stage = "hashing";
+      item.sha256 = await this.#dependencies.digest(item.entry, {
         signal: this.#abort.signal,
         onProgress: (readBytes) => {
           item.hashedBytes = readBytes;
@@ -336,7 +381,7 @@ export class UploadBatch {
       folderId: landing.id,
       file: item.entry.file,
       name: filedAs,
-      documentTypeId: this.documentTypeId,
+      documentTypeId: this.documentTypeIds.get(item.key) ?? null,
       createdAtBasis: this.createdAtBasis,
       sha256: item.sha256,
       signal: this.#abort.signal,

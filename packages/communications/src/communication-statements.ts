@@ -39,6 +39,9 @@ function matterClauseFor(
 
 export interface CommunicationRow {
   readonly id: CommunicationId;
+  // The number a person says out loud (numbering.ts). Null on rows written before the column
+  // existed and never numbered; nothing writes one now without drawing it.
+  readonly reference_number: string | null;
   readonly channel: CommunicationChannel;
   readonly direction: CommunicationDirection;
   readonly matter_id: MatterId | null;
@@ -49,6 +52,9 @@ export interface CommunicationRow {
   readonly counterparty_entity_id: string | null;
   readonly member_user_id: UserId | null;
   readonly occurred_at: string;
+  // When the line closed, which is a different fact from how long the call ran: a caller on hold
+  // occupies the span without spending it. Null on a message and on a call nobody timed.
+  readonly ended_at: string | null;
   readonly duration_seconds: number | null;
   readonly body: string | null;
   readonly summary: string | null;
@@ -73,6 +79,7 @@ export interface CommunicationWithMatterRow extends CommunicationRow {
 
 const COLUMNS = [
   "id",
+  "reference_number",
   "channel",
   "direction",
   "matter_id",
@@ -81,6 +88,7 @@ const COLUMNS = [
   "counterparty_entity_id",
   "member_user_id",
   "occurred_at",
+  "ended_at",
   "duration_seconds",
   "body",
   "summary",
@@ -102,6 +110,9 @@ const MATTER_JOIN = `LEFT JOIN matter ON matter.id = ${COMMUNICATION_TABLE}.matt
 
 export interface InsertCommunicationInput {
   readonly id: CommunicationId;
+  // Drawn by the service before the batch is composed, so the ensure-row and the guarded increment
+  // that make it safe are statements in the same batch as this insert.
+  readonly referenceNumber: string;
   readonly channel: CommunicationChannel;
   readonly direction: CommunicationDirection;
   readonly matterId: MatterId | null;
@@ -109,6 +120,7 @@ export interface InsertCommunicationInput {
   readonly counterpartyEntityId: string | null;
   readonly memberUserId: UserId | null;
   readonly occurredAt: string;
+  readonly endedAt: string | null;
   readonly durationSeconds: number | null;
   readonly body: string | null;
   readonly summary: string | null;
@@ -129,13 +141,15 @@ export function insertCommunicationStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${COMMUNICATION_TABLE} (id, channel, direction, matter_id, counterparty_number, ` +
-        `counterparty_entity_id, member_user_id, occurred_at, duration_seconds, body, summary, ` +
-        `disposition, producer, logged_by_user_id, carrier_reference, created_at, updated_at) ` +
-        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'member', ?13, NULL, ?14, ?14)`,
+      `INSERT INTO ${COMMUNICATION_TABLE} (id, reference_number, channel, direction, matter_id, ` +
+        `counterparty_number, counterparty_entity_id, member_user_id, occurred_at, ended_at, ` +
+        `duration_seconds, body, summary, disposition, producer, logged_by_user_id, ` +
+        `carrier_reference, created_at, updated_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'member', ?15, NULL, ?16, ?16)`,
     )
     .bind(
       input.id,
+      input.referenceNumber,
       input.channel,
       input.direction,
       input.matterId,
@@ -143,6 +157,7 @@ export function insertCommunicationStatement(
       input.counterpartyEntityId,
       input.memberUserId,
       input.occurredAt,
+      input.endedAt,
       input.durationSeconds,
       input.body,
       input.summary,
@@ -225,6 +240,7 @@ export interface UpdateCommunicationInput {
   readonly counterpartyEntityId: string | null;
   readonly memberUserId: UserId | null;
   readonly occurredAt: string;
+  readonly endedAt: string | null;
   readonly durationSeconds: number | null;
   readonly body: string | null;
   readonly summary: string | null;
@@ -238,8 +254,8 @@ export function updateCommunicationStatement(
   return database
     .prepare(
       `UPDATE ${COMMUNICATION_TABLE} SET channel = ?1, direction = ?2, counterparty_number = ?3, ` +
-        `counterparty_entity_id = ?4, member_user_id = ?5, occurred_at = ?6, duration_seconds = ?7, ` +
-        `body = ?8, summary = ?9, updated_at = ?10 WHERE id = ?11`,
+        `counterparty_entity_id = ?4, member_user_id = ?5, occurred_at = ?6, ended_at = ?7, ` +
+        `duration_seconds = ?8, body = ?9, summary = ?10, updated_at = ?11 WHERE id = ?12`,
     )
     .bind(
       input.channel,
@@ -248,6 +264,7 @@ export function updateCommunicationStatement(
       input.counterpartyEntityId,
       input.memberUserId,
       input.occurredAt,
+      input.endedAt,
       input.durationSeconds,
       input.body,
       input.summary,
@@ -306,13 +323,16 @@ function searchConditionFor(
   // matter's title can never be matched, because its rows are not in the result to begin with.
   return {
     condition:
-      `(${COMMUNICATION_TABLE}.body LIKE ? ESCAPE '\\' ` +
+      // The REFERENCE NUMBER first, because it is the one thing a caller is ever asked to quote
+      // back — somebody ringing about "2026-09-08-0042" is looking for exactly one row.
+      `(${COMMUNICATION_TABLE}.reference_number LIKE ? ESCAPE '\\' ` +
+      `OR ${COMMUNICATION_TABLE}.body LIKE ? ESCAPE '\\' ` +
       `OR ${COMMUNICATION_TABLE}.summary LIKE ? ESCAPE '\\' ` +
       `OR ${COMMUNICATION_TABLE}.counterparty_number LIKE ? ESCAPE '\\' ` +
       `OR matter.title LIKE ? ESCAPE '\\' ` +
       `OR matter.matter_number LIKE ? ESCAPE '\\' ` +
       `OR matter.consultation_number LIKE ? ESCAPE '\\')`,
-    bindings: [pattern, pattern, pattern, pattern, pattern, pattern],
+    bindings: [pattern, pattern, pattern, pattern, pattern, pattern, pattern],
   };
 }
 

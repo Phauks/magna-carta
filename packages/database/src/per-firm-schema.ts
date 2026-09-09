@@ -3243,6 +3243,16 @@ export const communication = sqliteTable(
   "communication",
   {
     id: text("id").primaryKey().$type<CommunicationId>(), // communication_ handle
+    // THE NUMBER A PERSON SAYS OUT LOUD. A handle is what the platform joins on and it is not
+    // something anybody can read back down a telephone; a firm that has just taken a call needs to
+    // be able to name the record of it — on a message slip, in a note on the file, to the caller
+    // themselves. It carries the day the call happened and a per-day sequence, so it sorts the way a
+    // log is read and says when it happened without being looked up.
+    //
+    // Nullable, because the column lands on a table that already holds rows. The migration that adds
+    // it numbers every one of them, so a null here means a row written by something that has not
+    // been taught to draw one rather than a row that is allowed to go without.
+    referenceNumber: text("reference_number"),
     channel: text("channel", { enum: ["voice", "sms", "mms"] }).notNull(),
     direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
     // THE ANCHOR, and it is nullable for two different reasons worth keeping apart. An inbound text
@@ -3271,6 +3281,13 @@ export const communication = sqliteTable(
     // Tuesday here and Thursday in created_at. An instant rather than the calendar's civil-date pair
     // because a call occupies a moment somebody can name, unlike a note about no particular time.
     occurredAt: text("occurred_at").notNull(),
+    // WHEN THE CALL ENDED, which is a different fact from how long it ran (owner ruling,
+    // 2026-09-08: a typed length "doesn't need to match calculation, considering people can be put
+    // on hold"). The span from occurred_at to here is the time the line was open; duration_seconds
+    // is the time that was actually spent on the call. A firm that bills the second and a firm that
+    // records the first are both served, and a form that derived either from the other would be
+    // asserting they are the same number. Null on a message, and null on a call nobody timed.
+    endedAt: text("ended_at"),
     // Whole seconds, voice only. Null on a message, and null on a call whose length nobody recorded.
     durationSeconds: integer("duration_seconds"),
     // The message text for sms/mms. Null for voice, whose content is the recording and the
@@ -3329,6 +3346,16 @@ export const communication = sqliteTable(
     uniqueIndex("communication_carrier_reference_unique_index")
       .on(table.carrierReference)
       .where(sql`${table.carrierReference} IS NOT NULL`),
+    // ONE ROW PER DRAWN NUMBER, and this index is the load-bearing backstop on the draw rather than
+    // a tidiness constraint. The general warning in @magna-carta/sequence-numbering — that a unique
+    // index on a RENDERED number cannot stand in for an allocation table — is about schemes carrying
+    // a segment that varies within one counter scope. This scheme carries none: the scope key IS the
+    // day, and the day is the whole of the rendered string apart from the counter value, so two
+    // draws that observed the same value in the same scope render byte-identical strings and the
+    // loser aborts here. Partial, because rows written before the column existed carry none.
+    uniqueIndex("communication_reference_number_unique_index")
+      .on(table.referenceNumber)
+      .where(sql`${table.referenceNumber} IS NOT NULL`),
     check("communication_counterparty_number_check", sql`length(${table.counterpartyNumber}) > 0`),
     // The three closed vocabularies, held at the database and not only at the type checker: a value
     // that reaches a write without appearing here fails in SQLite, so widening one costs a reviewed
@@ -3357,6 +3384,25 @@ export const communication = sqliteTable(
         AND (${table.producer} = 'carrier' OR ${table.carrierReference} IS NULL)`,
     ),
   ],
+);
+
+// The reference-number sequence for the call and text log, one counter per calendar day. next_value
+// is the sanctioned exception to append-only, as it is for matter numbers; the mechanism — ensure
+// the row, increment under a guard, retry the loser — lives in packages/sequence-numbering.
+//
+// A DAY IS THE SCOPE because the number carries the day, and a scope any wider would hand out a
+// five-digit tail nobody can read back down a telephone. There is no allocation table beside this
+// one, which is the one place this sequence departs from its three siblings: the rendered number
+// contains the whole of its scope, so the partial unique index on communication.reference_number
+// catches a losing draw exactly as an allocation primary key would. The reasoning is written out
+// where that index is declared.
+export const communicationNumberCounter = sqliteTable(
+  "communication_number_counter",
+  {
+    scopeKey: text("scope_key").primaryKey(), // the day the call happened, as YYYY-MM-DD
+    nextValue: integer("next_value").notNull(),
+  },
+  (table) => [check("communication_number_counter_next_value_check", sql`${table.nextValue} > 0`)],
 );
 
 // ---------------------------------------------------------------------------------------------

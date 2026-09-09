@@ -241,6 +241,21 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         enabled: true,
         maxAge: 300,
       },
+      // THE FRESHNESS DIAL, OFF — because in the pinned 1.6.22 it gates a READ and none of the
+      // writes anybody would want it for. `freshSessionMiddleware` is mounted on exactly two
+      // endpoints: /list-sessions and /unlink-account (no social provider is configured here, so
+      // that one is unreachable). Revoking a session, changing a password and deleting an account
+      // all go through `sensitiveSessionMiddleware`, which re-reads the session store and does NOT
+      // consult freshAge. Left at the library default of one day, the only thing it would do here
+      // is 403 the signed-in-devices screen (apps/web/src/routes/account/sessions) for anybody
+      // signed in longer than a day — which is precisely the long-lived "keep me signed in"
+      // session that screen exists to let somebody find and end. Being unable to SEE a suspicious
+      // device while still being allowed to revoke one is not a security posture, it is a gap.
+      //
+      // This is not the step-up re-authentication the account surface is designed around; that is
+      // a deliberate re-prompt in front of a named act, and it is still to be built. When it lands
+      // it goes in front of the acts, not in front of a list.
+      freshAge: 0,
     },
     // The one tenant firm this person belongs to; input: false keeps the field out of every
     // request body — only server-side code (the joining paths) ever sets it. required: false
@@ -283,6 +298,62 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
           // to distinguish it inside this hook.
           after: async (session) => {
             await writeAuthAuditGuarded(env, { event: "login.success", userId: session.userId });
+          },
+        },
+        delete: {
+          // WHICH SESSION DELETION MEANT SOMETHING — decided by the endpoint AND by whether the row
+          // that went is the one that endpoint was asked to remove. The endpoint alone is not
+          // enough, and the reason is worth stating because it is not visible from here.
+          //
+          // A session row is deleted by half a dozen paths in the pinned 1.6.22 that are not a
+          // person ending a session: sweeping an EXPIRED row on a read, and the rotation the
+          // two-factor plugin performs when a factor is enabled or disabled mid-session. Auditing
+          // every deletion would put a departure in the trail at the moment somebody was signing IN
+          // with a second factor, and a trail that says the opposite of what happened is worse than
+          // one that says nothing.
+          //
+          // The endpoint gate alone still let one through. better-call resolves a nested endpoint's
+          // path as `context.path || path` (better-call/dist/context.mjs), so the `getSession` the
+          // revoke endpoints' own session middleware performs INHERITS the outer path — and when
+          // that call finds the caller's session expired it deletes it, here, wearing the name
+          // `/revoke-session`. The request then 401s, having revoked nothing, and an
+          // endpoint-only gate filed `session.revoked` for it (test/auth-audit.test.ts pins this).
+          //
+          // So each path also says which row it means:
+          //   /sign-out              — the caller's own session, and the endpoint deletes exactly
+          //                            one row it read from the cookie. No nested getSession runs
+          //                            under it, so the path is the whole test.
+          //   /revoke-session        — the row whose token the request NAMED. A swept session is
+          //                            the caller's cookie token, which is not the asked-for one.
+          //   /revoke-other-sessions — any row that is NOT the caller's own. A sweep deletes
+          //                            precisely the caller's own, and during that sweep the
+          //                            endpoint's session is not yet established at all, so an
+          //                            unresolvable caller is skipped rather than guessed at.
+          //
+          // /revoke-sessions is deliberately absent: it deletes through the MANY path, which does
+          // not reach this hook, so listing it would claim a row that never gets written. Nothing
+          // in this application calls it. A null context (a deletion outside any endpoint) is
+          // skipped too — the same posture the two_factor transition detector above takes.
+          after: async (session, endpointContext) => {
+            const deletedToken = session.token;
+            let event: string | null = null;
+            if (endpointContext?.path === "/sign-out") {
+              event = "logout";
+            } else if (endpointContext?.path === "/revoke-session") {
+              const body: unknown = endpointContext.body;
+              const askedFor =
+                typeof body === "object" && body !== null && "token" in body
+                  ? (body as { token?: unknown }).token
+                  : undefined;
+              if (askedFor === deletedToken) event = "session.revoked";
+            } else if (endpointContext?.path === "/revoke-other-sessions") {
+              const callerToken = endpointContext.context.session?.session.token;
+              if (callerToken !== undefined && callerToken !== deletedToken) {
+                event = "session.revoked";
+              }
+            }
+            if (event === null) return;
+            await writeAuthAuditGuarded(env, { event, userId: session.userId });
           },
         },
       },

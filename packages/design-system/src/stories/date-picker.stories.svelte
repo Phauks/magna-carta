@@ -16,8 +16,9 @@
     title: "Inputs/DatePicker",
     component: DatePicker,
     args: { label: "Closing date" },
+    argTypes: { size: { control: "select", options: ["sm", "default", "lg"] } },
     parameters: {
-      controls: { include: ["label"] },
+      controls: { include: ["label", "size", "disabled"] },
     },
   });
 
@@ -124,6 +125,32 @@
   {#snippet template(args: DatePickerStoryArgs)}
     <div class="max-w-xs">
       <DatePicker {...args} placeholder={YEAR_2000} minValue={BIRTH_FLOOR} maxValue={BIRTH_CEILING} />
+    </div>
+  {/snippet}
+</Story>
+
+<!-- Named without a visible label. The segmented field is a group, and the group's accessible name
+     normally comes from the primitive's own Label; where a surface has no room for one — the data
+     table's per-column From/To range, two fields inside a menu — `aria-label` supplies it instead.
+     It is a declared prop rather than part of the spread because the spread goes to the primitive's
+     Root, which renders no DOM, so an aria-label written the obvious way disappears silently. -->
+<Story
+  name="Named without a label"
+  args={{ label: undefined, size: "sm" }}
+  play={async ({ canvas, step }) => {
+    await step("The field carries its name with no label rendered", async () => {
+      await expect(canvas.getByRole("group", { name: "From" })).toBeVisible();
+      await expect(canvas.queryByText("From")).toBeNull();
+    });
+
+    await step("The compact size is the Input's own, so the two can share a row", async () => {
+      await expect(canvas.getByRole("group", { name: "From" })).toHaveClass("mc-date-field-sm");
+    });
+  }}
+>
+  {#snippet template(args: DatePickerStoryArgs)}
+    <div class="max-w-xs">
+      <DatePicker {...args} aria-label="From" placeholder={JUNE_2026} />
     </div>
   {/snippet}
 </Story>

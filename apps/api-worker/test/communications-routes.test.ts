@@ -161,6 +161,9 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await firmDatabase.prepare("DELETE FROM communication").run();
+  // The day's counter goes with the rows. It is the sequence's own state, and leaving it behind
+  // would make every number in this file depend on how many tests ran before it.
+  await firmDatabase.prepare("DELETE FROM communication_number_counter").run();
 });
 
 describe("who may see the queue of unfiled calls and texts", () => {
@@ -415,5 +418,83 @@ describe("correcting a record somebody typed", () => {
     // Not found rather than forbidden: an id-addressed write must not become a way to learn that a
     // row a member cannot list exists.
     expect(refused.status).toBe(404);
+  });
+});
+
+describe("the number a call carries, and the one it is about to be given", () => {
+  /*
+   * The owner's ruling of 2026-09-08: "all calls and logs should have a number, which we can identify
+   * in the log, before it has been created. should incorporate date." The preview is what makes the
+   * second half true — the person entering the call is still on the telephone, and the save is too
+   * late for the sentence they are in the middle of.
+   */
+  it("answers the number the next call recorded for that day would draw", async () => {
+    const response = await get(
+      "/api/v1/communications/next-number?occurredAt=2026-09-07T10:15:00.000Z",
+      ownerCookie,
+    );
+    expect(response.status).toBe(200);
+    expect((await readJson<{ referenceNumber: string }>(response)).referenceNumber).toBe(
+      "2026-09-07-0001",
+    );
+  });
+
+  it("hands that same number to the record when it is saved", async () => {
+    const previewed = (
+      await readJson<{ referenceNumber: string }>(
+        await get(
+          "/api/v1/communications/next-number?occurredAt=2026-09-07T10:15:00.000Z",
+          ownerCookie,
+        ),
+      )
+    ).referenceNumber;
+    const id = await logCall(ownerCookie, { occurredAt: "2026-09-07T10:15:00.000Z" });
+    const read = await get(`/api/v1/communications/${id}`, ownerCookie);
+    expect((await readJson<{ referenceNumber: string }>(read)).referenceNumber).toBe(previewed);
+  });
+
+  it("moves on once that number is taken, rather than promising it twice", async () => {
+    await logCall(ownerCookie, { occurredAt: "2026-09-07T10:15:00.000Z" });
+    const response = await get(
+      "/api/v1/communications/next-number?occurredAt=2026-09-07T10:15:00.000Z",
+      ownerCookie,
+    );
+    expect((await readJson<{ referenceNumber: string }>(response)).referenceNumber).toBe(
+      "2026-09-07-0002",
+    );
+  });
+
+  it("is matched by the log's own search, because it is what a caller quotes back", async () => {
+    await logCall(ownerCookie, { occurredAt: "2026-09-07T10:15:00.000Z" });
+    const found = await get("/api/v1/communications?search=2026-09-07-0001", ownerCookie);
+    expect((await readJson<{ data: unknown[] }>(found)).data).toHaveLength(1);
+  });
+});
+
+describe("the end of a call, which is not its length", () => {
+  it("stores both, and does not require them to agree", async () => {
+    // An hour on the line, twenty minutes of call. Both are true — the rest was hold.
+    const id = await logCall(ownerCookie, {
+      occurredAt: "2026-09-07T10:00:00.000Z",
+      endedAt: "2026-09-07T11:00:00.000Z",
+      durationSeconds: 20 * 60,
+    });
+    const read = await readJson<{ endedAt: string | null; durationSeconds: number | null }>(
+      await get(`/api/v1/communications/${id}`, ownerCookie),
+    );
+    expect(read.endedAt).toBe("2026-09-07T11:00:00.000Z");
+    expect(read.durationSeconds).toBe(20 * 60);
+  });
+
+  it("refuses an end that precedes the start", async () => {
+    const refused = await post("/api/v1/communications", ownerCookie, {
+      channel: "voice",
+      direction: "inbound",
+      counterpartyNumber: "(702) 555-0143",
+      occurredAt: "2026-09-07T10:00:00.000Z",
+      endedAt: "2026-09-07T09:00:00.000Z",
+      summary: "A call that cannot have happened this way.",
+    });
+    expect(refused.status).toBe(422);
   });
 });

@@ -57,6 +57,7 @@
     type BillActionContext,
   } from "./bill-actions.ts";
   import { invoiceRecordSheet } from "./invoice-print-sheet.ts";
+  import { printSheetDates } from "$lib/print-sheet";
   import {
     billUnpaidMinor,
     creditedMinor,
@@ -265,8 +266,7 @@
           matterNumber,
           clientName,
           money: (amount) => formatMoney(amount, { currency }),
-          date: (isoDate) => formatDate(isoDate),
-          instantDate: (instant) => formatInstantDate(instant),
+          ...printSheetDates(),
           printedAt: formatInstant(new Date()),
         }),
   );
@@ -383,7 +383,7 @@
             )}
           {/if}
         {/if}
-        {@render fact("Created", formatDate(row.summary.createdAt))}
+        {@render fact("Created", formatInstantDate(row.summary.createdAt))}
         {@render fact(
           "Finalized By",
           "Not carried by this read",
@@ -777,7 +777,7 @@
               </Card.Header>
               <Card.Content class="flex flex-col gap-4 px-12">
                 <p class="text-xs text-text-subtle">
-                  Opened {formatDate(credit.openedAt)} by the credit note against this bill. The firm
+                  Opened {formatInstantDate(credit.openedAt)} by the credit note against this bill. The firm
                   holds money it has said is not its own; the matter will not close while this is
                   open.
                 </p>

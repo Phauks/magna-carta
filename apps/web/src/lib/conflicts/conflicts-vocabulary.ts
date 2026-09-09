@@ -101,20 +101,22 @@ export const NICKNAME_EQUIVALENCE_SOURCE = "nickname_equivalence";
 
 export const SOURCE_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = {
   party: {
-    label: "Party",
-    meaning: "Name and identifier similarity over the firm's whole Directory.",
+    label: "Name or identifier",
+    meaning:
+      "The party's own name or identifier matched a record in the firm's Directory. Always searched.",
   },
   graph: {
-    label: "Graph",
-    meaning: "Reached by traversing a recorded relationship out from a subject party.",
+    label: "Relationship",
+    meaning:
+      "Reached by walking out from a party you named, through a relationship the Directory holds.",
   },
   imputation: {
-    label: "Imputation",
+    label: "The firm's own people",
     meaning:
-      "An identity join between the matter's parties and the firm's own members. Never a name match.",
+      "This firm's members joined against the matter's parties by identity, never by name. Needs a matter.",
   },
   content: {
-    label: "Content",
+    label: "Documents and messages",
     meaning: "Message participants and document text. No corpus exists behind it yet.",
   },
   [PRIOR_FIRM_HISTORY_SOURCE]: {
@@ -140,15 +142,27 @@ export const STRICTNESS_LEVELS: readonly Strictness[] = ["balanced", "over_inclu
 
 export const STRICTNESS_VOCABULARY: Readonly<Record<Strictness, VocabularyEntry>> = {
   balanced: {
-    label: "Balanced",
-    meaning: "The firm's configured name roles and the primary phonetic encoder.",
+    label: "Standard",
+    meaning:
+      "The name rows the firm has chosen to compare — current, former, maiden and alias, out of the box — and names that SOUND alike under the firm's main encoder.",
   },
   over_inclusive: {
-    label: "Over-inclusive",
+    label: "Widest",
     meaning:
-      "Every name role the corpus holds and every encoder. A strict superset of balanced: raising it can only add candidates.",
+      "Every name row the Directory holds, trading styles and also-known-as names included, under every sound-alike encoder. A strict superset of Standard: widening can only add candidates, never hide one.",
   },
 };
+
+/**
+ * What the two bands are a choice BETWEEN, in the reader's words.
+ *
+ * The stored word is `strictness`, and it was on the screen as "Strictness" until somebody asked
+ * what strictness searched for — a fair question, since the word describes a dial rather than a
+ * thing. What the dial actually moves is how many ways a name may be spelled and still count, so
+ * that is what the field is called. The column, the form and the recorded scope all take it from
+ * here, so they cannot come to call it three things.
+ */
+export const NAME_MATCHING_LABEL = "Name matching";
 
 /** How one strictness band reads. An unrecognized stored word prints itself. */
 export function strictnessVocabulary(strictness: string): VocabularyEntry {
@@ -217,11 +231,16 @@ export function triggerVocabulary(trigger: string): VocabularyEntry {
 }
 
 /**
- * The triggers a person may choose when they run a check by hand.
+ * The only two triggers a check somebody ran by hand may be filed under.
  *
- * The others name an event or the clock, and a run a person started is not one of those. Offering
- * them would let somebody file a manual run under a word that claims the firm's system caught
- * something, which is exactly the claim the trigger column exists to keep honest.
+ * The others name a corpus change or the clock, and a run a person started is not one of those.
+ * Filing a manual run under one of them would claim the firm's system caught something when
+ * somebody clicked, which is exactly the claim the trigger column exists to keep honest.
+ *
+ * Nothing OFFERS these two any more. Both name WHEN a check ran — the screen before the firm takes
+ * a matter on, and the moment it accepts — which the record already knows, so the panel derives it
+ * (check-request.ts) instead of asking a member to classify their own act. What this list still is,
+ * and the reason it is still here, is the bound that derivation is held to.
  */
 export const OPERATOR_TRIGGERS: readonly ConflictsTrigger[] = ["preliminary", "comprehensive"];
 
@@ -369,13 +388,20 @@ export const EDGE_CLASS_VOCABULARY: Readonly<Record<string, VocabularyEntry>> = 
   corporate: {
     label: "Corporate family",
     meaning:
-      "The same legal person continuing under another name or shell. Traversed transitively, bounded only by the closure cap.",
+      "A parent, a subsidiary or a successor — the same business continuing under another name or another shell. Followed all the way, however long the chain runs.",
   },
-  control: { label: "Control", meaning: "Who directs whom." },
-  family: { label: "Family", meaning: "A personal relationship between two people." },
+  control: {
+    label: "Ownership and control",
+    meaning:
+      "Officers, directors, partners, trustees, owners, employees and agents: who directs, or is directed by, whom.",
+  },
+  family: {
+    label: "Family and personal",
+    meaning: "Spouses, beneficiaries and guardians: a personal relationship between two people.",
+  },
   representation: {
     label: "Representation",
-    meaning: "A role link recorded as a relationship rather than as a party row.",
+    meaning: "Somebody recorded as acting for somebody else — counsel, an agent, a role on a file.",
   },
 };
 

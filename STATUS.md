@@ -55,7 +55,25 @@ facts, the check-your-email state both doors end at, and the screen the emailed 
 Two joining steps land short of where a visitor would expect and say so rather than pretending
 otherwise — the confirmation mail carries a bare token with no link to follow, and the Terms of
 Service and Privacy Policy the two acknowledgements point at are not published, so that consent is a
-browser-side gate recorded nowhere. |
+browser-side gate recorded nowhere.
+
+Signing out is built at both ends, which closes the last control that was inert only because
+authentication had not shipped. The profile menu's `Sign out` ends the session server-first, drops
+what the session left in the browser, and leaves by a document load rather than a route change so
+the tab's memory of a firm's data does not survive into whoever sits down next; a sign-out the
+server did not confirm reports that the session is still open instead of navigating away on an
+unanswered request.
+
+`Account → Active Sessions` is a new section beside Profile and Security — the first account surface
+that is a live list rather than a seam — over Better Auth's own list and revoke routes: a row per
+device with the one being read on marked and left without a button, per-device sign-out, and
+`Sign out everywhere else`. It states the five-minute revocation lag rather than leaving it to be
+discovered, and refuses to state a "last used" time the record cannot support. Two findings came out
+of building it: the library's session-freshness default would have 403ed the listing for any session
+older than a day (the exact one the screen exists to manage), so `freshAge` is off with the
+reasoning recorded at the config; and the audit trail's new `logout` / `session.revoked` events are
+decided by the ENDPOINT a session was deleted under, because expiry sweeps and the two-factor
+session rotation delete rows through the same hook and neither is somebody leaving. |
 
 ## Phase 1 — Core domain (firm + matters)
 
@@ -492,7 +510,7 @@ processing gate never reads as working. It selects no model: an unconfigured fir
 platform's reasoning tier, and a control that wrote a model id would silently pin it. **Off by
 default is unchanged** — what changed is that off is now a state a firm can leave. |
 | R2 object dimensions (matter + object class in object metadata) | [x] Opus 5 | [-] | [-] | [x] Opus 5 | [-] | [-] | [x] Opus 5 | `@magna-carta/object-dimensions` — the two dimensions every object in a firm's bucket carries (`matter` on matter-scoped objects, `object_class` on all of them) and the closed class vocabulary behind them. Stamped at put time by every write path: the presigned PUT signs the metadata headers, so a browser upload that drops one is refused rather than landing an unscopeable object; the multipart create carries them (a multipart object's metadata is fixed there); a version cut inherits its source's matter and only changes class; firm-level objects (bundles, templates, letterheads, conversion artifacts, staged mail, the content-addressed email original) record the class and deliberately no matter. `dimension-backfill-sweep.ts` repairs what predates the stamp on the daily storage pass — candidates come from the R2 listing rather than any new schema, bounded per firm and convergent over failures, and it doubles as the standing detector for a write path that forgets. `apps/api-worker/test/r2-object-dimension-scan.test.ts` is that guard in the suite. `client` and `confidentiality_scope` are reserved and written by nothing. |
-| Notifications — delivery | [-] | [x] Opus 5 | [x] Opus 5 | [~] Opus 5 | [ ] | [ ] | [ ] | Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second
+| Notifications — delivery | [-] | [x] Opus 5 | [x] Opus 5 | [~] Opus 5 | [x] Opus 5 | [ ] | [ ] | Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second
 non-exclusive translator pass on the shipped per-firm queue (no producing package changed —
 thirty-one topics already commit transactionally), the member-scoped read API behind
 `notifications:read`, the firm-ceiling email detail level, and the firm-configurable retention window
@@ -550,9 +568,10 @@ password reset; catastrophic here, because the run would record `sent` rows and 
 for mail printed to a log, and the member would never hear about those notifications again. The
 digest port reports one of three typed not-configured reasons instead, counted every pass.
 
-**Not built, deliberately:** any `apps/web` change. An email template is not a screen, and the
-notification centre and the preference screens stay deferred; `docs/user/` says plainly that the
-digest cannot reach anybody until the firm's outbound mail is provisioned.
+**Not built in slice 4, deliberately:** any `apps/web` change. An email template is not a screen, and
+the notification centre and the preference screens stayed deferred; `docs/user/` says plainly that the
+digest cannot reach anybody until the firm's outbound mail is provisioned. (Slice 5 below builds both
+screens; the provisioning sentence still holds.)
 
 **Repaired in passing:** the per-firm drizzle snapshot had fallen one migration behind the schema
 (the discovery processing-route migration was hand-written without refreshing it), so the next
@@ -610,7 +629,40 @@ failed. Now `GET`/`PATCH /api/v1/firm/notifications/policy` under a new
 `firm:manageNotificationPolicy` seeded to Owner/Admin — deliberately not the member key
 `notifications:read`, which every default role including Read-only carries. Still not written by
 anything: the firm's email DETAIL-LEVEL ceiling, which has no write statement in either tier and is a
-separate gap rather than an omission here. |
+separate gap rather than an omission here.
+
+**Slice 5 built — the interface, and the one contract gap it exposed.** The read API, both preference
+routes and the firm policy route had shipped with no caller: everything above was reachable only by
+`curl`. Built: the notification centre (`/notifications`), which replaces the honest stub with the
+real feed — cursor-paged through the shared `PagedList`, narrowed by state and category as QUERY
+parameters so a filtered feed is cheaper rather than merely shorter, settling a row on follow and
+dismissing separately, and stating what the retention sweep took while unread rather than showing a
+reassuring zero. The top-bar bell became its own component beside the download and upload trays,
+carrying a live unread badge over a shared count both surfaces read, polled on a slow interval and on
+focus, and never cleared by a failed read. Settings · Notifications — the per-category
+matrix — arrived on `main` from the settings stream while this one was in flight, and **that one
+stands**: it is a table rather than a page of rows, it tracks a write per row, and it landed first.
+This stream's own copy of that screen was dropped at the merge, and what survives from it is the
+reconciliation the collision forced — the category's words and the preference transport now have
+ONE home each (`category-vocabulary.ts`, `preferences-api.ts`), which the feed and the bell read
+too, rather than a second vocabulary that would have drifted the first time either was edited.
+
+The card is composed on the client from the kind and the declared facts
+(`apps/web/src/lib/notifications/notification-presentation.ts`), because the row carries no sentence —
+and a kind this client has never heard of renders as the category's own noun rather than being
+dropped, so a client that shipped before a type did cannot swallow a notification somebody was meant
+to see. `apps/web/test/notification-presentation.test.ts` scans the server's registry as text (apps/web
+does not depend on the notifications package and should not start) and fails when a registered kind
+has no words here — the same pairing scan, in the same direction, that the timeline registry gets.
+
+**Contract gap found and closed: `read-all` was unusable by any client.** The route requires a
+`throughCursor` naming the newest row the member saw, and no route handed one out — `nextCursor` names
+the page's OLDEST row and is null at the end of the record, which is precisely the common case of a
+member whose whole backlog fits on one page. The subsystem's own test minted the cursor by hand, which
+is why nothing had noticed. The feed page now reports `readThroughCursor` beside `nextCursor`, and the
+route test uses it instead of hand-minting, so the cursor's encoding stays in the one module that owns
+it. The alternatives were both bad: mint it in the client, putting the encoding in a second place, or
+fire one request per visible row, which is neither atomic nor able to clear the aged-out tally. |
 | Directory pronouns | [-] | [-] | [-] | [x] Opus 5\* | [ ] | [-] | [ ] | Owner override of the shipped no-pronoun-helper default: optional owner-entered pronouns on `directory_person` (the whole declension plus verb agreement, all-or-nothing at the table CHECK, never derived from a name), a `PUT …/persons/{id}/pronouns` route, and the `pronoun()` / `pronounVerb()` template helpers whose unrecorded case renders they/them. No gender field ships — flagged for the owner. Load profile `[-]`: six columns on a row two existing batched reads already join, no new read. UI deferred. |
 | Matter document surface | [-] | [-] | [-] | [~] Opus 5 | [~] Opus 5 | [-] | [ ] | The matter's Files page on real rows: list, add from a file, build from a template, save a new version, read the version history. The editing-session launch is real; the Collabora editor itself needs the deployed `magna-carta-edit` container. |
 | Community 1 — public changelog | [-] | [x] Opus 4.8 | [-] | [x] Opus 5\* | [ ] | [-] | [x] Opus 5\* | The first of the three community surfaces, built alone as the design sequences it. `changelog.d/` fragments gain a required `audience:` key with no default and a `## Public` block; `vp run changelog-build` now folds both halves in one pass — the developer entry into `CHANGELOG.md`, the customer entry into the new `docs/public-changelog.md` — and `pnpm run lint:changelog-fragments` refuses an undecided fragment in the author's own gate. `@magna-carta/product-updates` holds the artifact schema and the strict parser that turns the assembled document into it. No database, no board, no screen. |
@@ -636,6 +688,9 @@ versioned disclosure, not on Cloudflare leaving beta. |
 | File workbench | [-] | [-] | [-] | [~] Opus 5 | [~] Opus 5 | [-] | [x] Opus 5 | The Tools host every file capability is run from: the file-workbench route, a file dropped once and read by all ten. Two capabilities are real in the browser today — the file's true type, read from its leading bytes against what its name claims, and its SHA-256 and SHA-1. The eight whose engines run in a container render their own control disabled with the dependency named. The capability set is a registry, so adding one is a module and an array entry; the Overview is contributed by the modules rather than written by hand. Conversion acts on the whole selection, and offers only the formats every selected file can reach. Two rounds of owner review are recorded in `docs/conventions/file-workbench-rulings.md`; the second turned the file list into the product's one grid and moved four of its rulings into the standing set. |
 | One home for dates | [-] | [-] | [-] | [x] Opus 5 | [-] | [-] | [x] Opus 5 | `@magna-carta/civil-time` (shape) + the design system's `formatters/` (display), with `lint:date-handling` holding the line; about seventy duplicates removed, two of which had already drifted. |
 | The settings surface, wired — every stubbed section given the server behind it, from firm members and their rights through to how the firm measures the time it bills | [-] | [x] | [x] | [x] | [x] | [-] | [x] | The firm can administer its own people. `GET /api/v1/roles` reads the five seeded roles with the permissions each carries and how many active members hold it; `PUT /api/v1/members/{userId}/roles` sets what a member holds as a whole set and diffs it server-side; `POST /api/v1/members/{userId}/deactivation` and `/reactivation` withdraw and restore access without touching the record; and the invitation route accepts a role by name so a new member arrives holding something rather than nothing. Two refusals are enforced in the routes: nobody administers themselves, and a firm keeps somebody who can administer it. `/settings/users` becomes the roster with its three acts, `/settings/roles` states what each role allows in the firm's own words, and `canEditFirmSettings` stops being a constant — every firm page's posture is now the signed-in member's real capability. A member's OWN name follows: five parts on the control-plane user row with the printed line rendered from them, `GET`/`PUT /api/v1/me/name` behind the new `firm:editOwnProfile` (seeded to every role, because one's own name is not a privilege), the firm roster mirrored on every save, the parts carried through registration, and Account · Profile live over all of it. Prefix and suffix are one control across the Directory and the account alike: a suggestion list that takes several honorifics and anything typed. File Safety & Scanning follows: four real settings over GET/PATCH /api/v1/firm/scan-policy, staged through a new shared server-backed draft (apps/web/src/lib/settings/server-backed-draft.svelte.ts) that the calendar's own draft now goes through as well, so the settings surface has one implementation of server-backed staging rather than one per page. Then Notifications, both tiers at once: the member's per-category matrix under My Settings and the firm's own tier under Practice, each a table rather than a page of rows, with the composition between them left where it already lives on the server. Then Beta Access, which needed no new endpoint at all — the channel was always in the session bootstrap and the write has existed behind firm:manageReleaseChannel since release channels landed, so the page became one decision (instant, with its own consent dialog) rather than the two rows that were one fact asked twice. Firm Profile closes the band: PUT /api/v1/firm/profile behind a new firm:manageProfile seeded to Owner/Admin alone, writing firm.display_name and never the unique provisioning handle behind it, with no GET because the session already answers what the firm is called. Billing finishes the surface: GET/PATCH /api/v1/firm/time-policy behind time:manageSettings, reading and writing the FIRM tier of the increment and the rounding direction while a matter's or a timekeeper's own override stands untouched above it. With that, SETTING_DEFINITIONS - the local-storage registry every preview row used to live in - is empty, and the mode-purity fitness check was re-pointed at the whole surface with a non-vacuity guard so it keeps its teeth. And the gilt scroll-edge rule the sidebar and every register draw becomes the member's own choice (Settings - Accessibility - Scroll Edge Markers), on the theme-preference seam beside contrast, motion and density: suppressed in the recipe on a root data attribute rather than threaded as a prop through both consumers, and the one axis the no-flash boot script deliberately does not mirror. |
+| One home for dates — the second pass | [-] | [-] | [-] | [x] Opus 5 | [x] Opus 5 | [-] | [x] Opus 5 | Six more wrong-day surfaces in the spelling the first pass missed, the gate rule that reads the argument rather than the operation, and the print-sheet formatting seam collapsed from seven declarations to one.
+
+And the owner's ruling that followed: every native date input is the DatePicker now, the gate's allowance list is empty and asserted empty, and the picker gained the Input's size scale, an `aria-label`/`aria-invalid` that reach the segment group, and the CalendarDate/text conversion moved beside it. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 
@@ -955,6 +1010,21 @@ Recording is sequenced last for a legal reason rather than a technical one — c
 
 The screen moved from `/communications` to `/messaging`; the sidebar id stays `communications`, because a member's stars are stored under it. 84 tests: 45 in the package, 18 over the routes, 21 over the form's model. |
 | 6·8 — Record Communication: two columns, typed choices, one phone field, and a duration worked out from the clock | [-] | [-] | [-] | [x] | [x] | [-] | [x] | The owner's second round on the deployed form, worked end to end: the panel is Record Communication, laid out as the measurable beside the written, every closed choice a combobox, the country and the number one field shared with the Directory, and the duration worked out from a start and an end rather than typed. The backspace defect behind "I cannot backspace unless I re-enter it" was the as-you-type formatter being fed its own output. |
+| 6·9 — One window for a call, a typed length beside the span, and a number every call carries | [-] | [-] | [-] | [x] | [x] | [-] | [x] | The owner's third round on the deployed screen. Two of its six items are real capabilities the log did not have, and the rest is the shape of the one window it now has.
+
+**There was one modal too many, and now there is one.** Recording a call opened an action dialog; opening a row opened the record window. They rendered the same fields through the same component and disagreed about everything around them — one had tabs, one printed, one put its commit under a heading and the other in an action bar. They are one window now, and the only difference between its two states is whether it opened with a record in it. A record being made asks where it belongs, because at that moment the anchor is one of the things being said; a record already on the log moves between anchors through its own concurrency-safe acts in the action bar, as it did.
+
+**A length is typed, and it need not be the span.** The previous round derived the duration from a start and an end, which is right until somebody is put on hold: an hour on the line and twenty minutes of call are two true facts about one call, and a form that computes either from the other is asserting they are the same number. So `communication.ended_at` is stored beside `duration_seconds`, the length is typed — `20`, `1h 5m` and `1:20` all read — and an end fills an EMPTY length and never overwrites one somebody wrote. Where the two differ the form says so in a line under them and the record shows both, so the gap reads as the hold it is rather than as a mistake.
+
+**Every call and text carries a number, and it exists before the record does.** `2026-09-08-0042`: the day it happened and that day's own sequence, drawn through the shared counter idiom with the partial unique index over the rendered number as the backstop — the one sequence in the platform with no allocation table, because its rendered string contains the whole of its scope. The migration numbers every row already on the table. And the window shows the number the next record WOULD draw before anything is saved, because the person entering a call is usually still on the telephone and the save is too late for the sentence they are in the middle of; it is a preview, it says so, and the record's own number replaces it the moment there is a record.
+
+**The description is the row's second line.** It is prose, usually longer than every other fact on the row together, and as a column it was either truncated to a few words or wide enough to push the facts off the screen. It takes the row's whole width underneath the facts now, through the one table's own row-detail — the same mechanism the time sheet's description sits in.
+
+**A number longer than a number is an extension, not a formatting failure.** `AsYouType` gives up silently once the digits exceed what a country holds, so typing a direct dial onto the end of a number turned `(312) 555-0148` into a run of fourteen digits under the cursor. The extra digits roll into an extension field the phone component now owns — the split is the longest prefix libphonenumber calls possible, so a North American number typed with its trunk 1 is not cut a digit short — and the two halves store as one string, `+13125550148x4102`, which the formatter reads back into both. The Directory's contact rows had built their own extension input beside the shared field; they use the shared one now.
+
+**An intake starts from the form as well as from a record.** Save And Start An Intake records the call first and hands the saved row up: an intake with no account of the call that caused it is exactly what the control exists to prevent.
+
+The provenance tab is a **History** rail on the right, in the shape every other record window uses. |
 
 ## Phase 7 — sliced provisionally (no rows yet)
 

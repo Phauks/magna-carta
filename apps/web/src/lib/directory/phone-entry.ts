@@ -82,6 +82,57 @@ export function formatPhoneAsTyped(region: CountryCode, typed: string): string {
   return new AsYouType(region).input(typed);
 }
 
+/**
+ * How many digits the country's own numbers have, from the example number the placeholder is already
+ * derived from. Zero where the formatter has no example for the country, which means "no expectation
+ * to exceed" rather than "expects nothing".
+ */
+export function nationalDigitCount(region: CountryCode): number {
+  return phoneNumberPlaceholder(region).replaceAll(/[^X]/gu, "").length;
+}
+
+/**
+ * The digits split into a number and an extension, where more were typed than the country's numbers
+ * hold.
+ *
+ * WHY THIS EXISTS (owner ruling, 2026-09-08: "for numbers longer than expected length of phone
+ * number, don't drop formatting, show as extension instead"). `AsYouType` gives up silently once the
+ * digits exceed what the country can hold: type a direct-dial extension onto the end of a number and
+ * the grouping vanishes, so a field that was reading `(312) 555-0148` becomes a run of fourteen
+ * digits under the cursor. Nothing is wrong with what was typed — an extension is a real thing to
+ * type — so the answer is to understand it rather than to stop formatting.
+ *
+ * THE SPLIT IS THE LONGEST PREFIX THAT IS A NUMBER, not the country's digit count. A North American
+ * number typed with its trunk 1 is eleven digits and perfectly possible, and cutting it at ten would
+ * take the last digit of the number and call it an extension. So the scan asks libphonenumber which
+ * prefixes are possible and takes the longest — which is the same question a person is answering
+ * when they read the number back.
+ *
+ * Nothing is split until the digits ALREADY exceed the country's own length and the whole of them is
+ * not a number: a half-typed number is short, not extended, and must be left alone.
+ */
+export function splitTypedExtension(
+  region: CountryCode,
+  typed: string,
+): { readonly number: string; readonly extension: string } {
+  const digits = digitsOf(typed);
+  const expected = nationalDigitCount(region);
+  const whole = parsePhoneNumberFromString(digits, region);
+  if (expected === 0 || digits.length <= expected || whole?.isPossible() === true) {
+    return { number: typed, extension: "" };
+  }
+  for (let length = digits.length - 1; length >= expected; length -= 1) {
+    const candidate = parsePhoneNumberFromString(digits.slice(0, length), region);
+    if (candidate?.isPossible() === true) {
+      return {
+        number: formatPhoneAsTyped(region, digits.slice(0, length)),
+        extension: digits.slice(length),
+      };
+    }
+  }
+  return { number: typed, extension: "" };
+}
+
 export type PhoneEntryCheck =
   | {
       readonly ok: true;
@@ -91,14 +142,31 @@ export type PhoneEntryCheck =
     }
   | { readonly ok: false; readonly reason: string };
 
-/** Whether the typed digits are a number in the chosen country, and what to send when they are. */
-export function checkPhoneEntry(region: CountryCode, typed: string): PhoneEntryCheck {
+/**
+ * Whether the typed digits are a number in the chosen country, and what to send when they are.
+ *
+ * THE EXTENSION RIDES IN THE STORED STRING, as `+13125550148x4102`. It is one field on the wire
+ * because a number and the extension behind it are one way of reaching somebody, and because
+ * libphonenumber reads that form back into both halves — so nothing has to remember to carry the
+ * second half alongside the first. The `x` spelling rather than `ext.` is not cosmetic: the log's
+ * server-side number check admits `x` and no other letter.
+ */
+export function checkPhoneEntry(
+  region: CountryCode,
+  typed: string,
+  extension = "",
+): PhoneEntryCheck {
   if (typed.trim() === "") return { ok: false, reason: "The number." };
   const parsed = parsePhoneNumberFromString(typed, region);
   if (parsed === undefined || !parsed.isPossible()) {
     return { ok: false, reason: `Not a number in ${phoneCountry(region)?.name ?? region}.` };
   }
-  return { ok: true, number: parsed.number, region: parsed.country ?? region };
+  const digits = digitsOf(extension);
+  return {
+    ok: true,
+    number: digits === "" ? parsed.number : `${parsed.number}x${digits}`,
+    region: parsed.country ?? region,
+  };
 }
 
 /**

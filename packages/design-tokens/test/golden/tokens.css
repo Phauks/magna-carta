@@ -179,6 +179,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -464,6 +466,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -749,6 +753,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -1034,6 +1040,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -1319,6 +1327,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -1604,6 +1614,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -1889,6 +1901,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -2174,6 +2188,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -2459,6 +2475,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -2744,6 +2762,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -3029,6 +3049,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;
@@ -3314,6 +3336,8 @@
   --mc-size-sidebar-rail: 52px;
   /* The chrome band's row height — the TopBar AND the sidebar's brand corner (their edges meet as one band). Taller than a control row: the chrome needs presence and the palette trigger needs air (owner review 2026-07-02). Density-invariant: the frame is layout identity. */
   --mc-size-top-bar: 56px;
+  /* The room a transfer's pace line holds beside its progress bar — "1.2 GB of 4.5 GB · 2.4 MB/s · about 20 min left". Every figure in that line changes length as the transfer runs, so a line sized to its own text resizes the bar beside it several times a second; the measure is fixed, and the bar is what holds still. Sized to the longest line the phrasing produces at the small text size, the way size.create-control is sized to its longest label. */
+  --mc-size-transfer-pace: 224px;
   --mc-space-0: 0px;
   --mc-space-4: 4px;
   --mc-space-8: 8px;

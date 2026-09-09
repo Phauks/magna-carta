@@ -80,6 +80,25 @@ export function minutesBetweenClockTimes(start: string, end: string): number | n
   return to >= from ? to - from : to + MINUTES_PER_DAY - from;
 }
 
+/**
+ * The instant a call ENDED, from the day it started, the clock time it started at, and the clock
+ * time it ended at.
+ *
+ * AN END BEFORE A START IS THE NEXT DAY, on the same reasoning `minutesBetweenClockTimes` gives:
+ * 23:58 to 00:03 is five minutes past midnight, and asking for the end date as a fourth field would
+ * serve the handful of calls a firm takes at midnight at the cost of every call it does not.
+ */
+export function endInstantFromLocalParts(date: string, start: string, end: string): string {
+  const day = date.trim();
+  const from = clockMinutes(start);
+  const to = clockMinutes(end);
+  if (day === "" || from === null || to === null) return "";
+  const started = new Date(`${day}T${start.trim()}`);
+  if (Number.isNaN(started.getTime())) return "";
+  const spanned = to >= from ? to - from : to + MINUTES_PER_DAY - from;
+  return new Date(started.getTime() + spanned * 60_000).toISOString();
+}
+
 /** The clock time a call of this length ended at, from the one it started at. */
 export function clockTimeAfter(start: string, minutes: number): string {
   const from = clockMinutes(start);

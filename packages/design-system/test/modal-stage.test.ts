@@ -93,8 +93,11 @@ describe.each([
     expect(shell).not.toContain("mc-modal-stage");
   });
 
-  it("carries the placement recipe beside its own look, a width cap, and no height cap", () => {
-    expect(shell).toContain(`mc-modal-panel ${recipeClass} w-full max-w-lg`);
+  it("carries the placement recipe beside its own look, the scrollbar, a width cap, and no height cap", () => {
+    // The scrollbar recipe sits with the other two rather than being left to the panel that opens
+    // inside it: this shell declares `overflow-y: auto` in its own CSS, so a panel wearing no
+    // recipe wears the operating system's scrollbar the moment its content outgrows the frame.
+    expect(shell).toContain(`mc-modal-panel ${recipeClass} mc-scrollbar w-full max-w-lg`);
     expect(shell).not.toMatch(/max-h-screen/);
   });
 

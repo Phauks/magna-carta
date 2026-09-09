@@ -72,7 +72,7 @@
   <ModalStage>
     <DialogPrimitive.Content
       bind:ref
-      class={mergeClasses(presence, "mc-modal-panel mc-dialog-content w-full max-w-lg", className)}
+      class={mergeClasses(presence, "mc-modal-panel mc-dialog-content mc-scrollbar w-full max-w-lg", className)}
       {...{ [MODAL_PLACEMENT_ATTRIBUTE]: placement }}
       {...restProps}
     >

@@ -7,6 +7,7 @@ import {
   civilDateParts,
   endOfCivilMonth,
   isCivilDate,
+  startOfCivilMonth,
   todayInUtc,
 } from "../src/civil-date.ts";
 import { CANONICAL_INSTANT_PATTERN } from "../src/instant.ts";
@@ -143,6 +144,20 @@ describe("plain calendar-day arithmetic", () => {
     // moves the date, a template cannot know to.
     expect(addCalendarDays("2026-09-04", 3)).toBe("2026-09-07");
     expect(addCalendarDays("2026-12-24", 1)).toBe("2026-12-25");
+  });
+});
+
+describe("the first day of a month", () => {
+  it("is the first, whatever the date it was asked about", () => {
+    expect(startOfCivilMonth(2026, 9)).toBe("2026-09-01");
+    expect(startOfCivilMonth(2026, 12)).toBe("2026-12-01");
+  });
+
+  it("pads a month and a year the way the shape requires", () => {
+    // The `${date.slice(0, 8)}01` this replaces got the padding for free from the string it cut up.
+    // Going through the parts has to do it deliberately, so it is pinned here.
+    expect(startOfCivilMonth(2026, 1)).toBe("2026-01-01");
+    expect(startOfCivilMonth(999, 3)).toBe("0999-03-01");
   });
 });
 

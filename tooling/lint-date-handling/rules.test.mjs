@@ -3,6 +3,7 @@ import {
   ALLOWANCES,
   ALLOWED_RAW_DATE_INPUTS,
   applyAllowances,
+  findDayFormatterGivenAMoment,
   findElapsedTime,
   findHandCutToday,
   findHandWrittenValidators,
@@ -129,6 +130,57 @@ describe("one display of a date, a time or a moment", () => {
   });
 });
 
+describe("a day formatter is never handed a moment", () => {
+  it("catches the form that has no slice in it at all", () => {
+    // The six that shipped. `formatDate` pins to UTC, so an instant renders as the UTC day — the
+    // next day for an American office from late afternoon on.
+    for (const source of [
+      "formatDate(matter.openedAt)",
+      "formatDate(row.summary.createdAt)",
+      "value: formatDate(matter.heldAt)",
+      "formatDate(credit.openedAt)",
+      "formatMonth(entry.recordedAt)",
+      "formatDateRange(a.startedAt, b.endedAt)",
+    ]) {
+      expect(findDayFormatterGivenAMoment(APP, source), source).toHaveLength(1);
+    }
+  });
+
+  it("names the remedy, not just the fault", () => {
+    const [found] = findDayFormatterGivenAMoment(APP, "formatDate(matter.openedAt)");
+    expect(found.detail).toContain("formatInstantDate");
+    expect(found.detail).toContain("viewer's own zone");
+  });
+
+  it("leaves a genuine civil date alone", () => {
+    for (const source of [
+      "formatDate(entry.workDate)",
+      "formatDate(cost.incurredDate)",
+      "formatDate(task.dueOn)",
+      // Dual-shape by design — a civil date at one end, an instant at the other.
+      "formatDate(inForce.validFrom)",
+      "formatDate(edge.validTo)",
+    ]) {
+      expect(findDayFormatterGivenAMoment(APP, source), source).toEqual([]);
+    }
+  });
+
+  it("leaves a wall clock alone — AtTime is not an instant", () => {
+    expect(findDayFormatterGivenAMoment(APP, "formatDate(task.dueAtTime)")).toEqual([]);
+    expect(findDayFormatterGivenAMoment(APP, "formatDate(event.startsAtTime)")).toEqual([]);
+  });
+
+  it("says nothing about the display home, which defines these functions", () => {
+    const home = "packages/design-system/src/lib/formatters/civil-date.ts";
+    expect(findDayFormatterGivenAMoment(home, "formatDate(value.createdAt)")).toEqual([]);
+  });
+
+  it("does not fire on the instant formatters, which take a moment by contract", () => {
+    expect(findDayFormatterGivenAMoment(APP, "formatInstantDate(matter.openedAt)")).toEqual([]);
+    expect(findDayFormatterGivenAMoment(APP, "formatInstant(row.createdAt)")).toEqual([]);
+  });
+});
+
 describe("elapsed time is banned outright", () => {
   it("catches the API and the prose", () => {
     expect(findElapsedTime(APP, "new Intl.RelativeTimeFormat(locale);")).toHaveLength(1);
@@ -142,44 +194,37 @@ describe("elapsed time is banned outright", () => {
   });
 });
 
-describe("the date field is one component, and the exceptions are closed", () => {
-  it("fails a native date input on a surface that is not recorded", () => {
+describe("the date field is one component, and there is no exception", () => {
+  it("fails a native date input, wherever it is", () => {
     const found = findRawDateInputs("apps/web/src/lib/new-screen.svelte", '<Input type="date" />');
     expect(found).toHaveLength(1);
     expect(found[0].detail).toContain("DatePicker");
   });
 
-  it("passes one that is recorded", () => {
-    expect(findRawDateInputs(ALLOWED_RAW_DATE_INPUTS[0], '<Input type="date" />')).toEqual([]);
+  it("fails one in the design system too, so the component cannot exempt itself", () => {
+    const inTheDesignSystem = "packages/design-system/src/lib/components/thing/thing.svelte";
+    expect(findRawDateInputs(inTheDesignSystem, '<Input type="date" />')).toHaveLength(1);
   });
 
-  it("fails an allowance that no longer holds a date input", () => {
-    const sources = new Map(ALLOWED_RAW_DATE_INPUTS.map((file) => [file, '<Input type="date" />']));
-    expect(findStaleAllowances(sources)).toEqual([]);
-    sources.set(ALLOWED_RAW_DATE_INPUTS[0], "<Input />");
-    const stale = findStaleAllowances(sources);
-    expect(stale).toHaveLength(1);
-    expect(stale[0].file).toBe(ALLOWED_RAW_DATE_INPUTS[0]);
-  });
-
-  it("has not grown — the list is closed, and nothing else was enforcing that", () => {
+  it("is not held open by an allowance, because there are none", () => {
     /*
-     * The count is pinned because the prose called this list "closed" and nothing checked it. The
-     * first concurrent merge added a sixteenth entry and the gate stayed green, which is precisely
-     * the shape of failure the whole file is written against.
+     * The count was pinned when the list held sixteen surfaces, because the prose called the list
+     * "closed" and nothing checked it — the first concurrent merge added a sixteenth entry and the
+     * gate stayed green, which is the shape of failure the whole file is written against.
      *
-     * It may FALL — a surface moved to the DatePicker comes out. A rise means somebody took the
-     * escape hatch instead of the component, and that is the owner's design question to settle
-     * rather than a list entry to add.
+     * The owner settled the design question on 2026-09-08: every date goes through the component.
+     * So the pin is now zero, and it is a floor as much as a ceiling. An entry added here is not a
+     * recorded exception, it is the ruling being quietly reopened.
      */
-    expect(ALLOWED_RAW_DATE_INPUTS).toHaveLength(16);
+    expect(ALLOWED_RAW_DATE_INPUTS).toEqual([]);
   });
 
-  it("checks every allowance rather than every other one", () => {
-    // A global regex reused across `.test()` calls carries lastIndex and skips alternate files —
-    // which read as six allowances going stale at once the first time this ran.
-    const sources = new Map(ALLOWED_RAW_DATE_INPUTS.map((file) => [file, '<Input type="date" />']));
-    expect(findStaleAllowances(sources)).toEqual([]);
+  it("still reports a stale allowance, if one is ever added back", () => {
+    // The mechanism outlives the list: an allowance whose violation has gone makes the rule read
+    // weaker than it is, and that stays true whoever adds the next one.
+    const stale = findStaleAllowances(new Map(), ["apps/web/src/lib/gone.svelte"]);
+    expect(stale).toHaveLength(1);
+    expect(stale[0].file).toBe("apps/web/src/lib/gone.svelte");
   });
 });
 

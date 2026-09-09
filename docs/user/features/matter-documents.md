@@ -23,12 +23,19 @@ makes a place to put them.
 
 The Upload panel has two sides.
 
-**On the right are your files.** Press **Add** and choose **Files**, or **A Folder, With Everything
-Inside It**; or drag files and folders from your computer and drop them anywhere on that side. A
-folder arrives with its contents, in the folders they came from, and you can add several folders
-before you send anything. Fold a folder to hide what is inside it. Filter the list from its column
-headers if there is a lot of it, and remove anything you did not mean to include with **Remove
-Selected**. Nothing is sent until you press **Upload**.
+**On the right are your files.** Press **Add** to choose files. For a folder, use the small arrow
+beside Add and choose **A Folder, With Everything Inside It** — a browser will not let one picker
+offer files and folders together. Dragging has no such limit: drop any mix of files and folders from
+your computer anywhere on that side of the panel. A folder arrives with its contents, in the folders
+they came from, and you can add several folders before you send anything. Fold a folder to hide what
+is inside it. Nothing is sent until you press **Upload**.
+
+The list is the same table you use everywhere else in Magna Carta. Click a column heading to sort by
+it — folders stay with the files inside them, so a sort still reads as the tree it is. Right-click a
+heading to filter on that column, to hide it, or to bring back one that is hidden; filtering flattens
+the list to the files that match, with a **Folder** column saying where each one sits. When something
+is filtered, **Clear Filters** appears above the list, and the strip underneath says how many of your
+files you are looking at. Remove anything you did not mean to include with **Remove Selected**.
 
 **On the left is where they go and what they become.**
 
@@ -36,10 +43,19 @@ Selected**. Nothing is sent until you press **Upload**.
   number to find it.
 - **Folder** — the folder you were looking at, the matter's Home, or any folder you pick from the
   tree. A folder you upload is recreated inside the one you choose.
+  **Advanced Settings**, at the foot of that side, is folded shut and holds the two answers most
+  uploads never need to change:
+
 - **Date Created** — whether each file keeps the date it already carries, or takes the date of the
   upload. Files keep their own date unless you say otherwise; that date is kept on the record either
   way, and shows in the file's details as **File's Own Date**.
-- **Document Type** — a type to give every file in this upload, if your firm uses them.
+- **Files the Firm Already Holds** — whether a file your firm already has is sent again. It is not,
+  by default; see _Files you already have_ below.
+
+**A document type is set per file, not for the whole upload.** If your firm uses document types,
+select the rows you want — a folder row means everything inside it — and choose **Document Type**
+above the list. The **Document Type** column shows what each file will carry, so one upload can file
+correspondence as correspondence and pleadings as pleadings without sending them separately.
 
 Press **Upload**. The list on the right shows each file's progress, with how much of it has been
 sent, and the bar above it measures the whole batch. You do not have to wait: close the panel and
@@ -60,6 +76,12 @@ reads **Uploaded** as usual. So if a batch fails part-way and you send the same 
 the files that did not land are sent. The read happens on your computer, a chunk at a time, with
 the row reading **Reading** and the share done, so a file of any size is asked about before a byte
 of it is sent.
+
+**Reading starts as soon as you choose a file**, while you are still deciding where it goes, so by
+the time you press **Upload** most of the answers are already in and nothing waits on a read that
+could have happened earlier. If you would rather send everything regardless of what your firm holds,
+turn **Files the Firm Already Holds** to **Send Every File** under Advanced Settings; no reading is
+then done at all.
 
 ### Watching an upload
 
@@ -82,6 +104,12 @@ files that had not finished would need to be uploaded again.
 Its row reads **Upload failed**, and pointing at it tells you why, with an Error ID you can quote to
 support. The file is not added to the matter — a failed upload leaves nothing behind — and the rest
 of the upload carries on.
+
+If the reason says **the firm's storage did not answer**, the fault is not with your file, your
+matter, or your connection to Magna Carta — the rest of the application is plainly still answering.
+Files go from your browser straight to your firm's storage, and that route is the one that failed.
+Try again; if it keeps happening, quote that message to whoever administers your firm's Magna Carta,
+because it is settled there rather than by anything you can do from this screen.
 
 ### From a template
 

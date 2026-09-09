@@ -2,10 +2,11 @@
   /*
    * The profile menu — the top bar's account corner. The same MC avatar the shell rendered bare
    * becomes the trigger for a dropdown; the panel itself is a standard overlay surface, not
-   * chrome. Every seam stays a seam (the shell never fakes function): the identity header and
-   * Sign out arrive with authentication (the next roadmap stage) and render honestly inert until
-   * then, and an ecosystem site without a live URL renders disabled with a "Soon" badge — a dead
-   * link is impossible by construction.
+   * chrome. Every seam stays a seam (the shell never fakes function): the identity header still
+   * arrives with the signed-in profile and renders honestly inert until then, and an ecosystem
+   * site without a live URL renders disabled with a "Soon" badge — a dead link is impossible by
+   * construction. Sign out is no longer among them: it ends the real session
+   * ($lib/auth/sign-out.ts), which is why it is the one item here that can refuse and say so.
    *
    * The Websites submenu renders from the ecosystem-site registry
    * (src/lib/navigation/ecosystem-sites.ts) — add or wire a site THERE, never here.
@@ -21,12 +22,29 @@
   import LogOut from "@lucide/svelte/icons/log-out";
   import Shield from "@lucide/svelte/icons/shield";
   import { goto } from "$app/navigation";
+  import { toast } from "@magna-carta/design-system/toast";
   import { ECOSYSTEM_SITES } from "$lib/navigation/ecosystem-sites.ts";
   import BugReportDialog from "$lib/components/bug-report-dialog.svelte";
+  import { signOut } from "$lib/auth/sign-out.ts";
 
   // The menu owns the bug-report dialog's open state: selecting the item closes the menu, then
   // the dialog takes over focus. The dialog renders as a sibling of the menu, never inside it.
   let bugReportOpen = $state(false);
+
+  // Selecting an item closes the menu, so the guard is not about a second click on a disabled
+  // control — it is about the keyboard and the pointer both landing on Sign out, which would spend
+  // two sign-out requests and leave the second one refusing a session the first already ended.
+  let signingOut = false;
+
+  async function endSession(): Promise<void> {
+    if (signingOut) return;
+    signingOut = true;
+    const outcome = await signOut();
+    signingOut = false;
+    // Nothing to report on success: the document is already being replaced by the sign-in screen.
+    // A refusal has to be said out loud here, because the surface it happened on does not change.
+    if (outcome.kind === "failed") toast.error(outcome.message);
+  }
 
   function openEcosystemSite(href: string): void {
     // The design-system menu Item keeps Bits' element delegation closed, so a live site cannot
@@ -45,23 +63,27 @@
     </Avatar.Root>
   </DropdownMenu.Trigger>
   <DropdownMenu.Content align="end" style="min-inline-size: var(--mc-size-popover)">
-    <!-- Identity header — an honest seam, not fake data: real name/firm land with accounts. -->
+    <!-- Identity header — still an honest seam, and its sentence has been corrected rather than
+         left to rot: it used to say the identity arrived "with accounts", which stopped being true
+         the day accounts shipped. The name and firm exist and are already read on every navigation
+         (the (app) layout's bootstrap call), so what is missing is only the plumbing from that load
+         down to here — not a capability. It says that, and nothing more flattering. -->
     <div class="px-8 py-4">
       <p class="text-sm font-medium">Magna Carta</p>
-      <p class="text-xs text-text-muted">Signed-in identity arrives with accounts</p>
+      <p class="text-xs text-text-muted">Your name and firm are not shown here yet</p>
     </div>
     <DropdownMenu.Separator />
-    <!-- Account Settings — the member's own identity and credentials surface (2FA, password,
-         profile), a higher-ceremony surface than preference settings: step-up re-authentication
-         lives there when authentication ships, so it hangs off the profile, not the settings
-         nav. The controls inside are honest Soon seams until authentication ships; the door is
-         live now so the surface and its flow exist. (Shield, not ShieldCheck — the check variant
+    <!-- Account Settings — the member's own identity and credentials surface, a higher-ceremony
+         surface than preference settings: step-up re-authentication lands there when it is built,
+         so it hangs off the profile, not the settings nav. Active Sessions inside it is live; the
+         password and two-factor rows are still honest Soon seams. The second line names the live
+         section rather than only the pending ones. (Shield, not ShieldCheck — the check variant
          is the Trust Center website's icon.) -->
     <DropdownMenu.Item onSelect={() => goto("/account")}>
       <Shield class="size-16" aria-hidden="true" />
       <span class="flex min-w-0 flex-col">
         <span>Account Settings</span>
-        <span class="text-xs">2FA, password, and profile</span>
+        <span class="text-xs">Signed-in devices, 2FA, password</span>
       </span>
     </DropdownMenu.Item>
     <DropdownMenu.Separator />
@@ -112,11 +134,11 @@
       <Badge variant="neutral" class="ms-auto">Soon</Badge>
     </DropdownMenu.Item>
     <DropdownMenu.Separator />
-    <!-- Disabled until authentication ships — there is no session to end yet. -->
-    <DropdownMenu.Item disabled>
+    <!-- Ends the session for real. No confirmation step: signing out costs nothing to undo, and a
+         dialog between a person and the door is what makes them leave the tab open instead. -->
+    <DropdownMenu.Item onSelect={() => void endSession()}>
       <LogOut class="size-16" aria-hidden="true" />
       Sign out
-      <Badge variant="neutral" class="ms-auto">Soon</Badge>
     </DropdownMenu.Item>
   </DropdownMenu.Content>
 </DropdownMenu.Root>

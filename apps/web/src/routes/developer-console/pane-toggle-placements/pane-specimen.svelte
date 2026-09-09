@@ -164,7 +164,7 @@
 {/snippet}
 
 {#snippet paneBody()}
-  <div class="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-12">
+  <div class="mc-scrollbar flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-12">
     <FieldLabel as="p">Details</FieldLabel>
     {#if grid.selectedKeys.length === 0}
       <p class="text-sm text-text-muted">
@@ -259,7 +259,7 @@
           class="flex min-h-0 flex-col"
         >
           <!-- The sunken surface sets the rail apart from the list, as the file manager's does. -->
-          <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-surface-sunken p-8">
+          <div class="mc-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto bg-surface-sunken p-8">
             {#each ["Pleadings", "Discovery", "Correspondence", "Exhibits", "Research"] as folder (folder)}
               <span class="truncate rounded-sm px-8 py-4 text-sm text-text-default">{folder}</span>
             {/each}

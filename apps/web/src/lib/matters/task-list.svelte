@@ -76,6 +76,8 @@
   import type { ApiOutcome, Page } from "$lib/api/request.ts";
   import type { Snippet } from "svelte";
   import { permissionRefusal } from "$lib/access/refusal.ts";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   interface Props {
     /** What identifies the rows on screen, so a reload is told from a change of subject. */
@@ -531,8 +533,12 @@
 
       <div class="flex flex-wrap items-end gap-16">
         <div class="flex flex-col gap-4">
-          <Label for="task-due">Due</Label>
-          <Input id="task-due" type="date" bind:value={draftDueOn} disabled={saving} />
+          <DatePicker
+            label="Due"
+            value={civilDateValue(draftDueOn)}
+            onValueChange={(next) => (draftDueOn = civilDateTextOrEmpty(next))}
+            disabled={saving}
+          />
         </div>
         <div class="flex flex-col gap-4">
           <Label for="task-due-time">Time</Label>
@@ -702,8 +708,12 @@
               </div>
               <div class="flex flex-wrap items-end gap-16">
                 <div class="flex flex-col gap-4">
-                  <Label for={`edit-due-${task.id}`}>Due</Label>
-                  <Input id={`edit-due-${task.id}`} type="date" bind:value={editDueOn} disabled={saving} />
+                  <DatePicker
+                    label="Due"
+                    value={civilDateValue(editDueOn)}
+                    onValueChange={(next) => (editDueOn = civilDateTextOrEmpty(next))}
+                    disabled={saving}
+                  />
                 </div>
                 <div class="flex flex-col gap-4">
                   <Label for={`edit-time-${task.id}`}>Time</Label>

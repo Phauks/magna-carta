@@ -6,6 +6,18 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { CommunicationId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import {
+  ensureCounterRowStatement,
+  guardedIncrementStatement,
+  readCounterValue,
+} from "@magna-carta/sequence-numbering/counter-statements";
+import type { ObservedDraw } from "@magna-carta/sequence-numbering/bounded-retry";
+import {
+  communicationNumberScope,
+  renderCommunicationNumber,
+  COMMUNICATION_NUMBER_START_VALUE,
+  COMMUNICATION_NUMBERING_TABLES,
+} from "./numbering.ts";
+import {
   insertCommunicationStatement,
   readCommunication,
   readRoutableMatter,
@@ -21,6 +33,7 @@ import {
   normalizeContent,
   normalizeCounterpartyNumber,
   normalizeDisposition,
+  normalizeEndedAt,
   normalizeOccurredAt,
 } from "./validation.ts";
 
@@ -48,6 +61,11 @@ export interface CommunicationServiceOptions {
   // on its way — which filing one necessarily does — is gated by the same key as looking at it, so
   // the queue cannot be worked by id from outside the permission that reveals it.
   readonly mayReviewUnrouted: boolean;
+  // What the reference-number draw observed, reported before the batch is composed so a losing
+  // attempt can advance THAT counter out of band — the in-batch increment rolls back with everything
+  // else. Only the logging path draws, so only it reports; the caller's bounded retry supplies this
+  // (numbering.ts, and the matter draw's own arrangement in packages/matters).
+  readonly observeDraw?: (draw: ObservedDraw) => void;
 }
 
 // A matter that has closed still holds every conversation already on it, and it is still readable.
@@ -67,6 +85,10 @@ export interface LogCommunicationInput {
   readonly counterpartyEntityId?: string | null;
   readonly memberUserId?: UserId | null;
   readonly occurredAt: string;
+  // When the line closed. Optional, and independent of the length: a caller left on hold occupies
+  // the span without spending it, so the two are separate facts and neither is derived from the
+  // other (validation.ts says why at more length).
+  readonly endedAt?: string | null;
   readonly durationSeconds?: number | null;
   readonly body?: string | null;
   readonly summary?: string | null;
@@ -84,6 +106,7 @@ export async function logCommunication(
   const now = options.clock.now();
   const counterpartyNumber = normalizeCounterpartyNumber(input.counterpartyNumber);
   const occurredAt = normalizeOccurredAt(input.occurredAt, now);
+  const endedAt = normalizeEndedAt(input.endedAt, input.channel, occurredAt);
   const content = normalizeContent(input);
   const matterId = input.matterId ?? null;
   const disposition = normalizeDisposition(input.disposition);
@@ -93,13 +116,42 @@ export async function logCommunication(
     await assertRoutable(database, matterId, options.visibility);
   }
 
+  // THE NUMBER THE FIRM SAYS OUT LOUD, drawn here rather than rendered from the handle: it counts
+  // within the day the call happened, so it takes a counter, and the two statements that make the
+  // draw safe go into the same batch as the insert. A losing draw aborts the whole batch on the
+  // partial unique index over the rendered number, and the caller's bounded retry re-runs this with
+  // the advanced counter (numbering.ts).
+  const scopeKey = communicationNumberScope(occurredAt);
+  const observedValue =
+    (await readCounterValue(database, COMMUNICATION_NUMBERING_TABLES, scopeKey)) ??
+    COMMUNICATION_NUMBER_START_VALUE;
+  options.observeDraw?.({
+    scopeKey,
+    observedValue,
+    startValue: COMMUNICATION_NUMBER_START_VALUE,
+  });
+  const referenceNumber = renderCommunicationNumber(scopeKey, observedValue);
+
   const communicationId = newIdentifier("communication", options.randomSource);
   return {
     communicationId,
     effect: {
       statements: [
+        ensureCounterRowStatement(
+          database,
+          COMMUNICATION_NUMBERING_TABLES,
+          scopeKey,
+          COMMUNICATION_NUMBER_START_VALUE,
+        ),
+        guardedIncrementStatement(
+          database,
+          COMMUNICATION_NUMBERING_TABLES,
+          scopeKey,
+          observedValue,
+        ),
         insertCommunicationStatement(database, {
           id: communicationId,
+          referenceNumber,
           channel: input.channel,
           direction: input.direction,
           matterId,
@@ -110,6 +162,7 @@ export async function logCommunication(
           // receptionist logging the call they just transferred is the other one.
           memberUserId: input.memberUserId ?? options.actorUserId,
           occurredAt,
+          endedAt,
           durationSeconds: content.durationSeconds,
           body: content.body,
           summary: content.summary,
@@ -134,6 +187,9 @@ export async function logCommunication(
             channel: input.channel,
             direction: input.direction,
             occurredAt,
+            // The number the firm quotes. An identifier rather than content, and the one thing an
+            // auditor reading this row can match against a message slip on a desk.
+            referenceNumber,
           },
         }),
       ],
@@ -316,6 +372,7 @@ export interface UpdateCommunicationInput {
   readonly counterpartyEntityId?: string | null;
   readonly memberUserId?: UserId | null;
   readonly occurredAt?: string;
+  readonly endedAt?: string | null;
   readonly durationSeconds?: number | null;
   readonly body?: string | null;
   readonly summary?: string | null;
@@ -344,6 +401,11 @@ export async function updateCommunication(
     input.counterpartyNumber ?? existing.counterparty_number,
   );
   const occurredAt = normalizeOccurredAt(input.occurredAt ?? existing.occurred_at, now);
+  const endedAt = normalizeEndedAt(
+    input.endedAt === undefined ? existing.ended_at : input.endedAt,
+    channel,
+    occurredAt,
+  );
   const content = normalizeContent({
     channel,
     body: input.body === undefined ? existing.body : input.body,
@@ -367,6 +429,7 @@ export async function updateCommunication(
           memberUserId:
             input.memberUserId === undefined ? existing.member_user_id : input.memberUserId,
           occurredAt,
+          endedAt,
           durationSeconds: content.durationSeconds,
           body: content.body,
           summary: content.summary,

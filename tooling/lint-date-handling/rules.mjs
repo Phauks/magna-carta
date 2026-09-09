@@ -35,9 +35,9 @@
  *   - Whether a surface picked the RIGHT formatter. `formatDate` (a day, pinned to UTC) and
  *     `formatInstantDate` (the day a moment fell on, where the reader is) are both correct calls and
  *     differ by a day; only a person reading the surface can say which it wanted.
- *   - A raw `<Input type="date">` already recorded in ALLOWED_RAW_DATE_INPUTS. That list is frozen
- *     at what existed when this landed, so the split cannot grow while the design question of
- *     whether every one of them should be a DatePicker is open. It is printed on every run.
+ *   - Nothing, on the date field. ALLOWED_RAW_DATE_INPUTS is empty and asserted empty: every date
+ *     is entered through the DatePicker. It held sixteen surfaces for one day, while whether they
+ *     should all be the component was still the owner's question to answer.
  */
 
 /** Where the shape of a date, a time and a zone is defined. Nothing else may define one. */
@@ -284,6 +284,48 @@ export function findHandCutToday(filePath, source) {
   return problems;
 }
 
+// --- rule: a day formatter is never handed a moment -------------------------------------------
+
+/*
+ * `formatDate(row.createdAt)` — the UTC-pinned CIVIL-DATE formatter, handed a stored INSTANT.
+ *
+ * The sibling of the slicing rule below it, and the reason both exist: the slice was only ever one
+ * SPELLING of this mistake. Six surfaces took the other one — no slice at all, just an instant
+ * passed to a function whose whole contract is that its argument is a day the firm wrote down.
+ * "Opened", "Closed" and "On hold since" on the matter overview, "Created" and a credit note's
+ * "Opened" on the invoice window, and "On hold since" on the matter status dialog. Every one showed
+ * the UTC day, which for an American office is the next day from late afternoon onward.
+ *
+ * `formatDate` pins to UTC deliberately — a recorded day must not move under the reader — so
+ * handing it a moment is a category error twice over: the wrong function, and the pinning that
+ * makes the wrong function silently wrong rather than loudly.
+ *
+ * READS THE ARGUMENT'S NAME, because that is the only signal in the source. An identifier ending in
+ * `At` is this codebase's own convention for a stored instant, kept consistently enough that the
+ * schema's date-shaped-column scan relies on the same one. The deliberate omissions are
+ * `validFrom`/`validTo` (dual-shape by design) and anything ending `AtTime`, which is a wall clock.
+ */
+const DAY_FORMATTER_GIVEN_A_MOMENT =
+  /\bformat(?:Date|DateRange|Month)\(\s*[\w.?[\]]*\b\w*(?<!AtTime)At\b/g;
+
+export function findDayFormatterGivenAMoment(filePath, source) {
+  if (filePath.startsWith(`${DISPLAY_HOME}/`)) return [];
+  const text = stripComments(source);
+  return [...text.matchAll(DAY_FORMATTER_GIVEN_A_MOMENT)].map((match) =>
+    problem(
+      "day-formatter-given-a-moment",
+      filePath,
+      text,
+      match.index,
+      "hands a stored instant to `formatDate`, which pins to UTC because its argument is supposed " +
+        "to be a day the firm wrote down. The result is the UTC day — the NEXT day, for an " +
+        "American office, from late afternoon onward. Six surfaces shipped that under labels like " +
+        '"Opened" and "Created". Use `formatInstantDate` ' +
+        "(@magna-carta/design-system/formatters), which reads the day in the viewer's own zone",
+    ),
+  );
+}
+
 // --- rule: one display of a date, a time, or a moment -------------------------------------------
 
 /**
@@ -376,45 +418,25 @@ export function findElapsedTime(filePath, source) {
 // --- rule: the date field is one component ------------------------------------------------------
 
 /**
- * The surfaces holding a raw `<Input type="date">`, FROZEN at what existed when this gate landed.
+ * The surfaces holding a raw `<Input type="date">`. EMPTY, and it stays empty.
  *
- * The platform has one date field — `DatePicker` (@magna-carta/design-system/date-picker) — and
- * nine surfaces use it. These fifteen use the native control instead. Whether every one of them
- * SHOULD be the DatePicker is a design question with real trade-offs (the native control is
- * lighter, familiar, and free on mobile; the DatePicker is the one that can carry a firm-configured
- * week start), and it is the owner's to settle, not a scan's.
+ * It was a frozen list of sixteen for one day. The gate recorded them rather than failing them
+ * because whether every native date field SHOULD be the DatePicker looked like a design question
+ * with real trade-offs — the native control is lighter, familiar and free on mobile — and a design
+ * question is the owner's to settle, not a scan's.
  *
- * So the list is frozen rather than empty: nothing here fails, a SIXTEENTH does, and the split
- * cannot quietly grow while the question is open. An entry that no longer holds a raw date input
- * fails too — a stale allowance is a rule pretending to be weaker than it is.
+ * The owner settled it on 2026-09-08: everything goes through the component. So there is nothing
+ * left to record, and the rule below is absolute. The list survives as an empty constant rather
+ * than being deleted because `findStaleAllowances` still runs over it and its emptiness is
+ * asserted — an empty list that can be appended to without anyone noticing is how the exception
+ * comes back.
+ *
+ * What the ruling cost, stated once so it is not rediscovered as a defect: the invitation screen's
+ * birthdate field carried `autocomplete="bday"`, and a browser fills a birthday only into a native
+ * date input it recognises as one. The picker has no `name` or `autocomplete` to pass through. That
+ * screen is typed now, like every other date on the platform.
  */
-export const ALLOWED_RAW_DATE_INPUTS = Object.freeze([
-  "apps/web/src/lib/auth/screens/redeem-invitation-screen.svelte",
-  "apps/web/src/lib/billing/amend-agreement-dialog.svelte",
-  "apps/web/src/lib/billing/credit-note-dialog.svelte",
-  "apps/web/src/lib/billing/draft-bill-dialog.svelte",
-  "apps/web/src/lib/billing/fee-record-window.svelte",
-  "apps/web/src/lib/billing/finalize-bill-dialog.svelte",
-  "apps/web/src/lib/billing/record-delivery-dialog.svelte",
-  "apps/web/src/lib/billing/write-off-dialog.svelte",
-  "apps/web/src/lib/costs/cost-record-window.svelte",
-  "apps/web/src/lib/directory/life-dates-pane.svelte",
-  "apps/web/src/lib/matters/note-record-window.svelte",
-  "apps/web/src/lib/matters/plan-proposal.svelte",
-  "apps/web/src/lib/matters/task-list.svelte",
-  "packages/design-system/src/lib/components/data-table/data-table-grid-filter.svelte",
-  "packages/design-system/src/stories/field-row.stories.svelte",
-  /*
-   * THE SIXTEENTH, AND HOW IT GOT HERE — recorded rather than hidden inside the count.
-   *
-   * The communications fields landed on `main` while this gate was on a branch, so it was written
-   * against a rule that did not exist yet. That is the one way this list can legitimately grow, and
-   * it is a merge race rather than a precedent: a surface written AFTER the gate is on `main` has
-   * no such excuse, and the count below is what makes the difference visible instead of letting a
-   * sixteenth entry pass as quietly as a fifteenth did.
-   */
-  "apps/web/src/lib/communications/communication-fields.svelte",
-]);
+export const ALLOWED_RAW_DATE_INPUTS = Object.freeze([]);
 
 const RAW_DATE_INPUT = /type=["']date["']/g;
 /*
@@ -433,29 +455,37 @@ export function findRawDateInputs(filePath, source) {
       filePath,
       text,
       match.index,
-      "renders a native date input. The platform's date field is `DatePicker` " +
-        "(@magna-carta/design-system/date-picker), which nine surfaces already use and which is " +
-        "the only one that can carry a firm-configured week start. The surfaces still on the " +
-        "native control are recorded in tooling/lint-date-handling/rules.mjs and that list is " +
-        "closed — settle the design question before adding to it",
+      "renders a native date input. Every date on this platform is entered through `DatePicker` " +
+        "(@magna-carta/design-system/date-picker) — the owner's ruling, 2026-09-08 — and it is " +
+        "also the only field that can carry a firm-configured week start. There is no allowance " +
+        "list to add to. Read the picker's value with `civilDateValue` and write it back with " +
+        "`civilDateTextOrEmpty`; docs/conventions/dates.md carries the rest",
     ),
   );
 }
 
-/** An allowance that has outlived its violation: the rule is stronger than the list admits. */
-export function findStaleAllowances(filesByPath) {
-  return ALLOWED_RAW_DATE_INPUTS.filter((allowed) => {
-    const source = filesByPath.get(allowed);
-    return source === undefined || !RAW_DATE_INPUT_ONCE.test(stripComments(source));
-  }).map((allowed) => ({
-    rule: "stale-allowance",
-    file: allowed,
-    line: 1,
-    detail:
-      "is recorded as holding a raw date input and no longer does (or no longer exists). Drop it " +
-      "from ALLOWED_RAW_DATE_INPUTS — an allowance nobody needs makes the rule read weaker than " +
-      "it is",
-  }));
+/**
+ * An allowance that has outlived its violation: the rule is stronger than the list admits.
+ *
+ * The list is a parameter with a default rather than a closed-over constant so the mechanism stays
+ * testable now that the real list is empty. It is the same list either way — the runner passes
+ * nothing.
+ */
+export function findStaleAllowances(filesByPath, allowances = ALLOWED_RAW_DATE_INPUTS) {
+  return allowances
+    .filter((allowed) => {
+      const source = filesByPath.get(allowed);
+      return source === undefined || !RAW_DATE_INPUT_ONCE.test(stripComments(source));
+    })
+    .map((allowed) => ({
+      rule: "stale-allowance",
+      file: allowed,
+      line: 1,
+      detail:
+        "is recorded as holding a raw date input and no longer does (or no longer exists). Drop it " +
+        "from ALLOWED_RAW_DATE_INPUTS — an allowance nobody needs makes the rule read weaker than " +
+        "it is",
+    }));
 }
 
 // --- the recorded allowances --------------------------------------------------------------------
@@ -537,6 +567,7 @@ export function applyAllowances(problems) {
 /** Every rule, in the order a failure reads best: shape, then meaning, then words. */
 export const RULES = Object.freeze([
   findShapeLiterals,
+  findDayFormatterGivenAMoment,
   findHandWrittenValidators,
   findInlineViewerZone,
   findHandCutToday,

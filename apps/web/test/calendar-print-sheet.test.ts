@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 /*
  * What one calendar entry's sheet says, kind by kind. The formatters are injected, so the sheet is
  * asserted on what it projects and not on a locale: a date reads as the test's own stamp, a time as
@@ -93,6 +94,9 @@ const witness: EventParticipant = {
 
 /** The surface's own rendering, made visible: every formatted value carries what it was given. */
 const context: EntrySheetContext = {
+  // The day a moment fell on. Pinned here so the sheet reads the same on every machine; the real
+  // supplier passes formatInstantDate, which follows the reader's own zone.
+  instantDate: (instant: string) => civilDateOf(instant),
   matterNumber: "2026-0042",
   typeName: "Hearing",
   officeName: null,
