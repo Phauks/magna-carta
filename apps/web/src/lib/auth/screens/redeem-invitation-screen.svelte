@@ -32,6 +32,8 @@
   import AuthPanel from "../auth-panel.svelte";
   import CredentialNotice from "../credential-notice.svelte";
   import { formatInvitationCode, isCompleteInvitationCode } from "../invitation-code.ts";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   let {
     code = $bindable(""),
@@ -127,14 +129,16 @@
         <!-- The field is named for the fact it holds, never "Date": a form that asks for "a date"
              on the screen where three facts are being matched is asking a question nobody can
              answer with confidence. -->
-        <Label for="invitation-date-of-birth">Date of Birth</Label>
-        <Input
-          id="invitation-date-of-birth"
-          name="bday"
-          type="date"
+        <!-- The one date field that gave something up in moving to the component: the native input
+             carried `autocomplete="bday"`, and a browser autofills a birthday only into a date input
+             it recognises as one. The picker has no name or autocomplete to pass through, so the
+             three facts on this screen are all typed now. Raised for the owner rather than settled
+             here — the alternative is one screen keeping a control the rest of the product does not. -->
+        <DatePicker
+          label="Date of Birth"
           size="lg"
-          bind:value={dateOfBirth}
-          autocomplete="bday"
+          value={civilDateValue(dateOfBirth)}
+          onValueChange={(next) => (dateOfBirth = civilDateTextOrEmpty(next))}
           aria-invalid={invalid}
           disabled={pending || lockedOut}
           required

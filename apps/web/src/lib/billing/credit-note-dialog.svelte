@@ -25,6 +25,8 @@
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
   import { billingFailure, issueCreditNote, type CreditNoteLineRequest } from "./billing-api.ts";
@@ -178,12 +180,11 @@
           <Input id="{fieldPrefix}-amount" disabled={busy} bind:value={amountText} />
         </div>
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-effective">Effective Date</Label>
-          <Input
-            id="{fieldPrefix}-effective"
-            type="date"
+          <DatePicker
+            label="Effective Date"
+            value={civilDateValue(effectiveDate)}
+            onValueChange={(next) => (effectiveDate = civilDateTextOrEmpty(next))}
             disabled={busy}
-            bind:value={effectiveDate}
           />
         </div>
       </div>

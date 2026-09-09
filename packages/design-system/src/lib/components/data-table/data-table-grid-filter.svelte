@@ -12,7 +12,9 @@
    * Three settled rules shape the set filter in particular, and each was violated once already:
    *   - Every ghost text is the FIELD'S NAME, never a description of what to do. The narrow field
    *     and the contains field both carry the column's own label; a range's two fields carry
-   *     "From" and "To", which are their names.
+   *     "From" and "To", which are their names. The DATE range has no ghost text to carry one —
+   *     a segmented field shows its own parts — so From and To are its aria-labels instead, which
+   *     is the same rule reaching the same place by the only route open to it.
    *   - The select-all/none affordance is ONE reactive control that says what pressing it will
    *     DO: everything on reads "Select none", anything off reads "Select all".
    *   - A set filter with everything selected IS no filter, so a set filter carries NO clear
@@ -23,6 +25,11 @@
   import * as ContextMenu from "../context-menu/index.ts";
   import { keepMenuFieldKeys } from "../context-menu/menu-field-keys.ts";
   import Input from "../input/index.ts";
+  import {
+    civilDateTextOrEmpty,
+    civilDateValue,
+    DatePicker,
+  } from "../date-picker/index.ts";
   import type { GridColumn } from "./grid-columns.ts";
   import type { DataTableGridState } from "./data-table-grid-state.svelte.ts";
   import { gridColumnFilterKind } from "./grid-filters.ts";
@@ -189,20 +196,18 @@
       {:else if kind === "dateRange"}
         <div class="mc-table-grid-filter-menu-field" role="presentation" onkeydown={keepMenuFieldKeys}>
           <div class="mc-table-filter-range-row">
-            <Input
-              type="date"
+            <DatePicker
               size="sm"
               aria-label="From"
-              value={dateBound("from")}
-              oninput={(event) => setDateBound("from", event.currentTarget.value)}
+              value={civilDateValue(dateBound("from"))}
+              onValueChange={(next) => setDateBound("from", civilDateTextOrEmpty(next))}
             />
             <span class="mc-table-filter-note">to</span>
-            <Input
-              type="date"
+            <DatePicker
               size="sm"
               aria-label="To"
-              value={dateBound("to")}
-              oninput={(event) => setDateBound("to", event.currentTarget.value)}
+              value={civilDateValue(dateBound("to"))}
+              onValueChange={(next) => setDateBound("to", civilDateTextOrEmpty(next))}
             />
           </div>
           {#if column.filterNote}

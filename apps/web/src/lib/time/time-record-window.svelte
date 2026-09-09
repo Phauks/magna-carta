@@ -89,6 +89,7 @@
   import { timeEntrySheet } from "./time-print-sheet.ts";
   import { listMatterTasks, type MatterTask } from "$lib/matters/tasks-api.ts";
   import { civilDateOf } from "@magna-carta/civil-time/civil-date";
+  import { printSheetDates } from "$lib/print-sheet";
 
   let {
     open = $bindable(false),
@@ -871,8 +872,7 @@
       : timeEntrySheet(entry, {
           matterTitle: chosenMatterName,
           money: (amount) => formatMoney(amount, { currency: entry.currency }),
-          date: (isoDate) => formatDate(isoDate),
-          instantDate: (instant) => formatInstantDate(instant),
+          ...printSheetDates(),
           printedAt: formatInstant(new Date()),
         }),
   );

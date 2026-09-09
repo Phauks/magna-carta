@@ -154,7 +154,7 @@ export function civilDateOf(instant: Date | number | CanonicalInstant): CivilDat
  * indistinguishable at a glance from the bug that takes the UTC day of an instant and shows it to a
  * reader. Being unable to tell those apart is the whole reason this function has a name.
  */
-export function civilDayOf(instantOrDay: CanonicalInstant | CivilDate): CivilDate {
+export function civilDayOf(instantOrDay: CanonicalInstant): CivilDate {
   if (CIVIL_DATE_PATTERN.test(instantOrDay)) return instantOrDay;
   return civilDateOf(instantOrDay);
 }
@@ -182,6 +182,17 @@ export function addCalendarDays(civilDate: CivilDate, days: number): CivilDate {
     requireCivilDate(civilDate, "addCalendarDays", "the civil date"),
   );
   return civilDateOf(utcDateFor({ year, month, day: day + days }));
+}
+
+/**
+ * The first day of a month, as a civil date. `month` is 1-based, as it is written.
+ *
+ * The twin of `endOfCivilMonth`, and here for the same reason: the call sites were writing
+ * `` `${civilDate.slice(0, 8)}01` ``, which is correct, unreadable, and one edit away from being a
+ * day out. Going through the parts means the year and month are numbers the whole way.
+ */
+export function startOfCivilMonth(year: number, month: number): CivilDate {
+  return civilDateOf(utcDateFor({ year, month, day: 1 }));
 }
 
 /**

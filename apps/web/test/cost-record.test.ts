@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 /*
  * The cost record on paper: what reaches the sheet, and what deliberately does not.
  *
@@ -43,6 +44,9 @@ function cost(overrides: Partial<CostLedgerEntry> = {}): CostLedgerEntry {
 }
 
 const context: CostSheetContext = {
+  // The day a moment fell on. Pinned here so the sheet reads the same on every machine; the real
+  // supplier passes formatInstantDate, which follows the reader's own zone.
+  instantDate: (instant: string) => civilDateOf(instant),
   matterTitle: "Pemberton v. Hale Construction Co.",
   matterNumber: "2026-0147",
   money: (amount) => `$${amount.toFixed(2)}`,

@@ -13,4 +13,4 @@ The leaf package having no workspace dependencies is the load-bearing part. Ever
 
 Two package fitness tests got stronger rather than being repointed: `packages/calendar` and `packages/tasks` each had an exemption list naming the files allowed to touch `Intl`, and both lists are now empty — the exemptions were what made the other packages write their own.
 
-Fifteen surfaces still hold a native `<Input type="date">` rather than the `DatePicker`. That list is recorded and closed, so it cannot grow while the design question of whether they should all move is open. Standing rules: `docs/conventions/dates.md`.
+Sixteen surfaces held a native `<Input type="date">` rather than the `DatePicker`, recorded rather than failed while whether they should all move was still an open design question. The owner settled it days later and they are all the component now; the list is empty and asserted empty. Standing rules: `docs/conventions/dates.md`.

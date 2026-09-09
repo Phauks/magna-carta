@@ -63,6 +63,7 @@
   import TimeRecordWindow from "./time-record-window.svelte";
   import { timeEntrySheet } from "./time-print-sheet.ts";
   import type { ApiOutcome, Failure } from "$lib/api/request.ts";
+  import { printSheetDates } from "$lib/print-sheet";
   import {
     approveTimeEntry,
     submitTimeEntry,
@@ -405,8 +406,7 @@
       : timeEntrySheet(printEntry, {
           matterTitle,
           money,
-          date: (isoDate) => formatDate(isoDate),
-          instantDate: (instant) => formatInstantDate(instant),
+          ...printSheetDates(),
           printedAt: formatInstant(new Date()),
         }),
   );

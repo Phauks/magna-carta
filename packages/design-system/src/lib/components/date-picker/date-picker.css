@@ -26,7 +26,6 @@
   .mc-date-field {
     display: inline-flex;
     align-items: center;
-    min-block-size: var(--mc-density-control-md);
     padding-inline: var(--mc-space-12);
     background-color: var(--mc-surface-field);
     color: var(--mc-text-default);
@@ -43,6 +42,18 @@
     outline-style: solid;
     outline-width: var(--mc-space-0);
     outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* Sizes — the Input's own scale, through the same density aliases, so a date field and the text
+     field beside it can be set to one row height. min-block-size, not block-size, so OS/browser
+     text-only scaling can grow the segments without clipping them. */
+  .mc-date-field-sm {
+    min-block-size: var(--mc-density-control-sm);
+  }
+  .mc-date-field-md {
+    min-block-size: var(--mc-density-control-md);
+  }
+  .mc-date-field-lg {
+    min-block-size: var(--mc-density-control-lg);
   }
   .mc-date-field:focus-within {
     border-color: var(--mc-focus-ring);

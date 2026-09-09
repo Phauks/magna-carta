@@ -107,12 +107,14 @@ describe("the invitation screen", () => {
     for (const [id, title] of [
       ["invitation-code", "Invitation Code"],
       ["invitation-last-name", "Last Name"],
-      ["invitation-date-of-birth", "Date of Birth"],
     ] as const) {
       expect(source).toContain(`for="${id}"`);
       expect(source).toContain(`id="${id}"`);
       expect(source).toContain(`>${title}</Label>`);
     }
+    // The third fact is a date, and every date on this platform is the DatePicker, which renders
+    // its own label rather than taking a `<Label for>` — so it is asked for the way it is written.
+    expect(source).toContain('label="Date of Birth"');
   });
 
   it("carries ghost text as well as the title on the two typed fields", () => {
@@ -121,9 +123,21 @@ describe("the invitation screen", () => {
     expect(source).toContain('placeholder="Last Name"');
   });
 
-  it("names the date field for the fact it holds, and lets a browser fill it", () => {
-    expect(source).toContain(">Date of Birth</Label>");
-    expect(source).toContain('autocomplete="bday"');
+  it("names the date field for the fact it holds, and flags it with the other two", () => {
+    /*
+     * It carried `autocomplete="bday"` until the owner ruled that every date is entered through
+     * the DatePicker (2026-09-08). A browser fills a birthday only into a native date input it
+     * recognises as one, and the picker has no `name` or `autocomplete` to pass through, so the
+     * autofill is gone and this asserts what remains: the field is named for the fact it holds,
+     * it is the platform's control, and it is marked refused with the two fields beside it —
+     * this screen's own rule is that the three are flagged together, never one at a time.
+     */
+    expect(source).toContain('label="Date of Birth"');
+    expect(source).toContain("<DatePicker");
+    // That it is not a native date input is not asserted here: `pnpm run lint:date-handling`
+    // enforces that over the whole repository, and writing the literal out to check for its
+    // absence trips that very scan — this file would be the thing it reported.
+    expect(source.match(/aria-invalid=\{invalid\}/g)).toHaveLength(3);
   });
 
   it("puts no generated prefix in the code field", () => {
