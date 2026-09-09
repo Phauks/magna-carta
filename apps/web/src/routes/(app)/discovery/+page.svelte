@@ -9,24 +9,88 @@
    * own work would be invisible to them. This register is the one screen scoped the way the wall
    * is.
    *
-   * IT READS AND OPENS; IT DOES NOT CREATE. A review set is created from the matter it belongs to,
-   * because that is where its ceiling, its lifecycle and its first access-list entry are decided,
-   * and a corpus with no matter is not a thing this model has. A create control here would have to
-   * ask which matter first, which is the matter's own screen wearing a disguise.
+   * IT CREATES, AND ASKS WHICH MATTER. This screen shipped read-only on the reasoning that a create
+   * control would have to ask which matter first and would therefore be the matter's own screen in
+   * disguise. The Conflicts Check ruling settled the same question the other way a day later: where
+   * a surface HOLDS a record and OFFERS the act that writes one, the record is the screen and the
+   * act is the create control over it — the firm-wide log asks which matter in its panel and the
+   * matter's own section does not, and both open the same one. A register of corpora with no way to
+   * start a corpus is a reader for somebody else's data.
+   *
+   * WHAT STAYS TRUE is the reason the old comment gave: a corpus with no matter is not a thing this
+   * model has. The matter is asked for in the panel, once, because it decides the ceiling the set
+   * snapshots and the lifecycle it lives under — not routed around by sending the reader elsewhere.
    *
    * IT IS ONE TABLE AT THE FULL WIDTH. The matter is a column with its own filter, narrowed the way
    * the state is; there is no rail and no tab strip, because everything this register could be
    * narrowed by is a property of a row.
+   *
+   * AND IT SEARCHES THE WAY EVERY OTHER LIST SCREEN DOES — ScreenSearch in the action row, which is
+   * the product's one control for searching within the screen you are on. A reviewer holding four
+   * corpora finds one by typing its name, with the same gesture the custody register and the docket
+   * take.
+   *
+   * THE MATCH IS THE SERVER'S, over the whole register rather than the page in hand: the listing is
+   * cursor-paged, so a narrowing of the rows already fetched would answer confidently about the
+   * first page and read as the whole record. It matches the review set's NAME and not its matter —
+   * the register names the matter on every row, but a member on a review set's access list may hold
+   * no access to that matter at all, so matching a matter's title would make a corpus findable by a
+   * fact its reader is not entitled to.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
+  import CreateControl from "@magna-carta/design-system/create-control";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { goto } from "$app/navigation";
+  import { permissionRefusal } from "$lib/access/refusal.ts";
+  import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
   import { resolveMatterRecord } from "$lib/matters/matter-record.ts";
+  import NewReviewSetDialog from "$lib/discovery/new-review-set-dialog.svelte";
   import ReviewSetList from "$lib/discovery/review-set-list.svelte";
-  import type { ReviewSet } from "$lib/discovery/discovery-api.ts";
+  import {
+    MANAGE_REVIEW_SETS_PERMISSION,
+    type ReviewSet,
+  } from "$lib/discovery/discovery-api.ts";
 
   let grid = $state<DataTable.DataTableGridState<ReviewSet> | null>(null);
   let matterTitles = $state<ReadonlyMap<string, string>>(new Map());
+  let session = $state<SessionBootstrap | null>(null);
+  let composerOpen = $state(false);
+  let rereadRegister = $state<() => void>(() => {});
+  let bootstrapped = false;
+
+  $effect(() => {
+    if (bootstrapped) return;
+    bootstrapped = true;
+    void (async () => {
+      const outcome = await readSession(fetch);
+      if (outcome.kind === "ok") session = outcome.value;
+    })();
+  });
+
+  /*
+   * Why the control cannot be pressed, or undefined while it can. It never leaves the row: a
+   * control that vanished would tell a reader nothing about why, and a member refused server-side
+   * should learn that here rather than at the commit.
+   */
+  const createRefusal = $derived.by((): string | undefined => {
+    if (session === null) return "Reading your session.";
+    if (!session.permissions.includes(MANAGE_REVIEW_SETS_PERMISSION)) {
+      return permissionRefusal("Creating a review set", MANAGE_REVIEW_SETS_PERMISSION);
+    }
+    return undefined;
+  });
+
+  /*
+   * A corpus that has just been made goes straight to itself — the next thing anybody does with one
+   * is put material in it — and the register behind is read again so the row is there on the way
+   * back.
+   */
+  function onCreated(reviewSetId: string): void {
+    rereadRegister();
+    void goto(`/discovery/review-sets/${reviewSetId}`);
+  }
 
   /*
    * The matters the rows on screen belong to, resolved one at a time and cached.
@@ -54,7 +118,24 @@
     matterTitles = next;
   }
 
-  const narrowed = $derived((grid?.activeFilterCount ?? 0) > 0);
+  /*
+   * The field's own text, and the term the listing is actually on.
+   *
+   * They are two states rather than one because the search leaves the machine: `searchOn="pause"`
+   * hands over the query once typing settles, and the read runs on THAT — so the field keeps up with
+   * the keys while the register re-reads once per thought rather than once per keystroke.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+
+  const searching = $derived(appliedSearch.trim() !== "");
+  const narrowed = $derived((grid?.activeFilterCount ?? 0) > 0 || searching);
+
+  function showEverything(): void {
+    searchText = "";
+    appliedSearch = "";
+    grid?.clearAllFilters();
+  }
 </script>
 
 <svelte:head><title>Discovery · Magna Carta</title></svelte:head>
@@ -62,12 +143,31 @@
 <div class="flex h-full flex-col gap-16">
   <ScreenHeader title="Discovery">
     {#snippet actions()}
+      <!-- The search, then the way back to the whole register. The query leaves the machine, so it
+           waits for typing to stop: one request per thought rather than one per keystroke. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search the review sets"
+        placeholder={placeholderOf("Search the review sets")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
+
+      <CreateControl
+        title="Start a review set on one of your matters."
+        refusal={createRefusal}
+        onpress={() => (composerOpen = true)}
+      />
+
       <DataTable.ClearFilters
         grid={grid ?? undefined}
         narrowing={{
           narrowed,
           summary: "Show every review set",
-          clear: () => grid?.clearAllFilters(),
+          clear: showEverything,
         }}
       />
     {/snippet}
@@ -76,7 +176,9 @@
   <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-16">
     <ReviewSetList
       {matterTitles}
+      search={appliedSearch}
       bind:grid
+      bind:reread={rereadRegister}
       onOpen={(reviewSetId) => void goto(`/discovery/review-sets/${reviewSetId}`)}
       onRows={(rows) => void nameMatters(rows)}
       caption="Every review set you can reach"
@@ -84,9 +186,12 @@
     >
       {#snippet emptyBody()}
         A review set is a corpus under review — a production another party served, or the firm's own
-        collection — and you see one only once somebody has put you on its list. A review set is
-        started from the matter it belongs to, under that matter's Discovery section.
+        collection — and you see one only once somebody has put you on its list. New, at the top of
+        the screen, starts one on a matter you are working; a matter's own Discovery section starts
+        one there.
       {/snippet}
     </ReviewSetList>
   </div>
 </div>
+
+<NewReviewSetDialog bind:open={composerOpen} chooseMatter {onCreated} />

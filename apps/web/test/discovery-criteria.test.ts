@@ -36,9 +36,38 @@ describe("the narrowing registry", () => {
     }
   });
 
-  it("serves the five narrowings the document list read was measured with", () => {
+  it("serves the five measured narrowings, and the name search beside them", () => {
     const built = CRITERIA_PROVIDERS.filter(providerIsBuilt).map((provider) => provider.key);
-    expect(built).toEqual(["custodian", "load", "state", "exception", "family"]);
+    expect(built).toEqual(["custodian", "load", "state", "exception", "family", "search"]);
+  });
+
+  it("names where a criterion set outside the popover is set, so the control can say so", () => {
+    // The two whose control is elsewhere. A criterion with no editing control in the popover and no
+    // `setFrom` renders as a dead row a reader cannot interpret, which is the failure this catches.
+    const elsewhere = CRITERIA_PROVIDERS.filter((provider) => provider.setFrom !== undefined).map(
+      (provider) => provider.key,
+    );
+    expect(elsewhere.toSorted()).toEqual(["family", "search"]);
+    for (const provider of CRITERIA_PROVIDERS) {
+      if (provider.setFrom === undefined) continue;
+      expect(provider.setFrom.trim()).not.toBe("");
+    }
+  });
+
+  it("narrows by what a document is CALLED and by what is IN it as two separate criteria", () => {
+    // The distinction the whole surface turns on. One is served today and composes into this list;
+    // the other is not served and composes into the review set's own index. Collapsing them into
+    // one control would tell a reviewer they had searched a corpus when they had searched its file
+    // names.
+    const name = criteriaProvider("search");
+    const keyword = criteriaProvider("keyword");
+    expect(name).toBeDefined();
+    expect(keyword).toBeDefined();
+    expect(providerIsBuilt(name!)).toBe(true);
+    expect(providerIsBuilt(keyword!)).toBe(false);
+    expect(composeDocumentQuery({ search: "ridgeway" })).toEqual({ search: "ridgeway" });
+    // The unserved one contributes nothing rather than sending a parameter the read cannot read.
+    expect(composeDocumentQuery({ keyword: "ridgeway" })).toEqual({});
   });
 
   it("declares keyword as narrowing through the search index, not the document list", () => {

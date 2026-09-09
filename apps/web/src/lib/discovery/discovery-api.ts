@@ -78,8 +78,12 @@ export function listMatterReviewSets(
   fetchImpl: typeof fetch,
   matterId: string,
   cursor?: string,
+  search?: string,
 ): Promise<ApiOutcome<Page<ReviewSet>>> {
-  return requestJson(fetchImpl, `/api/v1/matters/${matterId}/review-sets${query({ cursor })}`);
+  return requestJson(
+    fetchImpl,
+    `/api/v1/matters/${matterId}/review-sets${query({ cursor, search })}`,
+  );
 }
 
 /**
@@ -92,8 +96,9 @@ export function listMatterReviewSets(
 export function listReviewSets(
   fetchImpl: typeof fetch,
   cursor?: string,
+  search?: string,
 ): Promise<ApiOutcome<Page<ReviewSet>>> {
-  return requestJson(fetchImpl, `/api/v1/review-sets${query({ cursor })}`);
+  return requestJson(fetchImpl, `/api/v1/review-sets${query({ cursor, search })}`);
 }
 
 export function readReviewSet(
@@ -204,8 +209,12 @@ export function listLoads(
   fetchImpl: typeof fetch,
   reviewSetId: string,
   cursor?: string,
+  search?: string,
 ): Promise<ApiOutcome<Page<DiscoveryLoad>>> {
-  return requestJson(fetchImpl, `/api/v1/review-sets/${reviewSetId}/loads${query({ cursor })}`);
+  return requestJson(
+    fetchImpl,
+    `/api/v1/review-sets/${reviewSetId}/loads${query({ cursor, search })}`,
+  );
 }
 
 export function readLoad(
@@ -310,6 +319,11 @@ export interface ReviewDocumentQuery {
   familyId?: string;
   processingState?: ReviewDocumentProcessingState;
   exceptionCode?: ReviewDocumentExceptionCode;
+  /**
+   * What the document is CALLED — its name or its path. Never what is inside it: the text of a
+   * document is the review set's own index, which is a different read with a different shape.
+   */
+  search?: string;
   cursor?: string;
 }
 
@@ -326,6 +340,7 @@ export function listReviewDocuments(
       familyId: parameters.familyId,
       processingState: parameters.processingState,
       exceptionCode: parameters.exceptionCode,
+      search: parameters.search,
       cursor: parameters.cursor,
     })}`,
   );

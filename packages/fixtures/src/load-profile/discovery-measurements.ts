@@ -102,6 +102,35 @@ export const LIST_PAGE_BY_CUSTODIAN_SQL = `SELECT ${LIST_COLUMNS} FROM review_do
     AND ${ACCESS}
   ORDER BY review_document.sort_date DESC, review_document.id DESC LIMIT ?`;
 
+// The same page narrowed by the screen's own search field, over what each document is CALLED.
+//
+// THE ONE NARROWING WITH NO INDEX BEHIND IT, which is exactly why it is measured rather than assumed.
+// A LIKE with a leading wildcard cannot seek, so the plan has to show the sort-bearing index still
+// carrying the range and the ORDER BY with the match applied as a filter on the rows it walks — not a
+// scan, and not a temporary b-tree. What the plan CANNOT show is how many rows that filter is applied
+// to, and that is the number this exists to expose: a term that matches stops at the page limit, and
+// a term that matches nothing walks what is left of the review set. Both are measured below, because
+// the second is the one a reviewer meets when they mistype. Transcribes the search clause composed in
+// packages/discovery/src/review-reads.ts.
+//
+// What it has said so far: at the 25,000-document volume, 0.4 ms matching and 4.9 ms matching
+// nothing; at the 250,000-document ceiling, 0.4 ms matching and 62 ms matching nothing. The matching
+// case is flat because the LIMIT ends the walk; the other grows with the corpus, linearly, which is
+// the shape a leading-wildcard match has and the reason both numbers are kept rather than one.
+export const LIST_PAGE_BY_SEARCH_SQL = `SELECT ${LIST_COLUMNS} FROM review_document
+  WHERE review_document.review_set_id = ?
+    AND review_document.sort_date IS NOT NULL
+    AND (review_document.source_name LIKE ? ESCAPE '\\'
+      OR review_document.source_path LIKE ? ESCAPE '\\')
+    AND (review_document.sort_date, review_document.id) < (?, ?)
+    AND ${ACCESS}
+  ORDER BY review_document.sort_date DESC, review_document.id DESC LIMIT ?`;
+
+/** A term every seeded document answers: the walk stops at the page limit. */
+const SEARCH_TERM_THAT_MATCHES = "%PLTF%";
+/** A term nothing answers: the walk is what is left of the review set, which is the worst case. */
+const SEARCH_TERM_THAT_MATCHES_NOTHING = "%ridgeway-settlement-memo%";
+
 // And narrowed by exception code, which is the one filter that cannot be a column: a document has
 // several reasons or none, so it is a semi-join rather than a join.
 export const LIST_PAGE_BY_EXCEPTION_SQL = `SELECT ${LIST_COLUMNS} FROM review_document
@@ -214,6 +243,18 @@ export function discoveryHotPathPlans(
       details: explainStatement(raw, LIST_PAGE_BY_CUSTODIAN_SQL, [
         probes.reviewSetId,
         probes.filterRecordCustodianId,
+        probes.midListCursorSortDate,
+        probes.midListCursorId,
+        probes.memberUserId,
+        profile.listPageSize,
+      ]),
+    },
+    {
+      label: "listPageByNameSearch",
+      details: explainStatement(raw, LIST_PAGE_BY_SEARCH_SQL, [
+        probes.reviewSetId,
+        SEARCH_TERM_THAT_MATCHES,
+        SEARCH_TERM_THAT_MATCHES,
         probes.midListCursorSortDate,
         probes.midListCursorId,
         probes.memberUserId,
@@ -334,6 +375,47 @@ export function discoveryMeasurements(): Measurement<DiscoveryHandle>[] {
           .all(
             probes.reviewSetId,
             probes.filterRecordCustodianId,
+            probes.midListCursorSortDate,
+            probes.midListCursorId,
+            probes.memberUserId,
+            profile.listPageSize,
+          );
+      },
+    },
+    {
+      // THE SEARCH THAT FINDS SOMETHING: the filter is applied to rows the index already ordered, and
+      // the LIMIT stops the walk as soon as the page is full — so this should sit beside the plain
+      // list page rather than above it.
+      name: "discovery-review.list-page-by-name-search",
+      operation: async ({ raw, profile, probes }) => {
+        raw
+          .prepare(LIST_PAGE_BY_SEARCH_SQL)
+          .all(
+            probes.reviewSetId,
+            SEARCH_TERM_THAT_MATCHES,
+            SEARCH_TERM_THAT_MATCHES,
+            probes.midListCursorSortDate,
+            probes.midListCursorId,
+            probes.memberUserId,
+            profile.listPageSize,
+          );
+      },
+    },
+    {
+      // AND THE SEARCH THAT FINDS NOTHING, which is the honest cost of this narrowing and the one a
+      // reviewer meets by mistyping: nothing satisfies the filter, so the LIMIT never fills and the
+      // walk runs to the end of what the member may see. It is bounded by ONE review set rather than
+      // by the firm, which is what makes it acceptable — and the number here is what says whether
+      // that stays true at the ceiling. If this ever has to come down, the answer is the review set's
+      // own search index rather than an index on this column, which a leading wildcard cannot use.
+      name: "discovery-review.list-page-by-name-search-no-match",
+      operation: async ({ raw, profile, probes }) => {
+        raw
+          .prepare(LIST_PAGE_BY_SEARCH_SQL)
+          .all(
+            probes.reviewSetId,
+            SEARCH_TERM_THAT_MATCHES_NOTHING,
+            SEARCH_TERM_THAT_MATCHES_NOTHING,
             probes.midListCursorSortDate,
             probes.midListCursorId,
             probes.memberUserId,

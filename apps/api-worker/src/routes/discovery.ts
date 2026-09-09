@@ -350,6 +350,42 @@ const LoadSummary = z
   })
   .openapi("DiscoveryLoad");
 
+/**
+ * Both review-set listings take the same search, over the one field a person has to go on.
+ *
+ * A review set is named to be told from the others — "Our collection", "Defendant's second
+ * production" — so the name is what a reader types and the only thing matched. Its matter is NOT:
+ * the register names the matter on each row, but a member on a review set's list may hold no access
+ * to that matter at all, so matching against a matter's title would make a corpus findable by a
+ * fact its reader is not entitled to and would answer differently for two people looking at the
+ * same row.
+ */
+const reviewSetListQuery = cursorQuery.extend({
+  search: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .openapi({ description: "Narrows to review sets whose name contains this text." }),
+});
+
+/**
+ * The loads listing's search, over the one field a person has to go on.
+ *
+ * A load's other columns are counts and an instant, and nobody looks for a delivery by its count.
+ * A load declared with no description reads on screen as its lane, which is a word this table does
+ * not hold — so an undescribed load answers no search. That is the honest behaviour rather than a
+ * special case, and it is why the description is asked for when a load is declared.
+ */
+const loadListQuery = cursorQuery.extend({
+  search: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .openapi({ description: "Narrows to loads whose source description contains this text." }),
+});
+
 const matterIdParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
 const reviewSetIdParam = z.object({
   reviewSetId: identifierPathParam("reviewSet", "reviewSetId"),
@@ -381,7 +417,7 @@ const listReviewSetsRoute = defineOpenAPIRoute(readMeta("listReviewSets"), {
     "The matter's review sets, newest first. A matter may have several — the firm's own " +
     "collection, a production received in March, a second request — and each is its own corpus " +
     "with its own index and its own lifecycle.",
-  request: { params: matterIdParam, query: cursorQuery },
+  request: { params: matterIdParam, query: reviewSetListQuery },
   responses: {
     200: {
       description: "One page of the matter's review sets",
@@ -408,7 +444,7 @@ const listAllReviewSetsRoute = defineOpenAPIRoute(readMeta("listAllReviewSets"),
     "the matter it belongs to, so a register scoped by matter would hide from them precisely the " +
     "work they were given. Each row names its matter, because that is how a person tells four " +
     "review sets apart; naming it discloses nothing the reader is not already inside.",
-  request: { query: cursorQuery },
+  request: { query: reviewSetListQuery },
   responses: {
     200: {
       description: "One page of the member's review sets",
@@ -673,7 +709,7 @@ const listLoadsRoute = defineOpenAPIRoute(readMeta("listLoads"), {
     "What went into this corpus: every load, newest first, with its lane, its source, who ran it, " +
     "when, whether assistant transcripts were in scope, and how what arrived reconciles against " +
     "what was declared. This is the provenance record a firm hands over.",
-  request: { params: reviewSetIdParam, query: cursorQuery },
+  request: { params: reviewSetIdParam, query: loadListQuery },
   responses: {
     200: {
       description: "One page of the review set's loads",
@@ -873,12 +909,13 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { cursor } = c.req.valid("query");
+      const { cursor, search } = c.req.valid("query");
       const page = await readVisibleReviewSets(
         firm.firmDatabase,
         accessFor(c),
         DEFAULT_PAGE_SIZE,
         cursor,
+        search,
       );
       return c.json({ data: page.data.map(reviewSetPayload), nextCursor: page.nextCursor }, 200);
     },
@@ -958,13 +995,14 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
       // disclose it — "Plaintiff's production, Ridgeway settlement" tells a reader what exists — and
       // holding the matter's discovery permission is not the same thing as being cleared for material
       // an opposing party produced under a protective order.
-      const { cursor } = c.req.valid("query");
+      const { cursor, search } = c.req.valid("query");
       const page = await readVisibleReviewSetsForMatter(
         firm.firmDatabase,
         matterId as MatterId,
         accessFor(c),
         DEFAULT_PAGE_SIZE,
         cursor,
+        search,
       );
       return c.json({ data: page.data.map(reviewSetPayload), nextCursor: page.nextCursor }, 200);
     },
@@ -1305,13 +1343,14 @@ export function registerDiscoveryRoutes(app: DiscoveryApp, chokepoint: Chokepoin
       const { reviewSetId } = c.req.valid("param");
       const refusal = await refuseUnlessOnTheList(c, firm.firmDatabase, reviewSetId as ReviewSetId);
       if (refusal !== undefined) return refusal;
-      const { cursor } = c.req.valid("query");
+      const { cursor, search } = c.req.valid("query");
       const page = await readVisibleDiscoveryLoads(
         firm.firmDatabase,
         reviewSetId as ReviewSetId,
         accessFor(c),
         DEFAULT_PAGE_SIZE,
         cursor,
+        search,
       );
       return c.json({ data: page.data.map(loadPayload), nextCursor: page.nextCursor }, 200);
     },

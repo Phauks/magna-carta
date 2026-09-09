@@ -288,6 +288,29 @@ describe("the review-document list page", () => {
     expect(encrypted.data.map((row) => row.id)).toEqual([corpus.excepted]);
   });
 
+  it("searches by what a document is called, and composes with the other filters", async () => {
+    const named = (await (
+      await get(`/api/v1/review-sets/${reviewSetId}/documents?search=produced-1`)
+    ).json()) as { data: { id: string }[] };
+    expect(named.data.map((row) => row.id)).toEqual([corpus.familyChild]);
+
+    // Intersection, never union: a reviewer searching inside a narrowed queue who got the whole
+    // corpus back would be reading documents they believe they had excluded.
+    const withinFamily = (await (
+      await get(
+        `/api/v1/review-sets/${reviewSetId}/documents?familyId=${corpus.familyParent}&search=produced-2`,
+      )
+    ).json()) as { data: { id: string }[] };
+    expect(withinFamily.data).toEqual([]);
+  });
+
+  it("refuses an empty search rather than reading it as no search at all", async () => {
+    // The two are different questions and the contract says so: a caller that sent an empty term by
+    // accident gets told, rather than quietly receiving the whole corpus as if it had matched.
+    const response = await get(`/api/v1/review-sets/${reviewSetId}/documents?search=`);
+    expect(response.status).toBe(422);
+  });
+
   it("refuses a page size past the cap rather than silently clamping it", async () => {
     const response = await get(`/api/v1/review-sets/${reviewSetId}/documents?pageSize=5000`);
     // A caller that asked for five thousand and quietly received two hundred cannot tell that from a

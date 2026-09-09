@@ -125,12 +125,40 @@ document arrived on, by whether it was read, by the named reason it was not, and
 and its attachments, or an archive and its contents, which arrived together and are usually read
 together. Opening a document narrows to its family.
 
+The name search sits in there too, and so does the family — both are shown with a line saying where
+they are set (the search field above the list; opening a document), because this control is the one
+place that answers "why is this list short" and a reason missing from it is how somebody ends up
+staring at an empty table.
+
 Searching by keyword, narrowing by date, narrowing by how documents have been coded and grouping
 near-duplicates all appear in the same control, unavailable, each saying what it is waiting for. They
 are shown rather than hidden so the shape of the finished screen is visible now.
 
 Whatever you have narrowed to is in the address bar, so a narrowed list is a link you can send to
 somebody else on the review set — they will see the same documents in the same order.
+
+## Searching the list
+
+Beside **Narrow** is the magnifier every list screen in the product carries. It searches what each
+document is **called** — its name, and the path it sat at in the production — across the whole review
+set, not just the documents currently on screen. Type, pause, and the list comes back narrowed; the X
+at the end of the field, or Escape, clears it, and **Show Everything** brings back what a search and
+a narrowing were both holding out.
+
+Three things follow from it being a real narrowing rather than a filter over what is loaded.
+
+**It combines with everything else.** Searching inside a queue you have narrowed to one Custodian of
+Record gives you the documents that answer both, never the whole corpus back.
+
+**It goes into the address bar** with the rest of your narrowing, so a searched queue is a link you
+can send to somebody else on the review set, and they see the same documents in the same order. Open
+such a link and the search field is already open, showing the query that made the list.
+
+**It is not searching inside your documents.** Words in a document's **text** are **Keyword**, in the
+Narrow control, and Keyword is waiting on the search engine. The two sit next to each other in that
+control so you can see which is which, and the search field says which one it is when you open it —
+because believing you have searched a corpus when you have searched its file names is the one
+misunderstanding this screen cannot afford.
 
 ## Reading one document
 
@@ -174,9 +202,11 @@ and unavailable, each saying what it waits on.
 - **Coding a document.** The panel is listed beside the others and says what it waits on.
 - **Seeing the original.** You get the text the engine read, which is what a review is decided on;
   the document as it was produced comes through the file viewer, and is named on the screen.
-- **Searching itself.** The pipeline that makes a set searchable is built and the engine that answers
-  the queries is switched on at deployment. Until then every read document shows _Not searchable yet_,
-  which is the platform's own work outstanding and never appears on anything you hand over.
+- **Searching the documents' text.** The pipeline that makes a set searchable is built and the
+  engine that answers the queries is switched on at deployment. Until then every read document shows
+  _Not searchable yet_, which is the platform's own work outstanding and never appears on
+  anything you hand over. Searching what your documents are CALLED is a different thing and works
+  today — see [Searching the list](#searching-the-list).
 - **Searching by meaning.** Keyword search across a review set is what is built. Searching by meaning
   rather than by word is a separate, deliberately unmade decision — it is expensive to run on a
   quarter-million documents and nobody has yet shown that it finds responsive documents a keyword

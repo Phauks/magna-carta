@@ -18,9 +18,25 @@
    * filtering what has been loaded would answer confidently about a fraction of the corpus. The
    * grid's own per-column filters do run over the rows in hand, and the footer strip says what its
    * counts are counting.
+   *
+   * THE SEARCH IS A CRITERION, NOT A FILTER OVER THE PAGE. ScreenSearch is the product's one control
+   * for searching within the screen you are on, and every list screen carries it — but on a corpus
+   * this size, a control that narrowed the rows already fetched would tell a reviewer they had
+   * searched a review set when they had searched a page of it, which on this screen of all screens
+   * is the mistake that costs the most. So the field sets the `search` criterion in criteria.ts like
+   * any other narrowing: it goes into the address, it composes into the server read, it reaches
+   * every document in the corpus, and a bulk coding act over the result works because what it holds
+   * is a criteria set rather than a page of identifiers.
+   *
+   * IT SEARCHES WHAT A DOCUMENT IS CALLED, NOT WHAT IS IN IT. Keyword is a separate criterion,
+   * declared and `soon`, and it composes into the review set's own index rather than into this list.
+   * The two are next to each other in the Narrow control so the difference is legible where a reader
+   * is choosing between them, and the search field's own panel says which one it is.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import { page } from "$app/state";
   import { goto, replaceState } from "$app/navigation";
@@ -41,6 +57,7 @@
     criteriaAreSet,
     criteriaFromSearchParameters,
     criteriaToSearchParameters,
+    withCriterion,
     type CriteriaSet,
   } from "$lib/discovery/criteria.ts";
   import {
@@ -120,6 +137,7 @@
       query.familyId ?? "",
       query.processingState ?? "",
       query.exceptionCode ?? "",
+      query.search ?? "",
     ].join("|"),
   );
 
@@ -136,8 +154,52 @@
 
   const narrowed = $derived(criteriaAreSet(criteria));
 
+  /*
+   * The field's own text, written back to the address once typing settles.
+   *
+   * The address is still the one home of what this list is narrowed by — the field is a control over
+   * that criterion, not a second copy of it — but the field cannot be derived FROM the address:
+   * `searchOn="pause"` writes the criterion only when typing stops, and a derived value would empty
+   * the field between every keystroke and the write that follows it. It holds its own text for the
+   * length of one pause, which is what keeps the caret where the person put it, and adopts the
+   * address's term whenever something else changes it (the effect below).
+   */
+  let searchText = $state("");
+  let searchOpen = $state(false);
+
+  /*
+   * The term the address is currently on, and the reason this is not a `$derived`.
+   *
+   * The criterion can change from three places — this field, the Narrow control's Clear beside it,
+   * and Show Everything — and the field has to follow the other two without fighting itself between
+   * a keystroke and the pause that writes it. Holding what was last applied is what tells those
+   * apart: a change this field made is already in the field, and any other change is one to adopt.
+   */
+  let appliedSearch = $state("");
+
+  /*
+   * Adopting a term the field did not write, which on the first run is the one the address arrived
+   * carrying — so a searched queue somebody was sent lands with the field open on the query that
+   * made it, rather than looking like an unexplained short list.
+   */
+  $effect(() => {
+    const onAddress = criteria.search ?? "";
+    if (onAddress === appliedSearch) return;
+    appliedSearch = onAddress;
+    searchText = onAddress;
+    if (onAddress !== "") searchOpen = true;
+  });
+
+  function applySearch(next: string): void {
+    const term = next.trim();
+    appliedSearch = term;
+    narrow(withCriterion(criteria, "search", term));
+  }
+
+  const columns = $derived(reviewDocumentColumns(vocabulary));
+
   const grid = DataTable.createDataTableGrid<ReviewDocument>({
-    columns: () => reviewDocumentColumns(vocabulary),
+    columns: () => columns,
     rows: () => documents ?? [],
     rowKey: (document) => document.id,
     initialSort: REVIEW_DOCUMENT_INITIAL_SORT,
@@ -181,15 +243,38 @@
 {/snippet}
 
 <div class="flex min-h-0 flex-1 flex-col gap-16">
-  <!-- One compact action row: everything above the data that is not the data. -->
+  <!-- One compact action row: everything above the data that is not the data. The search takes the
+       inline end (it grows toward the inline start, so nothing after it moves when it opens) and
+       the way back to the whole list sits at the row's end, where the narrowing was set. -->
   <div class="flex items-center gap-8">
     <NarrowControl {criteria} context={{ recordCustodians: custodians, loads }} onChange={narrow} />
+
+    <ScreenSearch
+      bind:value={searchText}
+      bind:expanded={searchOpen}
+      label="Search these documents"
+      placeholder={placeholderOf("Search these documents")}
+      searchOn="pause"
+      fieldClass="w-2xs sm:w-xs"
+      class="ms-auto"
+      onsearch={applySearch}
+    >
+      {#snippet panel()}
+        <p class="text-text-muted w-2xs p-8 text-sm sm:w-xs">
+          Searches every document in this review set by what it is called — its name, or the path it
+          sat at. Words inside a document are Keyword, under Narrow.
+        </p>
+      {/snippet}
+    </ScreenSearch>
+
     <DataTable.ClearFilters
       {grid}
       narrowing={{
         narrowed,
         summary: narrowed ? "Showing part of this review set" : "Show every document",
         clear: () => {
+          applySearch("");
+          searchText = "";
           narrow({});
           grid.clearAllFilters();
         },
@@ -218,8 +303,8 @@
       {#snippet empty()}
         {#if narrowed || grid.activeFilterCount > 0}
           <EmptyState title="Nothing Matches That">
-            No document in this review set answers to what is asked. Widening the narrowing brings
-            them back.
+            No document in this review set answers to what is asked. Widening the narrowing or the
+            search brings them back.
           </EmptyState>
         {:else}
           <EmptyState title="Nothing Has Been Loaded Yet">

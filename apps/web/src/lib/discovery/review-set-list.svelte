@@ -31,6 +31,7 @@
   let {
     matterId = null,
     matterTitles = new Map(),
+    search = "",
     caption,
     emptyTitle,
     emptyBody,
@@ -44,6 +45,16 @@
     matterId?: string | null;
     /** Matter titles by identifier, for the firm-wide surface's Matter column. */
     matterTitles?: MatterTitles;
+    /**
+     * What the listing is searched by — the review set's own name.
+     *
+     * The control lives in the surface's own action row, which is where every list screen keeps it;
+     * the MATCHING is the server's, in the same read that pages this list. That division is what
+     * makes the answer honest on a register that is cursor-paged: narrowing the rows already
+     * fetched would answer confidently about the first page of a member's corpora and call it the
+     * whole record.
+     */
+    search?: string;
     caption: string;
     emptyTitle: string;
     emptyBody: Snippet;
@@ -70,12 +81,15 @@
     if (rows !== null) onRows?.(rows);
   });
 
-  const subject = $derived(matterId ?? "*");
+  // What this listing is currently showing. A changed scope OR a changed search is a different
+  // question and therefore a fresh read from the top, never a filter over what is already here.
+  const subject = $derived(`${matterId ?? "*"}|${search.trim()}`);
 
   function read(cursor?: string) {
+    const term = search.trim() === "" ? undefined : search.trim();
     return matterId === null
-      ? listReviewSets(fetch, cursor)
-      : listMatterReviewSets(fetch, matterId, cursor);
+      ? listReviewSets(fetch, cursor, term)
+      : listMatterReviewSets(fetch, matterId, cursor, term);
   }
 
   $effect(() => {
@@ -90,8 +104,10 @@
     void list.load(read);
   };
 
+  const columns = $derived(reviewSetColumns({ showMatter: matterId === null, matterTitles }));
+
   grid = DataTable.createDataTableGrid<ReviewSet>({
-    columns: () => reviewSetColumns({ showMatter: matterId === null, matterTitles }),
+    columns: () => columns,
     rows: () => reviewSets ?? [],
     rowKey: (set) => set.id,
     initialSort: REVIEW_SET_INITIAL_SORT,
@@ -133,9 +149,10 @@
       loading={reviewSets === null}
     >
       {#snippet empty()}
-        {#if (ownGrid?.activeFilterCount ?? 0) > 0}
+        {#if (ownGrid?.activeFilterCount ?? 0) > 0 || search.trim() !== ""}
           <EmptyState title="Nothing Matches That">
-            No review set here answers to what is asked. Widening the filters brings them back.
+            No review set here answers to what is asked. Widening the search or the filters brings
+            them back.
           </EmptyState>
         {:else}
           <EmptyState title={emptyTitle} actions={emptyActions}>{@render emptyBody()}</EmptyState>

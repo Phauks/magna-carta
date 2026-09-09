@@ -10,6 +10,7 @@ import {
   readReviewSetExceptionPage,
   readVisibleExceptionCounts,
   readVisibleOccurrences,
+  readVisibleDiscoveryLoads,
   readVisibleReviewSet,
   readVisibleReviewSets,
   readVisibleReviewSetsForMatter,
@@ -410,5 +411,200 @@ describe("the discovery reads walk their pages", () => {
       cursor = result.nextCursor;
     }
     expect(seen).toEqual([...duplicates].toSorted((left, right) => left.localeCompare(right)));
+  });
+});
+
+/*
+ * SEARCHING BY WHAT A DOCUMENT IS CALLED — the narrowing the screen's own search field sets.
+ *
+ * The assertions that matter are the ones about what it is NOT. It must compose with the other
+ * filters rather than replace them, because a reviewer who searched inside a narrowed queue and got
+ * the whole corpus back would be reading documents they believe they excluded. It must not cross the
+ * access list, for the same reason every other read here must not. And a reader's own `%` must be a
+ * character rather than an instruction, or a production whose files are named with one silently
+ * matches everything.
+ */
+describe("narrowing the documents by name", () => {
+  function nameDocuments(raw: Raw): void {
+    const named: readonly [ReviewDocumentId, string, string][] = [
+      [PARENT_DOCUMENT, "Ridgeway settlement memo.pdf", "/Exports/2019/legal"],
+      [ATTACHMENT_DOCUMENT, "schedule-b.xlsx", "/Exports/2019/legal"],
+      [STANDALONE_DOCUMENT, "100%_final board minutes.docx", "/Board"],
+    ];
+    for (const [id, sourceName, sourcePath] of named) {
+      raw.exec(
+        `UPDATE review_document SET source_name = '${sourceName}', source_path = '${sourcePath}' ` +
+          `WHERE id = '${id}'`,
+      );
+    }
+    // The walled corpus gets the SAME name, so a search that reached past the access list would
+    // return it and look entirely ordinary doing so.
+    raw.exec(
+      `UPDATE review_document SET source_name = 'Ridgeway settlement memo.pdf' ` +
+        `WHERE id = '${WALLED_DOCUMENT}'`,
+    );
+  }
+
+  it("matches inside the name, and ignores case", async () => {
+    const { database, raw } = migratedDatabase();
+    nameDocuments(raw);
+    const result = await page(database, { search: "ridgeway" });
+    expect(result.documents.map((row) => row.id)).toEqual([PARENT_DOCUMENT]);
+  });
+
+  it("matches the path as well, because half of what a reader remembers is the folder", async () => {
+    const { database, raw } = migratedDatabase();
+    nameDocuments(raw);
+    const result = await page(database, { search: "Exports/2019" });
+    expect(result.documents.map((row) => row.id).toSorted()).toEqual(
+      [PARENT_DOCUMENT, ATTACHMENT_DOCUMENT].toSorted(),
+    );
+  });
+
+  it("composes with the other filters rather than replacing them", async () => {
+    const { database, raw } = migratedDatabase();
+    const { undated } = widenCorpus(raw);
+    nameDocuments(raw);
+    raw.exec(
+      `UPDATE review_document SET source_name = 'Ridgeway scan.tif' WHERE id = '${undated}'`,
+    );
+    // Two documents answer the search; one of them is on the second load. Narrowed to that load,
+    // the answer is the intersection and never the union.
+    const result = await page(database, { search: "ridgeway", discoveryLoadId: SECOND_LOAD });
+    expect(result.documents.map((row) => row.id)).toEqual([undated]);
+  });
+
+  it("treats a wildcard the reader typed as a character", async () => {
+    const { database, raw } = migratedDatabase();
+    nameDocuments(raw);
+    // Unescaped, `100%_final` would match every document whose name contains "100" followed by
+    // anything — and on a corpus where nothing starts with 100, an unescaped bare `%` would match
+    // the lot.
+    expect((await page(database, { search: "100%_final" })).documents.map((row) => row.id)).toEqual(
+      [STANDALONE_DOCUMENT],
+    );
+    expect((await page(database, { search: "%" })).documents.map((row) => row.id)).toEqual([
+      STANDALONE_DOCUMENT,
+    ]);
+  });
+
+  it("never reaches past the access list", async () => {
+    const { database, raw } = migratedDatabase();
+    nameDocuments(raw);
+    const result = await page(database, { search: "ridgeway" });
+    expect(result.documents.map((row) => row.id)).not.toContain(WALLED_DOCUMENT);
+  });
+
+  it("returns the whole list for a term that is only whitespace", async () => {
+    const { database, raw } = migratedDatabase();
+    nameDocuments(raw);
+    const all = await page(database);
+    const blank = await page(database, { search: "   " });
+    expect(blank.documents.map((row) => row.id)).toEqual(all.documents.map((row) => row.id));
+  });
+});
+
+describe("narrowing the loads by what the delivery was called", () => {
+  it("matches the source description, and holds the wall", async () => {
+    const { database, raw } = migratedDatabase();
+    raw.exec(
+      `UPDATE discovery_load SET source_description = 'Defendant second production' ` +
+        `WHERE id = '${LOAD}'`,
+    );
+    const matched = await readVisibleDiscoveryLoads(
+      database,
+      REVIEW_SET,
+      reviewerAccess,
+      50,
+      undefined,
+      "second",
+    );
+    expect(matched.data.map((row) => row.id)).toEqual([LOAD]);
+
+    const missed = await readVisibleDiscoveryLoads(
+      database,
+      REVIEW_SET,
+      reviewerAccess,
+      50,
+      undefined,
+      "plaintiff",
+    );
+    expect(missed.data).toEqual([]);
+
+    // The same term, asked by somebody off this review set's access list, finds nothing rather than
+    // finding the load and refusing it.
+    const stranger = await readVisibleDiscoveryLoads(
+      database,
+      REVIEW_SET,
+      outsiderAccess,
+      50,
+      undefined,
+      "second",
+    );
+    expect(stranger.data).toEqual([]);
+  });
+
+  it("answers no search at all for a load nobody described", async () => {
+    // A load with no description reads on screen as its lane, which is a word this table does not
+    // hold. Matching it would mean matching text that is not in the record.
+    const { database, raw } = migratedDatabase();
+    raw.exec(`UPDATE discovery_load SET source_description = NULL WHERE id = '${LOAD}'`);
+    const result = await readVisibleDiscoveryLoads(
+      database,
+      REVIEW_SET,
+      reviewerAccess,
+      50,
+      undefined,
+      "production",
+    );
+    expect(result.data).toEqual([]);
+  });
+});
+
+describe("narrowing the review sets by name", () => {
+  function nameReviewSets(raw: Raw): void {
+    raw.exec(`UPDATE review_set SET name = 'Our collection' WHERE id = '${REVIEW_SET}'`);
+    // The corpus this member may not see is named so that a search reaching past the access list
+    // would return it — the whole point being that a NAME is itself a disclosure.
+    raw.exec(
+      `UPDATE review_set SET name = 'Our collection, attorneys eyes only' ` +
+        `WHERE id = '${WALLED_REVIEW_SET}'`,
+    );
+  }
+
+  it("narrows the firm-wide register to the names that match, behind the wall", async () => {
+    const { database, raw } = migratedDatabase();
+    nameReviewSets(raw);
+    const matched = await readVisibleReviewSets(database, reviewerAccess, 50, undefined, "collect");
+    expect(matched.data.map((row) => row.id)).toEqual([REVIEW_SET]);
+    const missed = await readVisibleReviewSets(
+      database,
+      reviewerAccess,
+      50,
+      undefined,
+      "eyes only",
+    );
+    expect(missed.data).toEqual([]);
+  });
+
+  it("narrows a matter's own listing the same way", async () => {
+    const { database, raw } = migratedDatabase();
+    nameReviewSets(raw);
+    const matched = await readVisibleReviewSetsForMatter(
+      database,
+      MATTER,
+      reviewerAccess,
+      50,
+      undefined,
+      "Our collection",
+    );
+    expect(matched.data.map((row) => row.id)).toEqual([REVIEW_SET]);
+  });
+
+  it("is the whole listing again for a term that is only whitespace", async () => {
+    const { database, raw } = migratedDatabase();
+    nameReviewSets(raw);
+    const blank = await readVisibleReviewSets(database, reviewerAccess, 50, undefined, "  ");
+    expect(blank.data.map((row) => row.id)).toEqual([REVIEW_SET]);
   });
 });

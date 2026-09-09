@@ -29,8 +29,15 @@
  * HOW IT GROWS: one entry. A provider whose server-side narrowing is not built yet is declared here
  * anyway, at stage `soon`, with what it waits on — it renders visible and disabled with that line,
  * which is the standing rule for a designed-but-unserved capability. That is what lets this surface
- * ship with the five built narrowings live and show the shape of the finished control on the same
- * day.
+ * ship with its built narrowings live and show the shape of the finished control on the same day.
+ *
+ * A PROVIDER'S CONTROL NEED NOT BE THE POPOVER, and two of them are not — `setFrom` below says so.
+ * A family is named by opening a document; the NAME SEARCH is the screen's own search field, which
+ * is the product's one control for searching within a screen and sits in the action row where every
+ * other list screen keeps it. Routing it through this registry rather than filtering rows in the
+ * browser is what makes it a real narrowing: it reaches the whole corpus rather than the page in
+ * hand, it rides the address so a searched queue is a link somebody can send, and a bulk coding act
+ * over it composes on the same day, because it is a criteria set like any other.
  */
 import { formatInstantDate } from "@magna-carta/design-system/formatters";
 import type { MaturityStage } from "@magna-carta/design-system/maturity";
@@ -88,6 +95,18 @@ interface CriteriaProviderBase {
   /** One line: what narrowing by this actually answers. Shown under the control. */
   readonly describes: string;
   readonly shape: CriteriaShape;
+  /**
+   * Where this narrowing is SET, for the ones whose control is not the narrowing popover.
+   *
+   * Two of them are not, and for good reasons that are nothing alike: a family is named by opening a
+   * document, and the name search is the screen's own search field, which is the product's one
+   * control for searching within a screen and belongs in the action row beside every other screen's.
+   * Declared here rather than left implicit, because the popover still has to SHOW those narrowings
+   * — a reader looking at a short list must be able to see every reason it is short, from the one
+   * control that answers that question — and showing one with an editing control that does nothing
+   * is worse than showing it with a line saying where it is set.
+   */
+  readonly setFrom?: string;
 }
 
 /** A narrowing the server serves today. */
@@ -126,10 +145,16 @@ export function providerIsBuilt(provider: CriteriaProvider): provider is BuiltCr
 /*
  * The providers, in the order the control offers them.
  *
- * The five built ones are the five filters the document list read was measured with, each with its
+ * Five of the six built ones are the filters the document list read was measured with, each with its
  * own sort-bearing index so a narrowed page never falls to a temporary b-tree. The order is the
  * order a reviewer reaches for them: whose records, which delivery, what happened to it, and why it
  * did not get further.
+ *
+ * The sixth, the name search, is the one that is NOT index-backed and is placed where it is for that
+ * reason as much as any other: it is a LIKE scan the server runs after every clause above has
+ * narrowed, bounded to one review set the member may see and stopped by the page limit. That cost is
+ * stated in the read that pays it (packages/discovery/src/review-reads.ts) rather than hidden behind
+ * a control that looks like the rest.
  */
 export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
   {
@@ -206,16 +231,28 @@ export const CRITERIA_PROVIDERS: readonly CriteriaProvider[] = [
       "A message and its attachments, or an archive and its entries. Narrowing to one family shows " +
       "everything that arrived together.",
     stage: "ready",
-    // The only provider with no options list: a family is named by a document, so it is set by
-    // opening one rather than by picking from a menu. It is declared here so the address can carry
-    // it and the control can show it set and clear it.
+    // No options list: a family is named by a document, so it is set by opening one rather than by
+    // picking from a menu. It is declared here so the address can carry it and the control can show
+    // it set and clear it.
     shape: { kind: "choice", options: () => [] },
+    setFrom: "a document",
     compose: (value, query) => ({ ...query, familyId: value }),
+  },
+  {
+    key: "search",
+    label: "Name",
+    describes:
+      "What the document is called: its name, or the path it sat at in the production. Not the " +
+      "words inside it — that is Keyword, below.",
+    stage: "ready",
+    shape: { kind: "text" },
+    setFrom: "the search field above the list",
+    compose: (value, query) => ({ ...query, search: value }),
   },
   {
     key: "keyword",
     label: "Keyword",
-    describes: "Words in the document's text.",
+    describes: "Words inside the document's text, rather than its name.",
     stage: "soon",
     shape: { kind: "text" },
     waitsOn: "the search engine being deployed",

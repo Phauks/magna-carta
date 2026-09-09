@@ -226,6 +226,18 @@ const reviewDocumentQuery = cursorQuery.extend({
   familyId: identifierField("reviewDocument").optional(),
   processingState: z.enum(REVIEW_DOCUMENT_PROCESSING_STATES).optional(),
   exceptionCode: z.enum(REVIEW_DOCUMENT_EXCEPTION_CODES).optional(),
+  search: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .openapi({
+      description:
+        "Narrows to documents whose name or path contains this text. It matches what a document " +
+        "is CALLED and never what is inside it: searching a document's text is the review set's " +
+        "own index, which is a different read returning a ranked answer rather than a page of " +
+        "this listing.",
+    }),
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -237,7 +249,8 @@ const listReviewDocumentsRoute = defineOpenAPIRoute(readMeta("listReviewDocument
   description:
     "One page of the review set's documents, newest document first and documents with no known " +
     "date last. Filterable by Custodian of Record, by the load that brought the document in, by " +
-    "family, by where the document got to in processing, and by the reason it did not get further. " +
+    "family, by where the document got to in processing, by the reason it did not get further, and " +
+    "by a search over what each document is called. " +
     "Paged by cursor rather than by page number: a corpus is added to while it is being read, and " +
     "a numbered page silently shows the same document twice or skips one.",
   request: { params: reviewSetIdParam, query: reviewDocumentQuery },
@@ -563,6 +576,7 @@ export function registerDiscoveryReviewReadRoutes(app: DiscoveryApp, chokepoint:
         ...(query.familyId === undefined ? {} : { familyId: query.familyId as ReviewDocumentId }),
         ...(query.processingState === undefined ? {} : { processingState: query.processingState }),
         ...(query.exceptionCode === undefined ? {} : { exceptionCode: query.exceptionCode }),
+        ...(query.search === undefined ? {} : { search: query.search }),
       };
       const page = await readReviewDocumentPage(
         firm.firmDatabase,
