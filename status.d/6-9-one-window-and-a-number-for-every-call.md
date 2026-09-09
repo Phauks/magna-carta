@@ -10,7 +10,7 @@ ui: done
 load-profile: n/a
 tested: done
 branch: claude/zen-ramanujan-rh7zbg
-active-work: docs/active-work/claude/zen-ramanujan-rh7zbg.md
+active-work:
 next: the History tab becomes the audit feed once a route serves one, which would let it say which fields a correction touched rather than only that one happened; the right pane grows the transcript and the recording when the carrier is connected; the firm's own time zone, which is what would let a reference number carry the day the firm saw rather than the day in UTC
 link-spec: docs/specs/2026-09-07-call-and-text-log-design.md
 link-plan:
