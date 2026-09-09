@@ -13,6 +13,8 @@
  * Pure, and here rather than inline in a screen, so the shape is unit-tested against a fixed zone
  * instead of eyeballed on whatever machine happened to render it.
  */
+import { viewerTimeZone } from "@magna-carta/civil-time/time-zone";
+import { formatInstantDate } from "@magna-carta/design-system/formatters";
 
 const LOCALE = "en-US";
 
@@ -25,12 +27,7 @@ function zonePart(when: Date, timeZone: string, style: "short" | "longOffset"): 
 
 /** The date alone, written out in full: `September 4, 2026`. */
 export function longDate(when: Date, timeZone?: string): string {
-  return new Intl.DateTimeFormat(LOCALE, {
-    timeZone,
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(when);
+  return formatInstantDate(when, { locale: LOCALE, timeZone, length: "long" });
 }
 
 /**
@@ -40,7 +37,7 @@ export function longDate(when: Date, timeZone?: string): string {
  * that must not move as it is passed between people.
  */
 export function sentStamp(when: Date, timeZone?: string): string {
-  const zone = timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const zone = timeZone ?? viewerTimeZone();
   const date = longDate(when, zone);
   const time = new Intl.DateTimeFormat(LOCALE, {
     timeZone: zone,

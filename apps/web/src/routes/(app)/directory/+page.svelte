@@ -16,7 +16,10 @@
    * is that the two are now built as the two things they are:
    *
    *   - The INDEX is sorted, filterable, paged, and counted. It is the platform's one table, so its
-   *     columns sort and narrow the way every other list on the product does.
+   *     columns sort and narrow the way every other list on the product does — INCLUDING the
+   *     narrowing to people or to organizations, which was a popover of its own above the table
+   *     until the Kind column's set filter made it a second control over one question. What the
+   *     table can do, the table does; the screen adds no filter of its own.
    *   - The SEARCH ANSWER is in the firm's own relevance order, is NOT re-sorted here, and says so
    *     when it is capped. Sorting a capped answer would put the best of an arbitrary slice at the
    *     top and read as the best of the firm's record. It takes three characters to ask, because the
@@ -36,20 +39,14 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
-  import * as Popover from "@magna-carta/design-system/popover";
-  import * as RadioGroup from "@magna-carta/design-system/radio-group";
-  import Button, { buttonClasses } from "@magna-carta/design-system/button";
+  import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
-  import Separator from "@magna-carta/design-system/separator";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleOrganization, samplePerson } from "@magna-carta/design-system/loading-fixtures";
   import Building2 from "@lucide/svelte/icons/building-2";
-  import ListFilter from "@lucide/svelte/icons/list-filter";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import UserPlus from "@lucide/svelte/icons/user-plus";
   import { goto, replaceState } from "$app/navigation";
@@ -69,13 +66,8 @@
   import { isAskableQuery, MINIMUM_QUERY_LENGTH } from "$lib/directory/directory-search.ts";
   import {
     directoryListingColumns,
-    listingKindLabel,
-    listingKindParameter,
     listingName,
-    DEFAULT_LISTING_KIND,
     DIRECTORY_LISTING_INITIAL_SORT,
-    LISTING_KIND_ITEMS,
-    type DirectoryListingKind,
   } from "$lib/directory/directory-listing.ts";
   import {
     entityRecordFromAddress,
@@ -118,7 +110,6 @@
   let asked = $state("");
   let searchOpen = $state(false);
   let searchField = $state<HTMLInputElement | null>(null);
-  let kind = $state<DirectoryListingKind>(DEFAULT_LISTING_KIND);
 
   // The typed query settles before it is sent: one request per keystroke asks the firm's record a
   // question nobody has finished asking.
@@ -156,11 +147,12 @@
   let total = $state(0);
   let reloadToken = $state(0);
 
-  // A change of kind is a different question, so it is a different read.
-  const listSubject = $derived(`${kind}|${String(reloadToken)}`);
+  // The whole book is read, both kinds in one sequence; narrowing to one of them is the Kind
+  // column's set filter, over the rows in hand, and never a second question to the server.
+  const listSubject = $derived(String(reloadToken));
 
   function readPage(cursor?: string) {
-    return listDirectoryEntities(fetch, { kind: listingKindParameter(kind), cursor });
+    return listDirectoryEntities(fetch, { cursor });
   }
 
   // The whole-record count travels on every page, so it is taken from whichever page last landed
@@ -177,8 +169,8 @@
     const subject = listSubject;
     if (list.showing(subject)) return;
     list.reset(subject);
-    // The count belongs to the question that was asked. Carrying the old one across a change of
-    // kind would print "everyone" beside a page of organizations.
+    // The count belongs to the question that was asked, so a re-read starts from no count rather
+    // than printing the previous answer's total beside the new one's first page.
     total = 0;
     void readFirstPage();
   });
@@ -206,19 +198,8 @@
     onActivate: (row) => void goto(entityRecordHref(row.entityId)),
   });
 
-  const narrowed = $derived(kind !== DEFAULT_LISTING_KIND || grid.activeFilterCount > 0);
-  const narrowingSummary = $derived(
-    kind === DEFAULT_LISTING_KIND
-      ? grid.activeFilterLabels.join(", ")
-      : [listingKindLabel(kind), ...grid.activeFilterLabels].join(", "),
-  );
   // The count only needs stating while the page on screen is not the whole record.
   const moreThanLoaded = $derived(total > (records?.length ?? 0));
-
-  function showEveryone(): void {
-    kind = DEFAULT_LISTING_KIND;
-    grid.clearAllFilters();
-  }
 
   // ---- the search answer -----------------------------------------------------------------------
 
@@ -428,45 +409,12 @@
         <Search class="size-16" aria-hidden="true" />
       </Button>
 
+      <!-- The way back to the whole book, and the only control on this row that is about narrowing.
+           It renders only while something is actually holding rows back, so an unfiltered screen
+           carries no control for a state it is not in. Every narrowing itself is set in a column's
+           own header menu — including which kind of record is listed. -->
       {#if !searching}
-        <Popover.Root>
-          <Popover.Trigger
-            class={`${buttonClasses({ variant: "ghost", size: "icon" })} ${narrowed ? "text-accent-default" : ""}`}
-            aria-label={narrowed ? `Filters: ${narrowingSummary}` : "Filters"}
-            title={narrowed ? narrowingSummary : "Filters"}
-          >
-            <ListFilter class="size-16" aria-hidden="true" />
-          </Popover.Trigger>
-          <Popover.Content class="flex flex-col gap-12">
-            <RadioGroup.Root
-              bind:value={kind}
-              aria-label="Which records to list"
-              class="flex flex-col gap-8"
-            >
-              {#each LISTING_KIND_ITEMS as item (item.value)}
-                <div class="flex items-center gap-8">
-                  <RadioGroup.Item value={item.value} id="directory-kind-{item.value}" />
-                  <label class="text-sm" for="directory-kind-{item.value}">{item.label}</label>
-                </div>
-              {/each}
-            </RadioGroup.Root>
-
-            {#if grid.activeFilterCount > 0}
-              <Separator />
-              <ul class="flex flex-col gap-4">
-                {#each grid.activeFilterLabels as label (label)}
-                  <li class="text-xs text-text-muted">{label}</li>
-                {/each}
-              </ul>
-            {/if}
-
-            {#if narrowed}
-              <Separator />
-              <Button variant="secondary" onclick={showEveryone}>Show everyone</Button>
-            {/if}
-          </Popover.Content>
-        </Popover.Root>
-
+        <DataTable.ClearFilters {grid} />
       {/if}
       <!-- The one create control (the design system's), LAST on the row: the search grows toward
            the inline start as it opens, so the control after it is the one place that growth cannot
@@ -523,7 +471,7 @@
         {/if}
       {/snippet}
       {#snippet fixture()}
-        <div class="min-h-0 flex-1 overflow-auto">
+        <div class="mc-scrollbar min-h-0 flex-1 overflow-auto">
           {@render hitTable(HIT_FIXTURE)}
         </div>
         <p class="text-xs text-text-muted">Every match the firm holds, in its own relevance order.</p>
@@ -536,7 +484,7 @@
           </EmptyState>
         </div>
       {/snippet}
-      <div class="min-h-0 flex-1 overflow-auto">
+      <div class="mc-scrollbar min-h-0 flex-1 overflow-auto">
         {@render hitTable(hits ?? [])}
       </div>
       <p class="text-xs text-text-muted">
@@ -569,19 +517,12 @@
       loading={records === null}
     >
       {#snippet empty()}
-        {#if kind !== DEFAULT_LISTING_KIND}
-          <EmptyState title="No {listingKindLabel(kind)} Yet">
-            {#snippet actions()}
-              <Button variant="secondary" onclick={showEveryone}>Show everyone</Button>
-            {/snippet}
-            The firm's directory holds nothing on this side of the book.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Records Yet">
-            Clients, opposing parties, counsel and courts all live here. Recording somebody, with
-            New at the top of the screen, is what puts them in front of the next conflicts check.
-          </EmptyState>
-        {/if}
+        <!-- A filter emptying the table is the grid's own empty state to explain, and the way back
+             is the control above it. This one is the other case: the firm holds no records at all. -->
+        <EmptyState title="No Records Yet">
+          Clients, opposing parties, counsel and courts all live here. Recording somebody, with New
+          at the top of the screen, is what puts them in front of the next conflicts check.
+        </EmptyState>
       {/snippet}
     </DataTable.Grid>
 

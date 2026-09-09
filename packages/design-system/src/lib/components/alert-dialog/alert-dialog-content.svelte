@@ -42,7 +42,7 @@
       bind:ref
       class={mergeClasses(
         PRESENCE_SCALE_FADE,
-        "mc-modal-panel mc-alert-dialog-content w-full max-w-lg",
+        "mc-modal-panel mc-alert-dialog-content mc-scrollbar w-full max-w-lg",
         className,
       )}
       {...{ [MODAL_PLACEMENT_ATTRIBUTE]: DEFAULT_MODAL_PLACEMENT }}

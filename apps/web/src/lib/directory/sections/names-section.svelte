@@ -12,6 +12,7 @@
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import * as Select from "@magna-carta/design-system/select";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
+  import HonorificField from "$lib/names/honorific-field.svelte";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { DirectoryNameRole } from "../directory-api.ts";
@@ -45,7 +46,9 @@
   let otherFamily = $state("");
   let otherRole = $state<DirectoryNameRole>("former");
 
-  const otherReady = $derived(otherGiven.trim() !== "" && otherFamily.trim() !== "");
+  // A name the person also answers to needs something to answer to, and that is all — the same
+  // rule the current name is held to, and for the same reason: a one-name alias is a real alias.
+  const otherReady = $derived(otherGiven.trim() !== "" || otherFamily.trim() !== "");
 
   function addOther(): void {
     if (!otherReady || disabled) return;
@@ -63,30 +66,36 @@
 </script>
 
 <section class="flex flex-col gap-16">
-  <div class="grid gap-12" style="grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 4.5rem">
+  <!-- The three names on one row, in the order a name is written and under the words a person
+       actually uses for them; the prefix and the suffixes take the row beneath, because the
+       honorific field holds several comma-separated values and grows as they are added. -->
+  <div class="grid gap-12 sm:grid-cols-3">
+    <LabelledField label="First Name">
+      {#snippet children({ props })}
+        <Input {...props} bind:value={name.given} {disabled} placeholder={placeholderOf("First Name")} />
+      {/snippet}
+    </LabelledField>
+    <LabelledField label="Middle Name">
+      {#snippet children({ props })}
+        <Input {...props} bind:value={name.middle} {disabled} placeholder={placeholderOf("Middle Name")} />
+      {/snippet}
+    </LabelledField>
+    <LabelledField label="Last Name">
+      {#snippet children({ props })}
+        <Input {...props} bind:value={name.family} {disabled} placeholder={placeholderOf("Last Name")} />
+      {/snippet}
+    </LabelledField>
+  </div>
+
+  <div class="grid gap-12 sm:grid-cols-2">
     <LabelledField label="Prefix">
       {#snippet children({ props })}
-        <Input {...props} bind:value={name.prefix} {disabled} placeholder={placeholderOf("Prefix")} />
-      {/snippet}
-    </LabelledField>
-    <LabelledField label="Given">
-      {#snippet children({ props })}
-        <Input {...props} bind:value={name.given} {disabled} placeholder={placeholderOf("Given")} />
-      {/snippet}
-    </LabelledField>
-    <LabelledField label="Middle">
-      {#snippet children({ props })}
-        <Input {...props} bind:value={name.middle} {disabled} placeholder={placeholderOf("Middle")} />
-      {/snippet}
-    </LabelledField>
-    <LabelledField label="Family">
-      {#snippet children({ props })}
-        <Input {...props} bind:value={name.family} {disabled} placeholder={placeholderOf("Family")} />
+        <HonorificField part="prefix" bind:value={name.prefix} {disabled} inputProps={props} />
       {/snippet}
     </LabelledField>
     <LabelledField label="Suffix">
       {#snippet children({ props })}
-        <Input {...props} bind:value={name.suffix} {disabled} placeholder={placeholderOf("Suffix")} />
+        <HonorificField part="suffix" bind:value={name.suffix} {disabled} inputProps={props} />
       {/snippet}
     </LabelledField>
   </div>
@@ -116,14 +125,14 @@
       </ul>
     {/if}
     <div class="grid items-end gap-8" style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 9rem auto">
-      <LabelledField label="Given">
+      <LabelledField label="First Name">
         {#snippet children({ props })}
-          <Input {...props} bind:value={otherGiven} {disabled} placeholder={placeholderOf("Given")} />
+          <Input {...props} bind:value={otherGiven} {disabled} placeholder={placeholderOf("First Name")} />
         {/snippet}
       </LabelledField>
-      <LabelledField label="Family">
+      <LabelledField label="Last Name">
         {#snippet children({ props })}
-          <Input {...props} bind:value={otherFamily} {disabled} placeholder={placeholderOf("Family")} />
+          <Input {...props} bind:value={otherFamily} {disabled} placeholder={placeholderOf("Last Name")} />
         {/snippet}
       </LabelledField>
       <div class="flex flex-col gap-8">
@@ -149,7 +158,7 @@
         variant="secondary"
         size="icon"
         disabled={disabled || !otherReady}
-        title={otherReady ? "Add" : "A given and a family name."}
+        title={otherReady ? "Add" : "A name to add."}
         aria-label="Add this name"
         onclick={addOther}
       >

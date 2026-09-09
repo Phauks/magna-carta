@@ -66,6 +66,7 @@ describe("schema conformance (fitness functions)", () => {
       custody_number_counter: "scope_key",
       invoice_number_counter: "scope_key",
       time_entry_number_counter: "scope_key",
+      communication_number_counter: "scope_key",
       setting: "key",
       platform_operator: "user_id",
       email_capture_route: "token",

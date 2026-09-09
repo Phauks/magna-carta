@@ -84,7 +84,7 @@
              line breaks the engine found, and a document that is one long line must not push the
              page sideways. -->
         <pre
-          class="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded border border-border p-16 font-mono text-sm">{text}</pre>
+          class="mc-scrollbar min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded border border-border p-16 font-mono text-sm">{text}</pre>
       {/if}
     {:else if rendition.kind === "unreadable" && document.exceptions.length === 0}
       <p class="text-text-muted text-sm">

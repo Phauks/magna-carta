@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { describe, expect, it } from "vitest";
 import type { FolderSummary } from "$lib/file-manager/folder-api.ts";
 import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
@@ -175,6 +176,7 @@ describe("one note on paper", () => {
     lastEditedByName: null,
     instant: (at: string) => `<${at}>`,
     date: (isoDate: string) => `[${isoDate}]`,
+    instantDate: (instant: string) => civilDateOf(instant),
     attachedNames: [],
     printedAt: "<printed>",
   };

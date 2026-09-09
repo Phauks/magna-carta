@@ -52,6 +52,7 @@
   import { recorderText } from "$lib/records/work-in-progress-record.ts";
   import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
   import FeeRecordWindow from "$lib/billing/fee-record-window.svelte";
+  import { todayInUtc } from "@magna-carta/civil-time/civil-date";
   import {
     FEE_COLUMN_IDENTIFIERS,
     firmFeeColumns,
@@ -96,7 +97,7 @@
    */
   const FIRST_WEEKDAY_OF_THE_FIRMS_WEEK = 1;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInUtc();
 
   const firmMatters = new FirmMatters();
   let bootstrapped = false;

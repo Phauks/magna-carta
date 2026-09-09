@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
@@ -39,7 +40,7 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 
 // ---- contracts ----
 
-const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const civilDate = z.string().regex(CIVIL_DATE_PATTERN);
 
 const matterParam = z.object({ id: identifierPathParam("matter", "id") });
 

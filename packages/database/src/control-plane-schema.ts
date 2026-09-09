@@ -98,7 +98,20 @@ export const firm = sqliteTable("firm", {
 
 export const user = sqliteTable("user", {
   id: text("id").primaryKey().$type<UserId>(), // usr_ handle
+  // The name as it is printed and sorted. Better Auth writes and reads this column, so it stays
+  // required — but where the parts below are present it is RENDERED from them rather than typed,
+  // and the two are written in one statement so they cannot drift.
   name: text("name").notNull(),
+  // The parts a person's name is actually made of, mirroring directory_person's five columns
+  // because a member is a person and the platform should not hold two answers to what one is.
+  // All nullable: a row written before a person said what their parts are keeps exactly the name
+  // it had, and nothing is split on a guess. `name_prefix` and `name_suffix` hold a LINE rather
+  // than one word — "III, Esq." is one person's suffix — because several honorifics is ordinary.
+  namePrefix: text("name_prefix"),
+  nameGiven: text("name_given"),
+  nameMiddle: text("name_middle"),
+  nameFamily: text("name_family"),
+  nameSuffix: text("name_suffix"),
   email: text("email").notNull().unique(),
   emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
   image: text("image"),
@@ -245,6 +258,11 @@ export const registration = sqliteTable(
     role: text("role", { enum: ["account", "foundFirm", "firmMember", "clientOfFirm"] }).notNull(),
     email: text("email").notNull(),
     displayName: text("display_name").notNull(),
+    // The two parts the joining screen already asks for separately. Carried through so an account
+    // created from today has real name parts from its first moment; nullable, so a registration in
+    // flight across the deploy still confirms on its display name alone.
+    nameGiven: text("name_given"),
+    nameFamily: text("name_family"),
     // The password the visitor CHOSE, in Better Auth's own scrypt format — a verifier, never a
     // password. Spending the confirmation token moves it onto the credential `account` row the same
     // batch creates, which is what lets somebody sign in with the password they picked instead of

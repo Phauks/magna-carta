@@ -6,6 +6,13 @@
    * `<DatePicker type="single" bind:value label="Closing date" />`. Values are @internationalized/date
    * CalendarDate. The popover calendar reuses the mc-calendar-* recipes (golden rule 1); only the
    * segmented field adds recipes here.
+   *
+   * IT RENDERS TWO SIBLINGS, NOT ONE ELEMENT. The primitive's Root is a context provider with no DOM,
+   * so a labelled picker emits the label and the field side by side with nothing around them. In a
+   * flex column that stacks correctly; in a GRID it takes two tracks and the label lands in the next
+   * column. So a caller putting one in a grid gives it a wrapper — every consumer does, and the four
+   * that did not were caught the same way. The label carries its own `margin-block-end`, which is why
+   * the component has never needed the wrapper for spacing and why the trap is quiet.
    */
   import { DatePicker as DatePickerPrimitive } from "bits-ui";
   import CalendarIcon from "@lucide/svelte/icons/calendar";
@@ -14,21 +21,53 @@
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { floatingContentClasses, PRESENCE_SCALE_FADE } from "../../internal/floating.ts";
   import type { WithoutChildrenOrChild } from "../../internal/types.ts";
+  import type { InputSize } from "../input/variants.ts";
+  import { dateFieldClasses } from "./variants.ts";
 
-  // DatePicker.Root renders no DOM of its own (no ref/class); the consumer's class dresses the field.
+  /*
+   * DatePicker.Root renders no DOM of its own (no ref/class); the consumer's class dresses the field.
+   *
+   * `label` and `aria-label` are the two ways this control gets a name, and they are declared
+   * separately because they land on DIFFERENT elements. The label is the primitive's own — it mints
+   * the id the segment group points `aria-labelledby` at. An `aria-label` has to reach the group
+   * itself, and the spread goes to Root, which renders nothing: left in restProps it would vanish
+   * without a warning and leave the field unnamed. A field with a visible label wants the label; a
+   * field with no room for one — a range's two boxes inside a column's filter menu — wants the
+   * aria-label, and the group's own aria-labelledby is undefined there, so nothing overrides it.
+   *
+   * `aria-invalid` is declared for the same reason and no other: a form that marks its fields
+   * refused has to be able to mark this one too. Bits stamps `data-invalid` from its own validation
+   * and never writes `aria-invalid`, so a caller's flag is additive rather than a second opinion.
+   */
   let {
     class: className,
     label,
+    size = "default",
+    "aria-label": ariaLabel,
+    "aria-invalid": ariaInvalid,
     ...restProps
-  }: WithoutChildrenOrChild<DatePickerPrimitive.RootProps> & { class?: string; label?: string } =
-    $props();
+  }: WithoutChildrenOrChild<DatePickerPrimitive.RootProps> & {
+    class?: string;
+    /** Visible label above the field, rendered by the primitive so it names the segment group. */
+    label?: string;
+    /** Control height, from the same scale the Input and the Button use. */
+    size?: InputSize;
+    /** Accessible name for a field with no visible label. Lands on the segment group. */
+    "aria-label"?: string;
+    /** Marks the field refused, for a form that flags its fields together. Lands on the group. */
+    "aria-invalid"?: "true" | "false" | undefined;
+  } = $props();
 </script>
 
 <DatePickerPrimitive.Root {...restProps}>
   {#if label}
     <DatePickerPrimitive.Label class="mc-date-field-label">{label}</DatePickerPrimitive.Label>
   {/if}
-  <DatePickerPrimitive.Input class={mergeClasses("mc-date-field", className)}>
+  <DatePickerPrimitive.Input
+    aria-label={ariaLabel}
+    aria-invalid={ariaInvalid}
+    class={mergeClasses(dateFieldClasses({ size }), className)}
+  >
     {#snippet children({ segments })}
       {#each segments as segment, segmentIndex (segmentIndex)}
         <DatePickerPrimitive.Segment part={segment.part} class="mc-date-field-segment">

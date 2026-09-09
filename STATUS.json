@@ -392,7 +392,7 @@
         "adrs": []
       },
       "blockedBy": [],
-      "notes": "Archives are no longer opaque to a person: browsing one reads its headers over ranged reads and never unpacks a byte, for all four formats the platform recognises - zip, tar, 7z and rar, each decided from the object's own signature rather than its name - and extracting a member (zip) reads only that member's bytes and files it through the ordinary ingest gate. Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7. The numbering editor landed on 2026-09-06: Settings · Matter Numbering edits the matter and consultation schemes over the existing routes with a server-rendered preview, and the status window sets a matter's number by hand (only where the matter has been active; the service refuses the unnumbered rungs)."
+      "notes": "Archives are no longer opaque to a person: browsing one reads its headers over ranged reads and never unpacks a byte, for all four formats the platform recognises - zip, tar, 7z and rar, each decided from the object's own signature rather than its name - and extracting a member (zip, tar, 7z) reads only that member's bytes - or, for a 7z, only the block holding it - and files it through the ordinary ingest gate. Every extraction goes through one module that owns the format dispatch, one refusal vocabulary, the firm's caps and the record of what each attempt cost. Three domain packages + upload/ingest/zip/metering Worker surface + crons; on main. Contract stream (branch file-manager-contract) adds folders.list, uploads.get, and ingest status on files.list/get. UI plan → 0·7. The numbering editor landed on 2026-09-06: Settings · Matter Numbering edits the matter and consultation schemes over the existing routes with a server-rendered preview, and the status window sets a matter's number by hand (only where the matter has been active; the service refuses the unnumbered rungs)."
     },
     {
       "slice": "1·2 — `protected()` crypto module",
@@ -1803,7 +1803,8 @@
           "by": "Opus 4.8"
         },
         "ui": {
-          "state": "todo"
+          "state": "done",
+          "by": "Sonnet 5"
         },
         "load-profile": {
           "state": "n/a"
@@ -1815,8 +1816,8 @@
         }
       },
       "branch": "main",
-      "activeWork": null,
-      "next": "GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; end-user UI (post-0·7); connect the magna-carta-recovery Worker to Workers Builds",
+      "activeWork": "docs/active-work/claude/text-document-editor-support-arvpgv.md",
+      "next": "GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; connect the magna-carta-recovery Worker to Workers Builds",
       "links": {
         "spec": "docs/specs/2026-06-26-decryption-tool-design.md",
         "plan": "docs/specs/2026-06-26-decryption-slice-2-plan-2-orchestration-implementation-plan.md",
@@ -1826,7 +1827,7 @@
         ]
       },
       "blockedBy": [],
-      "notes": "`crates/decryption-core` (pure Rust → wasm + native) behind `FormatAdapter`: unlock (`/decryption/inspect` + `/unlock`) and recover (DO-coordinated fan-out over `apps/recovery-worker` shards, `/decryption/recover*`). PDF/ZIP/OOXML; hash-only recovery boundary; GPU rungs + UI deferred."
+      "notes": "`crates/decryption-core` (pure Rust → wasm + native) behind `FormatAdapter`: unlock (`/decryption/inspect` + `/unlock`) and recover (DO-coordinated fan-out over `apps/recovery-worker` shards, `/decryption/recover*`). PDF/ZIP/OOXML; hash-only recovery boundary; GPU rungs deferred. The File Workbench's Unlock capability is now real (attest, unlock with a known password, or start a recovery search that hands off to its own addressable job screen — poll, cancel, one-time password reveal, an honest needsGpu answer rather than a spinner that never finishes). A PDF's own reader also unlocks a known password without leaving the page: `@magna-carta/pdf` already carries `inspectSecurity`/`decryptDocument`, loaded client-side in the same worker that rasterizes pages, so trying a password costs nothing server-side and a reader who does not have one is linked straight to the workbench's Unlock capability, where Recover lives."
     },
     {
       "slice": "File-manager UI primitives (FileIcon · Breadcrumb · ContextMenu · Tree · Dropzone)",
@@ -2183,7 +2184,8 @@
           "by": "Opus 5"
         },
         "ui": {
-          "state": "todo"
+          "state": "done",
+          "by": "Opus 5"
         },
         "load-profile": {
           "state": "todo"
@@ -2192,9 +2194,9 @@
           "state": "todo"
         }
       },
-      "branch": "claude/notification-dedupe",
-      "activeWork": null,
-      "next": "Provisioning, then the user interface. The digest is built and cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL exist (docs/deploy-queue.md). Three gaps left in the build — the deadline horizon comparison, which needs a firm lead-window setting nobody has specified; four of the five job coordinators, three of which record no requester; and the immediate-escalation send path, which no registered kind needs and a fitness test refuses until it ships",
+      "branch": "claude/youthful-franklin-s4n2fw",
+      "activeWork": "docs/active-work/claude/youthful-franklin-s4n2fw.md",
+      "next": "Provisioning, and coverage. The digest is built and cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL exist (docs/deploy-queue.md). Coverage is now the largest gap the interface makes visible: thirty-nine topics already commit to the outbox with no registered type, so the feed shows less than the platform already knows. Three gaps left in the build — the deadline horizon comparison, which needs a firm lead-window setting nobody has specified; four of the five job coordinators, three of which record no requester; and the immediate-escalation send path, which no registered kind needs and a fitness test refuses until it ships. The FIRM tier of the policy has routes and no screen, and the channel port that would make SMS and push adapters rather than new delivery paths is unbuilt",
       "links": {
         "spec": "docs/specs/2026-08-06-notifications-delivery-design.md",
         "plan": "docs/specs/2026-08-06-notifications-delivery-implementation-plan.md",
@@ -2210,7 +2212,7 @@
         ]
       },
       "blockedBy": [],
-      "notes": "Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second\nnon-exclusive translator pass on the shipped per-firm queue (no producing package changed —\nthirty-one topics already commit transactionally), the member-scoped read API behind\n`notifications:read`, the firm-ceiling email detail level, and the firm-configurable retention window\nwith its nightly sweep and its swept-unread tally.\n\nSlice 2 built: the comparison-driven production path as a declared third `raisedBy` on the registry\nwith its own index, a per-firm sweep on the daily cron calling the calendar's own overdue arithmetic\nand the custody register's own collection point, once-per-civil-day dedupe bucketed in the subject's\nown zone, the three calendar matter-event outbox topics (with `rescheduled` raised on a move and not\non an edit), and the document-assembly coordinator's completion row. Retention and the email-filing\ntopic, both listed under slice 2 in the plan, had already shipped with slice 1 and were verified\nrather than rebuilt.\n\nSlice 3 built: the per-category preference matrix on one `notifications.preferences` scoped-setting\nkey, with the two channels composing in opposite directions (the firm's tier is a floor in app, the\nmember's choice wins by email); the mandatory in-app floor on `security` and `trust` from either\ntier; enforcement at fan-out in the one shared recipient resolver, so all three production paths\ninherit it; a sixth per-firm table, `notification_in_app_suppression`, so a silenced notification is\na counted fact rather than an absence, swept on the firm's own retention window; the firm-tier\ntrust-compliance designation, applied to the trust category and audited by count; and the member and\nfirm preference API. **Deviation:** the plan's `notification_delivery` row with\n`suppressed_reason = 'not-visible'` at fan-out is not built — the column is `NOT NULL` against a\nrecipient row that by definition does not exist, and deciding visibility at fan-out is the\nemission-time enforcement this subsystem refuses. The designated member gets an ordinary recipient\nrow and the shipped read filter decides, which is what makes their feed byte-identical to a firm\nwhere nothing was raised.\n\nSlice 4 built: the email digest — the first time this subsystem hands anything to a mailbox, and the\nfirst consumer of slice 3's per-category email cadence. A digest window read added to the ONE shared\nread the feed and the unread count already compose, so the wall binds at delivery time in one\nimplementation; a keyset watermark (an instant AND its event id) per member per cadence; a renderer\nwhose entire vocabulary is a closed category label, an integer, a cadence and a configured origin, so\nthere is no argument a title could arrive in; and an hourly per-firm run anchored to the firm's own\nmorning, resolved from the default office the calendar already books against rather than a second\ncopy of where the firm is. Send first, mark second, both committed in one batch. A member with\nnothing visible in the window gets no email. **Every row a run did not mail is settled** as a\n`suppressed` `notification_delivery` row naming a closed reason — `preference` where the member's\ncadence for that category is `off` or the resolved detail level is `off`, `no-address` where there is\nno mailbox — so a member who chose not to be written to stays distinguishable from a member the\nplatform silently failed to write to, which is the in-app suppression tally's requirement met with\nthe mechanism the schema already had.\n\n**Deviation 1 — the immediate escalation.** The plan's task 4.3 asks the run to honour a\nregistry-declared `escalation: \"immediate\"` for trust and security kinds. No registered kind declares\none, and an immediate send has no trigger without editing the raise paths, so the sender would be\nuntriggered code while leaving such kinds in the digest would quietly mail a compliance-grade notice\ninside a day's counts. Built instead: the walk HALTS at the first such row, leaving the watermark\nbehind it so nothing is settled that no channel carried, and a fitness test asserts no type declares\n`immediate` today. Registering the first one is a gate failure until its send path ships.\n`emailContent: 'recipient-scoped'` gets the same treatment for the same reason.\n\n**Deviation 2 — the send port.** The digest resolves its own rather than reusing `emailAdapterForEnv`,\nwhich falls back to the dev logging adapter when the Email Service binding is absent. Right for a\npassword reset; catastrophic here, because the run would record `sent` rows and advance watermarks\nfor mail printed to a log, and the member would never hear about those notifications again. The\ndigest port reports one of three typed not-configured reasons instead, counted every pass.\n\n**Not built, deliberately:** any `apps/web` change. An email template is not a screen, and the\nnotification centre and the preference screens stay deferred; `docs/user/` says plainly that the\ndigest cannot reach anybody until the firm's outbound mail is provisioned.\n\n**Repaired in passing:** the per-firm drizzle snapshot had fallen one migration behind the schema\n(the discovery processing-route migration was hand-written without refreshing it), so the next\n`generate` would have emitted a destructive `review_document` rebuild. The snapshot is refreshed to\nthe lineage head.\n\n**Slice 4 — what the dedupe key actually guarantees, resolved and named.** A correctness question\nraised against the shipped subsystem: the UNIQUE index that makes a notification fire once lives on\n`notification_event.dedupe_key`, and the retention sweep deletes that row, so the uniqueness that\nenforces \"once\" does not outlive the firm's window. Settled as **the intended contract, not a defect**,\non the subsystem's own evidence: the design spec frames the key as a redelivery floor throughout (path\nA \"a redelivery is a no-op by construction\", path B raising \"once per day\" in as many words), and each\nproduction path's required lifetime is far shorter than the thirty-day retention floor — an outbox row\nis published once and flipped out of `pending` so the relay never re-carries it, a comparison's bucket\nis derived from the pass's own instant so it only ever moves forward, and a job reports each terminal\nstate once inside its own life. No shipped consumer relies on forever semantics, and the platform\nalready routes conditions that need it away from this key: the billing automations put their\nconvergence in `invoice_reminder` rows for exactly this reason and wrote down why.\n\nSo nothing durable was built. What was wrong was that the boundary lived only in another subsystem's\ndesign document while the code said \"dedupe key\" and \"UNIQUE\" and left the reader to infer \"once,\never\". The horizons are now declared per production path in `CONVERGENCE_HORIZON_BY_RAISER`, as a\n`Record<NotificationRaisedBy, …>` so a fourth path is a **compile error** until it states one; both\n`materialize.ts` and `retention.ts` name the boundary and the rule that follows it (a condition needing\nonce-per-subject-forever convergence carries it in the owning subsystem's own tables and points a\nnotification at that record); and `test/retention-convergence.test.ts` states the semantics out loud by\nre-inserting a key the sweep took, then proves the property that makes it safe — the comparison bucket\nfollows the clock, so a swept bucket is unreachable rather than merely unlikely.\n\n**One real hole closed beside it.** The comparison pass's per-kind findings cap was already counted\n(`notifications.comparison_clamped`, over-reading by one to detect rather than infer). Its **zone\ndiscovery** was not. The deadline comparison needs one cutoff per zone because no D1 query resolves a\nzone, and that read was bounded at the same 200 with no over-read and no counter — so a truncated zone\nlist meant every deadline in an undiscovered zone matched neither the overdue bound nor the due-today\nwindow, and the pass reported nothing about a whole jurisdiction with every other counter reading\nhealthy. It now over-reads by one and reports `notifications.comparison_zone_discovery_truncated`, kept\napart from the findings clamp because a clamp bounds what was missed and this does not bound it at all.\nThe value counts truncated **passes** rather than zones, because a read that over-reads by one to catch\nits own truncation learns that it truncated and can never learn by how much.\n\n**Left to the owner, not shipped:** whether 200 findings per kind per pass is the right ceiling. It is\ncounted rather than silent, but a busy litigation practice can exceed it honestly, and raising it\nchanges how much of a firm's overdue work gets reported — a firm-observable change and a load question,\nrecorded on the `notifications.scheduling` ledger node.\n\n**Slice 3 gap closed — the firm's half of the settings had no writer.** A mechanical scan for exported\nwrite-shaped functions with no production caller found three of them in this package, all in one\nsubsystem: the FIRM tier of the preference matrix (the in-app floor a member may not lower), the\nretention window, and the digest local hour. Every one is read at evaluation time — the floor by the\nshared recipient resolver on every fan-out, the window by the nightly sweep, the hour by the hourly\ndigest pass — and no route wrote any of them, so the floor could not be raised, the window could not\nbe changed and the summary landed at 07:00 for every firm on earth. The member API shipped; the firm\nAPI did not, and the tests that covered the floor inserted the row themselves, which is why nothing\nfailed. Now `GET`/`PATCH /api/v1/firm/notifications/policy` under a new\n`firm:manageNotificationPolicy` seeded to Owner/Admin — deliberately not the member key\n`notifications:read`, which every default role including Read-only carries. Still not written by\nanything: the firm's email DETAIL-LEVEL ceiling, which has no write statement in either tier and is a\nseparate gap rather than an omission here."
+      "notes": "Slice 1 built: five per-firm tables, the type registry with its validated fact grammar, a second\nnon-exclusive translator pass on the shipped per-firm queue (no producing package changed —\nthirty-one topics already commit transactionally), the member-scoped read API behind\n`notifications:read`, the firm-ceiling email detail level, and the firm-configurable retention window\nwith its nightly sweep and its swept-unread tally.\n\nSlice 2 built: the comparison-driven production path as a declared third `raisedBy` on the registry\nwith its own index, a per-firm sweep on the daily cron calling the calendar's own overdue arithmetic\nand the custody register's own collection point, once-per-civil-day dedupe bucketed in the subject's\nown zone, the three calendar matter-event outbox topics (with `rescheduled` raised on a move and not\non an edit), and the document-assembly coordinator's completion row. Retention and the email-filing\ntopic, both listed under slice 2 in the plan, had already shipped with slice 1 and were verified\nrather than rebuilt.\n\nSlice 3 built: the per-category preference matrix on one `notifications.preferences` scoped-setting\nkey, with the two channels composing in opposite directions (the firm's tier is a floor in app, the\nmember's choice wins by email); the mandatory in-app floor on `security` and `trust` from either\ntier; enforcement at fan-out in the one shared recipient resolver, so all three production paths\ninherit it; a sixth per-firm table, `notification_in_app_suppression`, so a silenced notification is\na counted fact rather than an absence, swept on the firm's own retention window; the firm-tier\ntrust-compliance designation, applied to the trust category and audited by count; and the member and\nfirm preference API. **Deviation:** the plan's `notification_delivery` row with\n`suppressed_reason = 'not-visible'` at fan-out is not built — the column is `NOT NULL` against a\nrecipient row that by definition does not exist, and deciding visibility at fan-out is the\nemission-time enforcement this subsystem refuses. The designated member gets an ordinary recipient\nrow and the shipped read filter decides, which is what makes their feed byte-identical to a firm\nwhere nothing was raised.\n\nSlice 4 built: the email digest — the first time this subsystem hands anything to a mailbox, and the\nfirst consumer of slice 3's per-category email cadence. A digest window read added to the ONE shared\nread the feed and the unread count already compose, so the wall binds at delivery time in one\nimplementation; a keyset watermark (an instant AND its event id) per member per cadence; a renderer\nwhose entire vocabulary is a closed category label, an integer, a cadence and a configured origin, so\nthere is no argument a title could arrive in; and an hourly per-firm run anchored to the firm's own\nmorning, resolved from the default office the calendar already books against rather than a second\ncopy of where the firm is. Send first, mark second, both committed in one batch. A member with\nnothing visible in the window gets no email. **Every row a run did not mail is settled** as a\n`suppressed` `notification_delivery` row naming a closed reason — `preference` where the member's\ncadence for that category is `off` or the resolved detail level is `off`, `no-address` where there is\nno mailbox — so a member who chose not to be written to stays distinguishable from a member the\nplatform silently failed to write to, which is the in-app suppression tally's requirement met with\nthe mechanism the schema already had.\n\n**Deviation 1 — the immediate escalation.** The plan's task 4.3 asks the run to honour a\nregistry-declared `escalation: \"immediate\"` for trust and security kinds. No registered kind declares\none, and an immediate send has no trigger without editing the raise paths, so the sender would be\nuntriggered code while leaving such kinds in the digest would quietly mail a compliance-grade notice\ninside a day's counts. Built instead: the walk HALTS at the first such row, leaving the watermark\nbehind it so nothing is settled that no channel carried, and a fitness test asserts no type declares\n`immediate` today. Registering the first one is a gate failure until its send path ships.\n`emailContent: 'recipient-scoped'` gets the same treatment for the same reason.\n\n**Deviation 2 — the send port.** The digest resolves its own rather than reusing `emailAdapterForEnv`,\nwhich falls back to the dev logging adapter when the Email Service binding is absent. Right for a\npassword reset; catastrophic here, because the run would record `sent` rows and advance watermarks\nfor mail printed to a log, and the member would never hear about those notifications again. The\ndigest port reports one of three typed not-configured reasons instead, counted every pass.\n\n**Not built in slice 4, deliberately:** any `apps/web` change. An email template is not a screen, and\nthe notification centre and the preference screens stayed deferred; `docs/user/` says plainly that the\ndigest cannot reach anybody until the firm's outbound mail is provisioned. (Slice 5 below builds both\nscreens; the provisioning sentence still holds.)\n\n**Repaired in passing:** the per-firm drizzle snapshot had fallen one migration behind the schema\n(the discovery processing-route migration was hand-written without refreshing it), so the next\n`generate` would have emitted a destructive `review_document` rebuild. The snapshot is refreshed to\nthe lineage head.\n\n**Slice 4 — what the dedupe key actually guarantees, resolved and named.** A correctness question\nraised against the shipped subsystem: the UNIQUE index that makes a notification fire once lives on\n`notification_event.dedupe_key`, and the retention sweep deletes that row, so the uniqueness that\nenforces \"once\" does not outlive the firm's window. Settled as **the intended contract, not a defect**,\non the subsystem's own evidence: the design spec frames the key as a redelivery floor throughout (path\nA \"a redelivery is a no-op by construction\", path B raising \"once per day\" in as many words), and each\nproduction path's required lifetime is far shorter than the thirty-day retention floor — an outbox row\nis published once and flipped out of `pending` so the relay never re-carries it, a comparison's bucket\nis derived from the pass's own instant so it only ever moves forward, and a job reports each terminal\nstate once inside its own life. No shipped consumer relies on forever semantics, and the platform\nalready routes conditions that need it away from this key: the billing automations put their\nconvergence in `invoice_reminder` rows for exactly this reason and wrote down why.\n\nSo nothing durable was built. What was wrong was that the boundary lived only in another subsystem's\ndesign document while the code said \"dedupe key\" and \"UNIQUE\" and left the reader to infer \"once,\never\". The horizons are now declared per production path in `CONVERGENCE_HORIZON_BY_RAISER`, as a\n`Record<NotificationRaisedBy, …>` so a fourth path is a **compile error** until it states one; both\n`materialize.ts` and `retention.ts` name the boundary and the rule that follows it (a condition needing\nonce-per-subject-forever convergence carries it in the owning subsystem's own tables and points a\nnotification at that record); and `test/retention-convergence.test.ts` states the semantics out loud by\nre-inserting a key the sweep took, then proves the property that makes it safe — the comparison bucket\nfollows the clock, so a swept bucket is unreachable rather than merely unlikely.\n\n**One real hole closed beside it.** The comparison pass's per-kind findings cap was already counted\n(`notifications.comparison_clamped`, over-reading by one to detect rather than infer). Its **zone\ndiscovery** was not. The deadline comparison needs one cutoff per zone because no D1 query resolves a\nzone, and that read was bounded at the same 200 with no over-read and no counter — so a truncated zone\nlist meant every deadline in an undiscovered zone matched neither the overdue bound nor the due-today\nwindow, and the pass reported nothing about a whole jurisdiction with every other counter reading\nhealthy. It now over-reads by one and reports `notifications.comparison_zone_discovery_truncated`, kept\napart from the findings clamp because a clamp bounds what was missed and this does not bound it at all.\nThe value counts truncated **passes** rather than zones, because a read that over-reads by one to catch\nits own truncation learns that it truncated and can never learn by how much.\n\n**Left to the owner, not shipped:** whether 200 findings per kind per pass is the right ceiling. It is\ncounted rather than silent, but a busy litigation practice can exceed it honestly, and raising it\nchanges how much of a firm's overdue work gets reported — a firm-observable change and a load question,\nrecorded on the `notifications.scheduling` ledger node.\n\n**Slice 3 gap closed — the firm's half of the settings had no writer.** A mechanical scan for exported\nwrite-shaped functions with no production caller found three of them in this package, all in one\nsubsystem: the FIRM tier of the preference matrix (the in-app floor a member may not lower), the\nretention window, and the digest local hour. Every one is read at evaluation time — the floor by the\nshared recipient resolver on every fan-out, the window by the nightly sweep, the hour by the hourly\ndigest pass — and no route wrote any of them, so the floor could not be raised, the window could not\nbe changed and the summary landed at 07:00 for every firm on earth. The member API shipped; the firm\nAPI did not, and the tests that covered the floor inserted the row themselves, which is why nothing\nfailed. Now `GET`/`PATCH /api/v1/firm/notifications/policy` under a new\n`firm:manageNotificationPolicy` seeded to Owner/Admin — deliberately not the member key\n`notifications:read`, which every default role including Read-only carries. Still not written by\nanything: the firm's email DETAIL-LEVEL ceiling, which has no write statement in either tier and is a\nseparate gap rather than an omission here.\n\n**Slice 5 built — the interface, and the one contract gap it exposed.** The read API, both preference\nroutes and the firm policy route had shipped with no caller: everything above was reachable only by\n`curl`. Built: the notification centre (`/notifications`), which replaces the honest stub with the\nreal feed — cursor-paged through the shared `PagedList`, narrowed by state and category as QUERY\nparameters so a filtered feed is cheaper rather than merely shorter, settling a row on follow and\ndismissing separately, and stating what the retention sweep took while unread rather than showing a\nreassuring zero. The top-bar bell became its own component beside the download and upload trays,\ncarrying a live unread badge over a shared count both surfaces read, polled on a slow interval and on\nfocus, and never cleared by a failed read. Settings · Notifications — the per-category\nmatrix — arrived on `main` from the settings stream while this one was in flight, and **that one\nstands**: it is a table rather than a page of rows, it tracks a write per row, and it landed first.\nThis stream's own copy of that screen was dropped at the merge, and what survives from it is the\nreconciliation the collision forced — the category's words and the preference transport now have\nONE home each (`category-vocabulary.ts`, `preferences-api.ts`), which the feed and the bell read\ntoo, rather than a second vocabulary that would have drifted the first time either was edited.\n\nThe card is composed on the client from the kind and the declared facts\n(`apps/web/src/lib/notifications/notification-presentation.ts`), because the row carries no sentence —\nand a kind this client has never heard of renders as the category's own noun rather than being\ndropped, so a client that shipped before a type did cannot swallow a notification somebody was meant\nto see. `apps/web/test/notification-presentation.test.ts` scans the server's registry as text (apps/web\ndoes not depend on the notifications package and should not start) and fails when a registered kind\nhas no words here — the same pairing scan, in the same direction, that the timeline registry gets.\n\n**Contract gap found and closed: `read-all` was unusable by any client.** The route requires a\n`throughCursor` naming the newest row the member saw, and no route handed one out — `nextCursor` names\nthe page's OLDEST row and is null at the end of the record, which is precisely the common case of a\nmember whose whole backlog fits on one page. The subsystem's own test minted the cursor by hand, which\nis why nothing had noticed. The feed page now reports `readThroughCursor` beside `nextCursor`, and the\nroute test uses it instead of hand-minting, so the cursor's encoding stays in the one module that owns\nit. The alternatives were both bad: mint it in the client, putting the encoding in a second place, or\nfire one request per visible row, which is neither atomic nor able to clear the aged-out tally."
     },
     {
       "slice": "Directory pronouns",
@@ -2428,6 +2430,129 @@
       },
       "blockedBy": [],
       "notes": "The Tools host every file capability is run from: the file-workbench route, a file dropped once and read by all ten. Two capabilities are real in the browser today — the file's true type, read from its leading bytes against what its name claims, and its SHA-256 and SHA-1. The eight whose engines run in a container render their own control disabled with the dependency named. The capability set is a registry, so adding one is a module and an array entry; the Overview is contributed by the modules rather than written by hand. Conversion acts on the whole selection, and offers only the formats every selected file can reach. Two rounds of owner review are recorded in `docs/conventions/file-workbench-rulings.md`; the second turned the file list into the product's one grid and moved four of its rulings into the standing set."
+    },
+    {
+      "slice": "One home for dates",
+      "group": "cross-cutting",
+      "order": 41,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "n/a"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "claude/date-handling-audit-xx8q3o",
+      "activeWork": "docs/active-work/claude/date-handling-audit-xx8q3o.md",
+      "next": "Answered — every date is entered through the DatePicker (owner, 2026-09-08); what is open now is on the continued slice",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": [
+          "ADR-a-date-has-two-authorities-and-a-gate-that-keeps-it-so"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "`@magna-carta/civil-time` (shape) + the design system's `formatters/` (display), with `lint:date-handling` holding the line; about seventy duplicates removed, two of which had already drifted."
+    },
+    {
+      "slice": "The settings surface, wired — every stubbed section given the server behind it, from firm members and their rights through to how the firm measures the time it bills",
+      "group": "cross-cutting",
+      "order": 42,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "done"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "done"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "claude/settings-implementation-plan-asr0l6",
+      "activeWork": "docs/active-work/claude/settings-implementation-plan-asr0l6.md",
+      "next": "Retiring settings-page.svelte and the local-storage committed-value layer, which now have no call sites - blocked only on giving the read-only member's Request a change affordance a home on the server-backed pages. Also open: authoring custom roles and per-member direct grants over the schema that already carries both; Documents & templates and Integrations; Diagnostics, which wants a design before an endpoint; the account surface's remaining seams; and the histogram-plotted control the suspicion threshold wants",
+      "links": {
+        "spec": "docs/specs/2026-09-07-settings-completion-implementation-plan.md",
+        "plan": "docs/specs/2026-09-07-settings-completion-implementation-plan.md",
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The firm can administer its own people. `GET /api/v1/roles` reads the five seeded roles with the permissions each carries and how many active members hold it; `PUT /api/v1/members/{userId}/roles` sets what a member holds as a whole set and diffs it server-side; `POST /api/v1/members/{userId}/deactivation` and `/reactivation` withdraw and restore access without touching the record; and the invitation route accepts a role by name so a new member arrives holding something rather than nothing. Two refusals are enforced in the routes: nobody administers themselves, and a firm keeps somebody who can administer it. `/settings/users` becomes the roster with its three acts, `/settings/roles` states what each role allows in the firm's own words, and `canEditFirmSettings` stops being a constant — every firm page's posture is now the signed-in member's real capability. A member's OWN name follows: five parts on the control-plane user row with the printed line rendered from them, `GET`/`PUT /api/v1/me/name` behind the new `firm:editOwnProfile` (seeded to every role, because one's own name is not a privilege), the firm roster mirrored on every save, the parts carried through registration, and Account · Profile live over all of it. Prefix and suffix are one control across the Directory and the account alike: a suggestion list that takes several honorifics and anything typed. File Safety & Scanning follows: four real settings over GET/PATCH /api/v1/firm/scan-policy, staged through a new shared server-backed draft (apps/web/src/lib/settings/server-backed-draft.svelte.ts) that the calendar's own draft now goes through as well, so the settings surface has one implementation of server-backed staging rather than one per page. Then Notifications, both tiers at once: the member's per-category matrix under My Settings and the firm's own tier under Practice, each a table rather than a page of rows, with the composition between them left where it already lives on the server. Then Beta Access, which needed no new endpoint at all — the channel was always in the session bootstrap and the write has existed behind firm:manageReleaseChannel since release channels landed, so the page became one decision (instant, with its own consent dialog) rather than the two rows that were one fact asked twice. Firm Profile closes the band: PUT /api/v1/firm/profile behind a new firm:manageProfile seeded to Owner/Admin alone, writing firm.display_name and never the unique provisioning handle behind it, with no GET because the session already answers what the firm is called. Billing finishes the surface: GET/PATCH /api/v1/firm/time-policy behind time:manageSettings, reading and writing the FIRM tier of the increment and the rounding direction while a matter's or a timekeeper's own override stands untouched above it. With that, SETTING_DEFINITIONS - the local-storage registry every preview row used to live in - is empty, and the mode-purity fitness check was re-pointed at the whole surface with a non-vacuity guard so it keeps its teeth. And the gilt scroll-edge rule the sidebar and every register draw becomes the member's own choice (Settings - Accessibility - Scroll Edge Markers), on the theme-preference seam beside contrast, motion and density: suppressed in the recipe on a root data attribute rather than threaded as a prop through both consumers, and the one axis the no-flash boot script deliberately does not mirror."
+    },
+    {
+      "slice": "One home for dates — the second pass",
+      "group": "cross-cutting",
+      "order": 43,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "ui": {
+          "state": "done",
+          "by": "Opus 5"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done",
+          "by": "Opus 5"
+        }
+      },
+      "branch": "claude/date-handling-audit-xx8q3o",
+      "activeWork": "docs/active-work/claude/date-handling-audit-xx8q3o.md",
+      "next": "Owner call on the picker's own wrapper — thirteen consumers wrap it to keep the label and the field in one grid track, and the wrapper's gap adds to the label's margin, so the label-to-field distance is 8px on some surfaces and 12px on others",
+      "links": {
+        "spec": null,
+        "plan": null,
+        "adrs": [
+          "ADR-a-date-has-two-authorities-and-a-gate-that-keeps-it-so"
+        ]
+      },
+      "blockedBy": [],
+      "notes": "Six more wrong-day surfaces in the spelling the first pass missed, the gate rule that reads the argument rather than the operation, and the print-sheet formatting seam collapsed from seven declarations to one.\n\nAnd the owner's ruling that followed: every native date input is the DatePicker now, the gate's allowance list is empty and asserted empty, and the picker gained the Input's size scale, an `aria-label`/`aria-invalid` that reach the segment group, and the CalendarDate/text conversion moved beside it."
     },
     {
       "slice": "3·1 — Time tracking + WIP + rate engine",
@@ -3298,6 +3423,82 @@
       },
       "blockedBy": [],
       "notes": "The owner reviewed the deployed screen on 2026-09-08 and the round is their list, worked end to end. Most of it is vocabulary and layout, one item is a crash, and two are real capabilities the log did not have.\n\n**The crash first, because it was not this screen's alone.** Pressing the matter field returned an error report: the picker's \"no matches\" line was a `Combobox.GroupHeading` with no `Group` above it, which throws when the listbox opens — invisible until somebody clicks a field whose list is empty or fully narrowed, which is exactly when that line renders. The same one-line defect had shipped in four pickers (matter, time zone, calendar participants, the time record window's documents) and all four are fixed. The design system had already written this down, in `undo-redo-controls.svelte`: \"Both hand-built copies of this control shipped without it.\"\n\n**Selects rendered the value the database stores.** The form opened reading `voice` and `outbound`, because bits resolves a select's label from its `items` list and neither select passed one — the labels appeared only after the listbox had been opened once. The same omission put raw channels in the matter Activity section's Type column.\n\n**A call and a text are one record and now look like one.** Type and Direction rather than Kind and Which way; the date and the time as two fields rather than one combined control; and one **Description** for both, which is the message on a text and the member's account on a call. The columns behind them stay two — `body` is what was sent and `summary` is what somebody remembered, so a read never has to ask which it is holding — but nobody typing has to care. A note recorded beside a text under the old two-field form is carried through a correction untouched rather than silently dropped. **Picture** is gone as a kind: a picture is something a text carries, so `mms` reads as Text everywhere and states what it carries beside the row. The commit is Save, and the wordy \"a call or a text needs the number at the other end\" that stood in the action bar for the whole time somebody was filling the form is now \"The number.\"\n\n**The number carries its country.** A dial-code control beside the digits, grouping as they are typed in that country's own national form, and the international form stored — which makes storing E.164 honest for the first time. The server still refuses to canonicalize on its own, because that needs a country it has no way to know; the form knows, because somebody picked it. All of it reuses `$lib/directory/phone-entry.ts` rather than re-deriving a country's grouping rules. Display reformats only what is already canonical: handing a free-text number to a parser that assumes a country turns \"ext 4102\" into \"4102\".\n\n**A row opens into the record window, and a member-produced record is correctable there** (`communications.update`; a carrier row is refused, because editing one would turn an observation into a recollection wearing an observation's badge). The window's fields ARE the entry form's, rendered by one component, so the two cannot drift. Where the record belongs stays out of those fields and lives in the action bar, because a matter and a set-aside reason each move the row between queues through their own concurrency-safe act — folding them into the field patch was built first and discarded, since it turned one Save into three writes with a partial-failure state to explain.\n\n**A call that belongs to no matter can finally be put somewhere.** `communication.disposition` — spam, firm business, nothing came of it — is the other anchor, and the unrouted queue is redefined as rows carrying neither, so it is a list that can be emptied. Nothing is deleted and nothing leaves the record; a set-aside row goes back to the queue on request, and filing one clears its reason in the same statement. The vocabulary is enforced in the domain package rather than as a CHECK, because the column lands on a populated table and SQLite cannot add a CHECK to one without the rebuild expand-contract forbids.\n\n**Two smaller things the list asked for.** An **intake** starts from a call's own record, seeded with the caller and filing the call onto the matter it opens — the matters subsystem's own window, given a prefill, rather than this screen learning to open a matter. And the search now matches the matter's title and both its numbers as well as the words and the number dialled, because \"what did we say on the Herrera file\" is the question people actually bring.\n\nThe screen moved from `/communications` to `/messaging`; the sidebar id stays `communications`, because a member's stars are stored under it. 84 tests: 45 in the package, 18 over the routes, 21 over the form's model."
+    },
+    {
+      "slice": "6·8 — Record Communication: two columns, typed choices, one phone field, and a duration worked out from the clock",
+      "group": "phase-6",
+      "order": 8,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "done"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "claude/exciting-pascal-qfr3la",
+      "activeWork": "docs/active-work/claude/exciting-pascal-qfr3la.md",
+      "next": "the right column becomes tabs — the message, a transcript, the recording — once the carrier is connected; the design system's own PhoneInput, if a package ever needs the field the app now owns",
+      "links": {
+        "spec": "docs/specs/2026-09-07-call-and-text-log-design.md",
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The owner's second round on the deployed form, worked end to end: the panel is Record Communication, laid out as the measurable beside the written, every closed choice a combobox, the country and the number one field shared with the Directory, and the duration worked out from a start and an end rather than typed. The backspace defect behind \"I cannot backspace unless I re-enter it\" was the as-you-type formatter being fed its own output."
+    },
+    {
+      "slice": "6·9 — One window for a call, a typed length beside the span, and a number every call carries",
+      "group": "phase-6",
+      "order": 9,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "n/a"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "done"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "claude/zen-ramanujan-rh7zbg",
+      "activeWork": null,
+      "next": "the History tab becomes the audit feed once a route serves one, which would let it say which fields a correction touched rather than only that one happened; the right pane grows the transcript and the recording when the carrier is connected; the firm's own time zone, which is what would let a reference number carry the day the firm saw rather than the day in UTC",
+      "links": {
+        "spec": "docs/specs/2026-09-07-call-and-text-log-design.md",
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The owner's third round on the deployed screen. Two of its six items are real capabilities the log did not have, and the rest is the shape of the one window it now has.\n\n**There was one modal too many, and now there is one.** Recording a call opened an action dialog; opening a row opened the record window. They rendered the same fields through the same component and disagreed about everything around them — one had tabs, one printed, one put its commit under a heading and the other in an action bar. They are one window now, and the only difference between its two states is whether it opened with a record in it. A record being made asks where it belongs, because at that moment the anchor is one of the things being said; a record already on the log moves between anchors through its own concurrency-safe acts in the action bar, as it did.\n\n**A length is typed, and it need not be the span.** The previous round derived the duration from a start and an end, which is right until somebody is put on hold: an hour on the line and twenty minutes of call are two true facts about one call, and a form that computes either from the other is asserting they are the same number. So `communication.ended_at` is stored beside `duration_seconds`, the length is typed — `20`, `1h 5m` and `1:20` all read — and an end fills an EMPTY length and never overwrites one somebody wrote. Where the two differ the form says so in a line under them and the record shows both, so the gap reads as the hold it is rather than as a mistake.\n\n**Every call and text carries a number, and it exists before the record does.** `2026-09-08-0042`: the day it happened and that day's own sequence, drawn through the shared counter idiom with the partial unique index over the rendered number as the backstop — the one sequence in the platform with no allocation table, because its rendered string contains the whole of its scope. The migration numbers every row already on the table. And the window shows the number the next record WOULD draw before anything is saved, because the person entering a call is usually still on the telephone and the save is too late for the sentence they are in the middle of; it is a preview, it says so, and the record's own number replaces it the moment there is a record.\n\n**The description is the row's second line.** It is prose, usually longer than every other fact on the row together, and as a column it was either truncated to a few words or wide enough to push the facts off the screen. It takes the row's whole width underneath the facts now, through the one table's own row-detail — the same mechanism the time sheet's description sits in.\n\n**A number longer than a number is an extension, not a formatting failure.** `AsYouType` gives up silently once the digits exceed what a country holds, so typing a direct dial onto the end of a number turned `(312) 555-0148` into a run of fourteen digits under the cursor. The extra digits roll into an extension field the phone component now owns — the split is the longest prefix libphonenumber calls possible, so a North American number typed with its trunk 1 is not cut a digit short — and the two halves store as one string, `+13125550148x4102`, which the formatter reads back into both. The Directory's contact rows had built their own extension input beside the shared field; they use the shared one now.\n\n**An intake starts from the form as well as from a record.** Save And Start An Intake records the call first and hands the saved row up: an intake with no account of the call that caused it is exactly what the control exists to prevent.\n\nThe provenance tab is a **History** rail on the right, in the shape every other record window uses."
     }
   ]
 }

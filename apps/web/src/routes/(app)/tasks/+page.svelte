@@ -9,6 +9,11 @@
    *
    * Tasks on closed matters are left out. Closing a matter changes no task, so this is a filter and
    * not a state: reopening the matter brings its tasks back with no backfill.
+   *
+   * THE SCREEN OWNS ITS HEADER AND THE LIST OWNS ITS CONTROLS. The list hands its search, its
+   * create control and its clear back here to be seated in the masthead's action row, which is
+   * where every other main screen keeps that pair, rather than drawing a second row of its own
+   * under the title.
    */
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import TaskList from "$lib/matters/task-list.svelte";
@@ -20,8 +25,6 @@
 </svelte:head>
 
 <div class="flex h-full min-h-0 flex-col gap-16">
-  <ScreenHeader title="Tasks" />
-
   <TaskList
     subject="tasks"
     read={(cursor: string | undefined, filters: TaskListFilters) =>
@@ -31,5 +34,13 @@
     showMatter
     emptyTitle="Nothing on your plate"
     emptyDescription="No task is open for you. Tasks assigned to you across every matter you can see, and your own work on no matter, land here."
-  />
+  >
+    {#snippet screenHeader(controls)}
+      <ScreenHeader title="Tasks">
+        {#snippet actions()}
+          {@render controls()}
+        {/snippet}
+      </ScreenHeader>
+    {/snippet}
+  </TaskList>
 </div>

@@ -20,13 +20,58 @@ export interface CivilDateOptions {
   locale?: string;
 }
 
+/*
+ * Every formatter here goes through this one constructor, and every one of them passes
+ * `timeZone: "UTC"`. That is the rule of this file rather than a per-function detail: a civil date
+ * formatted in any other zone is an instant again, and the day moves.
+ */
+function civilFormatter(
+  locale: string | undefined,
+  parts: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(locale, { ...parts, timeZone: "UTC" });
+}
+
+/**
+ * A civil date as a `Date` pinned to UTC midnight — the only form `Intl` takes, and the reason the
+ * whole file formats in UTC. A `YYYY-MM-DD` string parses as UTC midnight already; anything else is
+ * an instant the caller is asserting is a day.
+ */
+function asUtcDate(value: CivilDateInput): Date {
+  return value instanceof Date ? value : new Date(value);
+}
+
 /** A calendar day, pinned to UTC so it reads the same in every office. */
 export function formatDate(value: CivilDateInput, options: CivilDateOptions = {}): string {
-  const date = value instanceof Date ? value : new Date(value);
-  return new Intl.DateTimeFormat(options.locale, {
+  return civilFormatter(options.locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
-    timeZone: "UTC",
-  }).format(date);
+  }).format(asUtcDate(value));
+}
+
+/**
+ * A SPAN of calendar days — "Sep 2 – 15, 2026", "Dec 28, 2026 – Jan 3, 2027".
+ *
+ * The locale's own range formatter, which repeats only what differs between the ends: the month
+ * once where both fall in it, the year once where both share it. Written by hand it comes out as
+ * two full dates and a dash, which is what a calendar toolbar had before this existed.
+ */
+export function formatDateRange(
+  from: CivilDateInput,
+  to: CivilDateInput,
+  options: CivilDateOptions = {},
+): string {
+  return civilFormatter(options.locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).formatRange(asUtcDate(from), asUtcDate(to));
+}
+
+/** The month a day falls in, named in full with its year — "September 2026". */
+export function formatMonth(value: CivilDateInput, options: CivilDateOptions = {}): string {
+  return civilFormatter(options.locale, { year: "numeric", month: "long" }).format(
+    asUtcDate(value),
+  );
 }

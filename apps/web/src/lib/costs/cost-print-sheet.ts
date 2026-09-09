@@ -14,6 +14,7 @@
  * shorter record than the one that exists. The entered date, the recorder and the invoice a billed
  * cost rides were in that list until the listing began serving them; they print values now.
  */
+import type { PrintSheetDates } from "$lib/print-sheet";
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import { costStatusKey, type CostSummary } from "$lib/matters/cost-api.ts";
@@ -29,13 +30,11 @@ import {
 import { recorderText } from "$lib/records/work-in-progress-record.ts";
 
 /** Everything the sheet needs that is not the cost itself. */
-export interface CostSheetContext {
+export interface CostSheetContext extends PrintSheetDates {
   readonly matterTitle: string;
   readonly matterNumber?: string | null;
   /** Money in the matter's own currency, given the amount in major units. */
   readonly money: (amount: number) => string;
-  /** A date as a reader sees it. */
-  readonly date: (isoDate: string) => string;
   /** An instant as a reader sees it — a moment, not a day. */
   readonly instant: (isoInstant: string) => string;
   /** When the sheet was taken, already stated as an instant. */

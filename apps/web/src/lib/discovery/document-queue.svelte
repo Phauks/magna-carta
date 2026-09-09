@@ -20,6 +20,7 @@
   import { listReviewDocuments, type ReviewDocument } from "./discovery-api.ts";
   import { composeDocumentQuery, type CriteriaSet } from "./criteria.ts";
   import { processingStateEntry } from "./discovery-vocabulary.ts";
+  import { formatInstantDate } from "@magna-carta/design-system/formatters";
 
   let {
     reviewSetId,
@@ -114,7 +115,7 @@
       No document in this review set answers to what is asked.
     </EmptyState>
   {:else}
-    <ul class="min-h-0 flex-1 overflow-y-auto">
+    <ul class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
       {#each documents ?? [] as one (one.id)}
         {@const state = processingStateEntry(one.processingState)}
         {@const here = one.id === documentId}
@@ -130,7 +131,7 @@
             <span class="flex items-center gap-8">
               <Badge variant={state.tone} title={state.meaning}>{state.label}</Badge>
               <span class="text-text-muted text-sm">
-                {one.sortDate === null ? "No date" : new Date(one.sortDate).toLocaleDateString()}
+                {one.sortDate === null ? "No date" : formatInstantDate(one.sortDate)}
               </span>
             </span>
           </a>

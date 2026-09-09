@@ -30,6 +30,7 @@ import {
   type DensityPreference,
   type Mode,
   type MotionPreference,
+  type ScrollEdgeHintPreference,
 } from "@magna-carta/design-system/internal/theme-preference";
 
 interface AppearanceValues {
@@ -38,6 +39,7 @@ interface AppearanceValues {
   motion: MotionPreference;
   density: DensityPreference;
   contrast: ContrastPreference;
+  scrollEdgeHints: ScrollEdgeHintPreference;
 }
 
 function readInitialValues(): AppearanceValues {
@@ -49,6 +51,7 @@ function readInitialValues(): AppearanceValues {
       motion: "system",
       density: "comfortable",
       contrast: "system",
+      scrollEdgeHints: "shown",
     };
   }
   return readThemePreference();
@@ -57,7 +60,14 @@ function readInitialValues(): AppearanceValues {
 const values = $state<AppearanceValues>(readInitialValues());
 
 function persistAndApply(): void {
-  applyThemePreference(values.theme, values.mode, values.motion, values.density, values.contrast);
+  applyThemePreference(
+    values.theme,
+    values.mode,
+    values.motion,
+    values.density,
+    values.contrast,
+    values.scrollEdgeHints,
+  );
 }
 
 /** One personalization axis: its definition, its live value, and its typed setter. */
@@ -238,13 +248,59 @@ export function applyHighContrast(next: boolean): void {
 
 /**
  * A history-restore resolver over a page's axes: labels map back to raw values through each
- * axis's own options; the High Contrast switch restores through its On/Off labels. A label
- * that no longer maps yields null (the trail hides Restore for it).
+ * axis's own options; the two switches (High Contrast, Scroll Edge Markers) restore through their
+ * On/Off labels. A label that no longer maps yields null (the trail hides Restore for it).
  */
+/*
+ * Scroll Edge Markers — the gilt rule that draws at the edge of a scroll area while there is more
+ * content that way (above and below the sidebar's nav list, left and right of a register). A
+ * SWITCH, on the High Contrast reasoning: a genuine boolean is a switch, and the dropdowns-over-
+ * radios rule governs enumerated option lists.
+ *
+ * NO SEED-THEN-OWN HERE, unlike contrast. Reduced motion already shortens the rule's draw to
+ * instant in the recipe itself, and wanting less movement is not the same as wanting less
+ * information about where a list ends — so there is no OS signal to follow and no "system"
+ * encoding, just shown or hidden.
+ */
+export const SCROLL_EDGE_HINTS_DEFINITION: SettingDefinition = {
+  id: "accessibility.scroll-edge-hints",
+  sectionId: "accessibility",
+  label: "Scroll Edge Markers",
+  description:
+    "A thin gold rule at the edge of a list or table while there is more to see that way.",
+  kind: "switch",
+  defaultValue: true,
+  sensitivity: "open",
+};
+
+export function scrollEdgeHintsShown(): boolean {
+  return values.scrollEdgeHints === "shown";
+}
+
+export function applyScrollEdgeHints(next: boolean): void {
+  const current = scrollEdgeHintsShown();
+  if (next === current) return;
+  values.scrollEdgeHints = next ? "shown" : "hidden";
+  persistAndApply();
+  appendSettingsLedgerEntries(SCROLL_EDGE_HINTS_DEFINITION.sectionId, [
+    {
+      settingId: SCROLL_EDGE_HINTS_DEFINITION.id,
+      label: SCROLL_EDGE_HINTS_DEFINITION.label,
+      from: settingValueLabel(SCROLL_EDGE_HINTS_DEFINITION, current),
+      to: settingValueLabel(SCROLL_EDGE_HINTS_DEFINITION, next),
+    },
+  ]);
+}
+
 export function appearanceRestoreAction(
   axes: readonly AppearanceAxis[],
 ): (entry: SettingsLedgerEntry) => (() => void) | null {
   return (entry) => {
+    if (entry.settingId === SCROLL_EDGE_HINTS_DEFINITION.id) {
+      if (entry.from !== "On" && entry.from !== "Off") return null;
+      const restoredScrollEdgeHints = entry.from === "On";
+      return () => applyScrollEdgeHints(restoredScrollEdgeHints);
+    }
     if (entry.settingId === HIGH_CONTRAST_DEFINITION.id) {
       if (entry.from !== "On" && entry.from !== "Off") return null;
       const restoredHighContrast = entry.from === "On";

@@ -1,0 +1,189 @@
+/*
+ * What the New Check panel composes, asserted over plain values.
+ *
+ * The panel has two panes on one draft, and every claim it makes — what the commit will send, why
+ * it cannot be sent yet, and the sentences that tell a reader what pressing Run will do — is one
+ * function away from those values. That is the whole reason the composition lives outside the
+ * components: these are the assertions that would otherwise need a browser and a mounted dialog.
+ */
+import { describe, expect, it } from "vitest";
+import {
+  CANDIDATE_LIMIT_LABEL,
+  OPENING_DRAFT,
+  RELATED_PARTY_LIMIT_LABEL,
+  checkPlan,
+  composeCheck,
+  sourcesFor,
+  triggerFor,
+  type CheckDraftValues,
+  type CheckSurface,
+} from "../src/lib/conflicts/check-request.ts";
+import { RUN_CHECK_PERMISSION } from "../src/lib/conflicts/conflicts-api.ts";
+import { OPERATOR_TRIGGERS } from "../src/lib/conflicts/conflicts-vocabulary.ts";
+
+const draft = (over: Partial<CheckDraftValues> = {}): CheckDraftValues => ({
+  ...OPENING_DRAFT,
+  subjectEntityIds: ["entity-1"],
+  ...over,
+});
+
+const surface = (over: Partial<CheckSurface> = {}): CheckSurface => ({
+  matterId: null,
+  matterEngaged: false,
+  permissions: [RUN_CHECK_PERMISSION],
+  ...over,
+});
+
+describe("a check does not need a matter", () => {
+  it("composes a request from parties alone", () => {
+    const { refusal, request } = composeCheck(draft(), surface());
+    expect(refusal).toBeNull();
+    expect(request?.subjectEntityIds).toEqual(["entity-1"]);
+    expect(request?.matterId).toBeUndefined();
+  });
+
+  it("refuses only when nobody is named and no matter is filed against either", () => {
+    const nobody = draft({ subjectEntityIds: [] });
+    expect(composeCheck(nobody, surface()).refusal).toBe("Name at least one party.");
+    // A matter brings its own parties, so a check filed against one may name none of its own.
+    expect(composeCheck(nobody, surface({ matterId: "matter-1" })).refusal).toBeNull();
+  });
+
+  it("refuses an account that may not run one, before the server has to", () => {
+    const composed = composeCheck(draft(), surface({ permissions: ["conflicts:read"] }));
+    expect(composed.refusal).toContain(RUN_CHECK_PERMISSION);
+    expect(composed.request).toBeNull();
+  });
+
+  it("composes while the session is still landing, rather than refusing on an unknown", () => {
+    expect(composeCheck(draft(), surface({ permissions: null })).refusal).toBeNull();
+  });
+});
+
+describe("the trigger is derived, never asked", () => {
+  it("files a check with no matter as preliminary", () => {
+    expect(triggerFor(surface())).toBe("preliminary");
+  });
+
+  it("files a check against a matter the firm has not taken on as preliminary", () => {
+    expect(triggerFor(surface({ matterId: "matter-1", matterEngaged: false }))).toBe("preliminary");
+  });
+
+  it("files a check against a matter the firm has taken on as comprehensive", () => {
+    expect(triggerFor(surface({ matterId: "matter-1", matterEngaged: true }))).toBe(
+      "comprehensive",
+    );
+  });
+
+  it("never derives a trigger that would claim the firm's system caught something", () => {
+    for (const matterEngaged of [true, false]) {
+      for (const matterId of ["matter-1", null]) {
+        expect(OPERATOR_TRIGGERS).toContain(triggerFor(surface({ matterId, matterEngaged })));
+      }
+    }
+  });
+});
+
+describe("what is searched", () => {
+  it("always asks for the party class, which is the firm-wide floor", () => {
+    expect(
+      sourcesFor(draft({ searchRelationships: false, searchOwnPeople: false }), surface()),
+    ).toEqual(["party"]);
+  });
+
+  it("asks for the firm's own people only where there is a matter to join them against", () => {
+    expect(sourcesFor(draft(), surface())).not.toContain("imputation");
+    expect(sourcesFor(draft(), surface({ matterId: "matter-1" }))).toContain("imputation");
+  });
+
+  it("drops the relationship walk when it is turned off", () => {
+    expect(sourcesFor(draft({ searchRelationships: false }), surface())).not.toContain("graph");
+  });
+});
+
+describe("a bound left blank is the firm's own", () => {
+  it("sends no bound at all rather than a number this form invented", () => {
+    const { request } = composeCheck(draft(), surface());
+    expect(request?.scope.closureCap).toBeUndefined();
+    expect(request?.scope.candidateCap).toBeUndefined();
+    expect(request?.scope.edgeClassBudgets).toBeUndefined();
+  });
+
+  it("sends the ones that were filled in, an explicit zero included", () => {
+    const { request } = composeCheck(
+      draft({
+        relationshipHops: { control: "2", family: "0", representation: "" },
+        relatedPartyLimit: "50",
+      }),
+      surface(),
+    );
+    expect(request?.scope.edgeClassBudgets).toEqual({ control: 2, family: 0 });
+    expect(request?.scope.closureCap).toBe(50);
+  });
+
+  it("refuses a bound that is not a whole number, naming the field", () => {
+    expect(composeCheck(draft({ relatedPartyLimit: "many" }), surface()).refusal).toContain(
+      RELATED_PARTY_LIMIT_LABEL,
+    );
+    expect(composeCheck(draft({ candidateLimit: "1.5" }), surface()).refusal).toContain(
+      CANDIDATE_LIMIT_LABEL,
+    );
+  });
+});
+
+describe("the close guard's answer", () => {
+  it("has nothing to lose while every field sits on its opening value", () => {
+    expect(composeCheck(OPENING_DRAFT, surface()).started).toBe(false);
+  });
+
+  it("has something to lose the moment a party is named", () => {
+    expect(composeCheck(draft(), surface()).started).toBe(true);
+  });
+
+  it("has something to lose when only a setting was moved", () => {
+    const moved = { ...OPENING_DRAFT, nameMatching: "over_inclusive" } as const;
+    expect(composeCheck(moved, surface()).started).toBe(true);
+  });
+});
+
+describe("what the panel says the check will do", () => {
+  const policy = {
+    floorSources: ["party" as const],
+    floorStrictness: "balanced" as const,
+    defaultDepth: 1,
+    edgeClassBudgets: { control: 2, family: 1, representation: 1 },
+    closureCap: 500,
+    candidateCap: 5000,
+    balancedNameRoles: ["current"],
+  };
+
+  it("reads a blank hop budget back as the firm's own number", () => {
+    const sentences = checkPlan(draft(), surface(), policy).join(" ");
+    expect(sentences).toContain("2 hops");
+    expect(sentences).toContain("1 hop");
+  });
+
+  it("says the firm's own where the policy could not be read", () => {
+    expect(checkPlan(draft(), surface(), null).join(" ")).toContain("the firm's own budget");
+  });
+
+  it("says the firm's own people cannot be reached when no matter is named", () => {
+    expect(checkPlan(draft(), surface(), policy).join(" ")).toContain("no matter is named");
+  });
+
+  it("says which trigger the check goes into the log under", () => {
+    expect(checkPlan(draft(), surface(), policy).join(" ")).toContain("preliminary check");
+    expect(
+      checkPlan(draft(), surface({ matterId: "matter-1", matterEngaged: true }), policy).join(" "),
+    ).toContain("comprehensive check");
+  });
+
+  it("says sound-alike matching runs, which is what the setting's name never did", () => {
+    expect(checkPlan(draft(), surface(), policy).join(" ")).toContain("sound alike");
+  });
+
+  it("describes the search that will actually run, not the one the defaults describe", () => {
+    const off = checkPlan(draft({ searchRelationships: false }), surface(), policy).join(" ");
+    expect(off).toContain("Does not walk out through recorded relationships");
+  });
+});

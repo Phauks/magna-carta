@@ -1,3 +1,4 @@
+import { CIVIL_DATE_PATTERN, todayInUtc } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -66,7 +67,7 @@ const MANAGE = "trust:manage" as const;
 // so a bare regex would let 2026-02-30 select a set nobody asked for.
 const civilDate = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .regex(CIVIL_DATE_PATTERN)
   .refine(isValidCalendarDate, { message: "not a calendar date" });
 
 const ContactChannel = z.enum([
@@ -753,6 +754,6 @@ export function registerTrustUnclaimedFundsRoutes(
 const trustOptions = () => ({
   clock: {
     now: () => new Date().toISOString(),
-    today: () => new Date().toISOString().slice(0, 10),
+    today: () => todayInUtc(),
   },
 });

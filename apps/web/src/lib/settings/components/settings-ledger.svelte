@@ -28,6 +28,7 @@
     type SettingsLedgerEntry,
   } from "$lib/settings/settings-ledger-store.svelte.ts";
   import type { SettingsDraft } from "$lib/settings/settings-draft.svelte.ts";
+  import { formatInstant } from "@magna-carta/design-system/formatters";
 
   let {
     sectionId,
@@ -104,9 +105,7 @@
     return () => draft?.stage(definition, restoredValue);
   }
 
-  function formatTimestamp(at: string): string {
-    return new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  }
+  const formatTimestamp = (at: string): string => formatInstant(at);
 
   // The sheet opens programmatically from the tooltip's button: Tooltip.Trigger and
   // Sheet.Trigger both render real button elements, so composing them would nest

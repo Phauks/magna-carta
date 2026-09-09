@@ -57,6 +57,13 @@
       "when": 1787020000000,
       "tag": "20260829T160000_registration-credential",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788831239009,
+      "tag": "20260908T013359_user-name-parts",
+      "breakpoints": true
     }
   ]
 }

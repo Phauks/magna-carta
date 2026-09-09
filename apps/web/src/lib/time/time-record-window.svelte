@@ -43,7 +43,7 @@
   import * as Combobox from "@magna-carta/design-system/combobox";
   import * as Alert from "@magna-carta/design-system/alert";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
-  import { formatDuration, formatInstant } from "@magna-carta/design-system/formatters";
+  import { formatDuration, formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import Info from "@lucide/svelte/icons/info";
   import Paperclip from "@lucide/svelte/icons/paperclip";
@@ -88,6 +88,8 @@
   import { listMatterFiles, type MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import { timeEntrySheet } from "./time-print-sheet.ts";
   import { listMatterTasks, type MatterTask } from "$lib/matters/tasks-api.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
+  import { printSheetDates } from "$lib/print-sheet";
 
   let {
     open = $bindable(false),
@@ -363,7 +365,7 @@
     memoText = entry?.memo ?? "";
     taskCodeId = entry?.utbmsTaskCodeId ?? null;
     activityCodeId = entry?.utbmsActivityCodeId ?? null;
-    workDateText = start?.workDate ?? new Date().toISOString().slice(0, 10);
+    workDateText = start?.workDate ?? civilDateOf(new Date());
     durationText =
       start === null || start.rawDurationMinutes === 0
         ? ""
@@ -870,7 +872,7 @@
       : timeEntrySheet(entry, {
           matterTitle: chosenMatterName,
           money: (amount) => formatMoney(amount, { currency: entry.currency }),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           printedAt: formatInstant(new Date()),
         }),
   );
@@ -1605,7 +1607,7 @@
             </p>
           </div>
         {:else}
-          <ul class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+          <ul class="mc-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
             {#each stagedFiles as file (file.id)}
               <li class="flex items-center gap-8 rounded-md border border-border-default p-8">
                 <Paperclip class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
@@ -1639,7 +1641,7 @@
           </p>
         </div>
       {:else}
-        <ul class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        <ul class="mc-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           {#each attachments as attachment (attachment.fileId)}
             <li class="flex items-center gap-8 rounded-md border border-border-default p-8">
               <Paperclip class="size-16 shrink-0 text-text-muted" aria-hidden="true" />
@@ -1649,7 +1651,7 @@
                 {attachment.fileName ?? "This document is no longer on the matter"}
               </span>
               <span class="text-xs whitespace-nowrap text-text-subtle">
-                {formatDate(attachment.createdAt.slice(0, 10))}
+                {formatInstantDate(attachment.createdAt)}
               </span>
               <Button
                 variant="ghost"

@@ -42,6 +42,7 @@ function fileNamed(name: string, prefix: Uint8Array, verdict?: ScanVerdict): Wor
     declaredMediaType: "",
     receivedAt: new Date("2026-08-31T12:00:00Z"),
     preview: { kind: "none", reason: "a fixture draws nothing" },
+    readBytes: () => Promise.resolve(new Uint8Array(0)),
     outcomes: {
       [FILE_TYPE_CAPABILITY]: {
         kind: "result",

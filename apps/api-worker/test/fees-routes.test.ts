@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { env, SELF } from "cloudflare:test";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -177,7 +178,7 @@ describe("recording a fee", () => {
     expect(body.matterNumber).toMatch(/^FEE-/);
     // The two dates are different facts, and only both together say when the charge was captured.
     expect(body.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(body.createdAt.slice(0, 10)).not.toBe(body.serviceDate);
+    expect(civilDateOf(body.createdAt)).not.toBe(body.serviceDate);
   });
 
   it("refuses a charge of nothing", async () => {

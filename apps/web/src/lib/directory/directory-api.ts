@@ -108,7 +108,22 @@ export interface DirectoryEntityListing {
   displayName: string | null;
   /** An organization's legal name where it differs from what the firm calls it; null otherwise. */
   legalName: string | null;
+  /** A person's first name; null for an organization. */
+  givenName: string | null;
+  middleName: string | null;
+  /** A person's last name; null for an organization, and null for a person who has one name. */
+  familyName: string | null;
+  /** The record's DEFAULT email address, not every one it holds. Null where the firm holds none. */
+  emailAddress: string | null;
+  /** The record's default number, as entered. */
+  phoneNumber: string | null;
+  /** Where the record's default address is: the locality, the administrative area, the country. */
+  city: string | null;
+  region: string | null;
+  country: string | null;
   recordedAt: string;
+  /** When the record itself last changed. */
+  changedAt: string;
 }
 
 /** A page of the index, carrying the size of the whole record rather than of the page. */
@@ -709,7 +724,8 @@ export interface DirectoryPersonOrganizationRequest {
  */
 export interface CreateDirectoryPersonRequest {
   given: string;
-  family: string;
+  /** Absent for a person who has one name; the contract requires the given name and nothing else. */
+  family?: string;
   prefix?: string | null;
   middle?: string | null;
   suffix?: string | null;
@@ -1002,11 +1018,18 @@ export function addDirectoryAddress(
 }
 
 /**
- * Changes what the firm holds about one contact point.
+ * Changes what the firm holds about one contact point — INCLUDING the value itself.
  *
  * An omitted field keeps its stored value, which is what makes it safe to send only the preference:
  * withdrawing a permission does not touch the number, and editing a number does not read back later
  * as a confirmation the firm never made.
+ *
+ * The value fields are here because the route has taken them from the beginning and nothing on
+ * screen asked for one, so a mistyped digit could only be fixed by deleting the row and entering it
+ * again — which is not a correction: the removal is its own fact on the record, and the permission,
+ * the preference and the confirmation attached to the value go with it. The three channels take
+ * different fields, so the request is the union of them and a caller sends the ones its channel has
+ * (contact-draft.ts builds it).
  */
 export function updateDirectoryContactPoint(
   fetchImpl: typeof fetch,
@@ -1017,6 +1040,26 @@ export function updateDirectoryContactPoint(
     verification?: DirectoryContactVerification;
     isPrimary?: boolean;
     contactUse?: DirectoryContactUse | null;
+    /** An email's own value. */
+    address?: string;
+    /** A number's, as it was written; the record never rewrites it. */
+    number?: string;
+    contactSystem?: DirectoryContactSystem;
+    extension?: string | null;
+    countryRegionCode?: string | null;
+    /** An address's lines — the international field set, every one of them optional. */
+    recipient?: string | null;
+    organizationName?: string | null;
+    street?: string | null;
+    streetTwo?: string | null;
+    dependentLocality?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal?: string | null;
+    sortingCode?: string | null;
+    country?: string | null;
+    addressUse?: DirectoryAddressUse | null;
+    addressType?: DirectoryAddressType;
   },
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ id: string }>> {

@@ -11,6 +11,7 @@
  * the artifact exists. Calling either of them by the other's name would let a firm send a reader's
  * working copy to a client.
  */
+import type { PrintSheetDates } from "$lib/print-sheet";
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import {
@@ -30,14 +31,13 @@ import {
  * standing across the firm it says neither, because a bill may charge several matters and naming
  * one of them on the record's own sheet would be picking a matter out of a hat.
  */
-export interface InvoiceSheetContext {
+export interface InvoiceSheetContext extends PrintSheetDates {
   readonly matterId?: string | null;
   readonly matterTitle?: string | null;
   readonly matterNumber?: string | null;
   readonly clientName: string;
   /** Money in the bill's own currency, given the amount in major units. */
   readonly money: (amount: number) => string;
-  readonly date: (isoDate: string) => string;
   /** When the sheet was taken, already stated as an instant. */
   readonly printedAt: string;
 }
@@ -73,7 +73,7 @@ export function invoiceRecordSheet(
         kind: "fields",
         fields: [
           { label: "Status", value: statusEntry(invoiceStanding(row)).label },
-          { label: "Created", value: context.date(invoice.createdAt.slice(0, 10)) },
+          { label: "Created", value: context.instantDate(invoice.createdAt) },
           {
             label: "Issued",
             value: invoice.issueDate === null ? "Not issued" : context.date(invoice.issueDate),

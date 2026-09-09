@@ -34,7 +34,7 @@
   import EmptyState from "@magna-carta/design-system/empty-state";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
-  import { formatInstant } from "@magna-carta/design-system/formatters";
+  import { formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import { MoneySurface, billHref, type MoneySurfaceDensity } from "$lib/money/index.ts";
   import {
@@ -63,6 +63,7 @@
   import TimeRecordWindow from "./time-record-window.svelte";
   import { timeEntrySheet } from "./time-print-sheet.ts";
   import type { ApiOutcome, Failure } from "$lib/api/request.ts";
+  import { printSheetDates } from "$lib/print-sheet";
   import {
     approveTimeEntry,
     submitTimeEntry,
@@ -405,7 +406,7 @@
       : timeEntrySheet(printEntry, {
           matterTitle,
           money,
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           printedAt: formatInstant(new Date()),
         }),
   );

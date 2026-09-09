@@ -10,6 +10,7 @@
    */
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
+  import { formatInstantDate } from "@magna-carta/design-system/formatters";
   import {
     listOccurrences,
     listRecordCustodians,
@@ -63,7 +64,7 @@
         <li class="flex flex-col gap-4">
           <span class="text-sm">{names.get(copy.recordCustodianId) ?? "Not named here"}</span>
           <span class="text-text-muted text-sm">
-            Arrived {new Date(copy.createdAt).toLocaleDateString()}
+            Arrived {formatInstantDate(copy.createdAt)}
           </span>
         </li>
       {/each}

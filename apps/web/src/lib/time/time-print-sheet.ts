@@ -16,6 +16,7 @@
  * beside it. Money and dates arrive already rendered, because the currency and the locale belong to
  * the surface doing the printing, not to the description of what the paper says.
  */
+import type { PrintSheetDates } from "$lib/print-sheet";
 import { statusEntry } from "@magna-carta/design-system/status-register";
 import type { PrintSheetDocument } from "@magna-carta/design-system/print-sheet/projection";
 import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
@@ -28,13 +29,11 @@ import {
 } from "./time-columns.ts";
 
 /** Everything the sheet needs that is not the entry itself. */
-export interface TimeSheetContext {
+export interface TimeSheetContext extends PrintSheetDates {
   readonly matterTitle: string;
   readonly matterNumber?: string;
   /** Money in the matter's own currency, given the amount in major units. */
   readonly money: (amount: number) => string;
-  /** A work date as a reader sees it. */
-  readonly date: (isoDate: string) => string;
   /** When the sheet was taken, already stated as an instant. */
   readonly printedAt: string;
 }
@@ -67,7 +66,7 @@ export function timeEntrySheet(
           // whose work it is and who typed it.
           ...(entry.createdAt === undefined
             ? []
-            : [{ label: "Date Entered", value: context.date(entry.createdAt.slice(0, 10)) }]),
+            : [{ label: "Date Entered", value: context.instantDate(entry.createdAt) }]),
           { label: "Timekeeper", value: timekeeperOf(entry) },
           ...(entry.createdByName === null || entry.createdByName === undefined
             ? []

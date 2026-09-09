@@ -52,6 +52,7 @@
   import { billHref } from "$lib/money/index.ts";
   import { COST_LEDGER_GAPS, REVIEW_GATE_ENABLED, gapCellTitle, gapReason } from "./cost-gaps.ts";
   import { costEntrySheet } from "./cost-print-sheet.ts";
+  import { civilDateOf } from "@magna-carta/civil-time/civil-date";
   import {
     costDraftRefusal,
     createCost,
@@ -62,6 +63,9 @@
   } from "./cost-operations.ts";
   import { billingSentence, payeeText } from "./cost-vocabulary.ts";
 import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } from "$lib/records/work-in-progress-record.ts";
+  import { printSheetDates } from "$lib/print-sheet";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   let {
     open = $bindable(false),
@@ -174,7 +178,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
     if (seededFor === identity) return;
     seededFor = identity;
     saveFailure = null;
-    incurredDateText = entry?.incurredDate ?? new Date().toISOString().slice(0, 10);
+    incurredDateText = entry?.incurredDate ?? civilDateOf(new Date());
     amountText = entry === null ? "" : (entry.amountMinor / 100).toFixed(2);
     descriptionText = entry?.description ?? "";
     billingChoice = entry === null || entry.billable ? "billable" : "absorbed";
@@ -268,7 +272,7 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
           matterTitle,
           matterNumber,
           money: (amount) => formatMoney(amount, { currency: entry.currency }),
-          date: (isoDate) => formatDate(isoDate),
+          ...printSheetDates(),
           instant: (isoInstant) => formatInstant(isoInstant),
           printedAt: formatInstant(new Date()),
           expenseCodeLabels: expenseCodes.labelFor,
@@ -421,12 +425,11 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
 
     <div class="grid gap-12 sm:grid-cols-2">
       <div class="flex flex-col gap-4">
-        <Label for="{fieldPrefix}-incurred">Date Incurred</Label>
-        <Input
-          id="{fieldPrefix}-incurred"
-          type="date"
+        <DatePicker
+          label="Date Incurred"
+          value={civilDateValue(incurredDateText)}
+          onValueChange={(next) => (incurredDateText = civilDateTextOrEmpty(next))}
           disabled={readOnly}
-          bind:value={incurredDateText}
         />
       </div>
 

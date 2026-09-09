@@ -1,5 +1,5 @@
 import { encodeCursor, decodeCursor } from "@magna-carta/data-access/cursor-pagination";
-import { CANONICAL_INSTANT_PATTERN } from "./types.ts";
+import { CANONICAL_INSTANT_PATTERN } from "@magna-carta/civil-time/instant";
 import type { TimelineCursor, TimelineEntry } from "./sources/registry.ts";
 
 // One sort key across heterogeneous sources, compared AS TEXT.

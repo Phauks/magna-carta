@@ -504,3 +504,96 @@ describe("finding a conversation by its matter", () => {
     expect(await listAll(database, { search: "C-2026-0009" })).toHaveLength(1);
   });
 });
+
+describe("the number a firm says out loud", () => {
+  /*
+   * The owner's ruling of 2026-09-08: "all calls and logs should have a number, which we can identify
+   * in the log, before it has been created. should incorporate date." A handle is not something
+   * anybody can read back down a telephone; this is.
+   */
+  it("draws the day of the call and that day's own sequence", async () => {
+    const database = fresh();
+    await log(database, callInput());
+    const [row] = await listAll(database);
+    // The call happened on the seventh, whatever day it was typed on.
+    expect(row?.reference_number).toBe("2026-09-07-0001");
+  });
+
+  it("counts within the day the call happened, not the day it was recorded", async () => {
+    const database = fresh();
+    await log(database, callInput({ occurredAt: "2026-09-06T09:00:00.000Z" }));
+    await log(database, callInput({ occurredAt: "2026-09-07T09:00:00.000Z" }));
+    await log(database, callInput({ occurredAt: "2026-09-06T11:00:00.000Z" }));
+    const numbers = (await listAll(database)).map((row) => row.reference_number).sort();
+    expect(numbers).toEqual(["2026-09-06-0001", "2026-09-06-0002", "2026-09-07-0001"]);
+  });
+
+  it("gives one number to one row, and a text carries one too", async () => {
+    const database = fresh();
+    await log(database, textInput());
+    const [row] = await listAll(database);
+    expect(row?.reference_number).toBe("2026-09-07-0001");
+  });
+
+  it("finds a row by the number somebody quoted back", async () => {
+    // The one thing a caller is ever asked to read out, so it is the first thing the search matches.
+    const database = fresh();
+    await log(database, callInput());
+    const found = await listAll(database, { search: "2026-09-07-0001" });
+    expect(found).toHaveLength(1);
+  });
+});
+
+describe("how long the line was open, and how long the call took", () => {
+  /*
+   * The owner's ruling of 2026-09-08: "you should be able to type in the length of time for the call,
+   * and this doesn't need to match calculation, considering people can be put on hold." So the end
+   * and the length are two stored facts, and nothing here checks that they agree — a check that they
+   * agree is the rule the ruling removes.
+   */
+  it("keeps a length that is shorter than the span, because that is the hold", async () => {
+    const database = fresh();
+    await log(
+      database,
+      callInput({
+        occurredAt: "2026-09-07T10:00:00.000Z",
+        endedAt: "2026-09-07T11:00:00.000Z",
+        durationSeconds: 20 * 60,
+      }),
+    );
+    const [row] = await listAll(database);
+    expect(row?.ended_at).toBe("2026-09-07T11:00:00.000Z");
+    expect(row?.duration_seconds).toBe(20 * 60);
+  });
+
+  it("refuses an end before the start, which is a typo rather than a call", async () => {
+    const database = fresh();
+    await expect(
+      log(database, callInput({ endedAt: "2026-09-07T09:00:00.000Z" })),
+    ).rejects.toBeInstanceOf(CommunicationValidationError);
+  });
+
+  it("refuses an end on a text, which happens at one moment", async () => {
+    const database = fresh();
+    await expect(
+      log(database, textInput({ endedAt: "2026-09-07T10:25:00.000Z" })),
+    ).rejects.toBeInstanceOf(CommunicationValidationError);
+  });
+
+  it("carries a corrected end and leaves an omitted one where it was", async () => {
+    const database = fresh();
+    const id = await log(
+      database,
+      callInput({ occurredAt: "2026-09-07T10:00:00.000Z", endedAt: "2026-09-07T10:30:00.000Z" }),
+    );
+    const { effect } = await updateCommunication(
+      database.database,
+      id,
+      { summary: "Corrected the note and nothing else." },
+      options,
+    );
+    await commit(database.database, effect);
+    const held = await readCommunication(database.database, id, visibility, true);
+    expect(held?.ended_at).toBe("2026-09-07T10:30:00.000Z");
+  });
+});

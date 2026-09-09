@@ -13,7 +13,11 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuild/tsconfig.build.tsbuildinfo"
   },
-  "references": [],
+  "references": [
+    {
+      "path": "../civil-time/tsconfig.build.json"
+    }
+  ],
   "include": [
     "src/**/*.ts"
   ]

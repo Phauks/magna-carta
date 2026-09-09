@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import { DOCUMENT_ASSEMBLY_TABLE } from "@magna-carta/document-assembly/assembly-statements";
 import type { IntakeStepReader } from "../checklist.ts";
 
@@ -33,7 +34,7 @@ export const assembledDocumentStepReader: IntakeStepReader = async ({
       statement: "No document has been assembled onto this matter from the named template.",
     };
   }
-  const when = latest.completed_at === null ? "" : ` on ${latest.completed_at.slice(0, 10)}`;
+  const when = latest.completed_at === null ? "" : ` on ${civilDateOf(latest.completed_at)}`;
   return {
     satisfied: true,
     statement:

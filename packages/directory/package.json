@@ -11,8 +11,10 @@
     "./match-key": "./src/match-key.ts",
     "./name-index-backfill": "./src/name-index-backfill.ts",
     "./nickname": "./src/nickname.ts",
+    "./honorifics": "./src/honorifics.ts",
     "./person": "./src/person.ts",
     "./person-record": "./src/person-record.ts",
+    "./person-name": "./src/person-name.ts",
     "./pronouns": "./src/pronouns.ts",
     "./organization": "./src/organization.ts",
     "./name-history": "./src/name-history.ts",
@@ -45,6 +47,7 @@
   },
   "dependencies": {
     "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/encryption": "workspace:*",

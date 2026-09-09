@@ -1,3 +1,4 @@
+import { civilDateOf } from "@magna-carta/civil-time/civil-date";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { InAppSuppressionReason, NotificationCategory } from "./types.ts";
 
@@ -23,7 +24,7 @@ export interface InAppSuppressionTally {
   readonly recipientUserId: string;
   readonly category: NotificationCategory;
   readonly reason: InAppSuppressionReason;
-  // The platform's civil day the fan-out ran on — `now.slice(0, 10)` at the caller, which holds the
+  // The platform's civil day the fan-out ran on — `civilDateOf(now)` at the caller, which holds the
   // clock this package does not.
   readonly civilDate: string;
   readonly suppressedCount: number;
@@ -80,7 +81,7 @@ export function inAppSuppressionEffects(
   readonly statements: readonly SqlStatement[];
   readonly counts: readonly InAppSuppressionCount[];
 } {
-  const civilDate = options.now.slice(0, 10);
+  const civilDate = civilDateOf(options.now);
   const byReason = new Map<InAppSuppressionReason, number>();
   const statements = options.suppressed.map((entry) => {
     byReason.set(entry.reason, (byReason.get(entry.reason) ?? 0) + 1);

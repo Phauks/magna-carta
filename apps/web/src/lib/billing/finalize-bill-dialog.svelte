@@ -21,12 +21,12 @@
   import * as Card from "@magna-carta/design-system/card";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
-  import Input from "@magna-carta/design-system/input";
-  import Label from "@magna-carta/design-system/label";
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
   import { billingFailure, finalizeInvoice } from "./billing-api.ts";
   import { civilDatePlusDays, civilToday, draftTotalMinor, type InvoiceRow } from "./invoice-standing.ts";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   let {
     open = $bindable(false),
@@ -42,7 +42,6 @@
     onFinalized: (invoiceNumber: string) => void;
   } = $props();
 
-  const fieldPrefix = $props.id();
 
   let issueDate = $state(civilToday());
   let dueDate = $state(civilDatePlusDays(civilToday(), 30));
@@ -128,12 +127,20 @@
 
       <div class="grid gap-12 sm:grid-cols-2">
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-issue">Issue Date</Label>
-          <Input id="{fieldPrefix}-issue" type="date" disabled={busy} bind:value={issueDate} />
+          <DatePicker
+            label="Issue Date"
+            value={civilDateValue(issueDate)}
+            onValueChange={(next) => (issueDate = civilDateTextOrEmpty(next))}
+            disabled={busy}
+          />
         </div>
         <div class="flex flex-col gap-8">
-          <Label for="{fieldPrefix}-due">Due Date</Label>
-          <Input id="{fieldPrefix}-due" type="date" disabled={busy} bind:value={dueDate} />
+          <DatePicker
+            label="Due Date"
+            value={civilDateValue(dueDate)}
+            onValueChange={(next) => (dueDate = civilDateTextOrEmpty(next))}
+            disabled={busy}
+          />
         </div>
       </div>
 

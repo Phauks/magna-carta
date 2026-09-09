@@ -25,6 +25,11 @@ properties; off-token values are machine-rejected.
   month, week and agenda presentation on the EventRail division — entries with a civil day, a label,
   a caller-formatted time and a tone come in, and it never learns what a hearing is. The calendar's
   own arithmetic, reads and vocabulary live with its one consumer, `apps/web/src/lib/calendar/`
+- `src/lib/components/address-fields/` — `AddressFields`, the product's ONE address form. Its shape
+  is the country's (`address-format.ts`), not the platform's; see the Compound Inputs note below for
+  the three rules it keeps. Domain-blind: it takes the parts and the countries to offer and knows
+  nothing about whose address it is — what an address is FOR (its use, whether the place physically
+  exists) belongs to the consumer
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
@@ -45,6 +50,37 @@ properties; off-token values are machine-rejected.
 - `test/fitness/` — the golden-rule-2 gates (off-token, boundaries, components.css purity)
 - `test/csp-spike/` — the CSP probe + `VERDICT.md` (re-runnable; asserts the verdict)
 - `visual-regression/` — Playwright screenshots over the static Storybook build, theme×mode
+
+## The formatters: how a value READS, and the one place that decides
+
+**`src/lib/formatters/` is the platform's display vocabulary** — how long, when, which day, how much,
+who, which version, and what a field's ghost text says. Each function encodes a ruling already
+issued, and a second answer to any of them is a correction that has to be re-issued screen by screen.
+The date half is enforced by `pnpm run lint:date-handling`; the standing rules are
+[`docs/conventions/dates.md`](../../docs/conventions/dates.md).
+
+- **What a date IS is not this package's question.** Shape, guards and arithmetic live in
+  `@magna-carta/civil-time`; these functions turn one into words. Same split as `@magna-carta/money`
+  and `formatters/money.ts`, deliberately.
+- **`formatDate` / `formatDateRange` / `formatMonth` (civil-date.ts) pin to UTC. Always.** A recorded
+  day is a day the firm wrote down; formatted in any other zone it is an instant again, and the same
+  work date reads as the 12th in one office and the 11th in another. Every function in that file goes
+  through one `civilFormatter` constructor for exactly this reason — do not add one that does not.
+- **`formatInstant` / `formatInstantDate` / `formatTimeOfDay` (instant.ts) render in the VIEWER'S
+  zone.** A moment happened to somebody, and a person reading a history is asking when it happened to
+  them. `formatInstantDate` and `formatDate` are the twins that differ by a day, and both are right —
+  a file uploaded at 23:40 in Boston was uploaded on a different day in Reno.
+- **NEVER elapsed time.** "Just now", "2 hours ago" and their family are banned: they decay while the
+  reader looks at them, two rows carrying them cannot be compared, and a record is a record. The one
+  carve-out is the age of a LIVE measurement (a cached probe, a status snapshot), recorded by name in
+  the gate's allowance list.
+- **An unreadable value renders as the text that arrived.** A blank or a cheerful "Invalid Date" hides
+  a defect that showing the data makes obvious.
+- **`precision` and `length` are closed sets, not passthroughs.** `timeStyle` / `dateStyle` are not
+  exposed, because an open knob is how a fourth way to print a moment gets in.
+- **The patterns these sit beside carry no regex flags.** The OpenAPI emitter writes a regex's flags
+  into the JSON Schema `pattern`, so a `/u` reaches every generated client as a pattern matching
+  nothing. Pinned by `packages/civil-time/test/civil-date.test.ts`.
 
 ## Two modal shells, and never a third
 
@@ -376,9 +412,9 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   - **Specialized inputs are dedicated components, not Input types** (the pattern FileInput sets) — they live in the **Compound Inputs** catalog category (see the taxonomy below). Planned, NOT built here — flagged so they aren't crammed into Input later:
     - **MoneyInput** (billing/trust UI slice): currency symbol + locale formatting, bound to **`@magna-carta/money`** (branded `Money` over minor-units — never floats), precision/rounding and validation from the money package. `type="number"` is the interim for raw amounts.
     - **PhoneInput** (compound): a country/dial-code selector + national-number field, with formatting and validation (libphonenumber-class). `type="tel"` Input is only raw text entry — `tel` is unvalidated by the platform, so a real phone field needs the compound. QoL idea: surface what the area/dialing code maps to (region) as a hint.
-    - **Calendar / DatePicker family** (Tier 3/4, on bits-ui + **`@internationalized/date`**): the native `date`/`datetime-local`/`month`/`week`/`time` Input types are a thin interim. In particular **native `type="week"` is hard-locked to ISO 8601 (Monday-start, ISO week numbers) — not locale-aware, not configurable**; firm/locale-configurable week-start (Sunday/Saturday/Monday) requires the custom picker, where week-start is driven by locale and/or a firm setting (ADR-0040). `@internationalized/date` (the ADR-0055 civil date) supplies locale-aware `startOfWeek`/week-info.
+    - **Calendar / DatePicker family** (Tier 3/4, on bits-ui + **`@internationalized/date`**): BUILT, and since the owner's ruling of 2026-09-08 the interim is over — **`type="date"` is banned outright** and `lint:date-handling` fails one anywhere, this package included (`docs/conventions/dates.md`). The other native types (`datetime-local`/`month`/`week`/`time`) remain a thin interim. In particular **native `type="week"` is hard-locked to ISO 8601 (Monday-start, ISO week numbers) — not locale-aware, not configurable**; firm/locale-configurable week-start (Sunday/Saturday/Monday) requires the custom picker, where week-start is driven by locale and/or a firm setting (ADR-0040). `@internationalized/date` (the ADR-0055 civil date) supplies locale-aware `startOfWeek`/week-info.
     - **Country selector / State·Province·County (admin-subdivision) selector**: data-backed Selects (on the future Select/Combobox, Tier 3), populated from a reference dataset and searchable; Country feeds PhoneInput's dial code AND drives the subdivision list + postal format. Address-field family.
-    - **AddressFields** (compound, locale-adaptive): address line(s), City, State/Region, Postal/ZIP (+ ZIP+4). The field SET, labels, and order change by country — do NOT hardcode US `state`/`zip`; follow libaddressinput/Google address-i18n patterns, keyed off the Country selector.
+    - **AddressFields** — **BUILT** (2026-09-08, `src/lib/components/address-fields/`), so it has left this planned list. `address-format.ts` is the per-country table — the field SET, the labels and the ORDER, keyed by ISO 3166-1 alpha-2, with `INTERNATIONAL_FORMAT` for a country nobody has entered; `address-fields.svelte` puts the country FIRST because it decides the rest. Three rules it must keep: it never moves a value between fields when the country changes (the stored columns are named for their POSITION in an address, which is what makes the form a presentation of them); a value the new country's form has no line for is STATED, never dropped; and nothing is required, because an address a firm holds half of is still the address it holds. The table is a curated shape, deliberately NOT the libaddressinput dataset — it carries no postal-code patterns and no administrative-area lists, so it cannot validate a code or offer a state, and adopting that corpus is an open question with a monthly-staleness cost attached. Adding a country is one entry in `FORMATS`; removing one silently re-labels every address already entered under it.
     - **PaymentFields** (credit card): **do NOT build raw card-number (PAN) inputs** — wrap the payment processor's tokenized/hosted fields (Stripe-Elements-style) so raw card data never touches our app and **PCI-DSS** scope stays out. Card-type detection / Luhn / expiry / CVC formatting are the processor's, not ours.
     - **National / Tax ID** (SSN, EIN / NINO, Company No.): **jurisdiction-aware** (not US-hardcoded), masked display (show last 4), strict per-jurisdiction format. Sensitive **PII** — golden rule 4 (never logged) + the secrets/encryption invariants (encrypted at rest).
     - **ColorPicker** (theming/firm-settings, with 0·7b settings registry): bespoke (Bits has no color primitive), built on **Culori** so it speaks **OKLCH** and gamut-maps — NOT native `type="color"` (sRGB hex, no gamut, no OKLCH anchors). Its brand-color use feeds `@magna-carta/design-tokens`'s `scripts/generate-theme.ts` (brand hue/chroma/neutral-tint anchors → generated ramps); a generation-time contrast check already exists there. Note: launch theming is the curated theme **gallery** (ADR-0040 firm setting) — a custom-brand picker is the UI for the generation engine's custom path, a step beyond the gallery.
@@ -410,6 +446,10 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
     - **Virtualize with `internal/virtual-list` INSIDE `Combobox.Content`** — never a scrolling Viewport (it would fight virtua's own scroll). VirtualList wraps virtua's **`Virtualizer`** in its own `overflow-y-auto` container, so a `max-height` makes it FIT its content when there are few rows and cap + scroll + virtualize when there are many. **Hard-cap the visible rows** so the dropdown never stretches to the screen bottom: `style="max-height: min(var(--bits-floating-available-height, 18rem), 18rem)"` (≈8 rows; the cap value wants a token from the design-language workshop). The virtualized activedescendant listbox is the documented `scrollable-region-focusable` axe exception (disabled per-story with justification). A benign `ResizeObserver loop…` console message from virtua does not fail the test.
   - **Calendar / DatePicker / DateRangePicker (Tier 4) — the date family:**
     - **Values are `@internationalized/date` CalendarDate** (the civil date, ADR-0055) — never ZonedDateTime (the known weekday-shift bug). Calendar takes `type` ("single"/"multiple"); DatePicker holds one CalendarDate (NO `type` prop — passing one crashes the floating-layer render); DateRangePicker holds a `{ start, end }` range.
+    - **`civilDateValue` / `civilDateText` / `civilDateTextOrEmpty` (`date-picker/civil-date-value.ts`) are the ONE conversion between the picker's value and the `YYYY-MM-DD` text a record holds** — six surfaces had written the same six lines, four with the same comment word for word. They sit beside the picker rather than in `@magna-carta/civil-time` (which owns what a date IS) because `CalendarDate` is this component's value type and nothing else's, and a package the Worker imports should not take on a date library to serve a conversion only a browser makes. `apps/web/src/lib/dates/` re-exports them. They do not re-answer "is this a date" — `parseDate` refusing IS the answer.
+    - **`label` and `aria-label` name the field, and they land on DIFFERENT elements.** `label` is the primitive's own (it mints the id the segment group's `aria-labelledby` points at); `aria-label` is forwarded to the group. Both are declared props for a reason: the spread goes to `DatePicker.Root`, which renders NO DOM, so an `aria-label` left in `restProps` vanishes with no warning and leaves the field unnamed. Use `label` where a label is visible, `aria-label` where there is no room for one (the grid column filter's From/To range).
+    - **A labelled DatePicker renders TWO SIBLINGS, not one element** — the primitive's Root is a context provider with no DOM, so the label and the segmented field come out side by side with nothing around them. In a flex column they stack; **in a grid they take two tracks and the label lands in the next column**. Give one a wrapper wherever it sits in a grid. The label's own `margin-block-end` is what makes the spacing work without a wrapper, which is exactly why the trap is quiet. **Open for the owner:** thirteen consumers wrap it in a `flex flex-col gap-4|gap-8`, and that gap ADDS to the label's margin, so the label-to-field distance is 8px or 12px depending on the surface. Having the component render its own wrapper and drop the margin would make it one element and one spacing — a visible change on every date field, so it is a design call, not a tidy-up.
+    - **`size` is the Input's own scale, imported not redeclared** (`date-picker/variants.ts` takes `InputSize`) — a segmented date field and a text field share rows and filter menus, so a second height scale here would be a second answer to "how tall is a control".
     - **Each is a self-contained component that bakes the grid composition** (Header with prev/next + month/year jump-to selects, weekday head keyed BY INDEX — narrow labels repeat S/T and collide string keys — and week rows of Day cells from the `months`/`weekdays` snippet). DatePicker/DateRangePicker reuse the `mc-calendar-*` recipes; the range day states (`data-range-start/middle/end`, `data-highlighted`) add to the day recipe.
     - **Month/year navigation is native `MonthSelect` + `YearSelect`** in the header (not a static Heading), so any month/year is one pick away — essential for far-back dates like a birthdate. They are native `<select>`s (need an `aria-label`); query them as `combobox` by name and assert with `getByDisplayValue`. The year list defaults to ±111 years and is bounded by `minValue`/`maxValue`.
     - **"No past dates" / "earliest date" is the `minValue`/`maxValue` setting** — it flows through all three (pass-through), blocks out-of-range dates (`data-disabled`, unselectable) AND floors/caps the year dropdown. No past dates → `minValue={today(getLocalTimeZone())}`; a birthdate floor → `minValue` of 1900 so pre-1900 (bad data) is never offered. `isDateDisabled` / `isDateUnavailable` block individual dates. (Stories pin fixed CalendarDates for VRT determinism — never `today()` in a test.)

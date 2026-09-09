@@ -47,6 +47,7 @@
   import { claimMatterCreate, SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
+  import { printSheetDates } from "$lib/print-sheet";
 
   let {
     matterId,
@@ -120,7 +121,7 @@
       nameOf,
       facts: {
         money: (amountMinor, currency) => formatMoney(amountMinor / 100, { currency }),
-        date: formatDate,
+        ...printSheetDates(),
         today: todayHere(),
       },
     }),

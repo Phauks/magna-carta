@@ -20,6 +20,15 @@ import {
   type CommunicationWithMatterRow,
 } from "@magna-carta/communications/communication-statements";
 import {
+  communicationNumberScope,
+  isCommunicationNumberConflict,
+  renderCommunicationNumber,
+  COMMUNICATION_NUMBER_START_VALUE,
+  COMMUNICATION_NUMBERING_TABLES,
+} from "@magna-carta/communications/numbering";
+import { drawWithBoundedRetry } from "@magna-carta/sequence-numbering/bounded-retry";
+import { readCounterValue } from "@magna-carta/sequence-numbering/counter-statements";
+import {
   COMMUNICATION_CHANNELS,
   COMMUNICATION_DIRECTIONS,
   COMMUNICATION_DISPOSITIONS,
@@ -91,6 +100,10 @@ const LogCommunicationRequest = z
     // case; a receptionist logging the call they transferred is the other one.
     memberUserId: identifierField("user").nullable().optional(),
     occurredAt: z.string().datetime(),
+    // When the line closed, which is NOT how long the call ran. A caller left on hold occupies the
+    // span without spending it, so the two are recorded separately and neither is derived from the
+    // other; a length that disagrees with the span is a fact about the call, not a contradiction.
+    endedAt: z.string().datetime().nullable().optional(),
     durationSeconds: z.number().int().min(0).max(MAX_CALL_DURATION_SECONDS).nullable().optional(),
     body: z.string().max(MAX_COMMUNICATION_BODY_LENGTH).nullable().optional(),
     summary: z.string().max(MAX_COMMUNICATION_SUMMARY_LENGTH).nullable().optional(),
@@ -118,6 +131,7 @@ const UpdateCommunicationRequest = z
     counterpartyEntityId: z.string().min(1).max(64).nullable().optional(),
     memberUserId: identifierField("user").nullable().optional(),
     occurredAt: z.string().datetime().optional(),
+    endedAt: z.string().datetime().nullable().optional(),
     durationSeconds: z.number().int().min(0).max(MAX_CALL_DURATION_SECONDS).nullable().optional(),
     body: z.string().max(MAX_COMMUNICATION_BODY_LENGTH).nullable().optional(),
     summary: z.string().max(MAX_COMMUNICATION_SUMMARY_LENGTH).nullable().optional(),
@@ -131,6 +145,11 @@ const RouteCommunicationRequest = z
 const CommunicationDetail = z
   .object({
     id: z.string(),
+    // The number the firm says out loud — the day the call happened and that day's own sequence,
+    // "2026-09-08-0042". A handle is what the platform joins on; this is what a receptionist writes
+    // on a message slip and reads back down a telephone. Null only on rows recorded before the
+    // sequence existed and never numbered.
+    referenceNumber: z.string().nullable(),
     channel: channelField,
     direction: directionField,
     // Null while the row is in the unrouted queue.
@@ -151,6 +170,10 @@ const CommunicationDetail = z
     counterpartyEntityId: z.string().nullable(),
     memberUserId: z.string().nullable(),
     occurredAt: z.string(),
+    // When the line closed. The span from occurredAt to here is how long the line was open;
+    // durationSeconds is how long the call actually took. A caller on hold makes them differ, and
+    // both are true.
+    endedAt: z.string().nullable(),
     durationSeconds: z.number().nullable(),
     body: z.string().nullable(),
     summary: z.string().nullable(),
@@ -169,6 +192,15 @@ const UnroutedCount = z
   .object({ count: z.number().int().min(0) })
   .openapi("UnroutedCommunicationCount");
 const CreatedResponse = z.object({ id: z.string() }).openapi("LoggedCommunication");
+// The number a record HAS NOT BEEN GIVEN YET (owner ruling, 2026-09-08: a call should be
+// identifiable in the log "before it has been created"). A person still on the telephone needs
+// something to write on the slip and read back to the caller, and waiting for the save to answer is
+// too late for the sentence they are in the middle of. It is what the next draw for that day WOULD
+// render, so a concurrent recording can take it first — which is why the record's own number is
+// read back from the record and this one is never stored anywhere.
+const NextCommunicationNumber = z
+  .object({ referenceNumber: z.string() })
+  .openapi("NextCommunicationNumber");
 const AcknowledgedResponse = z.object({ ok: z.literal(true) }).openapi("CommunicationAcknowledged");
 
 const matterIdParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
@@ -183,6 +215,11 @@ const listQuery = cursorQuery.extend({
   // actually look for a text — more often than by remembering a phrase in it.
   search: z.string().min(1).max(200).optional(),
 });
+
+// Which day's sequence to look in. The instant the form currently holds, because the number counts
+// within the day the call HAPPENED and a call being recorded about last Tuesday draws Tuesday's next
+// number. Omitted, it answers for now.
+const nextNumberQuery = z.object({ occurredAt: z.string().datetime().optional() });
 
 const matterListQuery = cursorQuery.extend({
   channel: channelField.optional(),
@@ -322,6 +359,31 @@ const unroutedCountRoute = defineOpenAPIRoute(
       200: {
         description: "The queue's size",
         content: { "application/json": { schema: UnroutedCount } },
+      },
+      401: authErrors[401],
+      403: authErrors[403],
+      404: authErrors[404],
+      429: authErrors[429],
+    },
+  },
+);
+
+// The permission is the WRITE key rather than the read one: this answers a question only somebody
+// about to record a call has, and the answer is a number the firm has not yet issued.
+const nextNumberRoute = defineOpenAPIRoute(
+  { ...readMeta("nextNumber"), permission: WRITE },
+  {
+    method: "get",
+    path: "/api/v1/communications/next-number",
+    description:
+      "The reference number the next call or text recorded for that day would carry, so somebody " +
+      "still on the telephone can write it down before the record exists. A preview and not a " +
+      "reservation: nothing is drawn, and a call recorded first takes it.",
+    request: { query: nextNumberQuery },
+    responses: {
+      200: {
+        description: "The number the next record would draw",
+        content: { "application/json": { schema: NextCommunicationNumber } },
       },
       401: authErrors[401],
       403: authErrors[403],
@@ -568,6 +630,7 @@ function serviceOptions(userId: string, mayReviewQueue: boolean) {
 function communicationDetail(row: CommunicationWithMatterRow): z.infer<typeof CommunicationDetail> {
   return {
     id: row.id,
+    referenceNumber: row.reference_number,
     channel: row.channel,
     direction: row.direction,
     matterId: row.matter_id,
@@ -580,6 +643,7 @@ function communicationDetail(row: CommunicationWithMatterRow): z.infer<typeof Co
     counterpartyEntityId: row.counterparty_entity_id,
     memberUserId: row.member_user_id,
     occurredAt: row.occurred_at,
+    endedAt: row.ended_at,
     durationSeconds: row.duration_seconds,
     body: row.body,
     summary: row.summary,
@@ -715,6 +779,27 @@ export function registerCommunicationsRoutes(
     },
   );
 
+  // GET /api/v1/communications/next-number
+  // Registered before the id-addressed read below, so "next-number" is matched as itself rather
+  // than as a communication handle.
+  app.openapi(
+    { ...nextNumberRoute, middleware: chokepointMiddleware(chokepoint, nextNumberRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { occurredAt } = c.req.valid("query");
+      // Canonicalized before the day is taken from it: the query accepts any ISO-8601 instant and
+      // the scope key is the UTC day of a CANONICAL one.
+      const instant = new Date(occurredAt ?? nowInstant());
+      const scopeKey = communicationNumberScope(
+        Number.isNaN(instant.getTime()) ? nowInstant() : instant.toISOString(),
+      );
+      const observed =
+        (await readCounterValue(firm.firmDatabase, COMMUNICATION_NUMBERING_TABLES, scopeKey)) ??
+        COMMUNICATION_NUMBER_START_VALUE;
+      return c.json({ referenceNumber: renderCommunicationNumber(scopeKey, observed) }, 200);
+    },
+  );
+
   // GET /api/v1/matters/{matterId}/communications
   app.openapi(
     { ...listForMatterRoute, middleware: chokepointMiddleware(chokepoint, listForMatterRoute) },
@@ -771,14 +856,33 @@ export function registerCommunicationsRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const mayReview = mayReviewUnrouted(c);
-      const outcome = await commitEffect(c, firm.firmDatabase, idempotency, 201, async () => {
-        const created = await logCommunication(
-          firm.firmDatabase,
-          { ...request, matterId: (request.matterId ?? null) as MatterId | null },
-          serviceOptions(userId, mayReview),
-        );
-        return { id: created.communicationId, effect: created.effect };
-      });
+      // THE NUMBER IS DRAWN INSIDE THE WRITE, so the record and its number are one batch or neither.
+      // A concurrent recording on the same day that took the value first aborts this batch on the
+      // partial unique index over the rendered number; the shared loop advances the counter out of
+      // band — the in-batch increment rolled back with everything else — and runs this again, which
+      // renders the next number. The idempotency gate is INSIDE the retry, on the matter draw's
+      // arrangement: a replay answers from the stored body without drawing anything.
+      const outcome = await drawWithBoundedRetry(
+        firm.firmDatabase,
+        COMMUNICATION_NUMBERING_TABLES,
+        {
+          sequenceLabel: "communication reference number",
+          alsoRetryable: isCommunicationNumberConflict,
+          // No named refusal: losing five consecutive races on one day's counter is not a state a
+          // person can be told anything useful about, so it stays an unexpected fault the standard
+          // pipeline reports and correlates. Written out rather than inherited, as the loop insists.
+          nonConvergenceError: ({ message }) => new Error(message),
+        },
+        async (observe) =>
+          await commitEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+            const created = await logCommunication(
+              firm.firmDatabase,
+              { ...request, matterId: (request.matterId ?? null) as MatterId | null },
+              { ...serviceOptions(userId, mayReview), observeDraw: observe },
+            );
+            return { id: created.communicationId, effect: created.effect };
+          }),
+      );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
       return c.json({ id: outcome.id }, 201);

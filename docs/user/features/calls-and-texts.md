@@ -2,7 +2,9 @@
 
 _You can record calls and texts that happened, open one to read or correct it, read them across the
 firm or on one matter, file one onto a matter, set one aside as something that belongs to no matter,
-and start an intake from a call. The firm has no phone number connected yet, so nothing is sent or
+and start an intake from a call — either from the call's record or straight from the form as you
+write it down. Every call and text carries a reference number you can read back to whoever is on the
+line, and the number is on screen before you save. The firm has no phone number connected yet, so nothing is sent or
 received from Magna Carta — every row is written down by whoever made or took the call. Call
 recording and transcripts are not built._
 
@@ -12,7 +14,7 @@ Keeps the firm's record of what was said on the phone and by text message. A cas
 document and every email by itself; the phone call where the client actually decided something lives
 only in somebody's memory of it. **Messaging** is where that stops being true.
 
-Three ideas are worth knowing before you use it.
+Four ideas are worth knowing before you use it.
 
 **The log is the point, not the sending.** Right now you write down what happened after it happens.
 When the firm's number is connected, the carrier will write these same rows by itself — the same
@@ -27,6 +29,11 @@ matter at all, waiting in a queue for somebody to say where it belongs.
 anything: those cannot be filed onto a matter, because there is no matter. They are **set aside** with
 a reason instead, which is what keeps the queue a list you can actually empty.
 
+**Every call has a number you can say out loud.** `2026-09-08-0042` is the forty-second call or text
+the firm recorded as happening on the eighth of September. It leads every row in the log, the search
+finds it, and it is on the record you print. It is also on screen while you are still filling the form
+in, so you can give it to the person on the line before you have finished writing the call up.
+
 Email is not here. Mail lives in your own mailbox and is filed onto a matter from there; see
 [`filing-email-to-a-matter.md`](filing-email-to-a-matter.md).
 
@@ -34,32 +41,65 @@ Email is not here. Mail lives in your own mailbox and is filed onto a matter fro
 
 1. Open **Messaging** in the sidebar and press **New Call**, at the top of the screen beside the
    search. Inside a matter, the same button is at the top of the matter screen and fills the matter
-   in for you.
-2. Choose the **type** — a call or a text — and the **direction**, outgoing or incoming. A text that
+   in for you. The window is called **Record Communication**, whichever kind you are writing down —
+   and it is the same window a row opens into, so there is only one place to learn.
+2. Under the heading is the **number this record will be given**, so you can read it back to the
+   caller before you have finished writing anything down. It is what the next call recorded for that
+   day would take: if somebody else records one first, yours takes the following number, and the
+   number on the saved record is the one that counts.
+3. The facts of the call come first and **the description sits underneath them**, with the full width
+   of the window to write in. Nothing moves when you switch between a call and a text.
+4. Every list on the form can be **typed into**: start typing and it narrows to what matches. That is
+   true of the type, the direction, the country and where it belongs.
+5. Choose the **type** — a call or a text — and the **direction**, outgoing or incoming. A text that
    carries a picture is still a text; the record notes what it carried.
-3. Name the **contact** if the person is in your directory. Picking them fills in their number, and
-   it is what lets you start an intake for them later without typing anything twice. You can skip it:
-   a number nobody has recorded yet is exactly the case the queue exists for.
-4. Choose the **country** beside the **number** and type the digits. They group themselves as you
-   type, the way that country writes a number, so an area code lands where you expect it.
-5. Give the **date** and the **time**. Both default to now, which is right for a call you have just
-   put down. A call on Tuesday written up on Thursday belongs on Tuesday, and every list puts it
-   there — change the date and the time says nothing about it.
-6. For a call, give the **length in minutes**, or the **description**, or both. A call with neither is
-   refused — if you have nothing to record, there is nothing to save. A call with only a length is
-   fine: that is a missed call, and it is a real record.
-7. For a text, the **description** is the message itself.
-8. Say what it **belongs to**: a matter, or "not a matter" with a reason, or decide later — which
-   leaves it in the queue. Every matter the firm has is offered, including intakes and consultations.
-9. Press **Save**.
+6. Name the **contact** if the person is in your directory. Picking them fills in their number, and
+   it is what lets you start an intake for them later without typing anything twice. Somebody who is
+   not in the directory yet can be added from the bottom of the same list. You can skip this: a
+   number nobody has recorded yet is exactly the case the queue exists for.
+7. Choose the **country** and type the **number**. The country list carries flags and answers to the
+   dial code, the country's name or its two letters. The digits group themselves as you type, the way
+   that country writes a number, and the greyed shape in the empty field shows you which way that is.
+   Keep typing past the end of a number and the extra digits move into the **extension** beside it,
+   rather than the grouping giving up — you can also type the extension there directly.
+8. Give the **date**, the **start** and, for a call, the **end** and the **duration**. The date and
+   the start default to now, which is right for a call you have just put down; a call on Tuesday
+   written up on Thursday belongs on Tuesday, and every list puts it there once you change the date.
+   A call that ran past midnight is counted properly.
+9. **The duration is yours to type, and it does not have to match the clock.** Typing an end fills
+   the duration in for you the first time, so you rarely type both — but if the caller spent forty
+   minutes on hold, put the real length of the call in and leave the end where it is. The window says
+   what the difference means ("the line was open 1h; 20m of it was the call") rather than treating it
+   as a mistake, and the record keeps both. Write the length however you say it: `20`, `45m`,
+   `1h 5m` or `1:20`. A text has no end and no length, so those two are greyed rather than moving the
+   rest of the form around.
+10. Write the **description** underneath. On a text it is the message itself; on a call it is your own
+    account of it. A call needs either a description or a length; a call with neither is refused,
+    because if you have nothing to record there is nothing to save. A text needs its words.
+11. Say where it **belongs**, in one field: type a matter's name or its number, or pick one of the
+    reasons it is on no matter — spam or a wrong number, firm business, nothing came of it — or leave
+    it as **Decide later**, which puts it in the queue. Every matter the firm has is offered,
+    including intakes and consultations.
+12. Press **Save**. If the call is somebody wanting the firm to act, press **Save And Start An
+    Intake** instead: it records the call and opens the intake in one step, so the account of the
+    first contact ends up on the file it started.
+
+## Reading a row without opening it
+
+Every row carries its own **second line**: the whole description, wrapped across the width of the
+table rather than cut off in a column. You can read the log without opening anything.
 
 ## Opening a call or a text
 
-Click any row to open its record. From there you can:
+Double-click any row to open its record — the same window you record one in. From there you can:
 
-- **Read** the whole description, however long it is, along with who was on the firm's side, who
-  wrote the record down, and when.
-- **Correct** it. Press Edit, change anything you mistyped, and Save. A record the carrier wrote is
+- **Read** the whole description, however long it is, along with the number, the time, how long the
+  line was open and how long the call took.
+- Read its **History**, on the right: who wrote the record down and when, and whether it has been
+  changed since. A call written up three days later and a call written up as it ended are different
+  kinds of evidence, and this is where you see which you are holding.
+- **Correct** it. Press Edit, change anything you mistyped, and Save. The fields are the same
+  fields, in the same places, as the ones you recorded it with. A record the carrier wrote is
   not correctable — it is what the network reported rather than somebody's recollection — and the
   window says so.
 - **Print** it.
@@ -98,7 +138,9 @@ firm answers the phone.
 
 ## Starting an intake from a call
 
-Somebody rings wanting the firm to act. Record the call, open it, and press **Start An Intake**.
+Somebody rings wanting the firm to act. Press **Save And Start An Intake** while you are still writing
+the call down, or — for a call already in the log — open it and press **Start An Intake**. Either way
+the call is recorded first.
 
 The intake window opens with the caller already filled in as the client, if you named a contact when
 you recorded the call. Fill in the rest as you would on the intake desk — see
@@ -111,7 +153,7 @@ will go.
 **Across the firm**, Messaging shows every call and text on every matter you can see, plus the queue
 and the set-aside rows if your role includes them. Search matches what was said, the number, and the
 matter's own name and number — "what did we say on the Herrera file" works, and so does the number
-you dialled.
+you dialled, and so does the call's own reference number if somebody quotes it back to you.
 
 **On one matter**, the Messaging section shows only that matter's calls and texts, and drops the
 matter column, since every row is on the same one. The matter's own search finds them too, and each

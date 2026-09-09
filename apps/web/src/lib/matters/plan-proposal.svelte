@@ -21,7 +21,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
-  import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { sampleDate } from "@magna-carta/design-system/loading-fixtures";
@@ -37,6 +36,8 @@
   } from "$lib/matters/matter-plans-api.ts";
   import { PRIORITY_LABELS, newWriteKey } from "$lib/matters/tasks-api.ts";
   import { FirmRoster } from "$lib/members/firm-roster.svelte.ts";
+  import { DatePicker } from "@magna-carta/design-system/date-picker";
+  import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   interface Props {
     matterId: string;
@@ -249,11 +250,11 @@
             {#if isKept}
               <div class="flex flex-wrap items-end gap-16 pl-24">
                 <div class="flex flex-col gap-4">
-                  <Label for={`plan-date-${task.taskTemplateId}`}>Due</Label>
-                  <Input
-                    id={`plan-date-${task.taskTemplateId}`}
-                    type="date"
-                    bind:value={dates[task.taskTemplateId]}
+                  <DatePicker
+                    label="Due"
+                    value={civilDateValue(dates[task.taskTemplateId])}
+                    onValueChange={(next) =>
+                      (dates[task.taskTemplateId] = civilDateTextOrEmpty(next))}
                     disabled={saving}
                   />
                 </div>

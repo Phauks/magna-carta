@@ -38,6 +38,7 @@
   let showcaseScrollport = $state<HTMLDivElement | null>(null);
   let fittingScrollport = $state<HTMLDivElement | null>(null);
   let overflowingScrollport = $state<HTMLDivElement | null>(null);
+  let preferenceScrollport = $state<HTMLDivElement | null>(null);
 </script>
 
 <!-- The showcase and Docs Primary: a small box whose content runs past it in both directions, so
@@ -139,6 +140,71 @@
         </div>
         <ScrollEdgeHint element={overflowingScrollport} axis="both" />
       </div>
+    </div>
+  {/snippet}
+</Story>
+
+<!-- The member's own choice: `data-scroll-edge-hints="hidden"` on the root, off the theme-preference
+     seam, stops every rule drawing. Suppressed in CSS rather than by a prop, because the rule is
+     drawn by the sidebar and by every register and a preference threaded as a prop would have to be
+     threaded through both and everything after them. Tagged out of the sidebar and the Docs page. -->
+<Story
+  name="Hidden by preference"
+  tags={["!dev", "!autodocs"]}
+  play={async ({ canvasElement, step }) => {
+    const frame = canvasElement.querySelector("[data-testid='preference-frame']");
+    const rulesDrawn = (): number => frame?.querySelectorAll("[data-edge]").length ?? 0;
+    const root = document.documentElement;
+    try {
+      await step("Drawn by default, so the suppression below cannot pass vacuously", async () => {
+        await waitFor(() => expect(rulesDrawn()).toBeGreaterThan(0));
+      });
+
+      await step("The member's choice stops every rule drawing", async () => {
+        root.dataset.scrollEdgeHints = "hidden";
+        await waitFor(() =>
+          expect(
+            [...(frame?.querySelectorAll("[data-edge]") ?? [])].every(
+              (rule) => getComputedStyle(rule).display === "none",
+            ),
+          ).toBe(true),
+        );
+      });
+
+      await step("Clearing the choice brings them back", async () => {
+        delete root.dataset.scrollEdgeHints;
+        await waitFor(() =>
+          expect(
+            [...(frame?.querySelectorAll("[data-edge]") ?? [])].every(
+              (rule) => getComputedStyle(rule).display !== "none",
+            ),
+          ).toBe(true),
+        );
+      });
+    } finally {
+      // The attribute is on the document, not this story's box: a failed assertion must not leave
+      // every later story in the run rendering under somebody else's preference.
+      delete root.dataset.scrollEdgeHints;
+    }
+  }}
+>
+  {#snippet template()}
+    <div class="relative flex size-96 flex-col" data-testid="preference-frame">
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+      <div
+        bind:this={preferenceScrollport}
+        class="mc-scrollbar min-h-0 w-full grow overflow-auto"
+        tabindex="0"
+        role="group"
+        aria-label="Scroll area under a member preference"
+      >
+        <div class="grid w-max grid-cols-3 gap-16">
+          {#each fillerBlocks as blockIndex (blockIndex)}
+            <div class="size-64 bg-surface-sunken"></div>
+          {/each}
+        </div>
+      </div>
+      <ScrollEdgeHint element={preferenceScrollport} axis="both" />
     </div>
   {/snippet}
 </Story>

@@ -1,5 +1,7 @@
+import { CIVIL_DATE_PATTERN, isCivilDate } from "@magna-carta/civil-time/civil-date";
+import { isResolvableTimeZone } from "@magna-carta/civil-time/time-zone";
+import { isWallClockTime } from "@magna-carta/civil-time/wall-clock";
 import {
-  CIVIL_DATE_PATTERN,
   DEFAULT_PLAN_DUE_ANCHOR,
   MAX_CANCELLATION_REASON_LENGTH,
   MAX_PLAN_DESCRIPTION_LENGTH,
@@ -9,7 +11,6 @@ import {
   MAX_TASK_TITLE_LENGTH,
   PLAN_DUE_ANCHORS,
   TASK_PRIORITIES,
-  WALL_CLOCK_TIME_PATTERN,
   type PlanDueAnchor,
   type TaskDue,
   type TaskPriority,
@@ -155,18 +156,6 @@ export function normalizeTaskPriority(priority: string | null | undefined): Task
   return priority as TaskPriority;
 }
 
-// Whether a runtime can resolve a zone. Validated at the WRITE and never at the read, for the reason
-// the calendar states: a row whose zone nothing can resolve is a record nobody can display and
-// nobody can correct without a migration.
-function isResolvableTimeZone(timeZone: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // The due date as it will be stored, with the three-way coherence checked once here rather than at
 // each call site.
 //
@@ -188,14 +177,8 @@ export function normalizeTaskDue(input: {
     if (!CIVIL_DATE_PATTERN.test(dueOn)) {
       refuse("task-invalid-date", "a due date must be a civil date of the form YYYY-MM-DD");
     }
-    // The pattern alone accepts 2026-02-30. A round trip through the calendar catches a rollover.
-    const [year, month, day] = dueOn.split("-").map(Number) as [number, number, number];
-    const roundTrip = new Date(Date.UTC(year, month - 1, day));
-    if (
-      roundTrip.getUTCFullYear() !== year ||
-      roundTrip.getUTCMonth() !== month - 1 ||
-      roundTrip.getUTCDate() !== day
-    ) {
+    // The pattern alone accepts 2026-02-30; isCivilDate also checks the day is on the calendar.
+    if (!isCivilDate(dueOn)) {
       refuse("task-invalid-date", `${dueOn} is not a date on the calendar`);
     }
     if (timeZone === null) {
@@ -207,7 +190,7 @@ export function normalizeTaskDue(input: {
   }
 
   if (dueAtTime !== null) {
-    if (!WALL_CLOCK_TIME_PATTERN.test(dueAtTime)) {
+    if (!isWallClockTime(dueAtTime)) {
       refuse("task-invalid-time", "a due time must be a wall-clock time of the form HH:MM");
     }
     if (dueOn === null) {
@@ -311,7 +294,8 @@ export function normalizePlanDue(input: {
 }
 
 // THE ONE PIECE OF DATE ARITHMETIC IN THIS PACKAGE, and the single named exception in
-// test/no-arithmetic.test.ts.
+// test/no-arithmetic.test.ts. It is @magna-carta/civil-time's function, re-exported here so the
+// plan service and that scan keep reading in this package's vocabulary.
 //
 // It adds a whole number of CALENDAR days to a civil date and returns a civil date. No business-day
 // rule, no holiday calendar, no service-method offset, no jurisdiction, and no reading of any clock.
@@ -321,15 +305,4 @@ export function normalizePlanDue(input: {
 // The honest consequence, stated here because it is the reason instantiation asks before it writes:
 // this will happily land a task on a Sunday or on Christmas Day. A person moves that date in a
 // second. A template cannot know to.
-//
-// Computed in UTC deliberately. The inputs and the output are civil dates with no time and no zone,
-// so a UTC round trip is pure day arithmetic — using a named zone here would introduce a daylight-
-// saving transition into a calculation that has no business seeing one.
-export function addCalendarDays(civilDate: string, days: number): string {
-  const [year, month, day] = civilDate.split("-").map(Number) as [number, number, number];
-  const shifted = new Date(Date.UTC(year, month - 1, day + days));
-  const isoYear = String(shifted.getUTCFullYear()).padStart(4, "0");
-  const isoMonth = String(shifted.getUTCMonth() + 1).padStart(2, "0");
-  const isoDay = String(shifted.getUTCDate()).padStart(2, "0");
-  return `${isoYear}-${isoMonth}-${isoDay}`;
-}
+export { addCalendarDays } from "@magna-carta/civil-time/civil-date";
