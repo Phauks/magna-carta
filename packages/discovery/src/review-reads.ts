@@ -397,6 +397,17 @@ export interface ReviewDocumentListFilters {
  * index seek and would also stop "ridgeway" finding `2019-ridgeway-memo.pdf`, which is how a person
  * actually remembers a document.
  *
+ * MEASURED, NOT ARGUED. The load-profile harness runs both cases at both volumes
+ * (`discovery-review.list-page-by-name-search` and `-no-match` in
+ * packages/fixtures/src/load-profile/discovery-measurements.ts). At the 250,000-document ceiling a
+ * search that matches costs 0.4 ms — flat against the unsearched page, because the LIMIT does the
+ * work — and one that matches nothing costs 62 ms, which is the pass over the review set. The plan
+ * is an index search with no temporary sort at either volume, which is what the fitness assertion
+ * there holds. Sixty milliseconds on a debounced field, on the largest corpus this model allows,
+ * for the case where a reader mistyped, is the trade being made; if it ever stops being one, the
+ * answer is the review set's own search index rather than an index on this column, which a leading
+ * wildcard cannot use anyway.
+ *
  * It matches the name and the path, because half of what a reader remembers about a produced
  * document is the folder it came out of. The reader's own wildcards are escaped by likePattern.
  */

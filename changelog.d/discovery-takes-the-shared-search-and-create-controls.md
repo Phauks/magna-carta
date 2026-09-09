@@ -18,8 +18,16 @@ wrong. So the reads gained the parameter instead: `ReviewDocumentListFilters.sea
 review-set predicate, the access predicate and the equality filters — so what it walks is one corpus
 the member may see, stopped by the page limit; `likePattern` escapes the reader's own `%` and `_`
 once, in one place, so a production whose files are named `100%_final` does not silently match
-everything. The cost is stated in the read that pays it rather than hidden behind a control that
-looks like the rest.
+everything.
+
+**The cost is measured rather than argued.** The load-profile harness runs both cases
+(`discovery-review.list-page-by-name-search` and `-no-match`), and at the 250,000-document ceiling a
+search that matches costs 0.4 ms — flat against the unsearched page, because the LIMIT ends the walk
+— while one that matches nothing costs 62 ms, the pass over the review set. The plan is an index
+search with no temporary sort at both volumes, which the existing fitness assertion there now holds
+for the search too. Both numbers sit in the read that pays them, so the day one of them stops being
+acceptable the answer is visible: the review set's own search index, not an index on a column a
+leading wildcard cannot use.
 
 **On the document list the search is a CRITERION, not a control beside them.** It is a built provider
 in `criteria.ts` like every other narrowing, so it rides the address — a searched queue is a link a

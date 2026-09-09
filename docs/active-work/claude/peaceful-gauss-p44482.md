@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta
 area: Discovery's screens take the product's search and create controls, and the search is served on the server
 status: building
-touches: packages/discovery/src/review-reads.ts, packages/discovery/test, apps/api-worker/src/routes/discovery.ts, apps/api-worker/src/routes/discovery-review-reads.ts, apps/api-worker/openapi/openapi.json, apps/api-worker/test, apps/web/src/lib/discovery, apps/web/src/routes/(app)/discovery, apps/web/test, packages/design-system/src/lib/components/data-table/index.ts, docs/user/features, changelog.d
+touches: packages/discovery/src/review-reads.ts, packages/discovery/test, packages/fixtures/src/load-profile, apps/api-worker/src/routes/discovery.ts, apps/api-worker/src/routes/discovery-review-reads.ts, apps/api-worker/openapi/openapi.json, apps/api-worker/test, apps/web/src/lib/discovery, apps/web/src/routes/(app)/discovery, apps/web/test, packages/design-system/src/lib/components/data-table/index.ts, docs/user/features, changelog.d
 ---
 
 Brings the discovery surface onto the two controls every other list screen uses — `ScreenSearch` on
@@ -20,6 +20,10 @@ On the web the document search is a BUILT criteria provider (`search`) rather th
 them, so it rides the address and composes with the other filters; providers gained `setFrom` for the
 two whose control is not the narrowing popover. `NewReviewSetDialog` gained `chooseMatter` and a
 caseload matter picker, which is what lets the firm-wide register create.
+
+The one narrowing with no index behind it is measured rather than argued: the load-profile harness
+runs the matching and the no-match case at both volumes, and both numbers sit in the read that pays
+them (0.4 ms and 62 ms at the 250,000-document ceiling).
 
 The only shared-package edit is one line in the data table's `index.ts`. An earlier commit on this
 branch added `grid-search.ts` there for client-side row matching; moving all three searches to the
