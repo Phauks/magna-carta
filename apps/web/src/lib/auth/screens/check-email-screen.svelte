@@ -17,6 +17,12 @@
    * THE SENT TIME IS WRITTEN OUT IN FULL, in the reader's own zone, because the one question this
    * screen gets asked is "is the mail I am looking at the one this page just sent?" — see
    * ../sent-stamp.ts.
+   *
+   * THE WAY OUT IS THE PANEL'S OWN BACK CONTROL, at the top of the card where every other screen on
+   * this surface keeps it (owner correction, 2026-09-09). It used to be a full-width ghost button at
+   * the foot, which put a second, differently-shaped exit on the one screen that is a full stop —
+   * and sat it directly under the control that actually matters here. What stays at the foot is the
+   * typed-code alternative, which is a way ONWARD rather than a way out.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import Button from "@magna-carta/design-system/button";
@@ -30,6 +36,8 @@
     remedy,
     onEnterCode,
     enterCodeLabel = "Enter the Code Instead",
+    back,
+    backLabel = "Sign In",
   }: {
     /** The address the mail went to, as the visitor typed or proved it. */
     address: string;
@@ -42,10 +50,13 @@
     /** Offered only where a typed code is a real second way in. */
     onEnterCode?: () => void;
     enterCodeLabel?: string;
+    /** Called when the visitor steps back — sign-in, on every caller that has one. */
+    back?: () => void;
+    backLabel?: string;
   } = $props();
 </script>
 
-<AuthPanel title="Check Your Email">
+<AuthPanel title="Check Your Email" {back} {backLabel}>
   {#snippet meta()}{address}{/snippet}
 
   {#snippet children()}
@@ -58,13 +69,10 @@
       <p class="text-sm text-text-muted">{remedy}</p>
     </div>
 
-    <div class="flex flex-col gap-8">
-      {#if onEnterCode}
-        <Button variant="secondary" size="lg" class="w-full" onclick={onEnterCode}>
-          {enterCodeLabel}
-        </Button>
-      {/if}
-      <Button variant="ghost" size="lg" class="w-full" href="/login">Back to Sign In</Button>
-    </div>
+    {#if onEnterCode}
+      <Button variant="secondary" size="lg" class="w-full" onclick={onEnterCode}>
+        {enterCodeLabel}
+      </Button>
+    {/if}
   {/snippet}
 </AuthPanel>

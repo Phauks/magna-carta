@@ -1,4 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { createEmailVerificationToken } from "better-auth/api";
 import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -75,7 +76,11 @@ const StartRegistrationRequest = z
     // which is what the joining surface now sends and what a new caller should mean.
     role: RegistrationRole.optional(),
     email: z.email(),
-    name: z.string().trim().min(1).max(200),
+    // OPTIONAL, because the account door no longer asks for one. A name is a PROFILE fact, not part
+    // of the credential, and the row it lands on needs a display name rather than a person's name:
+    // absent, the address itself is used, which is a placeholder somebody can replace afterwards
+    // rather than a guess split out of the address, which cannot be undone.
+    name: z.string().trim().min(1).max(200).optional(),
     // The two parts the joining screen already asks for separately, and used to throw away by
     // joining them with a space. Carried so an account created from today holds real name parts
     // from its first moment and nobody has to have their name split back apart later — a split
@@ -137,10 +142,17 @@ const ConfirmRegistrationResponse = z
     // built in the background, so it answers "accepted and under way" rather than handing back a
     // firm that does not exist yet.
     status: z.enum(["accountCreated", "provisioning"]),
-    // Where the person goes, which is a fact about whether they already hold a password:
+    // Where the person goes, which is a fact about whether they already hold a password AND about
+    // whether this response carries a session:
     //
-    //   signIn        — the credential exists. The ordinary answer now: they chose the password at
-    //                   registration and it was committed with the account.
+    //   signedIn      — the ordinary answer. The account exists, holds the password chosen at
+    //                   registration, and this response Set-Cookie'd a session for it: spending the
+    //                   token proved the mailbox, which is the same possession proof a mailed
+    //                   sign-in link rests on, so there is nothing left to ask. The caller goes
+    //                   straight into the app.
+    //   signIn        — the credential exists but no session came with it, because minting one did
+    //                   not work. Never a dead end: the password is already set, so the front door
+    //                   opens on the first try.
     //   checkEmail    — a registration started BEFORE passwords were chosen at registration, which
     //                   carries no password to attach; the reset link that creates one has been
     //                   asked for instead.
@@ -153,7 +165,7 @@ const ConfirmRegistrationResponse = z
     // layer down (app.ts), where it is counted and correlated — visible to an operator, which is the
     // most this path can honestly offer until the reset token is minted by us rather than by the
     // library.
-    next: z.enum(["signIn", "checkEmail"]),
+    next: z.enum(["signedIn", "signIn", "checkEmail"]),
   })
   .openapi("ConfirmRegistrationResponse");
 
@@ -319,6 +331,48 @@ interface RegistrationRow {
   readonly credential_hash: string | null;
 }
 
+/*
+ * THE SESSION A CONFIRMED REGISTRATION IS HANDED, and the reason it is handed one at all: the token
+ * spent to get here travelled by email and nothing else, so whoever spent it holds the mailbox. That
+ * is the same possession proof a mailed sign-in link rests on and a strictly stronger one than the
+ * password that would otherwise be asked for on the very next screen — so asking for the password
+ * again buys nothing and costs somebody their first minute in the product.
+ *
+ * IT GOES THROUGH BETTER AUTH'S OWN VERIFY-EMAIL ENDPOINT rather than writing a session row and a
+ * cookie by hand. That endpoint is the library's supported "the mailbox answered, let them in" path
+ * (`emailVerification.autoSignInAfterVerification` in ../auth.ts turns the sign-in half on), and
+ * going through it means the session row, the signed cookie, the cookie cache and the login.success
+ * audit are whatever the installed library currently does, including across an upgrade that changes
+ * any of them. Which is why the account is inserted UNVERIFIED and verified here: the endpoint
+ * declines to mint a session for an address that is already verified, so flipping the column
+ * ourselves first would silently cost the session.
+ *
+ * The token is minted and spent inside this one request and never travels — it is the library's own
+ * verification JWT, the same one a verification mail would carry.
+ *
+ * A NULL RESULT IS NOT AN ERROR, it is "no session, sign in normally". The account and its credential
+ * are already committed by the time this runs; the caller's fallback flips the verified column
+ * directly and answers `signIn`, which is exactly the screen this feature removes on the happy path
+ * and a working door on the unhappy one.
+ */
+async function sessionForConfirmedAccount(
+  auth: ReturnType<typeof createAuth>,
+  email: string,
+): Promise<string[] | null> {
+  try {
+    const context = await auth.$context;
+    const token = await createEmailVerificationToken(context.secret, email);
+    const { headers } = await auth.api.verifyEmail({
+      query: { token },
+      returnHeaders: true,
+    });
+    const cookies = headers.getSetCookie();
+    return cookies.length > 0 ? cookies : null;
+  } catch {
+    return null;
+  }
+}
+
 export function registerRegistrationRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
@@ -348,6 +402,9 @@ export function registerRegistrationRoutes(
       // do, and the activation that eventually finds this person has to find the row we wrote.
       const email = request.email.trim().toLowerCase();
       const role = request.role ?? "account";
+      // The name the row is filed under. `display_name` is NOT NULL and is what a screen prints, so
+      // a door that asks for no name files the address — visibly a placeholder, and true.
+      const displayName = request.name ?? email;
 
       if (role === "clientOfFirm" || role === "firmMember") {
         // Joining an existing firm is that firm's decision. Nothing is written and nothing is
@@ -425,10 +482,10 @@ export function registerRegistrationRoutes(
                 // the superseded founding door still complete under its own rules.
                 role,
                 email,
-                request.name,
+                displayName,
                 // Only the founding door names a firm. An account-first registration names none,
                 // because there is no firm yet to name; the person names one afterwards, signed in.
-                role === "foundFirm" ? (request.firmName ?? request.name) : null,
+                role === "foundFirm" ? (request.firmName ?? displayName) : null,
                 confirmationHash,
                 expiresAt,
                 nowInstant,
@@ -574,10 +631,14 @@ export function registerRegistrationRoutes(
                   row.display_name,
                   row.email,
                   nowEpochMilliseconds,
-                  // Verified only where a credential proves the mailbox was reached AND a password
-                  // exists to sign in with. A legacy row carries no password, so it keeps the
-                  // unverified shape its own activation mail completes.
-                  row.credential_hash === null ? 0 : 1,
+                  // UNVERIFIED AT INSERT, on every path. Spending the token IS the proof the mailbox
+                  // was reached, and the flip belongs to the act that also hands out the session:
+                  // Better Auth's verify-email endpoint declines to mint one for an address already
+                  // marked verified, so writing 1 here would quietly cost the sign-in it is the whole
+                  // point of. sessionForConfirmedAccount performs it a few lines below, and the
+                  // fallback there performs it directly when no session could be minted. A legacy row
+                  // carrying no password keeps the unverified shape its own activation mail completes.
+                  0,
                   // The parts the registration carried, or null where it carried none — never a
                   // split of `display_name`, which cannot be undone without guessing.
                   row.name_given,
@@ -618,10 +679,28 @@ export function registerRegistrationRoutes(
 
         if (created) scheduleRequestPathSweep(c.executionCtx, c.env);
 
-        // THE ORDINARY ANSWER, and the point of the whole reflow: the account exists and already
-        // holds the password this person chose, so there is no mail to wait for and nowhere to go
-        // but sign-in.
+        // THE ORDINARY ANSWER, and the point of the whole reflow: the account exists, already holds
+        // the password this person chose, and is signed in on the strength of the token they just
+        // spent. There is no mail to wait for and no front door to walk back round to.
         if (created && row.credential_hash !== null) {
+          const sessionCookies = await sessionForConfirmedAccount(authForEnv(c.env), row.email);
+          if (sessionCookies !== null) {
+            for (const cookie of sessionCookies) c.header("set-cookie", cookie, { append: true });
+            return c.json(
+              { email: row.email, status: "accountCreated" as const, next: "signedIn" as const },
+              200,
+            );
+          }
+          // No session, and the verified column is still 0 because the endpoint that would have
+          // flipped it is the one that did not run. Flip it here rather than leave the account in
+          // the one state it cannot sign in from: requireEmailVerification would refuse the very
+          // password this registration just committed, which is the locked-out-forever failure the
+          // whole credential-at-registration design exists to remove.
+          await c.env.DB_CONTROL.prepare(
+            'UPDATE "user" SET email_verified = 1, updated_at = ?2 WHERE id = ?1',
+          )
+            .bind(createdUserId, Date.now())
+            .run();
           return c.json(
             { email: row.email, status: "accountCreated" as const, next: "signIn" as const },
             200,

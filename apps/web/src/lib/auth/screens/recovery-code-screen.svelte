@@ -47,7 +47,7 @@
   const canSubmit = $derived(!pending && !lockedOut && recoveryCode.trim() !== "");
 </script>
 
-<AuthPanel title="Use a Recovery Code" {back} backLabel="Back to your code">
+<AuthPanel title="Use a Recovery Code" {back} backLabel="Your Code">
   {#snippet meta()}Enter one of the codes you saved. Each code works once.{/snippet}
 
   {#snippet children()}

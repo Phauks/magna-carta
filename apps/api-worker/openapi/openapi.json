@@ -3580,8 +3580,7 @@
           }
         },
         "required": [
-          "email",
-          "name"
+          "email"
         ]
       },
       "ConfirmRegistrationResponse": {
@@ -3600,6 +3599,7 @@
           "next": {
             "type": "string",
             "enum": [
+              "signedIn",
               "signIn",
               "checkEmail"
             ]

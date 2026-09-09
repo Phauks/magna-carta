@@ -17,6 +17,11 @@
    * ONE REFUSAL, as everywhere on this surface: an unknown token, a spent one and an expired one
    * answer identically, because telling them apart would confirm that a particular registration
    * exists for a particular address.
+   *
+   * IT CARRIES THE PANEL'S BACK CONTROL like every other screen on this surface (owner correction,
+   * 2026-09-09), and it points at sign-in rather than at the screen before: this one is reached cold
+   * from a mailbox as often as it is stepped into, so "the screen before" is frequently nothing at
+   * all, and the front door is the destination that is true either way.
    */
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
@@ -31,6 +36,7 @@
     supportErrorId = null,
     tokenFieldReference = $bindable(null),
     onSubmit,
+    back,
   }: {
     token?: string;
     pending?: boolean;
@@ -39,12 +45,14 @@
     supportErrorId?: string | null;
     tokenFieldReference?: HTMLInputElement | null;
     onSubmit: (event: SubmitEvent) => void;
+    /** Called when the visitor steps back. Sign-in, because a link from a mailbox lands here cold. */
+    back?: () => void;
   } = $props();
 
   const canSubmit = $derived(!pending && token.trim() !== "");
 </script>
 
-<AuthPanel title="Confirm Your Email Address">
+<AuthPanel title="Confirm Your Email Address" {back} backLabel="Sign In">
   {#snippet meta()}Type the confirmation code from the email we sent you.{/snippet}
 
   {#snippet children()}

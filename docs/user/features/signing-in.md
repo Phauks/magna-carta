@@ -11,7 +11,7 @@ The sign-in screen takes you through up to two short steps:
 
 Two tick boxes decide how much you will be asked next time:
 
-- **Keep me signed in on this device** (on the first screen, ticked by default) keeps you signed in on this computer between visits instead of ending your session when you close the browser. Leave it unticked on a shared or public computer.
+- **Remember Me** (on the first screen, ticked by default) keeps you signed in on this computer between visits instead of ending your session when you close the browser. Leave it unticked on a shared or public computer.
 - **Don't ask for Two-Factor on this device for 30 days** (on the code screen) skips the authenticator code on this computer for the next 30 days. Your password is still required every time. Only tick it on a device that is yours alone.
 
 These two are different dials, and you can use either without the other. The first is about how long this device stays signed in; the second only skips the code step.
@@ -37,11 +37,11 @@ Select **Use a recovery code** on the code screen. Recovery codes are the one-ti
 
 **Go back a step**
 
-Each screen after the first carries a **Back** link above its heading. Going back from the code screen returns you to the sign-in screen and clears what you had typed.
+Each screen after the first carries a back arrow above its heading, naming where it goes — **Sign In**, **Your Code**. Going back from the code screen returns you to the sign-in screen and clears what you had typed.
 
 **Reset a forgotten password**
 
-Select **Forgot Password**, next to the password box, or ask your firm's administrator to send you a reset link.
+Select **Forgot Password**, next to the password box, enter your email address and select **Reset Password**. A link is emailed to you; open it and choose a new password. Your firm's administrator can also send you one.
 
 **Sign out**
 
@@ -60,7 +60,7 @@ Below a failed attempt you will sometimes see how many tries you have left. That
 - **Refreshing the page starts over** from the sign-in screen. Nothing you typed is kept, which is what you want on a shared screen.
 - **After you sign in** you land on your home page — or, if you followed a link into Magna Carta before signing in, on the page you were trying to reach.
 - **"You could not be signed out — your session is still open."** The sign-out did not go through, so you are still signed in and the screen deliberately did not pretend otherwise. Try again. If you are on a shared or public computer and it will not go through, close the whole browser rather than walking away from it.
-- **Closing the tab is not signing out.** If you ticked **Keep me signed in on this device**, your session is still there when the browser is reopened. On a computer that is not yours alone, sign out.
+- **Closing the tab is not signing out.** If you ticked **Remember Me**, your session is still there when the browser is reopened. On a computer that is not yours alone, sign out.
 
 ## Related features
 

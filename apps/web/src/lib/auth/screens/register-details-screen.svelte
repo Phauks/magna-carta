@@ -86,7 +86,7 @@
   const canSubmit = $derived(!pending && complete);
 </script>
 
-<AuthPanel title="Register New User" {back} backLabel="Back to your firm's name">
+<AuthPanel title="Register New User" {back} backLabel="Your Firm's Name">
   {#snippet meta()}
     {#if firmName}Founding {firmName}.{/if}
   {/snippet}

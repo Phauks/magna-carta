@@ -12,6 +12,11 @@
    * ../joining-availability.ts is the register those sentences come from, so the day a gap closes,
    * one entry moves and this screen follows.
    *
+   * IT SAYS NOTHING ABOUT WHO IS SIGNED IN (owner correction, 2026-09-09). The line under the
+   * heading used to read the account's name back and then restate the screen's own purpose — a
+   * greeting for somebody who arrived here a second ago, above two buttons that already say what
+   * the choice is. The heading welcomes; the buttons ask. Nothing in between earned its line.
+   *
    * NEITHER CHOICE IS THE RECOMMENDED ONE. The founding button carries the primary weight because it
    * is the act that creates something, not because it is the expected answer; a person holding an
    * invitation reads one line and presses the other. Both sit at full body size, the same decision
@@ -24,12 +29,9 @@
   import { JOINING_STEPS } from "../joining-availability.ts";
 
   let {
-    name,
     onFoundFirm,
     onRedeemInvitation,
   }: {
-    /** Who is signed in, so the screen is addressed to somebody rather than to nobody. */
-    name?: string;
     onFoundFirm: () => void;
     onRedeemInvitation: () => void;
   } = $props();
@@ -41,11 +43,6 @@
 </script>
 
 <AuthPanel title="Welcome to Magna Carta">
-  {#snippet meta()}
-    {#if name}Signed in as {name}. One thing left: tell us where you work.{:else}One thing left:
-      tell us where you work.{/if}
-  {/snippet}
-
   {#snippet children()}
     <div class="flex flex-col gap-8">
       <Button

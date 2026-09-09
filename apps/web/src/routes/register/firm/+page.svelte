@@ -99,7 +99,7 @@
       bind:firmName
       bind:firmNameFieldReference
       onContinue={continueToDetails}
-      backLabel="Back to sign in"
+      backLabel="Sign In"
       back={() => goto("/login")}
     />
   {:else if step === "details"}
@@ -131,6 +131,7 @@
       remedy="If it does not arrive, check the spam folder, then register again — a second registration replaces the first, and the newest code is the one that works."
       onEnterCode={() => goto("/register/confirm")}
       enterCodeLabel="Enter the Confirmation Code"
+      back={() => goto("/login")}
     />
   {/if}
 </AuthFrame>

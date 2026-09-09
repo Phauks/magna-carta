@@ -40,10 +40,9 @@
   } from "./joining-messages.ts";
 
   let step = $state<"details" | "sent">("details");
-  let firstName = $state("");
-  let lastName = $state("");
   let email = $state("");
   let password = $state("");
+  let passwordAgain = $state("");
   let agreedToTerms = $state(false);
   let agreedToPrivacy = $state(false);
   let pending = $state(false);
@@ -51,11 +50,11 @@
   let supportErrorId = $state<string | null>(null);
   let sentAt = $state(new Date());
 
-  let firstNameFieldReference = $state<HTMLInputElement | null>(null);
+  let emailFieldReference = $state<HTMLInputElement | null>(null);
 
   // The form opens with focus in its first field, so the keyboard never has to catch up.
   $effect(() => {
-    if (step === "details") firstNameFieldReference?.focus();
+    if (step === "details") emailFieldReference?.focus();
   });
 
   // Stash a code the visitor arrived with, once, before anything else can navigate.
@@ -69,13 +68,10 @@
     pending = true;
     rejection = null;
     supportErrorId = null;
+    // NO NAME TRAVELS, because the form no longer asks for one: the server falls back to the
+    // address as the account's display name, which is a placeholder somebody can replace rather
+    // than a guess split out of the address, which cannot be undone.
     const outcome = await startRegistration(fetch, {
-      // Both the line and its parts. The line is what a screen prints; the parts are what the
-      // account keeps, so nobody has to have their name split back apart later — a split that
-      // cannot be done without guessing at somebody's own name.
-      name: `${firstName.trim()} ${lastName.trim()}`,
-      givenName: firstName.trim(),
-      familyName: lastName.trim(),
       email: email.trim(),
       // NOT trimmed. Leading and trailing spaces are part of a password — trimming one here would
       // hash something the person never typed and lock them out of their own account at sign-in.
@@ -97,14 +93,13 @@
 <AuthFrame>
   {#if step === "details"}
     <RegisterAccountScreen
-      bind:firstName
-      bind:lastName
       bind:email
       bind:password
+      bind:passwordAgain
       minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
       bind:agreedToTerms
       bind:agreedToPrivacy
-      bind:firstNameFieldReference
+      bind:emailFieldReference
       {pending}
       {rejection}
       {supportErrorId}
@@ -114,11 +109,12 @@
   {:else}
     <CheckEmailScreen
       address={email.trim()}
-      instruction="Open the link we sent, or type the confirmation code from that email. Your account is created once that is done, with the password you chose."
+      instruction="Open the link we sent, or type the confirmation code from that email. Your account is created once that is done, with the password you chose, and you are signed in on the spot."
       {sentAt}
       remedy="If it does not arrive, check the spam folder, then register again — a second registration replaces the first, and the newest code is the one that works."
       onEnterCode={() => goto("/register/confirm")}
       enterCodeLabel="Enter the Confirmation Code"
+      back={() => goto("/login")}
     />
   {/if}
 </AuthFrame>

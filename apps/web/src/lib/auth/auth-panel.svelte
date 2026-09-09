@@ -8,6 +8,11 @@
    * than at the foot of the card means the heading lands in the same place on every screen whether
    * or not there is anywhere to go back to.
    *
+   * ITS LABEL NAMES THE DESTINATION AND NOTHING ELSE — "Sign In", "Your Choices" — never "Back to
+   * sign in" (owner correction, 2026-09-09). The chevron already says "back"; repeating it in words
+   * spends the widest part of the control on the one thing the icon cannot get wrong, and buries
+   * the place you are actually going at the end of a sentence.
+   *
    * Notices about the primary action belong BELOW it, in the caller's own content, so the card grows
    * downward and the button never moves. Nothing is reserved: holding empty space to keep a control
    * still buys stillness with a permanent dead gap on every screen that is not currently failing.
@@ -29,7 +34,7 @@
     title: string;
     /** Called when the visitor steps back. Omit on a screen with nowhere to return to. */
     back?: () => void;
-    /** Names the destination where "Back" alone would be ambiguous. */
+    /** The destination, named as a place: "Sign In", "Your Code". Never prefixed with "Back to". */
     backLabel?: string;
     /** The line under the heading — who is signing in, which channel a code came from. */
     meta?: Snippet;
