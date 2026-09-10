@@ -885,7 +885,7 @@ export type StartRegistrationRequest = {
      */
     role?: 'account' | 'clientOfFirm' | 'firmMember' | 'foundFirm';
     email: string;
-    name: string;
+    name?: string;
     givenName?: string;
     familyName?: string;
     /**
@@ -898,7 +898,7 @@ export type StartRegistrationRequest = {
 export type ConfirmRegistrationResponse = {
     email: string;
     status: 'accountCreated' | 'provisioning';
-    next: 'signIn' | 'checkEmail';
+    next: 'signedIn' | 'signIn' | 'checkEmail';
 };
 
 export type ConfirmRegistrationRequest = {
@@ -11229,7 +11229,7 @@ export type RegistrationsConfirmError = RegistrationsConfirmErrors[keyof Registr
 
 export type RegistrationsConfirmResponses = {
     /**
-     * The registration is confirmed; `next` says whether the account can be signed in to now
+     * The registration is confirmed; `next` says whether a session came with it, and if not, what the person does instead
      */
     200: ConfirmRegistrationResponse;
 };
@@ -26501,6 +26501,10 @@ export type DiscoveryListReviewDocumentsData = {
         familyId?: string;
         processingState?: 'pending' | 'processing' | 'processed' | 'excepted';
         exceptionCode?: 'unsupported-format' | 'corrupt' | 'encrypted' | 'password-protected' | 'encrypted-container-entry' | 'container-not-expanded' | 'container-guard-tripped' | 'oversize' | 'extraction-timeout' | 'no-text-extracted' | 'malware-flagged' | 'conversion-failed' | 'recognition-failed' | 'load-file-metadata-mismatch' | 'source-bytes-missing';
+        /**
+         * Narrows to documents whose name or path contains this text. It matches what a document is CALLED and never what is inside it: searching a document's text is the review set's own index, which is a different read returning a ranked answer rather than a page of this listing.
+         */
+        search?: string;
     };
     url: '/api/v1/review-sets/{reviewSetId}/documents';
 };
@@ -26682,6 +26686,10 @@ export type DiscoveryListAllReviewSetsData = {
     path?: never;
     query?: {
         cursor?: string;
+        /**
+         * Narrows to review sets whose name contains this text.
+         */
+        search?: string;
     };
     url: '/api/v1/review-sets';
 };
@@ -26778,6 +26786,10 @@ export type DiscoveryListReviewSetsData = {
     };
     query?: {
         cursor?: string;
+        /**
+         * Narrows to review sets whose name contains this text.
+         */
+        search?: string;
     };
     url: '/api/v1/matters/{matterId}/review-sets';
 };
@@ -27177,6 +27189,10 @@ export type DiscoveryListLoadsData = {
     };
     query?: {
         cursor?: string;
+        /**
+         * Narrows to loads whose source description contains this text.
+         */
+        search?: string;
     };
     url: '/api/v1/review-sets/{reviewSetId}/loads';
 };

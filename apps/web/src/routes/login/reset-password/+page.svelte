@@ -128,6 +128,7 @@
       instruction="If that address has an account, a reset link is on its way. Open it and choose a new password."
       {sentAt}
       remedy="If it does not arrive, check the spam folder and confirm the address is the one you sign in with — the mail only goes to an address that has an account."
+      back={() => goto("/login")}
     />
   {:else}
     <ResetPasswordSetScreen

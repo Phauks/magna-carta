@@ -52,7 +52,7 @@
   let {
     email = $bindable(""),
     password = $bindable(""),
-    keepSignedIn = $bindable(true),
+    rememberMe = $bindable(true),
     pending = false,
     rejection = null,
     attemptsRemaining = null,
@@ -71,7 +71,7 @@
   }: {
     email?: string;
     password?: string;
-    keepSignedIn?: boolean;
+    rememberMe?: boolean;
     pending?: boolean;
     /** The rejection sentence. One sentence for every failure mode — it never says which half was wrong. */
     rejection?: string | null;
@@ -151,8 +151,12 @@
       </div>
 
       <div class="flex items-center gap-8">
-        <Checkbox id="sign-in-keep" bind:checked={keepSignedIn} disabled={pending || lockedOut} />
-        <Label for="sign-in-keep">Keep me signed in on this device.</Label>
+        <Checkbox
+          id="sign-in-remember-me"
+          bind:checked={rememberMe}
+          disabled={pending || lockedOut}
+        />
+        <Label for="sign-in-remember-me">Remember Me</Label>
       </div>
 
       <!--

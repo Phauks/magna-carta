@@ -48,11 +48,13 @@ export interface ConfirmedRegistration {
    */
   status: "accountCreated" | "provisioning";
   /**
-   * Where the person goes, which is a fact about whether they already hold a password. `signIn` —
-   * the credential exists; the ordinary answer now. `checkEmail` — a registration started before
-   * passwords were chosen at registration, whose password-setting link has been asked for.
+   * Where the person goes. `signedIn` — the ordinary answer: the credential exists AND the response
+   * carried a session cookie, so the surface goes straight into the app. `signIn` — the credential
+   * exists but no session came with it, so the front door is the next step. `checkEmail` — a
+   * registration started before passwords were chosen at registration, whose password-setting link
+   * has been asked for.
    */
-  next: "signIn" | "checkEmail";
+  next: "signedIn" | "signIn" | "checkEmail";
 }
 
 export interface RedeemedInvitation {
@@ -66,8 +68,12 @@ export interface StartRegistrationInput {
   /** Omitted by the account door, which is what this surface sends. */
   readonly role?: RegistrationRole;
   readonly email: string;
-  /** The person's own name, as one line — what the row holds and what a screen prints. */
-  readonly name: string;
+  /**
+   * The person's own name, as one line — what the row holds and what a screen prints. OPTIONAL,
+   * because the account door does not ask for one: the server files the address as the display name
+   * until somebody replaces it.
+   */
+  readonly name?: string;
   /**
    * The same name as its parts. The screen asks for a first and a last name separately, so both are
    * sent rather than only their join: a line cannot be split back into parts without guessing, and

@@ -7,7 +7,7 @@
    * channel prop rather than four screens, because the layout, the trust-device dial and the
    * attempt ladder are identical and four copies would drift.
    *
-   * TWO DIALS, NOT ONE. "Keep me signed in" on the previous screen is session lifetime; the
+   * TWO DIALS, NOT ONE. "Remember Me" on the previous screen is session lifetime; the
    * checkbox here only skips the second step on future sign-ins from this device, and the password
    * is still required whenever the session ends. They are separate because a visitor can reasonably
    * want either without the other, so each is labelled by its effect rather than by its mechanism.
@@ -62,7 +62,7 @@
   const canSubmit = $derived(!pending && !lockedOut && complete);
 </script>
 
-<AuthPanel title="Enter Your Two-Factor Code" {back} backLabel="Back to sign in">
+<AuthPanel title="Enter Your Two-Factor Code" {back} backLabel="Sign In">
   {#snippet meta()}
     {sentTo ? `${shape.origin} to ${sentTo}` : shape.origin}, {codeShapeDescription(channel)}.
   {/snippet}

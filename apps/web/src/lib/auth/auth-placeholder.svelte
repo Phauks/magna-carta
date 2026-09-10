@@ -30,7 +30,7 @@
         <Masthead.Meta>{description}</Masthead.Meta>
       </Masthead.Heading>
       <p class="text-sm text-text-muted">{note}</p>
-      <Button href="/login" variant="secondary" size="lg" class="w-full">Back to sign in</Button>
+      <Button href="/login" variant="secondary" size="lg" class="w-full">Sign In</Button>
     </Card.Content>
   </Card.Root>
 </AuthFrame>

@@ -56,7 +56,7 @@
   let step = $state<"credential" | "verification" | "recovery">("credential");
   let email = $state("");
   let password = $state("");
-  let keepSignedIn = $state(true);
+  let rememberMe = $state(true);
   let verificationCode = $state("");
   let recoveryCode = $state("");
   let trustDevice = $state(false);
@@ -130,7 +130,7 @@
       const { data, error } = await authClient.signIn.email({
         email: email.trim(),
         password,
-        rememberMe: keepSignedIn,
+        rememberMe,
       });
       if (error) status = error.status;
       else outcome = requiresSecondFactor(data) ? "challenge" : "session";
@@ -218,7 +218,7 @@
     <SignInScreen
       bind:email
       bind:password
-      bind:keepSignedIn
+      bind:rememberMe
       bind:emailFieldReference
       {pending}
       rejection={credentialRejection}

@@ -1361,7 +1361,7 @@ export const registrationsStartMutation = (options?: Partial<Options<Registratio
 };
 
 /**
- * Completes a registration by presenting the emailed token: the account is created with the password chosen at registration, so the person can sign in immediately, and a founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.
+ * Completes a registration by presenting the emailed token: the account is created with the password chosen at registration and the response carries a session for it, because the token travelled by email and spending it proves the mailbox. A founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.
  */
 export const registrationsConfirmMutation = (options?: Partial<Options<RegistrationsConfirmData>>): MutationOptions<RegistrationsConfirmResponse, RegistrationsConfirmError, Options<RegistrationsConfirmData>> => {
     const mutationOptions: MutationOptions<RegistrationsConfirmResponse, RegistrationsConfirmError, Options<RegistrationsConfirmData>> = {
@@ -7914,7 +7914,7 @@ export const discoveryGetReviewDocumentTextOptions = (options: Options<Discovery
 export const discoveryListReviewDocumentsQueryKey = (options: Options<DiscoveryListReviewDocumentsData>) => createQueryKey('discoveryListReviewDocuments', options);
 
 /**
- * One page of the review set's documents, newest document first and documents with no known date last. Filterable by Custodian of Record, by the load that brought the document in, by family, by where the document got to in processing, and by the reason it did not get further. Paged by cursor rather than by page number: a corpus is added to while it is being read, and a numbered page silently shows the same document twice or skips one.
+ * One page of the review set's documents, newest document first and documents with no known date last. Filterable by Custodian of Record, by the load that brought the document in, by family, by where the document got to in processing, by the reason it did not get further, and by a search over what each document is called. Paged by cursor rather than by page number: a corpus is added to while it is being read, and a numbered page silently shows the same document twice or skips one.
  */
 export const discoveryListReviewDocumentsOptions = (options: Options<DiscoveryListReviewDocumentsData>) => queryOptions<DiscoveryListReviewDocumentsResponse, DiscoveryListReviewDocumentsError, DiscoveryListReviewDocumentsResponse, ReturnType<typeof discoveryListReviewDocumentsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -7932,7 +7932,7 @@ export const discoveryListReviewDocumentsOptions = (options: Options<DiscoveryLi
 export const discoveryListReviewDocumentsInfiniteQueryKey = (options: Options<DiscoveryListReviewDocumentsData>): QueryKey<Options<DiscoveryListReviewDocumentsData>> => createQueryKey('discoveryListReviewDocuments', options, true);
 
 /**
- * One page of the review set's documents, newest document first and documents with no known date last. Filterable by Custodian of Record, by the load that brought the document in, by family, by where the document got to in processing, and by the reason it did not get further. Paged by cursor rather than by page number: a corpus is added to while it is being read, and a numbered page silently shows the same document twice or skips one.
+ * One page of the review set's documents, newest document first and documents with no known date last. Filterable by Custodian of Record, by the load that brought the document in, by family, by where the document got to in processing, by the reason it did not get further, and by a search over what each document is called. Paged by cursor rather than by page number: a corpus is added to while it is being read, and a numbered page silently shows the same document twice or skips one.
  */
 export const discoveryListReviewDocumentsInfiniteOptions = (options: Options<DiscoveryListReviewDocumentsData>) => infiniteQueryOptions<DiscoveryListReviewDocumentsResponse, DiscoveryListReviewDocumentsError, InfiniteData<DiscoveryListReviewDocumentsResponse>, QueryKey<Options<DiscoveryListReviewDocumentsData>>, string | Pick<QueryKey<Options<DiscoveryListReviewDocumentsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
 // @ts-ignore

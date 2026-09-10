@@ -640,7 +640,7 @@ export const registrationsStart = <ThrowOnError extends boolean = false>(options
 });
 
 /**
- * Completes a registration by presenting the emailed token: the account is created with the password chosen at registration, so the person can sign in immediately, and a founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.
+ * Completes a registration by presenting the emailed token: the account is created with the password chosen at registration and the response carries a session for it, because the token travelled by email and spending it proves the mailbox. A founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.
  */
 export const registrationsConfirm = <ThrowOnError extends boolean = false>(options: Options<RegistrationsConfirmData, ThrowOnError>): RequestResult<RegistrationsConfirmResponses, RegistrationsConfirmErrors, ThrowOnError> => (options.client ?? client).post<RegistrationsConfirmResponses, RegistrationsConfirmErrors, ThrowOnError>({
     url: '/api/v1/registrations/confirmations',
@@ -3332,7 +3332,7 @@ export const discoveryGetReviewDocument = <ThrowOnError extends boolean = false>
 export const discoveryGetReviewDocumentText = <ThrowOnError extends boolean = false>(options: Options<DiscoveryGetReviewDocumentTextData, ThrowOnError>): RequestResult<DiscoveryGetReviewDocumentTextResponses, DiscoveryGetReviewDocumentTextErrors, ThrowOnError> => (options.client ?? client).get<DiscoveryGetReviewDocumentTextResponses, DiscoveryGetReviewDocumentTextErrors, ThrowOnError>({ url: '/api/v1/review-sets/{reviewSetId}/documents/{reviewDocumentId}/text', ...options });
 
 /**
- * One page of the review set's documents, newest document first and documents with no known date last. Filterable by Custodian of Record, by the load that brought the document in, by family, by where the document got to in processing, and by the reason it did not get further. Paged by cursor rather than by page number: a corpus is added to while it is being read, and a numbered page silently shows the same document twice or skips one.
+ * One page of the review set's documents, newest document first and documents with no known date last. Filterable by Custodian of Record, by the load that brought the document in, by family, by where the document got to in processing, by the reason it did not get further, and by a search over what each document is called. Paged by cursor rather than by page number: a corpus is added to while it is being read, and a numbered page silently shows the same document twice or skips one.
  */
 export const discoveryListReviewDocuments = <ThrowOnError extends boolean = false>(options: Options<DiscoveryListReviewDocumentsData, ThrowOnError>): RequestResult<DiscoveryListReviewDocumentsResponses, DiscoveryListReviewDocumentsErrors, ThrowOnError> => (options.client ?? client).get<DiscoveryListReviewDocumentsResponses, DiscoveryListReviewDocumentsErrors, ThrowOnError>({ url: '/api/v1/review-sets/{reviewSetId}/documents', ...options });
 

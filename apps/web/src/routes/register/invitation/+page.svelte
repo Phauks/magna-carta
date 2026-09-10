@@ -95,7 +95,7 @@
       {attemptsRemaining}
       {lockoutSeconds}
       onSubmit={redeem}
-      backLabel="Back to sign in"
+      backLabel="Sign In"
       back={() => goto("/login")}
     />
   {:else}
@@ -104,6 +104,7 @@
       instruction="Open the link we sent and choose a password. That is the last step — you can sign in straight afterwards."
       {sentAt}
       remedy="If it does not arrive, check the spam folder, then ask the firm that invited you to send a new invitation."
+      back={() => goto("/login")}
     />
   {/if}
 </AuthFrame>

@@ -328,7 +328,6 @@
 <AuthFrame>
   {#if step === "choose"}
     <JoiningChoiceScreen
-      name={data.bootstrap?.user.name}
       onFoundFirm={() => {
         step = "firm";
       }}
@@ -344,7 +343,7 @@
       {rejection}
       {supportErrorId}
       submitLabel="Start This Firm"
-      backLabel="Back to your choices"
+      backLabel="Your Choices"
       onContinue={submitFirm}
       back={backToChoice}
     />
@@ -369,7 +368,7 @@
       {supportErrorId}
       {attemptsRemaining}
       {lockoutSeconds}
-      backLabel="Back to your choices"
+      backLabel="Your Choices"
       onSubmit={submitRedemption}
       back={backToChoice}
     />
