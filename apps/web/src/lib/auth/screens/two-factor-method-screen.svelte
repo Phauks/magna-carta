@@ -51,7 +51,7 @@
   } as const;
 </script>
 
-<AuthPanel title="Verify It's You" {back} backLabel="Back to sign in">
+<AuthPanel title="Verify It's You" {back} backLabel="Sign In">
   {#snippet children()}
     <div class="flex flex-col gap-8">
       {#each options as option (option.id)}

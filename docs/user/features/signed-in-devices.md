@@ -10,7 +10,7 @@ Every computer, phone and browser that is signed in as you, listed in one place 
 - **This device**, on the row you are reading the screen on. That row has no Sign out button: ending the session you are using is signing out, and it lives in the profile menu at the top right.
 - **When it was signed in**, **the address it signed in from**, and **when it expires on its own**.
 
-A session appears here from the moment somebody signs in as you and disappears when it is signed out or expires. Ticking **Keep me signed in on this device** at sign-in is what makes a session long-lived; those are the rows most worth reviewing.
+A session appears here from the moment somebody signs in as you and disappears when it is signed out or expires. Ticking **Remember Me** at sign-in is what makes a session long-lived; those are the rows most worth reviewing.
 
 **What the list does not show is a "last used" time.** Magna Carta only knows when a session started, not the last minute it was active, and a stamp that looked like the second while meaning the first would be worse than none — you would clear a row that was in use, or leave one that was.
 
