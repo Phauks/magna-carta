@@ -150,6 +150,11 @@ async function destroyBucket(bucketName: string, region: string | null): Promise
   let deleted = 0;
   for (;;) {
     const listed = await client.fetch(`${base}?list-type=2&max-keys=1000`, { method: "GET" });
+    // A bucket that was never created answers 404 here. That is not a failure to delete — it is a
+    // firm whose bucket step ran under the dev adapter, which records a name and creates nothing.
+    // Treating it as an error would block the whole reset behind every such firm, so it counts as
+    // already gone: zero objects, no bucket to remove, and the control plane may still be emptied.
+    if (listed.status === 404) return 0;
     if (!listed.ok) throw new Error(`list ${bucketName}: HTTP ${String(listed.status)}`);
     const xml = await listed.text();
     const keys = [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)].map((match) => match[1] ?? "");
@@ -173,7 +178,11 @@ async function destroyBucket(bucketName: string, region: string | null): Promise
     undefined,
     jurisdiction,
   );
-  if (!dropped.ok) throw new Error(`delete bucket ${bucketName}: ${dropped.detail}`);
+  // Gone between the listing and the delete, or never there in the API's eyes: either way there is
+  // nothing left to remove, and only a refusal of a bucket that exists is a failure.
+  if (!dropped.ok && !/not found|does not exist|10006/i.test(dropped.detail)) {
+    throw new Error(`delete bucket ${bucketName}: ${dropped.detail}`);
+  }
   return deleted;
 }
 

@@ -12,7 +12,11 @@ import {
 
 // Adapter selection: deploy-time credentials present → real Cloudflare REST creation; otherwise
 // the dev adapter (local dev and tests — CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER/CLOUDFLARE_ACCOUNT_ID are
-// deploy-time secrets, deliberately absent from .dev.vars).
+// deploy-time secrets, deliberately absent from .dev.vars). A DEPLOYMENT cannot land here without
+// them: both are in wrangler.jsonc's secrets.required, because a production Worker that took this
+// branch recorded a bucket name for every firm it provisioned and created no bucket, and nothing
+// said so until the firms could not upload. The fact of which adapter ran is carried on the
+// provider (`kind`) so the upload-readiness report can state it rather than infer it.
 export function resourceProviderForEnv(env: Bindings): FirmResourceProvider {
   const apiToken = env.CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER;
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;

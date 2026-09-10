@@ -1,12 +1,14 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/upbeat-clarke-6znudl
-area: Platform reset tooling, and the stack line's two stale claims
+area: Upload readiness — the deploy gate requires the provisioning credentials; one server-side check, one button, names why an upload cannot reach storage
 status: review
-touches: CLAUDE.md, apps/api-worker/scripts, docs/conventions/operations.md
+touches: apps/api-worker/wrangler.jsonc, apps/api-worker/src/files, apps/api-worker/src/routes, apps/api-worker/src/firm-resource-provider.ts, apps/api-worker/openapi, packages/api-client, apps/web/src/lib/file-manager, apps/web/src/routes/(app)/settings/file-safety, docs/specs, docs/decisions/pending, docs/conventions/operations.md, docs/user/admin
 ---
 
-The pre-launch clean-slate script (`apps/api-worker/scripts/reset-platform.mts`), plus the correction
-to the stack line: the per-firm store has been a SQLite Durable Object since ADR-0140, not D1, and
-Vectorize is bound in none of the fourteen workers. Still to come on this branch: the per-firm
-export/erase tooling, and narrowing the R2 credential from account-wide to bucket-scoped temporary
-credentials.
+`CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER` and `CLOUDFLARE_ACCOUNT_ID` join `secrets.required`, so a
+deployment cannot run the development adapters against real firms. `files/upload-readiness.ts` +
+`POST /api/v1/firm/upload-readiness` verify the six preconditions of a browser upload from the
+server, re-applying the settings the code owns and naming a missing bucket or a mis-scoped key;
+the File Safety & Scanning page carries the button. Earlier on this branch: the pre-launch reset
+script, the resource manifest, the bucket-scoped object-plane credential, and the runbook's
+key-scope correction. Deferred: the presigner joining the scoped credential.

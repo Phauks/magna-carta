@@ -25,6 +25,8 @@ interface FirmDatabasePlan {
   readonly roles?: { name: string }[] | "throw";
   readonly rolePermissions?: { permission: string }[] | "throw";
   readonly roundTrip?: "throw";
+  /** The newest readiness-check audit row, or none; "throw" for an audit log that will not answer. */
+  readonly readinessChecks?: { created_at: string; metadata: string | null }[] | "throw";
 }
 
 function fakeFirmDatabase(plan: FirmDatabasePlan): FirmContext["firmDatabase"] {
@@ -35,8 +37,10 @@ function fakeFirmDatabase(plan: FirmDatabasePlan): FirmContext["firmDatabase"] {
     | { status: string }[]
     | { name: string }[]
     | { permission: string }[]
+    | { created_at: string; metadata: string | null }[]
     | "throw"
     | [] => {
+    if (sql.includes("FROM audit_log")) return plan.readinessChecks ?? [];
     if (sql.includes("_migrations")) return plan.migrations ?? [];
     if (sql.includes("FROM member WHERE")) return plan.member ?? [];
     if (sql.includes("FROM role JOIN member_role")) return plan.roles ?? [];
@@ -108,6 +112,7 @@ function collect(options: {
     firmId: FIRM_ID,
     userId: USER_ID,
     expectedHead: EXPECTED_HEAD,
+    fileStorage: { uploadPath: "direct-to-storage", provisioner: "cloudflare-rest" },
   });
 }
 
@@ -217,6 +222,44 @@ describe("collectDatabaseHealth", () => {
   it("reports a firm whose storage has not been allocated yet", async () => {
     const health = await collect({ firm: HEALTHY_FIRM, bucketName: null });
     expect(health.controlPlane).toMatchObject({ state: "reachable", bucketProvisioned: false });
+  });
+
+  it("reports the file storage facts with no readiness check on record", async () => {
+    const health = await collect({ firm: HEALTHY_FIRM });
+    expect(health.fileStorage).toEqual({
+      uploadPath: "direct-to-storage",
+      provisioner: "cloudflare-rest",
+      lastReadinessCheck: null,
+      state: "read",
+    });
+  });
+
+  it("reports the last readiness check from its audit row — verdict, failed ids, and when", async () => {
+    const health = await collect({
+      firm: {
+        ...HEALTHY_FIRM,
+        readinessChecks: [
+          {
+            created_at: "2026-09-10T15:00:00.000Z",
+            metadata: JSON.stringify({ ready: false, failed: ["key-can-sign"] }),
+          },
+        ],
+      },
+    });
+    expect(health.fileStorage.lastReadinessCheck).toEqual({
+      at: "2026-09-10T15:00:00.000Z",
+      ready: false,
+      failed: ["key-can-sign"],
+    });
+  });
+
+  it("reports an audit log that would not answer as unknown, keeping the deployment facts", async () => {
+    const health = await collect({ firm: { ...HEALTHY_FIRM, readinessChecks: "throw" } });
+    expect(health.fileStorage).toMatchObject({
+      state: "unknown",
+      lastReadinessCheck: null,
+      uploadPath: "direct-to-storage",
+    });
   });
 
   it("reports a dead-lettered provisioning message", async () => {
