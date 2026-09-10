@@ -52,6 +52,8 @@ Under the development adapter the account checks are `not-applicable`, stated as
 
 `POST /api/v1/firm/upload-readiness` (`routes/upload-readiness.ts`; `firm:manageScanPolicy`; audited with the verdict and the failed ids) runs it for the session's firm. It is a POST because it acts. The **File Safety & Scanning** settings page carries an _Upload Readiness_ plate with one button and the report; the upload dialog's storage-failure line points an administrator there.
 
+The version chip's Database section — the platform's build-and-health overlay — carries a fifth row, _File storage_, fed by a `fileStorage` block on `GET /api/v1/meta/database-health`: the upload path, the provisioning adapter, and the **last readiness check read back from its audit row**. The overlay reads; it never runs the check, because the check acts on the bucket and is a person's decision. "Not yet checked" is a fact and earns no badge; "Not ready" names the first failed precondition (the cause) and where to run it again.
+
 ### 3. What was rejected
 
 - **Proxying uploads through the Worker to observe them.** Impossible past the request-body cap.

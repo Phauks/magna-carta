@@ -116,6 +116,7 @@ export type DatabaseHealthResponse = {
     schema: DatabaseHealthSchema;
     membership: DatabaseHealthMembership;
     provisioning: DatabaseHealthProvisioning;
+    fileStorage: DatabaseHealthFileStorage;
     observedAt: string;
 };
 
@@ -147,6 +148,17 @@ export type DatabaseHealthProvisioning = {
     state: 'read' | 'unknown';
     pending: number;
     deadLettered: number;
+};
+
+export type DatabaseHealthFileStorage = {
+    uploadPath: 'direct-to-storage' | 'through-the-application';
+    provisioner: 'cloudflare-rest' | 'development';
+    lastReadinessCheck: {
+        at: string;
+        ready: boolean;
+        failed: Array<string>;
+    } | null;
+    state: 'read' | 'unknown';
 };
 
 export type FirmUsageResponse = {

@@ -41,6 +41,8 @@ import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { perFirmHeadSchemaVersion } from "../per-firm-migrations.ts";
 import { loadEffectivePermissions } from "../session-context.ts";
+import { UPLOAD_READINESS_AUDIT_EVENT, uploadPathForEnv } from "../files/upload-readiness.ts";
+import { resourceProviderForEnv } from "../firm-provisioner-wiring.ts";
 
 /**
  * An unreachable database's own words, made safe to show.
@@ -148,6 +150,26 @@ const ProvisioningCheck = z
   })
   .openapi("DatabaseHealthProvisioning");
 
+// The firm's file storage as this deployment serves it, and the last time anyone checked that an
+// upload can reach it. READ, never acted on: the readiness check itself re-applies bucket settings
+// and writes an audit row (routes/upload-readiness.ts), so this looks back for that row rather
+// than running the check on every open of the overlay. Absent means nobody has run it.
+const FileStorageCheck = z
+  .object({
+    uploadPath: z.enum(["direct-to-storage", "through-the-application"]),
+    provisioner: z.enum(["cloudflare-rest", "development"]),
+    lastReadinessCheck: z
+      .object({
+        at: z.string(),
+        ready: z.boolean(),
+        failed: z.array(z.string()),
+      })
+      .nullable(),
+    // "unknown" when the audit log could not be read; the two facts above never depend on it.
+    state: z.enum(["read", "unknown"]),
+  })
+  .openapi("DatabaseHealthFileStorage");
+
 const DatabaseHealthResponse = z
   .object({
     controlPlane: ControlPlaneCheck,
@@ -155,6 +177,7 @@ const DatabaseHealthResponse = z
     schema: SchemaCheck,
     membership: MembershipCheck,
     provisioning: ProvisioningCheck,
+    fileStorage: FileStorageCheck,
     observedAt: z.string(),
   })
   .openapi("DatabaseHealthResponse");
@@ -272,12 +295,56 @@ async function readProvisioningBacklog(
  * is independently faultable, and the contract that one failing check never fails the reply is the
  * thing worth pinning.
  */
+/** The deployment facts the file-storage row states, supplied by the route from its env. */
+export interface FileStorageFacts {
+  readonly uploadPath: z.infer<typeof FileStorageCheck>["uploadPath"];
+  readonly provisioner: z.infer<typeof FileStorageCheck>["provisioner"];
+}
+
+/*
+ * The newest readiness-check audit row, read off the event index. Its metadata is the check's own
+ * verdict and failed ids — deployment facts, written redacted by construction. A row whose metadata
+ * will not parse is treated as no row rather than as a verdict.
+ */
+async function readFileStorageState(
+  firmDatabase: FirmContext["firmDatabase"],
+  facts: FileStorageFacts,
+): Promise<z.infer<typeof FileStorageCheck>> {
+  try {
+    const { results } = await firmDatabase
+      .prepare(
+        "SELECT created_at, metadata FROM audit_log WHERE event = ?1 " +
+          "ORDER BY created_at DESC, id DESC LIMIT 1",
+      )
+      .bind(UPLOAD_READINESS_AUDIT_EVENT)
+      .all<{ created_at: string; metadata: string | null }>();
+    const row = results[0];
+    let lastReadinessCheck: z.infer<typeof FileStorageCheck>["lastReadinessCheck"] = null;
+    if (row !== undefined && row.metadata !== null) {
+      const metadata = JSON.parse(row.metadata) as { ready?: unknown; failed?: unknown };
+      if (typeof metadata.ready === "boolean") {
+        lastReadinessCheck = {
+          at: row.created_at,
+          ready: metadata.ready,
+          failed: Array.isArray(metadata.failed)
+            ? metadata.failed.filter((id): id is string => typeof id === "string")
+            : [],
+        };
+      }
+    }
+    return { ...facts, lastReadinessCheck, state: "read" };
+  } catch {
+    return { ...facts, lastReadinessCheck: null, state: "unknown" };
+  }
+}
+
 export async function collectDatabaseHealth(input: {
   controlPlane: ControlPlaneReader;
   firmContext: FirmContext;
   firmId: string;
   userId: UserId;
   expectedHead: string;
+  fileStorage: FileStorageFacts;
   now?: () => number;
 }): Promise<DatabaseHealthValue> {
   const now = input.now ?? (() => Date.now());
@@ -323,10 +390,11 @@ export async function collectDatabaseHealth(input: {
 
   // The three data reads run together: they are independent questions of two different databases,
   // and asking them serially would make a panel that exists to explain a delay into a source of one.
-  const [schema, membership, provisioning] = await Promise.all([
+  const [schema, membership, provisioning, fileStorage] = await Promise.all([
     readSchemaState(input.firmContext.migrationState, input.expectedHead),
     readMembershipState(firmDatabase, input.userId),
     readProvisioningBacklog(input.controlPlane, input.firmId),
+    readFileStorageState(firmDatabase, input.fileStorage),
   ]);
 
   return {
@@ -335,6 +403,7 @@ export async function collectDatabaseHealth(input: {
     schema,
     membership,
     provisioning,
+    fileStorage,
     observedAt: new Date(now()).toISOString(),
   };
 }
@@ -412,6 +481,10 @@ export function registerMetaDatabaseHealthRoute(
         firmId: requireChokepointFirmId(c),
         userId: requireChokepointUserId(c),
         expectedHead: perFirmHeadSchemaVersion(),
+        fileStorage: {
+          uploadPath: uploadPathForEnv(c.env),
+          provisioner: resourceProviderForEnv(c.env).kind,
+        },
       });
       return c.json(value, 200);
     },

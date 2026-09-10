@@ -68,6 +68,18 @@ export interface UploadReadiness {
 /** The object the signing probe asks after. It never exists; a 404 for it is the affirmative answer. */
 export const READINESS_PROBE_KEY = "__readiness_probe__";
 
+/**
+ * The audit event a run of the check writes (routes/upload-readiness.ts), and the one the database
+ * health read looks back for (routes/meta-database-health.ts) — so the version overlay can say when
+ * the firm was last checked and what was found, without the read acting on anything.
+ */
+export const UPLOAD_READINESS_AUDIT_EVENT = "firm.upload_readiness_checked";
+
+/** Which way a firm's bytes travel in this deployment; the fact every readiness reading is against. */
+export function uploadPathForEnv(env: Bindings): UploadReadiness["uploadPath"] {
+  return devUploadEmulationActive(env) ? "through-the-application" : "direct-to-storage";
+}
+
 export interface UploadReadinessDependencies {
   readonly provider: FirmResourceProvider;
   /**
@@ -284,7 +296,7 @@ export async function checkUploadReadinessForFirm(
       // the one a presigned URL carries (firm-bucket-wiring.ts decides which).
       headObject: (bucketName, bucketRegion, key) =>
         resolveFirmBucket(env, bucketName, bucketRegion).bucket.head(key),
-      uploadPath: devUploadEmulationActive(env) ? "through-the-application" : "direct-to-storage",
+      uploadPath: uploadPathForEnv(env),
     },
     { firmId, bucketName: row?.bucket_name ?? null, region },
   );

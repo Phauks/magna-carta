@@ -370,6 +370,9 @@
           "provisioning": {
             "$ref": "#/components/schemas/DatabaseHealthProvisioning"
           },
+          "fileStorage": {
+            "$ref": "#/components/schemas/DatabaseHealthFileStorage"
+          },
           "observedAt": {
             "type": "string"
           }
@@ -380,6 +383,7 @@
           "schema",
           "membership",
           "provisioning",
+          "fileStorage",
           "observedAt"
         ]
       },
@@ -511,6 +515,63 @@
           "state",
           "pending",
           "deadLettered"
+        ]
+      },
+      "DatabaseHealthFileStorage": {
+        "type": "object",
+        "properties": {
+          "uploadPath": {
+            "type": "string",
+            "enum": [
+              "direct-to-storage",
+              "through-the-application"
+            ]
+          },
+          "provisioner": {
+            "type": "string",
+            "enum": [
+              "cloudflare-rest",
+              "development"
+            ]
+          },
+          "lastReadinessCheck": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "at": {
+                "type": "string"
+              },
+              "ready": {
+                "type": "boolean"
+              },
+              "failed": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "at",
+              "ready",
+              "failed"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "read",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "uploadPath",
+          "provisioner",
+          "lastReadinessCheck",
+          "state"
         ]
       },
       "FirmUsageResponse": {

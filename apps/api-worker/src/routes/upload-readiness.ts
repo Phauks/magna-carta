@@ -13,7 +13,10 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
-import { checkUploadReadinessForFirm } from "../files/upload-readiness.ts";
+import {
+  checkUploadReadinessForFirm,
+  UPLOAD_READINESS_AUDIT_EVENT,
+} from "../files/upload-readiness.ts";
 
 // The report: every precondition of a browser upload, checked from the server, in the order they
 // must hold. `ready` is the one-word answer; the checks are the diagnosis when it is false.
@@ -104,7 +107,7 @@ export function registerUploadReadinessRoute(
           statements: [
             insertAuditLogStatement(firm.firmDatabase, {
               id: newIdentifier("auditLog"),
-              event: "firm.upload_readiness_checked",
+              event: UPLOAD_READINESS_AUDIT_EVENT,
               actorUserId: userId,
               subjectId: userId,
               metadata: {
