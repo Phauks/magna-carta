@@ -1931,6 +1931,20 @@ export type ScanDiagnosis = {
     activeContent: boolean;
 };
 
+export type UploadReadinessReport = {
+    ready: boolean;
+    bucketName: string | null;
+    provisioner: 'cloudflare-rest' | 'development';
+    uploadPath: 'direct-to-storage' | 'through-the-application';
+    checks: Array<UploadReadinessCheck>;
+};
+
+export type UploadReadinessCheck = {
+    id: 'bucket-recorded' | 'bucket-exists' | 'event-notifications' | 'lifecycle-rules' | 'cors-policy' | 'key-can-sign';
+    outcome: 'ok' | 'applied' | 'failed' | 'not-applicable';
+    detail: string;
+};
+
 export type MatterRescanResult = {
     enqueued: number;
     capped: boolean;
@@ -15105,6 +15119,35 @@ export type ScanDiagnoseResponses = {
 
 export type ScanDiagnoseResponse = ScanDiagnoseResponses[keyof ScanDiagnoseResponses];
 
+export type UploadReadinessCheckData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/upload-readiness';
+};
+
+export type UploadReadinessCheckErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageScanPolicy
+     */
+    403: Problem;
+};
+
+export type UploadReadinessCheckError = UploadReadinessCheckErrors[keyof UploadReadinessCheckErrors];
+
+export type UploadReadinessCheckResponses = {
+    /**
+     * The readiness report
+     */
+    200: UploadReadinessReport;
+};
+
+export type UploadReadinessCheckResponse = UploadReadinessCheckResponses[keyof UploadReadinessCheckResponses];
+
 export type ScanMatterData = {
     body?: never;
     path: {
@@ -26501,6 +26544,10 @@ export type DiscoveryListReviewDocumentsData = {
         familyId?: string;
         processingState?: 'pending' | 'processing' | 'processed' | 'excepted';
         exceptionCode?: 'unsupported-format' | 'corrupt' | 'encrypted' | 'password-protected' | 'encrypted-container-entry' | 'container-not-expanded' | 'container-guard-tripped' | 'oversize' | 'extraction-timeout' | 'no-text-extracted' | 'malware-flagged' | 'conversion-failed' | 'recognition-failed' | 'load-file-metadata-mismatch' | 'source-bytes-missing';
+        /**
+         * Narrows to documents whose name or path contains this text. It matches what a document is CALLED and never what is inside it: searching a document's text is the review set's own index, which is a different read returning a ranked answer rather than a page of this listing.
+         */
+        search?: string;
     };
     url: '/api/v1/review-sets/{reviewSetId}/documents';
 };
@@ -26682,6 +26729,10 @@ export type DiscoveryListAllReviewSetsData = {
     path?: never;
     query?: {
         cursor?: string;
+        /**
+         * Narrows to review sets whose name contains this text.
+         */
+        search?: string;
     };
     url: '/api/v1/review-sets';
 };
@@ -26778,6 +26829,10 @@ export type DiscoveryListReviewSetsData = {
     };
     query?: {
         cursor?: string;
+        /**
+         * Narrows to review sets whose name contains this text.
+         */
+        search?: string;
     };
     url: '/api/v1/matters/{matterId}/review-sets';
 };
@@ -27177,6 +27232,10 @@ export type DiscoveryListLoadsData = {
     };
     query?: {
         cursor?: string;
+        /**
+         * Narrows to loads whose source description contains this text.
+         */
+        search?: string;
     };
     url: '/api/v1/review-sets/{reviewSetId}/loads';
 };

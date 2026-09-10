@@ -1,109 +1,78 @@
-# Upload readiness, and a deployment that knows what mode it is in — design
+# Upload readiness, and a deployment that cannot run the development adapter — design
 
-**Date:** 2026-09-10 · **Status:** Designed, awaiting owner review · **Builds on:** the per-firm bucket (`docs/specs/2026-06-23-per-firm-database-durable-object-design.md` for the tenancy shape; ADR-0140), the firm-resource manifest (`apps/api-worker/src/firm-resources.ts`), the browser-upload CORS artifact (`apps/api-worker/src/files/browser-upload-cors.ts`) · **White paper:** _Tenancy & data isolation_, _Observability & diagnostics_.
+**Date:** 2026-09-10 · **Status:** Built (this branch) · **Builds on:** the per-firm bucket (`docs/specs/2026-06-23-per-firm-database-durable-object-design.md` for the tenancy shape; ADR-0140), the firm-resource manifest (`apps/api-worker/src/firm-resources.ts`), the browser-upload CORS artifact (`apps/api-worker/src/files/browser-upload-cors.ts`) · **White paper:** _Tenancy & data isolation_, _Observability & diagnostics_.
 
 ## Problem
 
 A firm has been unable to upload a file for a week. In that week the fault was diagnosed three times, twice wrongly, and the third diagnosis is still a hypothesis. That is not a run of bad luck; it is the shape of the system. Five distinct faults produce one identical symptom — the browser's presigned PUT fails, nothing the platform runs ever sees it, and the file manager can say only that storage did not answer:
 
-| fault                                     | where it lives                                                                                | who can see it today                                               |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| The firm's bucket was never created       | provisioning ran the dev adapter in production                                                | nobody — the dev adapter records a bucket name and creates nothing |
-| The bucket carries no CORS policy         | a firm active before the CORS step landed (2026-09-03)                                        | an operator reading the policy by hand                             |
-| The policy names the wrong origins        | a new serving origin since the policy was applied                                             | an operator comparing the policy to the code                       |
-| The S3 key cannot sign for that bucket    | the token was scoped to one bucket per the 2026-06-22 runbook; the code assumes account scope | nobody — the assumption is in a comment                            |
-| The presigned URL outlived its credential | any future scoped credential                                                                  | nobody                                                             |
+| fault                                  | where it lives                                                                                | who can see it today                                               |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| The firm's bucket was never created    | provisioning ran the development adapter in production                                        | nobody — the dev adapter records a bucket name and creates nothing |
+| The bucket carries no CORS policy      | a firm active before the CORS step landed (2026-09-03)                                        | an operator reading the policy by hand                             |
+| The policy names the wrong origins     | a new serving origin since the policy was applied                                             | an operator comparing the policy to the code                       |
+| The S3 key cannot sign for that bucket | the token was scoped to one bucket per the 2026-06-22 runbook; the code assumes account scope | nobody — the assumption is in a comment                            |
+| The deployment names no bound bucket   | `R2_BUCKET_NAME` unset                                                                        | the member, as an Error ID                                         |
 
 Each has a different fix. None is observable from the platform's side, because the hop that fails is the one hop that bypasses every Worker (and must — the request-body cap makes proxying uploads impossible; see `docs/conventions/operations.md` §15). So the diagnosis has been archaeology: read the code, guess a cause, ask the owner to check a dashboard.
 
-Underneath all five is one structural fact. **Production behaviour is selected by which optional secrets happen to be set** — the provisioner (REST or dev), the presigner (real or dev), the scan engine, human verification, feature flags, and now the scoped object-plane credential — and nothing in the system computes, reports, or refuses the resulting combination. The individual selections are each principled ("absent the secret, the safe development adapter runs"). Their product is a deployment that can be running a development adapter against real firms with no signal that it is.
+Underneath the first fault is one structural fact. **Production behaviour was selected by which optional secrets happened to be set.** Absent the provisioner's token, the development adapter ran — principled on a developer's machine, silently wrong in production — and nothing reported or refused it.
 
-The owner's instruction is to make this the best, not to fix it the fastest. The best fix is one that does not depend on the current diagnosis being right.
+The owner's instruction is to make this the best, where best means **easy to diagnose, not overcomplicated, and working well and fast.** The first draft of this design proposed a deployment-mode object with seven fields, a startup refusal, a status-page line, a telemetry event, a daily repairing sweep over every firm, and a readiness result cached on the firm row. All of that was machinery in service of two facts, and each fact has a one-piece answer. This is the trimmed design; what was cut, and why, is in §4.
 
 ## Principles
 
-1. **The system verifies its own preconditions.** Every assumption the upload path makes — the bucket exists, it carries the policy the code expects, the key can sign for it — is a fact the platform can check from the server side, where a failure produces a status code and a log line. So it checks them, and the check is the diagnosis.
-2. **A mode is a fact, not an inference.** Which adapter is serving each port is computed in one place, reported on the status surface, and refused at startup where it is wrong for the deployment tier.
-3. **Verification is repair where repair is idempotent.** The three bucket settings are whole-set `PUT`s. A check that finds them wrong re-applies them; only the faults it cannot repair (a missing bucket under the dev adapter, a mis-scoped key) are reported for a person.
-4. **The reader is told before they try.** A firm that is not upload-ready is told so by the file manager, with the precondition that failed, before a byte is chosen — never by a transport error seven seconds after pressing Upload.
-5. **Nothing here widens the trust model.** Verification uses the credentials the path already uses. A probe that needs a broader key than the path itself would be measuring the wrong thing.
+1. **The system verifies its own preconditions, when asked.** Every assumption the upload path makes is a fact the platform can check from the server side, where a failure produces a status code. The check is the diagnosis, and it runs when a person presses the button — not on a schedule, not on every page load.
+2. **A wrong deployment does not deploy.** The credentials that select the real adapters are required by the deploy gate. There is no runtime mode to compute or report because the wrong mode cannot reach production.
+3. **Verification is repair where repair is idempotent.** The three bucket settings are whole-set `PUT`s; the check re-applies them rather than diffing. What it cannot repair (a missing bucket, a mis-scoped key) it names, with the fix.
+4. **Nothing here widens the trust model.** The signing probe uses the exact credential the browser's URL carries. A probe signed with a wider key would measure the wrong thing.
 
 ## Design
 
-### 1. Deployment mode — one computation, three consumers
+### 1. The deploy gate closes the adapter hole
 
-`apps/api-worker/src/deployment-mode.ts` exports one pure function over `Bindings`:
+`wrangler.jsonc` `secrets.required` gains `CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER` and `CLOUDFLARE_ACCOUNT_ID`. Wrangler refuses to deploy a Worker whose required secrets are unset, so a production deployment can no longer run the development provisioner or the development presigner. Locally wrangler only warns about the missing names, which is what lets both stay out of `.dev.vars` — their presence there would select the real adapters against a token that does not exist.
 
-```ts
-interface DeploymentMode {
-  readonly tier: "production" | "development";
-  readonly provisioner: "cloudflare-rest" | "development";
-  readonly presigner: "r2-sigv4" | "development";
-  readonly objectPlaneCredential: "scoped-per-bucket" | "account-parent" | "development";
-  readonly scanEngine: "container" | "none";
-  readonly humanVerification: "turnstile" | "unconfigured";
-  readonly featureFlags: "live" | "default-off";
-}
-```
+The provider interface gains one field, `kind: "cloudflare-rest" | "development"`, so a report can state which adapter ran rather than infer it, and one method, `bucketExists`, the probe `createBucket` already made, exposed so a diagnostic can ask without creating.
 
-Each field is computed by the same test the wiring already uses — `resourceProviderForEnv`, `realR2Credentials`, `resolveScanPort` and so on are refactored to read their selection from this one place rather than each re-deriving it, so the report cannot disagree with the behaviour.
+### 2. Upload readiness — one function, one route, one button
 
-**The tier is explicit.** A new public var, `DEPLOYMENT_TIER`, is set to `production` in `wrangler.jsonc` `vars` and absent everywhere else. Presence-of-`APP_BASE_URL` is not a tier signal; it is a URL.
+`apps/api-worker/src/files/upload-readiness.ts` exports `verifyUploadReadiness(dependencies, firm)`: six checks, in the order the preconditions hold, each `ok`, `applied`, `failed` or `not-applicable` with a detail a person acts on.
 
-Three consumers:
+| check                 | how                                                                                                    | on failure                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `bucket-recorded`     | the firm row names a bucket                                                                            | `failed`; stop — nothing below can be addressed                                                                              |
+| `bucket-exists`       | `provider.bucketExists` (a `GET` of the bucket under the firm's jurisdiction)                          | `failed: "No bucket named … exists"`, the development-adapter signature; stop; never creates it                              |
+| `event-notifications` | `provider.configureBucketNotifications` — the whole-set `PUT` provisioning makes                       | `failed` with the API's words; the other settings still run                                                                  |
+| `lifecycle-rules`     | same                                                                                                   | same                                                                                                                         |
+| `cors-policy`         | same — with the deployment's own `APP_BASE_URL` origin folded in, as at provisioning                   | same                                                                                                                         |
+| `key-can-sign`        | a signed `HEAD` for `__readiness_probe__` through `resolveFirmBucket`, i.e. the presigner's credential | `404` is ok; `403` names the mis-scoped token and the re-mint; a mint failure or bound-bucket fault carries its own sentence |
 
-- **Startup refusal.** `resolveApp()` computes the mode on first request and, at tier `production`, throws if `provisioner`, `presigner` or `objectPlaneCredential` is `development`. The Worker answers every request 503 with a body naming the port and the secret. A deployment that would provision fake resources for real firms does not start.
-- **The status surface.** `derived-snapshot.ts` records the mode beside its probes; the status page shows it. "Which adapter is production running?" becomes a line on a page rather than a reading of `wrangler secret list` against six `if` statements.
-- **Telemetry.** One `deployment.mode` event per isolate start, so a mode change is a visible edge in the timeline.
+Under the development adapter the account checks are `not-applicable`, stated as such — the report never says `ok` for a thing it did not look at — and `key-can-sign` is `not-applicable` where uploads go through the application.
 
-### 2. Upload readiness — the verification, per firm
+`POST /api/v1/firm/upload-readiness` (`routes/upload-readiness.ts`; `firm:manageScanPolicy`; audited with the verdict and the failed ids) runs it for the session's firm. It is a POST because it acts. The **File Safety & Scanning** settings page carries an _Upload Readiness_ plate with one button and the report; the upload dialog's storage-failure line points an administrator there.
 
-`apps/api-worker/src/files/upload-readiness.ts` exports `verifyUploadReadiness(env, firm): Promise<UploadReadiness>`, a sequence of server-side checks each answering `ok`, `repaired`, or `failed` with a reason a person can act on:
+### 3. What was rejected
 
-| check                 | how                                                                                                            | on failure                                                                                                                                                      |
-| --------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bucket-exists`       | `GET /accounts/{id}/r2/buckets/{name}` with the provisioner token, under the firm's jurisdiction               | `failed: "no bucket named … exists in the account"` — the dev-adapter signature; not repairable here                                                            |
-| `cors-policy`         | `GET …/cors`; diff against `browserUploadCorsRules(browserOrigins)`                                            | `PUT` the code's rule set → `repaired`; a `PUT` that is refused → `failed`                                                                                      |
-| `lifecycle-rules`     | same shape against the expiry rules                                                                            | same                                                                                                                                                            |
-| `event-notifications` | same shape against the ingest notification                                                                     | same                                                                                                                                                            |
-| `key-can-sign`        | a SigV4-signed `HEAD` for `__readiness_probe__` in the firm's bucket, using **the presigner's own credential** | `404` is success (the key is honoured; the object is absent); `403` is `failed: "the R2 S3 token cannot sign for this bucket — it is scoped to another bucket"` |
-| `origin-allowed`      | the deployment's `APP_BASE_URL` origin is in the applied policy's `AllowedOrigins`                             | folded into `cors-policy`'s repair                                                                                                                              |
+- **Proxying uploads through the Worker to observe them.** Impossible past the request-body cap.
+- **Auto-creating a missing bucket.** A firm without one was provisioned under the wrong adapter; the answer is to say so and re-provision under the right one.
 
-The report is the manifest's shape (`firm-resources.ts`): one entry per check, in the order they must hold, so a reader sees the first thing that is wrong and not a list of consequences.
+### 4. What the first draft had, and this one does not
 
-`key-can-sign` is the check that discriminates the current fault. It is also the one that must use the exact credential the browser's URL will carry — a probe signed with the provisioner token would pass against a bucket the S3 key cannot reach.
+- **A `DeploymentMode` object, a startup refusal, a status line and a telemetry event.** All were ways of noticing a production deployment running a development adapter. The deploy gate makes that deployment impossible, which is better than noticing it, and costs a config line.
+- **A daily repairing sweep over every active firm.** Its justification was firms provisioned before the CORS step (2026-09-03) and future origin changes. The platform was reset on 2026-09-09, so no such firm exists; an origin change is a press of the button; and a sweep is a cron, a runner and a report nobody reads until something is wrong. The button is the sweep, run by the person who noticed.
+- **Readiness cached on the firm row, read before the file manager offers Upload.** A cache, a refresh rule and a second place the answer lives, to move a diagnosis from one screen to another. The failure line points at the screen instead.
+- **Readiness as the provisioner's last step before activation.** The provisioner already applies the three settings unconditionally on every run; the gate rules out the adapter that creates no bucket; the remaining precondition, the key's scope, is a deployment fact rather than a per-firm one, and failing every registration over it would turn a mis-scoped token into a 500 for every new owner. It is a button, not a fence.
+- **Diffing the bucket settings before repairing them.** Three `GET`s, three parsers and three comparisons, to tell the reader something was wrong before it was fixed. A whole-set `PUT` costs the same and leaves the bucket right; the report says `applied`.
 
-### 3. Where readiness runs
+### 5. Deferred
 
-- **At provisioning, as the last step before activation.** A firm is not marked `active` until its own readiness report is all `ok`. This closes the dev-adapter hole from the other side: an adapter that creates nothing cannot produce a bucket that exists, so the firm never activates, and the failure names the cause. (The startup refusal in §1 stops this earlier still; the two are belt and braces, because the startup check reads config and this one reads the world.)
-- **On the daily cron, as a sweep over every active firm**, through the existing `runFirmBackfill` runner. This is the bucket-configuration backfill proposed on 2026-09-09, generalised: it repairs the idempotent settings and counts the rest. An origin change becomes self-healing; a firm active before 2026-09-03 is repaired on the next pass without anyone remembering.
-- **On demand, as a diagnostic route** — `GET /api/v1/firm/upload-readiness`, on the pattern of `routes/scan-diagnose.ts`, gated on `firm:manageScanPolicy` (Owner/Admin). Its response is the report. This is the route the owner opens instead of a dashboard.
-- **Before the file manager offers Upload.** The files section reads the firm's last readiness result (cached on the firm row by the sweep, refreshed by the route) and, where it is not all `ok`, the create control's Upload item carries the refusal — the same `refusal` seam `claimMatterCreate` already has — naming the failed precondition. A member who cannot upload is told why before they choose a file.
-
-### 4. The presigner takes the scoped credential
-
-The deferred half of #590. `createR2Presigner` takes the same `credentials` resolver `createS3FirmBucket` now takes, and signs with `appendSessionToken` so the query-signed URL carries `X-Amz-Security-Token`. The cache's outlives-what-it-signs rule already covers the presigner's TTLs (the hour-long upload URL is the case it was written for). With this, the account-wide parent key appears in exactly one place: the mint request.
-
-### 5. What is deliberately not here
-
-- **Proxying uploads through the Worker to observe them.** Impossible past the plan's request-body cap, and would put every byte through Worker CPU. The hop stays unobservable; the design makes its preconditions observable instead.
-- **A second source of truth for what a firm owns.** Readiness reads the manifest; it does not grow its own list.
-- **Auto-repair of a missing bucket.** A firm whose bucket does not exist was provisioned under the wrong adapter, and the right answer is to say so and re-provision under the right one — not to have a sweep create buckets the provisioner should have.
-
-## Sequence
-
-1. `deployment-mode.ts`, the `DEPLOYMENT_TIER` var, the startup refusal, the status line. Small, and it turns the current mystery into a reading.
-2. `upload-readiness.ts` with the five checks and the diagnostic route. This answers the open question about the current firm directly, from the server, with no dashboard.
-3. Readiness as the provisioner's last step, and the daily sweep.
-4. The file manager's refusal.
-5. The presigner's scoped credential.
-
-Each step ships on its own; 1 and 2 together are what the owner needs this week.
+The presigner still signs with the account-wide parent key; joining it to the bucket-scoped credential (`appendSessionToken`) is a separate change and is not diagnosis.
 
 ## Verification
 
-Each check is a pure function over a fetch seam, tested against stub responses for every outcome in its row. The startup refusal is tested by constructing the app with a production tier and each development adapter in turn. The route is tested through the chokepoint. The end-to-end acceptance — a real upload against a real bucket from a real browser — remains the operator's step named in §15 of the runbook, and this design does not pretend the local pool can perform it.
+`test/upload-readiness.test.ts` drives every check outcome through stub ports — the walk stops where nothing below can be asked, a refused setting does not stop the others, a `403` on the probe names the re-mint, a missing bucket is never created, the development deployment says what it did not look at. `test/upload-readiness-route.test.ts` runs the route through the chokepoint (the development-shaped report; 403 without the permission). `test/firm-resource-provider.test.ts` pins `bucketExists` against found / 404 / refused / eu-jurisdiction. The end-to-end acceptance — a real upload against a real bucket from a real browser — remains the operator's step named in §15 of the runbook, and the button is how they find out why it failed.
 
 ## Decision
 
-Recorded as an ADR fragment beside this spec: the deployment tier is explicit and a development adapter refuses to serve production; the upload path's preconditions are verified by the platform and reported to the member.
+Recorded as an ADR fragment beside this spec.

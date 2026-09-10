@@ -386,3 +386,43 @@ describe("FirmResourceProvider — the bucket's browser-upload CORS policy", () 
     ).rejects.toThrow(/configureBucketCors failed: HTTP 403/);
   });
 });
+
+describe("FirmResourceProvider — asking whether a bucket exists without creating it", () => {
+  const firmId = newIdentifier("firm");
+
+  it("dev adapter says so by kind, and answers true for the only bucket there is", async () => {
+    const provider = createDevFirmResourceProvider();
+    expect(provider.kind).toBe("development");
+    await expect(provider.bucketExists(firmId, "us")).resolves.toBe(true);
+  });
+
+  it("REST adapter: a found bucket is true, a 404 is false, and neither call creates anything", async () => {
+    const found = stubFetch([{ status: 200, body: { success: true, result: {} } }]);
+    const provider = restProvider(found);
+    expect(provider.kind).toBe("cloudflare-rest");
+    await expect(provider.bucketExists(firmId, "us")).resolves.toBe(true);
+    expect(found.calls.map((call) => call.method)).toEqual(["GET"]);
+
+    const missing = stubFetch([BUCKET_NOT_FOUND]);
+    await expect(restProvider(missing).bucketExists(firmId, "us")).resolves.toBe(false);
+    expect(missing.calls.map((call) => call.method)).toEqual(["GET"]);
+  });
+
+  it("REST adapter: a refused probe is a failure to ask, never an absence", async () => {
+    const refused = stubFetch([
+      {
+        status: 403,
+        body: { success: false, errors: [{ code: 10000, message: "Authentication error" }] },
+      },
+    ]);
+    await expect(restProvider(refused).bucketExists(firmId, "us")).rejects.toThrow(
+      /bucketExists failed: HTTP 403.*Authentication error/s,
+    );
+  });
+
+  it("REST adapter: an eu firm is asked for under the eu jurisdiction header", async () => {
+    const stub = stubFetch([BUCKET_NOT_FOUND]);
+    await restProvider(stub).bucketExists(firmId, "eu");
+    expect(stub.calls[0]?.headers["cf-r2-jurisdiction"]).toBe("eu");
+  });
+});

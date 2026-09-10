@@ -12,7 +12,17 @@ import { browserUploadCorsRules } from "./files/browser-upload-cors.ts";
 // below — the dev adapter (Miniflare cannot create R2 at runtime) and the Cloudflare REST adapter
 // (real resource creation, deploy-time credentials).
 export interface FirmResourceProvider {
+  // Which adapter this is. A reader of the upload-readiness report (files/upload-readiness.ts)
+  // needs the fact stated, not inferred from what the calls did: the development adapter answers
+  // every configure call with success while configuring nothing, so "all steps succeeded" under it
+  // says nothing about the bucket.
+  readonly kind: "cloudflare-rest" | "development";
   createBucket(firmId: FirmId, region: DataRegion): Promise<{ bucketName: string }>;
+  // Whether the firm's bucket exists in the account, under the firm's jurisdiction — the probe
+  // createBucket runs before creating, exposed on its own so a diagnostic can ask without creating.
+  // A firm provisioned under the development adapter records a bucket name and creates no bucket;
+  // this is the call that tells that firm apart from one whose bucket is real.
+  bucketExists(firmId: FirmId, region: DataRegion): Promise<boolean>;
   // Configure the firm bucket's object-create event notification to feed the files-ingest queue
   // (prefix files/). Idempotent and re-runnable: provisioning calls it on every run that reaches the
   // bucket step, so a run that created the bucket but crashed before this still configures on retry.
@@ -41,6 +51,15 @@ export interface FirmResourceProvider {
 // "creation" only computes the deterministic name the provisioner records.
 export function createDevFirmResourceProvider(): FirmResourceProvider {
   return {
+    kind: "development",
+
+    // The bound bucket is the only bucket there is locally, and every firm's bytes go through it,
+    // so the firm's bucket "exists" in the only sense the local runtime has. The readiness report
+    // does not take this at face value: it reads `kind` and says the check did not apply.
+    bucketExists(_firmId: FirmId, _region: DataRegion): Promise<boolean> {
+      return Promise.resolve(true);
+    },
+
     // Miniflare cannot create R2 buckets at runtime; every locally-provisioned firm shares
     // the single pre-declared R2 binding (resolved by binding key in code, never by this stored
     // name). The stored name is per-firm UNIQUE — the SAME deterministic shape production uses — so
@@ -207,24 +226,41 @@ export function createCloudflareRestFirmResourceProvider(
     }
   }
 
+  // The bucket probe (its name IS its identifier). The eu jurisdiction header must ride it — the
+  // bucket lives under that jurisdiction's namespace, so a probe without it queries the wrong
+  // jurisdiction and always misses. A miss is a 404 with a non-success envelope; anything else
+  // that is not success (a refused token, an edge error) is a failure to ask, not an absence, and
+  // is thrown so a diagnostic never reports "no bucket" for a token that could not look.
+  async function probeBucket(operation: string, name: string, region: DataRegion) {
+    const jurisdiction = jurisdictionForRegion(region);
+    const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
+    const probed = await callApi<unknown>(
+      operation,
+      "GET",
+      `${accountBase}/r2/buckets/${name}`,
+      undefined,
+      extraHeaders,
+    );
+    if (probed.envelope.success) return { exists: true as const, extraHeaders };
+    if (probed.status === 404) return { exists: false as const, extraHeaders };
+    throw describeFailure(operation, probed.status, probed.envelope);
+  }
+
   return {
-    // Find-first, same shape: probe the bucket (its name IS its identifier), create only when
-    // the probe misses; already-exists on the create is the same benign probe-create race. The
-    // eu jurisdiction header must ride BOTH the probe and the create — the bucket lives under
-    // that jurisdiction's namespace, so a probe without it queries the wrong jurisdiction and
-    // always misses.
+    kind: "cloudflare-rest",
+
+    async bucketExists(firmId: FirmId, region: DataRegion): Promise<boolean> {
+      const name = await firmResourceName(firmId);
+      return (await probeBucket("bucketExists", name, region)).exists;
+    },
+
+    // Find-first, same shape: probe the bucket, create only when the probe misses; already-exists
+    // on the create is the same benign probe-create race. The jurisdiction header rides the create
+    // as it rode the probe.
     async createBucket(firmId: FirmId, region: DataRegion): Promise<{ bucketName: string }> {
       const name = await firmResourceName(firmId);
-      const jurisdiction = jurisdictionForRegion(region);
-      const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
-      const probed = await callApi<unknown>(
-        "createBucket",
-        "GET",
-        `${accountBase}/r2/buckets/${name}`,
-        undefined,
-        extraHeaders,
-      );
-      if (probed.envelope.success) return { bucketName: name };
+      const { exists, extraHeaders } = await probeBucket("createBucket", name, region);
+      if (exists) return { bucketName: name };
 
       const locationHint = locationHintForRegion(region);
       const created = await callApi<unknown>(

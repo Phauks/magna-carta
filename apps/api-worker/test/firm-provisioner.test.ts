@@ -45,6 +45,10 @@ function fakePorts(): FakePorts {
   const regions: DataRegion[] = [];
   const failures: FakePorts["failures"] = {};
   const resourceProvider: FirmResourceProvider = {
+    kind: "development",
+    bucketExists(_firmId: FirmId, _region: DataRegion) {
+      return Promise.resolve(true);
+    },
     createBucket(firmId: FirmId, region: DataRegion) {
       calls.createBucket += 1;
       regions.push(region);
