@@ -78,16 +78,17 @@
   slices: 0-1-walking-skeleton, 0-7b-auth-ui-deferred-surfaces
   adrs: ADR-0005
   evidence: apps/web/src/routes/ (login, matters, settings, tools, account)
-  notes: Skeleton shipped; app shell and first operable surfaces in build on branch slice-0-7b-app-shell.
+  notes: Skeleton shipped; the app shell and first operable surfaces are on main, and the settings sections are being completed under docs/active-work/claude/settings-implementation-plan-asr0l6.md.
 
 - id: platform.web-spa.app-shell
   name: App shell and first surfaces
   scope: Authenticated application shell, navigation, settings surfaces, matter and tools views.
-  status: in-build
+  status: partial
   surface: screen
   slices: 0-7b-auth-ui-deferred-surfaces
   spec: docs/specs/2026-07-02-slice-0-7b-stage-1-app-shell-design.md
-  evidence: apps/web/src/lib/view-shell, docs/active-work/slice-0-7b-app-shell.md; branch slice-0-7b-app-shell on origin
+  evidence: apps/web/src/lib/components/app-shell.svelte, apps/web/src/lib/view-shell, apps/web/src/routes/(app)/ (matters, settings, tools); the July branch slice-0-7b-app-shell was superseded by the streams that landed these, and its note is retired
+  notes: The shell, navigation, matter and tools views are on main; several settings sections are still stubs, which docs/active-work/claude/settings-implementation-plan-asr0l6.md is closing.
 
 - id: platform.web-spa.multi-tab-sync
   name: Cross-tab state sync

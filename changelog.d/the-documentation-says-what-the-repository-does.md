@@ -19,5 +19,12 @@ and `typescript.md` stubs; the gate workflow's and the pre-push hook's comments 
 a branch that no longer exists and stops saying Directory pronouns await a pull request; and the
 relative links that broke when `apps/worker` became `apps/api-worker`, when decision fragments were
 numbered, and when the calendar's time-zone module moved to `@magna-carta/civil-time` point at the
-files again. Twenty-two `docs/active-work/` notes whose branches had landed are retired, with their
-`status.d/` pointers cleared.
+files again. Fifty-two `docs/active-work/` notes whose branches had landed are retired, with their
+`status.d/` pointers cleared — twenty-seven of them the registry itself could not call landed from
+the shallow clone a cloud session starts with, and could once the history was fetched in full —
+along with the two July notes (`file-surface-web`, `slice-0-7b-app-shell`) whose streams the
+notes themselves or the later auth-interface pull requests had superseded. The firm-usage stream's
+one document that never reached `main`, the per-firm R2 bucket-isolation options brief that
+`docs/specs/2026-09-01-per-firm-r2-bucket-isolation-review.md` reviews by path, is landed at the
+revision that review read, and the download register's ledger evidence names the save-target seam
+that is already on `main`.

@@ -10,7 +10,7 @@ ui: in-progress by="Opus 4.8"
 load-profile: n/a
 tested: todo
 branch: slice-0-7b-app-shell
-active-work: docs/active-work/slice-0-7b-app-shell.md
+active-work:
 next: remaining per-tool pages, one at a time
 link-spec: docs/specs/2026-07-08-tools-listing-page-design.md
 link-plan: docs/specs/2026-07-08-tools-listing-page-implementation-plan.md

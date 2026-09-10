@@ -265,7 +265,7 @@
         }
       },
       "branch": "claude/unified-error-screen-8pam6s",
-      "activeWork": "docs/active-work/claude/unified-error-screen-8pam6s.md",
+      "activeWork": null,
       "next": "screenshot capture on a report, and the diagnostics-level setting UI",
       "links": {
         "spec": "docs/specs/2026-08-31-unified-error-surface-design.md",
@@ -471,7 +471,7 @@
         }
       },
       "branch": "main",
-      "activeWork": "docs/active-work/claude/directory-ui-person-linking-fcot46.md",
+      "activeWork": null,
       "next": "The client as a matter_party row at intake, then the three hand-rolled pickers folded onto EntityPicker (docs/specs/2026-09-02-directory-linking-design.md)",
       "links": {
         "spec": "docs/specs/2026-09-02-directory-linking-design.md",
@@ -552,7 +552,7 @@
         }
       },
       "branch": "claude/matter-consolidated-search-yba72d",
-      "activeWork": "docs/active-work/claude/matter-consolidated-search-yba72d.md",
+      "activeWork": null,
       "next": "file contents, once the search Container is deployed; the fee source is blocked on the fee store existing at all",
       "links": {
         "spec": "docs/specs/2026-08-31-matter-consolidated-search-design.md",
@@ -1143,7 +1143,7 @@
         }
       },
       "branch": "slice-0-7b-app-shell",
-      "activeWork": "docs/active-work/slice-0-7b-app-shell.md",
+      "activeWork": null,
       "next": "remaining per-tool pages, one at a time",
       "links": {
         "spec": "docs/specs/2026-07-08-tools-listing-page-design.md",
@@ -2589,7 +2589,7 @@
         }
       },
       "branch": "main",
-      "activeWork": "docs/active-work/claude/sidebar-time-accessibility-88khpa.md",
+      "activeWork": null,
       "next": null,
       "links": {
         "spec": null,
@@ -3010,7 +3010,7 @@
         }
       },
       "branch": "claude/matters-notes-section-m9na1w",
-      "activeWork": "docs/active-work/claude/matters-notes-section-m9na1w.md",
+      "activeWork": null,
       "next": "the file manager's history events join the timeline and its identification is stored at scan; the Overview tile and Home mount the Activity component; Billing and Parties gain sources; an event and a deadline get a record window; then Notes is rebuilt on the Activity component with a subject, a kind, parties and a standing flag",
       "links": {
         "spec": "docs/specs/2026-08-15-notes-and-activity-design.md",
@@ -3184,7 +3184,7 @@
         }
       },
       "branch": "claude/calendar-ui-plan-eu523y",
-      "activeWork": "docs/active-work/claude/calendar-ui-plan-eu523y.md",
+      "activeWork": null,
       "next": "The two index follow-ups the load profile names (the custodyDueBack predicate, the member filter's participant lookup); the matter timeline as a fourth view over the federated matter read; notification wiring subscribes to the declared emission points",
       "links": {
         "spec": "docs/specs/2026-08-05-case-calendar-design.md",
@@ -3222,7 +3222,7 @@
         }
       },
       "branch": "claude/calendar-ui-plan-eu523y",
-      "activeWork": "docs/active-work/claude/calendar-ui-plan-eu523y.md",
+      "activeWork": null,
       "next": "The room grid and the bookings surface over the availability read, the resource catalog under Settings, and the related-links surface; notification wiring subscribes to the ten declared emission points; a per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams awaiting an owner ask",
       "links": {
         "spec": "docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md",
@@ -3300,7 +3300,7 @@
         }
       },
       "branch": "claude/intake-procedure-seams-5zaapx",
-      "activeWork": "docs/active-work/claude/intake-procedure-seams-5zaapx.md",
+      "activeWork": null,
       "next": "the verification port behind the identity step; the e-signature reader behind the engagement letter; a custom-field picker for questionnaire steps once the definitions have a list read; the wider design's remaining slices (the public form, the pipeline board, call intake, the non-engagement letter); a load-profile volume when a firm's procedures are many rather than long",
       "links": {
         "spec": "docs/specs/2026-09-03-intake-procedure-design.md",
@@ -3338,7 +3338,7 @@
         }
       },
       "branch": "claude/intake-workflow-development-hgn18z",
-      "activeWork": "docs/active-work/claude/intake-workflow-development-hgn18z.md",
+      "activeWork": null,
       "next": "the pipeline board over firm-defined stages, if a firm needs a word the procedure cannot express; the public form, the submission and its triage, call intake; the portal reader behind client-forms and the payments reader behind payment; a per-procedure folder layout on the consultation; a load-profile volume for the desk read",
       "links": {
         "spec": "docs/specs/2026-09-05-intake-desk-design.md",

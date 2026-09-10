@@ -11,7 +11,7 @@ load-profile: done
 tested: done
 next: The room grid and the bookings surface over the availability read, the resource catalog under Settings, and the related-links surface; notification wiring subscribes to the ten declared emission points; a per-firm hard-refuse booking policy, approval workflows, and room-panel sync are named seams awaiting an owner ask
 branch: claude/calendar-ui-plan-eu523y
-active-work: docs/active-work/claude/calendar-ui-plan-eu523y.md
+active-work:
 link-spec: docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md
 link-plan: docs/specs/2026-08-07-calendar-slice-2-firm-events-and-resources.md
 adrs: ADR-0261

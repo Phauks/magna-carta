@@ -11,7 +11,7 @@ load-profile: done by="Opus 5"
 tested: done by="Opus 5"
 next: The two index follow-ups the load profile names (the custodyDueBack predicate, the member filter's participant lookup); the matter timeline as a fourth view over the federated matter read; notification wiring subscribes to the declared emission points
 branch: claude/calendar-ui-plan-eu523y
-active-work: docs/active-work/claude/calendar-ui-plan-eu523y.md
+active-work:
 link-spec: docs/specs/2026-08-05-case-calendar-design.md
 link-plan: docs/specs/2026-08-05-case-calendar-implementation-plan.md
 adrs:

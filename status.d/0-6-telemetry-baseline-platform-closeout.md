@@ -10,7 +10,7 @@ ui: in-progress by="Opus 5"
 load-profile: n/a
 tested: in-progress by="Opus 5"
 branch: claude/unified-error-screen-8pam6s
-active-work: docs/active-work/claude/unified-error-screen-8pam6s.md
+active-work:
 next: screenshot capture on a report, and the diagnostics-level setting UI
 link-spec: docs/specs/2026-08-31-unified-error-surface-design.md
 link-plan:
