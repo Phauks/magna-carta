@@ -6,7 +6,9 @@
 
 Two workers with a hard boundary between them:
 
-**Per-merge (deterministic, CI):** [`.github/workflows/assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) runs on every push to `main`, folds the fragments into the rendered trackers (`changelog.d/` → `CHANGELOG.md`, `docs/decisions/pending/` → the Decision-Log register + numbered ADRs, `status.d/` → `STATUS.md`/`STATUS.json`), and delivers them as an **auto-merging pull request** from the `docs-assembly` branch — the gate fast-paths the docs-only diff and the PR merges itself, honoring the `main` ruleset. The changelog is therefore current minutes after every merged PR, mechanically.
+**Per-merge (deterministic, CI):** [`.github/workflows/assemble-docs.yml`](../../.github/workflows/assemble-docs.yml) runs on every push to `main`, folds the fragments into the rendered trackers (`changelog.d/` → `CHANGELOG.md`, `docs/decisions/pending/` → the Decision-Log register + numbered ADRs, `status.d/` → `STATUS.md`/`STATUS.json`), and delivers them as an **auto-merging pull request** from the `docs-assembly` branch — the gate fast-paths the docs-only diff and the PR merges itself, honoring the `main` ruleset. When GitHub Actions is running, the changelog is therefore current minutes after every merged PR, mechanically.
+
+**It is not running.** GitHub Actions has been blocked account-side since 2026-08-05 (the GitHub Actions billing block recorded in [`docs/deploy-queue.md`](../deploy-queue.md)): every `assemble-docs` run since then fails in seconds with no runner, the assembly PR it last managed to open (#457, last updated 2026-09-03) cannot pass its gate, and the fragments accumulate — 401 changelog fragments and 171 pending decisions as of 2026-09-10. Nothing on a branch may fold them (the fragment workflow forbids it), so the rendered `CHANGELOG.md`, `docs/public-changelog.md` and Decision-Log register stay at their 2026-09-06 state until Actions runs again or a docs-sync pull request is merged with the assemblers' output.
 
 **Two one-time repository settings are required** (the workflow fails loudly without them):
 
@@ -23,7 +25,7 @@ Two workers with a hard boundary between them:
 
 ## The trigger (canonical configuration)
 
-The scheduler is a Claude Code cloud **Routine** — a dumb clock outside the repo; everything it needs lives in-repo, so it can be created, deleted, and re-created losslessly from this block. (Status: not yet created — pending owner sign-off on the system design; any Claude session can create it from this configuration.)
+The scheduler is a Claude Code cloud **Routine** — a dumb clock outside the repo; everything it needs lives in-repo, so it can be created, deleted, and re-created losslessly from this block. (Status: created 2026-07-14 as `MC - Docs Sync` and enabled; it fires every Monday. A second Routine with the same job, `Weekly docs-sync`, was created 2026-07-17 for 14:00 UTC Mondays and is also enabled, so the pass currently runs twice an hour apart — one of the two should be disabled. Since the 2026-08-24 run (#382, still open) no run has opened a pull request; the reports registry therefore ends at 2026-08-12.)
 
 - **Name:** `Docs sync — weekly docs-maintenance pass`
 - **Schedule (cron, UTC):** `0 13 * * 1` (Mondays 13:00 UTC)

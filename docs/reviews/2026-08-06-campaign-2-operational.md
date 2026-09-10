@@ -8,8 +8,8 @@ reports, reviews and reminders, the destruction workflow, and the will-deposit d
 case calendar's recorded model and thirteen-source federation, the matter-close advisory hook, the
 worker routes over all of it, and the data-access statements underneath. `packages/matter-assets/`
 was checked for and is **not merged**: only its design note exists
-([`docs/active-work/claude/matter-assets-design.md`](../active-work/claude/matter-assets-design.md)),
-there is no `packages/matter-assets/` directory, so it is out of this pass.
+(`docs/active-work/claude/matter-assets-design.md`, since retired — the package has landed as
+`packages/matter-assets/` after this review), there was no `packages/matter-assets/` directory, so it is out of this pass.
 
 Every finding below was verified against the code and, where the claim was about a database
 guarantee, against the migration that creates it. Where a design decision looked wrong and turned
@@ -316,7 +316,7 @@ or split the field into `question` and `answer` so no rendering can show one wit
 
 **Status: Fixed in #157**, and the finding understated it: `Math.min` also resolved every unambiguous wall clock in the hour AFTER a fall-back an hour early (02:14 PST became 01:14 PST), which is a whole hour every autumn rather than an edge case. Resolution is now candidates plus a round trip — a repeated hour takes its first occurrence, a time after a transition takes itself, a skipped time moves forward — and `endOfCivilDayInstant` is correct in the midnight-transition zones. Both DST cases have their own named tests.
 
-[`packages/calendar/src/time-zone.ts:69-93`](../../packages/calendar/src/time-zone.ts).
+[`packages/calendar/src/time-zone.ts:69-93`](../../packages/civil-time/src/time-zone.ts) (the module has since moved to `packages/civil-time/`).
 `instantForCivilDateTime` documents that a non-existent wall-clock time "resolves to the instant the
 clock reached instead", but it returns `Math.min(firstPass, secondPass)`. Worked through for
 `2026-03-08 02:30` in `America/Los_Angeles`: the first pass lands at 10:30Z and the second at 09:30Z,
