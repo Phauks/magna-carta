@@ -1,8 +1,8 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/upbeat-clarke-6znudl
-area: Platform reset tooling, and the stack line's two stale claims
+area: Upload readiness and deployment modes — design under owner review; reset tooling and the runbook's key-scope correction landed
 status: review
-touches: CLAUDE.md, apps/api-worker/scripts, docs/conventions/operations.md
+touches: docs/specs, docs/decisions/pending, apps/api-worker/src/files, apps/api-worker/src/deployment-mode.ts, apps/api-worker/wrangler.jsonc, apps/web/src/routes/(app)/matters/[id]/files
 ---
 
 The pre-launch clean-slate script (`apps/api-worker/scripts/reset-platform.mts`), plus the correction
