@@ -911,12 +911,12 @@ export const mattersGraduate = <ThrowOnError extends boolean = false>(options: O
 export const mattersOpen = <ThrowOnError extends boolean = false>(options: Options<MattersOpenData, ThrowOnError>): RequestResult<MattersOpenResponses, MattersOpenErrors, ThrowOnError> => (options.client ?? client).post<MattersOpenResponses, MattersOpenErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/open', ...options });
 
 /**
- * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed.
+ * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close preconditions first; a matter whose client trust ledger still holds money, or carries an active disputed-funds hold, is refused with the balance and the movements that clear it. Refuses a matter that is already closed, so its recorded close date never moves. The response also carries advisory notices — things worth knowing about the matter being closed, such as physical originals the firm still holds against it. A notice never blocks a close and never becomes a refusal; the matter in the response is closed. A consultation closes the same way: the firm decided against it. It keeps its tentative number and draws no matter number, and the same preconditions run, which a consultation with nothing on its ledgers passes.
  */
 export const mattersClose = <ThrowOnError extends boolean = false>(options: Options<MattersCloseData, ThrowOnError>): RequestResult<MattersCloseResponses, MattersCloseErrors, ThrowOnError> => (options.client ?? client).post<MattersCloseResponses, MattersCloseErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/close', ...options });
 
 /**
- * Puts an open matter on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, an instruction to wait). The matter keeps its number; nothing is drawn or surrendered. It leaves the active lists and stays on the docket wearing its status. Refuses a matter that is not open.
+ * Puts an open matter or a consultation on hold: the firm has stopped working it without closing it, for the reason given (a client who has stopped paying, a party who has gone quiet, a prospect who is thinking it over, an instruction to wait). The matter keeps whichever number it wears; nothing is drawn or surrendered. An active matter leaves the active lists and stays on the docket wearing its status. Refuses an intake, which has nothing yet to pause, and a matter that is already on hold or closed.
  */
 export const mattersHold = <ThrowOnError extends boolean = false>(options: Options<MattersHoldData, ThrowOnError>): RequestResult<MattersHoldResponses, MattersHoldErrors, ThrowOnError> => (options.client ?? client).post<MattersHoldResponses, MattersHoldErrors, ThrowOnError>({
     url: '/api/v1/matters/{id}/hold',
@@ -928,7 +928,7 @@ export const mattersHold = <ThrowOnError extends boolean = false>(options: Optio
 });
 
 /**
- * Releases a hold: the matter returns to open, and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.
+ * Releases a hold: the matter returns to where the hold found it — open if it had been opened, else consultation — and the reason and the instant of the hold are cleared from it (the audit trail keeps that it was held). Refuses a matter that is not on hold.
  */
 export const mattersRelease = <ThrowOnError extends boolean = false>(options: Options<MattersReleaseData, ThrowOnError>): RequestResult<MattersReleaseResponses, MattersReleaseErrors, ThrowOnError> => (options.client ?? client).post<MattersReleaseResponses, MattersReleaseErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/release', ...options });
 
