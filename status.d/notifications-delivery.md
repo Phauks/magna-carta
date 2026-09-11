@@ -10,7 +10,7 @@ ui: done by="Opus 5"
 load-profile: todo
 tested: todo
 branch: claude/youthful-franklin-s4n2fw
-active-work: docs/active-work/claude/youthful-franklin-s4n2fw.md
+active-work:
 next: Provisioning, and coverage. The digest is built and cannot reach anybody until the sending domain, EMAIL_FROM and APP_BASE_URL exist (docs/deploy-queue.md). Coverage is now the largest gap the interface makes visible: thirty-nine topics already commit to the outbox with no registered type, so the feed shows less than the platform already knows. Three gaps left in the build — the deadline horizon comparison, which needs a firm lead-window setting nobody has specified; four of the five job coordinators, three of which record no requester; and the immediate-escalation send path, which no registered kind needs and a fitness test refuses until it ships. The FIRM tier of the policy has routes and no screen, and the channel port that would make SMS and push adapters rather than new delivery paths is unbuilt
 link-spec: docs/specs/2026-08-06-notifications-delivery-design.md
 link-plan: docs/specs/2026-08-06-notifications-delivery-implementation-plan.md

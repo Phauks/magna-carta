@@ -10,7 +10,7 @@ ui: in-progress
 load-profile: done by="Opus 4.8"
 tested: todo
 branch: main
-active-work: docs/active-work/claude/text-document-editor-support-arvpgv.md
+active-work:
 next: Verify the Collabora frame fills on the deployed site; the spreadsheet and presentation lanes; the reconcile screen.
 link-spec:
 link-plan:

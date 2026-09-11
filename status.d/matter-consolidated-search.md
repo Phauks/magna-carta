@@ -10,7 +10,7 @@ ui: done
 load-profile: done
 tested: done
 branch: claude/matter-consolidated-search-yba72d
-active-work: docs/active-work/claude/matter-consolidated-search-yba72d.md
+active-work:
 next: file contents, once the search Container is deployed; the fee source is blocked on the fee store existing at all
 link-spec: docs/specs/2026-08-31-matter-consolidated-search-design.md
 link-plan:

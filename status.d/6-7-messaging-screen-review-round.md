@@ -10,7 +10,7 @@ ui: done
 load-profile: n/a
 tested: done
 branch: claude/messaging-screen-improvements-b7hyj1
-active-work: docs/active-work/claude/messaging-screen-improvements-b7hyj1.md
+active-work:
 next: reporting on what a firm's phone actually carries, which the set-aside reasons now make answerable; resolving an inbound number against the Directory automatically, which the contact field only does by hand; the messaging port and the Telnyx adapter, still gated on A2P 10DLC registration
 link-spec: docs/specs/2026-09-07-call-and-text-log-design.md
 link-plan:

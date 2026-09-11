@@ -3,7 +3,7 @@
 **Status:** Draft — pending owner acceptance · **Date:** 2026-07-09 · **Owner:** Trevor Goldsmith
 **White-paper home:** _Communications layer_ (email) — this builds the parsing foundation the inbound-capture subsystem, in-app conversion, metadata inspection, and Discovery all stand on.
 **Standard:** [`docs/conventions/engine-host-seam.md`](../conventions/engine-host-seam.md) — this is the third engine built to that seam, after `pdf-core` and `decryption-core`.
-**ADR fragment:** [`docs/decisions/pending/email-core-parse-engine.md`](../decisions/pending/email-core-parse-engine.md) (number assigned at merge).
+**ADR fragment:** [`do../decisions/0173-email-core-parse-engine.md`](../decisions/0173-email-core-parse-engine.md) (number assigned at merge).
 
 ---
 
@@ -123,7 +123,7 @@ Shape follows the `decryption` precedent (the WASM engine, not the container one
 
 Shipped in the same commits as the code (golden rules 5 and 8):
 
-- **ADR fragment** — `docs/decisions/pending/email-core-parse-engine.md`. Records the pure-Rust parse core on the engine-host seam, the parse-only boundary with render and DKIM crypto outside it, and the PostalMime override. Numbered at merge under the fragment convention.
+- **ADR fragment** — `do../decisions/0173-email-core-parse-engine.md`. Records the pure-Rust parse core on the engine-host seam, the parse-only boundary with render and DKIM crypto outside it, and the PostalMime override. Numbered at merge under the fragment convention.
 - **Amend [`2026-06-16-email-filing-design.md`](2026-06-16-email-filing-design.md)** — its §2 PostalMime line, and its reservation of ADR-0104/0105/0106, all three of which were subsequently assigned to unrelated decisions (fragment convention, worktree coordination, product-usage analytics).
 - `changelog.d/` and `status.d/` fragments; `crates/email-core/CLAUDE.md` for local engine rules; `docs/active-work/email-core-parse-engine.md`.
 - **ROADMAP** — place the parse core ahead of both the capture subsystem and Discovery, since both consume its record.

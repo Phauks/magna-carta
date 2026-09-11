@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust (`oar-ocr` 0.8 over `ort` / ONNX Runtime 1.24), axum 0.8, hayro via `pdf-core`, the `image` crate 0.25, TypeScript Workers (Hono, zod, `@cloudflare/containers`), Drizzle per-firm migrations.
 
-**Design:** [`docs/specs/2026-07-09-ocr-engine-design.md`](2026-07-09-ocr-engine-design.md). **Decision:** [`docs/decisions/pending/ocr-engine-model-and-determinism.md`](../decisions/pending/ocr-engine-model-and-determinism.md).
+**Design:** [`docs/specs/2026-07-09-ocr-engine-design.md`](2026-07-09-ocr-engine-design.md). **Decision:** [`do../decisions/0179-ocr-engine-model-and-determinism.md`](../decisions/0179-ocr-engine-model-and-determinism.md).
 
 **Execute tasks in numeric order.** Task 9 (the Dockerfile) appears in this file before Tasks 5 through 8, because it was written before the tier benchmark was moved ahead of it. It runs last, so the image bakes the tier the benchmark chose.
 

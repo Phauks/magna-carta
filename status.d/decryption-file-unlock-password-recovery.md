@@ -10,7 +10,7 @@ ui: done by="Sonnet 5"
 load-profile: n/a
 tested: done by="Opus 4.8" awaiting
 branch: main
-active-work: docs/active-work/claude/text-document-editor-support-arvpgv.md
+active-work:
 next: GPU rung Stage 1 (benchmark harness @magna-carta/gpu-benchmark) built — owner benchmark run + Stage 2 wiring next; connect the magna-carta-recovery Worker to Workers Builds
 link-spec: docs/specs/2026-06-26-decryption-tool-design.md
 link-plan: docs/specs/2026-06-26-decryption-slice-2-plan-2-orchestration-implementation-plan.md

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust 2021 · `mail-parser` 0.11.5 · `msg_parser` 0.3.6 · `thiserror` 2 · `wasm-bindgen` · `wasm-pack` (in Docker) · TypeScript · Hono + `@hono/zod-openapi` · Vitest.
 
-**Spec:** [`2026-07-09-email-core-parse-engine-design.md`](2026-07-09-email-core-parse-engine-design.md) · **ADR fragment:** [`docs/decisions/pending/email-core-parse-engine.md`](../decisions/pending/email-core-parse-engine.md)
+**Spec:** [`2026-07-09-email-core-parse-engine-design.md`](2026-07-09-email-core-parse-engine-design.md) · **ADR fragment:** [`do../decisions/0173-email-core-parse-engine.md`](../decisions/0173-email-core-parse-engine.md)
 
 ## Global Constraints
 

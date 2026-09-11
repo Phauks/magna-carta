@@ -4,7 +4,7 @@
 
 **White paper:** _Core domain_ — the Tools area and the file utilities.
 **Decision:** `docs/decisions/pending/a-file-nobody-trusts-is-the-reason-the-workbench-exists.md` (until the register assembles it on `main`).
-**Owner's rulings on this screen:** [`docs/conventions/file-workbench-rulings.md`](../../../../../docs/conventions/file-workbench-rulings.md). Read it before changing anything here.
+**Owner's rulings on this screen:** [`docs/conventions/file-workbench-rulings.md`](../../../../../../docs/conventions/file-workbench-rulings.md). Read it before changing anything here.
 
 ## Key files / entry points
 

@@ -27,7 +27,7 @@ Every change updates the docs in its lane. Skip a lane only when it genuinely do
 
 **Living trackers — update in the same PR:**
 
-- [ ] [`CHANGELOG.md`](../../CHANGELOG.md) `[Unreleased]` gets a line for any user-facing or notable change.
+- [ ] A `changelog.d/<slug>.md` fragment for any user-facing or notable change (it becomes the [`CHANGELOG.md`](../../CHANGELOG.md) `[Unreleased]` line when `main` assembles it — never write that file on a branch; see _Fragment workflow_ below).
 - [ ] [`ROADMAP.md`](../../ROADMAP.md) reflects new status (moved to _Recently shipped_, next item promoted to _Now_).
 
 ## Two audiences
@@ -145,7 +145,7 @@ The third is [`docs/decisions-open.html`](../decisions-open.html), **the decisio
 
 Authoring stays **in-commit** with the change (the docs-in-commit rule above). Two backstops catch what slips, split by whether judgment is needed:
 
-- **Deterministic checks are CI (`vp check`), not an agent:** the cross-reference rule (a `§N` reference from _outside_ the white paper), dead/broken links, and an empty-`[Unreleased]`-on-a-user-facing-PR gate are lint rules — cheaper and more reliable than an LLM.
+- **Deterministic checks are lint rules, not an agent:** the cross-reference rule (a "spec §N" / "white paper §N" reference from _outside_ the white paper) is one pattern of `pnpm run lint:process-refs`; the fragment validators (`lint:changelog-fragments`, `lint:decisions`, `lint:status`, `lint:roadmap`) check every fragment's frontmatter and that the files a status fragment links exist. There is **no** repository-wide dead-link check and no changelog-coverage gate yet — a merge with no changelog fragment is caught only by the weekly audit below, and a broken link only by whoever follows it.
 - **Judgment-bearing checks are the propose-only docs-maintenance agent** (ADR-0058): drafting changelog/roadmap entries and flagging coverage gaps (a user-visible change with no `docs/user/` guide, a design change with no ADR). It never authors design narrative or user-guide prose and never auto-merges.
 
 ## Per-feature user-guide pattern

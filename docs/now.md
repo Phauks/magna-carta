@@ -41,8 +41,8 @@ not](#what-a-roll-up-is-not).
 | Status | Nodes | Share |
 | --- | ---: | ---: |
 | `shipped` | 312 | 46% |
-| `partial` | 122 | 18% |
-| `in-build` | 1 | 0% |
+| `partial` | 123 | 18% |
+| `in-build` | 0 | 0% |
 | `designed` | 46 | 7% |
 | `planned` | 15 | 2% |
 | `researching` | 5 | 1% |
@@ -63,9 +63,9 @@ are not counted as one more thing built.
 
 ### What `partial` hides
 
-**Shipped alone is 312 of 677 (46%). Shipped plus partial is 434 (64%).**
+**Shipped alone is 312 of 677 (46%). Shipped plus partial is 435 (64%).**
 
-The 122 units between those two numbers are work that is engineered and paid for and is not
+The 123 units between those two numbers are work that is engineered and paid for and is not
 finished. Reading the larger number as how much of the product exists overstates it; reading the
 smaller one understates what has been built. Both are true and neither is the answer on its own.
 Which of the two a reader wants is usually really a question about reach — whether anybody can get
@@ -117,7 +117,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Observability & Diagnostics | 14 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 0 | 20 | 70% |
 | Payments | 0 | 0 | 0 | 6 | 0 | 0 | 3 | 0 | 0 | 9 | 0% |
 | Performance & Concurrency | 6 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | 0 | 11 | 55% |
-| Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 6 | 1 | 1 | 0 | 0 | 20 | 6 | 1 | 66 | 47% |
+| Platform — Delivery, Architecture, Tenancy & Data Conventions | 31 | 7 | 0 | 1 | 0 | 0 | 20 | 6 | 1 | 66 | 47% |
 | Client Portal | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 1 | 0 | 14 | 0% |
 | Product Updates & User-Facing Documentation | 2 | 4 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 14 | 14% |
 | Release Channels | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 8 | 88% |
@@ -126,7 +126,7 @@ debt — a port, a table or a fitness function is finished without a screen and 
 | Settings & Configuration | 13 | 4 | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 20 | 65% |
 | Tasks and Workflows / Matter Plans | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 50% |
 | Translation Services | 0 | 0 | 0 | 5 | 0 | 0 | 0 | 1 | 0 | 6 | 0% |
-| **All areas** | **312** | **122** | **1** | **46** | **15** | **5** | **135** | **38** | **3** | **677** | **46%** |
+| **All areas** | **312** | **123** | **0** | **46** | **15** | **5** | **135** | **38** | **3** | **677** | **46%** |
 
 ## Where we have been
 
@@ -313,7 +313,7 @@ Decisions about a capability only. Account-side steps that no session can perfor
 
 ## Being built now
 
-- `platform.web-spa.app-shell` · **App shell and first surfaces** — Authenticated application shell, navigation, settings surfaces, matter and tools views.
+_No capability is marked `in-build`._
 
 ## Next up
 
@@ -1154,8 +1154,8 @@ to change a line here, edit the node in its area file and re-run the build.
     - `platform.workers-api.route-chokepoint` · `shipped` · **Route metadata chokepoint** — Ordered enforcement chain (tenancy, authn, RBAC, idempotency, rate limit) driven by per-route declared metadata, with a conformance fitness suite.
     - `platform.workers-api.public-api-host` · `not-started` · **Public API host** — api.magnacarta.esq token-authenticated third-party/SDK surface, separated from cookie-auth first-party calls by host. _Note: Host reserved by design; only the same-origin first-party surface exists._
     - `platform.workers-api.service-bindings` · `shipped` · **Internal Worker RPC** — Plugin/core and heavy-service calls over Cloudflare service bindings, separate from the public REST surface.
-  - `platform.web-spa` · `partial` · **Web SPA** — Svelte 5 / SvelteKit SPA (adapter-cloudflare) served as Workers static assets, login-gated, per-route code-splitting. _Note: Skeleton shipped; app shell and first operable surfaces in build on branch slice-0-7b-app-shell._
-    - `platform.web-spa.app-shell` · `in-build` · **App shell and first surfaces** — Authenticated application shell, navigation, settings surfaces, matter and tools views.
+  - `platform.web-spa` · `partial` · **Web SPA** — Svelte 5 / SvelteKit SPA (adapter-cloudflare) served as Workers static assets, login-gated, per-route code-splitting. _Note: Skeleton shipped; the app shell and first operable surfaces are on main, and the settings sections are being completed under docs/active-work/claude/settings-implementation-plan-asr0l6.md._
+    - `platform.web-spa.app-shell` · `partial` · **App shell and first surfaces** — Authenticated application shell, navigation, settings surfaces, matter and tools views. _Note: The shell, navigation, matter and tools views are on main; several settings sections are still stubs, which docs/active-work/claude/settings-implementation-plan-asr0l6.md is closing._
     - `platform.web-spa.multi-tab-sync` · `not-started` · **Cross-tab state sync** — BroadcastChannel cache-invalidation broadcast so an edit in one tab updates other tabs and windows.
     - `platform.web-spa.popout-windows` · `not-started` · **Pop-out windows** — Optional pop-out windows for documents and matters with coherent state.
     - `platform.web-spa.app-shell-caching` · `not-started` · **Service-worker asset cache** — Service worker caches app shell/assets only, no client-data caching, cleared on logout; web app deliberately not an installable PWA.

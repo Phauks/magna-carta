@@ -10,7 +10,7 @@ ui: n/a
 load-profile: n/a
 tested: done by="Opus 5"
 branch: claude/date-handling-audit-xx8q3o
-active-work: docs/active-work/claude/date-handling-audit-xx8q3o.md
+active-work:
 next: Answered — every date is entered through the DatePicker (owner, 2026-09-08); what is open now is on the continued slice
 link-spec:
 link-plan:

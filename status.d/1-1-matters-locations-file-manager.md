@@ -10,7 +10,7 @@ ui: in-progress
 load-profile: done by="Opus 4.8"
 tested: todo
 branch: main
-active-work: docs/active-work/claude/text-document-editor-support-arvpgv.md
+active-work:
 next: Land the contract stream (folders.list, uploads.get, files.list ingest status); then the Files UI in 0·7.
 link-spec:
 link-plan:

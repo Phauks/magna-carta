@@ -1,6 +1,6 @@
 # TypeScript conventions
 
-**Status:** Stub — to be written when the repo scaffold lands (Phase 0).
+**Status:** Active for the sections below (module references, the lint ruleset, test-file type discipline); the broader TypeScript style guide is still to be written.
 
 **Scope (single home for):** TypeScript-specific style, tooling, and idioms. Shared cross-language principles live in [`code-style.md`](code-style.md); don't repeat them here.
 

@@ -10,7 +10,7 @@ ui: in-progress by="Opus 5"
 load-profile: done by="Opus 5"
 tested: in-progress by="Opus 5"
 branch: main
-active-work: docs/active-work/claude/billing-uui-consolidation-5l2kiu.md
+active-work:
 next: Taxes; the invoice renderer and LEDES; credit-note numbering (owner question); whether a delivery recorded in error can be corrected (owner question)
 link-spec: docs/specs/2026-08-05-billing-design.md
 link-plan: docs/specs/2026-08-05-billing-implementation-plan.md
