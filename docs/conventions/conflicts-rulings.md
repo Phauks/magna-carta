@@ -18,12 +18,15 @@ no-reflow rulings staged for the Upload dialog in
 [`settings-rulings.md`](settings-rulings.md) (which owns the firm's conflicts policy page), and the
 standing corrections in [`design-corrections.md`](design-corrections.md).
 
-**Concurrent work.** `claude/conflicts-check-ui-0i4kir` is in flight over this same area — it lit
-the destination, gave a matter its own Conflicts section, and added the firm policy page on a new
-`conflicts:configure` permission. Its note asks that `matters/sections.ts`,
-`navigation/destinations.ts`, `access-control/src/registry.ts` and
-`apps/api-worker/src/routes/conflicts.ts` not be stepped on. Check where it has landed before this
-round starts.
+**No conflicts stream is in flight.** Both branches that built this surface have landed and the
+work is on `main`: `claude/conflicts-check-redesign-w7pl40` landed in "The conflicts screen is the
+log, and a check is asked for in a panel" (#575, 2026-09-08) and
+`claude/conflicts-check-ui-0i4kir` in "Conflicts check: the surface lit, a matter section, and the
+firm's own floor" (#556, 2026-09-07) — each verified by walking `main` forward from the branch's
+merge base to the first commit the branch merges into without changing, which is the only test that
+does not expire. `docs/active-work/claude/conflicts-check-ui-0i4kir.md` is still on `main` and is a
+dead note: it warns about a stream that finished, and it is owed a
+`vp run retire-note claude/conflicts-check-ui-0i4kir`.
 
 ## R1 — round one: the check panel loses its paragraphs and its limits
 

@@ -106,6 +106,12 @@ of the rest — which is why the owner could not find it. An email address for a
 appear in the schema; if offices need one, that is a column and a contract change, not a screen
 change alone.
 
+The office record is also what two other staged rows lean on: `W1` in
+[`matter-rulings.md`](matter-rulings.md) wants the matter status window's Location to link to it
+through one modular component, and the matter's owning office (`matter.locationId`, picked through
+`vocabulary-picker.svelte`) is already that same record read from the other end. Building Offices
+first is what lets both stop being free text.
+
 ### Platform — beta access and versions
 
 | #  | Ruling                                                                                                                                                                                                                               | Status |
