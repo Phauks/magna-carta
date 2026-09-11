@@ -2056,3 +2056,24 @@ from fee screen".
 - **An arrangement version names the signed agreement as a file**, picked from the matter's own
   files — the conflicts waiver's precedent — never as a sentence. Optional, because the paper may
   follow the deal.
+
+### 2026-09-11 — the messaging log's tabs
+
+The owner, on the messaging screen: "messaging screen has tabs that no other screen has, and
+overlaps table functionality, remove 'Everything / Waiting to be filed (0) / On a matter / Not a
+matter'".
+
+- **The four scope tabs are removed.** No other list screen in the product narrows itself with a tab
+  strip above its table, and what these tabs ask — filed, unfiled, set aside — is what the column
+  filters already ask.
+- The screen's own comment argues the opposite and is what the correction overturns: "the tabs and
+  the column filters answer different questions: the tab asks the server, the column filters run
+  over what is loaded". That distinction is real and it is the thing to solve rather than to keep a
+  tab strip for — a filter that narrows only the loaded page is a filter that lies on a paged
+  register, and the answer is a column filter the server honours, on every register, not a second
+  mechanism on one screen.
+- The unfiled COUNT is not a tab, and losing the tabs must not lose it: "waiting to be filed" is
+  work the firm owes, and it belongs wherever the screen states its figures. The staged money-screen
+  round in [`time-tab-rulings.md`](time-tab-rulings.md) is the same correction on four other screens
+  — a header control answering a question the table already answers — and the two should be built to
+  one conclusion.

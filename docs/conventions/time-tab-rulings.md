@@ -628,3 +628,46 @@ need:
 | TB2c | **The clear-filters control is `DataTable.ClearFilters`** — one shape on every table, with the words rather than a bare glyph. It stays in the tabs row where TT2 put it, which is also where the owner's 2026-09-03 platform ruling puts it: the control row above the table, where the filters were set. TB2b's presence-only rule is unchanged and is now the component's. | settled |
 | TS9  | **Undo and redo move from the Time Sheet's toolbar into its footer**, as `UndoRedoControls` — the owner's 2026-09-03 ruling that the pair lives in the counts strip on every surface that has a stack. It joins the worked / billed / value figures there. TT2's tabs-row inventory loses the pair and keeps the rest.                                                        | settled |
 | TS10 | **The worked / billed / value figures are `DataTable.GridFigures`** — the label leads and the figure follows, which is the platform's one reading order for a labelled figure. The sheet keeps its own scope sentence and its incomplete-row count beside the strip; both are this surface's facts, not figures.                                                              | settled |
+
+## R12 — round twelve: the firm's own money screens
+
+**Scope note.** This round is about the FIRM-LEVEL money screens — `/time`, `/fees`, `/costs` and
+`/billing` — rather than the matter's four tabs. They are in this ledger because they are no longer
+a separate surface: the consolidation that landed in "A fee becomes a record the firm keeps" (#576)
+put the firm-level registers and the matter's sections on one anatomy, `money-surface.svelte`, so a
+ruling about the chrome around one is a ruling about the chrome around the other.
+
+The owner's notes of 2026-09-11, staged. **Nothing here has been started** — every row is `open` as
+a statement of fact rather than an oversight.
+
+| #   | Ruling                                                                                                                                                                                                                                                                | Status |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| MS1 | **The money screens carry the product's one search.** `ScreenSearch` is what every other list screen searches with, and none of the four has it. Same control, same place in the action row.                                                                          | open   |
+| MS2 | **Billing has its create control: "+ Bill".** Time, Fees and Costs each carry one and Billing carries none, so the one screen whose whole subject is a document a firm produces is the one with no way to start it.                                                   | open   |
+| MS3 | **A screen's own dropdown stops answering a question the table already answers.** Where the header's control and a column filter narrow the same list, the column filter is what stays; the screens have each grown their own and they do not agree with one another. | open   |
+| MS4 | **The line of text under the header goes.** A money screen's header reads like every other screen's — the title, and nothing beneath it.                                                                                                                              | open   |
+
+**What the code says today.**
+
+- **MS1.** `ScreenSearch` describes itself as "the product's one control" and is used by Discovery,
+  its review-set loads and documents, Custodian, Messaging and the matter's own search. None of
+  `/time`, `/fees`, `/costs` or `/billing` imports it.
+- **MS2.** Time, Fees and Costs each mount a `CreateControl`; `billing/+page.svelte` imports none.
+- **MS3.** Time, Fees and Costs each build their own period dropdown in the header's `actions`
+  snippet, and the three do not even word it alike — "Show time for", "Show fees for work done",
+  "Show costs incurred", each over its own "Custom range" block. The table beneath them already
+  filters by column. Billing's header control narrows by status, which is a column too.
+- **MS4.** The four money screens are among only six of the twenty top-level screens that render a
+  `meta` snippet under the title. Matters, Directory, Discovery, Custodian, Messaging, Calendar,
+  Intake, Tasks, Reports, Conflicts and the rest render none. So the money screens are the outlier
+  the ruling is asking them to stop being.
+- **One ambiguity to settle before the work**, because the note says "under matter header" while the
+  screens named are the firm-level ones. Two lines fit that description and only one is the outlier:
+  the header `meta` line above (MS4 as written), and a second paragraph the four MATTER money tabs
+  each carry beneath their Load-more control, reading "Showing the N most recent... the figures cover
+  only what is loaded". That second one states a real caveat about a partial total, and the matter's
+  Trust, Parties and Tasks tabs have nothing like it. Ask which before removing either.
+
+**Registry note.** Two streams claiming this area, `claude/magna-carta-timesheet-ui-uekeer` and
+`claude/billing-uui-consolidation-5l2kiu`, are finished: the second landed in #576, and the first is
+a workspace branch holding no commits of its own. Neither note has been retired.
