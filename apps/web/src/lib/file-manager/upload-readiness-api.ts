@@ -6,7 +6,8 @@
  * hop of an upload the application never sees is the browser's write to storage; this asks the
  * server to check every precondition of that hop from its side, where a refusal has a status code,
  * and to re-apply the settings it owns as it goes. A POST because of that re-applying: the check
- * acts, and a reader pressing it twice gets the same bucket twice.
+ * acts, and a reader pressing it twice gets the same bucket twice. It runs from the version panel
+ * (the chip at the top right), with the other reads about what is running.
  */
 import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
 
@@ -38,7 +39,7 @@ export interface UploadReadinessReport {
   checks: UploadReadinessCheck[];
 }
 
-/** The permission the check names — the Owner/Admin key the rest of file safety rides. */
+/** The permission the check names — the Owner/Admin key the firm's file-safety settings ride. */
 export const CHECK_UPLOAD_READINESS_PERMISSION = "firm:manageScanPolicy";
 
 export function checkUploadReadiness(

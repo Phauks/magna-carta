@@ -2,16 +2,17 @@
 
 When a file is uploaded, it goes from your browser straight to the firm's storage — not through the rest of Magna Carta. That is what makes large uploads fast, and it is also why, when storage refuses the file, the upload can only tell you that storage did not answer: the refusal never passed through anything that could read it.
 
-The check on this page asks the server to look from its side, where it can see what your browser cannot.
+The check asks the server to look from its side, where it can see what your browser cannot.
 
-## Who can run it
+## Who sees it
 
-Anyone who can change the firm's file-safety settings — by default, the Owner/Admin role. If you do not see the section, ask an administrator to run it.
+Anyone who can change the firm's file-safety settings — by default, the Owner/Admin role. Everyone else sees, in the same place, what the last check found.
 
 ## Running the check
 
-1. Open **Settings**, then **File Safety & Scanning**.
-2. Under **Upload Readiness**, press **Check Now**.
+1. Click the **version chip** at the top right of the screen (the small build identifier).
+2. In the **Database** section, the **File storage** line shows the verdict. The check runs on its own each time an administrator opens the panel, with the other things the panel reads.
+3. Press **Upload readiness report** to open the full report. **Check Again** runs it once more; **Copy Report** puts the whole report on your clipboard, ready to paste into a message.
 
 The check takes a few seconds. It looks at six things, in the order an upload depends on them:
 
@@ -37,7 +38,7 @@ Read the report top down. **The first line that fails is the cause**; a line und
 
 ## What the check puts right on its own
 
-The three settings in the middle of the list — scanning, expiry, and permission to write from this site — belong to Magna Carta, so the check re-applies them every time it runs. If an upload failed because one of them was missing, pressing **Check Now** is the fix.
+The three settings in the middle of the list — scanning, expiry, and permission to write from this site — belong to Magna Carta, so the check re-applies them every time it runs. If an upload failed because one of them was missing, opening the panel is the fix.
 
 ## What it can only name
 
@@ -46,7 +47,7 @@ Two things the check cannot put right, because they are decisions made when Magn
 - **A storage bucket that does not exist.** The firm was set up by an installation that was not able to create one. The report says so; setting up the firm again under a correctly configured installation is the remedy, and the check will not create a bucket on its own.
 - **A credential storage does not honour.** The report names the credential and how it needs to be issued. Whoever administers the installation puts it right.
 
-In both cases the report's wording is what to pass on.
+In both cases the report's wording is what to pass on — **Copy Report** is there for exactly that.
 
 ## Nothing about your files is read
 

@@ -384,7 +384,7 @@ describe("the file storage row", () => {
     // The first failed precondition is the cause; the row says it in the reader's words and where
     // to run the check again.
     expect(notReady.detail).toContain("the storage credential is honoured");
-    expect(notReady.detail).toContain("File Safety & Scanning");
+    expect(notReady.detail).toContain("this panel");
   });
 
   it("treats a firm nobody has checked as a fact, not a fault", () => {
@@ -394,7 +394,7 @@ describe("the file storage row", () => {
     );
     expect(unchecked.reading).toBe("healthy");
     expect(unchecked.status).toBe("Not yet checked");
-    expect(unchecked.detail).toContain("File Safety & Scanning");
+    expect(unchecked.detail).toContain("this panel");
   });
 
   it("says when files go through the application, and asks nothing about a check", () => {

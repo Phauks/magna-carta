@@ -29,8 +29,8 @@ import { devUploadEmulationActive } from "./presigner-wiring.ts";
  * a mis-scoped key) it names, with the fix.
  *
  * Deliberately NOT here: a sweep, a cache on the firm row, or a mode object. The check runs when a
- * person asks (routes/upload-readiness.ts, from the file-safety settings screen), and the report is
- * the diagnosis. The other half of the same fault — a production deployment silently running the
+ * person asks (routes/upload-readiness.ts, run from the version panel with the other reads about
+ * what is running), and the report is the diagnosis. The other half of the same fault — a production deployment silently running the
  * development adapter — is closed by the deploy gate in wrangler.jsonc, which refuses to deploy
  * without the provisioner's credentials, not by code here.
  */
@@ -255,9 +255,13 @@ export async function verifyUploadReadiness(
 function describeSigningFailure(caught: unknown): string {
   if (caught instanceof BucketCredentialError) {
     return (
-      `A bucket-scoped credential could not be minted for the upload: ${caught.message}. The ` +
-      "provisioner token (CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER) needs R2 edit on the account, and " +
-      "the parent key (R2_S3_ACCESS_KEY_ID) must be the token the mint is asked to derive from."
+      `A bucket-scoped credential could not be minted for this bucket: ${caught.message}. A ` +
+      "credential derived from the R2 S3 token can reach only what that token reaches, so a token " +
+      "made for one bucket cannot be narrowed to another — re-mint R2_S3_ACCESS_KEY_ID / " +
+      'R2_S3_SECRET_ACCESS_KEY as Object Read & Write with "Apply to all buckets in this ' +
+      'account" and set the pair with wrangler secret put (docs/conventions/operations.md, deploy ' +
+      "secrets). If the mint is still refused, the provisioner token " +
+      "(CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER) lacks Workers R2 Storage edit on the account."
     );
   }
   if (caught instanceof FirmBucketUnavailableError) return caught.detail;

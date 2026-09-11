@@ -1,0 +1,94 @@
+/*
+ * The upload readiness report as the version panel shows it: the File storage row it replaces
+ * while a live report is on hand, and the one paste a member takes to whoever can act on it.
+ *
+ * Pure over the report's wire shape (file-manager/upload-readiness-api.ts), like the rest of the
+ * panel's models, so the words are testable without a browser and the copy can never disagree
+ * with the rows it was taken from.
+ */
+import {
+  UPLOAD_READINESS_CHECK_LABELS,
+  type UploadReadinessOutcome,
+  type UploadReadinessReport,
+} from "$lib/file-manager/upload-readiness-api.ts";
+import type { HealthRow } from "./database-health-model.ts";
+
+/** What each outcome is called on screen, and the tint it takes. */
+export const UPLOAD_READINESS_OUTCOME_LABELS: Record<UploadReadinessOutcome, string> = {
+  ok: "Holds",
+  applied: "Applied",
+  failed: "Failed",
+  "not-applicable": "Not applicable",
+};
+
+export function uploadReadinessOutcomeVariant(
+  outcome: UploadReadinessOutcome,
+): "success" | "info" | "danger" | "neutral" {
+  switch (outcome) {
+    case "ok":
+      return "success";
+    case "applied":
+      return "info";
+    case "failed":
+      return "danger";
+    case "not-applicable":
+      return "neutral";
+  }
+}
+
+/** The first failed check — the cause; what follows it in the report may be consequence. */
+export function firstFailedCheck(report: UploadReadinessReport) {
+  return report.checks.find((check) => check.outcome === "failed") ?? null;
+}
+
+/**
+ * The File storage row, from a report taken just now rather than from the last one on record. A
+ * live report outranks the audit row the health read carries: it is newer by definition, and it
+ * is what the member is looking at.
+ */
+export function uploadReadinessRow(report: UploadReadinessReport): HealthRow {
+  if (report.uploadPath === "through-the-application") {
+    return {
+      id: "fileStorage",
+      name: "File storage",
+      reading: "healthy",
+      status: "Through the application",
+      detail: "Files go through the application to its bound storage in this deployment.",
+    };
+  }
+  const failed = firstFailedCheck(report);
+  if (failed !== null) {
+    return {
+      id: "fileStorage",
+      name: "File storage",
+      reading: "fault",
+      status: "Not ready",
+      detail: `${UPLOAD_READINESS_CHECK_LABELS[failed.id]}: ${failed.detail}`,
+    };
+  }
+  return {
+    id: "fileStorage",
+    name: "File storage",
+    reading: "healthy",
+    status: "Ready",
+    detail:
+      "Files go from the browser straight to the firm's storage; every precondition of an upload " +
+      "holds, checked just now.",
+  };
+}
+
+/** The report as one paste: verdict, the deployment facts, then every check in order. */
+export function copyReportForUploadReadiness(report: UploadReadinessReport): string {
+  const lines = [
+    `Upload readiness: ${report.ready ? "ready" : "not ready"}`,
+    `Upload path: ${report.uploadPath === "direct-to-storage" ? "direct to storage" : "through the application"}`,
+    `Provisioning adapter: ${report.provisioner}`,
+    `Bucket: ${report.bucketName ?? "none recorded"}`,
+  ];
+  for (const check of report.checks) {
+    lines.push(
+      `${UPLOAD_READINESS_CHECK_LABELS[check.id]}: ${UPLOAD_READINESS_OUTCOME_LABELS[check.outcome]} — ${check.detail}`,
+    );
+  }
+  return lines.join("\n");
+}

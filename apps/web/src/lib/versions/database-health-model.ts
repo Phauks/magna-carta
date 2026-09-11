@@ -263,7 +263,7 @@ function controlPlaneRow(value: DatabaseHealthValue): HealthRow {
 }
 
 /** Where the readiness check is run, said the same way everywhere it is pointed at. */
-const READINESS_CHECK_LOCATION = "Settings, File Safety & Scanning";
+const READINESS_CHECK_LOCATION = "this panel (an Owner or Admin sees the check run here)";
 
 /** The check ids in the reader's words — the file-safety screen's own labels, kept in step. */
 const READINESS_CHECK_LABELS: Record<string, string> = {
