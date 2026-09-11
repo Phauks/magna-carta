@@ -62,6 +62,7 @@
     "./merge-field-chip": "./src/lib/components/merge-field-chip/index.ts",
     "./merge-field-picker": "./src/lib/components/merge-field-picker/index.ts",
     "./merge-field-review-list": "./src/lib/components/merge-field-review-list/index.ts",
+    "./navigation-layout": "./src/lib/components/navigation-layout/index.ts",
     "./password-input": "./src/lib/components/password-input/index.ts",
     "./verification-code-input": "./src/lib/components/verification-code-input/index.ts",
     "./popover": "./src/lib/components/popover/index.ts",

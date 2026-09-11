@@ -321,6 +321,38 @@ control over this stack. Design: [`docs/specs/2026-09-03-undo-redo-and-reversal-
   cannot be expressed with a custom property inside a media query. Its class strings are literal in
   `field-row/variants.ts` for Tailwind's scanner.
 
+## The navigation layout: a screen's two sides, drawn once
+
+**`src/lib/components/navigation-layout/` is the one shape for a canvas with a navigational column
+on the left and the chosen thing on the right** (owner ruling, 2026-09-11) — Settings, Magnus, and
+any list-left / chosen-thing-right screen (Tools, Reports). Settings and Magnus had each drawn it
+by hand at two widths with two scroll treatments.
+
+- **It owns the landmark, the width, the scroll and the gutter — and nothing the navigation
+  HOLDS.** `navigation` and `children` are snippets; grouped links, a control over rows, a plain
+  list are all the consumer's to draw. There is no `items` prop, and `test/navigation-layout.test.ts`
+  refuses one.
+- **Both widths are tokens, no arithmetic.** The column is sized content-box: `size.popover` holds
+  the rows and the gutter each side is what `standard` (space-24, the settings measure) and
+  `narrow` (space-16, which lands on the global sidebar's width) differ in. A third width is a
+  third gutter, not a `calc()`.
+- **It cancels the canvas inset and takes the full height under the top bar**, so the canvas
+  never scrolls on such a route; the two columns do, with `scrollbar-gutter: stable` so a
+  scrollbar arriving never shifts what sits beside it. A screen that renders it beneath a masthead
+  of its own is not this shape yet.
+- **`contentScrolls={false}` for a page that stages header / scrolling middle / pinned footer.**
+  The column is then a bare full-height flex stack and the page owns its scroller; otherwise the
+  page's middle would draw a second scrollbar inside a column that had already reserved a gutter.
+- **The content column adds no tab stop.** A scroll region a keyboard can reach holds something
+  focusable, and every product page does; the layout does not put a stop before every page's
+  first control. A page of pure prose must bring a control — axe's `scrollable-region-focusable`
+  says so, and the stories carry an action for that reason.
+- **Narrow viewports stack the navigation above the content and scroll the layout as one**, below
+  `lg`. Nothing in the design language decides a breakpoint; `lg` is where the safe-browse
+  website shell already stacks its two panes, and a navigation pinned on top would eat the
+  viewport on a long nav. A recipe cannot carry a breakpoint (a literal length is banned in
+  `components.css`), so the stacking is `max-lg:` / `lg:` utilities on the elements.
+
 ## Invariants that apply here
 
 - **Tokens + components only (golden rule 2, machine-checked).** No Tailwind arbitrary values, no
