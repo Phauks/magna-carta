@@ -4,9 +4,9 @@ Joining happens in two steps, in this order: you **make an account**, and then y
 
 ## What it does
 
-**Registering creates a person.** You give your first and last name, an email address and the password you want to use, agree to the Terms of Service and the Privacy Policy, and an email is sent to you. Your account is not created when you fill the form in — it is created when you follow the link in that email, which is how the platform knows the address is really yours. The password you chose is set on it at that moment, so you can sign in straight away.
+**Registering creates a person.** You give an email address and the password you want to use — typed twice, so a slip cannot be set as your password — agree to the Terms of Service and the Privacy Policy, and an email is sent to you. Nothing else is asked: your name is part of your profile rather than part of getting in, and you can set it whenever you like. Your account is not created when you fill the form in — it is created when you follow the link in that email, which is how the platform knows the address is really yours. The password you chose is set on it at that moment, and following the link signs you in, so there is nothing left to type.
 
-**The welcome screen decides what your account is.** The first time you sign in you land on a screen with two choices:
+**The welcome screen decides what your account is.** Confirming your email drops you straight onto a screen with two choices:
 
 - **Start a new law firm.** You create the workspace and become its owner.
 - **I have an invitation code.** A firm has invited you — as a member of staff, or as a client using their portal — and the code joins you to it.
@@ -18,18 +18,19 @@ Nobody can add themselves to a firm that already exists. Who belongs to a firm i
 ### Create your account
 
 1. On the sign-in screen, select **Register**.
-2. Enter your first and last name, your email address, and the password you want to use (at least eight characters).
+2. Enter your email address and the password you want to use (at least eight characters), then type the password again to verify it.
 3. Tick the Terms of Service and the Privacy Policy, then select **Send Confirmation Email**.
 4. Open the email that arrives. Either follow the link in it, or select **Enter the Confirmation Code** and paste the code.
-5. The screen says your account is ready. Select **Sign In** and sign in with the password you chose.
 
-You are now signed in with an account that does not belong to a firm yet, and the welcome screen is waiting.
+Confirming signs you in — the code only ever reached your mailbox, so proving you have it is proof enough. You land on the welcome screen with an account that does not belong to a firm yet.
+
+If for any reason the sign-in does not come with it, the screen says your account is ready and offers **Sign In**; the password you chose is already set, so it works on the first try.
 
 **If the confirmation email does not arrive**, register again with the same address — a second registration replaces the first, and the newest code is the one that works. If the screen tells you the email could not be sent, nothing was lost: wait a moment and try again, and quote the ID it shows if it keeps happening.
 
 ### Start a new firm
 
-1. Sign in. If you have not joined a firm, the welcome screen opens by itself.
+1. Confirm your registration, or sign in. If you have not joined a firm, the welcome screen opens by itself.
 2. Select **Start a new law firm**.
 3. Enter what the firm is called and select **Start This Firm**.
 4. Wait a moment while the workspace is built. The screen moves on by itself when it is ready.
@@ -75,6 +76,8 @@ Either way: type the code in capitals or lowercase, with the hyphens or without 
 **A confirmation code works once.** If you use it twice, the second attempt is refused. If you register twice before confirming, only the most recent code works.
 
 **Nothing you fill in creates an account until you confirm.** The password you choose while registering is scrambled the moment you send it and is never stored or shown in readable form; nothing exists as an account until you open the link that is emailed to you, which is also how the platform knows the address is yours.
+
+**Confirming on a different device signs you in on that device.** The link works wherever you open it — your phone, a second browser — and signs you in there, because holding the mailbox is what it proves. Your password is unaffected and still signs you in anywhere else.
 
 **If you started a registration and the email has not arrived,** check the spam folder first, then register again — a second registration replaces the first, and the new code is the one that works. There is no "send again" button, because registering again is what actually sends a new one.
 

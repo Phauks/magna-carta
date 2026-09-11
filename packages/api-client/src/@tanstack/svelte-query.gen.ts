@@ -1361,7 +1361,7 @@ export const registrationsStartMutation = (options?: Partial<Options<Registratio
 };
 
 /**
- * Completes a registration by presenting the emailed token: the account is created with the password chosen at registration, so the person can sign in immediately, and a founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.
+ * Completes a registration by presenting the emailed token: the account is created with the password chosen at registration and the response carries a session for it, because the token travelled by email and spending it proves the mailbox. A founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.
  */
 export const registrationsConfirmMutation = (options?: Partial<Options<RegistrationsConfirmData>>): MutationOptions<RegistrationsConfirmResponse, RegistrationsConfirmError, Options<RegistrationsConfirmData>> => {
     const mutationOptions: MutationOptions<RegistrationsConfirmResponse, RegistrationsConfirmError, Options<RegistrationsConfirmData>> = {

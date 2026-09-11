@@ -640,7 +640,7 @@ export const registrationsStart = <ThrowOnError extends boolean = false>(options
 });
 
 /**
- * Completes a registration by presenting the emailed token: the account is created with the password chosen at registration, so the person can sign in immediately, and a founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.
+ * Completes a registration by presenting the emailed token: the account is created with the password chosen at registration and the response carries a session for it, because the token travelled by email and spending it proves the mailbox. A founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.
  */
 export const registrationsConfirm = <ThrowOnError extends boolean = false>(options: Options<RegistrationsConfirmData, ThrowOnError>): RequestResult<RegistrationsConfirmResponses, RegistrationsConfirmErrors, ThrowOnError> => (options.client ?? client).post<RegistrationsConfirmResponses, RegistrationsConfirmErrors, ThrowOnError>({
     url: '/api/v1/registrations/confirmations',

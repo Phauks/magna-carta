@@ -581,6 +581,11 @@ is usually the fastest way to understand the rule.
 - **Every non-initial step of a multi-step flow carries the same Back control**, from one component,
   in the same position. A flow where step 3 has a different back affordance than step 2 is a bug.
   _(auth flow, 2026-08-07)_
+- **A back control shows an arrow and NAMES THE DESTINATION — never "Back to …".** "Sign In", "Your
+  Code", "Your Choices". The chevron already says "back"; spelling it out again spends the widest
+  part of the control on the one thing the icon cannot get wrong and buries the actual destination
+  at the end of a sentence in lower case. A screen that is a full stop takes the same control in the
+  same place rather than a full-width button at the foot. _(auth flow, 2026-09-09)_
 - **A resend action uses the countdown-button pattern:** the timer starts at the first send, the
   remaining time is visible, and the control is disabled until it expires. Never a bare "Resend"
   that silently rate-limits. _(auth flow, 2026-08-07)_
@@ -1044,6 +1049,40 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-09 — the front door asks less, and confirming is the way in
+
+The owner walked the deployed sign-in surface and issued eight corrections in one pass. Six are
+wording and shape; two change what the flow actually does. What binds:
+
+- **The persistent-session control reads "Remember Me."** Supersedes the 2026-08-07 wording, which
+  spent a full line of the card explaining a tick box everybody already understands. The
+  second-factor trust control is untouched — the two are still separate dials.
+- **A back control names its destination, never "Back to …".** Promoted into _Copy_ / _Controls_
+  above, with the corollary the same round produced: the full-stop screen (Check Your Email) and the
+  screen reached cold from a mailbox (the confirmation-code entry) both take the panel's own back
+  control at the top of the card, not a full-width button at the foot and not nothing at all.
+- **Registration asks for an address and a password, and nothing else.** A first and last name are a
+  PROFILE, and a profile is something an account has rather than something it needs in order to
+  exist. Generalizes: a form that stands between a person and the thing they came for asks only for
+  what the thing cannot be made without. The account files the address as its display name until
+  somebody replaces it — a visible placeholder, never a guess split out of the address.
+- **A password being SET is typed twice.** This reverses the single-field-with-a-reveal ruling that
+  the registration and reset screens were built on. The reveal stays; what the reasoning missed is
+  that a reveal must be thought of and pressed, while the cost of a password mistyped identically
+  twice is a mail round trip before a first sign-in. The mismatch is said under the second field as
+  soon as there is something in it to disagree with, and the submit stays shut until they match.
+- **Confirming a registration signs the person in.** The token only ever travelled by email, so
+  spending it proves the mailbox — the same proof a mailed sign-in link rests on, and a stronger one
+  than the password the very next screen would otherwise ask for. Generalizes: never ask for a
+  weaker proof immediately after accepting a stronger one. The "Your Account Is Ready → Sign In"
+  screen survives only as the fallback for a session that could not be minted.
+- **A screen with one field and one button does not narrate itself.** Reset Password lost the line
+  under its heading; its button now reads "Reset Password" rather than "Email Me a Reset Link",
+  which is the same sentence the heading already says.
+- **Do not greet somebody who arrived a second ago.** The welcome screen's "Signed in as X. One
+  thing left: tell us where you work." read the account's name back and then restated the screen's
+  own purpose, above two buttons that already say what the choice is. It is gone.
 
 ### 2026-09-08 — the call log, third round: one window, a typed length, and a number every call has
 
@@ -2033,7 +2072,8 @@ decided was general, and is promoted above. The remainder that is specific to th
   backend that is not built.
 - The persistent-session control reads "Keep me signed in"; the second-factor trust control reads
   "Don't ask for 2-Factor on this device for 30 days" (with the number rendered from configuration,
-  per the standing rule).
+  per the standing rule). **The first half is superseded by 2026-09-09** — the control now reads
+  "Remember Me"; the second-factor wording is unchanged.
 - The rate-limited response gets its own message rather than falling through to a generic failure.
 - Recovery-screen copy follows the mockup revision, which is authoritative over anything earlier.
 

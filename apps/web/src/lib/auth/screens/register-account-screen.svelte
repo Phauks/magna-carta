@@ -8,6 +8,13 @@
    * a person cannot have one before they are a person. So this screen makes the person, and which
    * firm they belong to is settled afterwards, signed in, on the joining screen at /welcome.
    *
+   * IT ASKS NOTHING ABOUT A NAME EITHER (owner correction, 2026-09-09). An address and a password
+   * are the whole credential; a first and last name are a PROFILE, which is a thing an account has
+   * rather than a thing it needs to exist, and asking for them here made two of the four fields
+   * standing between a visitor and their account facts the platform can be told any time afterwards.
+   * The account holds the address as its display name until somebody says otherwise — an honest
+   * placeholder, and never a guess split out of the address, which cannot be undone.
+   *
    * THE BUTTON NAMES WHAT PRESSING IT DOES. It sends a confirmation email; it does not create the
    * account, which is created when the link in that mail is followed. A button reading "Create
    * Account" would describe the end of a journey while performing its first step.
@@ -20,10 +27,12 @@
    * standing between them and their first sign-in. (Passkeys are still a gap:
    * ../joining-availability.ts.)
    *
-   * ONE PASSWORD FIELD WITH A REVEAL, not a confirm pair, matching the reset screen beside it
-   * (reset-password-set-screen.svelte): being able to READ what you typed is what the second field
-   * existed to compensate for, and a mistyped password here is recoverable through Reset Password
-   * rather than fatal.
+   * AND IT IS TYPED TWICE (owner correction, 2026-09-09). The reveal control is still there, and the
+   * screen kept a single field for a while on the reasoning that being able to READ what you typed
+   * is what a confirm field compensates for. What that reasoning missed is that a reveal is a thing
+   * you have to think to press, and the cost of a password mistyped identically twice is a mail
+   * round trip through Reset Password before a first sign-in. The two must match before the submit
+   * opens; the mismatch is stated under the second field rather than after a press.
    *
    * BOTH ACKNOWLEDGEMENTS GATE THE SUBMIT, and they are two acts of consent because they are two
    * documents. The gate is honest — nothing is sent until both are ticked — but it stops at this
@@ -44,24 +53,23 @@
   import { QUIET_LINK } from "../quiet-link.ts";
 
   let {
-    firstName = $bindable(""),
-    lastName = $bindable(""),
     email = $bindable(""),
     password = $bindable(""),
+    passwordAgain = $bindable(""),
     minimumPasswordLength,
     agreedToTerms = $bindable(false),
     agreedToPrivacy = $bindable(false),
     pending = false,
     rejection = null,
     supportErrorId = null,
-    firstNameFieldReference = $bindable(null),
+    emailFieldReference = $bindable(null),
     onSubmit,
     back,
   }: {
-    firstName?: string;
-    lastName?: string;
     email?: string;
     password?: string;
+    /** The second typing of the same password. Never sent anywhere — it is compared here and dropped. */
+    passwordAgain?: string;
     /** The shortest password the server accepts, stated up front rather than discovered by refusal. */
     minimumPasswordLength: number;
     agreedToTerms?: boolean;
@@ -71,58 +79,35 @@
     rejection?: string | null;
     /** The correlated Error ID for a server fault, to quote to support. Null for a refusal. */
     supportErrorId?: string | null;
-    firstNameFieldReference?: HTMLInputElement | null;
+    emailFieldReference?: HTMLInputElement | null;
     onSubmit: (event: SubmitEvent) => void;
     back?: () => void;
   } = $props();
 
+  const longEnough = $derived(password.length >= minimumPasswordLength);
+  /*
+   * Said only once the second field has something in it. A mismatch announced against an empty box
+   * is a complaint about not having finished typing yet, which every person filling this form is
+   * guilty of for as long as it takes them to fill it.
+   */
+  const mismatched = $derived(passwordAgain !== "" && passwordAgain !== password);
   const complete = $derived(
-    firstName.trim() !== "" &&
-      lastName.trim() !== "" &&
-      email.trim() !== "" &&
-      password.length >= minimumPasswordLength &&
+    email.trim() !== "" &&
+      longEnough &&
+      passwordAgain === password &&
       agreedToTerms &&
       agreedToPrivacy,
   );
   const canSubmit = $derived(!pending && complete);
 </script>
 
-<AuthPanel title="Create Your Account" {back} backLabel="Back to sign in">
+<AuthPanel title="Create Your Account" {back} backLabel="Sign In">
   {#snippet children()}
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
-      <div class="flex gap-8">
-        <div class="flex min-w-0 flex-1 flex-col gap-8">
-          <Label for="register-first-name">First Name</Label>
-          <Input
-            bind:ref={firstNameFieldReference}
-            id="register-first-name"
-            name="given-name"
-            size="lg"
-            bind:value={firstName}
-            autocomplete="given-name"
-            placeholder="First Name"
-            disabled={pending}
-            required
-          />
-        </div>
-        <div class="flex min-w-0 flex-1 flex-col gap-8">
-          <Label for="register-last-name">Last Name</Label>
-          <Input
-            id="register-last-name"
-            name="family-name"
-            size="lg"
-            bind:value={lastName}
-            autocomplete="family-name"
-            placeholder="Last Name"
-            disabled={pending}
-            required
-          />
-        </div>
-      </div>
-
       <div class="flex flex-col gap-8">
         <Label for="register-email">Email Address</Label>
         <Input
+          bind:ref={emailFieldReference}
           id="register-email"
           name="email"
           type="email"
@@ -148,6 +133,26 @@
           disabled={pending}
         />
         <p class="text-sm text-text-muted">At least {minimumPasswordLength} characters.</p>
+      </div>
+
+      <div class="flex flex-col gap-8">
+        <Label for="register-password-again">Verify Password</Label>
+        <PasswordInput
+          id="register-password-again"
+          name="new-password-again"
+          size="lg"
+          bind:value={passwordAgain}
+          autocomplete="new-password"
+          placeholder="Verify Password"
+          aria-invalid={mismatched ? "true" : undefined}
+          aria-describedby={mismatched ? "register-password-mismatch" : undefined}
+          disabled={pending}
+        />
+        {#if mismatched}
+          <p id="register-password-mismatch" class="text-sm text-text-danger">
+            The two passwords do not match.
+          </p>
+        {/if}
       </div>
 
       <!--
@@ -195,8 +200,8 @@
 
       <p class="text-sm text-text-muted">
         Your account is created when you open the link in that email, which is how we know the
-        address is yours — then sign in with the password you just chose. Once you are signed in,
-        you can start a law firm or join one you have been invited to.
+        address is yours — and opening it signs you in, so there is no password to type a third
+        time. From there you can start a law firm or join one you have been invited to.
       </p>
     </form>
   {/snippet}

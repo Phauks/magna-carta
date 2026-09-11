@@ -513,11 +513,25 @@
 
       <ScreenSpecimen
         name="Create Your Account"
-        note="The button names what pressing it does — it sends a confirmation email; the account is created when the link is followed. The password is chosen HERE and nothing is minted by choosing it: the server holds it hashed with the pending registration and commits the credential when the emailed token is spent, so one mail does what two used to."
+        note="Two facts and a password typed twice — no name, because a name is a profile rather than a credential. The button names what pressing it does: it sends a confirmation email; the account is created when the link is followed. The password is chosen HERE and nothing is minted by choosing it — the server holds it hashed with the pending registration and commits the credential when the emailed token is spent, so one mail does what two used to."
         caveat={AGREEMENTS_GAP}
       >
         <RegisterAccountScreen
           minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
+          onSubmit={swallow}
+          back={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
+        name="The two passwords disagree"
+        note="Said under the second field as soon as there is something in it to disagree with, and never against an empty box — a mismatch announced there is a complaint about not having finished typing. The submit stays shut until they match."
+      >
+        <RegisterAccountScreen
+          minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
+          email="trevor@goldsmith.example"
+          password="a-sufficiently-long-password"
+          passwordAgain="a-sufficiently-long-passwrod"
           onSubmit={swallow}
           back={noop}
         />
@@ -549,13 +563,9 @@
 
       <ScreenSpecimen
         name="The two choices"
-        note="Neither is the recommended answer. Founding carries the primary weight because it is the act that creates something, not because it is expected."
+        note="Neither is the recommended answer. Founding carries the primary weight because it is the act that creates something, not because it is expected. Nothing sits under the heading: the account's own name read back at somebody who arrived a second ago was a greeting above two buttons that already say what the choice is."
       >
-        <JoiningChoiceScreen
-          name="Trevor Goldsmith"
-          onFoundFirm={noop}
-          onRedeemInvitation={noop}
-        />
+        <JoiningChoiceScreen onFoundFirm={noop} onRedeemInvitation={noop} />
       </ScreenSpecimen>
 
       <ScreenSpecimen
@@ -676,6 +686,20 @@
       </ScreenSpecimen>
 
       <ScreenSpecimen
+        name="The two passwords disagree"
+        note="Said under the second field as soon as there is something in it to disagree with, and never against an empty box — a mismatch announced there is a complaint about not having finished typing. The submit stays shut until they match."
+      >
+        <RegisterAccountScreen
+          minimumPasswordLength={MINIMUM_PASSWORD_LENGTH}
+          email="trevor@goldsmith.example"
+          password="a-sufficiently-long-password"
+          passwordAgain="a-sufficiently-long-passwrod"
+          onSubmit={swallow}
+          back={noop}
+        />
+      </ScreenSpecimen>
+
+      <ScreenSpecimen
         name="Registration refused"
         note="Only a malformed form reaches this. A taken address and a free one both answer 202 — the difference is in the mail, never on the screen."
       >
@@ -690,21 +714,22 @@
 
       <ScreenSpecimen
         name="Check your email"
-        note="No resend control, because nothing resends: registering again supersedes the first link. The sent time is written out in full, in the reader's own zone."
+        note="No resend control, because nothing resends: registering again supersedes the first link. The sent time is written out in full, in the reader's own zone. The way out is the panel's own back control at the top, where every other screen on this surface keeps it; the typed-code button at the foot is a way onward, not a second way out."
       >
         <CheckEmailScreen
           address="trevor@goldsmith.example"
-          instruction="Open the link we sent, or type the confirmation code from that email. Your workspace is built once that is done."
+          instruction="Open the link we sent, or type the confirmation code from that email. Your account is created once that is done, with the password you chose, and you are signed in on the spot."
           sentAt={SENT_AT}
           remedy="If it does not arrive, check the spam folder, then register again — a second registration replaces the first, and the newest code is the one that works."
           onEnterCode={noop}
           enterCodeLabel="Enter the Confirmation Code"
+          back={noop}
         />
       </ScreenSpecimen>
 
       <ScreenSpecimen
         name="Your account is ready"
-        note="Where confirming now ends, and the opposite of Check Your Email: the account already holds the password chosen at registration, so there is nothing to wait for and the sign-in button is under the reader's hand. The second variant is the founding door, whose workspace is still being built off the request — the credential exists either way, so the sentence must not promise a workspace that is not up yet."
+        note="The FALLBACK ending, not the ordinary one: confirming now signs the person in on the response and walks straight into the joining screen, so this shows only where a session could not be minted. The account already holds the password chosen at registration, so the sign-in button always opens. The second variant is the founding door, whose workspace is still being built off the request — the credential exists either way, so the sentence must not promise a workspace that is not up yet."
       >
         <AccountReadyScreen address="trevor@goldsmith.example" />
       </ScreenSpecimen>
@@ -718,12 +743,13 @@
 
       <ScreenSpecimen
         name="Confirm the emailed token"
-        note="The token is passed through untouched but for trimming: the server does not normalize it, so grouping or uppercasing it here would produce a digest that matches nothing."
+        note="The token is passed through untouched but for trimming: the server does not normalize it, so grouping or uppercasing it here would produce a digest that matches nothing. Its back control points at sign-in rather than at the screen before, because this one is reached cold from a mailbox as often as it is stepped into."
         caveat={CONFIRMATION_GAP}
       >
         <ConfirmRegistrationScreen
           bind:token={() => field("confirm-token"), (value) => (draft["confirm-token"] = value)}
           onSubmit={swallow}
+          back={noop}
         />
       </ScreenSpecimen>
     </section>
@@ -790,6 +816,7 @@
           instruction="Open the link we sent and choose a password. That is the last step — you can sign in straight afterwards."
           sentAt={SENT_AT}
           remedy="If it does not arrive, check the spam folder, then ask the firm that invited you to send a new invitation."
+          back={noop}
         />
       </ScreenSpecimen>
     </section>

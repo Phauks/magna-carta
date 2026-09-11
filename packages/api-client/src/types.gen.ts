@@ -897,7 +897,7 @@ export type StartRegistrationRequest = {
      */
     role?: 'account' | 'clientOfFirm' | 'firmMember' | 'foundFirm';
     email: string;
-    name: string;
+    name?: string;
     givenName?: string;
     familyName?: string;
     /**
@@ -910,7 +910,7 @@ export type StartRegistrationRequest = {
 export type ConfirmRegistrationResponse = {
     email: string;
     status: 'accountCreated' | 'provisioning';
-    next: 'signIn' | 'checkEmail';
+    next: 'signedIn' | 'signIn' | 'checkEmail';
 };
 
 export type ConfirmRegistrationRequest = {
@@ -11255,7 +11255,7 @@ export type RegistrationsConfirmError = RegistrationsConfirmErrors[keyof Registr
 
 export type RegistrationsConfirmResponses = {
     /**
-     * The registration is confirmed; `next` says whether the account can be signed in to now
+     * The registration is confirmed; `next` says whether a session came with it, and if not, what the person does instead
      */
     200: ConfirmRegistrationResponse;
 };

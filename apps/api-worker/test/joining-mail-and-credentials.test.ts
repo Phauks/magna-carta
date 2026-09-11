@@ -6,6 +6,7 @@ import { createApp } from "../src/app.ts";
 import { consumeFirmProvision } from "../src/firm-provision-consumer.ts";
 import { confirmationTokenHash, generateConfirmationToken } from "../src/joining-secrets.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { liveCookie, setCookies } from "./support/test-auth.ts";
 
 // TWO FAILURES THAT LOOKED LIKE ONE, and this file is the regression for both.
 //
@@ -161,15 +162,26 @@ describe("a person who registers can sign in with the password they chose", () =
       body: JSON.stringify({ token }),
     });
     expect(confirmed.status).toBe(200);
-    // No second mail, and the screen is told so: "signIn", not "checkEmail".
-    expect(await confirmed.json()).toEqual({ email, status: "accountCreated", next: "signIn" });
+    // No second mail AND no front door: the token only ever travelled by email, so spending it is
+    // the possession proof a session rests on. The screen is told so — "signedIn", not "signIn".
+    expect(await confirmed.json()).toEqual({ email, status: "accountCreated", next: "signedIn" });
+
+    // And the session really came back on that response, rather than the word for one.
+    const confirmationCookie = liveCookie(setCookies(confirmed), "session_token");
+    expect(confirmationCookie).toBeDefined();
+    const bootstrap = await SELF.fetch("https://example.com/api/v1/me", {
+      headers: { cookie: confirmationCookie?.pair ?? "", accept: "application/json" },
+    });
+    expect(bootstrap.status).toBe(200);
+    expect(await bootstrap.json()).toMatchObject({ user: { email }, firm: null });
 
     const created = await env.DB_CONTROL.prepare(
       'SELECT id, email_verified FROM "user" WHERE email = ?1',
     )
       .bind(email)
       .first<{ id: string; email_verified: number }>();
-    // Spending a token that only arrived by mail IS the possession proof verification asks for.
+    // The row is inserted UNVERIFIED and verified by the act that mints the session, so a verified
+    // column here is also the evidence that act ran.
     expect(created?.email_verified).toBe(1);
 
     // THE ASSERTION THAT WOULD HAVE CAUGHT THE PRODUCTION FAILURE.
@@ -181,7 +193,9 @@ describe("a person who registers can sign in with the password they chose", () =
     expect(credential).not.toBeNull();
     expect(credential?.password ?? "").not.toBe("");
 
-    // And the end of it: Better Auth's own sign-in verifies the credential this platform wrote.
+    // And the end of it: the password is still a working credential, so somebody who signs out, or
+    // who confirms on one device and signs in on another, is not left holding a password nothing
+    // accepts. Better Auth's own sign-in verifies what this platform wrote.
     const signedIn = await SELF.fetch("https://example.com/api/auth/sign-in/email", {
       method: "POST",
       headers: {
