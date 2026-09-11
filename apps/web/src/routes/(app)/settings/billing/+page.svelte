@@ -19,16 +19,13 @@
    * somebody changing the increment is deciding about the invoices they are about to send.
    *
    * A CUSTOM INCREMENT IS SHOWN, NEVER SILENTLY OFFERED AWAY. The server takes any whole number of
-   * minutes up to an hour; the select carries the seven firms actually bill at. A firm holding
-   * something else gets its value stated rather than a control that cannot express it — a select
-   * that resolved to its placeholder over a real value would be a screen lying about the firm.
+   * minutes up to an hour; the picker carries the seven firms actually bill at. A firm holding
+   * something else gets its value stated rather than a control that cannot express it — a field
+   * that resolved to nothing over a real value would be a screen lying about the firm.
    *
-   * HISTORY IS WITHHELD, for the reason the calendar and file-safety pages withhold it: the record
-   * of a change is the audit row the server writes, and a per-browser ledger would be one browser's
-   * recollection of a firm-wide fact, silent about every change a colleague made.
+   * The standard page (settings-page.svelte) over the shared server-backed draft; this file is the
+   * words and the one row rule above.
    */
-  import LoadingRegion from "@magna-carta/design-system/loading-region";
-  import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import { MANAGE_TIME_SETTINGS_PERMISSION } from "$lib/settings/firm-time-policy-api.ts";
   import {
@@ -38,11 +35,9 @@
     INCREMENT_DEFINITION,
     isOfferedIncrement,
   } from "$lib/settings/firm-time-policy-draft.svelte.ts";
-  import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
-  import SettingsDescription from "$lib/settings/components/settings-description.svelte";
-  import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
-  import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
-  import SettingsRow from "$lib/settings/components/settings-row.svelte";
+  import SettingsPage from "$lib/settings/components/settings-page.svelte";
+  import SettingsPlateNote from "$lib/settings/components/settings-plate-note.svelte";
+  import type { SettingDefinition } from "$lib/settings/settings-definitions.ts";
 
   const draft = createFirmTimePolicyDraft(fetch);
 
@@ -51,20 +46,19 @@
   const canEdit = $derived(sessionPermissions.holds(MANAGE_TIME_SETTINGS_PERMISSION));
 
   $effect(() => {
-    void draft.load();
     void sessionPermissions.load(fetch);
   });
 
-  // An increment outside the select's list is real and has to be stated, not offered away.
+  // An increment outside the picker's list is real and has to be stated, not offered away.
   const customIncrement = $derived.by(() => {
     const committed = draft.committed;
     if (committed === null) return null;
     return isOfferedIncrement(committed.incrementMinutes) ? null : committed.incrementMinutes;
   });
 
-  function editableRow(definitionId: string): boolean {
+  function editable(definition: SettingDefinition): boolean {
     if (!canEdit) return false;
-    return !(definitionId === INCREMENT_DEFINITION.id && customIncrement !== null);
+    return !(definition.id === INCREMENT_DEFINITION.id && customIncrement !== null);
   }
 </script>
 
@@ -72,83 +66,36 @@
   <title>Billing · Settings · Magna Carta</title>
 </svelte:head>
 
-<SettingsMasthead
+{#snippet plateEnd(plateLabel: string)}
+  {#if plateLabel === INCREMENT_DEFINITION.plateLabel}
+    {#if customIncrement !== null}
+      <SettingsPlateNote>
+        This firm bills in {customIncrement}-minute units, which is not one of the increments this
+        page offers. It is shown rather than changed, so choosing from a shorter list cannot
+        quietly move the firm off it.
+      </SettingsPlateNote>
+    {/if}
+    {#if canEdit}
+      <SettingsPlateNote>
+        Time already captured keeps the rounding it was recorded under. A change applies to what is
+        captured after it.
+      </SettingsPlateNote>
+    {/if}
+  {/if}
+{/snippet}
+
+<SettingsPage
   sectionId={BILLING_SECTION_ID}
   title="Billing"
-  posture={canEdit ? "draft" : "readOnly"}
-  draft={canEdit ? draft : undefined}
-  showHistory={false}
+  meta="How the firm measures the time it bills. A matter, a client or a timekeeper can carry its own increment, which takes precedence over the firm's."
+  {draft}
+  definitions={BILLING_DEFINITIONS}
+  {canEdit}
+  {editable}
+  readLabel="Reading the firm's time policy"
+  readFailureTitle="The Time Policy Could Not Be Read"
+  readFailureFallback="The firm's time policy was not read."
+  saveFailureFallback="The firm's time policy is unchanged. What you chose is still staged."
+  saveFailureWhenSilent="Nothing answered, so the firm's time policy is unchanged. What you chose is still staged."
+  {plateEnd}
 />
-
-<!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
-     room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. -->
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
-    <SettingsDescription>
-      How the firm measures the time it bills. A matter, a client or a timekeeper can carry its own
-      increment, which takes precedence over the firm's.
-    </SettingsDescription>
-
-    {#if draft.saveFailure !== null}
-      <FailureNotice
-        failure={draft.saveFailure}
-        title="The Change Was Not Saved"
-        fallback="The firm's time policy is unchanged. What you chose is still staged."
-        whenSilent="Nothing answered, so the firm's time policy is unchanged. What you chose is still staged."
-        onRetry={() => void draft.commit()}
-      />
-    {/if}
-
-    <SettingsPlate heading="Time Capture">
-      <LoadingRegion
-        loading={!draft.loaded}
-        failed={draft.readFailure !== null && !draft.loaded}
-        label="Reading the firm's time policy"
-        onRetry={() => void draft.load()}
-      >
-        {#snippet failure()}
-          {#if draft.readFailure !== null}
-            <FailureNotice
-              failure={draft.readFailure}
-              title="The Time Policy Could Not Be Read"
-              fallback="The firm's time policy was not read."
-              onRetry={() => void draft.load()}
-            />
-          {/if}
-        {/snippet}
-        <!-- The rows keep their own shape while the read is out: the setting's name stays
-             readable and its value grey, so the plate does not change height when it lands. -->
-        {#snippet fixture()}
-          {#each BILLING_DEFINITIONS as definition (definition.id)}
-            <SettingsRow {definition} value={definition.defaultValue} />
-          {/each}
-        {/snippet}
-        {#each BILLING_DEFINITIONS as definition (definition.id)}
-          {#if editableRow(definition.id)}
-            <SettingsRow {definition} {draft} />
-          {:else}
-            <SettingsRow {definition} value={draft.value(definition)} />
-          {/if}
-        {/each}
-        {#if customIncrement !== null}
-          <p class="py-8 text-sm text-text-muted">
-            This firm bills in {customIncrement}-minute units, which is not one of the increments
-            this page offers. It is shown rather than changed, so choosing from a shorter list
-            cannot quietly move the firm off it.
-          </p>
-        {/if}
-        {#if canEdit}
-          <p class="py-8 text-sm text-text-muted">
-            Time already captured keeps the rounding it was recorded under. A change applies to what
-            is captured after it.
-          </p>
-        {/if}
-      </LoadingRegion>
-    </SettingsPlate>
-  </div>
-</div>
-
-{#if canEdit}
-  <SettingsCommitFooter {draft} />
-{/if}

@@ -141,8 +141,20 @@ export function platesForSection(
   sectionId: string,
   canEdit: boolean,
 ): ReadonlyArray<{ label: string; definitions: readonly SettingDefinition[] }> {
+  return platesForDefinitions(visibleSettingsForSection(sectionId, canEdit));
+}
+
+/**
+ * A declared list of definitions grouped into plates, in declared order (a plate's position
+ * follows its first definition). The one grouping every settings page uses, whether its rows come
+ * from the registry above or from a server-backed draft's own field list — a page never re-groups
+ * its rows itself.
+ */
+export function platesForDefinitions(
+  definitions: readonly SettingDefinition[],
+): ReadonlyArray<{ label: string; definitions: readonly SettingDefinition[] }> {
   const plates: { label: string; definitions: SettingDefinition[] }[] = [];
-  for (const definition of visibleSettingsForSection(sectionId, canEdit)) {
+  for (const definition of definitions) {
     const label = definition.plateLabel ?? "General";
     const plate = plates.find((candidate) => candidate.label === label);
     if (plate === undefined) {

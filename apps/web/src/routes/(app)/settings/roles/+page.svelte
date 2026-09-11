@@ -25,6 +25,7 @@
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
 
   let roles = $state<readonly FirmRole[] | null>(null);
   let readFailure = $state<Failure | null>(null);
@@ -58,8 +59,7 @@
 
 <SettingsMasthead sectionId="roles" title="Roles and Permissions" posture="readOnly" showHistory={false} />
 
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
+<SettingsScrollRegion>
     <SettingsDescription>
       What each role allows. A member holds any number of roles and can do what any of them allows.
       Roles are given to people under Users.
@@ -137,5 +137,4 @@
         </Accordion.Root>
       </LoadingRegion>
     </SettingsPlate>
-  </div>
-</div>
+</SettingsScrollRegion>
