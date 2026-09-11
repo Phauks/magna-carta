@@ -1239,7 +1239,7 @@ export const foldersUpdate = <ThrowOnError extends boolean = false>(options: Opt
 export const filesList = <ThrowOnError extends boolean = false>(options: Options<FilesListData, ThrowOnError>): RequestResult<FilesListResponses, FilesListErrors, ThrowOnError> => (options.client ?? client).get<FilesListResponses, FilesListErrors, ThrowOnError>({ url: '/api/v1/files', ...options });
 
 /**
- * Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained for the recovery window.
+ * Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained, indefinitely by default. Bytes are never destroyed while another file, live or deleted, holds the same content; only a retention policy destroys them, and only once the last file holding them is gone.
  */
 export const filesDelete = <ThrowOnError extends boolean = false>(options: Options<FilesDeleteData, ThrowOnError>): RequestResult<FilesDeleteResponses, FilesDeleteErrors, ThrowOnError> => (options.client ?? client).delete<FilesDeleteResponses, FilesDeleteErrors, ThrowOnError>({ url: '/api/v1/files/{id}', ...options });
 

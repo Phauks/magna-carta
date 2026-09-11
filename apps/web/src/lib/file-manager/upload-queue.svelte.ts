@@ -40,6 +40,7 @@ import { digestOf } from "./upload-digests.svelte.ts";
 import { paceOf, paceText, withSample, type Pace, type PaceSample } from "./upload-pace.ts";
 import {
   intakeEntryKey,
+  isPreSendStage,
   sentBytesOf,
   type IntakeProgress,
   type IntakeStage,
@@ -68,11 +69,12 @@ export interface UploadBatchPlan {
    */
   readonly documentTypeIds: ReadonlyMap<string, string | null>;
   /**
-   * Whether the firm is asked, before any byte moves, if it already holds the bytes. On (the
-   * default) a file the matter holds is never sent and one the firm holds elsewhere is copied
-   * server-side. Off, every file is sent whatever the firm holds.
+   * Where each file stood when Upload was pressed — read, held, still being read — keyed the way
+   * the table keys its rows. The batch starts every item from exactly this, so the Status column
+   * does not lurch back to "Chosen" at the press and forward again as each lane reaches its file.
+   * Absent, every item starts as chosen.
    */
-  readonly checkDuplicates: boolean;
+  readonly readiness?: ReadonlyMap<string, IntakeProgress>;
   /** The destination matter's folders and files as last read, for landing folders and names. */
   readonly folders: readonly FolderSummary[];
   readonly files: readonly MatterFile[];
@@ -85,7 +87,10 @@ export interface UploadBatchItem {
   /** What the row is called: its path when it came from a folder, else its name. */
   readonly name: string;
   stage: IntakeStage;
+  /** Why it failed, in full: the fault, the stage it happened at, the Error ID. */
   reason?: string;
+  /** What failed, in one short line: the server's problem detail, or the transport's class. */
+  failure?: string;
   /** Bytes the browser has sent so far, while the file is being sent. */
   sentBytes: number;
   /** Bytes read so far, while the file is being hashed to ask whether the firm holds it. */
@@ -101,13 +106,18 @@ export interface UploadQueueDependencies {
   readonly fetchImpl: typeof fetch;
   readonly upload: (request: UploadRequest) => Promise<UploadOutcome>;
   /**
-   * The file's SHA-256, or null to send it without asking whether the firm already holds it. The
-   * read has usually STARTED already — the register begins reading when a file is chosen — so this
-   * reports from wherever the read has got to and the signal stops the watching, not the read.
+   * The file's SHA-256, or null when it could not be read, in which case it is sent without the
+   * firm being asked. The read has usually STARTED already — the register begins reading when a
+   * file is chosen — so this reports from wherever the read has got to and the signal stops the
+   * watching, not the read. The matter is what the firm is asked against.
    */
   readonly digest: (
     entry: DroppedEntry,
-    options: { onProgress: (readBytes: number) => void; signal: AbortSignal },
+    options: {
+      onProgress: (readBytes: number) => void;
+      signal: AbortSignal;
+      matterId: string;
+    },
   ) => Promise<string | null>;
   readonly createFolder: (
     input: { matterId: string; parentFolderId: string | null; name: string },
@@ -154,22 +164,52 @@ const STORAGE_UNREACHABLE =
   "this site. An administrator can open the version chip at the top right: its Database section " +
   "runs the upload readiness check, which names the thing that is not in place.";
 
-/** The failure line carries the stage and the Error ID, because a report needs both. */
-export function uploadFailureReason(outcome: UploadOutcome): string {
+/** The short line for a byte write that got no answer: the class of fault, and where it sits. */
+const STORAGE_UNREACHABLE_NATURE = "The firm's storage did not answer";
+
+/**
+ * What a failed upload says about itself, in two lengths. `failure` is the NATURE of the fault in
+ * one line, for the row and the tray to show without being pointed at: the server's own problem
+ * detail where it gave one (its title where it gave only that), or the class of transport fault
+ * where nothing answered. `reason` is the whole account — the fault, the stage it happened at and
+ * the Error ID — for the hover and the report to support.
+ */
+export interface UploadFailure {
+  readonly failure: string;
+  readonly reason: string;
+}
+
+export function uploadFailure(outcome: UploadOutcome): UploadFailure {
   if (outcome.kind === "problem") {
     const where = UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase();
     const errorId = outcome.problem.errorId;
-    return (
-      problemGuidance(outcome.problem).message +
-      ` (failed while ${where}` +
-      (errorId === undefined ? ")" : `; Error ID ${errorId})`)
-    );
+    const guidance = problemGuidance(outcome.problem);
+    // The guidance's message is the server's own detail wherever it gave one, and the platform's
+    // reading of the status where it did not — the one place that decision is made.
+    return {
+      failure: guidance.message,
+      reason:
+        guidance.message +
+        ` (failed while ${where}` +
+        (errorId === undefined ? ")" : `; Error ID ${errorId})`),
+    };
   }
   if (outcome.kind === "transport") {
-    if (outcome.stage === "uploading") return STORAGE_UNREACHABLE;
-    return `Nothing answered while ${UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase()}.`;
+    if (outcome.stage === "uploading") {
+      return { failure: STORAGE_UNREACHABLE_NATURE, reason: STORAGE_UNREACHABLE };
+    }
+    const where = UPLOAD_STAGE_NARRATION[outcome.stage].toLowerCase();
+    return {
+      failure: `Nothing answered while ${where}`,
+      reason: `Nothing answered while ${where}.`,
+    };
   }
-  return "";
+  return { failure: "", reason: "" };
+}
+
+/** The failure line carries the stage and the Error ID, because a report needs both. */
+export function uploadFailureReason(outcome: UploadOutcome): string {
+  return uploadFailure(outcome).reason;
 }
 
 let nextBatchNumber = 1;
@@ -182,7 +222,6 @@ export class UploadBatch {
   readonly destinationLabel: string;
   readonly createdAtBasis: "upload" | "source";
   readonly documentTypeIds: ReadonlyMap<string, string | null>;
-  readonly checkDuplicates: boolean;
   readonly startedAt: string;
   items = $state<UploadBatchItem[]>([]);
   finishedAt = $state<string | null>(null);
@@ -210,18 +249,24 @@ export class UploadBatch {
     this.destinationLabel = plan.destinationLabel;
     this.createdAtBasis = plan.createdAtBasis;
     this.documentTypeIds = new Map(plan.documentTypeIds);
-    this.checkDuplicates = plan.checkDuplicates;
     this.startedAt = dependencies.now();
     this.index = new MatterFileIndex(plan.folders, plan.files);
     this.#dependencies = dependencies;
-    this.items = plan.entries.map((entry) => ({
-      key: intakeEntryKey(entry),
-      entry,
-      name: entry.relativePath === "" ? entry.file.name : entry.relativePath,
-      stage: "chosen" as const,
-      sentBytes: 0,
-      hashedBytes: 0,
-    }));
+    this.items = plan.entries.map((entry) => {
+      const key = intakeEntryKey(entry);
+      // Each item starts where the dialog last showed it. Only a pre-send stage can carry over:
+      // whatever a file did in an earlier batch is that batch's, not this one's.
+      const known = plan.readiness?.get(key);
+      const stage = known !== undefined && isPreSendStage(known.stage) ? known.stage : "chosen";
+      return {
+        key,
+        entry,
+        name: entry.relativePath === "" ? entry.file.name : entry.relativePath,
+        stage,
+        sentBytes: 0,
+        hashedBytes: stage === "hashing" ? (known?.hashedBytes ?? 0) : 0,
+      };
+    });
     this.landedFolders.set("", Promise.resolve({ id: plan.destinationFolderId }));
   }
 
@@ -241,7 +286,7 @@ export class UploadBatch {
   get inFlight(): number {
     return this.items.filter(
       (item) =>
-        item.stage !== "chosen" &&
+        !isPreSendStage(item.stage) &&
         item.stage !== "settled" &&
         item.stage !== "already" &&
         item.stage !== "failed" &&
@@ -292,6 +337,7 @@ export class UploadBatch {
           sentBytes: item.sentBytes,
           hashedBytes: item.hashedBytes,
           ...(item.reason === undefined ? {} : { reason: item.reason }),
+          ...(item.failure === undefined ? {} : { failure: item.failure }),
         },
       ]),
     );
@@ -359,14 +405,20 @@ export class UploadBatch {
      * The digest, which the register began reading when the file was CHOSEN. Usually it is already
      * answered by the time this lane reaches the file and this is one microtask; where it is not,
      * the lane waits and the row reports the read from wherever it has got to. Either way the file
-     * is read once per tab, so a retry asks the same question with the same answer.
+     * is read once per tab, so a retry asks the same question with the same answer. It is ALWAYS
+     * read: a file the firm already holds is never sent again, and there is no setting that says
+     * otherwise.
      */
     item.sentBytes = 0;
     delete item.reason;
-    if (this.checkDuplicates && item.sha256 === undefined) {
+    delete item.failure;
+    if (item.sha256 === undefined) {
+      // A read the register has already answered resolves in a microtask, so a file that stood
+      // ready never paints as reading; one still in flight reports from where it has got to.
       item.stage = "hashing";
       item.sha256 = await this.#dependencies.digest(item.entry, {
         signal: this.#abort.signal,
+        matterId: this.matterId,
         onProgress: (readBytes) => {
           item.hashedBytes = readBytes;
         },
@@ -399,9 +451,11 @@ export class UploadBatch {
       return;
     }
     if (outcome.kind === "problem" || outcome.kind === "transport") {
+      const failed = uploadFailure(outcome);
       item.stage = "failed";
       item.sentBytes = 0;
-      item.reason = uploadFailureReason(outcome);
+      item.reason = failed.reason;
+      item.failure = failed.failure;
       return;
     }
     if (outcome.kind === "already") {
@@ -430,7 +484,7 @@ export class UploadBatch {
     this.cancelled = false;
     this.#abort = new AbortController();
     const pending = this.items.filter(
-      (item) => item.stage === "chosen" || item.stage === "failed" || item.stage === "cancelled",
+      (item) => isPreSendStage(item.stage) || item.stage === "failed" || item.stage === "cancelled",
     );
     let next = 0;
     const worker = async (): Promise<void> => {
