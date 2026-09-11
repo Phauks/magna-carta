@@ -10,7 +10,7 @@ ui: done
 load-profile: done
 tested: done
 branch: claude/tasks-feature-planning-ihaq2r
-active-work: docs/active-work/claude/tasks-feature-planning-ihaq2r.md
+active-work:
 next: starting a timer from a task, which waits on the live-timer run store becoming plural; due-soon and overdue reminders wait on the notifications comparison sweep; the board view waits on T3; comments on T4 and a flat checklist on T5; a plan's event and document steps wait on the calendar and document-automation seams. One finding to revisit rather than build: tasks.my-work-page-1 scans, at a measured cost of about a millisecond over the same read narrowed
 link-spec: docs/specs/2026-08-15-tasks-and-matter-plans-design.md
 link-plan: docs/specs/2026-09-01-tasks-scope-study.md
