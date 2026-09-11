@@ -42,6 +42,47 @@ and graduate into _Standing rules_ above when they turn out to bind everywhere.
 - **File Workbench** — [`file-workbench-rulings.md`](file-workbench-rulings.md). The Tools surface an
   unfiled file is brought to. Two rounds so far; the rulings that generalize beyond it are promoted
   into _Standing rules_ below.
+- **The money surfaces** — [`time-tab-rulings.md`](time-tab-rulings.md). Time, Fees, Costs and
+  Billing, on the matter and firm-wide alike: they share one anatomy, so they share one ledger.
+- **Settings** — [`settings-rulings.md`](settings-rulings.md).
+- **Conflicts** — [`conflicts-rulings.md`](conflicts-rulings.md).
+- **The matter record** — [`matter-rulings.md`](matter-rulings.md). Its header, status seal and
+  status window; the financial tabs and the Conflicts section have their own ledgers above.
+- **Magnus** — [`magnus-rulings.md`](magnus-rulings.md).
+
+### Rounds staged and not started (2026-09-09 to 2026-09-11)
+
+The owner staged six rounds ahead of the work, and asked that none of it start until they say so.
+Every row in them is `open` **by fact**, not by oversight, and each carries the research the round
+will need:
+[`file-manager-rulings.md`](file-manager-rulings.md) R22 (the Upload dialog),
+[`settings-rulings.md`](settings-rulings.md) R1,
+[`conflicts-rulings.md`](conflicts-rulings.md) R1,
+[`matter-rulings.md`](matter-rulings.md) R1,
+[`time-tab-rulings.md`](time-tab-rulings.md) R12 (the firm's money screens),
+[`magnus-rulings.md`](magnus-rulings.md) R1,
+and the messaging correction dated 2026-09-11 in _Standing rules_ below.
+
+**They are one complaint said six ways, and the cheapest order of work follows from that.** Four
+themes run through every round:
+
+1. **A screen's chrome must stop duplicating its table.** The messaging tabs, the money screens'
+   three differently-worded period dropdowns, and the conflicts panel's settings are the same
+   finding on four surfaces — and all of them meet the same obstacle, that a filter narrowing only
+   the loaded page is not a filter. Settle that once, in the table, and four screens simplify.
+2. **The shared part exists and the screens do not use it.** `settings-page.svelte` is written and
+   rendered by no route; `ScreenSearch` is "the product's one control" and no money screen imports
+   it; `DataTable.Grid` runs every register in the product except the five in Settings. Most of
+   this round is adoption, not invention.
+3. **A default belongs in the component, not at the call site.** `align="end"` is written out 95
+   times because neither `Select.Content` nor `Combobox.Content` sets one, and the two context-menu
+   parts are the only floating surfaces still on a z-layer below `modal` — which is why a
+   right-click menu is unusable inside a dialog.
+4. **Two screens are waiting on one thing that does not exist.** The Offices screen
+   ([`settings-rulings.md`](settings-rulings.md) O1) is the whole of the matter status window's
+   Location ruling ([`matter-rulings.md`](matter-rulings.md) W1) and of firm branding (F2), and its
+   backend is already built — `packages/locations/`, `/api/v1/locations`, letterhead logo included.
+   Build Offices first and three rows resolve together.
 
 ---
 

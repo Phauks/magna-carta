@@ -2,7 +2,7 @@
 worktree: /home/user/magna-carta (remote session)
 area: Staging ground for the owner's next rounds — the Upload dialog, the Settings surface and Conflicts; notes and research recorded, no code taken
 status: designing
-touches: docs/conventions/file-manager-rulings.md, docs/conventions/settings-rulings.md, docs/conventions/conflicts-rulings.md, docs/conventions/matter-rulings.md, docs/conventions/time-tab-rulings.md, docs/conventions/design-corrections.md
+touches: docs/conventions/file-manager-rulings.md, docs/conventions/settings-rulings.md, docs/conventions/conflicts-rulings.md, docs/conventions/matter-rulings.md, docs/conventions/magnus-rulings.md, docs/conventions/time-tab-rulings.md, docs/conventions/design-corrections.md
 ---
 
 The owner is staging notes for further rounds on the matter file manager's Upload dialog, on the
@@ -10,8 +10,11 @@ Settings surface and on Conflicts, and has asked explicitly that no work start u
 This stream has recorded the 2026-09-09 notes as `R22` in the file-manager rulings ledger and opened
 `docs/conventions/settings-rulings.md`, `docs/conventions/conflicts-rulings.md` and
 `docs/conventions/matter-rulings.md`, each with the owner's 2026-09-11 notes as its `R1`; added
-`R12` to `docs/conventions/time-tab-rulings.md` for the firm's money screens; and recorded the
-messaging correction in `docs/conventions/design-corrections.md` — every ruling row `open` — together with the research
+`docs/conventions/magnus-rulings.md`; added `R12` to `docs/conventions/time-tab-rulings.md` for the
+firm's money screens; recorded the messaging correction in
+`docs/conventions/design-corrections.md`; and consolidated all of it there, where the per-surface
+ledger index now lists every ledger, names the six staged rounds, and states the four themes they
+share — every ruling row `open` — together with the research
 each round will need, and has touched no application code. When the work starts it lands in
 `apps/web/src/lib/file-manager/`, `apps/web/src/routes/(app)/settings/`,
 `apps/web/src/lib/settings/`, `apps/web/src/lib/conflicts/`, `packages/conflicts/`,
