@@ -19,21 +19,20 @@ a combobox rather than a select** and that **a control that comes and goes never
 
 ## R1 — round one: the settings surface wants consolidating
 
-The owner's notes of 2026-09-11, staged. **Nothing here has been started** — the round was recorded
-ahead of the work and waits on the owner's go-ahead, so every row below is `open` as a statement of
-fact rather than an oversight. The research beneath each group is what the code says today; it is
-not a plan, and where it names a remedy that is a starting point for the round, not a decision
-already taken.
+The owner's notes of 2026-09-11, staged and then built the same day. The research beneath each
+group is what the code said when the round was recorded; the notes block at the end of the round
+records what was decided in building it and the seams it left. Rows still `open` are named there
+with the reason.
 
 ### The surface itself — consolidation
 
-| #  | Ruling                                                                                                                                                                                                                                                                                        | Status |
-| -- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| G1 | **Every settings page is built from one page shape.** One scroll region, one plate rhythm, one row grid, one set of spacings — so changing how a settings page looks is one edit rather than twenty-three. A page with a bespoke need composes the same parts; it does not re-implement them. | open   |
-| G2 | **A choice is shown the same way wherever it appears in settings.** The page does not get to pick between a radio group, a select and a switch on its own — the setting's declaration says what it is and the shape follows from that.                                                        | open   |
-| G3 | **A settings table is the product's table, with everything the product's tables do** — sort, filter, the column roster, resizing, the counts strip. A register in Settings is not a lesser table than a register anywhere else.                                                               | open   |
-| G4 | **There is one dropdown, and its behaviour is the component's, not each call site's.** Alignment, width and collision handling are settled once in the component so that a page cannot get them wrong and a correction does not have to be made in every page that opens a menu.              | open   |
-| G5 | **A dropdown aligns to the right side of the control that opens it, and never extends to the right of it.** A menu that grows rightward off a right-hand control ends up against the edge of the screen, which is how it reads today.                                                         | open   |
+| #   | Ruling                                                                                                                                                                                                                                                                                        | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| G1  | **Every settings page is built from one page shape.** One scroll region, one plate rhythm, one row grid, one set of spacings — so changing how a settings page looks is one edit rather than twenty-three. A page with a bespoke need composes the same parts; it does not re-implement them. | settled |
+| G2  | **A choice is shown the same way wherever it appears in settings.** The page does not get to pick between a radio group, a select and a switch on its own — the setting's declaration says what it is and the shape follows from that.                                                        | settled |
+| G3  | **A settings table is the product's table, with everything the product's tables do** — sort, filter, the column roster, resizing, the counts strip. A register in Settings is not a lesser table than a register anywhere else.                                                               | settled |
+| G4  | **There is one dropdown, and its behaviour is the component's, not each call site's.** Alignment, width and collision handling are settled once in the component so that a page cannot get them wrong and a correction does not have to be made in every page that opens a menu.              | open    |
+| G5  | **A dropdown aligns to the right side of the control that opens it, and never extends to the right of it.** A menu that grows rightward off a right-hand control ends up against the edge of the screen, which is how it reads today.                                                         | open    |
 
 **What the code says today.**
 
@@ -61,7 +60,7 @@ already taken.
 - **Dropdown alignment is set at the call site, ninety-five times.** `align="end"` appears 95 times
   across the app and `align="start"` 10 times. The design-system contents set no default of their
   own: `select-content.svelte` and `combobox-content.svelte` both pin `min-width:
-  var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI, so a caller that
+var(--bits-floating-anchor-width)` and pass `align` straight through to Bits UI, so a caller that
   omits it gets the primitive's default. `settings-row.svelte` is one of those callers — its
   `Select.Content` carries no `align`, and its control column is pinned to the right of the row at
   `--mc-size-popover`, which is the exact geometry that sends a listbox wider than its trigger off
@@ -69,10 +68,10 @@ already taken.
 
 ### Firm profile and branding
 
-| #  | Ruling                                                                                                                                                                                 | Status |
-| -- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| F1 | **Firm Profile carries the firm's identity, not one field.** The empty space under the name is the symptom: the page holds one setting where it should hold what the firm actually is. | open   |
-| F2 | **The firm can upload an image, or images, for use across the platform** — branding in the product and marks printed into generated documents.                                         | open   |
+| #   | Ruling                                                                                                                                                                                 | Status |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| F1  | **Firm Profile carries the firm's identity, not one field.** The empty space under the name is the symptom: the page holds one setting where it should hold what the firm actually is. | open   |
+| F2  | **The firm can upload an image, or images, for use across the platform** — branding in the product and marks printed into generated documents.                                         | open   |
 
 **What the code says today.**
 
@@ -91,9 +90,9 @@ already taken.
 
 ### Offices
 
-| #  | Ruling                                                                                                                                                                                                                      | Status |
-| -- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| O1 | **Offices are settable, from Settings, and there can be several.** Each carries its address, its contact information and its location. There is no way to do this in the product today, which is why it could not be found. | open   |
+| #   | Ruling                                                                                                                                                                                                                      | Status |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| O1  | **Offices are settable, from Settings, and there can be several.** Each carries its address, its contact information and its location. There is no way to do this in the product today, which is why it could not be found. | open   |
 
 **What the code says today.** The whole subsystem is built except the screen. `packages/locations/`
 owns validation and the service; `apps/api-worker/src/routes/locations.ts` exposes create, update,
@@ -114,12 +113,12 @@ first is what lets both stop being free text.
 
 ### Platform — beta access and versions
 
-| #  | Ruling                                                                                                                                                                                                                               | Status |
-| -- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| P1 | **"Release Channel" reads "Beta Branch".**                                                                                                                                                                                           | open   |
-| P2 | **Cancelling the join leaves the toggle off.** Pressing to join and then cancelling currently leaves the switch showing as active while the firm is still on the released build — the screen says one thing and the firm is another. | open   |
-| P3 | **The Versions page reports real information**, not seams standing in for a read that exists.                                                                                                                                        | open   |
-| P4 | **Versions and the build information surface are one thing.** They answer the same question in two places; consolidate them rather than keeping two.                                                                                 | open   |
+| #   | Ruling                                                                                                                                                                                                                               | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| P1  | **"Release Channel" reads "Beta Branch".**                                                                                                                                                                                           | settled |
+| P2  | **Cancelling the join leaves the toggle off.** Pressing to join and then cancelling currently leaves the switch showing as active while the firm is still on the released build — the screen says one thing and the firm is another. | settled |
+| P3  | **The Versions page reports real information**, not seams standing in for a read that exists.                                                                                                                                        | settled |
+| P4  | **Versions and the build information surface are one thing.** They answer the same question in two places; consolidate them rather than keeping two.                                                                                 | settled |
 
 **What the code says today.**
 
@@ -148,10 +147,10 @@ first is what lets both stop being free text.
 
 ### File safety — the scan tiers
 
-| #  | Ruling                                                                                                                                                                                    | Status |
-| -- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| S1 | **The scan depth options read "Core", "Extended" and "Full".** Nothing else in the option itself.                                                                                         | open   |
-| S2 | **Choosing one shows what its rules are, beneath the engine.** The detail belongs under the engine that runs it, revealed on the choice, rather than crammed into the option's own label. | open   |
+| #   | Ruling                                                                                                                                                                                    | Status  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1  | **The scan depth options read "Core", "Extended" and "Full".** Nothing else in the option itself.                                                                                         | settled |
+| S2  | **Choosing one shows what its rules are, beneath the engine.** The detail belongs under the engine that runs it, revealed on the choice, rather than crammed into the option's own label. | settled |
 
 **What the code says today.** The three options are declared in
 `apps/web/src/lib/file-manager/scan-policy-draft.svelte.ts` with the explanation welded into each
@@ -165,12 +164,12 @@ this page or on the consolidated Versions surface is the design question the rou
 
 ### Matter numbering
 
-| #  | Ruling                                                                                                                                                                     | Status |
-| -- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| M1 | **"Start from" reads "Matter Numbering Scheme".**                                                                                                                          | open   |
-| M2 | **Building a scheme is a table.** A part is a row with its fields in columns, edited the way every other list in the product is edited — not a stack of loose fields.      | open   |
-| M3 | **The reordering arrows sit on the LEFT of a part, not the right.** They act on the row, and the row begins on the left.                                                   | open   |
-| M4 | **The matter numbering screen is reconsidered whole.** The relabelling and the table are the parts already named; the screen itself wants rethinking rather than patching. | open   |
+| #   | Ruling                                                                                                                                                                     | Status  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| M1  | **"Start from" reads "Matter Numbering Scheme".**                                                                                                                          | settled |
+| M2  | **Building a scheme is a table.** A part is a row with its fields in columns, edited the way every other list in the product is edited — not a stack of loose fields.      | settled |
+| M3  | **The reordering arrows sit on the LEFT of a part, not the right.** They act on the row, and the row begins on the left.                                                   | settled |
+| M4  | **The matter numbering screen is reconsidered whole.** The relabelling and the table are the parts already named; the screen itself wants rethinking rather than patching. | settled |
 
 **What the code says today.** Both editors are one component,
 `apps/web/src/lib/matters/numbering-scheme-editor.svelte` (506 lines), rendered twice from
@@ -180,3 +179,73 @@ fields — Part N, Text, Digits, Starts at, Restarts the count — and the row e
 Move-down and Remove; M3 moves the two arrows to the front of the row. The page renders none of the
 shared settings parts, which is the same finding as G1 seen from the other end: a page with a real
 editor in it had nowhere standard to put one.
+
+### Notes recorded this round
+
+Decisions taken in building G1–G3, P1–P4, S1–S2 and M1–M4, and the seams left. G4/G5 (the
+dropdown's own alignment) are the design system's and were built there; F1/F2 and O1 are their own
+stream.
+
+- **The standard page renders a server-backed draft, not the local-storage registry.**
+  `settings-page.svelte` was written for `settings-definitions.ts`, whose array is empty by rule
+  (every firm setting has a server behind it now), so "adopt the standard page" meant rewriting it
+  around what the pages actually hold: a draft of the server-backed shape plus its declared
+  definitions. Billing, Calendar, Reports and File Safety render `<SettingsPage>`; a page's one
+  bespoke need rides a snippet (`afterRow` for content beneath one row, `plateEnd` for a line that
+  closes a plate) rather than a second implementation. The read-only member's "Request a change"
+  affordance lives there as before. The scroll region is one component
+  (`settings-scroll-region.svelte`) on every page this stream owns; `firm-profile`, `offices`,
+  `conflicts` and `ai` belong to other streams and still carry the hand-rolled copy — swapping it is
+  one import and two tags each.
+- **A plate's closing line is a component** (`settings-plate-note.svelte`): the one sentence a plate
+  may carry, in the row rhythm, for a consequence and never an explanation. The ad-hoc `py-8` and
+  `py-12` paragraphs and the hand-built rows on Downloads and Notification Policy are settings rows
+  now, so spacing inside a plate comes from the row and never from the page.
+- **Every closed choice in Settings is the product's combobox.** `SettingsRow`'s `select` kind
+  renders `choice-picker.svelte`; the hand-placed `Select`s on Text (the Soon seams), the two
+  notification matrices, the Event Types, Resources and Users dialogs, Matter Plans, Intake
+  Procedures and the numbering editor are the same field. Where a choice used the empty string for
+  a real answer ("No role", "No office", "No template", "Members choose", "Every kind of matter"),
+  that answer now carries a value of its own, because the combobox refuses an empty pick and the
+  answer is a real one.
+- **The five settings tables are `DataTable.Grid`** over column models in
+  `apps/web/src/lib/settings/catalog-columns.ts`: the name anchors every row, every set filter hands
+  the grid its declared vocabulary, and the Actions column is part of the model, pinned to the
+  trailing edge and present only for a member who may act. The grid fixes its columns when it is
+  made, so a catalog page re-creates its grid when the session lands — before anyone has sorted or
+  filtered. The notification matrices carry the category's meaning as the row's second line
+  (`rowDetail`), never a column. The design system's table needed nothing.
+- **P2 is a binding.** The switch is driven from the session's channel through a getter/setter
+  (`release-channel-switch.ts` holds the two rules; `beta-access-page.test.ts` pins them, the
+  page's binding, and the mounted page itself walked through press-and-cancel), so a cancelled
+  consent leaves it off because nothing it reads has changed.
+- **P3/P4: the Versions page IS the version chip's report.** The body of the chip's popover moved
+  whole into `version-report.svelte` (the chip keeps its trigger); the page renders it at page size
+  inside one plate, every section, fold and health row included. The histogram decomposition is
+  gone from the page, and so is the "once the versions endpoint ships" line — the endpoint has
+  shipped. The source-read tests in `version-overlay.test.ts` and `database-health.test.ts` now
+  read the report.
+- **S2: the engine reading sits on File Safety, beneath Scan Depth, from the score-histogram
+  route.** `GET /api/v1/meta/versions` reports the scan Worker's build, not the container's
+  composite engine version; the histogram route is the one place the engine states it, and it names
+  the same permission the policy read does, so the page reads it and `scan-engine-version.ts`
+  splits it. What a depth MEANS is stated from the verdict model and the container's own notes
+  (the packages nest; the antivirus signatures and structural checks count at every depth;
+  heuristic rules count only above the threshold). The rule FAMILIES inside each package are the
+  upstream release's and nothing in this repository lists them, so that line ships as the honest
+  Soon seam — never an invented list.
+- **M4, what changed on the screen.** The page is the settings anatomy: masthead, the shared scroll
+  region, one plate per sequence headed "Matter Numbers" / "Consultation Numbers". Inside each
+  plate: an "In Force" row stating the committed scheme (with "Not set" / "Built-in sequence" as its
+  badge and the consequence of an unset scheme as its description); the "Matter Numbering Scheme"
+  row (M1), a combobox over the common shapes that loads the list and empties again, because a
+  field still naming a shape the table below contradicts would be lying; the parts as a table with
+  the arrows leading the row and Remove ending it (M2, M3), where a column a part has no fact for
+  holds its control refused with the reason on its hover rather than removed; a "Preview" row with
+  the server's rendering and the sample sentence beneath; and the plate's own Discard and Save with
+  the one consequence line beside them. The information Alert that opened the page is gone ("no
+  info lines"); the explanation lives in `docs/user/admin/matter-numbering.md`. The bordered box
+  around the editor is gone with it.
+- **Seams left.** The settings section nav (`settings/+layout.svelte`) is untouched pending the
+  `NavigationLayout` component; the four pages of other streams still hand-roll the scroll region;
+  `RequestChangeDialog`'s "File Request" stays the Soon seam it was.

@@ -30,3 +30,9 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
 - [Checking that uploads can reach the firm's storage](upload-readiness.md) — what to do when an
   upload says storage did not answer: the check that runs from the version chip's Database section,
   its copyable report, what it puts right on its own, and the two things it can only name.
+- [File safety and scanning](file-safety-and-scanning.md) — how deep every upload is scanned (Core,
+  Extended or Full, and what each means), the engine that scans it, the suspicion threshold, what
+  the firm may do with a flagged file, and who can change any of it.
+- [The beta branch](beta-branch.md) — running the build ahead of the released one: what joining
+  asks you to accept, why cancelling leaves the switch off, stepping back, and the alpha channel the
+  platform sets.
