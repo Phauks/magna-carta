@@ -491,8 +491,49 @@ describe("FirmResourceProvider — a notification rule R2 refuses as an overlap"
       eventNotificationQueueId: "queue-1",
       fetchImplementation: stub.fetchImplementation,
     });
+    // The failure names what the bucket holds, so the reader can see the mismatch rather than
+    // being handed the API's refusal a second time.
     await expect(provider.configureBucketNotifications(firmId, "us")).rejects.toThrow(
-      /configureBucketNotifications failed: HTTP 400.*11020/s,
+      /does not send files\/ to queue queue-1.*some-older-queue ← files\//s,
+    );
+  });
+
+  it("reads a snake_case queue id as the same queue", async () => {
+    const stub = stubFetch([
+      OVERLAP,
+      {
+        status: 200,
+        body: {
+          success: true,
+          result: { queues: [{ queue_id: "queue-1", rules: [{ prefix: "files/" }] }] },
+        },
+      },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-1",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId, "us")).resolves.toBeUndefined();
+  });
+
+  it("says when the configuration could not be read, rather than repeating the refusal", async () => {
+    const stub = stubFetch([
+      OVERLAP,
+      {
+        status: 403,
+        body: { success: false, errors: [{ code: 10000, message: "Authentication error" }] },
+      },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-1",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId, "us")).rejects.toThrow(
+      /reading the bucket's configuration failed.*Authentication error/s,
     );
   });
 });

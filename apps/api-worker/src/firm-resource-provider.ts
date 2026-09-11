@@ -184,11 +184,25 @@ function isRuleOverlap(envelope: CloudflareApiEnvelope<unknown>): boolean {
 
 // What `GET …/event_notifications/r2/{bucket}/configuration` answers: each queue the bucket
 // notifies, with the rules that send to it. Only the fields the overlap check reads are typed.
+// Both casings are read, because the documented shape is camelCase and the account API has
+// answered other resources in snake_case; a mismatch here would turn a rule that is in place into
+// a reported fault, which is the mistake this read exists to stop.
+interface NotificationRule {
+  readonly prefix?: string;
+  readonly actions?: readonly string[];
+}
+interface NotificationQueue {
+  readonly queueId?: string;
+  readonly queue_id?: string;
+  readonly queueName?: string;
+  readonly rules?: readonly NotificationRule[];
+}
 interface NotificationConfiguration {
-  readonly queues?: readonly {
-    readonly queueId?: string;
-    readonly rules?: readonly { readonly prefix?: string; readonly actions?: readonly string[] }[];
-  }[];
+  readonly queues?: readonly NotificationQueue[];
+}
+
+function queueIdOf(queue: NotificationQueue): string {
+  return queue.queueId ?? queue.queue_id ?? "";
 }
 
 // Whether the bucket already sends objects under `prefix` to `queueId` — the state a refused
@@ -200,9 +214,26 @@ function hasNotificationRule(
 ): boolean {
   return (configuration?.queues ?? []).some(
     (queue) =>
-      queue.queueId === queueId &&
+      queueIdOf(queue) === queueId &&
       (queue.rules ?? []).some((rule) => (rule.prefix ?? "") === prefix),
   );
+}
+
+// The configuration in one line, for the failure that has to name it: each queue and the prefixes
+// it is sent. Deployment facts only — queue ids and key prefixes, never anything a firm wrote.
+function describeNotificationConfiguration(
+  configuration: NotificationConfiguration | undefined,
+): string {
+  const queues = configuration?.queues ?? [];
+  if (queues.length === 0) return "no notification rules at all";
+  return queues
+    .map((queue) => {
+      const prefixes = (queue.rules ?? []).map((rule) =>
+        rule.prefix === undefined || rule.prefix === "" ? "(every key)" : rule.prefix,
+      );
+      return `queue ${queueIdOf(queue) || "(unnamed)"} ← ${prefixes.join(", ") || "(no rules)"}`;
+    })
+    .join("; ");
 }
 
 function describeFailure(
@@ -345,25 +376,53 @@ export function createCloudflareRestFirmResourceProvider(
           extraHeaders,
         );
         if (configured.envelope.success) return;
-        if (isRuleOverlap(configured.envelope)) {
-          const existing = await callApi<NotificationConfiguration>(
+        if (!isRuleOverlap(configured.envelope)) {
+          throw describeFailure(
+            "configureBucketNotifications",
+            configured.status,
+            configured.envelope,
+          );
+        }
+        // Refused as an overlap: read what the bucket holds, and either recognise the rule as
+        // already there or say exactly what IS there — a reader of the readiness report has to be
+        // able to tell "the rule is on the bucket under a queue this deployment no longer names"
+        // from "the API is refusing something else", and the refusal's own sentence says neither.
+        let existing: {
+          status: number;
+          envelope: CloudflareApiEnvelope<NotificationConfiguration>;
+        };
+        try {
+          existing = await callApi<NotificationConfiguration>(
             "configureBucketNotifications",
             "GET",
             `${accountBase}/event_notifications/r2/${bucketName}/configuration`,
             undefined,
             extraHeaders,
           );
-          if (
-            existing.envelope.success &&
-            hasNotificationRule(existing.envelope.result, queueId, prefix)
-          ) {
-            return;
-          }
+        } catch (caught) {
+          throw new Error(
+            `configureBucketNotifications: R2 refused the ${prefix} rule as overlapping a rule ` +
+              `already on ${bucketName}, and the bucket's configuration could not be read to ` +
+              `confirm it: ${caught instanceof Error ? caught.message : String(caught)}`,
+            { cause: caught },
+          );
         }
-        throw describeFailure(
-          "configureBucketNotifications",
-          configured.status,
-          configured.envelope,
+        if (!existing.envelope.success) {
+          throw new Error(
+            `configureBucketNotifications: R2 refused the ${prefix} rule as overlapping a rule ` +
+              `already on ${bucketName}, and reading the bucket's configuration failed: ` +
+              describeFailure("readBucketNotifications", existing.status, existing.envelope)
+                .message,
+          );
+        }
+        if (hasNotificationRule(existing.envelope.result, queueId, prefix)) return;
+        throw new Error(
+          `configureBucketNotifications: R2 refused the ${prefix} rule as overlapping a rule ` +
+            `already on ${bucketName}, and the bucket does not send ${prefix} to queue ${queueId}. ` +
+            `It holds: ${describeNotificationConfiguration(existing.envelope.result)}. Either the ` +
+            "queue id this deployment names (FILES_INGEST_QUEUE_ID) is not the queue the bucket was " +
+            "configured for, or an older rule covers the same prefix — remove it in the dashboard " +
+            "(R2 → the bucket → Settings → Event notifications) and run the check again.",
         );
       };
       await putRule(options.eventNotificationQueueId, FILES_NOTIFICATION_PREFIX);
