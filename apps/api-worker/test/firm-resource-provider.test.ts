@@ -498,6 +498,32 @@ describe("FirmResourceProvider — a notification rule R2 refuses as an overlap"
     );
   });
 
+  it("reads the queue id without its hyphens as the same queue the API answers with hyphens", async () => {
+    // The deployment's secret holds the UUID bare; the API's path accepts that and its answer
+    // carries hyphens. The first real run reported this pair as a mismatch.
+    const stub = stubFetch([
+      OVERLAP,
+      {
+        status: 200,
+        body: {
+          success: true,
+          result: {
+            queues: [
+              { queueId: "5b113972-5b4f-4881-b604-7ab6aa88e51a", rules: [{ prefix: "files/" }] },
+            ],
+          },
+        },
+      },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "5b1139725b4f4881b6047ab6aa88e51a",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId, "us")).resolves.toBeUndefined();
+  });
+
   it("reads a snake_case queue id as the same queue", async () => {
     const stub = stubFetch([
       OVERLAP,
