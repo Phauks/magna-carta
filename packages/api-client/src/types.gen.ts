@@ -116,6 +116,7 @@ export type DatabaseHealthResponse = {
     schema: DatabaseHealthSchema;
     membership: DatabaseHealthMembership;
     provisioning: DatabaseHealthProvisioning;
+    fileStorage: DatabaseHealthFileStorage;
     observedAt: string;
 };
 
@@ -147,6 +148,17 @@ export type DatabaseHealthProvisioning = {
     state: 'read' | 'unknown';
     pending: number;
     deadLettered: number;
+};
+
+export type DatabaseHealthFileStorage = {
+    uploadPath: 'direct-to-storage' | 'through-the-application';
+    provisioner: 'cloudflare-rest' | 'development';
+    lastReadinessCheck: {
+        at: string;
+        ready: boolean;
+        failed: Array<string>;
+    } | null;
+    state: 'read' | 'unknown';
 };
 
 export type FirmUsageResponse = {
@@ -1929,6 +1941,20 @@ export type ScanDiagnosis = {
     signature: string | null;
     reason: string | null;
     activeContent: boolean;
+};
+
+export type UploadReadinessReport = {
+    ready: boolean;
+    bucketName: string | null;
+    provisioner: 'cloudflare-rest' | 'development';
+    uploadPath: 'direct-to-storage' | 'through-the-application';
+    checks: Array<UploadReadinessCheck>;
+};
+
+export type UploadReadinessCheck = {
+    id: 'bucket-recorded' | 'bucket-exists' | 'event-notifications' | 'lifecycle-rules' | 'cors-policy' | 'key-can-sign';
+    outcome: 'ok' | 'applied' | 'failed' | 'not-applicable';
+    detail: string;
 };
 
 export type MatterRescanResult = {
@@ -15104,6 +15130,35 @@ export type ScanDiagnoseResponses = {
 };
 
 export type ScanDiagnoseResponse = ScanDiagnoseResponses[keyof ScanDiagnoseResponses];
+
+export type UploadReadinessCheckData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/upload-readiness';
+};
+
+export type UploadReadinessCheckErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageScanPolicy
+     */
+    403: Problem;
+};
+
+export type UploadReadinessCheckError = UploadReadinessCheckErrors[keyof UploadReadinessCheckErrors];
+
+export type UploadReadinessCheckResponses = {
+    /**
+     * The readiness report
+     */
+    200: UploadReadinessReport;
+};
+
+export type UploadReadinessCheckResponse = UploadReadinessCheckResponses[keyof UploadReadinessCheckResponses];
 
 export type ScanMatterData = {
     body?: never;

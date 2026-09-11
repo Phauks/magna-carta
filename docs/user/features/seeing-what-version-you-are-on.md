@@ -32,12 +32,13 @@ The signed-out overlay shows this page's build only, and says so. The deployment
 
 Your firm's records live in a database of their own, and your account has to be written into it before the platform will let you do anything. Usually that happens within a minute or two of the firm being created, and nobody ever notices. When it has not happened yet — or when something between your browser and those records is not working — every screen you open refuses you, and the message it shows is about permissions: _"Your role does not grant this action in this firm."_ That message is accurate and unhelpful, because it looks like something an administrator forgot to do when usually it is something you only have to wait for.
 
-The **Database** section of the version overlay is where that gets sorted out. It shows four things, each with its own state:
+The **Database** section of the version overlay is where that gets sorted out. It shows five things, each with its own state:
 
 - **Firm database** — whether your firm's records answered this request, and how long they took. This is the connection itself.
 - **Schema** — whether your firm's database has caught up with the version of Magna Carta you are running. A firm's database updates itself the next time it is used, so **Behind** is a wait rather than a fault, and it explains a screen that is missing something a newer version added.
 - **Your membership** — whether your account has been written into the firm's records yet, which role or roles you hold, and how many things those roles permit. This is the row that explains a refusal.
 - **Control plane** — whether the platform's own records answered, and whether your firm's file storage has finished being set up.
+- **File storage** — which way an uploaded file travels (straight from your browser to the firm's storage, or through the application), and what the last upload readiness check found. **Not yet checked** is a fact rather than a fault: nobody has run the check. **Not ready** names the first thing the check found missing, and where an administrator runs it again — see [Checking that uploads can reach the firm's storage](../admin/upload-readiness.md).
 
 When a member record for your firm is still being written, or could not be written, a **Provisioning** line appears beneath the four rows and says which. "Still being written" is a wait and usually clears within a few minutes; "will not retry on its own" means somebody at Magna Carta has to release it, and is worth quoting in a support request.
 

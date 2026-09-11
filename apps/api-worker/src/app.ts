@@ -65,6 +65,7 @@ import { registerWopiHostRoutes } from "./editing/wopi-host.ts";
 import { registerSplitObjectHostRoutes } from "./search/split-object-host.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
+import { registerUploadReadinessRoute } from "./routes/upload-readiness.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerScanPolicyRoutes } from "./routes/scan-policy.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
@@ -324,9 +325,11 @@ export type Bindings = {
   // it wraps the per-firm data keys, so no plaintext data key is ever stored. Local dev + tests
   // load the placeholder from .dev.vars; production sets it with `wrangler secret put ROOT_KEK`.
   ROOT_KEK: string;
-  // Cloudflare REST FirmResourceProvider credentials — DEPLOY-TIME secrets only (`wrangler
-  // secret put`), deliberately absent from .dev.vars: locally the dev pool-claiming adapter runs
-  // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).
+  // Cloudflare REST FirmResourceProvider credentials — deploy-time secrets (`wrangler secret put`),
+  // REQUIRED by the wrangler.jsonc gate so a production deploy cannot run the development adapter,
+  // and deliberately absent from .dev.vars: locally the development adapter runs instead, selected
+  // by these being unset (firm-provisioner-wiring.ts). Optional in the type because that local
+  // absence is real; the gate, not the type, is what makes them present in a deployment.
   CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   // The account-scoped R2 S3 API token the presigner signs upload/download URLs with — the bytes
@@ -776,6 +779,8 @@ export function createApp(options: CreateAppOptions = {}) {
   registerDocumentCheckoutRoutes(app, chokepoint);
   // The one-off, matter-less malware-scan diagnostic — stream a file through the engine, get a verdict.
   registerScanDiagnoseRoute(app, chokepoint);
+  // "Can this firm upload?" answered from the server: the bucket, its three settings, the key.
+  registerUploadReadinessRoute(app, chokepoint);
   // "Scan this matter now" — queue a background re-scan of a matter's stale files on the bulk lane.
   registerScanMatterRoute(app, chokepoint);
   // Read and update the firm's malware scan-policy settings (tier, score floor, flagged treatment).
