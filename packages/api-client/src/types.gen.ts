@@ -12545,7 +12545,7 @@ export type MattersHoldErrors = {
      */
     404: Problem;
     /**
-     * The matter is not open, or a request with this Idempotency-Key is still in progress
+     * The matter is neither open nor a consultation, or a request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -12616,7 +12616,7 @@ export type MattersReleaseError = MattersReleaseErrors[keyof MattersReleaseError
 
 export type MattersReleaseResponses = {
     /**
-     * The hold was released and the matter is open
+     * The hold was released and the matter is back where the hold found it
      */
     200: MatterActionAck;
 };

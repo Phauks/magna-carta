@@ -1,12 +1,26 @@
 <script lang="ts">
   /*
-   * The status seal, and the window behind it. A matter's status is changed HERE, by pressing the
-   * status itself.
+   * The status seal, the menu it opens, and the window behind them. A matter's status is changed
+   * HERE, from the status itself.
    *
    * WHY THE SEAL IS THE CONTROL. The status is the fact the top-left corner of a matter exists to
    * state, and it is the only thing on the masthead a person changes rather than edits. Putting the
    * change behind an overflow menu made the two strangers: you read the status in one place and
    * changed it in another, three gestures away.
+   *
+   * THE SEAL IS A DROPDOWN OF STEPS, NOT A PICKER OF STATUSES (owner ruling, 2026-09-11). Pressing
+   * the seal opens a menu of the steps the lifecycle allows from where the matter stands — never
+   * the five statuses — and a way into the window beneath them. A step that needs input (the
+   * hold's reason) or has requirements worth reading first (the close, the open, the intake's
+   * completion) opens the window at that step; a step that needs nothing (a release, a reopen)
+   * asks its one question and runs. Which is which is the model's to say (`takenFrom` in
+   * matter-lifecycle.ts), so this file never decides it twice. A step the account may not take is
+   * offered refused, with the reason under the list, never absent.
+   *
+   * THE WINDOW STAYS. It is where the facts live — the number, the engagement, the paper file —
+   * and it still seats every step beside the status for a reader who is already in it. The menu
+   * is the shorter road to the same steps, not a second implementation of them: both run the one
+   * `perform` below.
    *
    * WHAT THE WINDOW IS AND IS NOT. It is a short answer to four questions and nothing else: what
    * the status is, how the matter is engaged — the agreement the client signed and the fee
@@ -54,9 +68,12 @@
   import { invalidateAll } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
+  import * as DropdownMenu from "@magna-carta/design-system/dropdown-menu";
   import Archive from "@lucide/svelte/icons/archive";
+  import Info from "@lucide/svelte/icons/info";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CircleAlert from "@lucide/svelte/icons/circle-alert";
@@ -123,7 +140,6 @@
     readMatterCloseReadiness,
     readMatterGraduateReadiness,
     readMatterOpenReadiness,
-    readSession,
     releaseMatter,
     reopenMatter,
     type MatterCloseNotice,
@@ -133,6 +149,7 @@
   } from "./matters-api.ts";
   import type { ApiOutcome } from "$lib/api/request.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
+  import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
 
   let { matter }: { matter: MatterRecord } = $props();
 
@@ -144,6 +161,7 @@
   /** Every step this status offers, in the order they are drawn. */
   const steps = $derived(matterLifecycleSteps(matter.status));
   const offersClose = $derived(steps.some((candidate) => candidate.action === "close"));
+  const offersHold = $derived(steps.some((candidate) => candidate.action === "hold"));
 
   // The lifecycle glyph per step. Closing wears Archive rather than a destructive glyph: the record
   // stays additive after a close, and a bin would say the file was destroyed. The pause and its
@@ -173,6 +191,18 @@
   };
 
   let open = $state(false);
+  /** Whether the seal's menu is showing. */
+  let menuOpen = $state(false);
+  /**
+   * A step chosen from the menu that opens the window at itself: the hold, whose reason is asked
+   * in place there. Read once by the window's onOpen and cleared, so a window opened any other way
+   * starts on the status as it always has.
+   */
+  let openAtHold = false;
+  /** The step a confirmation is asking about, and the panel it is asked in. */
+  let confirming = $state<MatterLifecycleStep | null>(null);
+  let confirmOpen = $state(false);
+  let confirmFailure = $state<StatedFailure | null>(null);
   let working = $state(false);
   /** The step that was taken, held so the result reads about it and not about the next one. */
   let taken = $state<MatterLifecycleStep | null>(null);
@@ -192,9 +222,13 @@
   let graduateReadiness = $state<MatterGraduateReadiness | null>(null);
   let graduateReadinessFailed = $state(false);
 
-  /** Null until the session read comes back, either way; `settled` is what tells the two apart. */
-  let permissions = $state<readonly string[] | null>(null);
-  let sessionSettled = $state(false);
+  /**
+   * Who is asking, from the one shared session read. Null until it lands and null again where it
+   * failed; `sessionSettled` is what tells the two apart, and matterLifecycleBlock keeps a failed
+   * read distinct from a permission not held.
+   */
+  const permissions = $derived(sessionPermissions.session?.permissions ?? null);
+  const sessionSettled = $derived(sessionPermissions.settled);
 
   /**
    * The matter's number, set by hand: a court's number, a legacy number, a correction. Offered only
@@ -273,16 +307,18 @@
     (candidate.action === "open" && canOpen === false) ||
     (candidate.action === "graduate" && canGraduate === false);
 
-  // Who is asking, read once and only when somebody actually opens the window. Every matter page in
-  // the app would otherwise pay for a request that only this control uses. A sample matter is
-  // already blocked for a better reason, so it never asks at all.
+  // Who is asking, read through the shared session so the first control on the page to need it
+  // pays and the rest join. Not read on mount: the seal is on every matter page and most visits
+  // never touch it. It is read as the pointer reaches the seal, or focus lands on it, so that by
+  // the time the menu has opened the answer is usually already here and the items do not flicker
+  // from refused to offered; opening the menu or the window is the backstop for a touch. A sample
+  // matter is already blocked for a better reason, so it never asks at all.
+  function warmSession(): void {
+    if (isSample) return;
+    void sessionPermissions.load(fetch);
+  }
   $effect(() => {
-    if (!open || sessionSettled || isSample) return;
-    void (async () => {
-      const outcome = await readSession(fetch);
-      permissions = outcome.kind === "ok" ? outcome.value.permissions : null;
-      sessionSettled = true;
-    })();
+    if (menuOpen || open) warmSession();
   });
 
   // Whether the matter can close, asked of the rules themselves. Only where closing is a step in
@@ -344,14 +380,16 @@
     })();
   });
 
-  // A window opened again starts on the step, not on the last answer it gave.
+  // A window opened again starts on the step, not on the last answer it gave — except that a
+  // window opened FOR the hold, from the seal's menu, opens with the reason already asked.
   function reset(): void {
     taken = null;
     notices = [];
     failure = null;
     arrangementAsked = false;
     historyShown = false;
-    holdFormOpen = false;
+    holdFormOpen = openAtHold;
+    openAtHold = false;
     holdReason = "";
     holdReasonTouched = false;
     numberFormOpen = false;
@@ -446,6 +484,31 @@
     await invalidateAll();
   }
 
+  /**
+   * The one call each step makes, whichever road led to it. A double-press must not draw a second
+   * matter number or stamp a second close date, so every attempt carries its own key and the
+   * server answers a repeat with the first result. Only the close answers with notices.
+   */
+  function perform(
+    chosen: MatterLifecycleStep,
+  ): Promise<ApiOutcome<{ matterId: string; notices?: readonly MatterCloseNotice[] }>> {
+    const idempotencyKey = crypto.randomUUID();
+    switch (chosen.action) {
+      case "graduate":
+        return graduateMatter(fetch, matter.id, idempotencyKey);
+      case "open":
+        return openMatter(fetch, matter.id, idempotencyKey);
+      case "hold":
+        return holdMatter(fetch, matter.id, holdReason.trim(), idempotencyKey);
+      case "release":
+        return releaseMatter(fetch, matter.id, idempotencyKey);
+      case "close":
+        return closeMatter(fetch, matter.id, idempotencyKey);
+      case "reopen":
+        return reopenMatter(fetch, matter.id, idempotencyKey);
+    }
+  }
+
   async function take(completed: MatterLifecycleStep): Promise<void> {
     if (working || blockOf(completed) !== null || refusedOf(completed)) return;
     // The pause asks for its reason first. The first press opens the field; the field's own commit
@@ -460,37 +523,64 @@
     }
     working = true;
     failure = null;
-    // A double-press must not draw a second matter number or stamp a second close date, so every
-    // attempt carries its own key and the server answers a repeat with the first result.
-    const idempotencyKey = crypto.randomUUID();
-    if (completed.action === "close") {
-      const outcome = await closeMatter(fetch, matter.id, idempotencyKey);
-      working = false;
-      if (outcome.kind === "ok") {
-        notices = outcome.value.notices;
-        await settle(completed);
-        return;
-      }
-      report(completed, outcome);
-      return;
-    }
-    const outcome =
-      completed.action === "graduate"
-        ? await graduateMatter(fetch, matter.id, idempotencyKey)
-        : completed.action === "open"
-          ? await openMatter(fetch, matter.id, idempotencyKey)
-          : completed.action === "hold"
-            ? await holdMatter(fetch, matter.id, holdReason.trim(), idempotencyKey)
-            : completed.action === "release"
-              ? await releaseMatter(fetch, matter.id, idempotencyKey)
-              : await reopenMatter(fetch, matter.id, idempotencyKey);
+    const outcome = await perform(completed);
     working = false;
     if (outcome.kind === "ok") {
+      notices = outcome.value.notices ?? [];
       await settle(completed);
       return;
     }
     report(completed, outcome);
   }
+
+  /**
+   * A step chosen from the seal's menu. The model says where it is taken: in the window, opened at
+   * the step, or from its own confirmation. A step the menu offered refused never reaches here —
+   * the item is disabled — but the guard stays, because a menu item is one more road to a call
+   * that must never run twice.
+   */
+  function chooseStep(candidate: MatterLifecycleStep): void {
+    if (working || blockOf(candidate) !== null) return;
+    if (candidate.takenFrom === "window") {
+      openAtHold = candidate.action === "hold";
+      open = true;
+      return;
+    }
+    confirming = candidate;
+    confirmFailure = null;
+    confirmOpen = true;
+  }
+
+  // The confirmation's commit. The shell closes the panel on "committed"; a failure stands in the
+  // panel's own notice band, where the reader who pressed it is looking, with its Error ID.
+  async function confirm(): Promise<ActionOutcome> {
+    const chosen = confirming;
+    if (chosen === null || working) return "refused";
+    working = true;
+    confirmFailure = null;
+    const outcome = await perform(chosen);
+    working = false;
+    if (outcome.kind === "ok") {
+      // The seal behind the panel is the answer to "what happened": the re-read changes it.
+      await invalidateAll();
+      return "committed";
+    }
+    confirmFailure = stated(
+      outcome.failure,
+      chosen.failureSentence,
+      MATTER_LIFECYCLE_TRANSPORT_FAILURE,
+    );
+    return "refused";
+  }
+
+  /** The record, named once, for every panel this control opens. */
+  const reference = $derived(
+    matter.matterNumber !== null
+      ? `Matter ${matter.matterNumber}`
+      : matter.consultationNumber !== null
+        ? `Consultation ${matter.consultationNumber}`
+        : seal.label,
+  );
 </script>
 
 <!-- The seal is a real button around the chip, never a chip pretending to be one: a Badge labels
@@ -498,20 +588,79 @@
      leaves transparent, so it costs no layout: the pill is outlined at rest (a control has to
      read as one before it is hovered, which is what the overflow button beside it had to learn)
      and the edge strengthens under the pointer. It matters most in dark mode, where the neutral
-     Closed chip's tint is all but the page's own ground and the word alone would read as text. -->
-<button
-  type="button"
-  class="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-  aria-label="Matter status: {seal.label}"
-  aria-haspopup="dialog"
-  aria-expanded={open}
-  title={seal.meaning}
-  onclick={() => (open = true)}
+     Closed chip's tint is all but the page's own ground and the word alone would read as text.
+     The chevron is earned: the menu always holds at least one step and the way into the window,
+     so it is never a glyph over nothing. -->
+<DropdownMenu.Root bind:open={menuOpen}>
+  <DropdownMenu.Trigger
+    class="cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+    aria-label="Matter status: {seal.label}"
+    title={seal.meaning}
+    onpointerenter={warmSession}
+    onfocus={warmSession}
+  >
+    <Badge variant={seal.variant} class="border-border-default hover:border-border-strong" caps>
+      {seal.label}
+      <ChevronDown class="size-12" aria-hidden="true" />
+    </Badge>
+  </DropdownMenu.Trigger>
+  <DropdownMenu.Content align="start" style="min-inline-size: var(--mc-size-popover)">
+    <!-- The steps the lifecycle allows from here, and no others. A refused step is offered
+         refused rather than left out, and the reasons read once under the list — a disabled item
+         cannot be hovered for its title, so the sentence has to be on the screen. -->
+    {#each steps as candidate (candidate.action)}
+      {@const StepIcon = STEP_ICON[candidate.action]}
+      <DropdownMenu.Item
+        disabled={blockOf(candidate) !== null || working}
+        onSelect={() => chooseStep(candidate)}
+      >
+        <StepIcon class="size-16" aria-hidden="true" />
+        {candidate.label}
+      </DropdownMenu.Item>
+    {/each}
+    {#if blockSentences.length > 0}
+      <div class="flex max-w-xs flex-col gap-4 px-8 py-4">
+        {#each blockSentences as sentence (sentence)}
+          <p class="text-xs text-text-subtle">{sentence}</p>
+        {/each}
+      </div>
+    {/if}
+    <DropdownMenu.Separator />
+    <!-- The window: the number, the engagement, the requirements and the paper file. -->
+    <DropdownMenu.Item onSelect={() => (open = true)}>
+      <Info class="size-16" aria-hidden="true" />
+      Matter Status
+    </DropdownMenu.Item>
+  </DropdownMenu.Content>
+</DropdownMenu.Root>
+
+<!-- A step that needs nothing asks its one question here and runs. The panel is the product's
+     one confirmation shape; the sentence beneath the heading is the step's own, from the model. -->
+<ActionDialog
+  kind="confirm"
+  bind:open={confirmOpen}
+  heading={confirming?.confirmation?.heading ?? ""}
+  subtitle="{reference} · {matter.title}"
+  commitLabel={confirming?.label ?? ""}
+  commitBusyLabel={confirming?.busyLabel}
+  unsavedChanges={false}
+  onCommit={confirm}
 >
-  <Badge variant={seal.variant} class="border-border-default hover:border-border-strong" caps>
-    {seal.label}
-  </Badge>
-</button>
+  {#snippet fields()}
+    <p class="text-sm text-text-muted">{confirming?.confirmation?.sentence}</p>
+  {/snippet}
+
+  {#snippet notice()}
+    {#if confirmFailure !== null}
+      <FailureNotice
+        failure={confirmFailure.failure}
+        title="The Matter Is Unchanged"
+        fallback={confirmFailure.fallback}
+        whenSilent={confirmFailure.whenSilent}
+      />
+    {/if}
+  {/snippet}
+</ActionDialog>
 
 <!-- The firm's wide working window, not a confirmation's width. The left side is bounded and
      always will be; the right side is a panel that grows into a real physical-file register, and
@@ -527,12 +676,7 @@
   onOpen={reset}
 >
   {#snippet subtitle()}
-    {matter.matterNumber !== null
-      ? `Matter ${matter.matterNumber}`
-      : matter.consultationNumber !== null
-        ? `Consultation ${matter.consultationNumber}`
-        : seal.label} ·
-    {matter.title}
+    {reference} · {matter.title}
   {/snippet}
 
   {#snippet fields()}
@@ -698,9 +842,10 @@
         {/if}
       </div>
 
-      {#if holdFormOpen && matter.status === "open"}
+      {#if holdFormOpen && offersHold}
         <!-- The pause's reason, asked in place. Required, because a matter on hold with nothing
-             said about why is a matter nobody knows how to resume. -->
+             said about why is a matter nobody knows how to resume. The same field for a
+             consultation being parked: the reason is the one thing a hold carries either way. -->
         <div class="flex flex-col gap-8">
           <FieldLabel as="h3">Put On Hold</FieldLabel>
           <LabelledField
