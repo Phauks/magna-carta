@@ -12,6 +12,13 @@ import {
   type UploadReadinessReport,
 } from "$lib/file-manager/upload-readiness-api.ts";
 import type { HealthRow } from "./database-health-model.ts";
+import { countPill, type SectionPill } from "./version-overlay-model.ts";
+
+/** The heading over the panel's readiness section, which is also its fold toggle's label. */
+export const UPLOAD_READINESS_SECTION_LABEL = "Upload readiness";
+
+/** The header line while the check is out, matching the other reads' own. */
+export const READINESS_CHECK_IN_FLIGHT_NOTICE = "Checking whether uploads can reach storage";
 
 /** What each outcome is called on screen, and the tint it takes. */
 export const UPLOAD_READINESS_OUTCOME_LABELS: Record<UploadReadinessOutcome, string> = {
@@ -34,6 +41,35 @@ export function uploadReadinessOutcomeVariant(
     case "not-applicable":
       return "neutral";
   }
+}
+
+/**
+ * One panel row per check, in the report's order — the same row the Database section draws, so
+ * the two sections read as one instrument. A check that did not apply is neither healthy nor a
+ * fault, and says so in a neutral badge rather than borrowing green for a thing nobody looked at.
+ */
+export interface UploadReadinessPanelRow extends Omit<HealthRow, "id"> {
+  readonly id: string;
+  readonly badgeVariant?: "neutral";
+}
+
+export function uploadReadinessRows(report: UploadReadinessReport): UploadReadinessPanelRow[] {
+  return report.checks.map((check) => ({
+    id: check.id,
+    name: UPLOAD_READINESS_CHECK_LABELS[check.id],
+    reading: check.outcome === "failed" ? "fault" : "healthy",
+    status: UPLOAD_READINESS_OUTCOME_LABELS[check.outcome],
+    detail: check.detail,
+    ...(check.outcome === "not-applicable" ? { badgeVariant: "neutral" as const } : {}),
+  }));
+}
+
+/** What the shut heading says: how many checks it hides, and how many of them failed. */
+export function uploadReadinessSectionPills(report: UploadReadinessReport): SectionPill[] {
+  const pills: SectionPill[] = [countPill(report.checks.length, "check")];
+  const failed = report.checks.filter((check) => check.outcome === "failed").length;
+  if (failed > 0) pills.push({ label: `${String(failed)} not working`, variant: "danger" });
+  return pills;
 }
 
 /** The first failed check — the cause; what follows it in the report may be consequence. */

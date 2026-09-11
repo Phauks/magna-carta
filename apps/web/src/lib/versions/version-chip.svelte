@@ -93,10 +93,13 @@
     checkUploadReadiness,
     type UploadReadinessReport,
   } from "$lib/file-manager/upload-readiness-api.ts";
-  import UploadReadinessDialog from "./upload-readiness-dialog.svelte";
   import {
     copyReportForUploadReadiness,
+    READINESS_CHECK_IN_FLIGHT_NOTICE,
+    UPLOAD_READINESS_SECTION_LABEL,
     uploadReadinessRow,
+    uploadReadinessRows,
+    uploadReadinessSectionPills,
   } from "./upload-readiness-model.ts";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import {
@@ -116,6 +119,7 @@
     databaseSectionPreference,
     deploymentSectionPreference,
     fleetSectionPreference,
+    uploadReadinessSectionPreference,
   } from "$lib/versions/version-panel-preferences.svelte.ts";
   import {
     apiWebSyncState,
@@ -178,13 +182,13 @@
   // one read here that acts — the bucket settings the platform owns are re-applied as they are
   // checked, and the run is audited — so it is gated on the permission the file-safety settings
   // ride, and a member without it sees the last run on record through the health read instead.
-  // Its report replaces the File storage row while it is on hand, and opens in full as a modal.
+  // Its report is the panel's fourth section — the same rows, heading and fold the Database
+  // section uses — and its verdict also stands in for the File storage row while it is on hand.
   let readinessReport = $state<UploadReadinessReport | null>(null);
   let readinessFailure = $state<
     { kind: "problem"; problem: Problem } | { kind: "transport" } | null
   >(null);
   let readinessLoading = $state(false);
-  let readinessOpen = $state(false);
   const mayCheckReadiness = $derived(sessionPermissions.holds(CHECK_UPLOAD_READINESS_PERMISSION));
 
   const chipLabel = versionChipLabel(BUILD_IDENTITY.commit);
@@ -345,6 +349,12 @@
     deploymentRows === null ? [] : workersSectionPills(deploymentRows.rest),
   );
   const databasePills = $derived(healthValue === null ? [] : databaseSectionPills(healthValue));
+  const readinessPills = $derived(
+    readinessReport === null ? [] : uploadReadinessSectionPills(readinessReport),
+  );
+  const readinessRows = $derived(
+    readinessReport === null ? [] : uploadReadinessRows(readinessReport),
+  );
 
   // Everything the panel is showing, as one paste. Assembled from the same values the rows render
   // from, so a copy can never disagree with the screen it was taken from.
@@ -420,6 +430,8 @@
   reading: HealthReading;
   status: string;
   detail: string;
+  /** A badge tint the reading does not decide — "not applicable" is neither green nor red. */
+  badgeVariant?: "neutral";
 })}
   <!-- The same two-part shape the deployment rows use: the thing on the left, its state on the
        right, and the sentence beneath the name saying what that state means. A health row is prose
@@ -429,7 +441,9 @@
       <span class="text-sm text-text-default">{row.name}</span>
       <span class="text-xs text-text-muted">{row.detail}</span>
     </div>
-    <Badge class="shrink-0" variant={healthBadgeVariant(row.reading)}>{row.status}</Badge>
+    <Badge class="shrink-0" variant={row.badgeVariant ?? healthBadgeVariant(row.reading)}
+      >{row.status}</Badge
+    >
   </div>
 {/snippet}
 
@@ -570,10 +584,11 @@
               size="icon"
               class="shrink-0"
               aria-label="Refresh the panel"
-              disabled={loading || healthLoading}
+              disabled={loading || healthLoading || readinessLoading}
               onclick={() => {
                 void refresh({ fresh: true });
                 void refreshHealth();
+                void refreshReadiness();
               }}
             >
               <RefreshCw class="size-16" aria-hidden="true" />
@@ -866,50 +881,6 @@
                   {@render healthRow(row)}
                 {/each}
               </div>
-              {#if mayCheckReadiness}
-                <!-- The readiness report in full is a modal off this row: six checks with a
-                     sentence each do not fit here, and the person forwarding a fault needs all
-                     of them, copyable. -->
-                <div class="flex items-center gap-8">
-                  {#if readinessReport !== null}
-                    {@const liveReport = readinessReport}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onclick={() => {
-                        readinessOpen = true;
-                      }}
-                    >
-                      Upload readiness report
-                    </Button>
-                    <UploadReadinessDialog
-                      bind:open={readinessOpen}
-                      report={liveReport}
-                      running={readinessLoading}
-                      onRerun={() => void refreshReadiness()}
-                    />
-                  {:else if readinessLoading}
-                    <p class="text-xs text-text-muted">Checking upload readiness</p>
-                  {:else if readinessFailure !== null}
-                    <div class="flex flex-col">
-                      <p class="text-xs text-text-muted">
-                        {readinessFailure.kind === "problem"
-                          ? "The upload readiness check did not run."
-                          : "The upload readiness check did not run: nothing answered."}
-                      </p>
-                      {#if readinessFailure.kind === "problem"}
-                        <p class="text-xs text-text-muted">
-                          Error ID: {readinessFailure.problem.errorId ?? "not yet assigned"} · status {readinessFailure
-                            .problem.status}
-                        </p>
-                      {/if}
-                    </div>
-                    <Button variant="secondary" size="sm" onclick={() => void refreshReadiness()}>
-                      Retry
-                    </Button>
-                  {/if}
-                </div>
-              {/if}
               {#if provisioningBacklog !== null}
                 <!-- The membership row's explanation, said only when there is one. A firm whose mirrors
                      have all landed carries nothing here: "0 pending" is an info line with nothing
@@ -921,6 +892,99 @@
               {/if}
             {/if}
           </LoadingRegion>
+        {/if}
+      {/if}
+      {#if mayCheckReadiness}
+        <Separator />
+        <!-- The panel's third subject, for a member who may act on it: whether a file chosen in
+             this browser can reach the firm's storage. The check ACTS — the bucket settings the
+             platform owns are re-applied as they are verified, and the run is audited — which is
+             why it is gated on the permission the file-safety settings ride and why everyone else
+             sees only the last run, on the File storage row above. Same heading, same fold, same
+             rows as Database, so the two read as one instrument; the panel's Copy takes the
+             report with everything else. -->
+        <VersionSectionHeading
+          label={UPLOAD_READINESS_SECTION_LABEL}
+          collapsed={uploadReadinessSectionPreference.collapsed}
+          toggle={() => uploadReadinessSectionPreference.toggle()}
+          pills={readinessPills}
+        />
+        {#if !uploadReadinessSectionPreference.collapsed}
+          {#if readinessFailure !== null}
+            <div class="flex flex-col gap-4">
+              <p class="text-sm text-text-default">
+                {readinessFailure.kind === "problem"
+                  ? "The upload readiness check did not run."
+                  : "The API could not be reached."}
+              </p>
+              {#if readinessFailure.kind === "problem"}
+                <p class="text-xs text-text-muted">
+                  Error ID: {readinessFailure.problem.errorId ?? "not yet assigned"} · status {readinessFailure
+                    .problem.status}
+                </p>
+              {/if}
+              <div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={readinessLoading}
+                  onclick={() => void refreshReadiness()}
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          {/if}
+          {#if readinessReport !== null || readinessLoading}
+            <LoadingRegion
+              loading={readinessReport === null}
+              refreshing={readinessLoading}
+              label={READINESS_CHECK_IN_FLIGHT_NOTICE}
+              onRetry={() => void refreshReadiness()}
+              class="flex flex-col gap-8"
+            >
+              {#snippet fixture()}
+                <!-- Two check rows over sample readings: the section's own shape, greyed. -->
+                <div class="flex flex-col">
+                  {@render healthRow({
+                    name: "Storage bucket exists",
+                    reading: "healthy",
+                    status: "Holds",
+                    detail: "The firm's bucket exists in the account.",
+                  })}
+                  {@render healthRow({
+                    name: "The storage credential is honoured",
+                    reading: "healthy",
+                    status: "Holds",
+                    detail: "The credential signs a request the bucket honours.",
+                  })}
+                </div>
+              {/snippet}
+              {#if readinessReport !== null}
+                {@const report = readinessReport}
+                <div class="flex flex-col">
+                  {#each readinessRows as row (row.id)}
+                    {@render healthRow(row)}
+                  {/each}
+                </div>
+                <!-- The verdict and the two deployment facts the rows are read against, in the
+                     place the Database section keeps its provisioning line. -->
+                <div class="flex items-center gap-8">
+                  <Badge variant={report.ready ? "success" : "danger"}>
+                    {report.ready ? "Ready" : "Not ready"}
+                  </Badge>
+                  <p class="text-xs text-text-muted">
+                    {report.uploadPath === "direct-to-storage"
+                      ? "Files go from the browser straight to storage."
+                      : "Files go through the application in this deployment."}
+                    {#if report.bucketName !== null}
+                      Bucket {report.bucketName}.
+                    {/if}
+                  </p>
+                </div>
+              {/if}
+            </LoadingRegion>
+          {/if}
         {/if}
       {/if}
     {:else}

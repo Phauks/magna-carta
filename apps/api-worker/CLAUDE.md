@@ -89,7 +89,7 @@ whole-set PUT costs what a read costs and leaves the bucket right), then `key-ca
 HEAD for an object that does not exist, made through `resolveFirmBucket` so it carries exactly the
 credential a presigned URL carries; 404 is the affirmative answer, 403 the signature of a token
 scoped to one bucket. `POST /api/v1/firm/upload-readiness` (`routes/upload-readiness.ts`,
-`firm:manageScanPolicy`, audited) runs it from the version panel (the chip at the top right), with the other reads about what is running; the report opens in full as a copyable modal there.
+`firm:manageScanPolicy`, audited) runs it from the version panel (the chip at the top right), with the other reads about what is running; the report is the panel's _Upload readiness_ section there.
 
 Rules for this surface:
 
