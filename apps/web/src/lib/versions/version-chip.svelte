@@ -87,6 +87,17 @@
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import { updated } from "$app/state";
   import { requestJson, type Problem } from "$lib/api/request.ts";
+  import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
+  import {
+    CHECK_UPLOAD_READINESS_PERMISSION,
+    checkUploadReadiness,
+    type UploadReadinessReport,
+  } from "$lib/file-manager/upload-readiness-api.ts";
+  import UploadReadinessDialog from "./upload-readiness-dialog.svelte";
+  import {
+    copyReportForUploadReadiness,
+    uploadReadinessRow,
+  } from "./upload-readiness-model.ts";
   import { BUILD_IDENTITY } from "$lib/build-identity.ts";
   import {
     databaseSectionPills,
@@ -163,6 +174,19 @@
   let healthLoading = $state(false);
   let copiedEverything = $state(false);
 
+  // The upload readiness check, run WITH the other reads for a member who may run it. It is the
+  // one read here that acts — the bucket settings the platform owns are re-applied as they are
+  // checked, and the run is audited — so it is gated on the permission the file-safety settings
+  // ride, and a member without it sees the last run on record through the health read instead.
+  // Its report replaces the File storage row while it is on hand, and opens in full as a modal.
+  let readinessReport = $state<UploadReadinessReport | null>(null);
+  let readinessFailure = $state<
+    { kind: "problem"; problem: Problem } | { kind: "transport" } | null
+  >(null);
+  let readinessLoading = $state(false);
+  let readinessOpen = $state(false);
+  const mayCheckReadiness = $derived(sessionPermissions.holds(CHECK_UPLOAD_READINESS_PERMISSION));
+
   const chipLabel = versionChipLabel(BUILD_IDENTITY.commit);
   // Sample words for the loading fixtures: an invented commit and its two timestamps, so a
   // fixture row's detail line is the width a real one is.
@@ -229,6 +253,25 @@
     }
   }
 
+  async function refreshReadiness(): Promise<void> {
+    if (!readsAggregate) return;
+    // The permission read lands before the check is asked, so a member who may not run it is
+    // never sent to a 403 for a button they did not press.
+    await sessionPermissions.load(fetch);
+    if (!sessionPermissions.holds(CHECK_UPLOAD_READINESS_PERMISSION)) return;
+    readinessLoading = true;
+    const outcome = await checkUploadReadiness(fetch);
+    readinessLoading = false;
+    if (outcome.kind === "ok") {
+      readinessReport = outcome.value;
+      readinessFailure = null;
+    } else if (outcome.kind === "problem") {
+      readinessFailure = { kind: "problem", problem: outcome.problem };
+    } else {
+      readinessFailure = { kind: "transport" };
+    }
+  }
+
   // Every open re-reads (the API's brief cache absorbs the cost of the aggregate; the health read
   // is never cached, because its whole subject is a state that changes while somebody watches it),
   // and while the panel is open a slow tick keeps the observation-age line moving instead of
@@ -237,6 +280,7 @@
     if (!open || !readsAggregate) return;
     void refresh();
     void refreshHealth();
+    void refreshReadiness();
     const ticker = setInterval(() => {
       nowEpochMilliseconds = Date.now();
     }, 5000);
@@ -265,7 +309,17 @@
   // behind — the colour-coded read of the pair the front rows show, in place of a fixed sentence.
   const syncState = $derived(value === null ? null : apiWebSyncState(value.api, webWorkerRow));
 
-  const healthRows = $derived(healthValue === null ? [] : databaseHealthRows(healthValue));
+  // The File storage row speaks from the live report when there is one: it is newer than the audit
+  // row the health read carries, and it is what the member is looking at.
+  const healthRows = $derived(
+    healthValue === null
+      ? []
+      : databaseHealthRows(healthValue).map((row) =>
+          row.id === "fileStorage" && readinessReport !== null
+            ? uploadReadinessRow(readinessReport)
+            : row,
+        ),
+  );
   const provisioningBacklog = $derived(
     healthValue === null ? null : describeProvisioningBacklog(healthValue),
   );
@@ -302,7 +356,13 @@
         buildTime: BUILD_IDENTITY.builtAt,
       },
       versions: value,
-      databaseLine: healthValue === null ? null : copyLineForDatabaseHealth(healthValue),
+      databaseLine:
+        healthValue === null
+          ? null
+          : [
+              copyLineForDatabaseHealth(healthValue),
+              ...(readinessReport === null ? [] : [copyReportForUploadReadiness(readinessReport)]),
+            ].join("\n"),
     });
     // Same rule as every other copy here: the confirmation appears only when the clipboard actually
     // took the text, and a denied permission is silent rather than a page error.
@@ -806,6 +866,50 @@
                   {@render healthRow(row)}
                 {/each}
               </div>
+              {#if mayCheckReadiness}
+                <!-- The readiness report in full is a modal off this row: six checks with a
+                     sentence each do not fit here, and the person forwarding a fault needs all
+                     of them, copyable. -->
+                <div class="flex items-center gap-8">
+                  {#if readinessReport !== null}
+                    {@const liveReport = readinessReport}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onclick={() => {
+                        readinessOpen = true;
+                      }}
+                    >
+                      Upload readiness report
+                    </Button>
+                    <UploadReadinessDialog
+                      bind:open={readinessOpen}
+                      report={liveReport}
+                      running={readinessLoading}
+                      onRerun={() => void refreshReadiness()}
+                    />
+                  {:else if readinessLoading}
+                    <p class="text-xs text-text-muted">Checking upload readiness</p>
+                  {:else if readinessFailure !== null}
+                    <div class="flex flex-col">
+                      <p class="text-xs text-text-muted">
+                        {readinessFailure.kind === "problem"
+                          ? "The upload readiness check did not run."
+                          : "The upload readiness check did not run: nothing answered."}
+                      </p>
+                      {#if readinessFailure.kind === "problem"}
+                        <p class="text-xs text-text-muted">
+                          Error ID: {readinessFailure.problem.errorId ?? "not yet assigned"} · status {readinessFailure
+                            .problem.status}
+                        </p>
+                      {/if}
+                    </div>
+                    <Button variant="secondary" size="sm" onclick={() => void refreshReadiness()}>
+                      Retry
+                    </Button>
+                  {/if}
+                </div>
+              {/if}
               {#if provisioningBacklog !== null}
                 <!-- The membership row's explanation, said only when there is one. A firm whose mirrors
                      have all landed carries nothing here: "0 pending" is an info line with nothing

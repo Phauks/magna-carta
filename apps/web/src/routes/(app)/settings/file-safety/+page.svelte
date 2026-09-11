@@ -31,7 +31,6 @@
     FILE_SAFETY_SECTION_ID,
   } from "$lib/file-manager/scan-policy-draft.svelte.ts";
   import { MANAGE_SCAN_POLICY_PERMISSION } from "$lib/file-manager/scan-policy-api.ts";
-  import UploadReadinessPlate from "$lib/file-manager/upload-readiness-plate.svelte";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
   import SettingsCommitFooter from "$lib/settings/components/settings-commit-footer.svelte";
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
@@ -129,14 +128,6 @@
         </LoadingRegion>
       </SettingsPlate>
     {/each}
-
-    <!-- The readiness check is an act on the firm's storage, so it sits with the people who may
-         change what happens to its files — the same key that gates the rows above. -->
-    {#if canEdit}
-      <SettingsPlate heading="Upload Readiness">
-        <UploadReadinessPlate />
-      </SettingsPlate>
-    {/if}
   </div>
 </div>
 
