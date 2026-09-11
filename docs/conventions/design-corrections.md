@@ -2173,5 +2173,12 @@ navigational menu (such as for magnus and settings), and a right content menu."
   a `<nav>` at `calc(var(--mc-size-popover) + var(--mc-space-48))` inside a `-m-24` full-height row,
   and the Magnus workspace rail in `apps/web/src/lib/magnus/magnus-surface.svelte`, a `w-2xs`
   column — two widths and two scroll treatments for one shape. Settings adopts it first, Magnus
-  second; the file manager's folder tree beside its list is the next candidate and is not in this
-  round.
+  second.
+- **It reaches further than the two screens that have the shape today.** The owner, in the same
+  breath: "this may also be implemented for tools, reports, and other potential screens". Tools
+  (`apps/web/src/routes/(app)/tools/`, a landing page and one route per tool) and Reports (a
+  register page and one route per report) are both one-list-then-one-thing screens with no
+  navigation column at all, so adopting the component there is a redesign of the screen rather than
+  a swap of its frame: the list of tools, or of reports, becomes the left navigation and the chosen
+  one the right content. The file manager's folder tree beside its list is the other candidate.
+  None of the three is in this round; each is a follow-up once the component exists.
