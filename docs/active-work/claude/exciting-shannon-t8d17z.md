@@ -1,18 +1,25 @@
 ---
 worktree: /home/user/magna-carta (remote session)
-area: Staging ground for the owner's next rounds — the Upload dialog and the Settings surface; notes and research recorded, no code taken
+area: Staging ground for the owner's next rounds — the Upload dialog, the Settings surface and Conflicts; notes and research recorded, no code taken
 status: designing
-touches: docs/conventions/file-manager-rulings.md, docs/conventions/settings-rulings.md
+touches: docs/conventions/file-manager-rulings.md, docs/conventions/settings-rulings.md, docs/conventions/conflicts-rulings.md
 ---
 
-The owner is staging notes for further rounds on the matter file manager's Upload dialog and on the
-Settings surface, and has asked explicitly that no work start until they say so. This stream has
-recorded the 2026-09-09 notes as `R22` in the file-manager rulings ledger and opened
-`docs/conventions/settings-rulings.md` with the 2026-09-11 notes as its `R1` — every row `open` in
-both — together with the research each round will need, and has touched no application code. When
-the work starts it lands in `apps/web/src/lib/file-manager/`, `apps/web/src/routes/(app)/settings/`,
-`apps/web/src/lib/settings/`, `apps/web/src/lib/matters/numbering-scheme-editor.svelte` and two
-design-system floating surfaces, with backend consequences in the duplicate-hash rows and in
-whatever Offices needs. A concurrent stream should expect the tail of the file-manager ledger to
-have grown; `claude/file-manager-breadcrumb-reflow-fu0pqp` also lists that file in its `touches`,
-and the two do not overlap in rows.
+The owner is staging notes for further rounds on the matter file manager's Upload dialog, on the
+Settings surface and on Conflicts, and has asked explicitly that no work start until they say so.
+This stream has recorded the 2026-09-09 notes as `R22` in the file-manager rulings ledger and opened
+`docs/conventions/settings-rulings.md` and `docs/conventions/conflicts-rulings.md`, each with the
+owner's 2026-09-11 notes as its `R1` — every row `open` in all three — together with the research
+each round will need, and has touched no application code. When the work starts it lands in
+`apps/web/src/lib/file-manager/`, `apps/web/src/routes/(app)/settings/`,
+`apps/web/src/lib/settings/`, `apps/web/src/lib/conflicts/`, `packages/conflicts/`,
+`apps/web/src/lib/matters/numbering-scheme-editor.svelte` and two design-system floating surfaces,
+with backend consequences in the duplicate-hash rows, in whatever Offices needs, and in the
+conflicts engine's bounds.
+
+Two concurrent streams overlap this staging. `claude/file-manager-breadcrumb-reflow-fu0pqp` lists
+the file-manager ledger in its `touches`, and the two do not overlap in rows.
+`claude/conflicts-check-ui-0i4kir` is building over the conflicts area itself and asks that
+`matters/sections.ts`, `navigation/destinations.ts`, `access-control/src/registry.ts` and
+`apps/api-worker/src/routes/conflicts.ts` not be stepped on — nothing here touches any of them, but
+the conflicts round proper will have to start from wherever that stream has landed.
