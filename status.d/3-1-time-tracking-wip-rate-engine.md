@@ -10,7 +10,7 @@ ui: in-progress by="Opus 5"
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
 branch: main
-active-work: docs/active-work/claude/sidebar-time-accessibility-88khpa.md
+active-work:
 next:
 link-spec:
 link-plan:

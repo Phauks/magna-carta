@@ -1,6 +1,6 @@
 # Code style
 
-**Status:** Stub — to be written when the repo scaffold lands (Phase 0).
+**Status:** Active for every section marked _(decided)_ below — the line-length, naming, process-reference and control-character rules are enforced by the gate and cited by the root `CLAUDE.md` golden rules. The general style guide beyond those rules is still to be written.
 
 **Scope (single home for):** the **language-agnostic** style principles that hold everywhere, plus the index to per-language conventions. Language-specific formatting, tooling, and idioms live in their own files (below) so neither shared rules nor language rules get duplicated.
 

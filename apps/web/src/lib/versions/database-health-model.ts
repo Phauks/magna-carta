@@ -51,12 +51,22 @@ export interface DatabaseHealthValue {
     pending: number;
     deadLettered: number;
   };
+  /**
+   * The firm's file storage as this deployment serves it, and the last upload readiness check —
+   * read from its audit row, never run here. `lastReadinessCheck` is null when nobody has run it.
+   */
+  fileStorage: {
+    uploadPath: "direct-to-storage" | "through-the-application";
+    provisioner: "cloudflare-rest" | "development";
+    lastReadinessCheck: { at: string; ready: boolean; failed: string[] } | null;
+    state: "read" | "unknown";
+  };
   observedAt: string;
 }
 
 /** One rendered row: what it is called, how it reads, and the one line beneath it. */
 export interface HealthRow {
-  id: "firmDatabase" | "schema" | "membership" | "controlPlane";
+  id: "firmDatabase" | "schema" | "membership" | "controlPlane" | "fileStorage";
   name: string;
   reading: HealthReading;
   /** The row's own two or three words — its state, said plainly. */
@@ -252,6 +262,81 @@ function controlPlaneRow(value: DatabaseHealthValue): HealthRow {
   };
 }
 
+/** Where the readiness check is run, said the same way everywhere it is pointed at. */
+const READINESS_CHECK_LOCATION = "this panel (an Owner or Admin sees the check run here)";
+
+/** The check ids in the reader's words — the file-safety screen's own labels, kept in step. */
+const READINESS_CHECK_LABELS: Record<string, string> = {
+  "bucket-recorded": "storage bucket recorded",
+  "bucket-exists": "storage bucket exists",
+  "event-notifications": "scanning is told of new files",
+  "lifecycle-rules": "temporary artifacts expire",
+  "cors-policy": "this site may write to storage",
+  "key-can-sign": "the storage credential is honoured",
+};
+
+/*
+ * The file-storage row: which way an upload travels, and whether anyone has proved it can. The
+ * check that proves it acts on the bucket and is run by hand from the file-safety screen, so this
+ * row only ever reports the last run — "not yet checked" is a fact about the firm, not a fault,
+ * and earns no badge; a run that found something wrong is a fault, named by its first failed
+ * precondition, which is the cause (the checks are ordered so that what follows is consequence).
+ */
+function fileStorageRow(value: DatabaseHealthValue): HealthRow {
+  const { fileStorage } = value;
+  if (fileStorage.uploadPath === "through-the-application") {
+    return {
+      id: "fileStorage",
+      name: "File storage",
+      reading: "healthy",
+      status: "Through the application",
+      detail: "Files go through the application to its bound storage in this deployment.",
+    };
+  }
+  if (fileStorage.state === "unknown") {
+    return {
+      id: "fileStorage",
+      name: "File storage",
+      reading: "attention",
+      status: "Not read",
+      detail: "The record of the last upload readiness check could not be read.",
+    };
+  }
+  const last = fileStorage.lastReadinessCheck;
+  if (last === null) {
+    return {
+      id: "fileStorage",
+      name: "File storage",
+      reading: "healthy",
+      status: "Not yet checked",
+      detail:
+        "Files go from the browser straight to the firm's storage. Nobody has run the upload " +
+        `readiness check; an administrator can, under ${READINESS_CHECK_LOCATION}.`,
+    };
+  }
+  if (!last.ready) {
+    const first = last.failed[0];
+    const cause = first === undefined ? "a precondition" : (READINESS_CHECK_LABELS[first] ?? first);
+    return {
+      id: "fileStorage",
+      name: "File storage",
+      reading: "fault",
+      status: "Not ready",
+      detail:
+        `The last upload readiness check found ${cause} not in place. An administrator can run it ` +
+        `again under ${READINESS_CHECK_LOCATION}; its report names the fix.`,
+    };
+  }
+  return {
+    id: "fileStorage",
+    name: "File storage",
+    reading: "healthy",
+    status: "Ready",
+    detail:
+      "Files go from the browser straight to the firm's storage; the last upload readiness check found every precondition in place.",
+  };
+}
+
 /** Roles in one phrase, in the order the API returned them (which is by name). */
 function formatRoles(roles: readonly string[]): string {
   return roles.length === 1 ? `Role: ${roles[0] ?? ""}` : `Roles: ${roles.join(", ")}`;
@@ -264,7 +349,13 @@ function formatRoles(roles: readonly string[]): string {
  * section's length a signal, and half of these states are normal.
  */
 export function databaseHealthRows(value: DatabaseHealthValue): HealthRow[] {
-  return [firmDatabaseRow(value), schemaRow(value), membershipRow(value), controlPlaneRow(value)];
+  return [
+    firmDatabaseRow(value),
+    schemaRow(value),
+    membershipRow(value),
+    controlPlaneRow(value),
+    fileStorageRow(value),
+  ];
 }
 
 /**

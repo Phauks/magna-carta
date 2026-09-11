@@ -370,6 +370,9 @@
           "provisioning": {
             "$ref": "#/components/schemas/DatabaseHealthProvisioning"
           },
+          "fileStorage": {
+            "$ref": "#/components/schemas/DatabaseHealthFileStorage"
+          },
           "observedAt": {
             "type": "string"
           }
@@ -380,6 +383,7 @@
           "schema",
           "membership",
           "provisioning",
+          "fileStorage",
           "observedAt"
         ]
       },
@@ -511,6 +515,63 @@
           "state",
           "pending",
           "deadLettered"
+        ]
+      },
+      "DatabaseHealthFileStorage": {
+        "type": "object",
+        "properties": {
+          "uploadPath": {
+            "type": "string",
+            "enum": [
+              "direct-to-storage",
+              "through-the-application"
+            ]
+          },
+          "provisioner": {
+            "type": "string",
+            "enum": [
+              "cloudflare-rest",
+              "development"
+            ]
+          },
+          "lastReadinessCheck": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "at": {
+                "type": "string"
+              },
+              "ready": {
+                "type": "boolean"
+              },
+              "failed": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "at",
+              "ready",
+              "failed"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "read",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "uploadPath",
+          "provisioner",
+          "lastReadinessCheck",
+          "state"
         ]
       },
       "FirmUsageResponse": {
@@ -3580,8 +3641,7 @@
           }
         },
         "required": [
-          "email",
-          "name"
+          "email"
         ]
       },
       "ConfirmRegistrationResponse": {
@@ -3600,6 +3660,7 @@
           "next": {
             "type": "string",
             "enum": [
+              "signedIn",
               "signIn",
               "checkEmail"
             ]
@@ -7796,6 +7857,80 @@
           "signature",
           "reason",
           "activeContent"
+        ]
+      },
+      "UploadReadinessReport": {
+        "type": "object",
+        "properties": {
+          "ready": {
+            "type": "boolean"
+          },
+          "bucketName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provisioner": {
+            "type": "string",
+            "enum": [
+              "cloudflare-rest",
+              "development"
+            ]
+          },
+          "uploadPath": {
+            "type": "string",
+            "enum": [
+              "direct-to-storage",
+              "through-the-application"
+            ]
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadReadinessCheck"
+            }
+          }
+        },
+        "required": [
+          "ready",
+          "bucketName",
+          "provisioner",
+          "uploadPath",
+          "checks"
+        ]
+      },
+      "UploadReadinessCheck": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "bucket-recorded",
+              "bucket-exists",
+              "event-notifications",
+              "lifecycle-rules",
+              "cors-policy",
+              "key-can-sign"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "applied",
+              "failed",
+              "not-applicable"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "outcome",
+          "detail"
         ]
       },
       "MatterRescanResult": {
@@ -42136,7 +42271,7 @@
     },
     "/api/v1/registrations/confirmations": {
       "post": {
-        "description": "Completes a registration by presenting the emailed token: the account is created with the password chosen at registration, so the person can sign in immediately, and a founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.",
+        "description": "Completes a registration by presenting the emailed token: the account is created with the password chosen at registration and the response carries a session for it, because the token travelled by email and spending it proves the mailbox. A founding registration additionally queues its firm's build. An unknown, spent or expired token answers one refusal that does not distinguish between them.",
         "operationId": "registrations.confirm",
         "tags": [
           "registrations"
@@ -42166,7 +42301,7 @@
         },
         "responses": {
           "200": {
-            "description": "The registration is confirmed; `next` says whether the account can be signed in to now",
+            "description": "The registration is confirmed; `next` says whether a session came with it, and if not, what the person does instead",
             "content": {
               "application/json": {
                 "schema": {
@@ -51285,6 +51420,60 @@
           },
           "503": {
             "description": "The scan engine is wired but unreachable, so no verdict can be given",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/upload-readiness": {
+      "post": {
+        "description": "Checks, from the server, every precondition of a browser upload for this firm — the firm's storage bucket exists, it carries the ingest notification, the expiry rules and the browser-upload CORS policy (each re-applied as it is checked), and the storage credential can sign a request the bucket honours. The one hop of an upload the application cannot see is the browser's write to storage; this names which of its preconditions is not met.",
+        "operationId": "uploadReadiness.check",
+        "tags": [
+          "uploadReadiness"
+        ],
+        "x-mc-operationId": "uploadReadiness.check",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageScanPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "uploadReadiness"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The readiness report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadReadinessReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageScanPolicy",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -103673,6 +103862,9 @@
     },
     {
       "name": "trust"
+    },
+    {
+      "name": "uploadReadiness"
     },
     {
       "name": "uploads"

@@ -386,3 +386,154 @@ describe("FirmResourceProvider — the bucket's browser-upload CORS policy", () 
     ).rejects.toThrow(/configureBucketCors failed: HTTP 403/);
   });
 });
+
+describe("FirmResourceProvider — asking whether a bucket exists without creating it", () => {
+  const firmId = newIdentifier("firm");
+
+  it("dev adapter says so by kind, and answers true for the only bucket there is", async () => {
+    const provider = createDevFirmResourceProvider();
+    expect(provider.kind).toBe("development");
+    await expect(provider.bucketExists(firmId, "us")).resolves.toBe(true);
+  });
+
+  it("REST adapter: a found bucket is true, a 404 is false, and neither call creates anything", async () => {
+    const found = stubFetch([{ status: 200, body: { success: true, result: {} } }]);
+    const provider = restProvider(found);
+    expect(provider.kind).toBe("cloudflare-rest");
+    await expect(provider.bucketExists(firmId, "us")).resolves.toBe(true);
+    expect(found.calls.map((call) => call.method)).toEqual(["GET"]);
+
+    const missing = stubFetch([BUCKET_NOT_FOUND]);
+    await expect(restProvider(missing).bucketExists(firmId, "us")).resolves.toBe(false);
+    expect(missing.calls.map((call) => call.method)).toEqual(["GET"]);
+  });
+
+  it("REST adapter: a refused probe is a failure to ask, never an absence", async () => {
+    const refused = stubFetch([
+      {
+        status: 403,
+        body: { success: false, errors: [{ code: 10000, message: "Authentication error" }] },
+      },
+    ]);
+    await expect(restProvider(refused).bucketExists(firmId, "us")).rejects.toThrow(
+      /bucketExists failed: HTTP 403.*Authentication error/s,
+    );
+  });
+
+  it("REST adapter: an eu firm is asked for under the eu jurisdiction header", async () => {
+    const stub = stubFetch([BUCKET_NOT_FOUND]);
+    await restProvider(stub).bucketExists(firmId, "eu");
+    expect(stub.calls[0]?.headers["cf-r2-jurisdiction"]).toBe("eu");
+  });
+});
+
+describe("FirmResourceProvider — a notification rule R2 refuses as an overlap", () => {
+  const firmId = newIdentifier("firm");
+  const OVERLAP = {
+    status: 400,
+    body: {
+      success: false,
+      errors: [
+        {
+          code: 11020,
+          message:
+            "Event notification R2 rule conflict on bucket 'x': The notification configuration is invalid: Notification configuration rules have invalid overlap.",
+        },
+      ],
+    },
+  };
+
+  it("succeeds when the bucket already sends files/ to the same queue — the resumed-provisioning case", async () => {
+    const stub = stubFetch([
+      OVERLAP,
+      {
+        status: 200,
+        body: {
+          success: true,
+          result: {
+            queues: [
+              {
+                queueId: "queue-1",
+                rules: [{ prefix: "files/", actions: ["PutObject", "CompleteMultipartUpload"] }],
+              },
+            ],
+          },
+        },
+      },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-1",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId, "us")).resolves.toBeUndefined();
+    expect(stub.calls.map((call) => call.method)).toEqual(["PUT", "GET"]);
+    expect(stub.calls[1]?.url).toMatch(/\/event_notifications\/r2\/[^/]+\/configuration$/);
+  });
+
+  it("fails, in the API's words, when the overlap is with a rule to some other queue", async () => {
+    const stub = stubFetch([
+      OVERLAP,
+      {
+        status: 200,
+        body: {
+          success: true,
+          result: {
+            queues: [{ queueId: "some-older-queue", rules: [{ prefix: "files/", actions: [] }] }],
+          },
+        },
+      },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-1",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    // The failure names what the bucket holds, so the reader can see the mismatch rather than
+    // being handed the API's refusal a second time.
+    await expect(provider.configureBucketNotifications(firmId, "us")).rejects.toThrow(
+      /does not send files\/ to queue queue-1.*some-older-queue ← files\//s,
+    );
+  });
+
+  it("reads a snake_case queue id as the same queue", async () => {
+    const stub = stubFetch([
+      OVERLAP,
+      {
+        status: 200,
+        body: {
+          success: true,
+          result: { queues: [{ queue_id: "queue-1", rules: [{ prefix: "files/" }] }] },
+        },
+      },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-1",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId, "us")).resolves.toBeUndefined();
+  });
+
+  it("says when the configuration could not be read, rather than repeating the refusal", async () => {
+    const stub = stubFetch([
+      OVERLAP,
+      {
+        status: 403,
+        body: { success: false, errors: [{ code: 10000, message: "Authentication error" }] },
+      },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-1",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId, "us")).rejects.toThrow(
+      /reading the bucket's configuration failed.*Authentication error/s,
+    );
+  });
+});

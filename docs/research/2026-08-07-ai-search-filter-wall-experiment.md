@@ -20,7 +20,7 @@ suite (`pnpm test packages/search`), touches no production route, port, schema, 
 The design merged with owner flag A6 recommending that no real firm be enabled before Cloudflare takes
 AI Search to general availability. The owner's 2026-08-07 docket session **overrode A6**: enablement
 now gates only on the firm's versioned disclosure acknowledgement, not on Cloudflare GA
-([`../decisions/pending/owner-docket-2026-08-07.md`](../decisions/pending/owner-docket-2026-08-07.md)).
+([`../decisions/0255-owner-docket-2026-08-07.md`](../decisions/0255-owner-docket-2026-08-07.md)).
 That removes the calendar slack the experiment was implicitly borrowing — a firm can now be enabled as
 soon as slice 1 ships and the disclosure is acknowledged — so proving the filter's semantics moved
 from "before GA" to "before the retrieval route merges," which is the gate the plan already states.

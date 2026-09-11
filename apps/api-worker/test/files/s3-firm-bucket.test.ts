@@ -42,8 +42,7 @@ function bucketWith(
   const bucket = createS3FirmBucket({
     bucketName: "magna-carta-production-firm-abc123",
     accountId: "account0001",
-    accessKeyId: "AKIATEST",
-    secretAccessKey: "secret",
+    credentials: () => Promise.resolve({ accessKeyId: "AKIATEST", secretAccessKey: "secret" }),
     region,
     fetchImpl,
   });

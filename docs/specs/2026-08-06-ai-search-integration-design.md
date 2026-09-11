@@ -34,7 +34,7 @@ derivation; the shipped `@magna-carta/inference` consent machinery
 the Magnus design established
 ([`2026-08-06-magnus-design.md`](2026-08-06-magnus-design.md)); the Magnus `MagnusContextPort` seam and
 the ratified F4b work-product ruling
-([`../decisions/pending/magnus-flags-f2-f3-f4b-ratified.md`](../decisions/pending/magnus-flags-f2-f3-f4b-ratified.md));
+([`../decisions/0250-magnus-flags-f2-f3-f4b-ratified.md`](../decisions/0250-magnus-flags-f2-f3-f4b-ratified.md));
 the discovery 5·1 design's corpus scope key and D4 posture
 ([`2026-08-05-discovery-5-1-design.md`](2026-08-05-discovery-5-1-design.md)); the shipped
 `token_usage_meter` precedent (`packages/data-access/src/token-usage-statements.ts`).

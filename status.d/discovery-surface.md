@@ -10,7 +10,7 @@ ui: done by="Opus 5"
 load-profile: todo
 tested: done by="Opus 5"
 branch: claude/discovery-tab-design-mmxyul
-active-work: docs/active-work/claude/discovery-tab-design-mmxyul.md
+active-work:
 next: 5·2·1's coding panel, which is one panel entry and one component over the criteria set this surface already carries; the native document through the file manager's own safe-delivery path, which re-authorizes on file permissions and is therefore an additional way in rather than the only one; the date-range criterion, which needs the document list read to gain a `sort_date` filter and must state how many undated documents a range sets aside; keyword narrowing, which is a binding plus a stage flip. And the member-deactivation route, which does not exist and which must call `readReviewSetsHeldOnlyBy` when it is written
 link-spec: docs/specs/2026-09-07-discovery-surface-design.md
 link-plan:

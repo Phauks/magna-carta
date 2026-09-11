@@ -27,3 +27,6 @@ Plain language, task-oriented — same pattern as the end-user guides ([`../READ
   feature copies and where, the two things the disclosure declines to guarantee (data residency, and
   provable erasure from the managed store), leaving a matter out, what turning it off can and cannot
   demonstrate, and how it is counted while it is a beta (backend built, screens pending).
+- [Checking that uploads can reach the firm's storage](upload-readiness.md) — what to do when an
+  upload says storage did not answer: the check that runs from the version chip's Database section,
+  its copyable report, what it puts right on its own, and the two things it can only name.

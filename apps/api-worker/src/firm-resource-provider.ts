@@ -12,10 +12,22 @@ import { browserUploadCorsRules } from "./files/browser-upload-cors.ts";
 // below — the dev adapter (Miniflare cannot create R2 at runtime) and the Cloudflare REST adapter
 // (real resource creation, deploy-time credentials).
 export interface FirmResourceProvider {
+  // Which adapter this is. A reader of the upload-readiness report (files/upload-readiness.ts)
+  // needs the fact stated, not inferred from what the calls did: the development adapter answers
+  // every configure call with success while configuring nothing, so "all steps succeeded" under it
+  // says nothing about the bucket.
+  readonly kind: "cloudflare-rest" | "development";
   createBucket(firmId: FirmId, region: DataRegion): Promise<{ bucketName: string }>;
+  // Whether the firm's bucket exists in the account, under the firm's jurisdiction — the probe
+  // createBucket runs before creating, exposed on its own so a diagnostic can ask without creating.
+  // A firm provisioned under the development adapter records a bucket name and creates no bucket;
+  // this is the call that tells that firm apart from one whose bucket is real.
+  bucketExists(firmId: FirmId, region: DataRegion): Promise<boolean>;
   // Configure the firm bucket's object-create event notification to feed the files-ingest queue
-  // (prefix files/). Idempotent and re-runnable: provisioning calls it on every run that reaches the
-  // bucket step, so a run that created the bucket but crashed before this still configures on retry.
+  // (prefix files/). Re-runnable: provisioning calls it on every run that reaches the bucket step,
+  // so a run that created the bucket but crashed before this still configures on retry — and the
+  // REST adapter reads back a rule R2 refuses as already present, because the API's PUT adds rules
+  // rather than replacing them (see the adapter).
   // The region must match what createBucket used — the notification PUTs target the SAME bucket.
   configureBucketNotifications(firmId: FirmId, region: DataRegion): Promise<void>;
   // Apply the firm bucket's object-expiry rules. The transient prefixes are regenerable caches, and
@@ -41,6 +53,15 @@ export interface FirmResourceProvider {
 // "creation" only computes the deterministic name the provisioner records.
 export function createDevFirmResourceProvider(): FirmResourceProvider {
   return {
+    kind: "development",
+
+    // The bound bucket is the only bucket there is locally, and every firm's bytes go through it,
+    // so the firm's bucket "exists" in the only sense the local runtime has. The readiness report
+    // does not take this at face value: it reads `kind` and says the check did not apply.
+    bucketExists(_firmId: FirmId, _region: DataRegion): Promise<boolean> {
+      return Promise.resolve(true);
+    },
+
     // Miniflare cannot create R2 buckets at runtime; every locally-provisioned firm shares
     // the single pre-declared R2 binding (resolved by binding key in code, never by this stored
     // name). The stored name is per-firm UNIQUE — the SAME deterministic shape production uses — so
@@ -153,6 +174,68 @@ function isAlreadyExists(envelope: CloudflareApiEnvelope<unknown>): boolean {
   );
 }
 
+// R2's refusal of a notification rule that overlaps one already configured — error 11020. The
+// code is documented; the message match is the fallback for a vendor copy-edit of the code.
+function isRuleOverlap(envelope: CloudflareApiEnvelope<unknown>): boolean {
+  return (envelope.errors ?? []).some(
+    (error) => error.code === 11020 || /invalid overlap/i.test(error.message ?? ""),
+  );
+}
+
+// What `GET …/event_notifications/r2/{bucket}/configuration` answers: each queue the bucket
+// notifies, with the rules that send to it. Only the fields the overlap check reads are typed.
+// Both casings are read, because the documented shape is camelCase and the account API has
+// answered other resources in snake_case; a mismatch here would turn a rule that is in place into
+// a reported fault, which is the mistake this read exists to stop.
+interface NotificationRule {
+  readonly prefix?: string;
+  readonly actions?: readonly string[];
+}
+interface NotificationQueue {
+  readonly queueId?: string;
+  readonly queue_id?: string;
+  readonly queueName?: string;
+  readonly rules?: readonly NotificationRule[];
+}
+interface NotificationConfiguration {
+  readonly queues?: readonly NotificationQueue[];
+}
+
+function queueIdOf(queue: NotificationQueue): string {
+  return queue.queueId ?? queue.queue_id ?? "";
+}
+
+// Whether the bucket already sends objects under `prefix` to `queueId` — the state a refused
+// overlap is allowed to mean. An overlap with a rule to some other queue is not this, and fails.
+function hasNotificationRule(
+  configuration: NotificationConfiguration | undefined,
+  queueId: string,
+  prefix: string,
+): boolean {
+  return (configuration?.queues ?? []).some(
+    (queue) =>
+      queueIdOf(queue) === queueId &&
+      (queue.rules ?? []).some((rule) => (rule.prefix ?? "") === prefix),
+  );
+}
+
+// The configuration in one line, for the failure that has to name it: each queue and the prefixes
+// it is sent. Deployment facts only — queue ids and key prefixes, never anything a firm wrote.
+function describeNotificationConfiguration(
+  configuration: NotificationConfiguration | undefined,
+): string {
+  const queues = configuration?.queues ?? [];
+  if (queues.length === 0) return "no notification rules at all";
+  return queues
+    .map((queue) => {
+      const prefixes = (queue.rules ?? []).map((rule) =>
+        rule.prefix === undefined || rule.prefix === "" ? "(every key)" : rule.prefix,
+      );
+      return `queue ${queueIdOf(queue) || "(unnamed)"} ← ${prefixes.join(", ") || "(no rules)"}`;
+    })
+    .join("; ");
+}
+
 function describeFailure(
   operation: string,
   status: number,
@@ -207,24 +290,41 @@ export function createCloudflareRestFirmResourceProvider(
     }
   }
 
+  // The bucket probe (its name IS its identifier). The eu jurisdiction header must ride it — the
+  // bucket lives under that jurisdiction's namespace, so a probe without it queries the wrong
+  // jurisdiction and always misses. A miss is a 404 with a non-success envelope; anything else
+  // that is not success (a refused token, an edge error) is a failure to ask, not an absence, and
+  // is thrown so a diagnostic never reports "no bucket" for a token that could not look.
+  async function probeBucket(operation: string, name: string, region: DataRegion) {
+    const jurisdiction = jurisdictionForRegion(region);
+    const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
+    const probed = await callApi<unknown>(
+      operation,
+      "GET",
+      `${accountBase}/r2/buckets/${name}`,
+      undefined,
+      extraHeaders,
+    );
+    if (probed.envelope.success) return { exists: true as const, extraHeaders };
+    if (probed.status === 404) return { exists: false as const, extraHeaders };
+    throw describeFailure(operation, probed.status, probed.envelope);
+  }
+
   return {
-    // Find-first, same shape: probe the bucket (its name IS its identifier), create only when
-    // the probe misses; already-exists on the create is the same benign probe-create race. The
-    // eu jurisdiction header must ride BOTH the probe and the create — the bucket lives under
-    // that jurisdiction's namespace, so a probe without it queries the wrong jurisdiction and
-    // always misses.
+    kind: "cloudflare-rest",
+
+    async bucketExists(firmId: FirmId, region: DataRegion): Promise<boolean> {
+      const name = await firmResourceName(firmId);
+      return (await probeBucket("bucketExists", name, region)).exists;
+    },
+
+    // Find-first, same shape: probe the bucket, create only when the probe misses; already-exists
+    // on the create is the same benign probe-create race. The jurisdiction header rides the create
+    // as it rode the probe.
     async createBucket(firmId: FirmId, region: DataRegion): Promise<{ bucketName: string }> {
       const name = await firmResourceName(firmId);
-      const jurisdiction = jurisdictionForRegion(region);
-      const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
-      const probed = await callApi<unknown>(
-        "createBucket",
-        "GET",
-        `${accountBase}/r2/buckets/${name}`,
-        undefined,
-        extraHeaders,
-      );
-      if (probed.envelope.success) return { bucketName: name };
+      const { exists, extraHeaders } = await probeBucket("createBucket", name, region);
+      if (exists) return { bucketName: name };
 
       const locationHint = locationHintForRegion(region);
       const created = await callApi<unknown>(
@@ -241,8 +341,16 @@ export function createCloudflareRestFirmResourceProvider(
     },
 
     // PUT the object-create notification rule onto the firm's bucket, targeting the files-ingest
-    // queue. PUT is idempotent — re-running replaces the same rule set, so a resumed provisioning is
-    // safe. The bucket name is its deterministic resource name (createBucket's identifier).
+    // queue. The bucket name is its deterministic resource name (createBucket's identifier).
+    //
+    // NOT IDEMPOTENT ON THE API'S SIDE, whatever the verb says. This PUT ADDS rules to the queue's
+    // configuration, and R2 refuses a rule that overlaps one already there (error 11020, "rules have
+    // invalid overlap") — so the second run against a configured bucket fails, which is exactly the
+    // run a resumed provisioning and the upload readiness check both make. The first firm checked
+    // after the check shipped reported that refusal as a fault on a bucket whose rule was in place.
+    // A refused overlap is therefore READ rather than believed: the bucket's configuration is
+    // fetched and the step succeeds when the rule it meant to add is already there for this queue,
+    // and fails, with the API's words, when the overlap is with something else.
     async configureBucketNotifications(firmId: FirmId, region: DataRegion): Promise<void> {
       if (
         options.eventNotificationQueueId === undefined ||
@@ -259,52 +367,70 @@ export function createCloudflareRestFirmResourceProvider(
       // resolves against the default jurisdiction and misses the bucket entirely.
       const jurisdiction = jurisdictionForRegion(region);
       const extraHeaders = jurisdiction ? { "cf-r2-jurisdiction": jurisdiction } : undefined;
-      const configured = await callApi<unknown>(
-        "configureBucketNotifications",
-        "PUT",
-        `${accountBase}/event_notifications/r2/${bucketName}/configuration/queues/${options.eventNotificationQueueId}`,
-        {
-          rules: [
-            {
-              actions: ["PutObject", "CompleteMultipartUpload"],
-              prefix: FILES_NOTIFICATION_PREFIX,
-            },
-          ],
-        },
-        extraHeaders,
-      );
-      if (!configured.envelope.success) {
-        throw describeFailure(
+      const putRule = async (queueId: string, prefix: string): Promise<void> => {
+        const configured = await callApi<unknown>(
           "configureBucketNotifications",
-          configured.status,
-          configured.envelope,
+          "PUT",
+          `${accountBase}/event_notifications/r2/${bucketName}/configuration/queues/${queueId}`,
+          { rules: [{ actions: ["PutObject", "CompleteMultipartUpload"], prefix }] },
+          extraHeaders,
         );
-      }
+        if (configured.envelope.success) return;
+        if (!isRuleOverlap(configured.envelope)) {
+          throw describeFailure(
+            "configureBucketNotifications",
+            configured.status,
+            configured.envelope,
+          );
+        }
+        // Refused as an overlap: read what the bucket holds, and either recognise the rule as
+        // already there or say exactly what IS there — a reader of the readiness report has to be
+        // able to tell "the rule is on the bucket under a queue this deployment no longer names"
+        // from "the API is refusing something else", and the refusal's own sentence says neither.
+        let existing: {
+          status: number;
+          envelope: CloudflareApiEnvelope<NotificationConfiguration>;
+        };
+        try {
+          existing = await callApi<NotificationConfiguration>(
+            "configureBucketNotifications",
+            "GET",
+            `${accountBase}/event_notifications/r2/${bucketName}/configuration`,
+            undefined,
+            extraHeaders,
+          );
+        } catch (caught) {
+          throw new Error(
+            `configureBucketNotifications: R2 refused the ${prefix} rule as overlapping a rule ` +
+              `already on ${bucketName}, and the bucket's configuration could not be read to ` +
+              `confirm it: ${caught instanceof Error ? caught.message : String(caught)}`,
+            { cause: caught },
+          );
+        }
+        if (!existing.envelope.success) {
+          throw new Error(
+            `configureBucketNotifications: R2 refused the ${prefix} rule as overlapping a rule ` +
+              `already on ${bucketName}, and reading the bucket's configuration failed: ` +
+              describeFailure("readBucketNotifications", existing.status, existing.envelope)
+                .message,
+          );
+        }
+        if (hasNotificationRule(existing.envelope.result, queueId, prefix)) return;
+        throw new Error(
+          `configureBucketNotifications: R2 refused the ${prefix} rule as overlapping a rule ` +
+            `already on ${bucketName}, and the bucket does not send ${prefix} to queue ${queueId}. ` +
+            `It holds: ${describeNotificationConfiguration(existing.envelope.result)}. Either the ` +
+            "queue id this deployment names (FILES_INGEST_QUEUE_ID) is not the queue the bucket was " +
+            "configured for, or an older rule covers the same prefix — remove it in the dashboard " +
+            "(R2 → the bucket → Settings → Event notifications) and run the check again.",
+        );
+      };
+      await putRule(options.eventNotificationQueueId, FILES_NOTIFICATION_PREFIX);
       if (
         options.bulkEventNotificationQueueId !== undefined &&
         options.bulkEventNotificationQueueId !== ""
       ) {
-        const configuredBulk = await callApi<unknown>(
-          "configureBucketNotifications",
-          "PUT",
-          `${accountBase}/event_notifications/r2/${bucketName}/configuration/queues/${options.bulkEventNotificationQueueId}`,
-          {
-            rules: [
-              {
-                actions: ["PutObject", "CompleteMultipartUpload"],
-                prefix: BULK_NOTIFICATION_PREFIX,
-              },
-            ],
-          },
-          extraHeaders,
-        );
-        if (!configuredBulk.envelope.success) {
-          throw describeFailure(
-            "configureBucketNotifications",
-            configuredBulk.status,
-            configuredBulk.envelope,
-          );
-        }
+        await putRule(options.bulkEventNotificationQueueId, BULK_NOTIFICATION_PREFIX);
       }
     },
 

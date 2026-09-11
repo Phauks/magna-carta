@@ -56,9 +56,22 @@ describe("GET /api/v1/meta/database-health", () => {
       schema: { state: string; appliedCount: number; appliedHead: string | null };
       controlPlane: { state: string; bucketProvisioned: boolean };
       provisioning: { state: string; pending: number; deadLettered: number };
+      fileStorage: {
+        uploadPath: string;
+        provisioner: string;
+        lastReadinessCheck: unknown;
+        state: string;
+      };
       observedAt: string;
     };
     expect(health.membership).toMatchObject({ state: "missing", roles: [], permissionCount: 0 });
+    // The pool runs the development adapters and nobody has run the readiness check — said as such.
+    expect(health.fileStorage).toEqual({
+      uploadPath: "through-the-application",
+      provisioner: "development",
+      lastReadinessCheck: null,
+      state: "read",
+    });
     // And the rest of the read still answers, so the panel names the one thing that is wrong.
     expect(health.firmDatabase.state).toBe("reachable");
     expect(health.firmDatabase.roundTripMilliseconds).toBeGreaterThanOrEqual(0);

@@ -279,7 +279,7 @@ the format choice and records the PDF arm as `deployed-only` in its availability
 office suite runs in a container the convert worker owns, which is a deploy-time activation, and a
 person on a developer's machine is told that rather than left to conclude the feature is broken.
 Fillable-PDF form templates and the signing surface are written into
-[`docs/specs/2026-08-13-document-automation-tail-remainder-plan.md`](../docs/specs/2026-08-13-document-automation-tail-remainder-plan.md)
+[`docs/specs/2026-08-13-document-automation-tail-remainder-plan.md`](docs/specs/2026-08-13-document-automation-tail-remainder-plan.md)
 rather than half-built.
 
 **Fillable-PDF form templates shipped as a template KIND rather than a second subsystem.**

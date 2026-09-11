@@ -1,7 +1,8 @@
 # The authoritative whole-repo quality gate — runs on every pull request into `main` and every push to
 # `main`, and is the check branch protection requires (require the aggregate `gate` job below, nothing
-# else). Green `main` is what makes the deliberate `git push main:release` — the only deploy, via
-# Cloudflare Workers Builds — always ship known-good code. The pre-push hook runs only a fast, diff-scoped
+# else). Since 2026-08-29 `main` IS the Workers Builds production branch for the app Worker and the SPA
+# (docs/conventions/operations.md, Branch control), so a merge to `main` deploys within minutes with no
+# second gesture: green `main` is what keeps a deploy known-good. The pre-push hook runs only a fast, diff-scoped
 # subset for local feedback; this workflow is the exhaustive sweep.
 #
 # Shape: one fan-out DAG, not a serial monolith. A `classify` job path-filters the diff, a `build-wasm` job
@@ -35,8 +36,9 @@
 #     that merge in quick succession and interact semantically without touching the same files — which
 #     is what the scheduled sweep below and the merge_group trigger are for.
 #   • schedule — the full battery with an unscoped lint, from a cold start, every night. This is the
-#     backstop for the interleaving window above, and it lands long before any deliberate
-#     `git push main:release` turns `main` into a deploy.
+#     backstop for the interleaving window above. It used to land before a deliberate deploy push;
+#     since `main` became the deploy branch (2026-08-29) it can only catch an interleaving after the
+#     fact, which docs/conventions/build-performance.md records under the tiering's corrected arguments.
 #   • merge_group — the full battery on the exact post-merge tree the queue built (a queued merge is
 #     the explicit ask: it is the tree that deploys), which closes the
 #     interleaving window at its source rather than catching it after the fact: every red check the
@@ -74,7 +76,8 @@
 #
 # TEMPORARY CI AUSTERITY 2026-08-05 — revert when Actions minutes reset. Two of the three tiers above
 # are suspended while the Actions budget is exhausted: the push-to-main run and the nightly schedule.
-# What remains is the pull-request tier (the full battery at sink-deferred lint scope) and
+# What remains is the pull-request tier (the checks at sink-deferred lint scope; the battery on the
+# `run-tests` label only, per the 2026-09-03 ruling above) and
 # `workflow_dispatch` (both still run on every change and on the docs-assembly PR). While the
 # post-merge tier is suspended the deferred sinks are covered by the window's merge bar instead — an
 # agent's full local `pnpm check`, which lints the whole repository. The merge bar during the window and the

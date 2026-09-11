@@ -12,16 +12,19 @@
    * for a mail client that will not open links. Both paths end at the same deliberate press; the
    * step's reach is declared in $lib/auth/joining-availability.ts under "confirm-registration".
    *
-   * WHAT SPENDING THE TOKEN NOW CREATES is the account AND the credential the person chose when
-   * they registered, so the ordinary ending of this screen is "sign in", not "check your email
-   * again". Which ending shows is the server's own `next`, never a guess made here: `signIn`, or
-   * `checkEmail` for a registration started before passwords were chosen at registration, which
-   * still needs its mailed link.
+   * WHAT SPENDING THE TOKEN NOW CREATES is the account, the credential the person chose when they
+   * registered, AND a session — the confirmation response carries the cookie, because the token only
+   * ever travelled by email and spending it proves the mailbox. So the ordinary ending of this screen
+   * is not a screen at all: it walks straight into /welcome. Which ending shows is the server's own
+   * `next`, never a guess made here: `signedIn`, `signIn` where the account exists but no session
+   * came with it, or `checkEmail` for a registration started before passwords were chosen at
+   * registration, which still needs its mailed link.
    *
    * The firm is NOT built by the time this answers. Provisioning creates a bucket and mints a key,
    * which is not work an anonymous request does inline, so the route queues it and answers
    * "under way" — and the success screen says that rather than pretending a workspace is waiting.
    */
+  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
   import { confirmRegistration } from "$lib/auth/joining-api.ts";
@@ -67,6 +70,10 @@
     confirmedAt = new Date();
     confirmed = outcome.value;
     confirmedAddress = outcome.value.email;
+    // The session rode in on that response, so there is nothing to show and nowhere to stop: the
+    // joining screen is where somebody with an account and no firm belongs. It reads the bootstrap
+    // for itself, which is what makes the cookie the only thing that had to arrive here.
+    if (outcome.value.next === "signedIn") await goto("/welcome");
   }
 </script>
 
@@ -81,6 +88,7 @@
       {rejection}
       {supportErrorId}
       onSubmit={confirm}
+      back={() => goto("/login")}
     />
   {:else if confirmed?.next === "checkEmail"}
     <!--
@@ -95,11 +103,12 @@
         : "We have sent a second email with the link that sets your password. Open it to finish setting up your account."}
       sentAt={confirmedAt}
       remedy="If it has not arrived after a few minutes, use Reset Password from the sign-in screen."
+      back={() => goto("/login")}
     />
   {:else}
     <!--
-      The ordinary ending, and the one nearly everybody now takes: the account exists and holds the
-      password chosen at registration, so there is nothing to wait for.
+      The account exists and holds the password chosen at registration, but no session came back with
+      it — the fallback, not the ordinary ending, which navigated away before rendering anything.
     -->
     <AccountReadyScreen
       address={confirmedAddress}

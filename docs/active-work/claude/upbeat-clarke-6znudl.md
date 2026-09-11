@@ -1,15 +1,14 @@
 ---
 worktree: C:/dev/magna-carta-worktrees/claude/upbeat-clarke-6znudl
-area: The Upload panel — one Add control, per-file document types, hashing ahead of the send, a bar that holds its width
+area: Upload readiness — the deploy gate requires the provisioning credentials; one server-side check, one button, names why an upload cannot reach storage
 status: review
-touches: apps/web/src/lib/file-manager, apps/web/src/routes/(app)/uploads, apps/web/src/routes/developer-console/upload-states, packages/design-system/src/lib/components/dropzone, packages/design-tokens, docs/conventions/operations.md, docs/conventions/design-corrections.md, docs/user/files
+touches: apps/api-worker/wrangler.jsonc, apps/api-worker/src/files, apps/api-worker/src/routes, apps/api-worker/src/firm-resource-provider.ts, apps/api-worker/openapi, packages/api-client, apps/web/src/lib/file-manager, apps/web/src/routes/(app)/settings/file-safety, docs/specs, docs/decisions/pending, docs/conventions/operations.md, docs/user/admin
 ---
 
-The owner's upload review round of 2026-09-08, plus the diagnosis of the failed upload behind it.
-The Add menu becomes one press; the batch-wide document type becomes a column set per file; "On
-Arrival" becomes a folded Advanced Settings; the digest is read from the moment a file is chosen
-rather than when its lane reaches it; the pace line's room is reserved so the progress bar holds
-still. A new module, `upload-digests.svelte.ts`, owns the reads, and `UploadQueueDependencies`
-swapped its `hash` seam for a `digest` one — anything standing in for the queue's network takes the
-new shape. The design-tokens package gains one dimension (`size.transfer-pace`), so its generated
-output and goldens moved.
+`CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER` and `CLOUDFLARE_ACCOUNT_ID` join `secrets.required`, so a
+deployment cannot run the development adapters against real firms. `files/upload-readiness.ts` +
+`POST /api/v1/firm/upload-readiness` verify the six preconditions of a browser upload from the
+server, re-applying the settings the code owns and naming a missing bucket or a mis-scoped key;
+the version panel runs it with its other reads and opens the report as a copyable modal. Earlier on this branch: the pre-launch reset
+script, the resource manifest, the bucket-scoped object-plane credential, and the runbook's
+key-scope correction. Deferred: the presigner joining the scoped credential.

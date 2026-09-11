@@ -7,7 +7,13 @@
    *
    * This is also the activation path: a firm owner fresh from registration, or an invited member,
    * sets their FIRST password through exactly this flow — completing it is what marks the address
-   * verified — so the copy says "set" rather than assuming a password already exists.
+   * verified.
+   *
+   * THE HEADING IS THE WHOLE EXPLANATION (owner correction, 2026-09-09). The line that used to sit
+   * under it — "We will email you a link that sets a new password for your account" — narrated the
+   * mechanism of a screen with one field and one button on it, and the button now says the same
+   * thing the heading does. What a person needs here is the address field, not a sentence about
+   * what happens after they fill it.
    */
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
@@ -35,11 +41,7 @@
   const canSubmit = $derived(!pending && email.trim() !== "");
 </script>
 
-<AuthPanel title="Reset Password" {back} backLabel="Back to Sign In">
-  {#snippet meta()}
-    We will email you a link that sets a new password for your account.
-  {/snippet}
-
+<AuthPanel title="Reset Password" {back} backLabel="Sign In">
   {#snippet children()}
     <form onsubmit={onSubmit} class="flex flex-col gap-16">
       <div class="flex flex-col gap-8">
@@ -60,7 +62,7 @@
       </div>
 
       <Button type="submit" variant="primary" size="lg" class="w-full" disabled={!canSubmit}>
-        {pending ? "Sending…" : "Email Me a Reset Link"}
+        {pending ? "Sending…" : "Reset Password"}
       </Button>
 
       <!-- Everything informational renders BELOW the button, so the button holds still. -->

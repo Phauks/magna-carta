@@ -10,7 +10,7 @@ ui: done
 load-profile: todo
 tested: done
 branch: claude/intake-workflow-development-hgn18z
-active-work: docs/active-work/claude/intake-workflow-development-hgn18z.md
+active-work:
 next: the pipeline board over firm-defined stages, if a firm needs a word the procedure cannot express; the public form, the submission and its triage, call intake; the portal reader behind client-forms and the payments reader behind payment; a per-procedure folder layout on the consultation; a load-profile volume for the desk read
 link-spec: docs/specs/2026-09-05-intake-desk-design.md
 link-plan: docs/specs/2026-09-05-intake-desk-design.md

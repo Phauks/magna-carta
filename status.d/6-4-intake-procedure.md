@@ -10,7 +10,7 @@ ui: done
 load-profile: todo
 tested: done
 branch: claude/intake-procedure-seams-5zaapx
-active-work: docs/active-work/claude/intake-procedure-seams-5zaapx.md
+active-work:
 next: the verification port behind the identity step; the e-signature reader behind the engagement letter; a custom-field picker for questionnaire steps once the definitions have a list read; the wider design's remaining slices (the public form, the pipeline board, call intake, the non-engagement letter); a load-profile volume when a firm's procedures are many rather than long
 link-spec: docs/specs/2026-09-03-intake-procedure-design.md
 link-plan: docs/specs/2026-08-15-client-intake-implementation-plan.md

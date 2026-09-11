@@ -210,6 +210,17 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
       },
     },
     emailVerification: {
+      // A VERIFIED MAILBOX IS A SIGNED-IN PERSON. The verification token only ever travels by email,
+      // so spending one proves possession of the address — the same proof a mailed sign-in link
+      // rests on, and a stronger one than the password the next screen would otherwise ask for. This
+      // is what lets registration end inside the product instead of at the front door:
+      // routes/registrations.ts spends a freshly minted token the moment a confirmed registration's
+      // account is committed, and forwards the session cookie this sets onto its own response.
+      //
+      // It changes nothing for a person who is ALREADY signed in when they verify — the endpoint
+      // keeps their existing session rather than rotating it — and nothing at all for the reset
+      // flow, which mints its own tokens and has its own hook below.
+      autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         await sendEmail({
           to: user.email,

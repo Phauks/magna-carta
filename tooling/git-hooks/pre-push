@@ -2,8 +2,8 @@
 # pre-push — the FAST local gate. The authoritative whole-repo gate (full `pnpm check`, the full
 # test suite, the API-contract drift checks, and the container acceptance suites) now runs in GitHub
 # Actions on every pull request and push to `main` (.github/workflows/gate.yml) and is required by
-# branch protection — so `main` stays green and the deliberate `git push main:release` (the only
-# deploy, via Cloudflare Workers Builds) ships known-good code.
+# branch protection — so `main` stays green. Since 2026-08-29 `main` is the Workers Builds production
+# branch for the app Worker and the SPA, so a merge to it deploys within minutes (docs/conventions/operations.md).
 #
 # This hook keeps the local loop quick: only the checks the current diff can actually break
 # (`pnpm check:scoped`) plus the whole-repo guards that finish in seconds. It is a courtesy tripwire,

@@ -10,7 +10,7 @@ ui: in-progress by="Opus 5"
 load-profile: done by="Opus 4.8"
 tested: done by="Opus 4.8"
 branch: main
-active-work: docs/active-work/claude/billing-uui-consolidation-5l2kiu.md
+active-work:
 next: Approving a submitted record from either firm-wide period; a record's entry number, its attached files and its recorded history on both ledgers; the firm's review setting being served so the chain verbs stop being absent
 link-spec:
 link-plan:

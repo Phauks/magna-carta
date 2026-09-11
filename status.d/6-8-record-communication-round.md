@@ -10,7 +10,7 @@ ui: done
 load-profile: n/a
 tested: done
 branch: claude/exciting-pascal-qfr3la
-active-work: docs/active-work/claude/exciting-pascal-qfr3la.md
+active-work:
 next: the right column becomes tabs — the message, a transcript, the recording — once the carrier is connected; the design system's own PhoneInput, if a package ever needs the field the app now owns
 link-spec: docs/specs/2026-09-07-call-and-text-log-design.md
 link-plan:

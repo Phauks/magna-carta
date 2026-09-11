@@ -45,6 +45,12 @@ const HEALTHY: DatabaseHealthValue = {
   },
   membership: { state: "active", roles: ["Owner/Admin"], permissionCount: 84 },
   provisioning: { state: "read", pending: 0, deadLettered: 0 },
+  fileStorage: {
+    uploadPath: "direct-to-storage",
+    provisioner: "cloudflare-rest",
+    lastReadinessCheck: { at: "2026-09-10T15:00:00.000Z", ready: true, failed: [] },
+    state: "read",
+  },
   observedAt: "2026-09-03T12:00:00.000Z",
 };
 
@@ -55,7 +61,7 @@ function rowFor(value: DatabaseHealthValue, id: string) {
 }
 
 describe("databaseHealthRows", () => {
-  it("always renders the same four rows, healthy or not", () => {
+  it("always renders the same five rows, healthy or not", () => {
     // A row that disappears when it is fine would make the section's LENGTH the signal, and half
     // of these states are ordinary.
     expect(databaseHealthRows(HEALTHY).map((row) => row.id)).toEqual([
@@ -63,13 +69,14 @@ describe("databaseHealthRows", () => {
       "schema",
       "membership",
       "controlPlane",
+      "fileStorage",
     ]);
     expect(
       databaseHealthRows({
         ...HEALTHY,
         firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: null },
       }).map((row) => row.id),
-    ).toEqual(["firmDatabase", "schema", "membership", "controlPlane"]);
+    ).toEqual(["firmDatabase", "schema", "membership", "controlPlane", "fileStorage"]);
   });
 
   it("reads a healthy firm as healthy on every row", () => {
@@ -321,12 +328,12 @@ describe("the panel's two folding sections", () => {
     // learn how much of it was affected — one bad row out of four reads very differently from four,
     // and the heading said the same thing either way.
     expect(chip).toContain("databaseSectionPills(healthValue)");
-    expect(databaseSectionPills(HEALTHY).map((pill) => pill.label)).toEqual(["4 checks"]);
+    expect(databaseSectionPills(HEALTHY).map((pill) => pill.label)).toEqual(["5 checks"]);
     const broken = databaseSectionPills({
       ...HEALTHY,
       firmDatabase: { state: "unreachable", roundTripMilliseconds: null, fault: null },
     });
-    expect(broken.map((pill) => pill.label)).toEqual(["4 checks", "1 not working"]);
+    expect(broken.map((pill) => pill.label)).toEqual(["5 checks", "1 not working"]);
     expect(broken[1]?.variant).toBe("danger");
   });
 
@@ -352,5 +359,68 @@ describe("the panel's two folding sections", () => {
     // The chip is on every screen in the app; a standing health poll behind it would be a request
     // on every page load to answer a question nobody has asked.
     expect(chip).toMatch(/if \(!open \|\| !readsAggregate\) return;[\s\S]*void refreshHealth\(\);/);
+  });
+});
+
+describe("the file storage row", () => {
+  it("reads the last check, not the deployment's hopes: ready is healthy, not-ready names the cause", () => {
+    expect(rowFor(HEALTHY, "fileStorage")).toMatchObject({ reading: "healthy", status: "Ready" });
+    const notReady = rowFor(
+      {
+        ...HEALTHY,
+        fileStorage: {
+          ...HEALTHY.fileStorage,
+          lastReadinessCheck: {
+            at: "2026-09-10T15:00:00.000Z",
+            ready: false,
+            failed: ["key-can-sign"],
+          },
+        },
+      },
+      "fileStorage",
+    );
+    expect(notReady.reading).toBe("fault");
+    expect(notReady.status).toBe("Not ready");
+    // The first failed precondition is the cause; the row says it in the reader's words and where
+    // to run the check again.
+    expect(notReady.detail).toContain("the storage credential is honoured");
+    expect(notReady.detail).toContain("this panel");
+  });
+
+  it("treats a firm nobody has checked as a fact, not a fault", () => {
+    const unchecked = rowFor(
+      { ...HEALTHY, fileStorage: { ...HEALTHY.fileStorage, lastReadinessCheck: null } },
+      "fileStorage",
+    );
+    expect(unchecked.reading).toBe("healthy");
+    expect(unchecked.status).toBe("Not yet checked");
+    expect(unchecked.detail).toContain("this panel");
+  });
+
+  it("says when files go through the application, and asks nothing about a check", () => {
+    const local = rowFor(
+      {
+        ...HEALTHY,
+        fileStorage: {
+          uploadPath: "through-the-application",
+          provisioner: "development",
+          lastReadinessCheck: null,
+          state: "read",
+        },
+      },
+      "fileStorage",
+    );
+    expect(local).toMatchObject({ reading: "healthy", status: "Through the application" });
+  });
+
+  it("reports a record that could not be read as attention, never as ready", () => {
+    const unread = rowFor(
+      {
+        ...HEALTHY,
+        fileStorage: { ...HEALTHY.fileStorage, lastReadinessCheck: null, state: "unknown" },
+      },
+      "fileStorage",
+    );
+    expect(unread).toMatchObject({ reading: "attention", status: "Not read" });
   });
 });

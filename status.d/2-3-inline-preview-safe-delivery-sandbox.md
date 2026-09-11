@@ -10,7 +10,7 @@ ui: in-progress
 load-profile: n/a
 tested: done by="Opus 4.8" gap
 branch: main
-active-work: docs/active-work/claude/text-document-editor-support-arvpgv.md
+active-work:
 next: The inline_playable writer at ingest, which nothing sets today, then the Preview tab over the streaming path for images and media.
 link-spec:
 link-plan:
