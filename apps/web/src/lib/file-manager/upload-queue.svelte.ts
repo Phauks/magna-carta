@@ -151,8 +151,8 @@ const STORAGE_UNREACHABLE =
   "bytes go from this browser straight to storage rather than through the rest of the " +
   "application, which is answering normally — so the fault is on that route, not with the file " +
   "or with the matter. Try again; if it keeps happening, the storage is refusing writes from " +
-  "this site. An administrator can run the upload readiness check under Settings, File Safety & " +
-  "Scanning, which names the thing that is not in place.";
+  "this site. An administrator can open the version chip at the top right: its Database section " +
+  "runs the upload readiness check, which names the thing that is not in place.";
 
 /** The failure line carries the stage and the Error ID, because a report needs both. */
 export function uploadFailureReason(outcome: UploadOutcome): string {

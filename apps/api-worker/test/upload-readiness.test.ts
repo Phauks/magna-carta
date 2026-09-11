@@ -190,6 +190,7 @@ describe("each fault gets its own line, and the walk stops where nothing below c
     const signing = report.checks.find((check) => check.id === "key-can-sign");
     expect(signing?.outcome).toBe("failed");
     expect(signing?.detail).toContain("could not be minted");
+    expect(signing?.detail).toContain("Apply to all buckets in this account");
     expect(signing?.detail).toContain("CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER");
   });
 

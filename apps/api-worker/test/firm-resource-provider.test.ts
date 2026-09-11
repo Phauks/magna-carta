@@ -426,3 +426,73 @@ describe("FirmResourceProvider — asking whether a bucket exists without creati
     expect(stub.calls[0]?.headers["cf-r2-jurisdiction"]).toBe("eu");
   });
 });
+
+describe("FirmResourceProvider — a notification rule R2 refuses as an overlap", () => {
+  const firmId = newIdentifier("firm");
+  const OVERLAP = {
+    status: 400,
+    body: {
+      success: false,
+      errors: [
+        {
+          code: 11020,
+          message:
+            "Event notification R2 rule conflict on bucket 'x': The notification configuration is invalid: Notification configuration rules have invalid overlap.",
+        },
+      ],
+    },
+  };
+
+  it("succeeds when the bucket already sends files/ to the same queue — the resumed-provisioning case", async () => {
+    const stub = stubFetch([
+      OVERLAP,
+      {
+        status: 200,
+        body: {
+          success: true,
+          result: {
+            queues: [
+              {
+                queueId: "queue-1",
+                rules: [{ prefix: "files/", actions: ["PutObject", "CompleteMultipartUpload"] }],
+              },
+            ],
+          },
+        },
+      },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-1",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId, "us")).resolves.toBeUndefined();
+    expect(stub.calls.map((call) => call.method)).toEqual(["PUT", "GET"]);
+    expect(stub.calls[1]?.url).toMatch(/\/event_notifications\/r2\/[^/]+\/configuration$/);
+  });
+
+  it("fails, in the API's words, when the overlap is with a rule to some other queue", async () => {
+    const stub = stubFetch([
+      OVERLAP,
+      {
+        status: 200,
+        body: {
+          success: true,
+          result: {
+            queues: [{ queueId: "some-older-queue", rules: [{ prefix: "files/", actions: [] }] }],
+          },
+        },
+      },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-1",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId, "us")).rejects.toThrow(
+      /configureBucketNotifications failed: HTTP 400.*11020/s,
+    );
+  });
+});

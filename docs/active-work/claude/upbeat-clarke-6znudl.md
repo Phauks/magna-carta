@@ -9,6 +9,6 @@ touches: apps/api-worker/wrangler.jsonc, apps/api-worker/src/files, apps/api-wor
 deployment cannot run the development adapters against real firms. `files/upload-readiness.ts` +
 `POST /api/v1/firm/upload-readiness` verify the six preconditions of a browser upload from the
 server, re-applying the settings the code owns and naming a missing bucket or a mis-scoped key;
-the File Safety & Scanning page carries the button. Earlier on this branch: the pre-launch reset
+the version panel runs it with its other reads and opens the report as a copyable modal. Earlier on this branch: the pre-launch reset
 script, the resource manifest, the bucket-scoped object-plane credential, and the runbook's
 key-scope correction. Deferred: the presigner joining the scoped credential.

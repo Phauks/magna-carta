@@ -46,8 +46,8 @@ const UploadReadinessReport = z
   .openapi("UploadReadinessReport");
 
 // A POST, because the check ACTS: the bucket settings the code owns are re-applied as it verifies
-// them. Owner/Admin only, on the key the rest of the upload path's safety settings ride — the
-// screen it is run from is File Safety & Scanning. Audited, as every mutating route is: the report
+// them. Owner/Admin only, on the key the rest of the upload path's safety settings ride; it runs
+// from the version panel, beside the other reads about what is running. Audited, as every mutating route is: the report
 // is returned rather than stored, so the audit row is the record of who ran it and what it found.
 const checkMeta: RouteMeta = {
   operationId: "uploadReadiness.check",
