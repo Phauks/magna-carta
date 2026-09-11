@@ -405,6 +405,8 @@ rather than a `--filter` incantation that has to name the package a second time.
 | Build caching     | On, everywhere — the primary fast-build lever                          |
 | Build Watch Paths | **The one field that legitimately differs per Worker** (see below)     |
 
+**A merge that landed with no build behind it.** Twice on 2026-09-11 a squash merge reached `main` and no Workers Build was queued for it — once after GitHub answered the merge call with a 502 and the retry succeeded, so the commit exists but the push webhook Workers Builds listens for never fired. The symptom is the version chip's API line sitting on an older commit than `main` with no build listed for the new one. The dashboard cannot ask for a build of a given commit: **Retry build** rebuilds the commit _that_ build was for, not the head of `main`. The remedies are a **deploy hook** (Settings → Builds → Deploy hooks → Create; `curl -X POST <url>` builds the head of `main` — `magna-carta-scan` already uses one for its daily rebuild) or, from the dashboard alone, a new commit to `main` that touches the Worker's watch paths. Neither is an empty commit: the change must be real, and the repository has a standing rule against kicking CI with an empty one.
+
 That table is the **design**, not a reading of the account. What each Worker is actually set to is
 live state; the `GET /accounts/{account_id}/builds/workers/{script_tag}` call above returns all six
 fields at once, and a difference from this shape is either a drift to fix or a decision nobody wrote

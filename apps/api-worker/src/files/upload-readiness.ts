@@ -254,14 +254,17 @@ export async function verifyUploadReadiness(
  */
 function describeSigningFailure(caught: unknown): string {
   if (caught instanceof BucketCredentialError) {
+    // Two tokens are involved in a mint — the provisioner token authorises the request and the
+    // R2 S3 token is the parent the credential is derived from — and a refusal does not say which
+    // side R2 objected to. Both are named, with the property each must have; a refusal that cleared
+    // on a later run with nothing changed has been seen once and is explained by neither.
     return (
-      `A bucket-scoped credential could not be minted for this bucket: ${caught.message}. A ` +
-      "credential derived from the R2 S3 token can reach only what that token reaches, so a token " +
-      "made for one bucket cannot be narrowed to another — re-mint R2_S3_ACCESS_KEY_ID / " +
-      'R2_S3_SECRET_ACCESS_KEY as Object Read & Write with "Apply to all buckets in this ' +
-      'account" and set the pair with wrangler secret put (docs/conventions/operations.md, deploy ' +
-      "secrets). If the mint is still refused, the provisioner token " +
-      "(CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER) lacks Workers R2 Storage edit on the account."
+      `A bucket-scoped credential could not be minted for this bucket: ${caught.message}. The ` +
+      "mint is authorised by the provisioner token (CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER), which " +
+      "needs Workers R2 Storage edit on the account, and derives from the R2 S3 token " +
+      "(R2_S3_ACCESS_KEY_ID), which must reach this bucket — an R2 API token made for one bucket " +
+      "cannot be narrowed to another. Check both under R2, Manage R2 API Tokens, and run the " +
+      "check again before changing either."
     );
   }
   if (caught instanceof FirmBucketUnavailableError) return caught.detail;
