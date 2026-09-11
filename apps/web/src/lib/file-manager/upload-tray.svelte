@@ -37,6 +37,19 @@
 
   // How many the tray shows. The tray is a glance; a batch's own panel is where each file is read.
   const TRAY_LIMIT = 4;
+  // How many of a batch's failures the tray names. The rest are on the Uploads page, in full.
+  const FAILURE_LIMIT = 3;
+
+  /** The files that did not go, each with what failed, for the line under a finished batch. */
+  function failuresOf(batch: UploadBatch): { name: string; failure: string; reason: string }[] {
+    return batch.items
+      .filter((item) => item.stage === "failed")
+      .map((item) => ({
+        name: item.entry.file.name,
+        failure: item.failure ?? "Upload failed",
+        reason: item.reason ?? item.failure ?? "Upload failed",
+      }));
+  }
 
   let open = $state(false);
 
@@ -139,6 +152,26 @@
                 {batchPaceText(batch)}
               </span>
             {:else}
+              {@const failures = failuresOf(batch)}
+              {#if failures.length > 0}
+                <!-- Each failure says what failed, here as well as on its row: a count alone tells
+                     the reader that something went wrong and nothing about what. -->
+                <ul class="flex flex-col gap-4">
+                  {#each failures.slice(0, FAILURE_LIMIT) as failed (failed.name)}
+                    <li
+                      class="truncate text-xs text-status-danger-subtle-foreground"
+                      title={failed.reason}
+                    >
+                      {failed.name} · {failed.failure}
+                    </li>
+                  {/each}
+                  {#if failures.length > FAILURE_LIMIT}
+                    <li class="text-xs text-text-muted">
+                      And {String(failures.length - FAILURE_LIMIT)} more, on the Uploads page.
+                    </li>
+                  {/if}
+                </ul>
+              {/if}
               <div class="flex flex-wrap items-center gap-8">
                 {#if batch.failed > 0 || unsentCount(batch) > 0}
                   <Button

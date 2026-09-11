@@ -2644,7 +2644,7 @@ export const filesListInfiniteOptions = (options: Options<FilesListData>) => inf
 });
 
 /**
- * Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained for the recovery window.
+ * Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained, indefinitely by default. Bytes are never destroyed while another file, live or deleted, holds the same content; only a retention policy destroys them, and only once the last file holding them is gone.
  */
 export const filesDeleteMutation = (options?: Partial<Options<FilesDeleteData>>): MutationOptions<FilesDeleteResponse, FilesDeleteError, Options<FilesDeleteData>> => {
     const mutationOptions: MutationOptions<FilesDeleteResponse, FilesDeleteError, Options<FilesDeleteData>> = {
