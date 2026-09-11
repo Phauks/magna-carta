@@ -560,7 +560,8 @@ describe("the chip's row identities and refresh", () => {
     );
     expect(refreshControl).not.toBeNull();
     const control = refreshControl?.[0] ?? "";
-    expect(control).toContain("disabled={loading || healthLoading}");
+    expect(control).toContain("disabled={loading || healthLoading || readinessLoading}");
+    expect(control).toContain("refreshReadiness()");
     // Inert is said by `disabled` alone. This once also demanded a hand-written aria-busy, which
     // the later ruling that every loading state runs through one region forbids outright
     // (tooling/lint-one-ui) — a region announces the read, a control does not announce itself. The
