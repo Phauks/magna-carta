@@ -732,3 +732,21 @@ fact rather than an oversight.
 | A39 | **The table's right-click menu renders above the dialog, not beneath it.** It currently paints under the modal layer, which makes it unreachable — the menu is there and cannot be used.                                                                                                                                                          | open   |
 | A40 | **A failed upload says what failed.** The user is told the nature of the failure, not only that one happened.                                                                                                                                                                                                                                     | open   |
 | P16 | **"Files the Firm Already Holds" is not a setting — remove it.** There is one behaviour and it is the default: a file whose hash the firm already holds is not uploaded again. Deleting one instance does not delete the stored bytes; they go only once **every** instance of that hash has been deleted.                                        | open   |
+
+**Notes recorded this round:**
+
+- **A39's cause is one line in the design system, not the dialog.** Every floating surface composes
+  its stacking through `floatingContentClasses()` in
+  `packages/design-system/src/lib/internal/floating.ts`, which is the single home for the z-layer
+  scale. Combobox, date pickers, dropdown menus, popovers, selects and tooltips all take the
+  `anchored` layer, which that file records as deliberately sitting ABOVE `modal` so a picker opened
+  from inside a dialog is clickable. `context-menu-content.svelte` and
+  `context-menu-sub-content.svelte` take `dropdown` instead, which sits BELOW `modal` — so a
+  right-click menu raised inside the Upload dialog paints under the panel exactly as reported. The
+  two context-menu parts are the only floating surfaces on the old layer.
+- The Upload dialog's own duplicate machinery is what P16 removes, and it is more than a label:
+  `checkDuplicates` is a plan field read by the queue (`upload-queue.svelte.ts`), it gates whether
+  the hash is read at all (`upload-dialog.svelte` starts no read when the question is off), and
+  A36's readiness reading is that same hash. Turning the question into the only behaviour makes the hash
+  unconditional, which is what lets readiness be stated for every file rather than only when the
+  setting happened to be on.
