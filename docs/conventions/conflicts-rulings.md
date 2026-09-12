@@ -30,25 +30,25 @@ dead note: it warns about a stream that finished, and it is owed a
 
 ## R1 — round one: the check panel loses its paragraphs and its limits
 
-The owner's notes of 2026-09-11, staged. **Nothing here has been started** — the round was recorded
-ahead of the work and waits on the owner's go-ahead, so every row below is `open` as a statement of
-fact rather than an oversight. The research beneath each group is what the code says today; it is
-not a plan.
+The owner's notes of 2026-09-11, built on 2026-09-12. Every row below is `settled` in the code of
+the same commit; the research beneath each group is what the code said BEFORE the round, kept as
+the record of what changed, and "Notes recorded this round" at the end of the round says what was
+decided along the way and what is still owed outside this surface.
 
 ### The New Check panel
 
-| #  | Ruling                                                                                                                                                                                                                                                                                                                                                                | Status |
-| -- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| P1 | **The panel says less.** A line of explanation under every control is clutter, and there is enough of it here to bury the controls themselves. Cut the per-control prose back. This **amends the direction of 2026-09-08** that each setting carry its own sentence in place — the intent was that a setting be understandable, not that the panel become a document. | open   |
-| P2 | **"Where To Look" reads "Search Locations".**                                                                                                                                                                                                                                                                                                                         | open   |
-| P3 | **The locations are LOCATIONS, listed as places** — Directory, Files, Messaging, Magnus, and the rest of the product's listings — not techniques. The specifics of each sit beneath it behind a caret, so the reader chooses where to search first and tunes how second.                                                                                              | open   |
-| P4 | **The location list is modular.** Adding a place the product can search is an entry in the list; it is not a redesign of the pane.                                                                                                                                                                                                                                    | open   |
-| P5 | **Name matching is a dropdown, and it shows examples of what it would hit.** A band that says what it catches by showing a name it catches needs no paragraph.                                                                                                                                                                                                        | open   |
-| P6 | **The right pane is tabbed: one tab for Locations, one for Advanced Settings.** The settings named in these rows are what Advanced Settings holds; Locations is the tab a member actually uses.                                                                                                                                                                       | open   |
-| P7 | **Input and output are separated.** What was asked for and what came back are never laid out as one run of sections.                                                                                                                                                                                                                                                  | open   |
-| P8 | **Once the person is chosen, the matter field offers the matters that person is on.** A dropdown of the eligible matters they are assigned to, rather than a free search of the whole docket.                                                                                                                                                                         | open   |
+| #   | Ruling                                                                                                                                                                                                                                                                                                                                                                | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| P1  | **The panel says less.** A line of explanation under every control is clutter, and there is enough of it here to bury the controls themselves. Cut the per-control prose back. This **amends the direction of 2026-09-08** that each setting carry its own sentence in place — the intent was that a setting be understandable, not that the panel become a document. | settled |
+| P2  | **"Where To Look" reads "Search Locations".**                                                                                                                                                                                                                                                                                                                         | settled |
+| P3  | **The locations are LOCATIONS, listed as places** — Directory, Files, Messaging, Magnus, and the rest of the product's listings — not techniques. The specifics of each sit beneath it behind a caret, so the reader chooses where to search first and tunes how second.                                                                                              | settled |
+| P4  | **The location list is modular.** Adding a place the product can search is an entry in the list; it is not a redesign of the pane.                                                                                                                                                                                                                                    | settled |
+| P5  | **Name matching is a dropdown, and it shows examples of what it would hit.** A band that says what it catches by showing a name it catches needs no paragraph.                                                                                                                                                                                                        | settled |
+| P6  | **The right pane is tabbed: one tab for Locations, one for Advanced Settings.** The settings named in these rows are what Advanced Settings holds; Locations is the tab a member actually uses.                                                                                                                                                                       | settled |
+| P7  | **Input and output are separated.** What was asked for and what came back are never laid out as one run of sections.                                                                                                                                                                                                                                                  | settled |
+| P8  | **Once the person is chosen, the matter field offers the matters that person is on.** A dropdown of the eligible matters they are assigned to, rather than a free search of the whole docket.                                                                                                                                                                         | settled |
 
-**What the code says today.**
+**What the code said before this round.**
 
 - **The clutter is a ruling from the round before, working as written.** `check-scope.svelte` opens
   by recording the 2026-09-08 direction and then the rule it produced: "SO EVERY CONTROL SAYS WHAT
@@ -83,12 +83,12 @@ not a plan.
 
 ### What a check may limit
 
-| #  | Ruling                                                                                                                                                                                                                              | Status |
-| -- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| E1 | **A check follows relationships all the way through.** "How far to follow relationships" is removed — there is no depth for anyone to set. A limit here is a conflict the firm does not find, and that is the failure that matters. | open   |
-| E2 | **Where the search stops goes with it.** A check is not capped: the same reasoning, and for the same reason it is not a setting.                                                                                                    | open   |
+| #   | Ruling                                                                                                                                                                                                                              | Status  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| E1  | **A check follows relationships all the way through.** "How far to follow relationships" is removed — there is no depth for anyone to set. A limit here is a conflict the firm does not find, and that is the failure that matters. | settled |
+| E2  | **Where the search stops goes with it.** A check is not capped: the same reasoning, and for the same reason it is not a setting.                                                                                                    | settled |
 
-**What the code says today, and what E1/E2 reach.** The bounds are not only two fields in the panel.
+**What the code said before this round, and what E1/E2 reached.** The bounds are not only two fields in the panel.
 `CheckDraft` carries per-edge-class hop budgets and two limits; the firm policy carries
 `defaultDepth`, `edgeClassBudgets`, `closureCap` and `candidateCap`, and the conflicts settings page
 sets a floor over them; the check row stores `depth` (a `depth >= 0` constraint sits in the per-firm
@@ -110,17 +110,17 @@ screen to report on. The two rows may well be one piece of work.
 
 ### The check screen
 
-| #  | Ruling                                                                                                                                                                                                      | Status |
-| -- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| R1 | **A conflicts check has an ID number.** It is how a check is referred to, on its own screen, in the log, and in anything printed.                                                                           | open   |
-| R2 | **The report's top right is exactly two controls: Print Report and Download Report.**                                                                                                                       | open   |
-| R3 | **A check can be assigned to a matter from the report screen.** A check run before there was a matter is the ordinary case, and the moment a matter exists is the moment somebody is looking at the report. | open   |
-| R4 | **While a check runs, the screen says where it is and what has been checked so far.** A search nobody can watch is exactly the one that has to report on itself.                                            | open   |
-| R5 | **The report screen is formatted.** As it stands the settings and the output read as one undifferentiated page; the two have to be told apart at a glance.                                                  | open   |
-| R6 | **A check can be re-run from its own screen.**                                                                                                                                                              | open   |
-| R7 | **A check carries a history.** The re-runs of one check belong together, on the check, rather than scattering as unrelated rows in the firm's log.                                                          | open   |
+| #   | Ruling                                                                                                                                                                                                      | Status  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| R1  | **A conflicts check has an ID number.** It is how a check is referred to, on its own screen, in the log, and in anything printed.                                                                           | settled |
+| R2  | **The report's top right is exactly two controls: Print Report and Download Report.**                                                                                                                       | settled |
+| R3  | **A check can be assigned to a matter from the report screen.** A check run before there was a matter is the ordinary case, and the moment a matter exists is the moment somebody is looking at the report. | settled |
+| R4  | **While a check runs, the screen says where it is and what has been checked so far.** A search nobody can watch is exactly the one that has to report on itself.                                            | settled |
+| R5  | **The report screen is formatted.** As it stands the settings and the output read as one undifferentiated page; the two have to be told apart at a glance.                                                  | settled |
+| R6  | **A check can be re-run from its own screen.**                                                                                                                                                              | settled |
+| R7  | **A check carries a history.** The re-runs of one check belong together, on the check, rather than scattering as unrelated rows in the firm's log.                                                          | settled |
 
-**What the code says today.**
+**What the code said before this round.**
 
 - **A check has no number, anywhere.** The identifier is the opaque `conflictsCheck` handle in the
   URL; the log's columns are Run, Trigger, Asked By, Against, name matching, Floor, Depth and
@@ -149,3 +149,52 @@ screen to report on. The two rows may well be one piece of work.
   from the other end, and the page's own header comment already names the risk it is guarding
   against: a candidate count read without the account of the search that produced it gets misread as
   a verdict.
+
+### Notes recorded this round
+
+Decisions taken while building, so the next round does not re-derive them.
+
+- **A check is a numbered record, and every search under it is a run.** `conflicts_numbered_check`
+  and `conflicts_check_run` sit beside the append-only `conflicts_check`, which is now one run's
+  RECORD. A numbered check is identified by its first run's handle and every run by the handle of
+  the record it writes, so the old addresses still resolve and no new identifier kind was needed.
+  The number is `CC-` and four digits from a per-firm sequence (`MAX + 1` under a unique index with
+  a bounded retry, not a counter table). Decision record:
+  `docs/decisions/pending/a-conflicts-check-is-a-numbered-record-with-runs-under-it.md`.
+- **Opening answers at once; the search runs after the response.** `POST /api/v1/conflicts/checks`
+  answers 202 with the id, number, run id and ordinal; the run reports its stage (sources, walking,
+  matching, candidates) with counts on its row, and the screen polls it every second until it
+  settles. Execution rides the request's background allowance today (`runInBackground`), with a
+  two-minute stale rule settling a run the runtime abandoned; the executor
+  (`apps/api-worker/src/conflicts/check-run-executor.ts`) is one function a queue consumer can call
+  unchanged when the per-firm dispatch table can take it — that table is outside this surface.
+- **E1/E2 reach the engine, not only the panel.** `expandGraph` walks to closure under one platform
+  ceiling (`WALK_CEILING`), the write bound is the most one batch can carry
+  (`CANDIDATE_WRITE_CEILING`), and both are stated on the record when reached. Stored JSON keeps its
+  key names so old rows parse; a row that ran under hop budgets reads under them everywhere.
+  Decision record: `docs/decisions/pending/a-conflicts-check-follows-relationships-to-closure.md`.
+- **The locations map onto stored technique keys and nothing is re-keyed.** Directory stands over
+  party, graph and imputation; Files and Messaging both stand over the content class until they grow
+  corpora of their own; Magnus is a registered source of its own (`magnus_conversations`), recorded
+  unavailable on every check so the log can never read as searched-and-clean for conversations.
+  Prior-firm history and nickname equivalence are dimensions, not places, and sit under Advanced
+  Settings, both Soon. The mapping is `SEARCH_LOCATIONS` in `conflicts-vocabulary.ts` over
+  `packages/conflicts/src/sources.ts`.
+- **Advanced Settings holds name matching as well as the two dimensions.** P6 says the settings the
+  rows name go there, and P5 is one of the rows; Locations is only places.
+- **Run Again lives on the Runs card, not in the header.** R2 fixes the header at exactly two
+  controls, so the re-run sits with the history it adds to.
+- **Download Report is the printed sheet, projected.** `reportExportDocument` turns the very
+  `PrintSheetDocument` Print Report shows into the document renderer's tables, and the download
+  follows the export menu's two paths (save now, or keep on the Downloads shelf) so a report
+  downloads exactly the way a ledger export does.
+- **The matter's re-check lands on the run it opened.** `matters/[id]/conflicts` goes to
+  `/conflicts/checks/{id}?run={runId}` so the screen shows the run just asked for.
+- **Owed outside this surface, and named in the round's report:** the per-firm migration registry
+  entry in `apps/api-worker/src/per-firm-migrations.ts` (without it a firm database cannot boot the
+  new lineage); the PII registry entries for the two new tables in
+  `packages/data-access/src/pii-registry.ts`; one line in `packages/intake/src/readers/conflicts.ts`
+  that still reads a depth shortfall; the load-profile measurements in
+  `packages/fixtures/src/load-profile/conflicts-measurements.ts` that still pass budgets; and
+  `apps/web/src/lib/matters/new-matter-dialog.svelte`, which still runs a check synchronously
+  through the compatibility `runConflictsCheck` and would read better showing the run.
