@@ -125,6 +125,10 @@
       sniffedContentType: null,
       contentSha256: null,
       committedAt: sampleInstant(4),
+
+      uploadedBy: null,
+
+      uploadedByName: null,
     },
     {
       id: "fixture-2",
@@ -133,6 +137,10 @@
       sniffedContentType: null,
       contentSha256: null,
       committedAt: sampleInstant(0),
+
+      uploadedBy: null,
+
+      uploadedByName: null,
     },
   ];
   const HEX_RUN = "3b7f9d1e";
@@ -330,6 +338,11 @@
             <div class="flex items-baseline gap-16">
               <dt class="w-96 shrink-0 text-text-muted">Date Created</dt>
               <dd>{formatInstant(file.createdAt)}</dd>
+            </div>
+            <div class="flex items-baseline gap-16">
+              <dt class="w-96 shrink-0 text-text-muted">Created By</dt>
+              <!-- Blank rather than a stand-in word where nobody was recorded, as the table reads it. -->
+              <dd>{file.uploadedByName ?? ""}</dd>
             </div>
             <div class="flex items-baseline gap-16">
               <dt class="w-96 shrink-0 text-text-muted">Date Modified</dt>

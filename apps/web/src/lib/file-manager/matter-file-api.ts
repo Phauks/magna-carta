@@ -42,6 +42,13 @@ export interface MatterFile {
    * from, or null where none was recorded. A fact about the source, kept beside the record's dates.
    */
   sourceModifiedAt: string | null;
+  /**
+   * Who uploaded the display version, and what the firm calls them. The id outlives the member row;
+   * the name is null for an upload nobody was recorded for or whose member has left. "Created By"
+   * on the table is the name.
+   */
+  uploadedBy: string | null;
+  uploadedByName: string | null;
 }
 
 export interface MatterFileVersion {
@@ -51,6 +58,8 @@ export interface MatterFileVersion {
   sniffedContentType: string | null;
   contentSha256: string | null;
   committedAt: string | null;
+  uploadedBy: string | null;
+  uploadedByName: string | null;
 }
 
 /**

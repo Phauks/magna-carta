@@ -3,7 +3,11 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { FileId } from "@magna-carta/identifiers/types";
 import { freshDatabase, seedMatter } from "./support.ts";
-import { getCurrentVersionForIntegrity } from "../src/queries.ts";
+import {
+  getCurrentVersionForIntegrity,
+  getFileSummary,
+  listCleanVersions,
+} from "../src/queries.ts";
 
 async function seedFileWithCleanVersion(
   database: BatchDatabase,
@@ -88,5 +92,30 @@ describe("getCurrentVersionForIntegrity", () => {
     const matterId = await seedMatter(database);
     const fileId = await seedFileWithPendingVersionOnly(database, matterId);
     expect(await getCurrentVersionForIntegrity(database, fileId)).toBeUndefined();
+  });
+});
+
+describe("who uploaded a file, as the list and the history carry it", () => {
+  it("names the uploader off the member row, and keeps the id when the member row is gone", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await seedFileWithCleanVersion(database, matterId);
+    // The seed writes the version as user_a, a member the matter seed has already named.
+    const named = await getFileSummary(database, fileId);
+    expect(named).toMatchObject({ uploadedBy: "user_a", uploadedByName: "A" });
+    const history = await listCleanVersions(database, fileId);
+    expect(
+      history.data.map((version) => [version.id, version.uploadedBy, version.uploadedByName]),
+    ).toEqual([[versionId, "user_a", "A"]]);
+
+    // An upload by somebody the firm has no member row for — a member who has since left, or an
+    // id written before the roster was mirrored. The upload fact outlives the member row: the id
+    // stays on the version and only the name is absent — never dropped, never a stand-in.
+    await database
+      .prepare("UPDATE file_version SET uploaded_by = 'user_departed' WHERE id = ?1")
+      .bind(versionId)
+      .run();
+    const departed = await getFileSummary(database, fileId);
+    expect(departed).toMatchObject({ uploadedBy: "user_departed", uploadedByName: null });
   });
 });
