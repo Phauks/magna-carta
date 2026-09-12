@@ -2,7 +2,7 @@ import { flushSync } from "svelte";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DroppedEntry } from "@magna-carta/design-system/dropzone";
 import type { UploadOutcome, UploadRequest } from "$lib/file-manager/file-upload.ts";
-import { intakeEntryKey } from "$lib/file-manager/upload-intake.ts";
+import { intakeEntryKey, type NameClashChoice } from "$lib/file-manager/upload-intake.ts";
 import {
   batchTallyText,
   cancelUploadBatch,
@@ -39,6 +39,8 @@ function plan(entries: DroppedEntry[], over: Partial<UploadBatchPlan> = {}): Upl
     createdAtBasis: "source",
     documentTypeIds: new Map<string, string | null>(),
     checkDuplicates: true,
+    nameClashDefault: "keep-both",
+    nameClashChoices: new Map<string, NameClashChoice>(),
     folders: [{ id: "discovery", parentFolderId: null, name: "Discovery" }],
     files: [
       {
@@ -315,13 +317,13 @@ describe("startUploadBatch", () => {
     expect(sent - before).toBe(5 - landed);
   });
 
-  it("hashes each file once, hands the digest to the transfer, and counts a held file as already here", async () => {
+  it("hashes each file once, hands the digest to the transfer, and files a held file as its own copy", async () => {
     const record: Recorded = { uploads: [], folders: [] };
     let hashed = 0;
     const withHash: UploadQueueDependencies = {
       ...dependencies(record, (request) =>
         request.file.name === "held.pdf"
-          ? { kind: "already", fileId: "held", name: "held.pdf", folderId: null }
+          ? { kind: "committed", fileId: "held-copy", versionId: "v", copiedFrom: "matter" }
           : { kind: "committed", fileId: `file-${request.file.name}`, versionId: "v" },
       ),
       digest: async (chosen, options) => {
@@ -343,15 +345,83 @@ describe("startUploadBatch", () => {
       "held.pdf-digest",
       "new.pdf-digest",
     ]);
-    expect(batch.alreadyHere).toBe(1);
-    expect(batch.uploaded).toBe(1);
+    // Holding the bytes is a reason not to send them, never a reason not to file the chosen file:
+    // the held one is a new file made server-side, counted as uploaded, and says where it came from.
+    expect(batch.skipped).toBe(0);
+    expect(batch.uploaded).toBe(2);
     expect(batch.items.find((item) => item.name === "held.pdf")).toMatchObject({
-      stage: "already",
-      fileId: "held",
+      stage: "settled",
+      fileId: "held-copy",
+      reason: "Made from a copy this matter already held. Nothing was sent.",
     });
-    // A held file counts in full toward the bytes, so the bar reaches the end.
     expect(batch.sentBytes).toBe(batch.totalBytes);
-    expect(batchTallyText(batch)).toBe("1 of 2 uploaded · 1 already here");
+    expect(batchTallyText(batch)).toBe("2 of 2 uploaded");
+  });
+
+  it("files a taken name as a numbered copy by default, and never touches the file that has the name", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    // plan() seeds letter.pdf in the destination folder.
+    const batch = startUploadBatch(plan([entry("", "letter.pdf")]), dependencies(record));
+    await settled();
+    expect(record.uploads.map((request) => [request.name, request.fileId])).toEqual([
+      ["letter (2).pdf", undefined],
+    ]);
+    expect(batch.uploaded).toBe(1);
+  });
+
+  it("files a taken name as the next version of the file that has it, when the reader says so", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    const batch = startUploadBatch(
+      plan([entry("", "letter.pdf")], { nameClashDefault: "new-version" }),
+      { ...dependencies(record), digest: async () => "letter-digest" },
+    );
+    await settled();
+    const request = record.uploads[0];
+    expect(request?.name).toBe("letter.pdf");
+    expect(request?.fileId).toBe("existing");
+    // A new version is not asked about: the host's own hash check at ingest answers that.
+    expect(request?.sha256).toBeNull();
+    expect(batch.items[0]?.reason).toBe("Filed as a new version of letter.pdf.");
+  });
+
+  it("skips a taken name when the reader says so, reading nothing and sending nothing", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    let hashed = 0;
+    const batch = startUploadBatch(
+      plan([entry("", "letter.pdf"), entry("", "fresh.pdf")], { nameClashDefault: "skip" }),
+      {
+        ...dependencies(record),
+        digest: async () => {
+          hashed += 1;
+          return null;
+        },
+      },
+    );
+    await settled();
+    flushSync();
+    expect(record.uploads.map((request) => request.name)).toEqual(["fresh.pdf"]);
+    expect(hashed).toBe(1);
+    expect(batch.items.find((item) => item.name === "letter.pdf")).toMatchObject({
+      stage: "skipped",
+      reason: "Skipped: the folder already holds letter.pdf, and you chose not to send this one.",
+    });
+    expect(batch.skipped).toBe(1);
+    expect(batchTallyText(batch)).toBe("1 of 2 uploaded · 1 skipped");
+  });
+
+  it("lets one file answer the taken-name question differently from the batch", async () => {
+    const record: Recorded = { uploads: [], folders: [] };
+    const clashing = entry("", "letter.pdf");
+    const batch = startUploadBatch(
+      plan([clashing], {
+        nameClashDefault: "skip",
+        nameClashChoices: new Map([[intakeEntryKey(clashing), "keep-both"]]),
+      }),
+      dependencies(record),
+    );
+    await settled();
+    expect(record.uploads.map((request) => request.name)).toEqual(["letter (2).pdf"]);
+    expect(batch.skipped).toBe(0);
   });
 
   it("lists batches newest first and lets a finished one be cleared, never a running one", async () => {

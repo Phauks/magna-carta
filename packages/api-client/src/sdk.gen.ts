@@ -796,7 +796,7 @@ export const uploadsInitiate = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
- * Answers whether the firm already holds a file's bytes, by SHA-256 and size, before they are uploaded: the live files on the target matter whose current version is those bytes, and the live files elsewhere in the firm. A match on the matter means the file is already there; a match elsewhere can be duplicated onto the matter server-side (uploads.duplicate) with no bytes sent.
+ * Answers whether the firm already holds a file's bytes, by SHA-256 and size, before they are uploaded: the live files on the target matter whose current version is those bytes, and the live files elsewhere in the firm. Either kind of match can be duplicated into a new file on the matter server-side (uploads.duplicate) with no bytes sent — holding the bytes already is a reason not to send them, never a reason not to file what the caller chose to file.
  */
 export const uploadsMatches = <ThrowOnError extends boolean = false>(options: Options<UploadsMatchesData, ThrowOnError>): RequestResult<UploadsMatchesResponses, UploadsMatchesErrors, ThrowOnError> => (options.client ?? client).post<UploadsMatchesResponses, UploadsMatchesErrors, ThrowOnError>({
     url: '/api/v1/uploads/matches',
