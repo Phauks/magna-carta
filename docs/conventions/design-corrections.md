@@ -2158,3 +2158,27 @@ matter'".
   round in [`time-tab-rulings.md`](time-tab-rulings.md) is the same correction on four other screens
   — a header control answering a question the table already answers — and the two should be built to
   one conclusion.
+
+### 2026-09-11 — one component for the two-sided screen
+
+The owner: "we need to make a consolidated component for when the main screen has two sides, a left
+navigational menu (such as for magnus and settings), and a right content menu."
+
+- **The two-sided screen is one design-system component**, `NavigationLayout`: a left navigation
+  landmark and a right content column, each scrolling independently with a reserved gutter, taking
+  the full height under the top bar and cancelling the work canvas inset itself. Two token-derived
+  navigation widths, standard and narrow. _(status: open — being built in the design system in the
+  same round as the floating-surface defaults)_
+- The consumers it replaces: `apps/web/src/routes/(app)/settings/+layout.svelte`, which hand-rolls
+  a `<nav>` at `calc(var(--mc-size-popover) + var(--mc-space-48))` inside a `-m-24` full-height row,
+  and the Magnus workspace rail in `apps/web/src/lib/magnus/magnus-surface.svelte`, a `w-2xs`
+  column — two widths and two scroll treatments for one shape. Settings adopts it first, Magnus
+  second.
+- **It reaches further than the two screens that have the shape today.** The owner, in the same
+  breath: "this may also be implemented for tools, reports, and other potential screens". Tools
+  (`apps/web/src/routes/(app)/tools/`, a landing page and one route per tool) and Reports (a
+  register page and one route per report) are both one-list-then-one-thing screens with no
+  navigation column at all, so adopting the component there is a redesign of the screen rather than
+  a swap of its frame: the list of tools, or of reports, becomes the left navigation and the chosen
+  one the right content. The file manager's folder tree beside its list is the other candidate.
+  None of the three is in this round; each is a follow-up once the component exists.

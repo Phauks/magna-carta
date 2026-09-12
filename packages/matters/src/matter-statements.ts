@@ -204,11 +204,16 @@ export function closeMatterStatement(
     .bind(id, closedAt);
 }
 
-// The hold and its release. `status = 'open'` and `status = 'hold'` are the in-batch belts behind
-// the service's read-then-write checks, for the same reason the open carries one: a close landing
-// between the read and this commit must not be overwritten by a hold, and a release racing a close
-// must not resurrect a closed matter. The release clears the reason with the instant, because the
-// two are one fact (matter_hold_check).
+// The hold and its release. `status IN ('open', 'consultation')` and `status = 'hold'` are the
+// in-batch belts behind the service's read-then-write checks, for the same reason the open carries
+// one: a close landing between the read and this commit must not be overwritten by a hold, and a
+// release racing a close must not resurrect a closed matter. The release clears the reason with the
+// instant, because the two are one fact (matter_hold_check).
+//
+// A consultation goes on hold as an active matter does: a firm parks a consultation it has not
+// decided on. Which of the two a release returns to is the service's to say (it reads opened_at,
+// the one honest signal of whether the matter was ever active), so the statement takes the status
+// to restore rather than assuming 'open'.
 export function holdMatterStatement(
   database: SqlDatabase,
   id: MatterId,
@@ -217,7 +222,7 @@ export function holdMatterStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MATTER_TABLE} SET status = 'hold', held_at = ?3, hold_reason = ?2, updated_at = ?3 WHERE id = ?1 AND status = 'open'`,
+      `UPDATE ${MATTER_TABLE} SET status = 'hold', held_at = ?3, hold_reason = ?2, updated_at = ?3 WHERE id = ?1 AND status IN ('open', 'consultation')`,
     )
     .bind(id, reason, heldAt);
 }
@@ -225,13 +230,14 @@ export function holdMatterStatement(
 export function releaseMatterStatement(
   database: SqlDatabase,
   id: MatterId,
+  restored: "open" | "consultation",
   releasedAt: string,
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${MATTER_TABLE} SET status = 'open', held_at = NULL, hold_reason = NULL, updated_at = ?2 WHERE id = ?1 AND status = 'hold'`,
+      `UPDATE ${MATTER_TABLE} SET status = ?2, held_at = NULL, hold_reason = NULL, updated_at = ?3 WHERE id = ?1 AND status = 'hold'`,
     )
-    .bind(id, releasedAt);
+    .bind(id, restored, releasedAt);
 }
 
 export function reopenMatterStatement(

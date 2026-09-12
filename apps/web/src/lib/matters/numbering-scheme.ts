@@ -325,6 +325,59 @@ export function numberingPurposeLabel(purpose: NumberingPurpose): string {
   return purpose === "matter" ? "Matter Numbers" : "Consultation Numbers";
 }
 
+/**
+ * The name of the row that loads a common shape into the editor: the scheme itself, named for the
+ * sequence it shapes ("Matter Numbering Scheme"), by the owner's ruling of 2026-09-11. It used to
+ * read "Start from", which named the gesture rather than the thing being chosen.
+ */
+export function numberingSchemeLabel(purpose: NumberingPurpose): string {
+  return purpose === "matter" ? "Matter Numbering Scheme" : "Consultation Numbering Scheme";
+}
+
+/**
+ * What the In Force row says beneath its name when the firm has set nothing — the consequence a
+ * reader must know before they leave the page, in the sequence's own terms.
+ */
+export function numberingNothingInForceSentence(purpose: NumberingPurpose): string {
+  return purpose === "matter"
+    ? "Nothing. A matter cannot open until a scheme is set, because its number is drawn at that moment and never changes."
+    : "Nothing of the firm's; the built-in sequence numbers consultations until one is set.";
+}
+
+/** What Save says once it has landed, in the sequence's own terms. */
+export function numberingSavedSentence(purpose: NumberingPurpose): string {
+  return purpose === "matter"
+    ? "Saved. Matters opened from now on draw their number from this scheme; numbers already drawn are unchanged."
+    : "Saved. Consultations recorded from now on draw their number from this scheme; numbers already drawn are unchanged.";
+}
+
+/**
+ * Why a part's cell holds a control that cannot be typed into: the fact the column asks for does
+ * not exist for this kind of part. Said on the control's hover, so the table keeps its columns
+ * where they are instead of reflowing under the hand (docs/conventions/design-corrections.md,
+ * "Changing an answer must not move the form").
+ */
+export function numberSegmentCellRefusal(
+  kind: NumberSegmentKind,
+  column: "text" | "digits" | "start" | "scoping",
+): string | null {
+  const label = numberSegmentVocabulary(kind).label;
+  switch (column) {
+    case "text":
+      return kind === "literal"
+        ? null
+        : `${label} has no text of its own; it takes its value from the matter.`;
+    case "digits":
+      return kind === "counter" || kind === "year" ? null : `${label} has no digit count to set.`;
+    case "start":
+      return kind === "counter" ? null : `Only the counter starts at a number.`;
+    case "scoping":
+      return numberSegmentVocabulary(kind).valued
+        ? null
+        : `${label} takes no value from the matter, so it cannot restart the count.`;
+  }
+}
+
 // ---- a number set by hand -------------------------------------------------------------------
 
 /**

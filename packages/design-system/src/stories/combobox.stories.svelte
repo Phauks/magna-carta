@@ -264,6 +264,22 @@
       await expect(addRow).toHaveAttribute("data-disabled");
     });
 
+    await step("The list opens end-aligned to the FIELD, its end edge on the field's", async () => {
+      // The component's default, written nowhere here. Bits would anchor to the text box inside the
+      // field; the list is anchored to the bordered field a person sees, so its edge sits on the
+      // field's edge and not short of the chevron.
+      const listbox = body.getByRole("listbox");
+      await expect(listbox).toHaveAttribute("data-align", "end");
+      const field = input.closest<HTMLElement>(".mc-combobox-input-wrapper");
+      expect(field).not.toBeNull();
+      await waitFor(() => {
+        const panel = listbox.getBoundingClientRect();
+        const box = (field as HTMLElement).getBoundingClientRect();
+        expect(Math.abs(panel.right - box.right)).toBeLessThanOrEqual(1);
+        expect(panel.width).toBeGreaterThanOrEqual(box.width - 1);
+      });
+    });
+
     await step("A row highlighted by the pointer draws no ring — fill alone", async () => {
       const row = body.getByRole("option", { name: "Correspondence" });
       const atRest = getComputedStyle(row).backgroundColor;
@@ -309,7 +325,10 @@
   }}
 >
   {#snippet template(args: ComboboxStoryArgs)}
-    <div class="max-w-sm">
+    <!-- Stood off the viewport edge as a field is in the app's canvas: flush against the edge,
+         Bits would hold the list the collision padding in, and the alignment step measures the
+         list's edge against the field's. -->
+    <div class="max-w-sm p-24">
       <Combobox.Root
         {...args}
         items={documentTypes.map((type) => ({ value: type, label: type }))}

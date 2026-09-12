@@ -163,11 +163,24 @@
           class="size-16 shrink-0"
         />
       {/if}
-      <span
-        class="truncate"
-        title={row.kind === "file" ? row.entry.relativePath || row.name : row.path}
-      >
-        {text}
+      <span class="flex min-w-0 flex-col">
+        <span
+          class="truncate"
+          title={row.kind === "file" ? row.entry.relativePath || row.name : row.path}
+        >
+          {text}
+        </span>
+        {#if row.kind === "file" && row.stage === "failed" && row.failure !== undefined}
+          <!-- What failed, on the row itself rather than only on its hover: the server's own
+               detail where it gave one, the class of fault where nothing answered. The whole
+               account, with the stage and the Error ID, is the hover. -->
+          <span
+            class="truncate text-xs text-status-danger-subtle-foreground"
+            title={row.reason ?? row.failure}
+          >
+            {row.failure}
+          </span>
+        {/if}
       </span>
     </span>
   {:else if column.id === "status" && row.kind === "file"}
