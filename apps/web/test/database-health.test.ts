@@ -283,7 +283,7 @@ describe("copyLineForDatabaseHealth", () => {
  * deliberate boundary gate keeps out of every config outside the design system.
  */
 describe("the panel's two folding sections", () => {
-  const chip = stripComments(source("lib/versions/version-chip.svelte"));
+  const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
   const preferences = source("lib/versions/version-panel-preferences.svelte.ts");
 
