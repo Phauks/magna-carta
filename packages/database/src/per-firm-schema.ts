@@ -2641,6 +2641,109 @@ export const conflictsDisposition = sqliteTable(
   ],
 );
 
+// THE CHECK A PERSON REFERS TO, AND THE RUNS UNDER IT.
+//
+// `conflicts_check` above is the immutable record of ONE search — what ran, over what, and what it
+// found. It is what a court is shown, so it never moves. But the thing a firm refers to out loud is a
+// CHECK: "CC-0042", run when the caller first rang, run again when the matter opened, filed on the
+// matter once there was one. That is a record with a number, a history and a matter that can be
+// assigned after the fact, and none of those can live on an append-only row. So two mutable tables
+// sit over the log: the numbered check, and the runs that belong to it.
+//
+// A CHECK IS IDENTIFIED BY ITS FIRST RUN'S HANDLE, and every run is identified by the handle of the
+// search record it writes — a run's id IS the `conflicts_check.id` its search lands under once it
+// completes. So `/conflicts/checks/{id}` accepts a numbered check's id or any run's id and resolves
+// to the check, every address written before the runs existed still lands on the check it named,
+// and no new identifier kind was needed for a thing that is, in the domain's own words, a conflicts
+// check.
+export const conflictsNumberedCheck = sqliteTable(
+  "conflicts_numbered_check",
+  {
+    id: text("id").primaryKey().$type<ConflictsCheckId>(),
+    // The firm's own sequence, drawn once and never re-drawn: 1, 2, 3. The rendered form is stored
+    // beside it so the log lists and searches the number a person actually says.
+    checkSequence: integer("check_sequence").notNull(),
+    checkNumber: text("check_number").notNull(),
+    // Where the check is FILED. Null for the pre-engagement screen — a check run on a name given
+    // over the telephone — and set later from the check's own screen once a matter exists. This is
+    // the one column here that moves after the fact, and it is the reason the numbered check is not
+    // the append-only search record: the matter a search ran against stays on that record.
+    subjectMatterId: text("subject_matter_id").$type<MatterId>(),
+    // The run most recently opened under this check: a plain handle rather than a foreign key,
+    // because the run references this row and a key in both directions would make the first
+    // insert impossible to order.
+    latestRunId: text("latest_run_id").$type<ConflictsCheckId>(),
+    // Null on an automated check, which is nobody's act.
+    createdByUserId: text("created_by_user_id").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("conflicts_numbered_check_sequence_unique_index").on(table.checkSequence),
+    uniqueIndex("conflicts_numbered_check_number_unique_index").on(table.checkNumber),
+    // A matter's own checks, newest first, and the firm-wide log in the same order.
+    index("conflicts_numbered_check_matter_created_index").on(
+      table.subjectMatterId,
+      table.createdAt,
+      table.id,
+    ),
+    index("conflicts_numbered_check_created_id_index").on(table.createdAt, table.id),
+    check("conflicts_numbered_check_sequence_check", sql`${table.checkSequence} > 0`),
+    check("conflicts_numbered_check_number_check", sql`length(${table.checkNumber}) > 0`),
+  ],
+);
+
+// One run of a numbered check: opened before the search starts, so the screen watching it has a
+// row to read, and settled when the search has written its record or failed to. The lifecycle is
+// queued, running, completed, failed — and a run is the one conflicts row that is UPDATED, because
+// it is a report on work in flight rather than the record of what the work found.
+//
+// `request_json` is the search as it was asked for, kept so a later run of the same check runs the
+// same search (with the check's current matter) rather than whatever the panel would compose today.
+export const conflictsCheckRun = sqliteTable(
+  "conflicts_check_run",
+  {
+    // The handle the search record takes when it completes — see the numbered check above.
+    id: text("id").primaryKey().$type<ConflictsCheckId>(),
+    numberedCheckId: text("numbered_check_id")
+      .notNull()
+      .$type<ConflictsCheckId>()
+      .references(() => conflictsNumberedCheck.id),
+    // 1 for the first run, counting up: what the check screen's history is ordered by.
+    ordinal: integer("ordinal").notNull(),
+    status: text("status").notNull(),
+    // Where a running search has got to (sources, walking, matching, candidates) and its counts so
+    // far, as JSON. Null before the run starts and after it settles: a settled run's account is the
+    // search record, never a stale progress line.
+    stage: text("stage"),
+    progressJson: text("progress_json"),
+    requestJson: text("request_json").notNull(),
+    trigger: text("trigger").notNull(),
+    triggerSource: text("trigger_source"),
+    requestedByUserId: text("requested_by_user_id").$type<UserId>(),
+    startedAt: text("started_at"),
+    // Written on every progress report. What tells a stale run from a slow one: a run whose
+    // heartbeat has stopped is a run whose invocation died, and the read settles it as failed rather
+    // than letting a screen poll a row nothing will ever finish.
+    heartbeatAt: text("heartbeat_at"),
+    finishedAt: text("finished_at"),
+    // Why a failed run failed, in a sentence a reader can act on. Null unless the status is failed.
+    failure: text("failure"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("conflicts_check_run_check_ordinal_unique_index").on(
+      table.numberedCheckId,
+      table.ordinal,
+    ),
+    check(
+      "conflicts_check_run_status_check",
+      sql`${table.status} IN ('queued', 'running', 'completed', 'failed')`,
+    ),
+    check("conflicts_check_run_ordinal_check", sql`${table.ordinal} > 0`),
+  ],
+);
+
 // The re-check ledger: one row per corpus change that could alter an already-checked matter's
 // answer, written when the change commits and satisfied later by the check that covers it.
 //

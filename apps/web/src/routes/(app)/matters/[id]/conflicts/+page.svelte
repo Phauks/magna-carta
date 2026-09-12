@@ -121,7 +121,7 @@
     }
     // Straight to what it found, rather than back to a panel the reader would have to re-read to
     // learn anything.
-    await goto(`/conflicts/checks/${outcome.value.checkId}`);
+    await goto(`/conflicts/checks/${outcome.value.id}`);
   }
 
   $effect(() => {

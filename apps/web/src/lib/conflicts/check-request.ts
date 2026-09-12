@@ -3,11 +3,21 @@
  * draws it, so both halves can be reasoned about and tested without a browser.
  *
  * THE PANEL HAS TWO PANES AND ONE DRAFT. The left pane asks who the check is about; the right pane
- * sets how widely the engine searches. They are separate components on the same values, which only
- * works because the values are here rather than inside either of them. Everything the commit needs
- * — the request, why it cannot be sent yet, and whether there is anything to lose on the way out —
- * is derived from those values by the functions below, so no pane can hold a request from one
- * keystroke beside a refusal from another.
+ * says where it searches and how it compares names. They are separate components on the same
+ * values, which only works because the values are here rather than inside either of them.
+ * Everything the commit needs — the request, why it cannot be sent yet, and whether there is
+ * anything to lose on the way out — is derived from those values by the functions below, so no pane
+ * can hold a request from one keystroke beside a refusal from another.
+ *
+ * A CHECK IS ASKED FOR BY PLACE (owner's direction, 2026-09-11): the Directory, the firm's files, its
+ * messaging, its Magnus conversations. The record stores technique keys — party, graph, imputation,
+ * content — and the crossing between the two is `sourcesFor` below, over the location catalogue in
+ * conflicts-vocabulary.ts. Only the Directory can be searched today; the other places stand on the
+ * panel disabled, marked Soon, and the check records them as not searched.
+ *
+ * NOTHING HERE LIMITS THE SEARCH. The panel used to carry a hop budget per kind of relationship and
+ * two caps, and the owner removed them: a check follows every recorded relationship to closure, and
+ * the one bound on a run is the platform's, not a setting. So the draft holds no number at all.
  *
  * WHY THE TRIGGER IS DERIVED AND NOT ASKED. The two triggers a person could once choose between —
  * preliminary and comprehensive — do not change the search by one row. They name WHEN the check
@@ -20,50 +30,28 @@
  * matter is where the check is FILED, and naming one adds that matter's own parties and lets the
  * imputation source join the firm's members against them. Without one the check runs and records
  * that source as unavailable — which is the whole point of the pre-engagement screen, where the
- * only thing anybody has is a name said over the telephone.
- *
- * A NUMBER LEFT BLANK IS THE FIRM'S OWN. Every bound below is a default rather than a floor, so a
- * blank field is not an omission — it means "whatever the firm set", and the resolved value is
- * recorded on the check either way. The firm's floor for SOURCES and name matching is different:
- * a narrower request is raised back up to it before the search runs.
+ * only thing anybody has is a name said over the telephone. And a check can be filed on a matter
+ * later, from its own screen, which is the ordinary case.
  */
 import { permissionRefusal } from "$lib/access/refusal.ts";
 import {
   RUN_CHECK_PERMISSION,
-  type BudgetedEdgeClass,
   type ConflictsTrigger,
-  type FirmConflictsPolicy,
   type RunCheckRequest,
   type SourceClass,
   type Strictness,
 } from "./conflicts-api.ts";
-import {
-  BUDGETED_EDGE_CLASSES,
-  edgeClassLabel,
-  strictnessVocabulary,
-} from "./conflicts-vocabulary.ts";
-
-/** The two bounds, named once so the field, the refusal and the read-back cannot disagree. */
-export const RELATED_PARTY_LIMIT_LABEL = "Related parties to reach";
-export const CANDIDATE_LIMIT_LABEL = "Candidates to record";
-
-/** The hop budgets, as typed: a whole number, or nothing at all for the firm's own. */
-export type HopBudgets = Readonly<Record<BudgetedEdgeClass, string>>;
+import { strictnessVocabulary } from "./conflicts-vocabulary.ts";
 
 /** Everything the two panes hold between them. Plain values, so this module needs no browser. */
 export interface CheckDraftValues {
   /** The Directory entities the check is about. */
   readonly subjectEntityIds: readonly string[];
-  /** Whether the search walks out through recorded relationships. */
+  /** Whether the Directory search walks out through recorded relationships. */
   readonly searchRelationships: boolean;
   /** Whether it joins the firm's own people against the matter's parties. Needs a matter. */
   readonly searchOwnPeople: boolean;
   readonly nameMatching: Strictness;
-  readonly relationshipHops: HopBudgets;
-  /** The most related parties the walk may reach before it stops. Blank takes the firm's. */
-  readonly relatedPartyLimit: string;
-  /** The most candidates the run may write down. Blank takes the firm's. */
-  readonly candidateLimit: string;
 }
 
 /** What the surface around the panel knows, and the draft does not. */
@@ -91,23 +79,7 @@ export const OPENING_DRAFT: CheckDraftValues = {
   searchRelationships: true,
   searchOwnPeople: true,
   nameMatching: "balanced",
-  relationshipHops: { control: "", family: "", representation: "" },
-  relatedPartyLimit: "",
-  candidateLimit: "",
 };
-
-/** A number field's value as the contract wants it: a whole number, or nothing at all. */
-export function boundOf(text: string): number | undefined {
-  const trimmed = text.trim();
-  if (trimmed === "") return undefined;
-  const parsed = Number(trimmed);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
-}
-
-/** A field holding something unusable, so the panel refuses before the server has to. */
-export function malformed(text: string): boolean {
-  return text.trim() !== "" && boundOf(text) === undefined;
-}
 
 /**
  * Which trigger this check is filed under.
@@ -119,7 +91,11 @@ export function triggerFor(surface: CheckSurface): ConflictsTrigger {
   return surface.matterId !== null && surface.matterEngaged ? "comprehensive" : "preliminary";
 }
 
-/** The sources this check asks for. Party is the firm-wide floor and is never a choice. */
+/**
+ * The sources this check asks for — the technique keys the Directory's specifics stand over. Party
+ * is the firm-wide floor and is never a choice. No other place can be searched yet, so no other
+ * place's source is ever asked for; the engine records those places as not searched on its own.
+ */
 export function sourcesFor(values: CheckDraftValues, surface: CheckSurface): SourceClass[] {
   const sources: SourceClass[] = ["party"];
   if (values.searchRelationships) sources.push("graph");
@@ -133,14 +109,6 @@ export function composeCheck(values: CheckDraftValues, surface: CheckSurface): C
   const started = hasBeenTouched(values);
   if (refusal !== null) return { refusal, request: null, started };
 
-  const hops: Partial<Record<BudgetedEdgeClass, number>> = {};
-  for (const edgeClass of BUDGETED_EDGE_CLASSES) {
-    const budget = boundOf(values.relationshipHops[edgeClass]);
-    if (budget !== undefined) hops[edgeClass] = budget;
-  }
-  const relatedParties = boundOf(values.relatedPartyLimit);
-  const candidates = boundOf(values.candidateLimit);
-
   return {
     refusal: null,
     started,
@@ -151,9 +119,6 @@ export function composeCheck(values: CheckDraftValues, surface: CheckSurface): C
       scope: {
         sources: sourcesFor(values, surface),
         strictness: values.nameMatching,
-        ...(Object.keys(hops).length === 0 ? {} : { edgeClassBudgets: hops }),
-        ...(relatedParties === undefined ? {} : { closureCap: relatedParties }),
-        ...(candidates === undefined ? {} : { candidateCap: candidates }),
       },
     },
   };
@@ -162,9 +127,9 @@ export function composeCheck(values: CheckDraftValues, surface: CheckSurface): C
 /**
  * Why the check cannot be asked for yet.
  *
- * Every reason is a fact about a FIELD — a permission the account lacks, nobody named, a bound that
- * is not a number — so it is composed beside the fields rather than in the panel that renders the
- * commit, which has no business knowing what the fields are.
+ * Every reason is a fact about a FIELD — a permission the account lacks, nobody named — so it is
+ * composed beside the fields rather than in the panel that renders the commit, which has no
+ * business knowing what the fields are.
  */
 function refusalFor(values: CheckDraftValues, surface: CheckSurface): string | null {
   if (surface.permissions !== null && !surface.permissions.includes(RUN_CHECK_PERMISSION)) {
@@ -173,16 +138,6 @@ function refusalFor(values: CheckDraftValues, surface: CheckSurface): string | n
   // A matter brings its own parties, so a check filed against one may name none of its own.
   if (values.subjectEntityIds.length === 0 && surface.matterId === null) {
     return "Name at least one party.";
-  }
-  const numeric: readonly (readonly [string, string])[] = [
-    ...BUDGETED_EDGE_CLASSES.map(
-      (edgeClass) => [edgeClassLabel(edgeClass), values.relationshipHops[edgeClass]] as const,
-    ),
-    [RELATED_PARTY_LIMIT_LABEL, values.relatedPartyLimit],
-    [CANDIDATE_LIMIT_LABEL, values.candidateLimit],
-  ];
-  for (const [name, text] of numeric) {
-    if (malformed(text)) return `${name} takes a whole number, or nothing for the firm's own.`;
   }
   return null;
 }
@@ -193,10 +148,7 @@ function hasBeenTouched(values: CheckDraftValues): boolean {
     values.subjectEntityIds.length > 0 ||
     values.searchRelationships !== OPENING_DRAFT.searchRelationships ||
     values.searchOwnPeople !== OPENING_DRAFT.searchOwnPeople ||
-    values.nameMatching !== OPENING_DRAFT.nameMatching ||
-    BUDGETED_EDGE_CLASSES.some((edgeClass) => values.relationshipHops[edgeClass] !== "") ||
-    values.relatedPartyLimit !== "" ||
-    values.candidateLimit !== ""
+    values.nameMatching !== OPENING_DRAFT.nameMatching
   );
 }
 
@@ -205,42 +157,28 @@ function hasBeenTouched(values: CheckDraftValues): boolean {
 /**
  * The check these values describe, in sentences.
  *
- * Every setting on the right pane is a fact about a search nobody can see, and a reader who does
- * not already know what "imputation" or an edge-class budget is cannot tell what pressing Run will
- * do. So the panel says it, in the left pane, beside the parties — and it says it from the SAME
- * values the request is composed from, so it can never describe a search other than the one that
- * runs. Each sentence is a fact about the search, never about the matter.
- *
- * `policy` is the firm's own setting, so a blank field reads as the number it will actually take.
- * Null while it is being read, or where it could not be read at all, and then the sentences say
- * "the firm's own" rather than inventing a figure.
+ * Every control in the right pane is a fact about a search nobody can see, and a reader who does
+ * not already know what a relationship walk is cannot tell what pressing Run will do. So the panel
+ * says it, in the left pane, beside the parties — and it says it from the SAME values the request
+ * is composed from, so it can never describe a search other than the one that runs. Each sentence
+ * is a fact about the SEARCH, never about the matter.
  */
-export function checkPlan(
-  values: CheckDraftValues,
-  surface: CheckSurface,
-  policy: FirmConflictsPolicy | null,
-): string[] {
+export function checkPlan(values: CheckDraftValues, surface: CheckSurface): string[] {
   const sentences: string[] = [];
 
   sentences.push(
     "Searches every party in the firm's Directory for names and identifiers like the ones named.",
   );
 
-  if (values.searchRelationships) {
-    const walked = BUDGETED_EDGE_CLASSES.map(
-      (edgeClass) =>
-        `${edgeClassLabel(edgeClass).toLowerCase()} ${hopPhrase(values.relationshipHops[edgeClass], policy?.edgeClassBudgets[edgeClass] ?? policy?.defaultDepth)}`,
-    ).join(", ");
-    sentences.push(
-      `Walks out from each party through recorded relationships — ${walked} — and follows the whole corporate family however long the chain runs.`,
-    );
-  } else {
-    sentences.push("Does not walk out through recorded relationships.");
-  }
+  sentences.push(
+    values.searchRelationships
+      ? "Follows every recorded relationship out from each party, as far as the chain goes."
+      : "Does not follow recorded relationships.",
+  );
 
   if (surface.matterId === null) {
     sentences.push(
-      "Cannot reach the firm's own people, because no matter is named, and records that source as not searched.",
+      "Cannot reach the firm's own people, because no matter is named, and records that as not searched.",
     );
   } else if (values.searchOwnPeople) {
     sentences.push("Joins the firm's own people against the matter's parties, by identity.");
@@ -252,18 +190,13 @@ export function checkPlan(
     `Compares names at ${strictnessVocabulary(values.nameMatching).label.toLowerCase()}, which includes names that sound alike.`,
   );
 
+  sentences.push("Records Files, Messaging and Magnus as not searched: nothing indexes them yet.");
+
   sentences.push(
     triggerFor(surface) === "comprehensive"
-      ? "Goes into the firm's log as a comprehensive check — the firm has taken this matter on."
-      : "Goes into the firm's log as a preliminary check — the screen before the firm takes a matter on.",
+      ? "Goes into the firm's log as a comprehensive check: the firm has taken this matter on."
+      : "Goes into the firm's log as a preliminary check: the screen before the firm takes a matter on.",
   );
 
   return sentences;
-}
-
-/** How one hop budget reads in the read-back: the number asked for, or the firm's own. */
-function hopPhrase(asked: string, firmDefault: number | undefined): string {
-  const budget = boundOf(asked) ?? firmDefault;
-  if (budget === undefined) return "at the firm's own budget";
-  return budget === 1 ? "1 hop" : `${String(budget)} hops`;
 }

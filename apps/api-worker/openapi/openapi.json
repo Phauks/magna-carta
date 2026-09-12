@@ -10488,15 +10488,27 @@
           }
         }
       },
-      "CreatedConflictsCheckResponse": {
+      "OpenedConflictsCheckResponse": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
+          },
+          "checkNumber": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer"
           }
         },
         "required": [
-          "id"
+          "id",
+          "checkNumber",
+          "runId",
+          "ordinal"
         ]
       },
       "CreateConflictsCheckRequest": {
@@ -10560,46 +10572,22 @@
               "balanced",
               "over_inclusive"
             ]
-          },
-          "depth": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 6
-          },
-          "edgeClassBudgets": {
-            "type": "object",
-            "properties": {
-              "control": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 6
-              },
-              "family": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 6
-              },
-              "representation": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 6
-              }
-            }
-          },
-          "closureCap": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 5000
-          },
-          "candidateCap": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9500
           }
         },
         "required": [
           "sources",
           "strictness"
+        ]
+      },
+      "NextConflictsCheckNumberResponse": {
+        "type": "object",
+        "properties": {
+          "checkNumber": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkNumber"
         ]
       },
       "ConflictsCheckPage": {
@@ -10629,19 +10617,8 @@
           "id": {
             "type": "string"
           },
-          "trigger": {
-            "type": "string",
-            "enum": [
-              "preliminary",
-              "comprehensive",
-              "new_party",
-              "entity_merged",
-              "entity_renamed",
-              "relationship_recorded",
-              "identifier_recorded",
-              "personnel_changed",
-              "periodic_rescan"
-            ]
+          "checkNumber": {
+            "type": "string"
           },
           "matterId": {
             "type": [
@@ -10649,20 +10626,44 @@
               "null"
             ]
           },
-          "strictness": {
-            "type": "string",
-            "enum": [
-              "balanced",
-              "over_inclusive"
+          "createdAt": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": [
+              "string",
+              "null"
             ]
           },
-          "depth": {
+          "runCount": {
             "type": "integer"
           },
-          "floorRaised": {
-            "type": "boolean"
+          "latestRunId": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "actorUserId": {
+          "runStatus": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              null
+            ]
+          },
+          "latestRunAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trigger": {
             "type": [
               "string",
               "null"
@@ -10674,24 +10675,52 @@
               "null"
             ]
           },
-          "hitCount": {
-            "type": "integer"
+          "actorUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "createdAt": {
-            "type": "string"
+          "strictness": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "balanced",
+              "over_inclusive",
+              null
+            ]
+          },
+          "floorRaised": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "hitCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "required": [
           "id",
-          "trigger",
+          "checkNumber",
           "matterId",
-          "strictness",
-          "depth",
-          "floorRaised",
-          "actorUserId",
+          "createdAt",
+          "createdByUserId",
+          "runCount",
+          "latestRunId",
+          "runStatus",
+          "latestRunAt",
+          "trigger",
           "triggerSource",
-          "hitCount",
-          "createdAt"
+          "actorUserId",
+          "strictness",
+          "floorRaised",
+          "hitCount"
         ]
       },
       "ConflictsPolicyResponse": {
@@ -10716,21 +10745,6 @@
               "over_inclusive"
             ]
           },
-          "defaultDepth": {
-            "type": "integer"
-          },
-          "edgeClassBudgets": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "integer"
-            }
-          },
-          "closureCap": {
-            "type": "integer"
-          },
-          "candidateCap": {
-            "type": "integer"
-          },
           "balancedNameRoles": {
             "type": "array",
             "items": {
@@ -10741,10 +10755,6 @@
         "required": [
           "floorSources",
           "floorStrictness",
-          "defaultDepth",
-          "edgeClassBudgets",
-          "closureCap",
-          "candidateCap",
           "balancedNameRoles"
         ]
       },
@@ -10770,35 +10780,6 @@
               "over_inclusive"
             ]
           },
-          "defaultDepth": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "edgeClassBudgets": {
-            "type": "object",
-            "properties": {
-              "control": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "family": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "representation": {
-                "type": "integer",
-                "minimum": 0
-              }
-            }
-          },
-          "closureCap": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "candidateCap": {
-            "type": "integer",
-            "minimum": 0
-          },
           "balancedNameRoles": {
             "type": "array",
             "items": {
@@ -10808,19 +10789,220 @@
           }
         }
       },
-      "CreatedConflictsRecheckResponse": {
+      "FiledConflictsCheckResponse": {
         "type": "object",
         "properties": {
-          "checkId": {
+          "id": {
+            "type": "string"
+          },
+          "matterId": {
             "type": "string"
           }
         },
         "required": [
-          "checkId"
+          "id",
+          "matterId"
         ]
       },
-      "ConflictsCheckWithHitsResponse": {
+      "FileConflictsCheckOnMatterRequest": {
         "type": "object",
+        "properties": {
+          "matterId": {
+            "type": "string",
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "matterId"
+        ]
+      },
+      "ConflictsCheckWithRunsResponse": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "$ref": "#/components/schemas/ConflictsNumberedCheck"
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConflictsRunSummary"
+            }
+          },
+          "run": {
+            "$ref": "#/components/schemas/ConflictsRunSummary"
+          },
+          "record": {
+            "$ref": "#/components/schemas/ConflictsCheckRecord"
+          }
+        },
+        "required": [
+          "check",
+          "runs",
+          "run",
+          "record"
+        ]
+      },
+      "ConflictsNumberedCheck": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "checkNumber": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "latestRunId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "checkNumber",
+          "matterId",
+          "createdByUserId",
+          "createdAt",
+          "latestRunId"
+        ]
+      },
+      "ConflictsRunSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed"
+            ]
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sources",
+              "walking",
+              "matching",
+              "candidates",
+              null
+            ]
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ConflictsRunProgress"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "triggerSource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hitCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "status",
+          "stage",
+          "progress",
+          "trigger",
+          "triggerSource",
+          "requestedByUserId",
+          "createdAt",
+          "startedAt",
+          "finishedAt",
+          "failure",
+          "hitCount"
+        ]
+      },
+      "ConflictsRunProgress": {
+        "type": "object",
+        "properties": {
+          "sourcesSearched": {
+            "type": "integer"
+          },
+          "subjectParties": {
+            "type": "integer"
+          },
+          "entitiesReached": {
+            "type": "integer"
+          },
+          "entitiesMatched": {
+            "type": "integer"
+          },
+          "candidatesSurfaced": {
+            "type": "integer"
+          },
+          "candidatesRecorded": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConflictsCheckRecord": {
+        "type": [
+          "object",
+          "null"
+        ],
         "properties": {
           "check": {
             "$ref": "#/components/schemas/ConflictsCheckDetail"
@@ -10974,6 +11156,15 @@
           "null"
         ],
         "properties": {
+          "followedToClosure": {
+            "type": "boolean"
+          },
+          "longestPathLength": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "edgeClassBudgets": {
             "type": "object",
             "additionalProperties": {
@@ -11009,6 +11200,8 @@
           }
         },
         "required": [
+          "followedToClosure",
+          "longestPathLength",
           "edgeClassBudgets",
           "closureCap",
           "truncated",
@@ -11126,6 +11319,9 @@
           },
           "disposition": {
             "$ref": "#/components/schemas/ConflictsDispositionDetail"
+          },
+          "previouslyAnswered": {
+            "$ref": "#/components/schemas/ConflictsPriorConclusion"
           }
         },
         "required": [
@@ -11138,7 +11334,8 @@
           "graphPath",
           "coParty",
           "createdAt",
-          "disposition"
+          "disposition",
+          "previouslyAnswered"
         ]
       },
       "ConflictsHitParty": {
@@ -11283,6 +11480,38 @@
           "givenOn"
         ]
       },
+      "ConflictsPriorConclusion": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "checkId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cleared",
+              "waiver_obtained",
+              "wall_erected",
+              "representation_declined"
+            ]
+          },
+          "reviewerUserId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkId",
+          "kind",
+          "reviewerUserId",
+          "createdAt"
+        ]
+      },
       "ConflictsDispositionTrailResponse": {
         "type": "object",
         "properties": {
@@ -11415,6 +11644,12 @@
           "id": {
             "type": "string"
           },
+          "checkNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },
@@ -11448,6 +11683,7 @@
         },
         "required": [
           "id",
+          "checkNumber",
           "createdAt",
           "trigger",
           "actorUserId",
@@ -11536,30 +11772,11 @@
               "firmFloor",
               "ranUnder"
             ]
-          },
-          "depth": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "properties": {
-              "firmDefault": {
-                "type": "integer"
-              },
-              "ranAt": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "firmDefault",
-              "ranAt"
-            ]
           }
         },
         "required": [
           "sources",
-          "strictness",
-          "depth"
+          "strictness"
         ]
       },
       "ConflictsPosturePendingRecheck": {
@@ -56318,7 +56535,7 @@
     },
     "/api/v1/conflicts/checks": {
       "post": {
-        "description": "Runs a conflicts-of-interest check against the directory corpus for the given subject parties (and, when a matter is supplied, its existing parties too), and records the search — what was asked for, what actually ran, and what it found — as a new entry in the append-only conflicts log. The trigger must always be supplied; no check ever runs on its own.",
+        "description": "Opens a conflicts check: draws the firm's next check number, records the search that was asked for as the check's first run, and answers at once with the check's handle and number. The search itself runs after the response and follows every recorded relationship to closure; reading the check says where the run has got to until it settles, and then carries the record of what was searched, what actually ran, and what it found. The trigger must always be supplied; no check ever runs on its own.",
         "operationId": "conflicts.runCheck",
         "tags": [
           "conflicts"
@@ -56358,12 +56575,12 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "The completed check",
+          "202": {
+            "description": "The check, opened; its first run is queued",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatedConflictsCheckResponse"
+                  "$ref": "#/components/schemas/OpenedConflictsCheckResponse"
                 }
               }
             }
@@ -56441,7 +56658,7 @@
         }
       },
       "get": {
-        "description": "The checks this firm has run, newest first, keyset-paginated. Filter by `matterId` for one matter's own history. Each line carries what set the run going, who asked for it where anybody did, the strictness and depth it ran at, whether the firm's floor raised the scope above what was requested, and how many candidates surfaced — never a conclusion about any of them, which is a reviewer's act recorded as a disposition. A run nobody asked for carries no actor, and that is a fact about the run rather than a missing value.",
+        "description": "The checks this firm refers to, newest first, keyset-paginated: one line per numbered check carrying its latest run's facts and how many runs it has had. Filter by `matterId` for the checks filed on one matter. Each line carries what set the latest run going, who asked for it where anybody did, the band it ran under, whether the firm's floor raised the scope above what was requested, and how many candidates surfaced — never a conclusion about any of them, which is a reviewer's act recorded as a disposition.",
         "operationId": "conflicts.listChecks",
         "tags": [
           "conflicts"
@@ -56532,9 +56749,73 @@
         }
       }
     },
+    "/api/v1/conflicts/checks/next-number": {
+      "get": {
+        "description": "The number the next check this firm opens would draw. A preview rather than a reservation: two members opening a check at the same moment both see it, and one of them draws the number after it. Shown on the New Check panel so a check is identified before it is saved.",
+        "operationId": "conflicts.nextCheckNumber",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.nextCheckNumber",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The next check number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextConflictsCheckNumberResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/firm/conflicts-policy": {
       "get": {
-        "description": "The firm's conflicts floor: the source classes every check must search whatever a caller asks for, the strictness band it must reach, and the traversal and candidate bounds a run is held to. A per-run scope may only ADD to the floor, never subtract from it — otherwise narrowing a request would manufacture a check that searched less than the firm requires while the log faithfully recorded that a check happened. It reads on conflicts:read because every member who can read a check is held to this, and a reviewer looking at a check that fell short of the floor has to be able to see what the floor is.",
+        "description": "The firm's conflicts floor: the source classes every check must search whatever a caller asks for, the strictness band it must reach, and which of a party's names the narrower band compares. A per-run scope may only ADD to the floor, never subtract from it — otherwise narrowing a request would manufacture a check that searched less than the firm requires while the log faithfully recorded that a check happened. It reads on conflicts:read because every member who can read a check is held to this, and a reviewer looking at a check that fell short of the floor has to be able to see what the floor is.",
         "operationId": "conflicts.firmPolicy",
         "tags": [
           "conflicts"
@@ -56596,7 +56877,7 @@
         }
       },
       "put": {
-        "description": "Sets the firm's conflicts floor. PUT rather than PATCH because the floor is one value: a partial update would let two administrators saving different halves of the same screen compose a floor neither of them chose, and the floor is what every future check is held to. It writes on conflicts:configure rather than conflicts:run, which is a narrower key seeded to Owner and Admin alone — this does not act on a check, it decides what every LATER check searches, and no single check row records that a person chose that. The stored value is normalized first and the normalized value is returned, so what a firm is shown is what its checks will actually run: a floor with every source deselected comes back carrying `party`, and a candidate cap above what one atomic batch can carry comes back clamped. Changing the floor writes no check and re-runs nothing — a matter whose last check no longer covers the new floor reports the shortfall on its own posture read, computed live, which is why raising the floor takes effect everywhere at once with no sweep.",
+        "description": "Sets the firm's conflicts floor. PUT rather than PATCH because the floor is one value: a partial update would let two administrators saving different halves of the same screen compose a floor neither of them chose, and the floor is what every future check is held to. It writes on conflicts:configure rather than conflicts:run, which is a narrower key seeded to Owner and Admin alone — this does not act on a check, it decides what every LATER check searches, and no single check row records that a person chose that. The stored value is normalized first and the normalized value is returned, so what a firm is shown is what its checks will actually run: a floor with every source deselected comes back carrying `party`. Changing the floor writes no check and re-runs nothing — a matter whose last check no longer covers the new floor reports the shortfall on its own posture read, computed live, which is why raising the floor takes effect everywhere at once with no sweep.",
         "operationId": "conflicts.setFirmPolicy",
         "tags": [
           "conflicts"
@@ -56711,7 +56992,7 @@
     },
     "/api/v1/matters/{matterId}/conflicts-rechecks": {
       "post": {
-        "description": "Runs a fresh comprehensive check against this matter's own live parties, now, because a member asked for one. It takes NO scope, and that is the point of it existing beside the general check route: 're-check this matter' has no scope for a caller to state, and asking for one invites a screen to invent a narrower search than the firm requires. The firm's own policy floor is what runs. The check is recorded as a manual run naming the member who asked, and carries no cause — a cause is a corpus change the platform noticed, and a person asking now is not one. It neither reads nor satisfies the automatic re-check ledger: an open cause stays open, because the interval between a cause and the check that answered it is evidence about the firm's procedure and a manual run did not answer it.",
+        "description": "Runs a fresh comprehensive check against this matter's own live parties, now, because a member asked for one. It takes NO scope, and that is the point of it existing beside the general check route: 're-check this matter' has no scope for a caller to state, and asking for one invites a screen to invent a narrower search than the firm requires. The firm's own policy floor is what runs. It opens a further run under the check most recently filed on the matter, or a new numbered check where the matter has none, and answers at once; the search runs after the response. The run is recorded as a manual run naming the member who asked, and carries no cause — a cause is a corpus change the platform noticed, and a person asking now is not one. It neither reads nor satisfies the automatic re-check ledger: an open cause stays open, because the interval between a cause and the check that answered it is evidence about the firm's procedure and a manual run did not answer it.",
         "operationId": "conflicts.recheckMatter",
         "tags": [
           "conflicts"
@@ -56750,12 +57031,270 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "The check that ran",
+          "202": {
+            "description": "The run, queued",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatedConflictsRecheckResponse"
+                  "$ref": "#/components/schemas/OpenedConflictsCheckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conflicts/checks/{checkId}/runs": {
+      "post": {
+        "description": "Runs a check again: opens a further run under the same check and number, performing the search the check was opened with against the matter the check is filed on today, and answers at once. The earlier runs and their records stay exactly as they were; the check's history gains one entry.",
+        "operationId": "conflicts.rerunCheck",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.rerunCheck",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:run",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "checkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The further run, queued under the check",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenedConflictsCheckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conflicts/checks/{checkId}/matter": {
+      "put": {
+        "description": "Files a check on a matter. A check run before there was a matter is the ordinary case — the pre-engagement screen happens before there is a file — and the moment a matter exists is the moment somebody is reading the report. Filing moves the check into that matter's own history and makes the next run search with the matter's parties; no search record is touched, because each record says which matter its search actually ran against.",
+        "operationId": "conflicts.fileCheckOnMatter",
+        "tags": [
+          "conflicts"
+        ],
+        "x-mc-operationId": "conflicts.fileCheckOnMatter",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "conflicts:run",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "conflicts"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "checkId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileConflictsCheckOnMatterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The check, filed on the matter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FiledConflictsCheckResponse"
                 }
               }
             }
@@ -56835,7 +57374,7 @@
     },
     "/api/v1/conflicts/checks/{checkId}": {
       "get": {
-        "description": "Returns a completed conflicts check and every hit it surfaced, including each hit's current disposition when a reviewer has already adjudicated it, alongside a plain-language statement of what the search did: which sources ran and with what settings, which could not run and why, and how many candidates surfaced. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them. A disposition recording a waiver carries the waiver's own record and, where the platform does not hold the whole of it, what that record is short of.",
+        "description": "Returns a conflicts check with every run under it, and the record of the run asked for (the latest, unless `run` names another). A run still in flight reports its stage and counts so far and carries no record; a settled run carries its record: the recorded scope, every hit it surfaced with each hit's current disposition, and a plain-language statement of what the search did. The statement reports the search and reaches no conclusion about the matter — a search that surfaced nothing ends by saying so, which is a fact about the search and not about whether an interest is adverse. Deciding that is a reviewer's act and is recorded as a disposition naming them. The address accepts the check's own handle or any run's handle, so an address written before runs existed still lands on the check it named. A run that stopped reporting is settled as failed by this read, and says so.",
         "operationId": "conflicts.getCheck",
         "tags": [
           "conflicts"
@@ -56862,15 +57401,24 @@
             "required": true,
             "name": "checkId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^conflictsCheck_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "run",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "The check, the statement of what it searched, and its hits",
+            "description": "The check, its runs, and the selected run's record where it has one",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConflictsCheckWithHitsResponse"
+                  "$ref": "#/components/schemas/ConflictsCheckWithRunsResponse"
                 }
               }
             }
@@ -56897,6 +57445,16 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the resource is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -57137,7 +57695,7 @@
     },
     "/api/v1/matters/{matterId}/conflicts-posture": {
       "get": {
-        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
+        "description": "Where a matter stands on conflicts: the most recent check with the scope it actually ran under, which of the firm's current policy requirements that check did not meet, how many of its hits no reviewer has answered (by evidence tier), how its answered hits were disposed of and by whom, every re-check the platform knows is owed because the firm's records moved under this matter — each naming what changed and when — whether the firm's scheduled re-screening is switched on and how often it runs, and every source that could not be searched with the reason it could not. A matter that has never been checked reports that as its own distinct state, separate from a check that searched and surfaced nothing. A check filed on the matter after it ran counts as the matter's own. Every field is computed from the log at the moment of the request and nothing is stored, so raising the firm's policy shows up here immediately. The response reports what was searched and what was found and asserts nothing about whether an interest is adverse: there is no summary field and no single verdict, because concluding is a lawyer's act and the record says whose.",
         "operationId": "conflicts.matterPosture",
         "tags": [
           "conflicts"

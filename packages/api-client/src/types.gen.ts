@@ -2668,8 +2668,11 @@ export type SetDirectoryPersonLifeDatesRequest = {
     deceased?: boolean;
 };
 
-export type CreatedConflictsCheckResponse = {
+export type OpenedConflictsCheckResponse = {
     id: string;
+    checkNumber: string;
+    runId: string;
+    ordinal: number;
 };
 
 export type CreateConflictsCheckRequest = {
@@ -2682,14 +2685,10 @@ export type CreateConflictsCheckRequest = {
 export type ConflictsScopeRequest = {
     sources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     strictness: 'balanced' | 'over_inclusive';
-    depth?: number;
-    edgeClassBudgets?: {
-        control?: number;
-        family?: number;
-        representation?: number;
-    };
-    closureCap?: number;
-    candidateCap?: number;
+};
+
+export type NextConflictsCheckNumberResponse = {
+    checkNumber: string;
 };
 
 export type ConflictsCheckPage = {
@@ -2699,52 +2698,89 @@ export type ConflictsCheckPage = {
 
 export type ConflictsCheckSummary = {
     id: string;
-    trigger: 'preliminary' | 'comprehensive' | 'new_party' | 'entity_merged' | 'entity_renamed' | 'relationship_recorded' | 'identifier_recorded' | 'personnel_changed' | 'periodic_rescan';
+    checkNumber: string;
     matterId: string | null;
-    strictness: 'balanced' | 'over_inclusive';
-    depth: number;
-    floorRaised: boolean;
-    actorUserId: string | null;
-    triggerSource: string | null;
-    hitCount: number;
     createdAt: string;
+    createdByUserId: string | null;
+    runCount: number;
+    latestRunId: string | null;
+    runStatus: 'queued' | 'running' | 'completed' | 'failed' | null;
+    latestRunAt: string | null;
+    trigger: string | null;
+    triggerSource: string | null;
+    actorUserId: string | null;
+    strictness: 'balanced' | 'over_inclusive' | null;
+    floorRaised: boolean | null;
+    hitCount: number | null;
 };
 
 export type ConflictsPolicyResponse = {
     floorSources: Array<'party' | 'graph' | 'imputation' | 'content'>;
     floorStrictness: 'balanced' | 'over_inclusive';
-    defaultDepth: number;
-    edgeClassBudgets: {
-        [key: string]: number;
-    };
-    closureCap: number;
-    candidateCap: number;
     balancedNameRoles: Array<string>;
 };
 
 export type ConflictsPolicyRequest = {
     floorSources?: Array<'party' | 'graph' | 'imputation' | 'content'>;
     floorStrictness?: 'balanced' | 'over_inclusive';
-    defaultDepth?: number;
-    edgeClassBudgets?: {
-        control?: number;
-        family?: number;
-        representation?: number;
-    };
-    closureCap?: number;
-    candidateCap?: number;
     balancedNameRoles?: Array<string>;
 };
 
-export type CreatedConflictsRecheckResponse = {
-    checkId: string;
+export type FiledConflictsCheckResponse = {
+    id: string;
+    matterId: string;
 };
 
-export type ConflictsCheckWithHitsResponse = {
+export type FileConflictsCheckOnMatterRequest = {
+    matterId: string;
+};
+
+export type ConflictsCheckWithRunsResponse = {
+    check: ConflictsNumberedCheck;
+    runs: Array<ConflictsRunSummary>;
+    run: ConflictsRunSummary;
+    record: ConflictsCheckRecord;
+};
+
+export type ConflictsNumberedCheck = {
+    id: string;
+    checkNumber: string;
+    matterId: string | null;
+    createdByUserId: string | null;
+    createdAt: string;
+    latestRunId: string | null;
+};
+
+export type ConflictsRunSummary = {
+    id: string;
+    ordinal: number;
+    status: 'queued' | 'running' | 'completed' | 'failed';
+    stage: 'sources' | 'walking' | 'matching' | 'candidates' | null;
+    progress: ConflictsRunProgress;
+    trigger: string;
+    triggerSource: string | null;
+    requestedByUserId: string | null;
+    createdAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+    failure: string | null;
+    hitCount: number | null;
+};
+
+export type ConflictsRunProgress = {
+    sourcesSearched?: number;
+    subjectParties?: number;
+    entitiesReached?: number;
+    entitiesMatched?: number;
+    candidatesSurfaced?: number;
+    candidatesRecorded?: number;
+};
+
+export type ConflictsCheckRecord = {
     check: ConflictsCheckDetail;
     statement: Array<string>;
     hits: Array<ConflictsHitDetail>;
-};
+} | null;
 
 export type ConflictsCheckDetail = {
     id: string;
@@ -2771,6 +2807,8 @@ export type ConflictsMatchingRecord = {
 } | null;
 
 export type ConflictsTraversalRecord = {
+    followedToClosure: boolean;
+    longestPathLength: number | null;
     edgeClassBudgets: {
         [key: string]: number;
     };
@@ -2804,6 +2842,7 @@ export type ConflictsHitDetail = {
     coParty: boolean;
     createdAt: string;
     disposition: ConflictsDispositionDetail;
+    previouslyAnswered: ConflictsPriorConclusion;
 };
 
 export type ConflictsHitParty = {
@@ -2836,6 +2875,13 @@ export type ConflictsWaiverDetail = {
     givenOn: string | null;
 } | null;
 
+export type ConflictsPriorConclusion = {
+    checkId: string;
+    kind: 'cleared' | 'waiver_obtained' | 'wall_erected' | 'representation_declined';
+    reviewerUserId: string;
+    createdAt: string;
+} | null;
+
 export type ConflictsDispositionTrailResponse = {
     hitId: string;
     dispositions: Array<ConflictsDispositionTrailEntry>;
@@ -2865,6 +2911,7 @@ export type MatterConflictsPostureResponse = {
 
 export type ConflictsPostureLatestCheck = {
     id: string;
+    checkNumber: string | null;
     createdAt: string;
     trigger: string;
     actorUserId: string | null;
@@ -2892,10 +2939,6 @@ export type ConflictsPostureScopeShortfall = {
     strictness: {
         firmFloor: 'balanced' | 'over_inclusive';
         ranUnder: string;
-    } | null;
-    depth: {
-        firmDefault: number;
-        ranAt: number;
     } | null;
 };
 
@@ -17318,12 +17361,45 @@ export type ConflictsRunCheckError = ConflictsRunCheckErrors[keyof ConflictsRunC
 
 export type ConflictsRunCheckResponses = {
     /**
-     * The completed check
+     * The check, opened; its first run is queued
      */
-    201: CreatedConflictsCheckResponse;
+    202: OpenedConflictsCheckResponse;
 };
 
 export type ConflictsRunCheckResponse = ConflictsRunCheckResponses[keyof ConflictsRunCheckResponses];
+
+export type ConflictsNextCheckNumberData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conflicts/checks/next-number';
+};
+
+export type ConflictsNextCheckNumberErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsNextCheckNumberError = ConflictsNextCheckNumberErrors[keyof ConflictsNextCheckNumberErrors];
+
+export type ConflictsNextCheckNumberResponses = {
+    /**
+     * The next check number
+     */
+    200: NextConflictsCheckNumberResponse;
+};
+
+export type ConflictsNextCheckNumberResponse = ConflictsNextCheckNumberResponses[keyof ConflictsNextCheckNumberResponses];
 
 export type ConflictsFirmPolicyData = {
     body?: never;
@@ -17453,19 +17529,129 @@ export type ConflictsRecheckMatterError = ConflictsRecheckMatterErrors[keyof Con
 
 export type ConflictsRecheckMatterResponses = {
     /**
-     * The check that ran
+     * The run, queued
      */
-    201: CreatedConflictsRecheckResponse;
+    202: OpenedConflictsCheckResponse;
 };
 
 export type ConflictsRecheckMatterResponse = ConflictsRecheckMatterResponses[keyof ConflictsRecheckMatterResponses];
+
+export type ConflictsRerunCheckData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        checkId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/checks/{checkId}/runs';
+};
+
+export type ConflictsRerunCheckErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsRerunCheckError = ConflictsRerunCheckErrors[keyof ConflictsRerunCheckErrors];
+
+export type ConflictsRerunCheckResponses = {
+    /**
+     * The further run, queued under the check
+     */
+    202: OpenedConflictsCheckResponse;
+};
+
+export type ConflictsRerunCheckResponse = ConflictsRerunCheckResponses[keyof ConflictsRerunCheckResponses];
+
+export type ConflictsFileCheckOnMatterData = {
+    body: FileConflictsCheckOnMatterRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        checkId: string;
+    };
+    query?: never;
+    url: '/api/v1/conflicts/checks/{checkId}/matter';
+};
+
+export type ConflictsFileCheckOnMatterErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the resource is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConflictsFileCheckOnMatterError = ConflictsFileCheckOnMatterErrors[keyof ConflictsFileCheckOnMatterErrors];
+
+export type ConflictsFileCheckOnMatterResponses = {
+    /**
+     * The check, filed on the matter
+     */
+    200: FiledConflictsCheckResponse;
+};
+
+export type ConflictsFileCheckOnMatterResponse = ConflictsFileCheckOnMatterResponses[keyof ConflictsFileCheckOnMatterResponses];
 
 export type ConflictsGetCheckData = {
     body?: never;
     path: {
         checkId: string;
     };
-    query?: never;
+    query?: {
+        run?: string;
+    };
     url: '/api/v1/conflicts/checks/{checkId}';
 };
 
@@ -17483,6 +17669,10 @@ export type ConflictsGetCheckErrors = {
      */
     404: Problem;
     /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
@@ -17492,9 +17682,9 @@ export type ConflictsGetCheckError = ConflictsGetCheckErrors[keyof ConflictsGetC
 
 export type ConflictsGetCheckResponses = {
     /**
-     * The check, the statement of what it searched, and its hits
+     * The check, its runs, and the selected run's record where it has one
      */
-    200: ConflictsCheckWithHitsResponse;
+    200: ConflictsCheckWithRunsResponse;
 };
 
 export type ConflictsGetCheckResponse = ConflictsGetCheckResponses[keyof ConflictsGetCheckResponses];

@@ -6,8 +6,11 @@ import { createPerson } from "@magna-carta/directory/person";
 import { createOrganization } from "@magna-carta/directory/organization";
 import { createEdge } from "@magna-carta/directory/edges";
 import { expect, test } from "vitest";
-import { expandGraph, type ExpansionBudget } from "../src/expansion.ts";
-import { DEFAULT_CLOSURE_CAP, type EdgeClassBudgets } from "../src/settings.ts";
+import { expandGraph, WALK_CEILING, type ExpansionOptions } from "../src/expansion.ts";
+
+// The walk follows every recorded relationship to closure. What is worth a test is that it really
+// does — every class, every hop, ended relationships included — and that the one bound it has, the
+// platform's ceiling, is recorded when reached and never applied quietly.
 
 const NOW = "2026-07-09T00:00:00.000Z";
 const clock = { now: () => NOW };
@@ -17,23 +20,8 @@ function writeOptions(seed: string) {
   return { clock, actorUserId: ACTOR, randomSource: seededRandomSource(seed) };
 }
 
-// A uniform budget across every budgeted class — the shape the shipped single `depth` integer meant,
-// so the tests that predate typed budgets keep asserting exactly what they asserted.
-function uniformBudget(
-  hops: number,
-  overrides: Partial<EdgeClassBudgets> = {},
-  closureCap = DEFAULT_CLOSURE_CAP,
-): ExpansionBudget {
-  return {
-    edgeClassBudgets: {
-      control: hops,
-      family: hops,
-      representation: hops,
-      ...overrides,
-    },
-    closureCap,
-    asOf: NOW,
-  };
+function walk(ceiling = WALK_CEILING): ExpansionOptions {
+  return { asOf: NOW, ceiling };
 }
 
 async function graphDatabase(): Promise<BatchDatabase> {
@@ -41,210 +29,100 @@ async function graphDatabase(): Promise<BatchDatabase> {
   return database as unknown as BatchDatabase;
 }
 
-test("a seed with no edges expands to itself at depth zero", async () => {
+type Edge = Parameters<typeof createEdge>[1];
+
+function edge(from: string, to: string, edgeType: string, over: Partial<Edge> = {}): Edge {
+  return {
+    from,
+    to,
+    edgeType,
+    role: null,
+    note: null,
+    validFrom: null,
+    validTo: null,
+    ...over,
+  } as Edge;
+}
+
+test("a seed with no edges expands to itself", async () => {
   const database = await graphDatabase();
   const options = writeOptions("solo");
   const personId = await createPerson(database, { given: "Solo", family: "Party" }, options);
 
-  const expanded = await expandGraph(database, [personId], uniformBudget(1));
+  const expanded = await expandGraph(database, [personId], walk());
   expect(expanded.entities).toEqual([{ entityId: personId, path: [] }]);
   expect(expanded.truncation).toBeNull();
+  expect(expanded.longestPathLength).toBe(0);
 });
 
-test("depth one reaches an org's principal and records the connecting path", async () => {
+test("one hop reaches an organization's principal and records the connecting path", async () => {
   const database = await graphDatabase();
   const options = writeOptions("principal");
   const orgId = await createOrganization(database, { legalName: "ABC Holdings" }, options);
   const principalId = await createPerson(database, { given: "Ada", family: "Principal" }, options);
   await createEdge(
     database,
-    {
-      from: principalId,
-      to: orgId,
-      edgeType: "affiliation",
-      role: "principal",
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
+    edge(principalId, orgId, "affiliation", { role: "principal" }),
     options,
   );
 
-  const expanded = await expandGraph(database, [orgId], uniformBudget(1));
+  const expanded = await expandGraph(database, [orgId], walk());
   const reached = expanded.entities.find((entity) => entity.entityId === principalId);
   expect(reached).toBeDefined();
   expect(reached?.path).toHaveLength(1);
   expect(reached?.path[0]?.edgeType).toBe("affiliation");
   expect(reached?.path[0]?.expiredAtCheck).toBe(false);
+  expect(expanded.longestPathLength).toBe(1);
 });
 
-test("depth zero expands to the seeds only", async () => {
-  const database = await graphDatabase();
-  const options = writeOptions("depth-zero");
-  const orgId = await createOrganization(database, { legalName: "ABC Holdings" }, options);
-  const principalId = await createPerson(database, { given: "Ada", family: "Principal" }, options);
-  await createEdge(
-    database,
-    {
-      from: principalId,
-      to: orgId,
-      edgeType: "affiliation",
-      role: "principal",
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
-
-  const expanded = await expandGraph(database, [orgId], uniformBudget(0));
-  expect(expanded.entities.map((entity) => entity.entityId)).toEqual([orgId]);
-});
-
-test("corporate-family edges traverse transitively past the depth limit", async () => {
+test("a corporate chain of any length is fully traversed", async () => {
   const database = await graphDatabase();
   const options = writeOptions("corporate-closure");
   const parentId = await createOrganization(database, { legalName: "Parent Co" }, options);
   const childId = await createOrganization(database, { legalName: "Child Co" }, options);
   const grandchildId = await createOrganization(database, { legalName: "Grandchild Co" }, options);
-  await createEdge(
-    database,
-    {
-      from: parentId,
-      to: childId,
-      edgeType: "corporate_subsidiary",
-      role: null,
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
-  await createEdge(
-    database,
-    {
-      from: childId,
-      to: grandchildId,
-      edgeType: "corporate_subsidiary",
-      role: null,
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
+  await createEdge(database, edge(parentId, childId, "corporate_subsidiary"), options);
+  await createEdge(database, edge(childId, grandchildId, "corporate_subsidiary"), options);
 
-  // depth 1 would stop at childId for an ordinary edge type; corporate closure reaches the grandchild.
-  const expanded = await expandGraph(database, [parentId], uniformBudget(1));
+  const expanded = await expandGraph(database, [parentId], walk());
   expect(expanded.entities.map((entity) => entity.entityId)).toContain(grandchildId);
+  expect(expanded.longestPathLength).toBe(2);
 });
 
-test("a corporate chain longer than every hop budget is fully traversed", async () => {
+test("a control edge two hops out is reached, because nothing budgets a class any more", async () => {
+  // The case the old per-class budget existed to STOP — a subject's principal's other directorship
+  // — is exactly the case the owner's ruling reaches for: a limit on the walk is a conflict the
+  // firm does not find.
   const database = await graphDatabase();
-  const options = writeOptions("long-corporate-chain");
-  const chain: string[] = [];
-  for (let index = 0; index < 8; index += 1) {
-    chain.push(await createOrganization(database, { legalName: `Chain ${index} Co` }, options));
-  }
-  for (let index = 1; index < chain.length; index += 1) {
-    await createEdge(
-      database,
-      {
-        from: chain[index - 1] as never,
-        to: chain[index] as never,
-        edgeType: "corporate_successor",
-        role: null,
-        note: null,
-        validFrom: null,
-        validTo: null,
-      },
-      options,
-    );
-  }
-
-  // Every budgeted class is zero: only the corporate class can move at all, and it must reach the end.
-  const expanded = await expandGraph(database, [chain[0] as string], uniformBudget(0));
-  expect(expanded.entities.map((entity) => entity.entityId).toSorted()).toEqual(chain.toSorted());
-  expect(expanded.truncation).toBeNull();
-});
-
-test("a control edge two hops out is not traversed at a one-hop control budget", async () => {
-  const database = await graphDatabase();
-  const options = writeOptions("two-hop-control");
+  const options = writeOptions("two-hops");
   const subject = await createOrganization(database, { legalName: "Subject Co" }, options);
   const principal = await createPerson(database, { given: "Pat", family: "Principal" }, options);
   const otherBoard = await createOrganization(database, { legalName: "Other Board Co" }, options);
-  const edge = (from: string, to: string) =>
-    createEdge(
-      database,
-      {
-        from: from as never,
-        to: to as never,
-        edgeType: "affiliation",
-        role: null,
-        note: null,
-        validFrom: null,
-        validTo: null,
-      },
-      options,
-    );
-  await edge(principal, subject);
-  await edge(principal, otherBoard);
+  await createEdge(database, edge(principal, subject, "director_of"), options);
+  await createEdge(database, edge(principal, otherBoard, "director_of"), options);
 
-  const expanded = await expandGraph(database, [subject], uniformBudget(1));
+  const expanded = await expandGraph(database, [subject], walk());
   const ids = expanded.entities.map((entity) => entity.entityId);
-  // The adverse organization's principal is one control hop and is reached; the principal's OTHER
-  // directorship is two, and is where the budget exists to stop.
   expect(ids).toContain(principal);
-  expect(ids).not.toContain(otherBoard);
+  expect(ids).toContain(otherBoard);
+  const reached = expanded.entities.find((entity) => entity.entityId === otherBoard);
+  expect(reached?.path.map((step) => step.edgeType)).toEqual(["director_of", "director_of"]);
 });
 
-test("each edge class spends its own budget, so a family hop does not consume the control budget", async () => {
+test("a family hop followed by a control hop is walked through both classes", async () => {
   const database = await graphDatabase();
-  const options = writeOptions("per-class-budget");
+  const options = writeOptions("mixed-classes");
   const subject = await createPerson(database, { given: "Sam", family: "Subject" }, options);
-  const spouse = await createPerson(database, { given: "Sal", family: "Spouse" }, options);
+  const spouse = await createPerson(database, { given: "Sky", family: "Spouse" }, options);
   const employer = await createOrganization(database, { legalName: "Employer Co" }, options);
-  await createEdge(
-    database,
-    {
-      from: subject,
-      to: spouse,
-      edgeType: "relationship",
-      role: "spouse",
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
-  await createEdge(
-    database,
-    {
-      from: spouse,
-      to: employer,
-      edgeType: "affiliation",
-      role: null,
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
+  await createEdge(database, edge(subject, spouse, "relationship", { role: "spouse" }), options);
+  await createEdge(database, edge(spouse, employer, "employment"), options);
 
-  const ids = (await expandGraph(database, [subject], uniformBudget(1))).entities.map(
+  const ids = (await expandGraph(database, [subject], walk())).entities.map(
     (entity) => entity.entityId,
   );
-  // One family hop then one control hop: two edges, but one of each class, so both budgets hold.
   expect(ids).toContain(spouse);
   expect(ids).toContain(employer);
-
-  // Zeroing the control class alone stops at the spouse, leaving the family budget untouched.
-  const narrowed = (
-    await expandGraph(database, [subject], uniformBudget(1, { control: 0 }))
-  ).entities.map((entity) => entity.entityId);
-  expect(narrowed).toContain(spouse);
-  expect(narrowed).not.toContain(employer);
 });
 
 test("an expired edge is traversed and its expiry is recorded on the path step", async () => {
@@ -254,20 +132,16 @@ test("an expired edge is traversed and its expiry is recorded on the path step",
   const formerSpouse = await createPerson(database, { given: "Fay", family: "Former" }, options);
   await createEdge(
     database,
-    {
-      from: subject,
-      to: formerSpouse,
-      edgeType: "relationship",
+    edge(subject, formerSpouse, "relationship", {
       role: "spouse",
-      note: null,
       validFrom: "2020-01-01T00:00:00.000Z",
       // Ended well before the check reads the corpus.
       validTo: "2024-01-01T00:00:00.000Z",
-    },
+    }),
     options,
   );
 
-  const expanded = await expandGraph(database, [subject], uniformBudget(1));
+  const expanded = await expandGraph(database, [subject], walk());
   const reached = expanded.entities.find((entity) => entity.entityId === formerSpouse);
   // The rules on FORMER clients and FORMER relationships are the ones that most often decide a
   // conflict, so an ended relationship is walked, not skipped — and the reviewer is told it ended.
@@ -280,114 +154,46 @@ test("a cycle terminates and records the first path found", async () => {
   const options = writeOptions("cycle");
   const a = await createOrganization(database, { legalName: "Alpha" }, options);
   const b = await createOrganization(database, { legalName: "Beta" }, options);
-  await createEdge(
-    database,
-    {
-      from: a,
-      to: b,
-      edgeType: "corporate_subsidiary",
-      role: null,
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
-  await createEdge(
-    database,
-    {
-      from: b,
-      to: a,
-      edgeType: "corporate_parent",
-      role: null,
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
+  await createEdge(database, edge(a, b, "corporate_subsidiary"), options);
+  await createEdge(database, edge(b, a, "corporate_parent"), options);
 
-  const expanded = await expandGraph(database, [a], uniformBudget(5));
+  const expanded = await expandGraph(database, [a], walk());
   expect(expanded.entities.map((entity) => entity.entityId).toSorted()).toEqual([a, b].toSorted());
+  expect(expanded.truncation).toBeNull();
 });
 
-test("a node reachable by a 0-hop corporate chain expands its onward edges even when a direct edge also reaches it", async () => {
-  // The relaxation regression: S reaches X two ways — directly (1 representation hop) and through a
-  // corporate chain S->A->X (0 hops, budget-free). Fixing X's cost on first discovery would prune X's
-  // onward representation edge to Y at the budget boundary, silently dropping a real conflict at Y.
-  // Keeping the Pareto-minimal cost vectors records X at its true zero cost, so X->Y is within budget.
+test("an entity reached two ways is shown under the shortest path", async () => {
   const database = await graphDatabase();
-  const options = writeOptions("zero-one-bfs");
-  const s = await createOrganization(database, { legalName: "Seed Co" }, options);
-  const a = await createOrganization(database, { legalName: "Chain Co" }, options);
-  const x = await createOrganization(database, { legalName: "Shared Co" }, options);
-  const y = await createOrganization(database, { legalName: "Downstream Co" }, options);
-  const edge = (from: string, to: string, edgeType: "representation" | "corporate_subsidiary") =>
-    createEdge(
-      database,
-      {
-        from: from as never,
-        to: to as never,
-        edgeType,
-        role: null,
-        note: null,
-        validFrom: null,
-        validTo: null,
-      },
-      options,
-    );
-  await edge(s, x, "representation"); // direct: 1 representation hop
-  await edge(s, a, "corporate_subsidiary"); // 0 hops
-  await edge(a, x, "corporate_subsidiary"); // 0 hops — X is reachable at cost zero
-  await edge(x, y, "representation"); // X's onward edge — must be walked within the 1-hop budget
+  const options = writeOptions("shortest");
+  const subject = await createOrganization(database, { legalName: "Subject Co" }, options);
+  const middle = await createOrganization(database, { legalName: "Middle Co" }, options);
+  const target = await createOrganization(database, { legalName: "Target Co" }, options);
+  await createEdge(database, edge(subject, middle, "corporate_subsidiary"), options);
+  await createEdge(database, edge(middle, target, "corporate_subsidiary"), options);
+  await createEdge(database, edge(subject, target, "affiliation"), options);
 
-  const expanded = await expandGraph(database, [s], uniformBudget(1));
-  const ids = expanded.entities.map((entity) => entity.entityId);
-  expect(ids).toContain(x);
-  expect(ids).toContain(y);
+  const expanded = await expandGraph(database, [subject], walk());
+  const reached = expanded.entities.find((entity) => entity.entityId === target);
+  expect(reached?.path).toHaveLength(1);
 });
 
 test("expansion is deterministic across runs", async () => {
   const database = await graphDatabase();
   const options = writeOptions("determinism");
-  const orgId = await createOrganization(database, { legalName: "ABC Holdings" }, options);
-  const first = await createPerson(database, { given: "Ada", family: "One" }, options);
+  const orgId = await createOrganization(database, { legalName: "Determined Co" }, options);
+  const first = await createPerson(database, { given: "Al", family: "One" }, options);
   const second = await createPerson(database, { given: "Bea", family: "Two" }, options);
-  await createEdge(
-    database,
-    {
-      from: first,
-      to: orgId,
-      edgeType: "affiliation",
-      role: null,
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
-  await createEdge(
-    database,
-    {
-      from: second,
-      to: orgId,
-      edgeType: "affiliation",
-      role: null,
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
+  await createEdge(database, edge(first, orgId, "affiliation"), options);
+  await createEdge(database, edge(second, orgId, "affiliation"), options);
 
-  const a = await expandGraph(database, [orgId], uniformBudget(1));
-  const b = await expandGraph(database, [orgId], uniformBudget(1));
+  const a = await expandGraph(database, [orgId], walk());
+  const b = await expandGraph(database, [orgId], walk());
   expect(a.entities.map((entity) => entity.entityId)).toEqual(
     b.entities.map((entity) => entity.entityId),
   );
 });
 
-// A fan wide enough that the cap bites: one hub with many affiliated persons.
+// A fan wide enough that a small ceiling bites: one hub with many affiliated persons.
 async function fanGraph(
   database: BatchDatabase,
   seed: string,
@@ -401,58 +207,53 @@ async function fanGraph(
       { given: "Spoke", family: `Number${index}` },
       options,
     );
-    await createEdge(
-      database,
-      {
-        from: spoke,
-        to: hub,
-        edgeType: "affiliation",
-        role: null,
-        note: null,
-        validFrom: null,
-        validTo: null,
-      },
-      options,
-    );
+    await createEdge(database, edge(spoke, hub, "affiliation"), options);
   }
   return hub;
 }
 
-test("reaching the closure cap stops expansion and records what was not searched", async () => {
+test("reaching the ceiling stops expansion and records what was not searched", async () => {
   const database = await graphDatabase();
-  const hub = await fanGraph(database, "cap", 30);
+  const hub = await fanGraph(database, "ceiling", 30);
 
-  const expanded = await expandGraph(database, [hub], uniformBudget(1, {}, 10));
+  const expanded = await expandGraph(database, [hub], walk(10));
   expect(expanded.entities).toHaveLength(10);
   const truncation = expanded.truncation;
   expect(truncation).not.toBeNull();
   expect(truncation?.entitiesReached).toBe(10);
-  expect(truncation?.closureCap).toBe(10);
+  expect(truncation?.ceiling).toBe(10);
   // The refused neighbours were never matched, and the count says how many searches did not happen.
   expect(truncation?.unexploredFrontierSize).toBeGreaterThan(0);
 });
 
-test("a walk that fits under the cap records no truncation at all", async () => {
+test("a walk that fits under the ceiling records no truncation at all", async () => {
   const database = await graphDatabase();
-  const hub = await fanGraph(database, "under-cap", 5);
+  const hub = await fanGraph(database, "under-ceiling", 5);
 
-  const expanded = await expandGraph(database, [hub], uniformBudget(1, {}, 500));
+  const expanded = await expandGraph(database, [hub], walk());
   expect(expanded.entities).toHaveLength(6);
   // Null rather than a truncation record with `truncated: false`: a completed walk has nothing to
   // report about a boundary it never met.
   expect(expanded.truncation).toBeNull();
 });
 
-test("the cap truncates the same set for the same corpus", async () => {
+test("the ceiling truncates the same set for the same corpus", async () => {
   const database = await graphDatabase();
-  const hub = await fanGraph(database, "cap-determinism", 30);
+  const hub = await fanGraph(database, "ceiling-determinism", 30);
 
-  const first = await expandGraph(database, [hub], uniformBudget(1, {}, 12));
-  const second = await expandGraph(database, [hub], uniformBudget(1, {}, 12));
+  const first = await expandGraph(database, [hub], walk(12));
+  const second = await expandGraph(database, [hub], walk(12));
   expect(first.entities.map((entity) => entity.entityId)).toEqual(
     second.entities.map((entity) => entity.entityId),
   );
   expect(first.truncation).toEqual(second.truncation);
+});
+
+test("the platform ceiling is the default, and nothing about a request can lower it", () => {
+  // The ceiling is a constant, not a setting: a firm cannot set it, and a check's request has no
+  // field for it. An order of magnitude past a real corporate group, so it is met only by a walk
+  // that has left the neighbourhood of any matter.
+  expect(WALK_CEILING).toBe(10_000);
 });
 
 test("a hub is never skipped for having many edges", async () => {
@@ -463,20 +264,24 @@ test("a hub is never skipped for having many edges", async () => {
   const hub = await fanGraph(database, "no-degree-suppression", 40);
   const options = writeOptions("no-degree-suppression-seed");
   const subject = await createPerson(database, { given: "Sub", family: "Ject" }, options);
-  await createEdge(
-    database,
-    {
-      from: subject,
-      to: hub as never,
-      edgeType: "affiliation",
-      role: null,
-      note: null,
-      validFrom: null,
-      validTo: null,
-    },
-    options,
-  );
+  await createEdge(database, edge(subject, hub, "affiliation"), options);
 
-  const expanded = await expandGraph(database, [subject], uniformBudget(1, {}, 500));
+  const expanded = await expandGraph(database, [subject], walk());
   expect(expanded.entities.map((entity) => entity.entityId)).toContain(hub);
+  expect(expanded.entities).toHaveLength(42);
+});
+
+test("each round of the walk reports how far it has got", async () => {
+  const database = await graphDatabase();
+  const hub = await fanGraph(database, "progress", 4);
+  const reports: number[] = [];
+  await expandGraph(database, [hub], {
+    asOf: NOW,
+    onRound: (reached) => void reports.push(reached),
+  });
+  // One report per round, each carrying the running total: the seeds' round, then the spokes'.
+  expect(reports.at(-1)).toBe(5);
+  expect(reports.every((reached, index) => index === 0 || reached >= reports[index - 1]!)).toBe(
+    true,
+  );
 });
