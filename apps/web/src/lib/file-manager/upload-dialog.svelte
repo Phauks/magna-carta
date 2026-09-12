@@ -597,7 +597,7 @@
               >
                 <div class="flex items-center gap-8">
                   <RadioGroup.Item value="source" id="{fieldPrefix}-dating-source" />
-                  <Label for="{fieldPrefix}-dating-source">The File's Own Date</Label>
+                  <Label for="{fieldPrefix}-dating-source">The Source File's Date</Label>
                 </div>
                 <div class="flex items-center gap-8">
                   <RadioGroup.Item value="upload" id="{fieldPrefix}-dating-upload" />

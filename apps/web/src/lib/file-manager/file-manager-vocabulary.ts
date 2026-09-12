@@ -36,7 +36,7 @@ export type SeverityBandKey = (typeof SEVERITY_BAND_KEYS)[number];
  * Every kind of issue a file can carry, and the band it falls in. An issue is per file per kind,
  * so a judgement to ignore one never silences the others.
  */
-export type IssueKind = "signature" | "mismatch" | "unscanned" | "noVersion" | "untyped";
+export type IssueKind = "signature" | "mismatch" | "unscanned" | "noVersion";
 
 export interface IssueKindEntry {
   readonly kind: IssueKind;
@@ -53,7 +53,6 @@ export const ISSUE_KINDS: Readonly<Record<IssueKind, IssueKindEntry>> = {
   mismatch: { kind: "mismatch", label: "Type Mismatch", band: "error", rank: 1 },
   unscanned: { kind: "unscanned", label: "Never Scanned", band: "warning", rank: 2 },
   noVersion: { kind: "noVersion", label: "No Committed Version", band: "warning", rank: 3 },
-  untyped: { kind: "untyped", label: "No Document Type", band: "info", rank: 4 },
 };
 
 export const ISSUE_KIND_LIST: readonly IssueKindEntry[] = Object.values(ISSUE_KINDS).toSorted(

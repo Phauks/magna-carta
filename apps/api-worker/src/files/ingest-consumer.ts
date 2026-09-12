@@ -68,7 +68,15 @@ export interface R2EventMessage {
   readonly object: { readonly key: string; readonly size: number };
   readonly action: string;
   readonly eventTime?: string;
+  // Set on a member's own re-scan request (FILE_RESCAN_ACTION): the audit id of the request, which
+  // keys the re-scan so each request runs once and its result row can be paired with it.
+  readonly requestId?: string;
 }
+
+// The action a member's "re-run the safety check" request enqueues. Unlike the access-triggered and
+// per-matter re-scans, it is not gated on engine staleness and does not reuse the dedup cache: the
+// member asked for the engine to look at these bytes again, so the engine looks at these bytes again.
+export const FILE_RESCAN_ACTION = "FileRescan";
 
 // The actions R2 reports when somebody WROTE bytes at a key — exactly the set the provisioner
 // registers each firm bucket's object-create notification for (firm-resource-provider.ts). An event
@@ -442,7 +450,10 @@ async function rescanCommittedVersion(
 
   const currentEngineVersion = await readScanEngineVersion(firmDatabase);
   if (currentEngineVersion === null) return; // no current engine recorded yet → never fabricate a key
-  if (committed.scanEngineVersion === currentEngineVersion) return; // already current → not stale
+  // A member's own request runs whether or not the verdict is current; the platform's re-scans run
+  // only when the recorded engine is stale.
+  const requested = message.action === FILE_RESCAN_ACTION && message.requestId !== undefined;
+  if (!requested && committed.scanEngineVersion === currentEngineVersion) return; // already current
 
   // Resolve the firm's scan policy here (outside the idempotency effect) so the verdict computation
   // uses the firm's configured tier and threshold rather than the hardcoded default. The rescan does
@@ -454,16 +465,23 @@ async function rescanCommittedVersion(
   const now = () => new Date().toISOString();
   const options = { clock: { now }, actorUserId: null };
 
+  // A request keys on its own id (each request runs once); the platform's re-scan keys on the engine
+  // (once per version per engine).
+  const scope = requested ? `${currentEngineVersion}:${message.requestId}` : currentEngineVersion;
   await runIdempotentEffect({
     database: firmDatabase,
-    key: `rescan:${committed.id}:${currentEngineVersion}`,
-    fingerprint: `${committed.id}:${currentEngineVersion}`,
+    key: `rescan:${committed.id}:${scope}`,
+    fingerprint: `${committed.id}:${scope}`,
     now,
     effect: async () => {
       // Cache-first: identical content already scanned under THIS engine reuses the raw facts (no scan).
+      // A member's request skips the cache — the point of asking is a fresh look — and its fresh
+      // result replaces the cached one.
       let raw: RawScanResult;
       let fromCache: boolean;
-      const cached = await lookupScanCache(firmDatabase, contentSha256, currentEngineVersion);
+      const cached = requested
+        ? undefined
+        : await lookupScanCache(firmDatabase, contentSha256, currentEngineVersion);
       if (cached !== undefined) {
         raw = cached;
         fromCache = true;
@@ -532,6 +550,7 @@ async function rescanCommittedVersion(
           // result is a real-engine one here (a definitive verdict means the engine ran), so its
           // engineVersion is non-null and the cache write is sound.
           rawScanResult: fromCache ? null : raw,
+          ...(requested ? { requestId: message.requestId } : {}),
         },
         options,
       );

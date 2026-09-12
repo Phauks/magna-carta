@@ -60,6 +60,10 @@ export interface MatterFileVersion {
   committedAt: string | null;
   uploadedBy: string | null;
   uploadedByName: string | null;
+  /** The version's standing verdict, the engine that reached it, and the engine's own detail. */
+  scanVerdict: "unscanned" | "clean" | "flagged" | null;
+  scanEngineVersion: string | null;
+  scanDetail: string | null;
 }
 
 /**
@@ -349,9 +353,71 @@ export interface IntegrityVerification {
 export function verifyFileIntegrity(
   fetchImpl: typeof fetch,
   fileId: string,
+  /** The committed version to verify; the current version when omitted. */
+  versionId?: string,
 ): Promise<ApiOutcome<IntegrityVerification>> {
   return requestJson(fetchImpl, "/api/v1/file-integrity/verify", {
     method: "POST",
-    body: { fileId },
+    body: versionId === undefined ? { fileId } : { fileId, versionId },
+  });
+}
+
+/** The events a file's scan history is made of, as the server names them. */
+export type FileScanEventKind =
+  | "file.version_committed"
+  | "file.version_rescanned"
+  | "file.quarantined"
+  | "file.rescan_requested";
+
+/** One line of a file's safety history: a scan, or a request for one, against one version. */
+export interface FileScanEvent {
+  id: string;
+  at: string;
+  event: FileScanEventKind;
+  versionId: string;
+  versionNumber: number;
+  /** Who asked, for a request; null for a scan the platform ran on its own. */
+  actorUserId: string | null;
+  actorName: string | null;
+  /** What the scan found, as recorded when it happened; null where the event carried no such fact. */
+  scanVerdict: "unscanned" | "clean" | "flagged" | null;
+  scanEngineVersion: string | null;
+  scanDetail: string | null;
+}
+
+export interface FileScanHistory {
+  /** The engine the firm scans with today, or null while none is recorded. */
+  currentEngineVersion: string | null;
+  data: FileScanEvent[];
+}
+
+/** A file's safety history, newest first. */
+export function listFileScans(
+  fetchImpl: typeof fetch,
+  fileId: string,
+): Promise<ApiOutcome<FileScanHistory>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/scans`);
+}
+
+export interface FileRescanResult {
+  /** The audit id of the request; the re-scan event that answers it carries the same id. */
+  requestId: string;
+  versionId: string;
+  /** False when nothing could be queued (no engine recorded, or no scan queue bound). */
+  enqueued: boolean;
+}
+
+/**
+ * Ask for a fresh scan of one committed version (the current one when none is named). The scan
+ * runs in the background; the history shows the request at once and the verdict when it lands.
+ */
+export function requestFileRescan(
+  fetchImpl: typeof fetch,
+  fileId: string,
+  versionId?: string,
+): Promise<ApiOutcome<FileRescanResult>> {
+  return requestJson(fetchImpl, `/api/v1/files/${encodeURIComponent(fileId)}/rescan`, {
+    method: "POST",
+    body: versionId === undefined ? {} : { versionId },
   });
 }

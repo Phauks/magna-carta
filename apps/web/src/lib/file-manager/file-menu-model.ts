@@ -161,8 +161,12 @@ export function rowMenu(scope: MenuScope): FileMenuEntry[] {
       kind: "item",
       command: "rescan",
       label: counted("Re-run Safety Check", files.length, 0),
-      disabledReason: waitingReason("rescan-file"),
-      soon: true,
+      disabledReason:
+        files.every((row) => row.file.currentVersionId === null) && files.length > 0
+          ? files.length === 1
+            ? "This file has no committed version yet, so there is nothing to check again."
+            : "None of these files has a committed version yet."
+          : undefined,
     },
     {
       kind: "item",

@@ -544,17 +544,15 @@ export async function commitVersion(
           { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
           input.sizeBytes,
         ),
-        // A flagged commit carries the scan reason (detail) in the audit metadata — redact-by-default:
-        // reason only, never file name or content. A clean or unscanned commit carries no metadata.
-        fileAuditStatement(
-          database,
-          options,
-          "file.version_committed",
-          input.versionId,
-          input.scanVerdict === "flagged"
-            ? { scanVerdict: "flagged", scanDetail: input.scanDetail ?? null }
-            : undefined,
-        ),
+        // The commit row records what the intake scan found and which engine found it — the first
+        // line of the version's safety history, which the Safety tab reads back off the audit log
+        // because the version row only ever holds the latest verdict. Redact-by-default: verdict,
+        // engine and the engine's own detail, never a file name or content.
+        fileAuditStatement(database, options, "file.version_committed", input.versionId, {
+          scanVerdict: input.scanVerdict,
+          scanEngineVersion: input.scanEngineVersion,
+          scanDetail: input.scanDetail ?? null,
+        }),
         // Populate the content-dedup cache (scan-once) atomically with the commit for any definitive
         // verdict from a real engine (clean OR flagged). `unscanned`/no-engine commits are never
         // cached — caching "we did not scan it" would be worse than useless; rawScanResult is
@@ -982,6 +980,9 @@ export interface RescanVerdictInput {
   // The full raw scan result — written to the content-dedup cache when provided. Omit (or null) for
   // legacy call sites that do not yet supply it; the cache write is skipped but the verdict stamp lands.
   readonly rawScanResult?: RawScanResult | null;
+  // The request this re-scan answers, when a member asked for it by hand; the audit row carries it
+  // so the history can pair the request with its result.
+  readonly requestId?: string;
 }
 
 // Applies an in-place re-scan verdict to an already-committed version: stamps scan_verdict /
@@ -1016,7 +1017,13 @@ export function recordRescanVerdict(
               ),
             ]
           : []),
-        fileAuditStatement(database, options, "file.version_rescanned", input.versionId),
+        // The same three facts as the commit row, so the history reads one engine per line.
+        fileAuditStatement(database, options, "file.version_rescanned", input.versionId, {
+          scanVerdict: input.scanVerdict,
+          scanEngineVersion: input.scanEngineVersion,
+          scanDetail: input.scanDetail,
+          ...(input.requestId === undefined ? {} : { requestId: input.requestId }),
+        }),
       ],
       // Notify on a fresh flagged finding so the file's users learn their already-visible file is now
       // flagged (informed access — the file is not hidden). The re-scan idempotency key
@@ -1059,7 +1066,12 @@ export async function quarantineVersion(
         // The audit row and the file.quarantined event this batch also carries must not outlive a
         // quarantine that lost its race to an abort or expiry.
         assertVersionStatusStatement(database, input.versionId, "quarantined"),
-        fileAuditStatement(database, options, "file.quarantined", input.versionId),
+        // The reason is the scanner's own words (or the gate's), never file content; the history
+        // reads it as the detail on this line.
+        fileAuditStatement(database, options, "file.quarantined", input.versionId, {
+          scanVerdict: "flagged",
+          scanDetail: input.scanDetail ?? input.reason,
+        }),
       ],
       outboxMessages: [
         {
@@ -1107,7 +1119,10 @@ export function quarantineCommittedVersion(
           input.versionId,
           options.clock.now(),
         ),
-        fileAuditStatement(database, options, "file.quarantined", input.versionId),
+        fileAuditStatement(database, options, "file.quarantined", input.versionId, {
+          scanVerdict: "flagged",
+          scanDetail: input.scanDetail ?? input.reason,
+        }),
       ],
       outboxMessages: [
         {

@@ -22,6 +22,13 @@ export const UNPAGED_LIST_OPERATIONS = [];
  * "it is probably small".
  */
 export const BOUNDED_BY_CONSTRUCTION = {
+  // --- The checks ONE file has had -------------------------------------------------------------
+  "files.scans":
+    "Every safety check, request and hold recorded against ONE file's versions. Read through " +
+    "listVersionScanEvents in packages/file-manager/src/queries.ts, whose VERSION_SCAN_EVENT_LIMIT " +
+    "(200) is a backstop on a read whose natural size is one line per version plus the re-scans a " +
+    "member asked for by hand; the panel reads it whole to tell an open request from an answered " +
+    "one, which a page could not.",
   // --- The bookings ONE event holds --------------------------------------------------------------
   "calendar.listEventBookings":
     "The live bookings one matter event holds: a room, a car, a projector. Read through " +

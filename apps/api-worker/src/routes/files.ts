@@ -159,6 +159,11 @@ const FileVersionItem = z
     // Who uploaded this version, on the same terms as FileSummary's pair.
     uploadedBy: z.string().nullable(),
     uploadedByName: z.string().nullable(),
+    // The version's standing safety verdict, the engine that reached it, and the engine's own
+    // detail. Null verdict: the engine-less launch state, read as "not scanned".
+    scanVerdict: z.enum(["unscanned", "clean", "flagged"]).nullable(),
+    scanEngineVersion: z.string().nullable(),
+    scanDetail: z.string().nullable(),
   })
   .openapi("FileVersionItem");
 
@@ -1262,6 +1267,9 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             committedAt: version.committedAt,
             uploadedBy: version.uploadedBy,
             uploadedByName: version.uploadedByName,
+            scanVerdict: version.scanVerdict,
+            scanEngineVersion: version.scanEngineVersion,
+            scanDetail: version.scanDetail,
           })),
         } as z.infer<typeof FileVersionsResponse>,
         200,

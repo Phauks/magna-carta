@@ -515,3 +515,9 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
   capped at a minute) under a ten-retry budget in `wrangler.jsonc` — three immediate retries used to
   meet the same cold engine three times running and dead-letter a file a member was watching, who
   then waited for the five-minute redrive.
+- **A member's re-scan request (`FILE_RESCAN_ACTION`, `routes/file-scans.ts`) is the one re-scan
+  that ignores engine staleness and the dedup cache.** The access-triggered and per-matter re-scans
+  run only when the version's recorded engine is stale and reuse a cached result for the same bytes;
+  a request carries its audit id, keys its idempotency on it, and scans the bytes afresh, so
+  "check again" means the engine looked again. Its result row carries the same `requestId`, which
+  is how the Safety tab pairs a request with its verdict.
