@@ -54,6 +54,24 @@ export interface CheckDraftValues {
   readonly nameMatching: Strictness;
 }
 
+/**
+ * A matter as the panel's matter field holds it: enough to file the check and to decide the
+ * trigger, and nothing the field did not itself show. The field offers matters from two reads — the
+ * ones a chosen party is on, and a search over the docket — so it holds the shape both can supply
+ * rather than the docket's own summary.
+ */
+export interface ChosenMatter {
+  readonly id: string;
+  /** Null on a consultation the firm has not taken on, which is what decides the trigger. */
+  readonly matterNumber: string | null;
+  readonly title: string;
+}
+
+/** How a matter reads in a field: its number where it has one. */
+export function chosenMatterLine(matter: ChosenMatter): string {
+  return matter.matterNumber === null ? matter.title : `${matter.matterNumber} · ${matter.title}`;
+}
+
 /** What the surface around the panel knows, and the draft does not. */
 export interface CheckSurface {
   /** The matter this check is filed under, or null for a check that names none. */

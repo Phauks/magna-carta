@@ -391,12 +391,28 @@ export interface CheckRead {
   run: RunSummary;
   /** That run's record, or null while it has none (queued, running, or failed). */
   record: CheckWithHits | null;
+  /**
+   * The selected run's candidates, or none while it has no record. The same rows `record.hits`
+   * carries, reachable without narrowing the record first — a caller that only wants to count what
+   * surfaced should not have to know that a run in flight has no record yet.
+   */
+  hits: HitDetail[];
 }
 
 /** Whether a run is still doing something, i.e. whether a screen should keep asking. */
 export function runInFlight(run: RunSummary): boolean {
   return run.status === "queued" || run.status === "running";
 }
+
+/** How often a screen asks after a run in flight. A search takes seconds; a second is the cadence. */
+export const RUN_POLL_INTERVAL_MILLISECONDS = 1000;
+
+/**
+ * The longest a caller waits on one run before giving up on it. Past two minutes without a heartbeat
+ * the server settles a run as failed on the next read, so a wait this long always ends in a settled
+ * run or a read that could not be made.
+ */
+const RUN_WAIT_CEILING_MILLISECONDS = 3 * 60 * 1000;
 
 // ---- where a matter stands -------------------------------------------------------------------
 
@@ -594,13 +610,54 @@ export function fileConflictsCheckOnMatter(
  * One check with its runs, and the selected run's record where it has one. `runId` picks a run out
  * of the history; omitted, the read is at the latest.
  */
-export function readConflictsCheck(
+export async function readConflictsCheck(
   fetchImpl: typeof fetch,
   checkId: string,
   runId?: string,
 ): Promise<ApiOutcome<CheckRead>> {
   const query = runId === undefined ? "" : `?run=${encodeURIComponent(runId)}`;
-  return requestJson(fetchImpl, `/api/v1/conflicts/checks/${encodeURIComponent(checkId)}${query}`);
+  const outcome = await requestJson<Omit<CheckRead, "hits">>(
+    fetchImpl,
+    `/api/v1/conflicts/checks/${encodeURIComponent(checkId)}${query}`,
+  );
+  if (outcome.kind !== "ok") return outcome;
+  return { kind: "ok", value: { ...outcome.value, hits: outcome.value.record?.hits ?? [] } };
+}
+
+/**
+ * Wait for a run to settle, reading the check the way its screen does until the run is no longer
+ * in flight. Answers the settled read, or the first read that could not be made. Bounded: a run
+ * that never settles ends as a failed run on the server's own stale rule, not as a wait forever.
+ */
+export async function awaitConflictsRun(
+  fetchImpl: typeof fetch,
+  checkId: string,
+  runId: string,
+): Promise<ApiOutcome<CheckRead>> {
+  const startedAt = Date.now();
+  for (;;) {
+    const outcome = await readConflictsCheck(fetchImpl, checkId, runId);
+    if (outcome.kind !== "ok" || !runInFlight(outcome.value.run)) return outcome;
+    if (Date.now() - startedAt > RUN_WAIT_CEILING_MILLISECONDS) return outcome;
+    await new Promise((resolve) => setTimeout(resolve, RUN_POLL_INTERVAL_MILLISECONDS));
+  }
+}
+
+/**
+ * Open a check and wait for its first run to settle, for a caller that wants the finished check in
+ * one call — the new-matter panel, which runs a check as part of opening the file and then counts
+ * what surfaced. The check's own screen does not use this: it shows the run as it goes.
+ */
+export async function runConflictsCheck(
+  fetchImpl: typeof fetch,
+  request: RunCheckRequest,
+  idempotencyKey: string,
+): Promise<ApiOutcome<OpenedCheck>> {
+  const opened = await openConflictsCheck(fetchImpl, request, idempotencyKey);
+  if (opened.kind !== "ok") return opened;
+  const settled = await awaitConflictsRun(fetchImpl, opened.value.id, opened.value.runId);
+  if (settled.kind !== "ok") return settled;
+  return opened;
 }
 
 /**

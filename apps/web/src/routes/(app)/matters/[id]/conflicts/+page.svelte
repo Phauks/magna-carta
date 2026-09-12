@@ -119,9 +119,12 @@
       failure = stated(outcome.failure, "The re-check could not be started.");
       return;
     }
-    // Straight to what it found, rather than back to a panel the reader would have to re-read to
-    // learn anything.
-    await goto(`/conflicts/checks/${outcome.value.id}`);
+    // Straight to the run, which the check's screen shows as it goes, rather than back to a panel
+    // the reader would have to re-read to learn anything. The run is named so the screen opens on
+    // this run rather than on whichever the check ran last.
+    await goto(
+      `/conflicts/checks/${outcome.value.id}?run=${encodeURIComponent(outcome.value.runId)}`,
+    );
   }
 
   $effect(() => {
