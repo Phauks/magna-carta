@@ -43,14 +43,17 @@ files you are looking at. Remove anything you did not mean to include with **Rem
   number to find it.
 - **Folder** — the folder you were looking at, the matter's Home, or any folder you pick from the
   tree. A folder you upload is recreated inside the one you choose.
-  **Advanced Settings**, at the foot of that side, is folded shut and holds the two answers most
+  **Advanced Settings**, at the foot of that side, is folded shut and holds the three answers most
   uploads never need to change:
 
 - **Date Created** — whether each file keeps the date it already carries, or takes the date of the
   upload. Files keep their own date unless you say otherwise; that date is kept on the record either
   way, and shows in the file's details as **File's Own Date**.
-- **Files the Firm Already Holds** — whether a file your firm already has is sent again. It is not,
-  by default; see _Files you already have_ below.
+- **Files the Firm Already Holds** — whether a file your firm already has is sent again, or copied
+  into place without sending. Copied, by default; see _Files you already have_ below.
+- **When a Name Is Already Taken** — what happens to a file whose name is already in the folder it
+  lands in: kept beside the other under a numbered name (the default), filed as the next version of
+  the file that has the name, or skipped. See _When a name is taken_ below.
 
 **A document type is set per file, not for the whole upload.** If your firm uses document types,
 select the rows you want — a folder row means everything inside it — and choose **Document Type**
@@ -70,12 +73,27 @@ pieces behind the scenes; you see one upload, and a piece that stumbles is sent 
 ### Files you already have
 
 Before a file is sent, Magna Carta reads it and asks whether your firm already holds exactly those
-bytes. If the matter already has the file, its row reads **Already here** and nothing is sent. If
-another of your firm's matters has it, the file is copied onto this matter without an upload, and
-reads **Uploaded** as usual. So if a batch fails part-way and you send the same folder again, only
-the files that did not land are sent. The read happens on your computer, a chunk at a time, with
-the row reading **Reading** and the share done, so a file of any size is asked about before a byte
-of it is sent.
+bytes. If it does — on this matter or on another — the file is copied into place without an upload,
+and its row reads **Uploaded** as usual, with a note saying where the copy came from. It is still a
+file of its own: choosing to upload it means you wanted it there, and holding the same bytes
+elsewhere is only a reason not to send them over the wire again. So two identical files you chose
+both arrive, and a file you upload twice is there twice. The read happens on your computer, a chunk
+at a time, with the row reading **Reading** and the share done, so a file of any size is asked about
+before a byte of it is sent.
+
+### When a name is taken
+
+A file whose name is already in the folder it lands in asks one question, and only that one: what
+to call it. By default it is kept beside the other under a numbered name — _letter (2).pdf_ — so
+nothing is lost and nothing is asked later. Under Advanced Settings you can instead have every such
+file filed as the next **version** of the file that has the name (the original stays in its
+history), or **skipped** and left out of the upload. The **Name Taken** column shows which files are
+asking and what the answer is; to answer some of them differently, select their rows and choose
+**Name Taken** above the list. A file skipped this way reads **Skipped**, sends nothing, and is not
+read.
+
+Two files in the same batch that share a name are filed as numbered copies without asking — there is
+no existing file to make a version of.
 
 **Reading starts as soon as you choose a file**, while you are still deciding where it goes, so by
 the time you press **Upload** most of the answers are already in and nothing waits on a read that

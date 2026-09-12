@@ -34,7 +34,29 @@ import { UPLOAD_STAGE_NARRATION, type UploadStage } from "./file-upload.ts";
  * Where one chosen file stands: not yet sent, one of the ceremony's steps, failed, or not sent
  * because the reader cancelled the batch before its turn came.
  */
-export type IntakeStage = "chosen" | "hashing" | UploadStage | "already" | "failed" | "cancelled";
+export type IntakeStage = "chosen" | "hashing" | UploadStage | "skipped" | "failed" | "cancelled";
+
+/**
+ * What happens to a chosen file whose name is already taken in the folder it would land in. The
+ * reader decides, per file or for the batch: file it beside the other under a numbered name, file
+ * it as the next version of the file that has the name, or leave it out. Identical BYTES are never
+ * the question here — a file the firm already holds is copied rather than sent, and still becomes
+ * its own file; only a NAME clash asks anything.
+ */
+export type NameClashChoice = "keep-both" | "new-version" | "skip";
+
+export const NAME_CLASH_LABEL: Readonly<Record<NameClashChoice, string>> = {
+  "keep-both": "Keep both",
+  "new-version": "New version",
+  skip: "Skip",
+};
+
+export const NAME_CLASH_ORDER: readonly NameClashChoice[] = ["keep-both", "new-version", "skip"];
+
+/** A file's name clash, as the dialog resolves it: who has the name, and what the reader chose. */
+export type IntakeNameClash = (key: string) => { takenBy: string; choice: NameClashChoice } | null;
+
+const NO_NAME_CLASH: IntakeNameClash = () => null;
 
 export interface IntakeProgress {
   readonly stage: IntakeStage;
@@ -165,8 +187,8 @@ export interface IntakeFolderRow {
   readonly uploaded: number;
   readonly failed: number;
   readonly inFlight: number;
-  /** Files the matter already held, so nothing was sent for them. */
-  readonly alreadyHere: number;
+  /** Files the reader chose to leave out because their names were taken. */
+  readonly skipped: number;
   /** Bytes sent so far across the files beneath it; a settled file counts in full. */
   readonly sentBytes: number;
   /** Whether the row is showing its children. */
@@ -189,6 +211,10 @@ export interface IntakeFileRow {
   readonly hashedBytes: number;
   /** The firm's classification this file will carry, as the reader named it; "" for none. */
   readonly documentType: string;
+  /** The file in the landing folder that already has this name, when one does. */
+  readonly nameTakenBy: string | null;
+  /** What the reader chose for that clash; null where there is none. */
+  readonly nameClash: NameClashChoice | null;
 }
 
 export type IntakeRow = IntakeFolderRow | IntakeFileRow;
@@ -228,7 +254,7 @@ interface Aggregate {
   uploaded: number;
   failed: number;
   inFlight: number;
-  alreadyHere: number;
+  skipped: number;
   sentBytes: number;
 }
 
@@ -237,7 +263,7 @@ export function sentBytesOf(size: number, state: IntakeProgress | undefined): nu
   if (state === undefined) return 0;
   if (
     state.stage === "settled" ||
-    state.stage === "already" ||
+    state.stage === "skipped" ||
     state.stage === "committing" ||
     state.stage === "scanning"
   ) {
@@ -254,7 +280,7 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     uploaded: 0,
     failed: 0,
     inFlight: 0,
-    alreadyHere: 0,
+    skipped: 0,
     sentBytes: 0,
   };
   for (const entry of node.files) {
@@ -266,7 +292,7 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     const state = progress.get(intakeEntryKey(entry));
     const stage = state?.stage ?? "chosen";
     if (stage === "settled") total.uploaded += 1;
-    else if (stage === "already") total.alreadyHere += 1;
+    else if (stage === "skipped") total.skipped += 1;
     else if (stage === "failed") total.failed += 1;
     else if (stage !== "chosen" && stage !== "cancelled") total.inFlight += 1;
     total.sentBytes += sentBytesOf(entry.file.size, state);
@@ -281,7 +307,7 @@ function aggregate(node: FolderNode, progress: ReadonlyMap<string, IntakeProgres
     total.uploaded += below.uploaded;
     total.failed += below.failed;
     total.inFlight += below.inFlight;
-    total.alreadyHere += below.alreadyHere;
+    total.skipped += below.skipped;
     total.sentBytes += below.sentBytes;
   }
   return total;
@@ -297,9 +323,11 @@ function fileRow(
   depth: number,
   progress: ReadonlyMap<string, IntakeProgress>,
   documentTypeName: IntakeDocumentTypeName,
+  nameClash: IntakeNameClash,
 ): IntakeFileRow {
   const key = intakeEntryKey(entry);
   const state = progress.get(key);
+  const clash = nameClash(key);
   return {
     kind: "file",
     key: intakeFileKey(entry),
@@ -312,6 +340,8 @@ function fileRow(
     sentBytes: sentBytesOf(entry.file.size, state),
     hashedBytes: Math.min(entry.file.size, state?.hashedBytes ?? 0),
     documentType: documentTypeName(key),
+    nameTakenBy: clash === null ? null : clash.takenBy,
+    nameClash: clash === null ? null : clash.choice,
   };
 }
 
@@ -325,9 +355,10 @@ export function intakeRows(
   progress: ReadonlyMap<string, IntakeProgress>,
   expanded: ReadonlySet<string> | null,
   documentTypeName: IntakeDocumentTypeName = NO_DOCUMENT_TYPE,
+  nameClash: IntakeNameClash = NO_NAME_CLASH,
 ): IntakeRow[] {
   if (expanded === null) {
-    return entries.map((entry) => fileRow(entry, 0, progress, documentTypeName));
+    return entries.map((entry) => fileRow(entry, 0, progress, documentTypeName, nameClash));
   }
   const rows: IntakeRow[] = [];
   const walk = (node: FolderNode, depth: number): void => {
@@ -345,7 +376,7 @@ export function intakeRows(
       if (open) walk(child, depth + 1);
     }
     for (const entry of node.files) {
-      rows.push(fileRow(entry, depth, progress, documentTypeName));
+      rows.push(fileRow(entry, depth, progress, documentTypeName, nameClash));
     }
   };
   walk(buildTree(entries), 0);
@@ -416,7 +447,7 @@ export const INTAKE_STAGE_LABEL: Readonly<Record<IntakeStage, string>> = {
   committing: "Recording",
   scanning: "Checking",
   settled: "Uploaded",
-  already: "Already here",
+  skipped: "Skipped",
   failed: "Upload failed",
   cancelled: "Not sent",
 };
@@ -431,7 +462,7 @@ export const INTAKE_STAGE_ORDER: readonly IntakeStage[] = [
   "committing",
   "scanning",
   "settled",
-  "already",
+  "skipped",
   "failed",
   "cancelled",
 ];
@@ -468,7 +499,7 @@ export function intakeStageSentence(row: IntakeFileRow): string {
     const read = formatBytes(row.hashedBytes);
     return `Reading the file to ask whether the firm already holds it: ${read} of ${formatBytes(row.entry.file.size)}.`;
   }
-  if (row.stage === "already") return row.reason ?? "The matter already holds this file.";
+  if (row.stage === "skipped") return row.reason ?? "Skipped: its name was already taken.";
   if (row.stage === "cancelled")
     return "Not sent: the upload was cancelled before this file's turn.";
   if (row.stage === "uploading") {
@@ -480,11 +511,11 @@ export function intakeStageSentence(row: IntakeFileRow): string {
 
 /** A folder row's standing, as one phrase: what is chosen, or how its files are doing. */
 export function intakeFolderStatus(row: IntakeFolderRow): string {
-  if (row.uploaded === 0 && row.failed === 0 && row.inFlight === 0 && row.alreadyHere === 0) {
+  if (row.uploaded === 0 && row.failed === 0 && row.inFlight === 0 && row.skipped === 0) {
     return "Chosen";
   }
   const parts = [`${String(row.uploaded)} of ${String(row.fileCount)} uploaded`];
-  if (row.alreadyHere > 0) parts.push(`${String(row.alreadyHere)} already here`);
+  if (row.skipped > 0) parts.push(`${String(row.skipped)} skipped`);
   if (row.failed > 0) parts.push(`${String(row.failed)} failed`);
   if (row.inFlight > 0) parts.push(`${String(intakePercent(row.sentBytes, row.totalBytes))}%`);
   return parts.join(" · ");
@@ -508,6 +539,11 @@ export function intakeColumns(context: {
    * blanks with a filter offering nothing, so it is not drawn.
    */
   readonly documentTypes: boolean;
+  /**
+   * Whether any chosen file's name is already taken where it would land. Like the classification
+   * column, the column exists only while there is something to decide in it.
+   */
+  readonly nameClashes: boolean;
 }): GridColumn<IntakeRow>[] {
   return [
     {
@@ -568,6 +604,29 @@ export function intakeColumns(context: {
             // this panel, where the whole point of the column is deciding what each file carries.
             value: (row: IntakeRow) =>
               row.kind === "folder" ? "" : row.documentType === "" ? "None" : row.documentType,
+          } satisfies GridColumn<IntakeRow>,
+        ]
+      : []),
+    /*
+     * The name clash and what the reader chose about it. Only files with a clash have a value; the
+     * rest read blank, so the column filter picks out exactly the files that are asking.
+     */
+    ...(context.nameClashes
+      ? [
+          {
+            id: "nameClash",
+            label: "Name Taken",
+            type: "text",
+            filter: "set",
+            filterValues: NAME_CLASH_ORDER.map((choice) => NAME_CLASH_LABEL[choice]),
+            value: (row: IntakeRow) =>
+              row.kind === "folder" || row.nameClash === null
+                ? ""
+                : NAME_CLASH_LABEL[row.nameClash],
+            text: (row: IntakeRow) =>
+              row.kind === "folder" || row.nameClash === null || row.nameTakenBy === null
+                ? ""
+                : `${NAME_CLASH_LABEL[row.nameClash]} · ${row.nameTakenBy}`,
           } satisfies GridColumn<IntakeRow>,
         ]
       : []),

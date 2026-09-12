@@ -62,12 +62,17 @@ export type UploadStage =
 export type UploadOutcome =
   /**
    * The bytes cleared the gate: the file is on the matter, in the folder that was asked for.
-   * `copiedFrom` is set when no byte crossed the network — the firm already held the bytes on
-   * another matter and the file was made from them server-side.
+   * `copiedFrom` is set when no byte crossed the network — the firm already held the bytes, on
+   * this matter or another, and the file was made from them server-side. It is a file of its own
+   * either way: holding the bytes already is a reason not to SEND them, never a reason not to file
+   * what the reader chose to file.
    */
-  | { kind: "committed"; fileId: string; versionId: string | null; copiedFrom?: "firm" }
-  /** The matter already holds exactly these bytes as a live file; nothing was sent or made. */
-  | { kind: "already"; fileId: string; name: string; folderId: string | null }
+  | {
+      kind: "committed";
+      fileId: string;
+      versionId: string | null;
+      copiedFrom?: "matter" | "firm";
+    }
   /** The gate refused the bytes. The file is on the matter and says so; it has no content. */
   | { kind: "flagged"; fileId: string; reason: string | null }
   /** Everything the caller controls succeeded; the verdict had not landed before the wait ran out. */
@@ -133,9 +138,9 @@ export interface UploadRequest {
   readonly fileId?: string;
   /**
    * The SHA-256 of the file's bytes, when the caller hashed it first. Given, the firm is asked
-   * whether it already holds the bytes before any are sent: a live file on the matter with them is
-   * reported as already there, and one elsewhere in the firm is duplicated server-side. Null or
-   * absent means the question is not put. Never used for a new version of an existing file — the
+   * whether it already holds the bytes before any are sent, and a live file that does — on this
+   * matter or elsewhere in the firm — is duplicated server-side into the new file, with no bytes
+   * sent. Null or absent means the question is not put. Never used for a new version of an existing file — the
    * host's own hash check at ingest already answers that case.
    */
   readonly sha256?: string | null;
@@ -353,12 +358,11 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
     );
     if (cancelled(signal)) return { kind: "cancelled", stage: "matching" };
     if (matches.kind === "ok") {
+      // A match on the matter and a match elsewhere are the same economy: the bytes exist, so the
+      // new file is made from them rather than sent. The matter's own copy is preferred as the
+      // source only because it is certain to be readable by this matter's members.
       const here = matches.value.onMatter[0];
-      if (here !== undefined) {
-        onStage?.("settled");
-        return { kind: "already", fileId: here.fileId, name: here.name, folderId: here.folderId };
-      }
-      const held = matches.value.elsewhere[0];
+      const held = here ?? matches.value.elsewhere[0];
       if (held !== undefined) {
         const made = await duplicateHeldVersion(
           fetchImpl,
@@ -382,7 +386,7 @@ export async function uploadIntoFolder(request: UploadRequest): Promise<UploadOu
             kind: "committed",
             fileId: made.value.fileId,
             versionId: made.value.versionId,
-            copiedFrom: "firm",
+            copiedFrom: here === undefined ? "firm" : "matter",
           };
         }
       }

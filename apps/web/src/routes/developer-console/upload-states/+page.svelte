@@ -49,7 +49,7 @@
   ];
 
   const FAILS = new Set(["Hale - transcript.pdf", "2026-08-14 reply.docx"]);
-  /** A file the matter already holds: the stand-in answers the hash question with it. */
+  /** A file the matter already holds: the stand-in files it as a copy made server-side. */
   const ALREADY_HELD = new Set(["exhibit index.xlsx"]);
   /** The sizes the fixture declares; the File objects themselves are kept tiny. */
   const SIZES = new Map(FIXTURE.map((item) => [item.file.name, item.file.size]));
@@ -94,10 +94,10 @@
           await beat();
           request.onStage?.("settled");
           return {
-            kind: "already",
+            kind: "committed",
             fileId: "file-held",
-            name: request.file.name,
-            folderId: "discovery",
+            versionId: "version-held",
+            copiedFrom: "matter",
           };
         }
         for (const stage of STAGES) {
