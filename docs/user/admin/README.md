@@ -4,6 +4,13 @@ Setup and administration for the firm owner / administrator: onboarding, users &
 
 Plain language, task-oriented — same pattern as the end-user guides ([`../README.md`](../README.md)), aimed at the person configuring the firm rather than using day-to-day features.
 
+- [Firm Profile](firm-profile.md) — the name clients read, the firm's primary mark and the images
+  kept beside it, why an office's letterhead prints the primary mark until the office has a logo of
+  its own, and the view of the firm's offices.
+- [Offices](offices.md) — the register of the firm's offices; opening one with its country-shaped
+  addresses, each with its own telephone, its email, time zone and numbering code; who works at an
+  office and which is their primary; the letterhead logo and its printed width; the firm's default
+  office; and closing an office.
 - [Trust money-out approvals: your firm's policy](trust-disbursement-approvals.md) — who has the
   authority to release money out of client trust ledgers (and take earned fees against bills),
   whether larger payments take a second person as well, and how a payment reaches somebody who can
