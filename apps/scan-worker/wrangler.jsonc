@@ -33,14 +33,16 @@
   //               so the container image (and therefore ClamAV signatures) is rebuilt daily. A no-op
   //               when SCAN_BUILD_DEPLOY_HOOK_URL is unset (the secret is not required at deploy time).
   //
-  // The */20 warm-poke is intentionally OFF while no firms are onboarded: with zero scan traffic,
-  // pinning a standard-1 instance resident keeps its 4 GiB billed continuously (~$26/mo memory) for
-  // no benefit. Without the poke the container reaches its 30-minute sleepAfter and scales to zero,
-  // so it bills only while an actual scan runs. Re-add "*/20 * * * *" when the first firm is
-  // onboarded — that keeps clamd's signature DB resident so the first real scan isn't a ~30-60s cold
-  // start. The poke handler stays wired in index.ts (SCAN_WARM_CRON), so re-enabling is this one line.
+  //   */20 * * * * — the warm-poke: hits the primary shard's /ready inside the container's 30-minute
+  //               sleepAfter, so one standard-1 instance stays resident with clamd's signature DB
+  //               loaded. ON since 2026-09-11, the day the first firm uploaded: without it every
+  //               scan after a quiet half hour paid a 30-60 s cold start, the engine answered 500
+  //               until the DB was loaded, and the member watched "Checking the file" for minutes.
+  //               It costs the instance's memory continuously (the figure is kept in
+  //               docs/operating-costs.md); with no firms onboarded it was off for that reason.
+  //               The interactive ingest lane sends keyless scans to this shard (scan-shard.ts).
   "triggers": {
-    "crons": ["0 7 * * *"],
+    "crons": ["0 7 * * *", "*/20 * * * *"],
   },
   "observability": { "enabled": true, "head_sampling_rate": 1 },
 }

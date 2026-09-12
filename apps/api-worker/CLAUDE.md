@@ -508,3 +508,10 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
   invisible to the test harness's teardown barrier and will eventually fail a run in a file that
   passed; the rule and the reasoning are in
   [`docs/conventions/testing.md`](../../docs/conventions/testing.md) (_Work that outlives the test_).
+- **The interactive ingest lane scans on the warm shard, and a failed message retries with a
+  backoff.** `ingestQueue` reads the lane off `batch.queue`: the interactive lane sends NO shard key,
+  so the scan worker routes to the one instance its warm-poke keeps resident; the bulk lane keeps the
+  per-file key for the fan-out. A throw retries with `delaySeconds` growing per attempt (ten seconds,
+  capped at a minute) under a ten-retry budget in `wrangler.jsonc` — three immediate retries used to
+  meet the same cold engine three times running and dead-letter a file a member was watching, who
+  then waited for the five-minute redrive.
