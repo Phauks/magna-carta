@@ -146,8 +146,10 @@ whole: one screen improves two.
   disclosure line naming the model, the attachment rows with per-file outcomes, the Attach control
   refused with its reason when nothing can be attached), `conversation-name.svelte` (R3), and two
   dialogs (`move-conversation-dialog.svelte`, `attach-file-dialog.svelte`). The surface keeps the
-  shared state and the acts; the workspace's column frame is ONE snippet (`railColumn`) so the design
-  system's `NavigationLayout` can take it over as a single swap when it lands. States shipped:
+  shared state and the acts; the workspace's two sides are the design system's `NavigationLayout`
+  (`navigationLabel="Conversations"`, `navigationWidth="narrow"`, `contentScrolls={false}` because
+  the transcript owns its scroller with the composer pinned beneath it), with the screen's header
+  riding inside the content column since the layout takes the whole canvas. States shipped:
   loading (fixtures for rail and transcript), empty (the record's own words, with the order control
   present), failed (notices with Retry for the availability read, the listing, the conversation read,
   a rename, a move, an attach, a detach), dense (paged rail, paged transcript). The head-row acts wear

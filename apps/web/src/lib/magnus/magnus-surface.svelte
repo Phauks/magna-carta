@@ -11,9 +11,9 @@
    * (magnus-composer.svelte) adds to it. This file holds the state the three share — which
    * conversation is open, whether the assistant can be used here at all, the reads that fill the
    * rail — and the acts on a conversation: naming it in place, keeping it on a matter, attaching a
-   * matter's files, deleting it. The column frame the rail stands in for the workspace is ONE swap
-   * point (`railColumn` below), so the design system's navigation layout can take it over without
-   * touching the parts.
+   * matter's files, deleting it. The workspace's two sides are the design system's
+   * `NavigationLayout` — the rail in its navigation column, the header and the open conversation in
+   * its content column — so this file draws no column frame, width or scroll region of its own.
    *
    * THE MATTER LINK SCOPES THE RECORD, NOT THE PROMPT. A conversation kept on a matter's file is a
    * transcript that matter keeps; being kept there puts none of that matter's content into anything
@@ -36,11 +36,13 @@
    * NOTHING ABOUT A CONVERSATION IS LOGGED HERE. Not a console line, not a diagnostics record: a
    * failure reports what the server said about the request, never what anybody typed.
    */
+  import type { Snippet } from "svelte";
   import * as Conversation from "@magna-carta/design-system/conversation";
   import Button from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import Label from "@magna-carta/design-system/label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
+  import NavigationLayout from "@magna-carta/design-system/navigation-layout";
   import * as Tooltip from "@magna-carta/design-system/tooltip";
   import { SAMPLE_SENTENCE, sampleInstant } from "@magna-carta/design-system/loading-fixtures";
   import FolderInput from "@lucide/svelte/icons/folder-input";
@@ -102,6 +104,13 @@
      * use is disabled with the reason, never live and inert.
      */
     createRefusal?: string | undefined;
+    /**
+     * The screen's own header, drawn at the top of the content column. Only the workspace has one:
+     * the design system's navigation layout takes the full height under the top bar, so a header
+     * belongs inside it rather than above it. The matter section draws none (its masthead is the
+     * matter's).
+     */
+    header?: Snippet;
   }
 
   let {
@@ -113,6 +122,7 @@
     emptyTitle,
     emptyDescription,
     createRefusal = $bindable(undefined),
+    header,
   }: Props = $props();
 
   /** The switcher's value for a conversation that has not been started yet. */
@@ -591,71 +601,20 @@
   />
 {/snippet}
 
-<!-- THE COLUMN FRAME, in one place. The workspace stands the rail as a column beside the transcript;
-     this snippet is the frame and nothing else, so the design system's navigation layout can take it
-     over as one swap without touching the rail, the transcript or the composer. -->
-{#snippet railColumn(shown: readonly MagnusConversation[], detail: import("svelte").Snippet)}
-  <div class="flex min-h-0 flex-1 gap-24">
-    <div class="mc-scrollbar flex w-2xs shrink-0 flex-col gap-8 overflow-y-auto">
-      {@render railRows(shown)}
-    </div>
-    <div class="flex min-h-0 flex-1 flex-col gap-16">{@render detail()}</div>
-  </div>
+{#snippet railFixture()}
+  {@render railRows(FIXTURE_ROWS)}
 {/snippet}
 
-{#snippet switcher(shown: readonly MagnusConversation[])}
-  <!-- Inside a matter the conversations are few, so they are offered as the product's one closed
-       choice — a combobox, never a select — with the order control beside it. The control is there
-       with nothing to switch between: the rail with one row still shows how it is read. -->
-  <div class="flex flex-wrap items-center gap-8">
-    <Label for="magnus-switcher">Conversation</Label>
-    <div class="w-2xs">
-      <ChoicePicker
-        inputId="magnus-switcher"
-        label="Conversation"
-        options={[
-          { value: UNSTARTED, label: "A new conversation" },
-          ...shown.map((conversation) => ({
-            value: conversation.id,
-            label: conversationDisplayName(conversation),
-          })),
-        ]}
-        value={selectedId ?? UNSTARTED}
-        onchange={switchTo}
-      />
-    </div>
-    <MagnusRail
-      rows={[]}
-      selectedId={null}
-      bind:sort
-      onMatter
-      emptyLine=""
-      onSelect={select}
-      onSortChange={reorder}
-    />
-  </div>
-{/snippet}
-
-{#snippet surfaceFixture()}
-  {#if rail === "column"}
-    {@render railColumn(FIXTURE_ROWS, detailFixture)}
-  {:else}
-    {@render detailFixture()}
-  {/if}
-{/snippet}
-
-{#if isSample}
-  <EmptyState title="No Magnus Conversations On A Sample Matter">
-    This is one of the sample matters the interface is reviewed against. It has no firm behind it,
-    so there is nothing to ask Magnus about and no transcript to read.
-  </EmptyState>
-{:else}
+<!-- THE GATED STATES AND THE RECORD, behind one region. Every answer of the availability read but
+     `open` means there is no composer to draw, and each gets its own honest words; a failed first
+     read settles to the notice with Retry, so the shape never stands over nothing. -->
+{#snippet gatedOrDetail()}
   <LoadingRegion
     loading={reading}
     failed={readingFailed}
     label="Reading your conversations with Magnus"
     onRetry={retryRead}
-    fixture={surfaceFixture}
+    fixture={detailFixture}
     class="flex min-h-0 flex-1 flex-col gap-16"
   >
     {#snippet failure()}
@@ -693,13 +652,82 @@
       />
     {:else if firmGate !== null}
       <MagnusUnavailable state={firmGate} />
-    {:else if rail === "column"}
-      {@render railColumn(rows ?? [], conversationDetail)}
     {:else}
-      {@render switcher(rows ?? [])}
+      {#if rail === "switcher"}
+        {@render switcher(rows ?? [])}
+      {/if}
       {@render conversationDetail()}
     {/if}
   </LoadingRegion>
+{/snippet}
+
+{#snippet switcher(shown: readonly MagnusConversation[])}
+  <!-- Inside a matter the conversations are few, so they are offered as the product's one closed
+       choice — a combobox, never a select — with the order control beside it. The control is there
+       with nothing to switch between: the rail with one row still shows how it is read. -->
+  <div class="flex flex-wrap items-center gap-8">
+    <Label for="magnus-switcher">Conversation</Label>
+    <div class="w-2xs">
+      <ChoicePicker
+        inputId="magnus-switcher"
+        label="Conversation"
+        options={[
+          { value: UNSTARTED, label: "A new conversation" },
+          ...shown.map((conversation) => ({
+            value: conversation.id,
+            label: conversationDisplayName(conversation),
+          })),
+        ]}
+        value={selectedId ?? UNSTARTED}
+        onchange={switchTo}
+      />
+    </div>
+    <MagnusRail
+      rows={[]}
+      selectedId={null}
+      bind:sort
+      onMatter
+      emptyLine=""
+      onSelect={select}
+      onSortChange={reorder}
+    />
+  </div>
+{/snippet}
+
+{#if isSample}
+  <EmptyState title="No Magnus Conversations On A Sample Matter">
+    This is one of the sample matters the interface is reviewed against. It has no firm behind it,
+    so there is nothing to ask Magnus about and no transcript to read.
+  </EmptyState>
+{:else if rail === "column"}
+  <!-- THE WORKSPACE IS THE DESIGN SYSTEM'S TWO-SIDED SCREEN: the rail in the navigation column, the
+       screen's header and the open conversation in the content column. The layout owns the width,
+       the two scroll regions and the canvas geometry; the transcript owns its own scroller with the
+       composer pinned beneath it, which is why the content column does not scroll as a whole. The
+       rail stands only while the assistant is open here: behind a closed gate there is no record to
+       order, and the content column carries the gate's own words. -->
+  <NavigationLayout navigationLabel="Conversations" navigationWidth="narrow" contentScrolls={false}>
+    {#snippet navigation()}
+      {#if isOpen || reading}
+        <LoadingRegion
+          loading={reading}
+          label="Reading your conversations"
+          fixture={railFixture}
+          class="flex flex-col gap-8"
+        >
+          {@render railRows(rows ?? [])}
+        </LoadingRegion>
+      {/if}
+    {/snippet}
+    <div class="flex min-h-0 flex-1 flex-col gap-16 p-24">
+      {#if header}
+        {@render header()}
+      {/if}
+      {@render gatedOrDetail()}
+    </div>
+  </NavigationLayout>
+{:else}
+  {@render gatedOrDetail()}
 {/if}
 
 <ConversationDeleteDialog

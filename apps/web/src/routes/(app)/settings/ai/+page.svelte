@@ -29,6 +29,7 @@
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
@@ -94,8 +95,28 @@
   showHistory={false}
 />
 
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
+<!-- One reported fact about the model, in the Versions page's definition-list voice: the shared
+     table grid (marker gutter, flexible label, value at the control-column measure), so these rows
+     keep the same vertical edge as the switches above them without pretending to be controls.
+     `detail` carries the one-line reading of a value that needs one. Declared at the top level: a
+     snippet declared inside a component's children would become that component's prop. -->
+{#snippet modelFact(label: string, value: string, detail: string | null)}
+  <div class="flex items-baseline gap-16 py-12">
+    <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
+    <FieldLabel as="dt" class="min-w-0 grow">{label}</FieldLabel>
+    <dd
+      class="flex shrink-0 flex-col items-end gap-4 text-end"
+      style="inline-size: var(--mc-size-popover)"
+    >
+      <span class="text-sm font-medium text-text-default tabular-nums">{value}</span>
+      {#if detail !== null}
+        <span class="text-xs text-text-muted">{detail}</span>
+      {/if}
+    </dd>
+  </div>
+{/snippet}
+
+<SettingsScrollRegion>
     <SettingsDescription>
       Whether this firm's content may be sent to a model, and which of the platform's features may
       send it. Everything here is off until the firm turns it on.
@@ -110,26 +131,6 @@
         onRetry={() => void draft.commit()}
       />
     {/if}
-
-    <!-- One reported fact about the model, in the Versions page's definition-list voice: the shared
-         table grid (marker gutter, flexible label, value at the control-column measure), so these
-         rows keep the same vertical edge as the switches above them without pretending to be
-         controls. `detail` carries the one-line reading of a value that needs one. -->
-    {#snippet modelFact(label: string, value: string, detail: string | null)}
-      <div class="flex items-baseline gap-16 py-12">
-        <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
-        <FieldLabel as="dt" class="min-w-0 grow">{label}</FieldLabel>
-        <dd
-          class="flex shrink-0 flex-col items-end gap-4 text-end"
-          style="inline-size: var(--mc-size-popover)"
-        >
-          <span class="text-sm font-medium text-text-default tabular-nums">{value}</span>
-          {#if detail !== null}
-            <span class="text-xs text-text-muted">{detail}</span>
-          {/if}
-        </dd>
-      </div>
-    {/snippet}
 
     <!--
       ONE READ, ONE FAILURE NOTICE. All three plates below are drawn from the single
@@ -305,8 +306,7 @@
       </p>
     {/if}
     {/if}
-  </div>
-</div>
+</SettingsScrollRegion>
 
 {#if canEdit}
   <SettingsCommitFooter {draft} />

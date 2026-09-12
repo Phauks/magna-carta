@@ -217,7 +217,7 @@
   surface: screen
   spec: docs/specs/2026-09-07-magnus-interface-design.md
   evidence: The design-system Conversation component (packages/design-system/src/lib/components/conversation), the shared surface composed of the rail, the transcript, the composer and the in-place name (apps/web/src/lib/magnus), and the two routes it serves — apps/web/src/routes/(app)/magnus and apps/web/src/routes/(app)/matters/[id]/magnus. The rail sorts by date, name or matter on the server; a conversation is renamed in place, kept on a matter after the fact, and carries the matter's files by reference; the composer names the answering model. Both registries light up: the sidebar destination is shipped and the matter section is at stage alpha. The owner's first round is recorded in docs/conventions/magnus-rulings.md.
-  notes: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The workspace's column frame is one snippet in magnus-surface.svelte, waiting to be swapped for the design system's NavigationLayout when it lands.
+  notes: Partial because the surface polls the turn rather than holding the events socket; the socket lands with token streaming, where a frame can carry a partial answer. The workspace's two sides are the design system's NavigationLayout, its second consumer after Settings.
 
 - id: ai.magnus.context
   name: Explicit per-conversation context grants
