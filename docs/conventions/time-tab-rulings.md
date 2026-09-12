@@ -637,15 +637,14 @@ a separate surface: the consolidation that landed in "A fee becomes a record the
 put the firm-level registers and the matter's sections on one anatomy, `money-surface.svelte`, so a
 ruling about the chrome around one is a ruling about the chrome around the other.
 
-The owner's notes of 2026-09-11, staged. **Nothing here has been started** — every row is `open` as
-a statement of fact rather than an oversight.
+The owner's notes of 2026-09-11, staged on that day and built on 2026-09-12.
 
-| #   | Ruling                                                                                                                                                                                                                                                                | Status |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| MS1 | **The money screens carry the product's one search.** `ScreenSearch` is what every other list screen searches with, and none of the four has it. Same control, same place in the action row.                                                                          | open   |
-| MS2 | **Billing has its create control: "+ Bill".** Time, Fees and Costs each carry one and Billing carries none, so the one screen whose whole subject is a document a firm produces is the one with no way to start it.                                                   | open   |
-| MS3 | **A screen's own dropdown stops answering a question the table already answers.** Where the header's control and a column filter narrow the same list, the column filter is what stays; the screens have each grown their own and they do not agree with one another. | open   |
-| MS4 | **The line of text under the header goes.** A money screen's header reads like every other screen's — the title, and nothing beneath it.                                                                                                                              | open   |
+| #   | Ruling                                                                                                                                                                                                                                                                | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| MS1 | **The money screens carry the product's one search.** `ScreenSearch` is what every other list screen searches with, and none of the four has it. Same control, same place in the action row.                                                                          | settled |
+| MS2 | **Billing has its create control: "+ Bill".** Time, Fees and Costs each carry one and Billing carries none, so the one screen whose whole subject is a document a firm produces is the one with no way to start it.                                                   | settled |
+| MS3 | **A screen's own dropdown stops answering a question the table already answers.** Where the header's control and a column filter narrow the same list, the column filter is what stays; the screens have each grown their own and they do not agree with one another. | settled |
+| MS4 | **The line of text under the header goes.** A money screen's header reads like every other screen's — the title, and nothing beneath it.                                                                                                                              | settled |
 
 **What the code says today.**
 
@@ -671,3 +670,52 @@ a statement of fact rather than an oversight.
 **Registry note.** Two streams claiming this area, `claude/magna-carta-timesheet-ui-uekeer` and
 `claude/billing-uui-consolidation-5l2kiu`, are finished: the second landed in #576, and the first is
 a workspace branch holding no commits of its own. Neither note has been retired.
+
+**Notes recorded this round (2026-09-12).**
+
+- **MS3 settled the obstacle in the table's favour, and the listings pay for it.** A column filter
+  over a cursor-paged register narrows only the loaded page, which is the argument every header
+  dropdown was defending. The answer is that the filters the listing can honour are sent to it as
+  its own parameters: the Date column's two bounds as `from`/`to` (each bound now stands alone, and
+  neither is the whole record — the three listings answered empty for a request naming no span, and
+  now answer the record newest-first over the date index), one Status as `status`, one Billable
+  choice as `billable`, one Timekeeper as `timekeeperUserId`. `apps/web/src/lib/money/listing-scope.ts`
+  is the translation, and it also carries the same choices into the address, so a bookkeeper's month
+  is still a link. The Status, Billable and Timekeeper columns declare their whole vocabulary
+  (`filterValues`), so a reader can pick a state no loaded row carries.
+- **The seam MS3 leaves.** A set filter holding SEVERAL values the listing takes one of — Draft and
+  Submitted together — is sent as nothing, and the table narrows the loaded rows alone. Closing it
+  wants the listings to take a status list; named in the report rather than built, because two of
+  the four statements live outside this round's ownership.
+- **The four screens open on the whole record, not on a default period.** The matters docket's
+  ruling (a list screen shows its whole record by default, and the table is the only thing that
+  narrows it) is applied as written. The named-span presets the old dropdown offered ("this month",
+  "last month", a custom range) are gone with it; the Date column's filter offers two date pickers
+  and nothing more, because the column filter belongs to the design system and this round does not
+  touch it. Whether the date filter should grow the calendar presets is a DataTable question.
+- **MS1 is built on two of the four and honestly marked on the other two.** Fees and Costs gained
+  a `search` on their listings (the inline SQL in their routes: the description, the matter's title
+  and number, the timekeeper's or payee's name) and their `ScreenSearch` drives it. The time and
+  invoice listings' statements live in `packages/timekeeping` and `packages/billing`, outside this
+  round, so Time and Billing render the same control disabled with the Soon mark and the dependency
+  on its hover — the standing rule for a designed-but-unserved control — rather than a search that
+  quietly covered the loaded page.
+- **MS2 opens the draft where the work is.** "+ Bill" leads with a matter picker in the one draft
+  dialog the matter's register already uses (`draft-bill-dialog.svelte` grew the matter-first shape;
+  the client is resolved from the matter's party record through `client-party.ts`, shared with the
+  matter section), and once the draft is open the screen goes to that matter's Billing section with
+  the draft open, because claiming work onto it is that section's act.
+- **MS4 removed the header line and left the partial-total caveat beneath Load-more where it was**,
+  on the firm screens as on the matter tabs: it states a real fact about a figure somebody bills
+  from, and it is not under the header.
+- **Time's whose-time control is now the Timekeeper column**, and a capability holder opens on
+  everyone's time rather than their own, which is the whole-record default. A member without
+  `time:viewFirm` is always asking for their own, whatever the column says, and the column offers
+  them nobody else.
+- **The messaging tabs (design-corrections.md, 2026-09-11) were built to the same conclusion:** the
+  Matter column's filter is the control, its selection reaches the server as the listing's scope
+  ("Not filed" alone is the queue, the set-aside reasons alone are what was set aside, matters alone
+  are what is filed), and the queue's count stands in the counts strip as a `GridFigures` figure.
+  One imperfection recorded: `GridFigures` prefixes "In view:" under any filter, which is right when
+  the filter IS the queue and loose otherwise; a figure that does not narrow needs a way to say so
+  in the component.

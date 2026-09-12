@@ -1,7 +1,7 @@
 # The Firm's Fees
 
-**Fees** in the sidebar shows the flat charges the firm made for its work across every matter, for
-the days you choose. It answers the question a matter cannot: not "what has this file been charged",
+**Fees** in the sidebar shows the flat charges the firm made for its work across every matter,
+most recent first. It answers the question a matter cannot: not "what has this file been charged",
 which is the matter's own Fees section, but "what did the firm charge for work done this month, and
 how much of it is still waiting on a bill".
 
@@ -17,8 +17,8 @@ charge. The amount on a fee is what somebody decided, and nothing multiplies any
 
 ## Where Fees Live, in Two Places
 
-- **Fees, in the sidebar.** This screen. Every fee across every matter, for a span of days. It is
-  where the month gets read back and checked before billing.
+- **Fees, in the sidebar.** This screen. Every fee across every matter. It is where the month gets
+  read back and checked before billing.
 - **A matter's Fees section.** That matter's own record: every fee charged on it, and where a new one
   is written down.
 
@@ -27,35 +27,34 @@ doors.
 
 ## Choosing the Days
 
-The control at the top names the span you are looking at. It opens on **this month**, because a fee
-record is read back at a month end rather than day by day as it is typed.
+The screen opens on the whole record. To look at a span, filter the **Date** column from its own
+heading: right-click the heading, choose Filter Date, and set a first day, a last day, or both. A
+filter set at one end runs to the present, or back to the first fee ever recorded.
 
-Six named spans are offered — today, yesterday, this week, last week, this month, last month — and
-below them a calendar you can drag across for any range you like. A custom range applies the moment
-you have picked both ends; there is no Apply button to forget.
-
-Each span's name says which days it actually covered, so "Last month, Aug 1 to 31" can never be
-showing you something narrower than it claims.
-
-The span is dated by **the day the work was done**, not the day somebody typed the charge in.
+The date is **the day the work was done**, not the day somebody typed the charge in.
 
 ## Billable or Absorbed
 
-The second control chooses which fees you see:
+The **Billable** column starts hidden; turn it on from any column's heading and filter it to
+**Billable** for what a client can be charged for, or **Absorbed** for what the firm decided not to
+charge for. Real work either way; nobody is billed for the absorbed.
 
-- **Billable and absorbed** — everything, which is where it opens.
-- **Billable only** — what a client can be charged for.
-- **Absorbed only** — what the firm decided not to charge for. Real work; nobody is billed for it.
-
-Both choices are in the address, so a bookkeeper's month is a link somebody can send, and it opens
-where they left it rather than on this month.
+The Date, Status and Billable filters are in the address, so a bookkeeper's month is a link
+somebody can send, and it opens where they left it.
 
 ## Narrowing the Table
 
-Every column carries its own filter, reached from the column's own heading — Matter, Timekeeper,
-Status, and the rest. That is the search on this screen: filter Matter to one file, Status to
-approved, Timekeeper to one person, in any combination. The counts strip says how many rows are
-showing out of how many there are, so you always know what a filter left out.
+Every column carries its own filter, reached from the column's own heading — Date, Matter,
+Timekeeper, Status, Billable, and the rest. Filter Matter to one file, Status to approved, Timekeeper
+to one person, in any combination. The counts strip says how many rows are showing out of how many
+there are, so you always know what a filter left out.
+
+The Date, Status and Billable filters reach the record itself, so they hold across every page. A
+Status filter holding two states at once narrows only the rows already loaded; pick one state to
+have it hold across the whole record.
+
+The search at the top reads the whole record too: type part of a description, a matter's name or
+number, or a timekeeper's name, and the rows that answer arrive from wherever they are.
 
 ## What the Figures Mean
 
@@ -69,7 +68,7 @@ is never asked for, and a withdrawn charge was never owed. Withdrawn fees stay o
 their marker and count toward neither.
 
 When a column filter is narrowing the table, the figures cover what is in view and say so. And when
-the period runs past what has loaded, the line beneath the table says the figures cover only what is
+the record runs past what has loaded, the line beneath the table says the figures cover only what is
 loaded — so a running subtotal is never mistaken for a month's total.
 
 ## Going to the Matter

@@ -1,9 +1,9 @@
 # The Firm's Time
 
-**Time** in the sidebar shows every hour recorded across every matter, for the days you choose. It
-answers the question nothing else on the product answers: not "what is on this file", which is the
-matter's own Time tab, and not "what am I doing right now", which is the Time Sheet in the top bar —
-but "what actually went on the record this week".
+**Time** in the sidebar shows every hour recorded across every matter, newest first. It answers the
+question nothing else on the product answers: not "what is on this file", which is the matter's own
+Time tab, and not "what am I doing right now", which is the Time Sheet in the top bar — but "what
+actually went on the record this week".
 
 ## Where Time Lives, in Three Places
 
@@ -21,45 +21,49 @@ because it is one record with three doors.
 
 ## Choosing the Days
 
-The control at the top of the screen names the span you are looking at. It opens on **this week**.
+The screen opens on the whole record. To look at a span, filter the **Date** column from its own
+heading: right-click the heading, choose Filter Date, and set a first day, a last day, or both. A
+filter set at one end runs to the present, or back to the first entry ever recorded.
 
-Six named spans are offered — today, yesterday, this week, last week, this month, last month — and
-below them a calendar you can drag across for any range you like. A custom range applies the moment
-you have picked both ends; there is no Apply button to forget.
-
-Each span's name says which days it actually covered, so "This month, Sep 1 to 30" can never be
-showing you something narrower than it claims.
+The filter reads the whole record, not only the rows already on screen, so "this week's drafts" is
+this week's drafts however far back the record runs.
 
 ## Choosing Whose
 
-By default you are looking at your own time.
+By default the screen shows everything you may read. If your role includes reading the firm's time,
+that is everyone's; filter the **Timekeeper** column to one colleague to see theirs alone, and the
+filter offers every active member of the firm, whether or not any of their rows have loaded.
 
-If your account may read the firm's time, a second control appears beside the span: pick **Everyone**
-for the whole firm, or any colleague by name. If you do not see this control, your role does not
-include reading other people's time — you can still see all of your own, on every matter you work.
+If your role does not include reading other people's time, the screen shows your own on every
+matter you work, and the Timekeeper column offers nobody else.
 
 ## Sending Somebody the View
 
-Both choices are in the address. A partner looking at one associate's month can send that exact view
-to somebody by sending them the link, and it opens where they left it rather than on this week.
+The Date, Status and Timekeeper filters are in the address. A partner looking at one associate's
+month can send that exact view to somebody by sending them the link, and it opens where they left
+it.
 
 ## Narrowing the Table
 
-Every column carries its own filter, reached from the column's own heading — Matter, Timekeeper,
-Status, Category, Billable, and the rest. That is the search on this screen: filter Matter to one
-file, Status to drafts, Billable to non-billable, in any combination.
+Every column carries its own filter, reached from the column's own heading — Date, Matter,
+Timekeeper, Status, Category, Billable, and the rest. Filter Matter to one file, Status to drafts,
+Billable to non-billable, in any combination.
 
 The strip under the table says how much you are looking at and how much there is: "Showing 12 of 84
 · filtered", with the columns you filtered on named and one click to show all of them again.
 
-There is deliberately no separate search box. A period can run to more entries than one screenful,
-and a search box that quietly only looked at what had loaded would tell you a word appears nowhere
-in a month it never read. The column filters say what they are narrowing, and the counts say what
-they left out.
+The Date, Status and Timekeeper filters reach the record itself, so they hold across every page.
+A Status filter holding two states at once narrows only the rows already loaded; pick one state to
+have it hold across the whole record.
+
+The search at the top is not connected yet: the time record cannot be searched by a word, and a
+search that quietly looked only at the rows on screen would tell you a word appears nowhere in a
+record it never read. The control is there, marked Soon, and the column filters are the way to
+narrow until it is.
 
 ## What the Figures Mean
 
-The figures beside the counts are for the period you are looking at.
+The figures beside the counts are for what you are looking at.
 
 - **Recorded** — every hour on the record for the span, billable and not.
 - **Billable** — the hours a client can be charged for.
@@ -72,13 +76,13 @@ Two things are worth knowing about them.
 **They follow your filters.** Narrow the table to one matter and the figures speak for that matter;
 the strip says "In view" when they do.
 
-**They cover what is loaded.** A long period arrives a page at a time, and while there is more to
-load the screen says so under the table. Read every page before you treat a figure as the period's
-whole total.
+**They cover what is loaded.** A long record arrives a page at a time, and while there is more to
+load the screen says so under the table. Read every page before you treat a figure as the whole
+total.
 
 **A voided entry counts toward nothing.** It stays on the record with its chip, because the fact that
 it was written and then voided is part of the history, but it adds to none of these figures. Where
-the period holds one, the Recorded figure's tooltip says how many it is leaving out — so if you count
+the record holds one, the Recorded figure's tooltip says how many it is leaving out — so if you count
 the rows and get a different answer, the reason is right there.
 
 ## Opening an Entry

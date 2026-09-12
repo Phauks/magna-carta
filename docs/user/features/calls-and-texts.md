@@ -110,9 +110,11 @@ Double-click any row to open its record — the same window you record one in. F
 
 ## The queue: calls and texts nobody has filed
 
-A row on no matter, with no reason given, sits under **Waiting to be filed**. This is where a text
-from a number nobody recognises lands, and where a call goes when you record it before you know which
-case it is about.
+A row on no matter, with no reason given, is **Not filed** in the Matter column. This is where a
+text from a number nobody recognises lands, and where a call goes when you record it before you know
+which case it is about. The counts strip under the table always says how many are **waiting to be
+filed**, whatever the table is narrowed to; to see them, filter the Matter column to Not filed from
+its own heading.
 
 Whether you see the queue at all depends on your role. Your firm decides who works it, the same way
 it decides who opens the post: by default the owner, administrators and paralegals see it, and other
@@ -128,7 +130,7 @@ answers:
 - **Firm business** — the firm's own affairs. A vendor, the landlord, the bar association.
 - **Nothing came of it** — a real enquiry that never became a matter.
 
-The row leaves the queue and moves to **Not a matter**. Nothing is deleted: what was said still
+The row leaves the queue and the Matter column shows the reason instead. Nothing is deleted: what was said still
 happened, and the record keeps its words, its number and its time. If you later decide it was real
 work after all, open it and press **Put it back in the queue**, then file it where it belongs.
 
@@ -151,8 +153,10 @@ will go.
 ## Reading the log
 
 **Across the firm**, Messaging shows every call and text on every matter you can see, plus the queue
-and the set-aside rows if your role includes them. Search matches what was said, the number, and the
-matter's own name and number — "what did we say on the Herrera file" works, and so does the number
+and the set-aside rows if your role includes them. There are no tabs: the Matter column's filter is
+how you narrow to the queue (Not filed), to what was set aside (the three reasons), or to what is on
+a matter, and the filter reaches the whole log rather than only the rows on screen. Search matches
+what was said, the number, and the matter's own name and number — "what did we say on the Herrera file" works, and so does the number
 you dialled, and so does the call's own reference number if somebody quotes it back to you.
 
 **On one matter**, the Messaging section shows only that matter's calls and texts, and drops the
