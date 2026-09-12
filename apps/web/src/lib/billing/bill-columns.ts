@@ -26,8 +26,9 @@
  * finalization — so its share is the sum of the lines it is carrying and moves as work is claimed.
  * The cell carries that fact on its hover rather than presenting a moving figure as a settled one.
  */
-import type { GridColumn } from "@magna-carta/design-system/data-table";
-import { statusEntry } from "@magna-carta/design-system/status-register";
+import type { GridColumn, GridColumnFilter } from "@magna-carta/design-system/data-table";
+import { statusEntry, type StatusKey } from "@magna-carta/design-system/status-register";
+import type { InvoiceStatus } from "./billing-api.ts";
 import {
   billUnpaidMinor,
   creditedMinor,
@@ -60,6 +61,58 @@ export const BILL_REGISTER_INITIAL_SORT = {
   columnId: BILL_COLUMN_IDENTIFIERS.createdAt,
   direction: "descending",
 } as const;
+
+/**
+ * Every standing the Status column can show, and the invoice status each one is a reading of.
+ *
+ * The column shows five words and the listing takes three: Draft and Void are the invoice's own
+ * status, and Unpaid, Partially Paid and Paid are all readings of a finalized bill. The set filter
+ * offers the whole vocabulary rather than only what the loaded rows carry — a firm with no draft
+ * open today can still have one tomorrow — and the firm's Billing screen reads a selection off it
+ * to send as the listing's own `status` where the selection stays inside one.
+ */
+export const BILL_STANDING_CHOICES: readonly {
+  readonly standing: StatusKey;
+  readonly label: string;
+  readonly status: InvoiceStatus;
+}[] = (
+  [
+    ["draft", "draft"],
+    ["unpaid", "final"],
+    ["partially-paid", "final"],
+    ["paid", "final"],
+    ["void", "void"],
+  ] as const satisfies readonly (readonly [StatusKey, InvoiceStatus])[]
+).map(([standing, status]) => ({ standing, label: statusEntry(standing).label, status }));
+
+/**
+ * The one invoice status a Status filter's selection stays inside, or undefined where it crosses
+ * two — Draft with Paid, say — in which case the server is asked for everything and the table
+ * narrows the loaded rows.
+ */
+export function invoiceStatusForStandings(
+  filter: GridColumnFilter | undefined,
+): InvoiceStatus | undefined {
+  if (filter?.kind !== "set" || filter.values.length === 0) return undefined;
+  const statuses = new Set(
+    filter.values.map(
+      (label) => BILL_STANDING_CHOICES.find((choice) => choice.label === label)?.status,
+    ),
+  );
+  if (statuses.size !== 1) return undefined;
+  const [only] = statuses;
+  return only;
+}
+
+/** The Status filter that names every standing a status can show: what a linked address seeds. */
+export function standingFilterForStatus(
+  status: string | null | undefined,
+): GridColumnFilter | undefined {
+  const labels = BILL_STANDING_CHOICES.filter((choice) => choice.status === status).map(
+    (choice) => choice.label,
+  );
+  return labels.length === 0 ? undefined : { kind: "set", values: labels };
+}
 
 /**
  * Which register this is: one matter's, or the firm's own.
@@ -127,6 +180,7 @@ export function billColumns(context: BillRegisterContext): readonly GridColumn<I
       label: "Status",
       type: "text",
       filter: "set",
+      filterValues: BILL_STANDING_CHOICES.map((choice) => choice.label),
       fitExtra: 40,
       value: (row) => statusEntry(invoiceStanding(row)).label,
     },

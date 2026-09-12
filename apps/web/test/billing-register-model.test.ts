@@ -9,12 +9,16 @@
 import { describe, expect, it } from "vitest";
 import type { InvoiceDetail, InvoiceListItem } from "../src/lib/billing/billing-api.ts";
 import type { InvoiceRow } from "../src/lib/billing/invoice-standing.ts";
+import type { MatterPartyEntry } from "../src/lib/matters/party-api.ts";
 import {
   BILL_COLUMN_IDENTIFIERS,
   BILL_REGISTER_INITIAL_SORT,
   absentShareTitle,
   billColumns,
+  invoiceStatusForStandings,
+  standingFilterForStatus,
 } from "../src/lib/billing/bill-columns.ts";
+import { clientPartyOf } from "../src/lib/billing/client-party.ts";
 import { billCounts, billFigures } from "../src/lib/billing/bill-figures.ts";
 import {
   BILL_DEPENDENCIES,

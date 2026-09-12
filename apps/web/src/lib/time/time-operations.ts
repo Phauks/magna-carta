@@ -23,7 +23,7 @@
  * thrown error, and the surface can say something true about it.
  */
 import { requestJson, type ApiOutcome, type Page } from "$lib/api/request.ts";
-import type { TimeEntrySummary } from "$lib/matters/time-api.ts";
+import type { TimeEntryStatus, TimeEntrySummary } from "$lib/matters/time-api.ts";
 
 /**
  * Every entry the firm holds, newest first, in every status.
@@ -49,12 +49,12 @@ export function listTimeEntries(
   return requestJson(fetchImpl, `/api/v1/time-entries${suffix === "" ? "" : `?${suffix}`}`);
 }
 
-/** Whose time a period listing is asking for. */
+/** Whose time a period listing is asking for, and how far it reaches. */
 export interface TimePeriodQuery {
-  /** The first work date in the span, inclusive. */
-  readonly from: string;
-  /** The last work date in the span, inclusive. */
-  readonly to: string;
+  /** The first work date, inclusive. Absent, the listing runs from the first entry ever recorded. */
+  readonly from?: string;
+  /** The last work date, inclusive. Absent, the listing runs to the present. */
+  readonly to?: string;
   /**
    * One timekeeper's own record, or null for the whole firm's.
    *
@@ -63,30 +63,37 @@ export interface TimePeriodQuery {
    * person by name rather than leaving the field off and hoping to be defaulted to itself.
    */
   readonly timekeeperUserId: string | null;
+  /** One status, where the screen's Status column has settled on exactly one. */
+  readonly status?: TimeEntryStatus;
   readonly cursor?: string;
 }
 
 /**
- * Every entry in a span of work dates, across every matter, newest work date first.
+ * Every entry across every matter, newest work date first, bounded by whatever the query names.
  *
- * This is the read the firm's period surface is built on. The day listing answers what one person
+ * This is the read the firm's Time screen is built on. The day listing answers what one person
  * did on one date and the matter listing answers what is on one file; neither answers "what time
  * was recorded this week", which is the question a timekeeper asks of their own record and a
  * supervisor asks of the firm's.
  *
- * The status is not passed, on the rule both other listings follow: a record is all of it, and
- * narrowing to one status is a different question. The surface narrows by status in its own table.
+ * THE BOUNDS AND THE STATUS ARE THE SCREEN'S COLUMN FILTERS, sent here so they hold across every
+ * page: a filter that narrowed only the loaded page would tell a reader there are three drafts in
+ * a month that holds thirty. Nothing named is the whole record.
  */
 export function listTimeEntriesInPeriod(
   fetchImpl: typeof fetch,
   query: TimePeriodQuery,
 ): Promise<ApiOutcome<Page<TimeEntrySummary>>> {
-  const parameters = new URLSearchParams({ from: query.from, to: query.to });
+  const parameters = new URLSearchParams();
+  if (query.from !== undefined) parameters.set("from", query.from);
+  if (query.to !== undefined) parameters.set("to", query.to);
   if (query.timekeeperUserId !== null) {
     parameters.set("timekeeperUserId", query.timekeeperUserId);
   }
+  if (query.status !== undefined) parameters.set("status", query.status);
   if (query.cursor !== undefined) parameters.set("cursor", query.cursor);
-  return requestJson(fetchImpl, `/api/v1/time-entries?${parameters.toString()}`);
+  const suffix = parameters.toString();
+  return requestJson(fetchImpl, `/api/v1/time-entries${suffix === "" ? "" : `?${suffix}`}`);
 }
 
 /** What the create route answers: the identity of the entry it wrote. */

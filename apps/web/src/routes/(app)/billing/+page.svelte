@@ -9,53 +9,66 @@
    * register cannot say what the firm is owed, and no amount of visiting matters one at a time adds
    * up to a receivable a partner can act on.
    *
-   * IT WAS A SOON ROW FOR NO REASON, WHICH IS WHY IT SHIPS AS A READ. Time's row was a stub because
-   * the listing behind it could not answer a span; billing's listing has always answered without a
-   * client named, so the row was announced over a read that already worked. Nothing here is new
-   * server work: the invoice listing, the aging buckets and the invoice detail are all shipped
-   * routes, and two of them had no consumer at all.
+   * THE TABLE IS THE ONLY THING THAT NARROWS IT. The screen opens on the whole register and the
+   * Status column's filter picks a state; the screen used to carry a status dropdown in its header
+   * answering the same question (the owner's ruling of 2026-09-11, docs/conventions/time-tab-
+   * rulings.md round twelve). A filter that only narrowed the loaded page would report a draft
+   * missing from a register it had never finished reading, so a Status selection that stays inside
+   * one invoice status is sent to the listing as its own `status` and re-read; Unpaid, Partially
+   * Paid and Paid are all readings of a finalized bill, so any of them alone asks for the finalized.
+   *
+   * IT STARTS A BILL, AND THE BILL IS BUILT ELSEWHERE. A draft is opened against a matter's client
+   * and then built up by claiming that matter's unbilled work, which lives on the matter's own
+   * Billing section. So New Bill asks for the matter first, opens the draft, and goes to that
+   * section with the draft open — the one screen whose whole subject is a document the firm
+   * produces is no longer the one screen with no way to start one.
    *
    * THE MONEY COLUMNS ARE THE DOCUMENT'S, NOT A MATTER'S. A bill belongs to a client and may charge
    * several of that client's matters, so across the firm the only honest figures are the bill's own
    * total and what it still owes. The matter's-share pair is declared in the same column set and
    * arrives hidden here, so a stored layout means the same thing on both screens.
    *
-   * IT READS AND DOES NOT ACT, AND EVERY VERB THAT WRITES SAYS SO. Applying a client's trust funds,
-   * writing off a balance and recording a credit note each move ONE matter's money against one
-   * matter's account and have no meaning without one; finalizing, voiding and recording a delivery
-   * simply live where the work does. All of them are refused here rather than removed, and the
-   * refusal names the way through — a reader learns where the act lives instead of learning that
-   * the menu changes shape between screens, and no control on this screen is left enabled with no
-   * dialog behind it.
+   * IT READS AND DOES NOT ACT ON A BILL, AND EVERY VERB THAT WRITES SAYS SO. Applying a client's
+   * trust funds, writing off a balance and recording a credit note each move ONE matter's money
+   * against one matter's account and have no meaning without one; finalizing, voiding and recording
+   * a delivery simply live where the work does. All of them are refused here rather than removed,
+   * and the refusal names the way through.
    *
-   * THE SCOPE IS IN THE ADDRESS, so a partner looking at one client's unpaid bills sends that view
-   * by sending the link, and an opened bill is a link of its own.
+   * THE SCOPE IS IN THE ADDRESS, so a partner looking at the firm's open drafts sends that view by
+   * sending the link, and an opened bill is a link of its own.
+   *
+   * THE SEARCH IS THE PRODUCT'S ONE CONTROL, AND HERE IT IS NOT SERVED YET. The invoice listing has
+   * no search of its own, and a search that quietly covered only the loaded page would tell a
+   * reader their client appears nowhere in a register it never looked at. So the control renders in
+   * its place, disabled and marked, until the listing can answer it.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import * as Select from "@magna-carta/design-system/select";
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
+  import CreateControl from "@magna-carta/design-system/create-control";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import ScreenSearch from "@magna-carta/design-system/screen-search";
+  import { SoonAffordance } from "@magna-carta/design-system/maturity";
+  import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import { page } from "$app/state";
-  import { replaceState } from "$app/navigation";
+  import { goto, replaceState } from "$app/navigation";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { readSession } from "$lib/matters/matters-api.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
-  import {
-    BILLING_PERMISSIONS,
-    type InvoiceListScope,
-    type InvoiceStatus,
-  } from "$lib/billing/billing-api.ts";
+  import { BILLING_PERMISSIONS, type InvoiceListScope } from "$lib/billing/billing-api.ts";
   import {
     BILL_COLUMN_IDENTIFIERS,
     BILL_REGISTER_INITIAL_SORT,
     NOT_APPLICABLE,
     absentShareTitle,
     billColumns,
+    invoiceStatusForStandings,
+    standingFilterForStatus,
   } from "$lib/billing/bill-columns.ts";
+  import DraftBillDialog from "$lib/billing/draft-bill-dialog.svelte";
   import { FirmBills } from "$lib/billing/firm-bills.svelte.ts";
   import InvoiceWindow from "$lib/billing/invoice-window.svelte";
   import {
@@ -67,6 +80,9 @@
     overdueDays,
     type InvoiceRow,
   } from "$lib/billing/invoice-standing.ts";
+  import { billHref } from "$lib/money/money-sections.ts";
+  import { addressAfterFilters, filtersSeededBy } from "$lib/money/listing-scope.ts";
+  import { FirmMatters } from "$lib/time/firm-matters.svelte.ts";
 
   const today = civilToday();
 
@@ -76,6 +92,7 @@
   let bootstrapped = false;
 
   const bills = new FirmBills();
+  const firmMatters = new FirmMatters();
 
   $effect(() => {
     if (bootstrapped) return;
@@ -85,52 +102,11 @@
       if (outcome.kind === "ok") permissions = outcome.value.permissions;
     })();
     void bills.loadAging(fetch);
+    // The matters are read for the draft dialog's picker alone; the register never waits on them.
+    void firmMatters.load(fetch);
   });
 
-  // ---- the scope: what is asked for --------------------------------------------------------------
-
-  /*
-   * Only the STATUS rides the address as a control. The client narrowing is the Client column's own
-   * filter, which is the same machinery every other column uses and which says how many rows it left
-   * out; a second client control in the header would be a second answer to the same question. The
-   * status is different because it is what the server narrows, so choosing one changes what is READ
-   * rather than what is shown — and a status filter that only looked at the loaded page would report
-   * a draft missing from a register it had never finished reading.
-   */
-  const STATUS_CHOICES = [
-    { value: "all", label: "All bills" },
-    { value: "draft", label: "Drafts" },
-    { value: "final", label: "Finalized" },
-    { value: "void", label: "Voided drafts" },
-  ] as const;
-
-  const chosenStatus = $derived.by((): InvoiceStatus | null => {
-    const named = page.url.searchParams.get("status");
-    return named === "draft" || named === "final" || named === "void" ? named : null;
-  });
-
-  const scope = $derived<InvoiceListScope>(
-    chosenStatus === null ? {} : { status: chosenStatus },
-  );
-
-  function chooseStatus(next: string): void {
-    const url = new URL(page.url);
-    if (next === "all") url.searchParams.delete("status");
-    else url.searchParams.set("status", next);
-    // Not a navigation: narrowing the register is the same screen looking at fewer bills, and
-    // stacking every adjustment on the history would make Back useless.
-    replaceState(url, page.state);
-  }
-
-  // ---- the read ----------------------------------------------------------------------------------
-
-  /** Bumped after a write, so the register re-reads what the server now holds rather than guessing. */
-  let reloadToken = $state(0);
-
-  $effect(() => {
-    const subject = `${chosenStatus ?? "all"}:${String(reloadToken)}`;
-    bills.load(fetch, scope, subject);
-  });
+  // ---- the table ---------------------------------------------------------------------------------
 
   const rows = $derived(bills.rows);
 
@@ -152,6 +128,46 @@
     // charged anybody anything.
     totalIncludes: (row) => row.summary.status !== "void",
     onActivate: (row) => openBill(row),
+  });
+
+  // ---- the scope: what the Status column asks the listing for -----------------------------------
+
+  /* The address seeds the Status filter once, on open, so a linked view opens already narrowed. */
+  let seededFromAddress = false;
+  $effect(() => {
+    if (seededFromAddress) return;
+    seededFromAddress = true;
+    grid.filters = filtersSeededBy(grid.filters, {
+      [BILL_COLUMN_IDENTIFIERS.standing]: standingFilterForStatus(
+        page.url.searchParams.get("status"),
+      ),
+    });
+  });
+
+  const chosenStatus = $derived(
+    invoiceStatusForStandings(grid.filterFor(BILL_COLUMN_IDENTIFIERS.standing)),
+  );
+  const scope = $derived<InvoiceListScope>(
+    chosenStatus === undefined ? {} : { status: chosenStatus },
+  );
+
+  /** Bumped after a write, so the register re-reads what the server now holds rather than guessing. */
+  let reloadToken = $state(0);
+
+  $effect(() => {
+    const subject = `${chosenStatus ?? "all"}:${String(reloadToken)}`;
+    bills.load(fetch, scope, subject);
+  });
+
+  /*
+   * The status the listing honours rides the address, so the view is a link somebody can send.
+   * `replaceState` rather than a navigation: narrowing the register is the same screen looking at
+   * fewer bills, and stacking every adjustment on the history would make Back useless.
+   */
+  $effect(() => {
+    if (!seededFromAddress) return;
+    const next = addressAfterFilters(page.url, { status: chosenStatus });
+    if (next.href !== page.url.href) replaceState(next, page.state);
   });
 
   // ---- the aging -----------------------------------------------------------------------------
@@ -206,6 +222,47 @@
     windowOpen = true;
     void bills.openDetail(fetch, named, row.summary.status);
   });
+
+  // ---- starting a bill ---------------------------------------------------------------------------
+
+  let draftOpen = $state(false);
+
+  /*
+   * A new bill takes a matter, and this screen is on none — so the dialog asks for one, and it can
+   * only be started once the firm's matters have arrived for its picker to offer. The permission is
+   * the same one that opens a draft from a matter; a member without it sees the control and the
+   * reason, never an absent one.
+   */
+  const createRefusal = $derived.by((): string | undefined => {
+    if (permissions === null) return "Reading your session.";
+    if (!permissions.includes(BILLING_PERMISSIONS.draft)) {
+      return permissionRefusal("Opening a draft bill", BILLING_PERMISSIONS.draft);
+    }
+    if (firmMatters.matters === null) return "Reading the firm's matters.";
+    if (firmMatters.matters.length === 0) {
+      return firmMatters.failure ?? "The firm has no matter to bill. A bill charges a matter's client.";
+    }
+    return undefined;
+  });
+
+  /** Whether the loaded register already holds a draft for this client, for the dialog's warning. */
+  function draftIsOpenFor(clientEntityId: string): boolean {
+    return rows.some(
+      (row) => row.summary.status === "draft" && row.summary.clientEntityId === clientEntityId,
+    );
+  }
+
+  /*
+   * The draft is built on the matter it charges — its unbilled work is claimed there — so opening
+   * one goes to that matter's Billing section with the draft open, where the next act is.
+   */
+  function draftOpened(invoiceId: string, matterId: string | null): void {
+    if (matterId !== null) {
+      void goto(billHref(matterId, invoiceId));
+      return;
+    }
+    reloadToken += 1;
+  }
 
   const readRefusal = $derived.by((): string | null => {
     const failure = bills.list.failure;
@@ -270,33 +327,29 @@
 
 <div class="flex h-full min-h-0 flex-col gap-16">
   <ScreenHeader title="Billing">
-    {#snippet meta()}
-      <span>
-        {chosenStatus === null
-          ? "Every bill the firm has raised"
-          : (STATUS_CHOICES.find((choice) => choice.value === chosenStatus)?.label ?? "")}
-        {#if bills.aging !== null}
-          · {money(agingTotal)} outstanding as of {formatDate(bills.aging.asOfDate)}
-        {/if}
-      </span>
-    {/snippet}
     {#snippet actions()}
-      <Select.Root
-        type="single"
-        items={STATUS_CHOICES.map((choice) => ({ value: choice.value, label: choice.label }))}
-        value={chosenStatus ?? "all"}
-        onValueChange={chooseStatus}
-        allowDeselect={false}
-      >
-        <Select.Trigger aria-label="Which bills" class="w-3xs">
-          <Select.Value placeholder="Which bills" />
-        </Select.Trigger>
-        <Select.Content>
-          {#each STATUS_CHOICES as choice (choice.value)}
-            <Select.Item value={choice.value} label={choice.label} />
-          {/each}
-        </Select.Content>
-      </Select.Root>
+      <!-- The search, then the create control, then the way back to everything: the same row, in
+           the same order, as every other list screen. The search is the product's one control and
+           the invoice listing cannot answer it yet, so it stands here disabled and marked rather
+           than quietly searching the page in hand. -->
+      <SoonAffordance reason="the invoice listing's own search">
+        {#snippet control(soon)}
+          <span title={soon.title} aria-describedby={soon["aria-describedby"]}>
+            <ScreenSearch
+              label="Search the firm's bills"
+              placeholder={placeholderOf("Search the firm's bills")}
+              disabled={soon.disabled}
+            />
+          </span>
+        {/snippet}
+      </SoonAffordance>
+
+      <CreateControl
+        noun="Bill"
+        title="Open a draft bill on the matter it charges. Its work is claimed on that matter's Billing section."
+        refusal={createRefusal}
+        onpress={() => (draftOpen = true)}
+      />
 
       <DataTable.ClearFilters {grid} />
     {/snippet}
@@ -363,16 +416,10 @@
             No bill in this register answers to what is asked. Widening the column filters brings the
             register back.
           </EmptyState>
-        {:else if chosenStatus !== null}
-          <EmptyState title="No Bills In That State">
-            The firm has raised no bill that is
-            {chosenStatus === "draft" ? "still a draft" : chosenStatus === "final" ? "finalized" : "a voided draft"}. Choosing
-            All bills above shows the whole register.
-          </EmptyState>
         {:else}
           <EmptyState title="No Bills Yet">
-            Nothing has been billed. A bill is opened as a draft from the matter it charges, where
-            the work it claims lives.
+            Nothing has been billed. New Bill above opens a draft on the matter it charges, and the
+            work it claims is on that matter's own Billing section.
           </EmptyState>
         {/if}
       {/snippet}
@@ -400,6 +447,14 @@
     {/if}
   {/if}
 </div>
+
+<DraftBillDialog
+  bind:open={draftOpen}
+  matters={firmMatters.matters ?? []}
+  mattersCapped={firmMatters.capped}
+  {draftIsOpenFor}
+  onOpened={draftOpened}
+/>
 
 <InvoiceWindow
   bind:open={

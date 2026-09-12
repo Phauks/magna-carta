@@ -144,12 +144,14 @@ const listQuery = z.object({
   matterId: identifierField("matter").optional(),
   from: serviceDateField.optional().openapi({
     description:
-      "The first service date of a period listing, inclusive. Given with `to`, the listing " +
-      "answers a span of days across every matter — what the firm charged for work done in a " +
-      "period, which a per-matter listing cannot answer without walking every matter first.",
+      "The first service date the listing covers, inclusive. Either bound stands alone: a " +
+      "listing with only `from` runs to the present, one with only `to` runs from the first fee " +
+      "the firm ever recorded, and one with neither is the firm's whole record. This is the " +
+      "screen's Date column filter, honoured here so it is true across every page rather than " +
+      "over the page in hand.",
   }),
   to: serviceDateField.optional().openapi({
-    description: "The last service date of a period listing, inclusive. Required alongside `from`.",
+    description: "The last service date the listing covers, inclusive.",
   }),
   billable: z
     .enum(["true", "false"])
@@ -160,6 +162,17 @@ const listQuery = z.object({
         "answers with both.",
     }),
   status: z.enum(["draft", "submitted", "approved", "billed", "void"]).optional(),
+  search: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .openapi({
+      description:
+        "Matched against the description, the matter's title and number, and the timekeeper's " +
+        "name. The screen's search, honoured here so a word absent from the page in hand is " +
+        "looked for across the whole record.",
+    }),
 });
 
 // Each route file states its own, because the descriptions are the route's: a reader of the
@@ -304,10 +317,11 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   method: "get",
   path: "/api/v1/fees",
   description:
-    "Lists fee entries, most recent service date first. Narrowed to one matter with `matterId`, " +
-    "or across every matter with a `from`/`to` span of service dates; either shape takes an " +
-    "optional status and billable filter. With neither a matter nor a span the listing answers " +
-    "empty rather than walking the whole table.",
+    "Lists fee entries, most recent service date first, cursor-paged. Nothing named is the " +
+    "firm's whole record; `matterId` narrows it to one matter, `from` and `to` bound the service " +
+    "dates (each on its own or together), and `status`, `billable` and `search` narrow further. " +
+    "Every narrowing is the server's, so the firm's Fees screen can send its column filters here " +
+    "and have them hold across every page.",
   request: { query: listQuery },
   responses: {
     200: {
@@ -513,6 +527,32 @@ const LIST_FROM = `FROM fee_entry
  */
 const LIST_ORDER = "ORDER BY fee_entry.service_date DESC, fee_entry.id DESC";
 
+/**
+ * The listing's search, as one predicate over the joined statement.
+ *
+ * A LIKE scan rather than an index, bounded by the page the caller already asked for. The matter's
+ * title and number are in it because "what did we charge on the Whitfield file" is a question
+ * about a case before it is a question about a phrase, and the timekeeper's name because a
+ * bookkeeper reconciling a month asks whose charges these were. The wildcards are the caller's
+ * text, not their instruction: a description reading "50% retainer" must not match everything.
+ */
+function searchConditionFor(
+  search: string | undefined,
+): { condition: string; bindings: readonly unknown[] } | undefined {
+  const term = search?.trim();
+  if (term === undefined || term.length === 0) return undefined;
+  const escaped = term.replaceAll(/[\\%_]/gu, (character) => `\\${character}`);
+  const pattern = `%${escaped}%`;
+  return {
+    condition:
+      "(fee_entry.description LIKE ? ESCAPE '\\' " +
+      "OR matter.title LIKE ? ESCAPE '\\' " +
+      "OR matter.matter_number LIKE ? ESCAPE '\\' " +
+      "OR timekeeper.display_name LIKE ? ESCAPE '\\')",
+    bindings: [pattern, pattern, pattern, pattern],
+  };
+}
+
 function rowToSummary(row: FeeListRow): z.infer<typeof FeeSummary> {
   return {
     id: row.id,
@@ -672,32 +712,43 @@ export function registerFeesRoutes(app: FeeApp, chokepoint: Chokepoint): void {
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const query = c.req.valid("query");
+      /*
+       * Every narrowing is optional and they compose. Nothing named is the firm's whole fee record,
+       * newest service date first, walked a page at a time over the service-date index — the read
+       * used to answer empty here "rather than a full-table scan", which made the firm's Fees
+       * screen unable to open on its whole record and pushed a period control into its header
+       * that duplicated the Date column. A column filter that only narrows the loaded page is
+       * not a filter, so each bound and each choice is honoured here instead.
+       */
       const conditions: string[] = [];
       const bindings: unknown[] = [];
 
-      if (query.from !== undefined && query.to !== undefined) {
-        if (query.from > query.to) {
-          return problemJson(c, {
-            type: "validation",
-            title: "Unprocessable",
-            status: 422,
-            detail:
-              "The period's first date is after its last. The span is not swapped for you, because a swap would answer a question nobody asked.",
-          });
-        }
-        conditions.push("fee_entry.service_date >= ?", "fee_entry.service_date <= ?");
-        bindings.push(query.from, query.to);
-        if (query.matterId !== undefined) {
-          conditions.push("fee_entry.matter_id = ?");
-          bindings.push(query.matterId);
-        }
-      } else if (query.matterId !== undefined) {
+      if (query.from !== undefined && query.to !== undefined && query.from > query.to) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Unprocessable",
+          status: 422,
+          detail:
+            "The period's first date is after its last. The span is not swapped for you, because a swap would answer a question nobody asked.",
+        });
+      }
+      if (query.from !== undefined) {
+        conditions.push("fee_entry.service_date >= ?");
+        bindings.push(query.from);
+      }
+      if (query.to !== undefined) {
+        conditions.push("fee_entry.service_date <= ?");
+        bindings.push(query.to);
+      }
+      if (query.matterId !== undefined) {
         // An absent status means EVERY status: a matter's fee record is all of the fees on it.
         conditions.push("fee_entry.matter_id = ?");
         bindings.push(query.matterId);
-      } else {
-        // Neither a matter nor a span — answer empty rather than a full-table scan.
-        return c.json({ data: [] as z.infer<typeof FeeSummary>[], nextCursor: null }, 200);
+      }
+      const search = searchConditionFor(query.search);
+      if (search !== undefined) {
+        conditions.push(search.condition);
+        bindings.push(...search.bindings);
       }
 
       if (query.billable !== undefined) {
@@ -718,7 +769,7 @@ export function registerFeesRoutes(app: FeeApp, chokepoint: Chokepoint): void {
 
       const { results } = await firm.firmDatabase
         .prepare(
-          `SELECT ${LIST_COLUMNS} ${LIST_FROM} WHERE ${conditions.join(" AND ")} ${LIST_ORDER} LIMIT ?`,
+          `SELECT ${LIST_COLUMNS} ${LIST_FROM} ${conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")}`} ${LIST_ORDER} LIMIT ?`,
         )
         .bind(...bindings)
         .all<FeeListRow>();

@@ -1,71 +1,16 @@
 /*
- * The period ledger's two decisions.
+ * What the firm's Time screen's strip says.
  *
- * WHOSE TIME is a permission question with a real refusal behind it, so the wrong answer is not a
- * cosmetic one: offering a colleague's name to somebody who cannot read it produces a control that
- * fails every time it is used, and dropping the firm from a supervisor's list takes away the reason
- * they opened the screen.
- *
- * WHAT THE STRIP SAYS has to hold two things apart that a careless total collapses — billable and
- * non-billable are both real work, and a void is neither.
+ * It has to hold two things apart that a careless total collapses — billable and non-billable are
+ * both real work, and a void is neither. Whose time is read is the Timekeeper column's filter now,
+ * pinned in money-listing-scope.test.ts.
  */
 import { describe, expect, it } from "vitest";
-import type { FirmMemberSummary } from "../src/lib/members/members-api.ts";
 import type { TimeEntrySummary } from "../src/lib/matters/time-api.ts";
 import { periodTotals } from "../src/lib/time/time-figures.ts";
-import {
-  choiceByIdentifier,
-  periodFigureReading,
-  timekeeperChoices,
-} from "../src/lib/time/time-period.ts";
+import { periodFigureReading } from "../src/lib/time/time-period.ts";
 
 const ME = "user_me";
-const COLLEAGUE = "user_colleague";
-
-const roster: readonly FirmMemberSummary[] = [
-  { userId: ME, displayName: "Wren Adeyemi", status: "active" } as FirmMemberSummary,
-  { userId: COLLEAGUE, displayName: "Alba Ferreira", status: "active" } as FirmMemberSummary,
-  { userId: "user_gone", displayName: "Departed Colleague", status: "deactivated" },
-] as FirmMemberSummary[];
-
-describe("whose time a reader may ask for", () => {
-  it("offers a member without the capability themselves and nobody else", () => {
-    const choices = timekeeperChoices(roster, ME, false);
-    expect(choices).toHaveLength(1);
-    expect(choices[0]?.timekeeperUserId).toBe(ME);
-    expect(choices[0]?.label).toBe("Wren Adeyemi");
-  });
-
-  it("leads a capability holder with the whole firm, then themselves, then colleagues", () => {
-    const choices = timekeeperChoices(roster, ME, true);
-    expect(choices.map((choice) => choice.label)).toEqual([
-      "Everyone",
-      "Wren Adeyemi",
-      "Alba Ferreira",
-    ]);
-    expect(choices[0]?.timekeeperUserId).toBeNull();
-  });
-
-  it("does not offer a departed colleague", () => {
-    const choices = timekeeperChoices(roster, ME, true);
-    expect(choices.some((choice) => choice.timekeeperUserId === "user_gone")).toBe(false);
-  });
-
-  it("names the reader before their own name has been read", () => {
-    const choices = timekeeperChoices([], ME, false);
-    expect(choices[0]?.label).toBe("My time");
-  });
-
-  it("offers nothing at all while the session is unknown and the reader cannot see the firm", () => {
-    expect(timekeeperChoices(roster, null, false)).toEqual([]);
-  });
-
-  it("finds a choice the address named, and nothing for one it does not hold", () => {
-    const choices = timekeeperChoices(roster, ME, true);
-    expect(choiceByIdentifier(choices, COLLEAGUE)?.label).toBe("Alba Ferreira");
-    expect(choiceByIdentifier(choices, "user_stranger")).toBeUndefined();
-  });
-});
 
 function entry(over: Partial<TimeEntrySummary>): TimeEntrySummary {
   return {
