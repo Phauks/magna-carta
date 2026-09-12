@@ -5,6 +5,7 @@ import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-stat
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { aiProcessingEligibilityDefinition } from "@magna-carta/inference/settings";
+import { MAGNUS_DISCLOSURE_VERSION } from "@magna-carta/magnus/disclosure";
 import { MEMBER_TURN_MAX_BYTES } from "@magna-carta/magnus/limits";
 import {
   magnusDailyTurnCeilingDefinition,
@@ -209,7 +210,7 @@ describe("a firm that has not opted in", () => {
     const availability = await get("/api/v1/magnus/availability", attorneyCookie);
     expect(await availability.json()).toMatchObject({
       state: "acknowledgement-required",
-      disclosureVersion: 1,
+      disclosureVersion: MAGNUS_DISCLOSURE_VERSION,
     });
 
     const start = await post("/api/v1/magnus/conversations", { title: "x" }, attorneyCookie);
@@ -234,7 +235,7 @@ describe("an opted-in firm", () => {
       remainingDailyTurns: number;
     };
     expect(body.state).toBe("open");
-    expect(body.disclosureVersion).toBe(1);
+    expect(body.disclosureVersion).toBe(MAGNUS_DISCLOSURE_VERSION);
     expect(body.remainingDailyTurns).toBeGreaterThan(0);
   });
 
@@ -411,6 +412,166 @@ describe("an opted-in firm", () => {
     const unfiltered = await get("/api/v1/magnus/conversations", ownerCookie);
     const all = await readJson<{ data: Array<{ id: string }> }>(unfiltered);
     expect(all.data.map((row) => row.id)).toContain(onNoMatter);
+  });
+
+  it("orders the whole record by name and by matter on the server, and pages within that order", async () => {
+    // A rail sorted over the page it happens to hold is not sorted, so every order is the server's.
+    const owner = await seedCredentialedUser("magnus-sorter@example.com", {
+      userName: "Magnus Sorter",
+      firmId,
+    });
+    await insertMemberStatement(firmDatabase, {
+      userId: owner.userId,
+      displayName: "Magnus Sorter",
+      now: clock.now(),
+    }).run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
+      )
+      .bind(newIdentifier("grant"), owner.userId, "magnus:converse", clock.now())
+      .run();
+    const cookie = await signInForSessionCookie("magnus-sorter@example.com");
+    await acknowledgeFor(cookie);
+
+    const matterA = newIdentifier("matter");
+    const matterB = newIdentifier("matter");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zebra Holdings', 'open', ?4, ?3, ?3), (?2, 'Alder Trust', 'open', ?4, ?3, ?3)",
+      )
+      .bind(matterA, matterB, clock.now(), attorneyUserId)
+      .run();
+
+    const started: string[] = [];
+    for (const [title, matterId] of [
+      ["Charlie", matterA],
+      [null, null],
+      ["alpha", matterB],
+      ["Bravo", null],
+    ] as const) {
+      const response = await post(
+        "/api/v1/magnus/conversations",
+        { title, ...(matterId === null ? {} : { matterId }) },
+        cookie,
+      );
+      expect(response.status).toBe(201);
+      started.push((await readJson<{ id: string }>(response)).id);
+    }
+    const [charlie, unnamed, alpha, bravo] = started;
+
+    const byName = await readJson<{ data: Array<{ id: string }> }>(
+      await get("/api/v1/magnus/conversations?sort=name", cookie),
+    );
+    // Named ones by their title regardless of case, then the unnamed one, which reads as a date.
+    expect(byName.data.map((row) => row.id)).toEqual([alpha, bravo, charlie, unnamed]);
+
+    const byMatter = await readJson<{ data: Array<{ id: string }> }>(
+      await get("/api/v1/magnus/conversations?sort=matter", cookie),
+    );
+    // Grouped by the matter's TITLE (Alder before Zebra), with the conversations on no matter last,
+    // and newest first within a group.
+    expect(byMatter.data.map((row) => row.id)).toEqual([alpha, charlie, bravo, unnamed]);
+
+    const byDate = await readJson<{ data: Array<{ id: string }> }>(
+      await get("/api/v1/magnus/conversations", cookie),
+    );
+    expect(byDate.data.map((row) => row.id)).toEqual([bravo, alpha, unnamed, charlie]);
+  });
+
+  it("keeps a conversation on another matter, refuses a closed one, and audits both matters", async () => {
+    const openMatter = newIdentifier("matter");
+    const closedMatter = newIdentifier("matter");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Open File', 'open', ?4, ?3, ?3), (?2, 'Closed File', 'closed', ?4, ?3, ?3)",
+      )
+      .bind(openMatter, closedMatter, clock.now(), attorneyUserId)
+      .run();
+    const conversationId = await startConversation();
+
+    const refused = await patch(`/api/v1/magnus/conversations/${conversationId}/matter`, {
+      matterId: closedMatter,
+    });
+    expect(refused.status).toBe(422);
+    expect((await readJson<ProblemBody>(refused)).title).toContain("closed");
+
+    const before = await auditCount("magnus.conversation_moved");
+    const moved = await patch(`/api/v1/magnus/conversations/${conversationId}/matter`, {
+      matterId: openMatter,
+    });
+    expect(moved.status).toBe(200);
+    expect((await readJson<{ matterId: string | null }>(moved)).matterId).toBe(openMatter);
+    expect(await auditCount("magnus.conversation_moved")).toBe(before + 1);
+    const { results } = await firmDatabase
+      .prepare("SELECT metadata FROM audit_log WHERE event = 'magnus.conversation_moved'")
+      .all<{ metadata: string }>();
+    expect(results.at(-1)?.metadata).toContain(openMatter);
+
+    // And off every matter again: the reverse is the same write with null.
+    const cleared = await patch(`/api/v1/magnus/conversations/${conversationId}/matter`, {
+      matterId: null,
+    });
+    expect(cleared.status).toBe(200);
+    expect((await readJson<{ matterId: string | null }>(cleared)).matterId).toBeNull();
+  });
+
+  it("attaches one of the matter's own files by reference, and refuses another matter's", async () => {
+    const matterId = newIdentifier("matter");
+    const otherMatterId = newIdentifier("matter");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Attach File', 'open', ?4, ?3, ?3), (?2, 'Other File', 'open', ?4, ?3, ?3)",
+      )
+      .bind(matterId, otherMatterId, clock.now(), attorneyUserId)
+      .run();
+    const ownFile = newIdentifier("file");
+    const foreignFile = newIdentifier("file");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'lease.pdf', NULL, NULL, NULL, ?4, ?4), (?3, ?5, NULL, 'other.pdf', NULL, NULL, NULL, ?4, ?4)",
+      )
+      .bind(ownFile, matterId, foreignFile, clock.now(), otherMatterId)
+      .run();
+
+    const onNoMatter = await startConversation();
+    const refusedNoMatter = await post(
+      `/api/v1/magnus/conversations/${onNoMatter}/attachments`,
+      { fileId: ownFile },
+    );
+    expect(refusedNoMatter.status).toBe(422);
+
+    const started = await post("/api/v1/magnus/conversations", { title: "With files", matterId });
+    const conversationId = (await readJson<{ id: string }>(started)).id;
+
+    const foreign = await post(`/api/v1/magnus/conversations/${conversationId}/attachments`, {
+      fileId: foreignFile,
+    });
+    expect(foreign.status).toBe(422);
+
+    const attached = await post(`/api/v1/magnus/conversations/${conversationId}/attachments`, {
+      fileId: ownFile,
+    });
+    expect(attached.status).toBe(201);
+    const attachments = await readJson<
+      Array<{ fileId: string; name: string | null; textStatus: string }>
+    >(attached);
+    expect(attachments).toEqual([
+      expect.objectContaining({ fileId: ownFile, name: "lease.pdf", textStatus: "pending" }),
+    ]);
+
+    // The detail carries them, and the audit row names the file and nothing of it.
+    const detail = await readJson<{ attachments: Array<{ fileId: string }> }>(
+      await get(`/api/v1/magnus/conversations/${conversationId}`),
+    );
+    expect(detail.attachments.map((row) => row.fileId)).toEqual([ownFile]);
+    expect(await auditCount("magnus.attachment_added")).toBeGreaterThan(0);
+
+    const detached = await remove(
+      `/api/v1/magnus/conversations/${conversationId}/attachments/${ownFile}`,
+    );
+    expect(detached.status).toBe(200);
+    expect(await readJson<unknown[]>(detached)).toEqual([]);
   });
 
   it("the events route refuses a non-upgrade request with 426 rather than hanging", async () => {

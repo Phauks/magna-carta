@@ -8268,6 +8268,43 @@ export const magnusMemberAcknowledgement = sqliteTable("magnus_member_acknowledg
   acknowledgedAt: text("acknowledged_at").notNull(),
 });
 
+// A matter's file attached to a conversation BY REFERENCE. The row points at the file and copies
+// nothing of it: the readable text the model is sent is taken from the file's current clean version
+// at the moment a question is asked and is kept nowhere else, so the file subsystem's erasure and
+// retention posture is the attachment's too. No handle of its own — the pair is the identity, and a
+// retried attach of the same pair is the same attachment.
+//
+// `text_status` and `text_bytes` record what became of the file's text on the most recent question:
+// whether it reached the model whole, was cut to fit the request's budget, or yielded nothing
+// readable. Recorded so the surface can say so per file rather than the member wondering whether the
+// model saw the document. No member column: only the conversation's author can attach, and the
+// conversation row already names them.
+export const magnusConversationAttachment = sqliteTable(
+  "magnus_conversation_attachment",
+  {
+    conversationId: text("conversation_id")
+      .notNull()
+      .$type<MagnusConversationId>()
+      .references(() => magnusConversation.id),
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    attachedAt: text("attached_at").notNull(),
+    textStatus: text("text_status", { enum: ["pending", "sent", "cut", "unreadable"] })
+      .notNull()
+      .default("pending"),
+    textBytes: integer("text_bytes"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.conversationId, table.fileId] }),
+    check(
+      "magnus_conversation_attachment_text_status_check",
+      sql`${table.textStatus} IN ('pending', 'sent', 'cut', 'unreadable')`,
+    ),
+  ],
+);
+
 // ---------------------------------------------------------------------------------------------
 // Discovery — the corpus of documents under review on a matter.
 //

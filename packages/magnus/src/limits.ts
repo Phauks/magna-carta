@@ -35,3 +35,29 @@ export function exceedsMemberTurnCap(content: string): boolean {
 export function exceedsMagnusTurnCap(content: string): boolean {
   return contentByteLength(content) > MAGNUS_TURN_MAX_BYTES;
 }
+
+// How many files one conversation may carry. A conversation is a question with a few documents
+// beside it, not a review set, and the cap is what keeps the per-request text budget below
+// meaningful for each of them.
+export const CONVERSATION_ATTACHMENTS_MAX = 10;
+
+// The text of every attached file, together, per request. It sits inside the conversation window's
+// own byte cap (window.ts), so a question with attachments still transmits a bounded amount, and what
+// does not fit is CUT AND SAID rather than silently dropped.
+export const ATTACHMENT_TEXT_MAX_BYTES = 65536;
+
+// A source file larger than this is not read at all. Extraction runs on every question that carries
+// the attachment, and a file this size is not a document a question is about.
+export const ATTACHMENT_SOURCE_MAX_BYTES = 25 * 1024 * 1024;
+
+const decoder = new TextDecoder();
+
+// The longest prefix of `content` that fits `maxBytes` of UTF-8, cut on a character boundary so what
+// survives is still text. The input comes back unchanged when it already fits.
+export function cutToByteLength(content: string, maxBytes: number): string {
+  const bytes = encoder.encode(content);
+  if (bytes.length <= maxBytes) return content;
+  // A prefix that ends mid-character decodes to a replacement character at its end; it is stripped so
+  // the cut reads clean.
+  return decoder.decode(bytes.subarray(0, maxBytes)).replace(/�$/u, "");
+}

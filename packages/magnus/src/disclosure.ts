@@ -7,4 +7,7 @@
 // current version, so every member is re-prompted automatically and accepts the new statement before
 // their next turn. An acknowledgement without a version is an acknowledgement of an unknown thing,
 // which is why the stored row carries this number and the consent resolver compares against it.
-export const MAGNUS_DISCLOSURE_VERSION = 1;
+//
+// Version 2: what Magnus can SEE changed. A member can attach a matter's files to a conversation, and
+// the readable text of those files is sent with the question. Nothing else is read.
+export const MAGNUS_DISCLOSURE_VERSION = 2;

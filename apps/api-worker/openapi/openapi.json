@@ -21198,10 +21198,35 @@
           },
           "remainingDailyTurns": {
             "type": "number"
+          },
+          "model": {
+            "$ref": "#/components/schemas/MagnusAnsweringModel"
           }
         },
         "required": [
           "state"
+        ]
+      },
+      "MagnusAnsweringModel": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "modelId": {
+            "type": "string"
+          },
+          "snapshotId": {
+            "type": "string"
+          },
+          "zeroDataRetention": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "modelId",
+          "snapshotId",
+          "zeroDataRetention"
         ]
       },
       "MagnusAcknowledgement": {
@@ -21331,11 +21356,18 @@
               "data",
               "nextCursor"
             ]
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MagnusConversationAttachment"
+            }
           }
         },
         "required": [
           "conversation",
-          "turns"
+          "turns",
+          "attachments"
         ]
       },
       "MagnusTurn": {
@@ -21422,6 +21454,52 @@
           "completedAt"
         ]
       },
+      "MagnusConversationAttachment": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attachedAt": {
+            "type": "string"
+          },
+          "textStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "sent",
+              "cut",
+              "unreadable"
+            ]
+          },
+          "textBytes": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "fileId",
+          "name",
+          "matterId",
+          "attachedAt",
+          "textStatus",
+          "textBytes"
+        ]
+      },
       "MagnusRenameConversationRequest": {
         "type": "object",
         "properties": {
@@ -21435,6 +21513,33 @@
         },
         "required": [
           "title"
+        ]
+      },
+      "MagnusMoveConversationRequest": {
+        "type": "object",
+        "properties": {
+          "matterId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "matterId"
+        ]
+      },
+      "MagnusAttachFileRequest": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "fileId"
         ]
       },
       "MagnusSubmitTurnResponse": {
@@ -32672,6 +32777,27 @@
           "model": {
             "$ref": "#/components/schemas/AiModelFacts"
           },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiModelChoice"
+            }
+          },
+          "catalog": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer"
+              },
+              "effectiveDate": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "version",
+              "effectiveDate"
+            ]
+          },
           "magnus": {
             "type": "object",
             "properties": {
@@ -32691,6 +32817,8 @@
         "required": [
           "aiProcessing",
           "model",
+          "models",
+          "catalog",
           "magnus"
         ]
       },
@@ -32711,13 +32839,70 @@
           },
           "noTraining": {
             "type": "boolean"
+          },
+          "selection": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "chosen"
+            ]
           }
         },
         "required": [
           "modelId",
           "snapshotId",
           "zeroDataRetention",
-          "noTraining"
+          "noTraining",
+          "selection"
+        ]
+      },
+      "AiModelChoice": {
+        "type": "object",
+        "properties": {
+          "modelId": {
+            "type": "string"
+          },
+          "snapshotId": {
+            "type": "string"
+          },
+          "zeroDataRetention": {
+            "type": "boolean"
+          },
+          "noTraining": {
+            "type": "boolean"
+          },
+          "verifiedOn": {
+            "type": "string"
+          },
+          "availabilityVerifiedOn": {
+            "type": "string"
+          },
+          "retirementNotBefore": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "platformDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "modelId",
+          "snapshotId",
+          "zeroDataRetention",
+          "noTraining",
+          "verifiedOn",
+          "availabilityVerifiedOn",
+          "retirementNotBefore",
+          "tier",
+          "platformDefault"
         ]
       },
       "PatchFirmAiSettingsRequest": {
@@ -32730,6 +32915,21 @@
                 "type": "boolean"
               }
             }
+          },
+          "model": {
+            "type": "object",
+            "properties": {
+              "modelId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              }
+            },
+            "required": [
+              "modelId"
+            ]
           },
           "magnus": {
             "type": "object",
@@ -76200,7 +76400,7 @@
         }
       },
       "get": {
-        "description": "The caller's own conversations, newest first. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited. The optional matter filter narrows the page to the conversations kept on one matter's file, which is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about what any of those conversations was built from.",
+        "description": "The caller's own conversations, in the order `sort` names: `date` (newest first, the default), `name` (by the member's own title, with unnamed conversations after the named ones, ordered by when they started), or `matter` (grouped by the matter they are kept on, by its title, with conversations on no matter last). The order is applied to the whole record and the cursor pages within it. A member holding the read-all-conversations permission may pass `scope=firm` to list every member's instead; that read is audited. The optional matter filter narrows the page to the conversations kept on one matter's file, which is what a matter's own assistant surface reads; it narrows the RECORD and says nothing about what any of those conversations was built from.",
         "operationId": "magnus.listConversations",
         "tags": [
           "magnus"
@@ -76246,6 +76446,19 @@
             },
             "required": false,
             "name": "matterId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "date",
+                "name",
+                "matter"
+              ]
+            },
+            "required": false,
+            "name": "sort",
             "in": "query"
           }
         ],
@@ -76623,6 +76836,387 @@
                   "required": [
                     "id"
                   ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed but a rule refuses it",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/matter": {
+      "patch": {
+        "description": "Keeps a conversation on another matter's file, or on none. Which matter a transcript is kept on is what decides who may read it, so this is an access decision as much as a filing one, and the audit row names both matters. The caller must be able to read the conversation (their own, or anyone's under the read-all-conversations permission) and the target matter must be one the firm still writes to: a closed matter and the platform's own matters are refused. The conversation's attachments go with the move, because each is one of the OLD matter's files. The link still scopes only the record: nothing of the matter's content reaches the assistant.",
+        "operationId": "magnus.moveConversation",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.moveConversation",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusMoveConversationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The conversation is now kept where the request said",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagnusConversation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The target matter is closed, is the platform's own, or does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/attachments": {
+      "post": {
+        "description": "Attaches one of the conversation's matter's files to the conversation, BY REFERENCE. The attachment copies nothing: on each later question, the file's current version is read, its readable text is taken through the platform's own extraction, and that text is sent ahead of the question under a heading naming the file, within a bounded budget. A conversation kept on no matter can attach nothing, because files are matter-rooted. At most 10 per conversation.",
+        "operationId": "magnus.attachFile",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.attachFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagnusAttachFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The file is attached; the conversation's attachments after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MagnusConversationAttachment"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission, or the firm has not opted in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the record does not exist",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The member has not accepted the current disclosure, or a request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The conversation is on no matter, the file is not one of that matter's, or the conversation already carries as many files as it may",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/magnus/conversations/{conversationId}/attachments/{fileId}": {
+      "delete": {
+        "description": "Takes a file off the conversation. Nothing of the file was ever copied, so nothing is erased; later questions simply travel without it.",
+        "operationId": "magnus.detachFile",
+        "tags": [
+          "magnus"
+        ],
+        "x-mc-operationId": "magnus.detachFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "magnus:converse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "magnus.attachFile"
+        },
+        "x-mc-tags": [
+          "magnus"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^magnusConversation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "conversationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file is no longer attached; the conversation's attachments after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MagnusConversationAttachment"
+                  }
                 }
               }
             }
@@ -100456,7 +101050,7 @@
         }
       },
       "patch": {
-        "description": "Updates the firm's AI settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. The model in force is reported, never written. Returns the settings after the write.",
+        "description": "Updates the firm's AI settings. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. `model.modelId` pins the firm to one of the roster's verified models; `model.modelId: null` returns the firm to following the platform's current model. A model not on the roster is refused. Returns the settings after the write.",
         "operationId": "firmAiSettings.update",
         "tags": [
           "firmAiSettings"

@@ -1,4 +1,5 @@
 import type {
+  FileId,
   MagnusConversationId,
   MagnusTurnId,
   MatterId,
@@ -77,6 +78,41 @@ export interface TurnRow {
   readonly contextTruncated: boolean;
   readonly createdAt: string;
   readonly completedAt: string | null;
+}
+
+// How a conversation listing is ordered. `date` is newest first and the default; `name` and `matter`
+// group the record by what a conversation is called and by where it is kept. Every value is honoured
+// by the server over the whole record, never by a client over the page it happens to hold: an order
+// applied to what is loaded is not the order.
+export type ConversationSort = "date" | "name" | "matter";
+
+export const CONVERSATION_SORTS: readonly ConversationSort[] = ["date", "name", "matter"];
+
+// What became of an attached file's text on the most recent question that carried it.
+//   pending    — attached since the last question, so nothing of it has been sent yet
+//   sent       — its readable text reached the model whole
+//   cut        — part of it reached the model; the rest did not fit the request's budget
+//   unreadable — no readable text could be taken from it, so nothing of it was sent
+export type AttachmentTextStatus = "pending" | "sent" | "cut" | "unreadable";
+
+export const ATTACHMENT_TEXT_STATUSES: readonly AttachmentTextStatus[] = [
+  "pending",
+  "sent",
+  "cut",
+  "unreadable",
+];
+
+// One file attached to a conversation BY REFERENCE. The row points at the matter's own file and
+// copies nothing: the text the model sees is taken from the file's current version at the moment a
+// question is asked, and is kept nowhere else.
+export interface ConversationAttachmentRow {
+  readonly conversationId: MagnusConversationId;
+  readonly fileId: FileId;
+  readonly attachedAt: string;
+  readonly textStatus: AttachmentTextStatus;
+  // How many bytes of the file's text were sent on the most recent question, or null before the
+  // first.
+  readonly textBytes: number | null;
 }
 
 // One member's acceptance of the disclosure, at the version they were shown.
