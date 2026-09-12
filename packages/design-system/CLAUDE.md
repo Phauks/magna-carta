@@ -464,7 +464,7 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
     - **Multiple value is normalised to `items` (list) order.** Bits appends to the value array in SELECTION order, so the trigger would join labels in pick order; Root re-presents it in list order via a pure `$derived` fed through the **function-form `bind:value`** (getter returns the reordered value, setter writes raw selections back — no write-in-`$effect`). The discriminated-union value (string vs string[]) can't be statically narrowed through a wrapper, hence the one `as never` getter cast.
     - **`allowDeselect` defaults to true** (bits ships it false): a single select returns to the empty/placeholder state by re-clicking the selected option (multiple ignores it). Required fields that must keep a value pass `allowDeselect={false}`. bits closes a single select on a NEW pick but not on deselect, so Root also closes it when the single value clears (via `bind:open` + the value setter) — every single-select pick (set or clear) closes consistently.
     - **The trigger's role is `button` + `aria-haspopup="listbox"`, NOT `combobox`** (combobox is the Tier-4 Combobox, a different bits primitive). Query it as a button in tests; the listbox/options use `listbox`/`option` with `aria-selected`.
-    - **Content sizing rides inline `style` on the element, not the recipe:** the panel uses the GENERIC `min-width: var(--bits-floating-anchor-width)` and the viewport's `max-height: var(--bits-floating-available-height)` (not the `--bits-select-*` aliases) — Bits-owned variables, not `--mc-` tokens, so the components.css purity gate keeps them out of the recipe, and the generic names let the same `select-content` component serve Combobox too.
+    - **Content sizing rides inline `style` on the element, not the recipe:** the panel uses the GENERIC `min-width: var(--bits-floating-anchor-width)` + `max-width: var(--bits-floating-available-width)` (`LISTBOX_PANEL_STYLE` in `internal/floating.ts`) and the viewport's `max-height: var(--bits-floating-available-height)` (not the `--bits-select-*` aliases) — Bits-owned variables, not `--mc-` tokens, so the components.css purity gate keeps them out of the recipe, and the generic names let the same `select-content` component serve Combobox too. The alignment and collision defaults are the shared ones (see the z-order and alignment gotchas below).
   - **Command (Tier 4) — the command palette:**
     - **A palette has no open/close of its own — host it in a Dialog** (the Cmd+K pattern): the Dialog supplies the trigger, focus trap, and dismissal on outside-click/Escape. Give `Dialog.Content` `class="overflow-hidden p-0"` + `showClose={false}` and the `Command.Root` `class="border-0 bg-transparent"` so the dialog chrome hosts a border-less palette edge-to-edge. (Testing the outside-click: the body has `pointer-events:none` while a dialog is open, so click the `.mc-dialog-overlay` scrim, not `document.body`.)
     - **The matcher is a seam:** `Command.Root` defaults to a plain case-insensitive substring match (value + keywords); pass `filter` to swap in a richer scorer or the firm search index. bits' own default is fuzzy (computeCommandScore).
@@ -538,9 +538,32 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   listboxes, menus, popovers, tooltips) rides the `anchored` layer (1350) — ABOVE `modal`
   (1300), below `toast` — because a picker opened from inside a dialog painted beneath the
   panel at the old `dropdown` layer (visible but pointer-blocked; the Radix/Bits ecosystem norm
-  is anchored content above dialogs). `dropdown` (1000, below `sticky`) remains for
-  non-anchored dropdown-like surfaces that should scroll under pinned bars. One home:
-  `internal/floating.ts`; ordering pinned by `test/floating.test.ts`.
+  is anchored content above dialogs). **Every floating Content part takes `anchored`** — the two
+  context-menu parts were the last on `dropdown`, and a right-click menu raised inside the Upload
+  dialog painted under the panel, there and unreachable (corrected 2026-09-11; the ContextMenu
+  story "Inside a dialog" pins it). `dropdown` (1000, below `sticky`) stays a token for a
+  non-portaled surface that should scroll under pinned bars; no floating part may name it, and
+  `test/floating-surfaces.test.ts` refuses one. One home: `internal/floating.ts`; ordering pinned
+  by `test/floating.test.ts`.
+- **Where a surface opens, and how wide it may grow, is the component's — never the call site's
+  (owner ruling, settings round 2026-09-11).** Select, Combobox, DropdownMenu and Popover Content
+  all default to `align={FLOATING_ALIGN}` (`"end"`: the panel's end edge on the control's, growing
+  toward the start — most controls that open one sit at the right of a row or a bar), hold
+  `FLOATING_COLLISION_PADDING` off the viewport, and cap their width to
+  `--bits-floating-available-width` (`FLOATING_PANEL_STYLE`; the listboxes also floor it at the
+  anchor width, `LISTBOX_PANEL_STYLE`), so a long option wraps inside the panel instead of running
+  it off the screen. All four constants live in `internal/floating.ts`; `test/floating-surfaces.test.ts`
+  pins every part to them. A caller's explicit `align="start"` (a filter at the start of a
+  toolbar) still wins, and a caller's `style` is composed AFTER the panel's own through
+  `floatingContentStyle()` — never spread over it, or the width rules vanish. The ninety-five
+  hand-written `align="end"` in `apps/web` are now redundant and harmless. A context menu is NOT
+  one of these: it anchors to the pointer and keeps Bits' start alignment. **The Combobox anchors
+  to the field box, not the input:** Bits anchors a combobox to the `<input>` alone, which sits
+  inside the bordered field and short of the chevron, so Root shares the field box through
+  `COMBOBOX_FIELD_ANCHOR`, Input fills it, and Content uses it unless a caller passes
+  `customAnchor`. What the end alignment cannot promise: a panel wider than the room to the START
+  of a left-anchored control has nowhere to go but rightward, and Bits' shift puts it on screen
+  there rather than off it.
 - **Workshop agenda (hairline weight under fractional DPR) — flagged for Fable design review:**
   the horizontal and vertical Separator can look unequal in weight even though both are correctly
   `1px` (`--mc-border-width-default`) — horizontal sets `block-size`, vertical `inline-size`, same

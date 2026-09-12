@@ -57,6 +57,24 @@
     "Uniform", "Victor", "Whiskey", "Xray", "Yankee", "Zulu",
   ];
   const PHONETIC_ITEMS = PHONETIC.map((word) => ({ value: word.toLowerCase(), label: word }));
+
+  // Options longer than their control: the listbox grows toward the start from the control's end
+  // edge, never past it. And options longer than the screen: the listbox is capped to the room the
+  // screen has, and the rows wrap.
+  const WIDE = [
+    "Correspondence with opposing counsel regarding the amended scheduling order",
+    "Discovery responses and objections served on the second defendant",
+    "Memorandum of law in support of the motion for summary judgment",
+  ];
+  const WIDE_ITEMS = WIDE.map((label) => ({ value: label, label }));
+  const OVERLONG = [
+    Array.from(
+      { length: 6 },
+      () => "A label long enough to run past the edge of any screen it is opened on,",
+    ).join(" "),
+    "A short one",
+  ];
+  const OVERLONG_ITEMS = OVERLONG.map((label) => ({ value: label, label }));
 </script>
 
 <!-- Single select: grouped matters, a placeholder, one disabled option, and a form name. -->
@@ -217,6 +235,20 @@
       await body.findByRole("listbox");
     });
 
+    await step("Opens end-aligned to the trigger, its end edge on the trigger's", async () => {
+      // The component's default, written nowhere in this story: a listbox aligns to the end of the
+      // control that opens it and never extends past that edge.
+      const listbox = body.getByRole("listbox");
+      await expect(listbox).toHaveAttribute("data-align", "end");
+      // The panel scale-fades in, so poll until its box has settled where Bits placed it.
+      await waitFor(() => {
+        const panel = listbox.getBoundingClientRect();
+        const control = trigger.getBoundingClientRect();
+        expect(Math.abs(panel.right - control.right)).toBeLessThanOrEqual(1);
+        expect(panel.width).toBeGreaterThanOrEqual(control.width - 1);
+      });
+    });
+
     await step("Typeahead jumps to a far matching option", async () => {
       await userEvent.keyboard("z");
       await waitFor(() =>
@@ -232,41 +264,118 @@
   }}
 >
   {#snippet template(args: SelectStoryArgs)}
-    <Select.Root {...args} items={PHONETIC_ITEMS}>
-      <Select.Trigger class="max-w-sm" aria-label="Code word">
-        <Select.Value placeholder="Code word" />
-      </Select.Trigger>
-      <Select.Content>
-        {#each PHONETIC as word (word)}
-          <Select.Item value={word.toLowerCase()} label={word} />
-        {/each}
-      </Select.Content>
-    </Select.Root>
+    <!-- Stood off the viewport edge as a control is in the app's canvas: flush against the edge,
+         Bits would hold the listbox the collision padding in, and the alignment step measures
+         the panel's edge against the trigger's. -->
+    <div class="p-24">
+      <Select.Root {...args} items={PHONETIC_ITEMS}>
+        <Select.Trigger class="max-w-sm" aria-label="Code word">
+          <Select.Value placeholder="Code word" />
+        </Select.Trigger>
+        <Select.Content>
+          {#each PHONETIC as word (word)}
+            <Select.Item value={word.toLowerCase()} label={word} />
+          {/each}
+        </Select.Content>
+      </Select.Root>
+    </div>
   {/snippet}
 </Story>
 
-<!-- Behaviour: a disabled select does not open. Hidden from the catalog, still run by the test addon. -->
+<!--
+  Behaviour: a disabled select does not open, and the listbox's width is the component's — it grows
+  from the control's end edge toward the start and never past that edge, and a list wider than the
+  screen is capped to the screen with its rows wrapped. The wide controls sit at the right of the
+  canvas, where a control that opens a list usually is. Hidden from the catalog, run by the test
+  addon.
+-->
 <Story
   name="Behaviour"
   tags={["!dev", "!autodocs"]}
   play={async ({ canvas, step }) => {
-    const trigger = canvas.getByRole("button", { name: "Disabled select" });
     const body = within(document.body);
+
     await step("A disabled select does not open", async () => {
+      const trigger = canvas.getByRole("button", { name: "Disabled select" });
       await expect(trigger).toHaveAttribute("data-disabled");
       await userEvent.click(trigger, { pointerEventsCheck: 0 });
       await expect(body.queryByRole("listbox")).toBeNull();
     });
+
+    await step("Long options grow the listbox toward the start of the control, never past its end", async () => {
+      const trigger = canvas.getByRole("button", { name: "Wide options" });
+      await userEvent.click(trigger);
+      const listbox = await body.findByRole("listbox");
+      await waitFor(() => {
+        const panel = listbox.getBoundingClientRect();
+        const control = trigger.getBoundingClientRect();
+        expect(panel.width).toBeGreaterThan(control.width);
+        expect(panel.right).toBeLessThanOrEqual(control.right + 1);
+        expect(panel.left).toBeGreaterThanOrEqual(0);
+      });
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("listbox")).toBeNull());
+    });
+
+    await step("Options wider than the screen are capped to it, and their rows wrap", async () => {
+      await waitFor(() => expect(document.body).not.toHaveStyle({ pointerEvents: "none" }));
+      const trigger = canvas.getByRole("button", { name: "Overlong options" });
+      await userEvent.click(trigger);
+      const listbox = await body.findByRole("listbox");
+      await waitFor(() => {
+        const panel = listbox.getBoundingClientRect();
+        expect(panel.left).toBeGreaterThanOrEqual(0);
+        expect(panel.right).toBeLessThanOrEqual(window.innerWidth);
+      });
+      const [overlong, short] = body.getAllByRole("option");
+      expect(overlong).toBeDefined();
+      expect(short).toBeDefined();
+      // A wrapped row stands taller than a one-line row.
+      expect((overlong as HTMLElement).getBoundingClientRect().height).toBeGreaterThan(
+        (short as HTMLElement).getBoundingClientRect().height * 1.5,
+      );
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(body.queryByRole("listbox")).toBeNull());
+    });
   }}
 >
   {#snippet template()}
-    <Select.Root type="single" disabled>
-      <Select.Trigger class="max-w-sm" aria-label="Disabled select">
-        <Select.Value placeholder="Unavailable" />
-      </Select.Trigger>
-      <Select.Content>
-        <Select.Item value="x" label="Unavailable option" />
-      </Select.Content>
-    </Select.Root>
+    <!-- Padded like the app's canvas, so no control is flush against the viewport edge; the wide
+         triggers shed the trigger's baked full width so the listbox has a narrower control to
+         grow past. -->
+    <div class="flex flex-col gap-16 p-24">
+      <Select.Root type="single" disabled>
+        <Select.Trigger class="max-w-sm" aria-label="Disabled select">
+          <Select.Value placeholder="Unavailable" />
+        </Select.Trigger>
+        <Select.Content>
+          <Select.Item value="x" label="Unavailable option" />
+        </Select.Content>
+      </Select.Root>
+      <div class="flex justify-end">
+        <Select.Root type="single" items={WIDE_ITEMS}>
+          <Select.Trigger class="w-auto" aria-label="Wide options">
+            <Select.Value placeholder="Wide options" />
+          </Select.Trigger>
+          <Select.Content>
+            {#each WIDE as label (label)}
+              <Select.Item value={label} {label} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+      <div class="flex justify-end">
+        <Select.Root type="single" items={OVERLONG_ITEMS}>
+          <Select.Trigger class="w-auto" aria-label="Overlong options">
+            <Select.Value placeholder="Overlong options" />
+          </Select.Trigger>
+          <Select.Content>
+            {#each OVERLONG as label (label)}
+              <Select.Item value={label} {label} />
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+    </div>
   {/snippet}
 </Story>

@@ -5,3 +5,13 @@
  * element id.
  */
 export const COMBOBOX_LISTBOX_ID = Symbol("mc-combobox-listbox-id");
+
+/*
+ * The field box the listbox anchors to. Bits anchors a combobox's floating layer to the <input>
+ * alone, which is the text box INSIDE the bordered field the person sees — end-aligned to that,
+ * the panel would stop short of the chevron. Root provides one reactive slot; Input writes the
+ * bordered box it renders into it; Content anchors to it unless a caller passes `customAnchor`.
+ */
+export const COMBOBOX_FIELD_ANCHOR = Symbol("mc-combobox-field-anchor");
+
+export type ComboboxFieldAnchor = { element: HTMLElement | null };
