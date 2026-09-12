@@ -6972,6 +6972,18 @@
               "string",
               "null"
             ]
+          },
+          "uploadedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uploadedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -6989,7 +7001,9 @@
           "scanVerdict",
           "status",
           "quarantineReason",
-          "sourceModifiedAt"
+          "sourceModifiedAt",
+          "uploadedBy",
+          "uploadedByName"
         ]
       },
       "FileVersionsResponse": {
@@ -7045,6 +7059,18 @@
               "string",
               "null"
             ]
+          },
+          "uploadedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uploadedByName": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -7053,7 +7079,9 @@
           "sizeBytes",
           "sniffedContentType",
           "contentSha256",
-          "committedAt"
+          "committedAt",
+          "uploadedBy",
+          "uploadedByName"
         ]
       },
       "FileActionAck": {

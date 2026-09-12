@@ -136,6 +136,11 @@ const FileSummary = z
     // The last-modified instant the uploading device reported for the display version's source file,
     // or null where none was recorded. The record's own dates stand beside it, never replaced by it.
     sourceModifiedAt: z.string().nullable(),
+    // Who uploaded the display version — the member's id (kept on the version, so it outlives the
+    // member row) and the name the firm calls them, null where nobody was recorded or the member row
+    // is gone. An upload is an act of creation, so the table calls this Created By.
+    uploadedBy: z.string().nullable(),
+    uploadedByName: z.string().nullable(),
   })
   .openapi("FileSummary");
 
@@ -151,6 +156,9 @@ const FileVersionItem = z
     sniffedContentType: z.string().nullable(),
     contentSha256: z.string().nullable(),
     committedAt: z.string().nullable(),
+    // Who uploaded this version, on the same terms as FileSummary's pair.
+    uploadedBy: z.string().nullable(),
+    uploadedByName: z.string().nullable(),
   })
   .openapi("FileVersionItem");
 
@@ -1014,6 +1022,8 @@ function toFileSummaryResponse(file: FileListItem): z.infer<typeof FileSummary> 
     status: file.status,
     quarantineReason: file.quarantineReason,
     sourceModifiedAt: file.sourceModifiedAt,
+    uploadedBy: file.uploadedBy,
+    uploadedByName: file.uploadedByName,
   };
 }
 
@@ -1250,6 +1260,8 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
             sniffedContentType: version.sniffedContentType,
             contentSha256: version.contentSha256,
             committedAt: version.committedAt,
+            uploadedBy: version.uploadedBy,
+            uploadedByName: version.uploadedByName,
           })),
         } as z.infer<typeof FileVersionsResponse>,
         200,

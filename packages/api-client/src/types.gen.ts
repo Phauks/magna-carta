@@ -1737,6 +1737,8 @@ export type FileSummary = {
     status: 'clean' | 'pending' | 'quarantined';
     quarantineReason: string | null;
     sourceModifiedAt: string | null;
+    uploadedBy: string | null;
+    uploadedByName: string | null;
 };
 
 export type FileVersionsResponse = {
@@ -1751,6 +1753,8 @@ export type FileVersionItem = {
     sniffedContentType: string | null;
     contentSha256: string | null;
     committedAt: string | null;
+    uploadedBy: string | null;
+    uploadedByName: string | null;
 };
 
 export type FileActionAck = {

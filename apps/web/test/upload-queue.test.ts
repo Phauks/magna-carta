@@ -59,6 +59,8 @@ function plan(entries: DroppedEntry[], over: Partial<UploadBatchPlan> = {}): Upl
         status: "clean",
         quarantineReason: null,
         sourceModifiedAt: null,
+        uploadedBy: null,
+        uploadedByName: null,
       },
     ],
     ...over,

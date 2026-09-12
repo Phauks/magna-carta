@@ -274,7 +274,10 @@
    * Who created a file. The listing carries no author, so this answers honestly with nothing rather
    * than with "You" — a name the record does not hold is not a name this column may invent.
    */
-  const createdBy = (): string => "";
+  // The uploader's name, as the list carries it. An upload is an act of creation, which is why the
+  // column is called Created By; a file whose uploader was never recorded, or whose member has
+  // left, reads blank rather than a stand-in word.
+  const createdBy = (file: MatterFile): string => file.uploadedByName ?? "";
 
   // --- the rows each view shows -------------------------------------------------------------------
 
