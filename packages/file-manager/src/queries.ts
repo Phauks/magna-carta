@@ -735,7 +735,7 @@ export function listCleanVersionsStatement(
   bindings.push(options.limit);
   return database
     .prepare(
-      `SELECT v.id, v.version_number, v.r2_key, v.size_bytes, v.sniffed_content_type, v.content_sha256, v.committed_at, v.inline_playable, v.uploaded_by, m.display_name AS uploaded_by_name ` +
+      `SELECT v.id, v.version_number, v.r2_key, v.size_bytes, v.sniffed_content_type, v.content_sha256, v.committed_at, v.inline_playable, v.uploaded_by, v.scan_verdict, v.scan_engine_version, v.scan_detail, m.display_name AS uploaded_by_name ` +
         `FROM ${FILE_VERSION_TABLE} v LEFT JOIN ${MEMBER_TABLE} m ON m.user_id = v.uploaded_by ` +
         `WHERE ${conditions.join(" AND ")} ORDER BY v.version_number DESC, v.id DESC LIMIT ?`,
     )
@@ -753,6 +753,14 @@ export interface CleanVersionListItem {
   /** Who uploaded this version, and what the firm calls them — see FileListItem for the two halves. */
   readonly uploadedBy: UserId | null;
   readonly uploadedByName: string | null;
+  /**
+   * The version's standing safety verdict, the engine that reached it, and the engine's own detail —
+   * the facts the Safety tab reads per version. A committed version always carries a verdict; null
+   * is the engine-less launch state read back as "not scanned".
+   */
+  readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
+  readonly scanEngineVersion: string | null;
+  readonly scanDetail: string | null;
 }
 
 export async function listCleanVersions(
@@ -775,6 +783,9 @@ export async function listCleanVersions(
     inline_playable: "playable" | "download-only" | "indeterminate" | null;
     uploaded_by: UserId | null;
     uploaded_by_name: string | null;
+    scan_verdict: "unscanned" | "clean" | "flagged" | null;
+    scan_engine_version: string | null;
+    scan_detail: string | null;
   }>();
   const hasMore = results.length > pageSize;
   const rows = hasMore ? results.slice(0, pageSize) : results;
@@ -792,7 +803,114 @@ export async function listCleanVersions(
       inlinePlayable: row.inline_playable,
       uploadedBy: row.uploaded_by,
       uploadedByName: row.uploaded_by_name,
+      scanVerdict: row.scan_verdict,
+      scanEngineVersion: row.scan_engine_version,
+      scanDetail: row.scan_detail,
     })),
+  };
+}
+
+/** The audit events that record a safety scan of one version, in the order they are written. */
+export const VERSION_SCAN_EVENTS = [
+  "file.version_committed",
+  "file.version_rescanned",
+  "file.quarantined",
+  "file.rescan_requested",
+] as const;
+
+export type VersionScanEvent = (typeof VERSION_SCAN_EVENTS)[number];
+
+export interface VersionScanEventItem {
+  readonly id: string;
+  readonly at: string;
+  readonly event: VersionScanEvent;
+  readonly versionId: FileVersionId;
+  readonly versionNumber: number;
+  /** Who asked, for a request; null for a scan the platform ran on its own. */
+  readonly actorUserId: UserId | null;
+  readonly actorName: string | null;
+  /** What the scan found, as the event recorded it; null where the event carried no such fact. */
+  readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
+  readonly scanEngineVersion: string | null;
+  readonly scanDetail: string | null;
+}
+
+const VERSION_SCAN_EVENT_LIMIT = 200;
+
+// One file's safety history, read off the per-firm audit_log: every commit, re-scan, quarantine and
+// re-scan request against any of its versions, newest first. The verdict facts ride in the event's
+// own metadata, written the moment the scan finished — the version row only ever holds the LATEST
+// verdict, so a history that read the row would show the same engine on every line. The join to
+// file_version spans every status on purpose: a quarantined version's history is exactly the one a
+// reader most wants to see. It serves no bytes (version_number only). fitness:allow-no-status
+export async function listVersionScanEvents(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<VersionScanEventItem[]> {
+  const placeholders = VERSION_SCAN_EVENTS.map(() => "?").join(", ");
+  const { results } = await database
+    .prepare(
+      `SELECT a.id, a.created_at, a.event, a.subject_id, a.actor_user_id, a.metadata, ` +
+        `v.version_number, m.display_name AS actor_name ` +
+        `FROM ${AUDIT_LOG_TABLE} a ` +
+        `JOIN ${FILE_VERSION_TABLE} v ON v.id = a.subject_id AND v.file_id = ? ` +
+        `LEFT JOIN ${MEMBER_TABLE} m ON m.user_id = a.actor_user_id ` +
+        `WHERE a.event IN (${placeholders}) ` +
+        `ORDER BY a.created_at DESC, a.id DESC LIMIT ?`,
+    )
+    .bind(fileId, ...VERSION_SCAN_EVENTS, VERSION_SCAN_EVENT_LIMIT)
+    .all<{
+      id: string;
+      created_at: string;
+      event: VersionScanEvent;
+      subject_id: FileVersionId;
+      actor_user_id: UserId | null;
+      metadata: string | null;
+      version_number: number;
+      actor_name: string | null;
+    }>();
+  return results.map((row) => {
+    const facts = scanFactsFromMetadata(row.metadata);
+    return Object.assign(
+      {
+        id: row.id,
+        at: row.created_at,
+        event: row.event,
+        versionId: row.subject_id,
+        versionNumber: row.version_number,
+        actorUserId: row.actor_user_id,
+        actorName: row.actor_name,
+      },
+      facts,
+    );
+  });
+}
+
+// The scan facts an audit row carries, read defensively: metadata is JSON the writer chose, and an
+// older row (or one written by a path that recorded only a flagged reason) may carry any subset.
+function scanFactsFromMetadata(metadata: string | null): {
+  readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
+  readonly scanEngineVersion: string | null;
+  readonly scanDetail: string | null;
+} {
+  const none = { scanVerdict: null, scanEngineVersion: null, scanDetail: null } as const;
+  if (metadata === null) return none;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(metadata);
+  } catch {
+    return none;
+  }
+  if (typeof parsed !== "object" || parsed === null) return none;
+  const record = parsed as Record<string, unknown>;
+  const verdict = record["scanVerdict"];
+  const engine = record["scanEngineVersion"];
+  const detail = record["scanDetail"];
+  return {
+    scanVerdict:
+      verdict === "unscanned" || verdict === "clean" || verdict === "flagged" ? verdict : null,
+    scanEngineVersion: typeof engine === "string" ? engine : null,
+    scanDetail: typeof detail === "string" ? detail : null,
   };
 }
 
@@ -978,6 +1096,35 @@ export async function getCurrentVersionForIntegrity(
     size_bytes: number | null;
     content_sha256: string | null;
   }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
+    contentSha256: row.content_sha256,
+  };
+}
+
+// The same baseline for ONE NAMED clean version of the file, so a reader can verify an older version
+// against what intake recorded for it. Scoped by both ids: a version id from another file (or another
+// firm's) matches nothing.
+export async function getVersionForIntegrity(
+  database: SqlDatabase,
+  fileId: FileId,
+  versionId: FileVersionId,
+): Promise<VersionIntegrity | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT v.id, v.r2_key, v.size_bytes, v.content_sha256 FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.file_id = f.id WHERE f.id = ?1 AND v.id = ?2 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+    )
+    .bind(fileId, versionId)
+    .all<{
+      id: FileVersionId;
+      r2_key: string;
+      size_bytes: number | null;
+      content_sha256: string | null;
+    }>();
   const row = results[0];
   if (row === undefined) return undefined;
   return {

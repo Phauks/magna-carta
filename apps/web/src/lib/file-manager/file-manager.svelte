@@ -78,14 +78,17 @@
     listDeletedFiles,
     listDocumentTypes,
     listFileHistory,
+    listFileScans,
     listFileVersions,
     listMatterFiles,
+    requestFileRescan,
     restoreFile,
     verifyFileIntegrity,
     type ArchiveEntry,
     type DeletedFileSummary,
     type DocumentTypeSummary,
     type FileHistoryEntry,
+    type FileScanHistory,
     type IntegrityVerification,
     type MatterFile,
     type MatterFileVersion,
@@ -876,13 +879,21 @@
   // Bumped by Retry so the read effect below asks again for the same file.
   let versionsReadToken = $state(0);
   let integrity = $state<IntegrityVerification | null>(null);
+  // Which version `integrity` describes: a version id, or null for the file's current version.
+  let integrityVersionId = $state<string | null>(null);
   let integrityRunning = $state(false);
+  let scans = $state<FileScanHistory | null>(null);
+  let scansLoading = $state(false);
+  let scansFailure = $state<Failure | null>(null);
+  let scansReadToken = $state(0);
+  let rescanRunning = $state(false);
 
   $effect(() => {
     const row = inspectedRow;
     // A new subject resets what the panel knows: a digest computed for one file must never be
     // read as another file's.
     integrity = null;
+    integrityVersionId = null;
     if (row === null || row.kind !== "file") {
       versions = null;
       versionsFailure = null;
@@ -906,18 +917,88 @@
     };
   });
 
-  async function runIntegrityCheck(): Promise<void> {
+  // The safety history is its own read on the same subject, re-asked by Retry and after a re-scan
+  // request, so a verdict landing in the background reaches the panel without a reopen.
+  $effect(() => {
+    const row = inspectedRow;
+    if (row === null || row.kind !== "file") {
+      scans = null;
+      scansFailure = null;
+      return;
+    }
+    const fileId = row.file.id;
+    void scansReadToken;
+    let cancelled = false;
+    scansLoading = true;
+    scansFailure = null;
+    void (async () => {
+      const outcome = await listFileScans(fetch, fileId);
+      if (cancelled) return;
+      scans = outcome.kind === "ok" ? outcome.value : null;
+      scansFailure = outcome.kind === "ok" ? null : outcome.failure;
+      scansLoading = false;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  async function runIntegrityCheck(versionId: string | null): Promise<void> {
     const row = inspectedRow;
     // One verify at a time: the hashes region's stall offers Retry, and a second press while the
     // first is still computing must not start a second computation over the same file.
     if (row === null || row.kind !== "file" || integrityRunning) return;
     integrityRunning = true;
-    const outcome = await verifyFileIntegrity(fetch, row.file.id);
+    const outcome = await verifyFileIntegrity(fetch, row.file.id, versionId ?? undefined);
     integrityRunning = false;
     integrity = outcome.kind === "ok" ? outcome.value : null;
+    integrityVersionId = versionId;
     if (outcome.kind !== "ok") {
       actionFailure = "The digests could not be recomputed. The file itself is unaffected.";
     }
+  }
+
+  // The verdict lands in the background a few seconds after the request; the history is re-read
+  // on a short cadence so it arrives in the panel without the reader asking, and stops asking
+  // once the request is answered or the subject changes.
+  const RESCAN_FOLLOW_UP_DELAYS_MS = [4_000, 10_000, 25_000] as const;
+  function followUpOnRescan(fileId: string): void {
+    if (inspectedRow?.kind === "file" && inspectedRow.file.id === fileId) scansReadToken += 1;
+    for (const delay of RESCAN_FOLLOW_UP_DELAYS_MS) {
+      setTimeout(() => {
+        if (inspectedRow?.kind === "file" && inspectedRow.file.id === fileId) scansReadToken += 1;
+      }, delay);
+    }
+  }
+  /** One request; true when a check was queued for it. States its own failure. */
+  async function requestRescanFor(fileId: string, versionId: string | null): Promise<boolean> {
+    const outcome = await requestFileRescan(fetch, fileId, versionId ?? undefined);
+    if (outcome.kind !== "ok") {
+      actionFailure = "The check could not be requested. The file itself is unaffected.";
+      return false;
+    }
+    followUpOnRescan(fileId);
+    if (!outcome.value.enqueued) {
+      actionFailure =
+        "The request was recorded, but no check could be queued: the firm has no scan engine recorded.";
+      return false;
+    }
+    return true;
+  }
+  async function requestRescan(versionId: string | null): Promise<void> {
+    const row = inspectedRow;
+    if (row === null || row.kind !== "file" || rescanRunning) return;
+    rescanRunning = true;
+    await requestRescanFor(row.file.id, versionId);
+    rescanRunning = false;
+  }
+  /** The menu's re-run, over every file in the selection that has a version to check. */
+  async function requestRescanOn(rows: readonly FileManagerRow[]): Promise<void> {
+    const files = rows.flatMap((row) =>
+      row.kind === "file" && row.file.currentVersionId !== null ? [row.file] : [],
+    );
+    // Each request states its own failure; the verdicts land in each file's Safety tab.
+    for (const file of files) await requestRescanFor(file.id, null);
   }
 
   const analysisReport = $derived(
@@ -1026,6 +1107,9 @@
         return;
       case "download":
         download(targets);
+        return;
+      case "rescan":
+        await requestRescanOn(targets);
         return;
       case "pin":
         manager.setPinned(
@@ -1978,9 +2062,16 @@
               {versions}
               {versionsLoading}
               {versionsFailure}
+              {scans}
+              {scansLoading}
+              {scansFailure}
               onRetryVersions={() => (versionsReadToken += 1)}
               {integrity}
+              {integrityVersionId}
               {integrityRunning}
+              onRetryScans={() => (scansReadToken += 1)}
+              {rescanRunning}
+              onRescan={(versionId) => void requestRescan(versionId)}
               folderAggregateOf={(folderId) => folderAggregate(index, folderId, safetyKeyOf)}
               bind:tab={manager.inspectorTab}
               onClose={togglePanel}
@@ -1993,7 +2084,7 @@
               onAddDocumentType={(name) => {
                 if (inspectedRow !== null) void addDocumentTypeFor([inspectedRow], name);
               }}
-              onVerifyIntegrity={() => void runIntegrityCheck()}
+              onVerifyIntegrity={(versionId) => void runIntegrityCheck(versionId)}
               onOpenVersion={(version) => {
                 if (inspectedRow?.kind === "file") {
                   openBeside(fileDownloadUrl(inspectedRow.file.id), "file");

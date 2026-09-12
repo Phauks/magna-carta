@@ -4,10 +4,13 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { compareToBaseline } from "@magna-carta/file-integrity/compare";
 import { hashAll } from "@magna-carta/file-integrity/hash";
 import { buildReceipt } from "@magna-carta/file-integrity/receipt";
-import { getCurrentVersionForIntegrity } from "@magna-carta/file-manager/queries";
+import {
+  getCurrentVersionForIntegrity,
+  getVersionForIntegrity,
+} from "@magna-carta/file-manager/queries";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FileId } from "@magna-carta/identifiers/types";
+import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
 import { resolveFirmBucket } from "../files/firm-bucket.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -91,7 +94,11 @@ export const fileIntegrityHashRoute = defineOpenAPIRoute(fileIntegrityHashMeta, 
   },
 });
 
-const VerifyRequest = z.object({ fileId: identifierField("file") });
+const VerifyRequest = z.object({
+  fileId: identifierField("file"),
+  // The committed version to verify; the file's current version when omitted.
+  versionId: identifierField("fileVersion").optional(),
+});
 
 const VerifyResponseSchema = z
   .object({
@@ -121,7 +128,7 @@ export const fileIntegrityVerifyRoute = defineOpenAPIRoute(fileIntegrityVerifyMe
   method: "post",
   path: "/api/v1/file-integrity/verify",
   description:
-    "Recompute a stored file's digests from its bytes at rest and compare the SHA-256 to the digest recorded at intake, recording the check. Returns the digests, the baseline result, and a hash receipt.",
+    "Recompute a stored file's digests from its bytes at rest and compare the SHA-256 to the digest recorded at intake, recording the check. Verifies the current version unless an earlier committed version is named. Returns the digests, the baseline result, and a hash receipt.",
   request: {
     body: { content: { "application/json": { schema: VerifyRequest } } },
   },
@@ -139,7 +146,8 @@ export const fileIntegrityVerifyRoute = defineOpenAPIRoute(fileIntegrityVerifyMe
       content: { "application/problem+json": { schema: Problem } },
     },
     404: {
-      description: "No clean current version exists for the file",
+      description:
+        "No clean current version exists for the file, or the named version is not one of its committed versions",
       content: { "application/problem+json": { schema: Problem } },
     },
     413: {
@@ -233,15 +241,26 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const { fileId } = c.req.valid("json");
+      const { fileId, versionId } = c.req.valid("json");
 
-      const version = await getCurrentVersionForIntegrity(firm.firmDatabase, fileId as FileId);
+      // Both reads are scoped by the file id, so a version id from another file resolves nothing.
+      const version =
+        versionId === undefined
+          ? await getCurrentVersionForIntegrity(firm.firmDatabase, fileId as FileId)
+          : await getVersionForIntegrity(
+              firm.firmDatabase,
+              fileId as FileId,
+              versionId as FileVersionId,
+            );
       if (version === undefined) {
         return problemJson(c, {
           type: "not-found",
           title: "No verifiable version",
           status: 404,
-          detail: "The file has no clean current version to verify.",
+          detail:
+            versionId === undefined
+              ? "The file has no clean current version to verify."
+              : "That is not a committed version of this file.",
         });
       }
 

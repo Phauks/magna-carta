@@ -81,10 +81,7 @@ const CAPABILITIES: readonly Capability[] = [
   {
     id: "rescan-file",
     label: "Re-run the safety check on one file",
-    reach: "waiting",
-    waitingOn:
-      "the per-file re-scan route. The engine's own endpoint re-scans a whole matter, so a " +
-      "per-file item here would re-scan more than it named.",
+    reach: "served",
   },
   {
     id: "copy-paste",

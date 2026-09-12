@@ -88,7 +88,6 @@ export function fileSafetyKey(input: FileSafetyInput): SafetyKey {
     status,
     scanVerdict,
     currentVersionId: input.hasVersion ? "present" : null,
-    documentTypeId: input.documentTypeId,
   });
 }
 

@@ -44,16 +44,16 @@ export type FileColumnIdentifier =
  * How a file's Safety cell is graded. The order is the order the facts overrule each other: a
  * rejected or flagged file is an Error whatever else is true of it; a file with no committed
  * version has nothing to grade yet; a file nothing has scanned states that plain fact rather than
- * being graded a Warning; a clean file with no document type is the Info band; and a clean, typed
- * file carries the bare mark and no word at all.
+ * being graded a Warning; and a clean file carries the bare mark and no word at all. Whether a
+ * file has a document type is not a safety fact: a firm that does not use types would otherwise
+ * read an Info mark on every file it holds.
  */
 export function safetyKeyOf(
-  file: Pick<MatterFile, "status" | "scanVerdict" | "currentVersionId" | "documentTypeId">,
+  file: Pick<MatterFile, "status" | "scanVerdict" | "currentVersionId">,
 ): SafetyKey {
   if (file.status === "quarantined" || file.scanVerdict === "flagged") return "error";
   if (file.status === "pending" || file.currentVersionId === null) return "warning";
   if (file.scanVerdict === null || file.scanVerdict === "unscanned") return "not-scanned";
-  if (file.documentTypeId === null) return "info";
   return "clean";
 }
 
