@@ -233,10 +233,34 @@ describe("the two listing shapes", () => {
     expect((await get("/api/v1/fees?from=2026-08-31&to=2026-08-01")).status).toBe(422);
   });
 
-  it("answers empty when neither a matter nor a span is named", async () => {
+  it("answers the firm's whole record, newest first, when nothing narrows it", async () => {
+    // The firm's Fees screen opens on this: every fee on every matter, with the Date column's
+    // filter as the only period control. Answering empty here would leave that screen no read.
     const response = await get("/api/v1/fees");
     expect(response.status).toBe(200);
-    expect(await listed(response)).toEqual([]);
+    const rows = await listed(response);
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    const dates = rows.map((row) => row.serviceDate);
+    expect(dates).toEqual([...dates].toSorted().toReversed());
+    expect(rows.map((row) => row.description)).toContain("Outside the span");
+  });
+
+  it("honours either bound on its own, as a Date filter set at one end is", async () => {
+    const fromOnly = await listed(await get("/api/v1/fees?from=2026-09-01"));
+    expect(fromOnly.map((row) => row.description)).toEqual(["Outside the span"]);
+    const toOnly = await listed(await get("/api/v1/fees?to=2026-08-03"));
+    expect(toOnly.every((row) => row.serviceDate <= "2026-08-03")).toBe(true);
+    expect(toOnly.map((row) => row.description)).toContain("Inside the span, first matter");
+  });
+
+  it("searches the description and the matter across the whole record", async () => {
+    const byWord = await listed(await get("/api/v1/fees?search=absorbed"));
+    expect(byWord.map((row) => row.description)).toEqual(["Inside the span, absorbed"]);
+    const byMatter = await listed(await get("/api/v1/fees?search=Harlow"));
+    expect(byMatter.length).toBeGreaterThan(0);
+    expect(byMatter.every((row) => row.matterId === harlowMatterId)).toBe(true);
+    // The wildcards are the caller's text: a percent sign matches a percent sign, not everything.
+    expect(await listed(await get("/api/v1/fees?search=%25"))).toEqual([]);
   });
 });
 
