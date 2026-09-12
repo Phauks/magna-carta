@@ -417,6 +417,14 @@ export class UploadBatch {
     if (outcome.kind === "committed" && outcome.copiedFrom === "firm") {
       item.reason = "Made from a copy the firm already held on another matter. Nothing was sent.";
     }
+    // The bytes landed and the check is still running past the time the dialog waits. Said, rather
+    // than shown as a finished upload the matter does not list yet: a member who reads "Uploaded"
+    // and finds no file thinks something was lost, when it is a scan engine warming up.
+    if (outcome.kind === "settling") {
+      item.reason =
+        "Sent and recorded. The safety check is still running — the file appears on the matter " +
+        "as soon as it finishes, usually within a minute.";
+    }
     item.stage = "settled";
   }
 
