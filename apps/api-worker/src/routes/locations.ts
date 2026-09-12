@@ -4,18 +4,29 @@ import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import { readImageFacts } from "@magna-carta/document-assembly/ooxml-image";
+import { readFirmPrimaryBrandImage } from "@magna-carta/locations/brand-image-service";
 import {
+  addMemberToLocation,
   assignMemberLocations,
   clearLetterheadLogo,
   closeLocation,
   createLocation,
+  removeMemberFromLocation,
+  setFirmDefaultLocation,
   setLetterheadLogo,
   setLocationAddresses,
   updateLocation,
 } from "@magna-carta/locations/location-service";
 import { firmDefaultLocationDefinition } from "@magna-carta/locations/settings";
+import {
+  readAllLocationAddresses,
+  readLocationAddresses,
+  readLocationMembers,
+  readLocationRegisterRows,
+  type LocationAddressRow,
+} from "@magna-carta/locations/statements";
 import { LocationValidationError } from "@magna-carta/locations/validation";
-import type { LocationId } from "@magna-carta/identifiers/types";
+import type { LocationId, UserId } from "@magna-carta/identifiers/types";
 import { firmScopedObjectDimensions } from "@magna-carta/object-dimensions/dimensions";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -50,6 +61,8 @@ const LocationRequest = z
     addressBlock: z.string().nullable().optional(),
     footer: z.string().nullable().optional(),
     remitTo: z.string().nullable().optional(),
+    // The one way to write to this office. Its telephone belongs to each of its addresses.
+    email: z.string().max(320).nullable().optional(),
   })
   .openapi("LocationRequest");
 
@@ -65,20 +78,43 @@ const PatchLocationRequest = z
     addressBlock: z.string().nullable().optional(),
     footer: z.string().nullable().optional(),
     remitTo: z.string().nullable().optional(),
+    email: z.string().max(320).nullable().optional(),
   })
   .openapi("PatchLocationRequest");
 
+// The international address field set, named for POSITION in an address — the same lines the
+// directory's addresses carry, so the product's one country-shaped address form writes an office's
+// address the way it writes anybody's. The country decides which lines a form shows.
 const AddressInputSchema = z.object({
   kind: z.enum(["physical", "mailing"]),
   street: z.string().nullable().optional(),
+  streetTwo: z.string().nullable().optional(),
+  dependentLocality: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
   region: z.string().nullable().optional(),
   postal: z.string().nullable().optional(),
+  sortingCode: z.string().nullable().optional(),
+  country: z.string().length(2).nullable().optional(),
   phone: z.string().nullable().optional(),
 });
 const AddressesRequest = z
   .object({ addresses: z.array(AddressInputSchema) })
   .openapi("LocationAddressesRequest");
+
+const LocationAddress = z
+  .object({
+    kind: z.enum(["physical", "mailing"]),
+    street: z.string().nullable(),
+    streetTwo: z.string().nullable(),
+    dependentLocality: z.string().nullable(),
+    city: z.string().nullable(),
+    region: z.string().nullable(),
+    postal: z.string().nullable(),
+    sortingCode: z.string().nullable(),
+    country: z.string().nullable(),
+    phone: z.string().nullable(),
+  })
+  .openapi("LocationAddress");
 
 const MemberLocationsRequest = z
   .object({
@@ -88,13 +124,39 @@ const MemberLocationsRequest = z
   })
   .openapi("MemberLocationsRequest");
 
+const LocationMemberRequest = z
+  .object({
+    // Whether this office becomes the member's primary. A member's first office is primary whatever
+    // this says, because a member with any office has to have one.
+    isPrimary: z.boolean().optional(),
+  })
+  .openapi("LocationMemberRequest");
+
+const LocationMember = z
+  .object({
+    userId: z.string(),
+    displayName: z.string(),
+    status: z.enum(["active", "deactivated"]),
+    isPrimary: z.boolean(),
+  })
+  .openapi("LocationMember");
+
+// The register row: every stored fact a reader scans offices by, with its addresses and its
+// staffing count joined, so the screen never asks one question per row. The letterhead TEXT stays
+// on the detail read — it is the office's own record, not a column.
 const LocationSummary = z
   .object({
     id: z.string(),
     name: z.string(),
     status: z.enum(["active", "closed"]),
     jurisdiction: z.string().nullable(),
+    timeZone: z.string().nullable(),
     numberCode: z.string().nullable(),
+    email: z.string().nullable(),
+    addresses: z.array(LocationAddress),
+    members: z.number().int(),
+    hasLetterheadLogo: z.boolean(),
+    firmDefault: z.boolean(),
   })
   .openapi("LocationSummary");
 const LocationListResponse = z
@@ -138,13 +200,27 @@ const LocationDetail = z
     addressBlock: z.string().nullable(),
     footer: z.string().nullable(),
     remitTo: z.string().nullable(),
+    email: z.string().nullable(),
+    addresses: z.array(LocationAddress),
+    members: z.array(LocationMember),
+    firmDefault: z.boolean(),
     letterheadLogo: LetterheadLogo.nullable(),
+    // Where the mark this office prints comes from: its own logo, the firm's primary mark where it
+    // has none, or nowhere. Stated so the screen can say "prints the firm's mark" rather than
+    // showing an empty logo slot on an office that prints one.
+    letterheadSource: z.enum(["office", "firm", "none"]),
+    createdAt: z.string(),
+    updatedAt: z.string(),
   })
   .openapi("LocationDetail");
 const IdAck = z.object({ id: z.string() }).openapi("LocationAck");
 
 const locationParam = z.object({ id: identifierPathParam("location", "id") });
 const memberParam = z.object({ userId: identifierPathParam("user", "userId") });
+const locationMemberParam = z.object({
+  id: identifierPathParam("location", "id"),
+  userId: identifierPathParam("user", "userId"),
+});
 
 const MANAGE = "locations:manage" as const;
 
@@ -217,6 +293,19 @@ const setAddressesMeta = writeMeta("locations.setAddresses");
 const assignMemberMeta = writeMeta("locations.assignMember");
 const setLetterheadLogoMeta = writeMeta("locations.setLetterheadLogo");
 const clearLetterheadLogoMeta = writeMeta("locations.clearLetterheadLogo");
+const addMemberMeta = writeMeta("locations.addMember");
+const removeMemberMeta = writeMeta("locations.removeMember");
+const setFirmDefaultMeta = writeMeta("locations.setFirmDefault");
+const getLetterheadLogoMeta: RouteMeta = {
+  operationId: "locations.getLetterheadLogo",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "location",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
 const listLocationsMeta: RouteMeta = {
   operationId: "locations.list",
   surface: "app",
@@ -421,6 +510,100 @@ const clearLetterheadLogoRoute = defineOpenAPIRoute(
   },
 );
 
+const getLetterheadLogoRoute = defineOpenAPIRoute(getLetterheadLogoMeta, {
+  method: "get",
+  path: "/api/v1/locations/{id}/letterhead-logo",
+  description:
+    "Streams the mark this office's letterhead prints: the office's own logo, or the firm's primary " +
+    "brand image where the office has set none. 404 where neither exists.",
+  request: { params: locationParam },
+  responses: {
+    200: {
+      description: "The image bytes",
+      content: {
+        "image/png": { schema: z.string() },
+        "image/jpeg": { schema: z.string() },
+      },
+    },
+    401: readErrorResponses[401],
+    404: readErrorResponses[404],
+    429: readErrorResponses[429],
+  },
+});
+
+const addMemberRoute = defineOpenAPIRoute(addMemberMeta, {
+  method: "put",
+  path: "/api/v1/locations/{id}/members/{userId}",
+  description:
+    "Puts a member at this office. Their first office is their primary whatever the body says; a " +
+    "later one is primary only when asked, which demotes the office that was.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: locationMemberParam,
+    body: { content: { "application/json": { schema: LocationMemberRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The member is at the office",
+      content: { "application/json": { schema: IdAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+
+const removeMemberRoute = defineOpenAPIRoute(
+  { ...removeMemberMeta, reversal: { kind: "inverse", by: "locations.addMember" } },
+  {
+    method: "delete",
+    path: "/api/v1/locations/{id}/members/{userId}",
+    description:
+      "Takes a member off this office. Where it was their primary and others remain, the first " +
+      "remaining office becomes primary.",
+    request: { headers: idempotencyKeyHeader, params: locationMemberParam },
+    responses: {
+      200: {
+        description: "The member is no longer at the office",
+        content: { "application/json": { schema: IdAck } },
+      },
+      400: writeErrorResponses[400],
+      401: writeErrorResponses[401],
+      403: writeErrorResponses[403],
+      404: writeErrorResponses[404],
+      409: writeErrorResponses[409],
+      422: writeErrorResponses[422],
+      429: writeErrorResponses[429],
+    },
+  },
+);
+
+const setFirmDefaultRoute = defineOpenAPIRoute(setFirmDefaultMeta, {
+  method: "put",
+  path: "/api/v1/locations/{id}/firm-default",
+  description:
+    "Makes this office the firm's default: what a matter with no office of its own numbers and " +
+    "prints against, and the one office that cannot be closed. Refuses a closed office.",
+  request: { headers: idempotencyKeyHeader, params: locationParam },
+  responses: {
+    200: {
+      description: "The office is the firm's default",
+      content: { "application/json": { schema: IdAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+
 const assignMemberRoute = defineOpenAPIRoute(assignMemberMeta, {
   method: "put",
   path: "/api/v1/members/{userId}/locations",
@@ -463,6 +646,14 @@ function locationErrorResponse(
     return problemJson(c, {
       type: "conflict",
       title: "Cannot close the firm-default location",
+      status: 409,
+      detail: error.message,
+    });
+  }
+  if (error.code === "location-is-closed") {
+    return problemJson(c, {
+      type: "conflict",
+      title: "A closed office cannot be the firm's default",
       status: 409,
       detail: error.message,
     });
@@ -536,8 +727,9 @@ function pointsFromEmu(emu: number): number {
 }
 
 // Base64 to bytes, refusing anything that is not base64 rather than decoding it into garbage that would
-// then fail the format sniff with a message about the wrong thing.
-function decodeBase64(encoded: string): Uint8Array | undefined {
+// then fail the format sniff with a message about the wrong thing. Shared with the firm's brand-image
+// routes (firm-profile.ts), which take an image the same way for the same reasons.
+export function decodeBase64(encoded: string): Uint8Array | undefined {
   try {
     const binary = atob(encoded);
     const bytes = new Uint8Array(binary.length);
@@ -548,9 +740,43 @@ function decodeBase64(encoded: string): Uint8Array | undefined {
   }
 }
 
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
+export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes as unknown as ArrayBuffer);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/** An address as the contract answers it — the stored row without its identity columns. */
+function addressOf(row: LocationAddressRow): z.infer<typeof LocationAddress> {
+  return {
+    kind: row.kind,
+    street: row.street,
+    streetTwo: row.streetTwo,
+    dependentLocality: row.dependentLocality,
+    city: row.city,
+    region: row.region,
+    postal: row.postal,
+    sortingCode: row.sortingCode,
+    country: row.country,
+    phone: row.phone,
+  };
+}
+
+/**
+ * Streams a stored image back, in the type the bytes were sniffed to be when they were stored.
+ * Not cacheable across members and never public: it rides the session like every other read, and
+ * a replaced mark is a new key, so nothing here needs to expire.
+ */
+export async function imageResponse(
+  bucket: R2Bucket,
+  objectKey: string,
+  contentType: string,
+): Promise<Response | null> {
+  const object = await bucket.get(objectKey);
+  if (object === null) return null;
+  return new Response(object.body, {
+    status: 200,
+    headers: { "content-type": contentType, "cache-control": "private, no-store" },
+  });
 }
 
 // Where a firm's letterhead assets live. Content-addressed under the office they belong to, so setting
@@ -609,6 +835,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
                 addressBlock: request.addressBlock ?? null,
                 footer: request.footer ?? null,
                 remitTo: request.remitTo ?? null,
+                email: request.email ?? null,
               },
               { clock: { now }, actorUserId: userId },
             );
@@ -639,27 +866,88 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { results } = await firm.firmDatabase
-        .prepare("SELECT id, name, status, jurisdiction, number_code FROM location ORDER BY name")
-        .all<{
-          id: string;
-          name: string;
-          status: "active" | "closed";
-          jurisdiction: string | null;
-          number_code: string | null;
-        }>();
+      // Three reads, each bounded by the office count, joined here rather than one question per row.
+      const [rows, addresses, firmDefault] = await Promise.all([
+        readLocationRegisterRows(firm.firmDatabase),
+        readAllLocationAddresses(firm.firmDatabase),
+        readFirmSetting(firm.firmDatabase, firmDefaultLocationDefinition),
+      ]);
       return c.json(
         {
-          data: results.map((row) => ({
-            id: row.id,
-            name: row.name,
-            status: row.status,
-            jurisdiction: row.jurisdiction,
-            numberCode: row.number_code,
-          })),
+          data: rows.map(
+            (row): z.infer<typeof LocationSummary> => ({
+              id: row.id,
+              name: row.name,
+              status: row.status,
+              jurisdiction: row.jurisdiction,
+              timeZone: row.timeZone,
+              numberCode: row.numberCode,
+              email: row.email,
+              addresses: addresses
+                .filter((address) => address.locationId === row.id)
+                .map(addressOf),
+              members: row.members,
+              hasLetterheadLogo: row.hasLetterheadLogo,
+              firmDefault: firmDefault === row.id,
+            }),
+          ),
         },
         200,
       );
+    },
+  );
+
+  // GET /api/v1/locations/{id}/letterhead-logo — the mark this office prints, as bytes
+  app.openapi(
+    {
+      ...getLetterheadLogoRoute,
+      middleware: chokepointMiddleware(chokepoint, getLetterheadLogoRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const { results } = await firm.firmDatabase
+        .prepare(
+          "SELECT letterhead_logo_object_key, letterhead_logo_content_type FROM location WHERE id = ?1",
+        )
+        .bind(id)
+        .all<{
+          letterhead_logo_object_key: string | null;
+          letterhead_logo_content_type: string | null;
+        }>();
+      const row = results[0];
+      if (row === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such location in this firm.",
+        });
+      }
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      // The office's own mark where it has one; otherwise the firm's primary mark, which is what
+      // the office's letterhead prints. The two are one family of facts, resolved in one place.
+      let objectKey = row.letterhead_logo_object_key;
+      let contentType = row.letterhead_logo_content_type;
+      if (objectKey === null || contentType === null) {
+        const primary = await readFirmPrimaryBrandImage(firm.firmDatabase);
+        objectKey = primary?.objectKey ?? null;
+        contentType = primary?.contentType ?? null;
+      }
+      const response =
+        objectKey === null || contentType === null
+          ? null
+          : await imageResponse(bucket, objectKey, contentType);
+      if (response === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "No letterhead mark",
+          status: 404,
+          detail:
+            "This office prints no mark: it has no logo of its own and the firm has set no primary brand image.",
+        });
+      }
+      return response;
     },
   );
 
@@ -674,7 +962,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
       const { id } = c.req.valid("param");
       const { results } = await firm.firmDatabase
         .prepare(
-          "SELECT id, name, status, jurisdiction, time_zone, number_code, address_block, footer, remit_to, letterhead_logo_content_type, letterhead_logo_size_bytes, letterhead_logo_width_pixels, letterhead_logo_height_pixels, letterhead_logo_width_emu, letterhead_logo_updated_at FROM location WHERE id = ?1",
+          "SELECT id, name, status, jurisdiction, time_zone, number_code, address_block, footer, remit_to, email, created_at, updated_at, letterhead_logo_content_type, letterhead_logo_size_bytes, letterhead_logo_width_pixels, letterhead_logo_height_pixels, letterhead_logo_width_emu, letterhead_logo_updated_at FROM location WHERE id = ?1",
         )
         .bind(id)
         .all<{
@@ -687,6 +975,9 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
           address_block: string | null;
           footer: string | null;
           remit_to: string | null;
+          email: string | null;
+          created_at: string;
+          updated_at: string;
           letterhead_logo_content_type: string | null;
           letterhead_logo_size_bytes: number | null;
           letterhead_logo_width_pixels: number | null;
@@ -703,6 +994,14 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
           detail: "No such location in this firm.",
         });
       }
+      const [addresses, members, firmDefault, firmPrimaryMark] = await Promise.all([
+        readLocationAddresses(firm.firmDatabase, id),
+        readLocationMembers(firm.firmDatabase, id),
+        readFirmSetting(firm.firmDatabase, firmDefaultLocationDefinition),
+        readFirmPrimaryBrandImage(firm.firmDatabase),
+      ]);
+      const ownLogo =
+        row.letterhead_logo_content_type !== null && row.letterhead_logo_width_emu !== null;
       return c.json(
         {
           id: row.id,
@@ -714,6 +1013,15 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
           addressBlock: row.address_block,
           footer: row.footer,
           remitTo: row.remit_to,
+          email: row.email,
+          addresses: addresses.map(addressOf),
+          members: members.map((member) => ({
+            userId: member.userId,
+            displayName: member.displayName,
+            status: member.status,
+            isPrimary: member.isPrimary,
+          })),
+          firmDefault: firmDefault === row.id,
           // The logo's DESCRIPTION, never its bytes: this is the office-settings read, and a caller
           // that wants the image asks for the image.
           letterheadLogo:
@@ -727,7 +1035,10 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
                   printedWidthPoints: pointsFromEmu(row.letterhead_logo_width_emu),
                   updatedAt: row.letterhead_logo_updated_at,
                 },
-        },
+          letterheadSource: ownLogo ? "office" : firmPrimaryMark === undefined ? "none" : "firm",
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        } satisfies z.infer<typeof LocationDetail>,
         200,
       );
     },
@@ -916,13 +1227,88 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
           addresses.map((address) => ({
             kind: address.kind,
             street: address.street ?? null,
+            streetTwo: address.streetTwo ?? null,
+            dependentLocality: address.dependentLocality ?? null,
             city: address.city ?? null,
             region: address.region ?? null,
             postal: address.postal ?? null,
+            sortingCode: address.sortingCode ?? null,
+            country:
+              address.country === undefined ? null : (address.country?.toUpperCase() ?? null),
             phone: address.phone ?? null,
           })),
           { clock: { now: () => new Date().toISOString() }, actorUserId: userId },
         ),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id } as z.infer<typeof IdAck>, 200);
+    },
+  );
+
+  // PUT /api/v1/locations/{id}/members/{userId} — put one member at this office
+  app.openapi(
+    {
+      ...addMemberRoute,
+      middleware: chokepointMiddleware(chokepoint, addMemberRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const actorUserId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id, userId } = c.req.valid("param");
+      const { isPrimary } = c.req.valid("json");
+      const outcome = await commitLocationEffect(c, firm.firmDatabase, idempotency, id, () =>
+        addMemberToLocation(firm.firmDatabase, userId as UserId, id, isPrimary ?? false, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId,
+        }),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id } as z.infer<typeof IdAck>, 200);
+    },
+  );
+
+  // DELETE /api/v1/locations/{id}/members/{userId} — take one member off this office
+  app.openapi(
+    {
+      ...removeMemberRoute,
+      middleware: chokepointMiddleware(chokepoint, removeMemberRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const actorUserId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id, userId } = c.req.valid("param");
+      const outcome = await commitLocationEffect(c, firm.firmDatabase, idempotency, id, () =>
+        removeMemberFromLocation(firm.firmDatabase, userId as UserId, id, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId,
+        }),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ id: outcome.id } as z.infer<typeof IdAck>, 200);
+    },
+  );
+
+  // PUT /api/v1/locations/{id}/firm-default — name the firm's default office
+  app.openapi(
+    {
+      ...setFirmDefaultRoute,
+      middleware: chokepointMiddleware(chokepoint, setFirmDefaultRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const outcome = await commitLocationEffect(c, firm.firmDatabase, idempotency, id, () =>
+        setFirmDefaultLocation(firm.firmDatabase, id, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
       );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");

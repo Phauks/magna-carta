@@ -6,6 +6,8 @@
   "sideEffects": false,
   "exports": {
     "./location-service": "./src/location-service.ts",
+    "./brand-image-service": "./src/brand-image-service.ts",
+    "./brand-image-statements": "./src/brand-image-statements.ts",
     "./statements": "./src/statements.ts",
     "./settings": "./src/settings.ts",
     "./validation": "./src/validation.ts"
