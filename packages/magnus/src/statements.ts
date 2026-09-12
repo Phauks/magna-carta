@@ -462,7 +462,9 @@ export async function listAttachmentsWithFiles(
 export async function readAttachableFile(
   database: SqlDatabase,
   fileId: FileId,
-): Promise<{ readonly id: FileId; readonly matterId: MatterId; readonly name: string } | undefined> {
+): Promise<
+  { readonly id: FileId; readonly matterId: MatterId; readonly name: string } | undefined
+> {
   const { results } = await database
     .prepare(
       `SELECT id, matter_id, name FROM ${FILE_TABLE} WHERE id = ?1 AND deleted_at IS NULL LIMIT 1`,
@@ -482,7 +484,12 @@ export async function readMoveTarget(
   database: SqlDatabase,
   matterId: MatterId,
 ): Promise<
-  | { readonly id: MatterId; readonly title: string; readonly status: string; readonly systemOwned: boolean }
+  | {
+      readonly id: MatterId;
+      readonly title: string;
+      readonly status: string;
+      readonly systemOwned: boolean;
+    }
   | undefined
 > {
   const { results } = await database

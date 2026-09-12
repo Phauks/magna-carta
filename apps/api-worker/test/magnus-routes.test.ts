@@ -535,10 +535,9 @@ describe("an opted-in firm", () => {
       .run();
 
     const onNoMatter = await startConversation();
-    const refusedNoMatter = await post(
-      `/api/v1/magnus/conversations/${onNoMatter}/attachments`,
-      { fileId: ownFile },
-    );
+    const refusedNoMatter = await post(`/api/v1/magnus/conversations/${onNoMatter}/attachments`, {
+      fileId: ownFile,
+    });
     expect(refusedNoMatter.status).toBe(422);
 
     const started = await post("/api/v1/magnus/conversations", { title: "With files", matterId });
@@ -553,9 +552,8 @@ describe("an opted-in firm", () => {
       fileId: ownFile,
     });
     expect(attached.status).toBe(201);
-    const attachments = await readJson<
-      Array<{ fileId: string; name: string | null; textStatus: string }>
-    >(attached);
+    const attachments =
+      await readJson<Array<{ fileId: string; name: string | null; textStatus: string }>>(attached);
     expect(attachments).toEqual([
       expect.objectContaining({ fileId: ownFile, name: "lease.pdf", textStatus: "pending" }),
     ]);

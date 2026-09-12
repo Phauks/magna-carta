@@ -387,7 +387,9 @@ export function registerFirmAiSettingsRoutes(app: AiSettingsApp, chokepoint: Cho
       const now = () => new Date().toISOString();
       const stored = await readAiSettingsBody(firm.firmDatabase);
       const chosenEntry =
-        modelChoice === undefined || modelChoice === null ? undefined : catalogEntryFor(modelChoice);
+        modelChoice === undefined || modelChoice === null
+          ? undefined
+          : catalogEntryFor(modelChoice);
       const merged: AiSettingsBody = {
         aiProcessing: { eligible: eligible ?? stored.aiProcessing.eligible },
         model:

@@ -482,9 +482,7 @@ const attachFileRoute = defineOpenAPIRoute(mutationMeta("attachFile", true), {
     body: {
       content: {
         "application/json": {
-          schema: z
-            .object({ fileId: identifierField("file") })
-            .openapi("MagnusAttachFileRequest"),
+          schema: z.object({ fileId: identifierField("file") }).openapi("MagnusAttachFileRequest"),
         },
       },
       required: true,
@@ -512,20 +510,22 @@ const detachFileRoute = defineOpenAPIRoute(
     reversal: { kind: "inverse", by: "magnus.attachFile" },
   },
   {
-  method: "delete",
-  path: "/api/v1/magnus/conversations/{conversationId}/attachments/{fileId}",
-  description:
-    "Takes a file off the conversation. Nothing of the file was ever copied, so nothing is erased; " +
-    "later questions simply travel without it.",
-  request: { params: attachmentParams, headers: idempotencyKeyHeader },
-  responses: {
-    200: {
-      description: "The file is no longer attached; the conversation's attachments after the write",
-      content: { "application/json": { schema: z.array(ConversationAttachment) } },
+    method: "delete",
+    path: "/api/v1/magnus/conversations/{conversationId}/attachments/{fileId}",
+    description:
+      "Takes a file off the conversation. Nothing of the file was ever copied, so nothing is erased; " +
+      "later questions simply travel without it.",
+    request: { params: attachmentParams, headers: idempotencyKeyHeader },
+    responses: {
+      200: {
+        description:
+          "The file is no longer attached; the conversation's attachments after the write",
+        content: { "application/json": { schema: z.array(ConversationAttachment) } },
+      },
+      ...commonErrors,
     },
-    ...commonErrors,
   },
-});
+);
 
 const deleteConversationRoute = defineOpenAPIRoute(
   {
@@ -867,8 +867,7 @@ export function registerMagnusRoutes(app: MagnusApp, chokepoint: Chokepoint): vo
       // The cursor's shape follows the order: the date order pages on the ordinary (created_at, id)
       // pair, the two grouped orders on a composite whose primary is the group's sort key. Decoding
       // the wrong shape yields undefined, which reads as the first page rather than a wrong one.
-      const decodedCursor =
-        sort === "date" ? decodeCursor(cursor) : decodeCompositeCursor(cursor);
+      const decodedCursor = sort === "date" ? decodeCursor(cursor) : decodeCompositeCursor(cursor);
       const rows = await listConversations(firm.firmDatabase, {
         ...(scope === "firm" ? {} : { createdBy: userId }),
         ...(matterId !== undefined && { matterId }),
