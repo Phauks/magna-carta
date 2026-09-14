@@ -144,6 +144,15 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   the toolbar only where there is an hour axis to be concurrent on. Widening the federated read to
   carry an end would make those entries stretch too, and is the one thing standing between a firm's
   week and a complete picture of it.
+- **A setting held in one of the firm's own rooms HOLDS that room.** Location stores TEXT (a
+  courthouse, a department number, opposing counsel's office are none of them records this product
+  holds), and a room's calendar reads BOOKINGS — so choosing a room from the location picker used to
+  reach nothing, which is why an event held in a room never appeared on that room's calendar
+  (owner, 2026-09-14). `room-location.ts` matches the text back to an active room of the `room`
+  kind, by an exact trimmed case-folded name, and the record forms book it. The match is exact on
+  purpose: anything looser books a room off a guess. The booking is a SECOND write because it needs
+  the event's id, so it can fail after the event landed; the event is never unwound and the form
+  says which half did not happen.
 - **The grid tones are the subtle status register.** `info` for a court appearance, `danger` for an
   open past-due deadline, `success` satisfied, `warning` and struck for cancelled, `accent` for a
   firm entry; neutral otherwise. Decided once in `calendar-vocabulary.ts` and `calendar-entries.ts`.

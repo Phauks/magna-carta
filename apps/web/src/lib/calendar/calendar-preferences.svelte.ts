@@ -56,7 +56,10 @@ function emptyValue(): CalendarPreferencesValue {
 }
 
 /** The two presentations, as the control offers them. A closed set the grid also declares. */
-const CONCURRENCIES: readonly CalendarGridConcurrency[] = new Set(["side-by-side", "overlap"]);
+const CONCURRENCIES: ReadonlySet<CalendarGridConcurrency> = new Set<CalendarGridConcurrency>([
+  "side-by-side",
+  "overlap",
+]);
 
 function isConcurrency(value: unknown): value is CalendarGridConcurrency {
   return typeof value === "string" && CONCURRENCIES.has(value as CalendarGridConcurrency);
