@@ -24,9 +24,14 @@ export interface ReportedSource {
   readonly reason: string | null;
 }
 
-// What the graph walk was allowed to do and whether it finished, as recorded on the check row.
+// What the graph walk did and whether it finished, as recorded on the check row.
 export interface ReportedTraversal {
+  // True on a run that followed every relationship to closure; false on a row written under the
+  // old hop budgets, which then say how far it went.
+  readonly followedToClosure: boolean;
+  readonly longestPathLength: number | null;
   readonly edgeClassBudgets: Readonly<Record<string, number>>;
+  // The most entities the walk could reach: the platform's ceiling, or an older row's firm cap.
   readonly closureCap: number | null;
   readonly truncated: boolean;
   readonly entitiesReached: number | null;
@@ -108,43 +113,52 @@ function searched(sources: readonly ReportedSource[], source: string): boolean {
   return sources.some((entry) => entry.source === source && entry.availability === "searched");
 }
 
-// The traversal's own account of itself: what it was allowed to walk, and — the sentence that
-// matters — whether it finished.
+// The traversal's own account of itself: how it walked, and — the sentence that matters — whether
+// it finished.
 //
 // A truncated expansion is NEVER reported as a completed one. It is the depth version of the rule
 // that a source with no corpus records `unavailable` and never reads as having been searched: in
 // both cases the platform looked at part of the world and has to say which part, because a firm
-// defending its procedure can defend "we searched 500 related entities and 137 more were reachable
-// and not searched" and cannot defend a number that quietly stopped meaning what it says.
+// defending its procedure can defend "we searched 10,000 related entities and 137 more were
+// reachable and not searched" and cannot defend a number that quietly stopped meaning what it says.
 function describeTraversal(traversal: ReportedTraversal | null): string[] {
   if (traversal === null) return [];
   const statements: string[] = [];
 
-  const budgets = Object.entries(traversal.edgeClassBudgets).toSorted(([left], [right]) =>
-    left.localeCompare(right),
-  );
-  if (budgets.length > 0) {
+  if (traversal.followedToClosure) {
     statements.push(
-      `Traversal budgets — ${budgets
-        .map(([edgeClass, budget]) => `${edgeClass} ${budget} hop${budget === 1 ? "" : "s"}`)
-        .join(
-          ", ",
-        )}; corporate family traversed transitively. Ended relationships were traversed ` +
-        `and each is marked on the path that reached through it.`,
+      "Traversal — every recorded relationship was followed to closure, whatever its kind and " +
+        "however long the chain. Ended relationships were traversed and each is marked on the path " +
+        "that reached through it.",
     );
+  } else {
+    const budgets = Object.entries(traversal.edgeClassBudgets).toSorted(([left], [right]) =>
+      left.localeCompare(right),
+    );
+    if (budgets.length > 0) {
+      statements.push(
+        `Traversal budgets — ${budgets
+          .map(([edgeClass, budget]) => `${edgeClass} ${budget} hop${budget === 1 ? "" : "s"}`)
+          .join(
+            ", ",
+          )}; corporate family traversed transitively. Ended relationships were traversed ` +
+          `and each is marked on the path that reached through it.`,
+      );
+    }
   }
 
   if (!traversal.truncated) return statements;
 
   const reached = traversal.entitiesReached;
   const cap = traversal.closureCap;
+  const boundWord = traversal.followedToClosure ? "the platform's ceiling" : "a cap";
   const frontier = traversal.unexploredFrontierSize;
   const unexpanded = traversal.unexpandedReachedCount;
   const parts: string[] = [];
   if (reached !== null && cap !== null) {
-    parts.push(`${reached} entities reached against a cap of ${cap}`);
+    parts.push(`${reached} entities reached against ${boundWord} of ${cap}`);
   } else if (cap !== null) {
-    parts.push(`the cap of ${cap} entities was reached`);
+    parts.push(`${boundWord} of ${cap} entities was reached`);
   }
   if (frontier !== null) {
     parts.push(
@@ -180,7 +194,7 @@ function describeCandidateBound(candidates: ReportedCandidates | null): string[]
   if (surfaced !== null && written !== null) {
     parts.push(`${surfaced} candidates surfaced and ${written} were recorded`);
   }
-  if (cap !== null) parts.push(`the cap in force was ${cap}`);
+  if (cap !== null) parts.push(`the bound in force was ${cap}, the most one record can carry`);
   if (refused !== null) {
     const byTier = candidates.refusedByTier
       .map((entry) => `tier ${entry.tier}: ${entry.count}`)
@@ -226,12 +240,25 @@ export function describeCheck(
   }
 
   if (searched(sources, "graph")) {
-    statements.push(
-      check.depth === 0
-        ? `Graph — traversal budget 0, so no related entity was reached beyond the ${check.subjectEntityCount} subject parties themselves.`
-        : `Graph — ${check.expandedEntityCount} entities reached from the subject parties, at a ${check.depth}-hop traversal budget.`,
-    );
-    statements.push(...describeTraversal(check.traversal ?? null));
+    const traversal = check.traversal ?? null;
+    if (traversal?.followedToClosure === true) {
+      const deepest =
+        traversal.longestPathLength === null
+          ? ""
+          : traversal.longestPathLength === 0
+            ? "; no recorded relationship led away from them"
+            : `; the longest chain followed ran ${traversal.longestPathLength} ${traversal.longestPathLength === 1 ? "relationship" : "relationships"}`;
+      statements.push(
+        `Graph — ${check.expandedEntityCount} entities reached from the subject parties${deepest}.`,
+      );
+    } else {
+      statements.push(
+        check.depth === 0
+          ? `Graph — traversal budget 0, so no related entity was reached beyond the ${check.subjectEntityCount} subject parties themselves.`
+          : `Graph — ${check.expandedEntityCount} entities reached from the subject parties, at a ${check.depth}-hop traversal budget.`,
+      );
+    }
+    statements.push(...describeTraversal(traversal));
   }
 
   if (searched(sources, "imputation")) {

@@ -57,6 +57,13 @@
       "when": 1788904567410,
       "tag": "20260909T000000_seed-ai-settings-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789128000000,
+      "tag": "20260911T120000_conflicts-check-numbers-and-runs",
+      "breakpoints": true
     }
   ]
 }
