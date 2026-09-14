@@ -88,6 +88,7 @@
 @import "../components/sidebar/sidebar.css";
 @import "../components/resizable/resizable.css";
 @import "../components/navigation-layout/navigation-layout.css";
+@import "../components/navigation-layout/navigation-layout-row.css";
 /* The merge-field family. The chip is imported before the picker and the review list because both
    of those render chips, so the chip's base recipe must already be in the cascade. */
 @import "../components/merge-field-chip/merge-field-chip.css";

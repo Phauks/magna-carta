@@ -6,6 +6,12 @@ line saying what the thing does, and a maturity mark that decides whether the en
 honest "not yet". Two screens render through it today — **Tools** and **Reports** — and they are
 identical screens by construction rather than by anybody remembering to keep them so.
 
+**A catalogue has a third view, and it lives here too.** Beside the list and the tiles that a
+landing index renders, `catalogue-navigation.svelte` is the **navigation column** of the two-sided
+screen each catalogue became: the same sections and entries, names only, with the one the reader is
+standing on lit. It serves Tools and Reports equally, which is why it sits in this directory rather
+than in either one's — it was written in `$lib/tools/` and Reports had to reach across for it.
+
 **White paper:** _Tools_, _Reports_. **Archetype:** List/Index, in
 [`docs/specs/2026-06-12-page-archetypes.md`](../../../../../docs/specs/2026-06-12-page-archetypes.md).
 
@@ -21,6 +27,9 @@ identical screens by construction rather than by anybody remembering to keep the
 - `catalogue-row.svelte` / `catalogue-tile.svelte` — one entry, dense and browsing.
 - `catalogue-list-view.svelte` / `catalogue-tiles-view.svelte` — the grouped renderers the
   multi-view shell registers.
+- `catalogue-navigation.svelte` / `catalogue-navigation.ts` — the navigation column, and the rule
+  deciding which entry the address is standing on (the path boundary, so a screen beneath a tool
+  still lights that tool).
 
 ## Local conventions
 
@@ -38,6 +47,10 @@ identical screens by construction rather than by anybody remembering to keep the
   box of this area's own. It answers on the keystroke because a catalogue is already in the browser.
 - **Adding a catalogue is a projection plus a storage key.** Never a new screen, a new row
   component, or a second arrangement of the header.
+- **The navigation column's row is the design system's `NavigationLayout.Row`**, the same part the
+  settings nav draws. What stays here is the grouping and the indent stagger. A treatment written
+  at this call site — a hover colour, a lit-row fill, a height — is the drift the part exists to
+  end; add it to the recipe instead.
 
 ## Dependencies & contracts
 

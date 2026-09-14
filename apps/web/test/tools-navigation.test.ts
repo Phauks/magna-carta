@@ -24,7 +24,7 @@ import { load as safeWebsiteViewerLoad } from "../src/routes/(app)/tools/safe-we
 import {
   currentCatalogueEntry,
   isCurrentCatalogueEntry,
-} from "../src/lib/tools/catalogue-navigation.ts";
+} from "../src/lib/catalogue/catalogue-navigation.ts";
 import { PAGE_OWNS_SCROLLER, contentColumnScrolls } from "../src/lib/tools/content-column.ts";
 import { toolCatalogueSections } from "../src/lib/tools/tool-catalogue.ts";
 import { SUBJECT_GROUP_LABELS } from "../src/lib/tools/tool-presentation.ts";
@@ -134,6 +134,18 @@ describe("the tools column", () => {
   it("renders the page beside the column", () => {
     const rendered = drawTools("/tools/whois-lookup");
     expect(contentColumn(rendered).textContent).toContain("the tool");
+  });
+
+  it("draws every row as the design system's navigation row, with no treatment of its own", () => {
+    const column = navigation(drawTools("/tools/whois-lookup"));
+    const rows = [...column.querySelectorAll("li > *")];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      // The height, the hover tint and the lit row's fill and gilt bar are the part's, so a class
+      // list or an inline style written here again is exactly the drift the part ended.
+      expect(row.classList.contains("mc-navigation-layout-row")).toBe(true);
+      expect(row.getAttribute("style")).toBeNull();
+    }
   });
 });
 

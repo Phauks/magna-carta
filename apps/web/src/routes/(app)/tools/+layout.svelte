@@ -27,7 +27,7 @@
   import type { Snippet } from "svelte";
   import NavigationLayout from "@magna-carta/design-system/navigation-layout";
   import { page } from "$app/state";
-  import CatalogueNavigation from "$lib/tools/catalogue-navigation.svelte";
+  import CatalogueNavigation from "$lib/catalogue/catalogue-navigation.svelte";
   import { contentColumnScrolls } from "$lib/tools/content-column.ts";
   import { toolCatalogueSections } from "$lib/tools/tool-catalogue.ts";
 

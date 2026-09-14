@@ -353,6 +353,32 @@ by hand at two widths with two scroll treatments.
   viewport on a long nav. A recipe cannot carry a breakpoint (a literal length is banned in
   `components.css`), so the stacking is `max-lg:` / `lg:` utilities on the elements.
 
+### The row, the one thing the column does NOT draw itself
+
+**`Row` is the second export of `./navigation-layout`** (as `Row`, as `NavigationLayoutRow`, and
+the layout itself as both the default and `Root` — the default came first and every consumer imports
+it that way, so it stays). The layout still imposes no structure on what the navigation holds; the
+row is offered, never required. It became a part because its treatment had been written by hand
+three times — the settings nav, the catalogue column Tools and Reports share, and the inline styling
+in both — with a fourth two-sided screen already foreseen.
+
+- **The element follows from `href`, and the part guesses nothing.** A string is an `<a>`; omitting
+  it is a `<button>` (the shape a conversation rail takes); **`null` is a row with nowhere to go
+  yet** — unlinked, `aria-disabled`, quieter, with the Soon mark in its `trailing` slot. `null` is
+  the spelling the app's catalogue vocabulary already uses for the same fact. It is deliberately NOT
+  a disabled control: a greyed-out button reads as broken, a quiet row reads as not yet.
+- **A name WRAPS; it never truncates.** The column is 224px of content and a name beside a mark does
+  not always fit one line, so the control height is a `min-block-size` and the recipe carries no
+  `white-space` and no `text-overflow` — `test/navigation-layout.test.ts` refuses both. "Property
+  Listin… Soon" has stopped naming the tool, which is the row's one job. The sidebar rail truncates
+  because its label collapses to an icon; this column never does.
+- **Every treatment is recipe, none is a call-site class.** Resting muted ink, the hover tint, and
+  `current` (selected fill, firmer text, the gilt start-edge bar as an inset box-shadow — a border
+  would bend around the rounded corners) all live in `navigation-layout-row.css`. A screen passing
+  its own colours here is the defect the part exists to end.
+- **`icon` and `trailing` are snippets.** The glyph is sized by `mc-navigation-layout-row-icon`,
+  which the part applies itself; the trailing mark never shrinks.
+
 ## Invariants that apply here
 
 - **Tokens + components only (golden rule 2, machine-checked).** No Tailwind arbitrary values, no

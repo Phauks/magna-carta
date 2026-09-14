@@ -22,7 +22,7 @@
   import NavigationLayout from "@magna-carta/design-system/navigation-layout";
   import { page } from "$app/state";
   import { reportCatalogueSections } from "$lib/reports/report-catalogue.ts";
-  import CatalogueNavigation from "$lib/tools/catalogue-navigation.svelte";
+  import CatalogueNavigation from "$lib/catalogue/catalogue-navigation.svelte";
 
   let { children }: { children: Snippet } = $props();
 
