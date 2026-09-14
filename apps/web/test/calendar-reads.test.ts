@@ -271,14 +271,15 @@ describe("readCalendarWindow, firm scope", () => {
     ]);
     const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context, {
       sources: [
-        { key: "layer:custody", name: "Custody dates", kind: { kind: "layer", layerKey: "custody" } },
+        {
+          key: "layer:custody",
+          name: "Custody dates",
+          kind: { kind: "layer", layerKey: "custody" },
+        },
       ],
     });
     const federated = requests.find((url) => url.pathname === "/api/v1/calendar/events");
-    expect(federated?.searchParams.getAll("kind")).toEqual([
-      "custodyDueBack",
-      "custodyReviewDue",
-    ]);
+    expect(federated?.searchParams.getAll("kind")).toEqual(["custodyDueBack", "custodyReviewDue"]);
     expect(result.entries.map((entry) => entry.id)).toEqual([
       "other:custodyDueBack:custodyMovement_1",
     ]);
@@ -292,10 +293,16 @@ describe("readCalendarWindow, firm scope", () => {
   });
 
   it("reads one member's calendar through the member filter the server resolves", async () => {
-    const { fetch, requests } = fakeFetch([{ match: () => true, answer: () => page([timelineRow]) }]);
+    const { fetch, requests } = fakeFetch([
+      { match: () => true, answer: () => page([timelineRow]) },
+    ]);
     const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context, {
       sources: [
-        { key: "member:user_ada", name: "Ada Lovelace", kind: { kind: "member", memberId: "user_ada" } },
+        {
+          key: "member:user_ada",
+          name: "Ada Lovelace",
+          kind: { kind: "member", memberId: "user_ada" },
+        },
       ],
     });
     const federated = requests.find((url) => url.pathname === "/api/v1/calendar/events");
@@ -309,8 +316,16 @@ describe("readCalendarWindow, firm scope", () => {
     const { fetch } = fakeFetch([{ match: () => true, answer: () => page([timelineRow]) }]);
     const result = await readCalendarWindow(fetch, { kind: "firm" }, window, context, {
       sources: [
-        { key: "member:user_ada", name: "Ada Lovelace", kind: { kind: "member", memberId: "user_ada" } },
-        { key: "member:user_grace", name: "Grace Hopper", kind: { kind: "member", memberId: "user_grace" } },
+        {
+          key: "member:user_ada",
+          name: "Ada Lovelace",
+          kind: { kind: "member", memberId: "user_ada" },
+        },
+        {
+          key: "member:user_grace",
+          name: "Grace Hopper",
+          kind: { kind: "member", memberId: "user_grace" },
+        },
       ],
     });
     expect(result.entries).toHaveLength(1);
