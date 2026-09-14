@@ -74,6 +74,7 @@ const FIELDS = {
   description: null,
   matterTypeId: null,
   locationId: null,
+  physicalFileLocationId: null,
   responsibleMemberId: "user_x" as never,
   clientDisplayName: null,
   clientCode: null,
