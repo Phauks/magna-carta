@@ -22,7 +22,6 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import type { Snippet } from "svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -179,16 +178,6 @@
       cell={checkCell}
       loading={checks === null}
     >
-      {#snippet empty()}
-        {#if narrowed}
-          <EmptyState title="Nothing Matches That">
-            No check in the firm's log answers to what is asked. Clearing the search, or widening the
-            filters, brings the log back.
-          </EmptyState>
-        {:else}
-          <EmptyState title={emptyTitle} actions={emptyActions}>{@render emptyBody()}</EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <!-- The counts strip: how much of the log is on screen, and the way to the rest of it. One

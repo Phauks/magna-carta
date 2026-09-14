@@ -39,7 +39,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import EmptyState from "@magna-carta/design-system/empty-state";
+  import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
@@ -440,20 +440,6 @@
       caption="Time recorded across the firm's matters"
       loading={list.items === null || !sessionRead}
     >
-      {#snippet empty()}
-        {#if narrowed}
-          <EmptyState title="Nothing Matches That">
-            No entry answers to what is asked. Widening the search or the column filters brings the
-            record back.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Time Recorded Yet">
-            Nothing is on the record{maySeeFirmTime ? "" : " under your name"}. The Time Sheet in
-            the top bar records a row without leaving whatever screen you are on, and New Entry
-            above records one from here.
-          </EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter {grid}>

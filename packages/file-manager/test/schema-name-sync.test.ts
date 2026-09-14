@@ -1,13 +1,14 @@
 // @repo-wide-fitness scope=schema — the statements are here, the tables they name are in
 // packages/database, so the diff that renames one never touches this package.
-import { MEMBER_TABLE } from "@magna-carta/data-access/member-statements";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
+import { MEMBER_TABLE } from "@magna-carta/data-access/member-statements";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   documentType,
   file,
   fileVersion,
   folder,
+  member,
   storageMeter,
   uploadSession,
 } from "@magna-carta/database/per-firm-schema";
@@ -226,12 +227,11 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
       "dv",
       "lv",
       "s",
+      // m=member, joined so a version can name its uploader rather than print their handle. The
+      // member table's own columns come in with it: this guard exists to pin the SQL to the schema,
+      // so a joined table is added here WITH its columns rather than its alias being waved through.
       MEMBER_TABLE,
-      // m=member, the uploader join: the listing resolves a version's uploader to the name the firm
-      // shows rather than carrying a user handle into the UI.
       "m",
-      "user_id",
-      "display_name",
       // SELECT-list projection aliases (dv.status AS version_status, s.status AS session_status,
       // m.display_name AS uploaded_by_name).
       "version_status",
@@ -240,6 +240,7 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
       ...columnsOf(file),
       ...columnsOf(fileVersion),
       ...columnsOf(uploadSession),
+      ...columnsOf(member),
     ]);
     const sql = [
       sqlOf(

@@ -341,6 +341,12 @@
               "string",
               "null"
             ]
+          },
+          "latencyMilliseconds": {
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "required": [
@@ -349,7 +355,8 @@
           "state",
           "commit",
           "commitTime",
-          "buildTime"
+          "buildTime",
+          "latencyMilliseconds"
         ]
       },
       "DatabaseHealthResponse": {
@@ -4103,6 +4110,10 @@
               "clientAt": {
                 "type": "string",
                 "maxLength": 40
+              },
+              "deployment": {
+                "type": "string",
+                "maxLength": 4000
               }
             },
             "required": [
@@ -15310,12 +15321,13 @@
               "null"
             ]
           },
-          "state": {
+          "rung": {
             "type": "string",
             "enum": [
-              "open",
-              "done",
-              "cancelled"
+              "to_do",
+              "in_progress",
+              "on_hold",
+              "done"
             ]
           },
           "completedAt": {
@@ -15330,19 +15342,19 @@
               "null"
             ]
           },
-          "cancelledAt": {
+          "archivedAt": {
             "type": [
               "string",
               "null"
             ]
           },
-          "cancelledBy": {
+          "archivedBy": {
             "type": [
               "string",
               "null"
             ]
           },
-          "cancellationReason": {
+          "archiveReason": {
             "type": [
               "string",
               "null"
@@ -15405,12 +15417,12 @@
           "dueOn",
           "dueAtTime",
           "timeZone",
-          "state",
+          "rung",
           "completedAt",
           "completedBy",
-          "cancelledAt",
-          "cancelledBy",
-          "cancellationReason",
+          "archivedAt",
+          "archivedBy",
+          "archiveReason",
           "blockedByTaskId",
           "triggerEventId",
           "deadlineId",
@@ -15882,18 +15894,34 @@
           "assigneeUserId"
         ]
       },
-      "CancelMatterTaskRequest": {
+      "MoveMatterTaskRequest": {
         "type": "object",
         "properties": {
-          "reason": {
+          "rung": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 1000
+            "enum": [
+              "to_do",
+              "in_progress",
+              "on_hold",
+              "done"
+            ]
           }
         },
         "required": [
-          "reason"
+          "rung"
         ]
+      },
+      "ArchiveMatterTaskRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          }
+        }
       },
       "AttachMatterTaskDocumentRequest": {
         "type": "object",
@@ -66122,11 +66150,25 @@
           {
             "schema": {
               "type": "string",
-              "description": "Comma-separated states to include: open, done, cancelled."
+              "description": "Comma-separated rungs to include: to_do, in_progress, on_hold, done."
             },
             "required": false,
-            "description": "Comma-separated states to include: open, done, cancelled.",
-            "name": "state",
+            "description": "Comma-separated rungs to include: to_do, in_progress, on_hold, done.",
+            "name": "rung",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "description": "Include tasks that have been archived. Off by default: putting one away is what takes it off a list, and a list that still showed it would be one nobody could clear."
+            },
+            "required": false,
+            "description": "Include tasks that have been archived. Off by default: putting one away is what takes it off a list, and a list that still showed it would be one nobody could clear.",
+            "name": "includeArchived",
             "in": "query"
           },
           {
@@ -66262,11 +66304,25 @@
           {
             "schema": {
               "type": "string",
-              "description": "Comma-separated states to include: open, done, cancelled."
+              "description": "Comma-separated rungs to include: to_do, in_progress, on_hold, done."
             },
             "required": false,
-            "description": "Comma-separated states to include: open, done, cancelled.",
-            "name": "state",
+            "description": "Comma-separated rungs to include: to_do, in_progress, on_hold, done.",
+            "name": "rung",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "description": "Include tasks that have been archived. Off by default: putting one away is what takes it off a list, and a list that still showed it would be one nobody could clear."
+            },
+            "required": false,
+            "description": "Include tasks that have been archived. Off by default: putting one away is what takes it off a list, and a list that still showed it would be one nobody could clear.",
+            "name": "includeArchived",
             "in": "query"
           },
           {
@@ -66322,10 +66378,10 @@
                 "true",
                 "false"
               ],
-              "description": "Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than cancelled, and reopening the matter brings them back with no backfill."
+              "description": "Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than archived, and reopening the matter brings them back with no backfill."
             },
             "required": false,
-            "description": "Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than cancelled, and reopening the matter brings them back with no backfill.",
+            "description": "Include tasks on matters the firm has closed. Off by default: closing a matter changes no task, so its open tasks are filtered from this list rather than archived, and reopening the matter brings them back with no backfill.",
             "name": "includeClosedMatters",
             "in": "query"
           }
@@ -66965,7 +67021,7 @@
         }
       },
       "delete": {
-        "description": "Stop mirroring. The task is untouched: unlinking is a statement about the correspondence and never about the work, so nothing here completes, cancels or deletes anything.",
+        "description": "Stop mirroring. The task is untouched: unlinking is a statement about the correspondence and never about the work, so nothing here completes, archives or deletes anything.",
         "operationId": "tasks.unlinkExternalTask",
         "tags": [
           "tasks"
@@ -67225,7 +67281,7 @@
         }
       },
       "delete": {
-        "description": "Deletes a task outright, for one that should not exist: a typo, a duplicate, a line somebody abandoned. Anything waiting on it stops waiting. Documents it pointed at are untouched and stay in the matter's files. Where the firm decided not to do real work, cancel it instead.",
+        "description": "Deletes a task outright, for one that should not exist: a typo, a duplicate, a line somebody abandoned. Anything waiting on it stops waiting. Documents it pointed at are untouched and stay in the matter's files. Where the work is simply not happening, archive the task instead: archiving keeps it and everything it carries, and deleting does not.",
         "operationId": "tasks.deleteTask",
         "tags": [
           "tasks"
@@ -67485,14 +67541,14 @@
         }
       }
     },
-    "/api/v1/tasks/{taskId}/completion": {
-      "post": {
-        "description": "Marks the task done, recording who did it and when. A task that waits on another may be completed out of order: the sequence is guidance, not a gate.",
-        "operationId": "tasks.completeTask",
+    "/api/v1/tasks/{taskId}/rung": {
+      "put": {
+        "description": "Moves the task to a rung: to_do, in_progress, on_hold or done. One operation for all four, because pressing To Do and pressing Done are the same act to the person doing them. Moving to done records who finished it and when; moving off done clears that and restores the rung the task was left on, rather than sending it back to the start. That it was closed and reopened stays in the firm's audit log. A task that waits on another may be moved out of order: the sequence is guidance, not a gate. An archived task is not moved until it is put back.",
+        "operationId": "tasks.moveTask",
         "tags": [
           "tasks"
         ],
-        "x-mc-operationId": "tasks.completeTask",
+        "x-mc-operationId": "tasks.moveTask",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "tasks:write",
@@ -67525,135 +67581,19 @@
             "in": "header"
           }
         ],
-        "responses": {
-          "200": {
-            "description": "The task was completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks the required permission",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is still in progress",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The request body is not a shape this operation accepts",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limited",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveMatterTaskRequest"
               }
             }
           }
-        }
-      },
-      "delete": {
-        "description": "Puts a completed or cancelled task back on the list. The completion and cancellation details are cleared from the task, and that it was closed and reopened stays in the firm's audit log.",
-        "operationId": "tasks.reopenTask",
-        "tags": [
-          "tasks"
-        ],
-        "x-mc-operationId": "tasks.reopenTask",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "tasks:write",
-        "x-mc-resource": "firm",
-        "x-mc-audited": true,
-        "x-mc-idempotency": "required",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-reversal": {
-          "kind": "inverse",
-          "by": "tasks.completeTask"
         },
-        "x-mc-tags": [
-          "tasks"
-        ],
-        "x-mc-deprecated": false,
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
-            },
-            "required": true,
-            "name": "taskId",
-            "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "idempotency-key",
-            "in": "header"
-          }
-        ],
         "responses": {
           "200": {
-            "description": "The task was reopened",
+            "description": "The task was moved",
             "content": {
               "application/json": {
                 "schema": {
@@ -67735,14 +67675,14 @@
         }
       }
     },
-    "/api/v1/tasks/{taskId}/cancellation": {
+    "/api/v1/tasks/{taskId}/archive": {
       "post": {
-        "description": "Records that the firm decided not to do the work, with the reason why. Different from deleting: a cancelled task stays on the matter as a decision that was taken. Delete the task instead where it should never have existed.",
-        "operationId": "tasks.cancelTask",
+        "description": "Puts the task away and keeps it. Archiving and deleting are the two ways a task leaves a list and they differ in one thing: this keeps the data, a delete takes it. The rung is untouched, so putting it back returns it to where it stood. A reason is optional.",
+        "operationId": "tasks.archiveTask",
         "tags": [
           "tasks"
         ],
-        "x-mc-operationId": "tasks.cancelTask",
+        "x-mc-operationId": "tasks.archiveTask",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "tasks:write",
@@ -67780,14 +67720,140 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CancelMatterTaskRequest"
+                "$ref": "#/components/schemas/ArchiveMatterTaskRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "The task was cancelled",
+            "description": "The task was archived",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterTaskAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the task is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Puts the task back on the list, on the rung it left from. The archive reason is cleared with the archiving; that it was archived stays in the firm's audit log.",
+        "operationId": "tasks.unarchiveTask",
+        "tags": [
+          "tasks"
+        ],
+        "x-mc-operationId": "tasks.unarchiveTask",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tasks:write",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "tasks.archiveTask"
+        },
+        "x-mc-tags": [
+          "tasks"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matterTask_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The task was put back",
             "content": {
               "application/json": {
                 "schema": {

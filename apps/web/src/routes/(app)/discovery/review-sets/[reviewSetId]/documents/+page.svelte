@@ -37,7 +37,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import { page } from "$app/state";
   import { goto, replaceState } from "$app/navigation";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -300,20 +299,6 @@
       cell={documentCell}
       loading={documents === null}
     >
-      {#snippet empty()}
-        {#if narrowed || grid.activeFilterCount > 0}
-          <EmptyState title="Nothing Matches That">
-            No document in this review set answers to what is asked. Widening the narrowing or the
-            search brings them back.
-          </EmptyState>
-        {:else}
-          <EmptyState title="Nothing Has Been Loaded Yet">
-            A review set holds documents once a load has put them in it. Loads is where a delivery is
-            declared and its material added; each document then enters exactly one of two terminal
-            states, and everything that could not be read is named with its reason.
-          </EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter {grid}>

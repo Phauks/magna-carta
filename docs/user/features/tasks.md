@@ -14,9 +14,22 @@ apart is deliberate: if the deadline list filled up with reminders, people would
 A task is also not a calendar entry. Nothing about it is scheduled with anybody else, and moving its
 due date is just you changing your mind rather than a hearing being reset.
 
+## Opening a Task
+
+Press a task's own words to open it. It opens in a window — the same window a note, a time entry and
+a cost open in — showing everything the task carries. Press **Edit** in that window's corner to turn
+what you are reading into fields, change what you need, and press **Save**. There is no separate
+screen for changing a task: you change it where you were already reading it, and what you are
+looking at is what you are editing.
+
+The list underneath stays exactly where it was. Closing the window with something unsaved asks
+first.
+
 ## Creating a Task
 
-Press **New Task**. Say what to do, and add detail underneath if the title is not enough on its own.
+Press **New Task**. The same window opens with nothing in it yet and its fields already open — a
+task has nothing to read before it exists. Say what to do, and add detail underneath if the title is
+not enough on its own.
 
 **Due** and **Time** are both optional, and plenty of tasks have neither. If you give a date, the
 task is due at the end of that day in your own time zone — so a task due Friday is not treated as
@@ -25,13 +38,18 @@ late on Friday morning. Add a time only where a specific hour matters.
 **Priority** is one of four: Urgent, High, Normal, Low. Normal is the default and means nothing in
 particular, which is why there is no separate "none".
 
-**Assign to** puts the task in somebody's name. You can leave it as _Nobody yet_ and pick somebody
-later. If you cannot see this field, your role does not include assigning work to other people; you
-can still create tasks and take them yourself.
+**Assigned to** puts the task in somebody's name. You can leave it as _Nobody yet_ and pick somebody
+later by opening the task and pressing Edit. If the field reads back a name instead of offering a
+list, your role does not include assigning work to other people; you can still create tasks and take
+them yourself.
 
 You cannot assign a task on a matter to somebody who cannot open that matter. A task nobody can look
 at is a gap in their list that nothing explains, so it is refused when you try rather than appearing
 and then not working.
+
+The window names the matter the task will land on, who it will be recorded as coming from, and the
+moment it will be stamped with, so nothing is stored that you were not shown. Closing it before you
+press **Save** asks first and then throws the draft away; nothing is created until you press it.
 
 ## Tasks That Belong to No Matter
 
@@ -43,28 +61,50 @@ they will carry no matter.
 sees it, including people who can see every matter. If work should be visible to the team, put it on
 the matter it belongs to.
 
-## Finishing, Reopening, and Deciding Not To
+## Where a Task Stands
 
-Press **Done** when the work is finished. The task records who did it and when.
+Every task is on one of four rungs, and moving it along them is the row of controls at the bottom of
+its window:
 
-Press **Reopen** if you marked something done too early, or if a decision changed. The task comes
-back to the list, and the firm's audit record keeps the fact that it was closed and reopened.
+- **To Do** — nobody has started it. Every new task begins here.
+- **In Progress** — somebody is working on it.
+- **On Hold** — it is waiting on something. The task still belongs to whoever has it; it is just not
+  moving.
+- **Done** — finished. The task records who did it and when.
 
-**Cancel** and **Delete** are different and both are offered.
+The rung it is on is the one that looks pressed, so you can see where a task stands without reading
+anything. Press another to move it.
 
-- **Cancel** is for work the firm decided not to do. It asks why, and that answer stays on the task.
-  Six months later somebody can see what was proposed and why it did not happen.
-- **Delete** is for a task that should not exist — a typo, a duplicate, a line you started and
-  abandoned. The task is removed and cannot be recovered.
+Moving a task **off** Done puts it back where it was, not back to the start: a task you had On Hold
+and ticked by mistake returns to On Hold. That it was finished and reopened stays in the firm's audit
+record either way.
 
-Use Cancel where the decision matters. Deleting a piece of real work loses the record that anybody
-ever considered it.
+**Done is also on the list itself**, beside each row, because ticking finished work off a list is
+what a list is for. The other three rungs are in the task's window with the rest of what you can do
+to it.
+
+## Archiving and Deleting
+
+Both take a task off the list, and they differ in one thing:
+
+- **Archive** keeps it. Everything the task carries stays — its detail, its documents, the time
+  logged against it — and **Show Archived** at the foot of the list brings it back into view. **Put
+  Back** returns it to the rung it left from. You can say why you archived it, but you do not have
+  to.
+- **Delete** removes it. The task is gone and cannot be recovered.
+
+Archive anything you might want to look at again, which is almost everything. Delete is for a task
+that should not exist — a typo, a duplicate, a line you started and abandoned before it meant
+anything.
+
+Archiving is not a fifth rung: a task is archived from wherever it stood, so a finished task you
+archive stays finished, and one you had On Hold comes back On Hold.
 
 ## Overdue
 
-A task shows **Overdue** when its due date has passed and it is still open. Nothing is stored to make
-that happen: it is worked out fresh whenever you look, in the task's own time zone, so it is never
-based on a stale calculation. Tasks that are done or cancelled are never marked overdue.
+A task shows **Overdue** when its due date has passed and the work is still owed. Nothing is stored
+to make that happen: it is worked out fresh whenever you look, in the task's own time zone, so it is
+never based on a stale calculation. Tasks that are done or archived are never marked overdue.
 
 ## Waiting on Another Task
 
@@ -77,9 +117,14 @@ there to say what the intended order is, not to enforce it.
 
 ## Documents
 
-Press the paperclip on a task to point it at one of the matter's documents. Nothing is uploaded and
-nothing is copied — the document stays in the matter's files with its versions and everything else
-that follows from being there, and detaching it later leaves it exactly where it is.
+Open the task and go to its **Attachments** tab to point it at one of the matter's documents. The
+list names what a task already carries; attaching and detaching happen in the window, with the rest
+of what you can do to a task. Nothing is uploaded and nothing is copied — the document stays in the
+matter's files with its versions and everything else that follows from being there, and detaching it
+later leaves it exactly where it is.
+
+You can pick documents for a task you are still writing. They are attached the moment the task
+itself is saved.
 
 Tasks that belong to no matter cannot point at documents, because every document in Magna Carta
 belongs to a matter.
@@ -91,10 +136,10 @@ It sits at the top of the screen with **New Task**, in the same place as the sea
 screen. Whenever the search is narrowing the list, a **Show Everything** control appears beside it;
 when it is not there, nothing is hidden.
 
-By default a list shows what is still open, which is what a task list is for. Below the list, past
-everything still owed, **Show Done** and **Show Cancelled** add the closed work to it; each then
-reads **Hide Done** or **Hide Cancelled**, so what is showing is always the control that puts it
-away again.
+By default a list shows what is still owed — everything on To Do, In Progress and On Hold. Below the
+list, past all of that, **Show Done** and **Show Archived** add the rest to it; each then reads
+**Hide Done** or **Hide Archived**, so what is showing is always the control that puts it away
+again.
 
 ## Tasks in the Sidebar
 
@@ -103,7 +148,7 @@ see, plus your own work on no matter. Filter it by yourself to get just your lis
 **Tasks** section is the same list narrowed to that one matter.
 
 Tasks on closed matters are left out. Closing a matter changes nothing about its tasks — they are
-not cancelled or completed — they simply stop cluttering the day-to-day list. Reopen the matter and
+not archived or completed — they simply stop cluttering the day-to-day list. Reopen the matter and
 they come straight back.
 
 ## Being Told About a Task

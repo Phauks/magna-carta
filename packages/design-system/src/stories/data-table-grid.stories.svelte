@@ -11,7 +11,6 @@
   import { expect, fireEvent, fn, userEvent, waitFor, within } from "storybook/test";
   import Grid from "../lib/components/data-table/data-table-grid.svelte";
   import LitigationGrid, { TIME_COLUMNS, TIME_ENTRIES } from "./support/litigation-grid.svelte";
-  import EmptyState from "../lib/components/empty-state/empty-state.svelte";
 
   const { Story } = defineMeta({
     title: "Data Display/DataTableGrid",
@@ -285,11 +284,12 @@
       await expect(body.queryByRole("menuitem", { name: "Select none" })).toBeNull();
     });
 
-    await step("Selecting none empties the list, and the table says why", async () => {
-      await waitFor(() =>
-        expect(within(table).getByText(/No entries match the filter on Status/)).toBeVisible(),
-      );
-      await expect(within(table).getByText(/All 12 entries are hidden/)).toBeVisible();
+    await step("Selecting none empties the list, and the way back is a control", async () => {
+      // Two words, the same two an unfiltered empty table says. The sentence that used to name the
+      // filters here was a second copy of what the header already shows; the control that undoes
+      // them is the part a reader cannot get from looking at the header, so that is what stays.
+      await waitFor(() => expect(within(table).getByText("No Results")).toBeVisible());
+      await expect(within(table).getByRole("button", { name: /Clear All Filters/ })).toBeVisible();
       // Even with a filter in play, a SET filter still carries no clear control of its own.
       await expect(body.queryByRole("menuitem", { name: /Clear This Filter/ })).toBeNull();
     });
@@ -759,8 +759,8 @@
   name="Empty"
   args={{}}
   play={async ({ canvas, step }) => {
-    await step("Says there is nothing yet, with the header intact", async () => {
-      await expect(canvas.getByText("No entries yet.")).toBeVisible();
+    await step("Says No Results, with the header intact", async () => {
+      await expect(canvas.getByText("No Results")).toBeVisible();
       await expect(canvas.getByRole("button", { name: "Date" })).toBeVisible();
     });
 
@@ -806,7 +806,7 @@
     });
 
     await step("The empty state sits centred in the frame, not in the table", async () => {
-      const heading = canvas.getByText("Nothing recorded on this matter yet.");
+      const heading = canvas.getByText("No Results");
       await waitFor(() => {
         const frameBox = box(frame);
         const headingBox = box(heading);
@@ -820,7 +820,7 @@
 
     await step("It holds its place when the table is scrolled sideways", async () => {
       frame.scrollLeft = 400;
-      const heading = canvas.getByText("Nothing recorded on this matter yet.");
+      const heading = canvas.getByText("No Results");
       await waitFor(() => {
         const frameBox = box(frame);
         const headingBox = box(heading);
@@ -831,7 +831,7 @@
   }}
 >
   {#snippet template()}
-    <LitigationGrid rows={[]} columnWidths={OVERWIDE_COLUMN_WIDTHS} empty={overwideEmptyState} />
+    <LitigationGrid rows={[]} columnWidths={OVERWIDE_COLUMN_WIDTHS} />
   {/snippet}
 </Story>
 
@@ -896,8 +896,3 @@
   {/snippet}
 </Story>
 
-{#snippet overwideEmptyState()}
-  <EmptyState title="Nothing recorded on this matter yet.">
-    Timers, manual entries and the weekly grid all land here, billable or not.
-  </EmptyState>
-{/snippet}

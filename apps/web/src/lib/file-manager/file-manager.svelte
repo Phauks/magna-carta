@@ -28,7 +28,6 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import FolderGlyph from "@magna-carta/design-system/folder-glyph";
   import FolderTree from "@magna-carta/design-system/folder-tree";
@@ -1824,7 +1823,6 @@
                     cell={archiveCell}
                     settings={displaySettings}
                     caption="Inside this archive"
-                    empty={emptyArchive}
                     loading={archiveLoading}
                     density={manager.scalePercent < 100 ? "compact" : "comfortable"}
                     class="h-full rounded-none border-0"
@@ -1951,7 +1949,6 @@
                       cell={deletedCell}
                       settings={displaySettings}
                       caption="This matter's deleted files"
-                      empty={emptyDeleted}
                       loading={deletedLoading}
                       density={manager.scalePercent < 100 ? "compact" : "comfortable"}
                       class="h-full rounded-none border-0"
@@ -1970,7 +1967,6 @@
                       grid={historyGrid}
                       settings={displaySettings}
                       caption="This matter's file changelog"
-                      empty={emptyHistory}
                       loading={historyLoading}
                       density={manager.scalePercent < 100 ? "compact" : "comfortable"}
                       class="h-full rounded-none border-0"
@@ -2000,7 +1996,6 @@
                     {cell}
                     settings={displaySettings}
                     caption="This matter's files"
-                    empty={manager.view === "results" ? emptyResults : emptyFolder}
                     {loading}
                     density={manager.scalePercent < 100 ? "compact" : "comfortable"}
                     class="h-full rounded-none border-0"
@@ -2190,12 +2185,6 @@
   {/if}
 {/snippet}
 
-{#snippet emptyArchive()}
-  <EmptyState title="Nothing to List">
-    This archive's directory names no members at this level. The file itself is unchanged — browsing
-    reads, it never extracts.
-  </EmptyState>
-{/snippet}
 
 <!-- The archive's place marker: the zip itself, then each directory down to the level shown. It
      lives on the archive's own line above the footer, so entering a zip never moves the header
@@ -2332,18 +2321,7 @@
   </Button>
 {/snippet}
 
-{#snippet emptyDeleted()}
-  <EmptyState title="Nothing Has Been Deleted">
-    Deleting a file here is a soft delete: the bytes and every version stay, and this is where they
-    come back from.
-  </EmptyState>
-{/snippet}
 
-{#snippet emptyHistory()}
-  <EmptyState title="Nothing Has Happened Yet">
-    Every act on this matter's files lands here as it happens: time, action, file, and source.
-  </EmptyState>
-{/snippet}
 
 {#snippet railMenuItems(target: FolderTreeMenuTarget)}
   {@const row = railRowOf(target.folderId)}
@@ -2400,20 +2378,7 @@
   </ContextMenu.CheckboxItem>
 {/snippet}
 
-{#snippet emptyResults()}
-  <EmptyState title="Nothing to Show Yet">
-    Search this matter from the field at the top of the screen; what it finds among the files lands
-    here, where the whole result set can be acted on at once.
-  </EmptyState>
-{/snippet}
 
-{#snippet emptyFolder()}
-  <EmptyState title="Nothing in This Folder">
-    Files put here appear in this list. Everything on the matter is still reachable from Home,
-    whichever folder it sits in. New, at the top of the matter, adds the first; dropping files
-    here does too.
-  </EmptyState>
-{/snippet}
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<FileManagerRow>)}
   {#if column.id === "name"}

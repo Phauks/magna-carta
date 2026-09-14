@@ -1,19 +1,25 @@
 /*
- * What the note's Attachments tab is handed: the documents this note already points at, and the
+ * What a record's Attachments tab is handed: the documents the record already points at, and the
  * matter's own files offered as the ones it could point at next.
  *
+ * IT IS NOT ONE KIND OF RECORD'S. A note and a task attach a matter's documents the same way, over
+ * the same association shape, into the same tab — so the translation is written once and typed on
+ * the SHAPE a document association has rather than on any one record's name for it. It was a note's
+ * alone until a task needed it, and a second copy would have been the same six lines free to drift
+ * the first time one of them was corrected.
+ *
  * The shapes are the design system's, not the API's, and the translation lives here rather than in
- * the window so it can be tested without a browser. Two facts have to survive it. An attachment
+ * a window so it can be tested without a browser. Two facts have to survive it. An attachment
  * carries the ASSOCIATION's identity as well as the document's — ending one association must not
- * reach the document, and the picker needs the document's identity to leave out what the note
+ * reach the document, and the picker needs the document's identity to leave out what the record
  * already carries. And a document is offered under the folder somebody filed it in, spelled the way
  * the File Manager spells that path, because that is how the person who filed it remembers where it
  * went.
  *
- * A note being written has no identity yet, so its attachments are PENDING: chosen, held, and
- * written the moment the note itself is. Both kinds render identically here — the reader is looking
- * at the files this note will carry either way — and the identity is what tells them apart when the
- * time comes to write them.
+ * A record being written has no identity yet, so its attachments are PENDING: chosen, held, and
+ * written the moment the record itself is. Both kinds render identically here — the reader is
+ * looking at the files this record will carry either way — and the identity is what tells them
+ * apart when the time comes to write them.
  */
 import type {
   AttachableDocumentFolder,
@@ -22,10 +28,25 @@ import type {
 import { MatterFileIndex } from "$lib/file-manager/file-rows.ts";
 import type { FolderSummary } from "$lib/file-manager/folder-api.ts";
 import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
-import type { NoteDocument } from "./notes-api.ts";
 
 /**
- * The identity a PENDING attachment carries — one chosen for a note that does not exist yet.
+ * One document riding a record, as every record's API states it.
+ *
+ * Structural on purpose: a note's documents and a task's documents are the same six fields under
+ * two names, and typing this on either of them would make the other one's the special case.
+ */
+export interface AttachedDocument {
+  /** The ASSOCIATION's own identity, which is what detaching names. Not the document's. */
+  readonly id: string;
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string | null;
+  readonly linkedAt: string;
+  readonly linkedBy: string | null;
+}
+
+/**
+ * The identity a PENDING attachment carries — one chosen for a record that does not exist yet.
  *
  * It is the document's own identity behind a prefix, which makes it stable across a re-render (the
  * list's render key) and impossible to mistake for an association the server issued: the write path
@@ -87,14 +108,14 @@ export function attachableFoldersFor(
 }
 
 /**
- * The documents a saved note points at, as the tab renders them.
+ * The documents a saved record points at, as the tab renders them.
  *
  * `nameOf` resolves the member who attached it, because the record carries an account identifier
  * and a person is owed a name. It is passed in rather than read here: the roster is the surface's,
  * and a pure function that reached for it would need a browser to test.
  */
-export function noteAttachmentsOf(
-  documents: readonly NoteDocument[],
+export function recordAttachmentsOf(
+  documents: readonly AttachedDocument[],
   nameOf: (userId: string | null) => string,
 ): RecordAttachment[] {
   return documents.map((document) => ({
@@ -108,7 +129,7 @@ export function noteAttachmentsOf(
 }
 
 /**
- * The documents a note being WRITTEN will point at, as the tab renders them.
+ * The documents a record being WRITTEN will point at, as the tab renders them.
  *
  * Nothing has been attached yet, so nothing is stated about when or by whom: a pending row that
  * claimed an instant would be claiming something that has not happened.

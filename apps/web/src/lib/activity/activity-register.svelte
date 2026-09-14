@@ -249,9 +249,6 @@
   {/if}
 {/snippet}
 
-{#snippet emptyRegister()}
-  <EmptyState title="Nothing has been recorded on this matter yet." />
-{/snippet}
 
 {#snippet footerEnd()}
   {#if list.nextCursor !== null}
@@ -312,7 +309,6 @@
       caption={recent
         ? "The newest entries recorded on this matter"
         : "Everything recorded on this matter, newest first"}
-      empty={emptyRegister}
       loading={entries === null}
       placeholderCount={recent ? Math.min(limit, 4) : 8}
     />

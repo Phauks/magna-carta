@@ -18,7 +18,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
@@ -291,12 +290,6 @@
         loading={resources === null}
         placeholderCount={3}
       >
-        {#snippet empty()}
-          <EmptyState title="No Rooms or Resources Yet">
-            A resource is something bookable the firm owns. Add the first one and it can be booked
-            from any event's window and read on the room grid.
-          </EmptyState>
-        {/snippet}
       </DataTable.Grid>
       <DataTable.GridFooter {grid} />
     {/if}

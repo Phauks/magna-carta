@@ -43,7 +43,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import NoteDeleteDialog from "$lib/matters/note-delete-dialog.svelte";
   import NoteRecordWindow from "$lib/matters/note-record-window.svelte";
-  import { attachableFoldersFor } from "$lib/matters/note-attachable-documents.ts";
+  import { attachableFoldersFor } from "$lib/matters/record-attachable-documents.ts";
   import { occurrenceLine } from "$lib/matters/note-print-sheet.ts";
   import { entryFromUrl } from "$lib/matters/entry-from-url.ts";
   import { listMatterNotes, readMatterNote, type MatterNote } from "$lib/matters/notes-api.ts";

@@ -328,6 +328,40 @@ is usually the fastest way to understand the rule.
     (where it belongs); a record already stored opens in its values, and the acts that move it
     between queues live in the action bar. _(the call log, 2026-09-08: "we now have two modals for
     creating a call which is weird")_
+  - **A record with no window yet GETS one; it does not get a panel instead.** Where a record is
+    read as a row and changed in that row, the answer is the record window, not an action dialog for
+    making one and the row for changing it. Reaching for the panel is the tempting half-step and it
+    produces exactly the defect the ruling above names — one surface to read a record, another to
+    edit it — with the extra cost that the panel and the row then disagree about the record's own
+    fields. A task was moved to the panel and then to its own window in the same afternoon, and only
+    the second half was the fix. _(tasks, 2026-09-14: "creating a new task should be a modal, not
+    in-line", then "do the edit one too. I dislike having two screens, one to read information, and
+    one to edit it")_
+  - **A task moves along four rungs — To Do, In Progress, On Hold, Done — and they are the action
+    bar.** One control group, not four scattered verbs, because they answer one question: where is
+    this. The rung the task is on renders pressed and does nothing, so a reader sees where it stands
+    without reading a badge. Beside them are the only two other things that happen to a task, and
+    they differ in exactly one thing the copy has to say: **archiving keeps the data, deleting takes
+    it.** Archiving is not a fifth rung — a task is archived FROM wherever it stood, and putting it
+    back returns it there. _(tasks, 2026-09-14: "Action Bar should be To Do, In-Progress, On-Hold,
+    Done. Besides that, tasks can be deleted or archived")_
+    - **The reason an archive carries is OPTIONAL, and that is the whole lesson of the state it
+      replaces.** Cancelling required one, on the reasoning that the decision is the record. Nobody
+      ever used it: somebody clearing work that is simply not happening is not composing a memo, and
+      a required field at that moment is a reason to reach for delete instead — which loses the
+      record entirely. Offer the sentence where it is cheap to give; do not demand it. _(the owner,
+      2026-09-14: "archived would be similar to cancelled, but we will never use that because no one
+      uses cancelled")_
+    - **A list carries the one act a list is for, not the whole group.** Done belongs on a row,
+      because clearing finished work off a list is what a list is for; the other three rungs live in
+      the record's own window with the rest of its acts. Four controls deep on every row of work
+      somebody is only scanning is a row nobody can read. _(tasks, 2026-09-14)_
+  - **A list row states values and offers acts; it never becomes a form.** Nothing unfolds inside a
+    list: not a composer above the rows, not a row that turns into fields, not a picker for what to
+    attach, not the reason a thing is being cancelled. Each of those is a second place to learn
+    where a record's fields live, and each takes the list's own shape away — its count, its
+    ordering, what is overdue — while somebody types in the middle of it. What a row keeps is the
+    one act a LIST is for: ticking a thing off, and putting it back. _(tasks, 2026-09-14)_
   - **A record that is quoted out loud is identified BEFORE it is saved.** Where a record carries a
     reference number a person reads back — to a caller, onto a message slip — the window states the
     number the next one would draw while it is still being filled in, and says that it is a preview
@@ -474,8 +508,10 @@ is usually the fastest way to understand the rule.
   registry (`sections.ts` answers `createNoun` for every section, or declines with a line);
   the section's page claims the behaviour while it is mounted. Elsewhere it sits in the
   masthead's action row, after the search. Nothing else on the screen makes the record: the
-  action-row buttons and the empty-state buttons that used to are removed, not moved, and an empty
-  state names the control at the top instead. When nothing can be made right now the control is
+  action-row buttons and the empty-state buttons that used to are removed, not moved. (The rest of
+  that sentence — "and an empty state names the control at the top instead" — was **reversed on
+  2026-09-14**; see _An empty list says "No Results", and nothing else_ below. An empty state names
+  nothing now.) When nothing can be made right now the control is
   disabled with the reason as its title; it never leaves the row. Enforced by
   `pnpm run lint:matter-create-control`. _(the matter screens, 2026-09-03)_
 - **The verb is New, and a control that opens a MENU reads the bare "New".** New is the word this
@@ -686,6 +722,22 @@ is usually the fastest way to understand the rule.
   transiently (a registry rate-limiting, a renderer at capacity), the surface retries a bounded
   number of times before reporting failure, and shows each attempt as it happens; the member is
   never made to be the retry loop. _(WHOIS lookup, 2026-08-31)_
+- **An empty list says "No Results", and nothing else.** Two words, in title case, for BOTH the
+  record that holds nothing and the narrowing that excludes everything — one wording serves both
+  because it is true of both, where "no matters yet" is a lie about a filtered table and a sentence
+  naming the filters is a second copy of what the header already shows. No description under it, and
+  no sentence naming the way in: the create control is in the masthead's action row on every screen
+  by the product's own grammar, so prose naming it duplicates a label that is free to change without
+  the prose changing with it. **This reverses** the 2026-09-03 "an empty state names the control at
+  the top" clause above. Where the reader can widen a narrowing, the way back is a CONTROL beside the
+  words, never more words. What the empty states used to carry instead was a definition of the domain
+  term — "A packet is the physical thing the firm holds and moves: an envelope, a deed box, a sealed
+  wallet…" — which is the explanatory prose _No info lines_ already forbids everywhere else, and
+  whose home is `docs/user/`. Not a rule to remember: `DataTable.Grid` has no `empty` snippet to pass
+  and `NoResults` takes no props, so there is nothing to get wrong. Three narrower states stay
+  distinct because they state a fact about the SUBJECT rather than about the result set — a sample
+  matter, a firm that has not enabled something, and a read that failed (which is `FailureNotice`,
+  not an empty state at all). _(the custodian register, 2026-09-14)_
 - **An empty screen is the filled screen lacking information**, not a different screen. The same
   regions render, each saying what it is missing. A centred card that replaces the layout teaches a
   person nothing about where things will be, and it makes the first real use of the screen a second

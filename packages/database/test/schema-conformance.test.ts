@@ -151,11 +151,6 @@ describe("schema conformance (fitness functions)", () => {
     // rather than leave a second copy.
     const compositeKeyTables = new Set([
       "ai_search_feed_object",
-      // magnus_conversation_attachment is keyed by (conversation_id, file_id) — one attachment per
-      // file per conversation, the same shape as time_entry_attachment below. The pair IS the row:
-      // attaching is idempotent on it, which is what makes a retried attach the same attachment
-      // rather than a second one, and a handle would let two rows describe one attached file.
-      "magnus_conversation_attachment",
       "storage_meter",
       "token_usage_meter",
       "directory_name_phonetic_code",
@@ -166,6 +161,7 @@ describe("schema conformance (fitness functions)", () => {
       "invoice_number_allocation",
       "time_entry_number_allocation",
       "time_entry_attachment",
+      "magnus_conversation_attachment",
       "invoice_matter_balance",
       "document_template_field_binding",
       "scan_cache",
