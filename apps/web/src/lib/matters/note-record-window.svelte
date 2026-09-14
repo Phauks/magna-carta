@@ -45,9 +45,9 @@
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import {
     isPendingAttachment,
-    noteAttachmentsOf,
+    recordAttachmentsOf,
     pendingAttachmentsOf,
-  } from "./note-attachable-documents.ts";
+  } from "./record-attachable-documents.ts";
   import { noteSheet, occurrenceLine } from "./note-print-sheet.ts";
   import { printSheetDates } from "$lib/print-sheet";
   import { DatePicker } from "@magna-carta/design-system/date-picker";
@@ -199,7 +199,7 @@
   const attachments = $derived<readonly RecordAttachment[]>(
     note === null
       ? pendingAttachmentsOf(pendingFileIds, matterFiles)
-      : noteAttachmentsOf(note.documents, nameOf),
+      : recordAttachmentsOf(note.documents, nameOf),
   );
 
   const offerable = $derived(unattachedDocumentFolders(attachableFolders, attachments));

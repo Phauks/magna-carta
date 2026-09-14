@@ -328,6 +328,40 @@ is usually the fastest way to understand the rule.
     (where it belongs); a record already stored opens in its values, and the acts that move it
     between queues live in the action bar. _(the call log, 2026-09-08: "we now have two modals for
     creating a call which is weird")_
+  - **A record with no window yet GETS one; it does not get a panel instead.** Where a record is
+    read as a row and changed in that row, the answer is the record window, not an action dialog for
+    making one and the row for changing it. Reaching for the panel is the tempting half-step and it
+    produces exactly the defect the ruling above names — one surface to read a record, another to
+    edit it — with the extra cost that the panel and the row then disagree about the record's own
+    fields. A task was moved to the panel and then to its own window in the same afternoon, and only
+    the second half was the fix. _(tasks, 2026-09-14: "creating a new task should be a modal, not
+    in-line", then "do the edit one too. I dislike having two screens, one to read information, and
+    one to edit it")_
+  - **A task moves along four rungs — To Do, In Progress, On Hold, Done — and they are the action
+    bar.** One control group, not four scattered verbs, because they answer one question: where is
+    this. The rung the task is on renders pressed and does nothing, so a reader sees where it stands
+    without reading a badge. Beside them are the only two other things that happen to a task, and
+    they differ in exactly one thing the copy has to say: **archiving keeps the data, deleting takes
+    it.** Archiving is not a fifth rung — a task is archived FROM wherever it stood, and putting it
+    back returns it there. _(tasks, 2026-09-14: "Action Bar should be To Do, In-Progress, On-Hold,
+    Done. Besides that, tasks can be deleted or archived")_
+    - **The reason an archive carries is OPTIONAL, and that is the whole lesson of the state it
+      replaces.** Cancelling required one, on the reasoning that the decision is the record. Nobody
+      ever used it: somebody clearing work that is simply not happening is not composing a memo, and
+      a required field at that moment is a reason to reach for delete instead — which loses the
+      record entirely. Offer the sentence where it is cheap to give; do not demand it. _(the owner,
+      2026-09-14: "archived would be similar to cancelled, but we will never use that because no one
+      uses cancelled")_
+    - **A list carries the one act a list is for, not the whole group.** Done belongs on a row,
+      because clearing finished work off a list is what a list is for; the other three rungs live in
+      the record's own window with the rest of its acts. Four controls deep on every row of work
+      somebody is only scanning is a row nobody can read. _(tasks, 2026-09-14)_
+  - **A list row states values and offers acts; it never becomes a form.** Nothing unfolds inside a
+    list: not a composer above the rows, not a row that turns into fields, not a picker for what to
+    attach, not the reason a thing is being cancelled. Each of those is a second place to learn
+    where a record's fields live, and each takes the list's own shape away — its count, its
+    ordering, what is overdue — while somebody types in the middle of it. What a row keeps is the
+    one act a LIST is for: ticking a thing off, and putting it back. _(tasks, 2026-09-14)_
   - **A record that is quoted out loud is identified BEFORE it is saved.** Where a record carries a
     reference number a person reads back — to a caller, onto a message slip — the window states the
     number the next one would draw while it is still being filled in, and says that it is a preview
