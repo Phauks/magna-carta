@@ -295,9 +295,15 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
 export const ATTORNEY_LICENSE_SITES_BY_STATE: ReadonlyArray<{
   readonly code: string;
   readonly fipsPrefix: string;
+  readonly name: string;
   readonly sites: readonly AssessorSite[];
 }> = ATTORNEY_LICENSE_STATES.map(({ fips, code, name, lookup }) => ({
   code,
   fipsPrefix: fips,
+  // The state's own name, carried through rather than left only inside the site's label. A consumer
+  // that offers the reader a choice of state needs to name the states; recovering "Ohio" by taking
+  // a suffix off "Ohio Attorney Search" is a parse of a display string, and a second hand-written
+  // list of the fifty states somewhere else is the same fact in two places.
+  name,
   sites: [licensingSites(fips, code).attorneyLicense(`${name} Attorney Search`, lookup)],
 }));

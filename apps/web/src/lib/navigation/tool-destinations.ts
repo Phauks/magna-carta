@@ -55,8 +55,8 @@ export interface ToolDestination {
  * outgrown the Tools area and earned a destination row of its own, and the palette already renders
  * the destination registry beside this list. Offering the same surface twice in one flat search is
  * two rows a reader has to tell apart, and the destination row is the one carrying the description
- * and the maturity badge. The Tools LISTING keeps showing it (tools/tool-catalogue.ts) — a page
- * about the Tools area should still show the host the file utilities are run from.
+ * and the maturity badge. The Tools area's own projection drops it for its own reason
+ * (tools/tool-catalogue.ts): every row in that column loads beside the column.
  */
 export function toolDestinations(): readonly ToolDestination[] {
   return CATALOG.filter((tool) => tool.route === undefined).map((tool) => {

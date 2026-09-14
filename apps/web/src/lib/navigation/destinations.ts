@@ -482,9 +482,10 @@ const DESTINATION_LIST = [
      * matter-scoped daily surfaces, and this one is matter-free by construction — nothing brought
      * here is filed, versioned, or remembered.
      *
-     * It keeps its tool-catalog manifest row so the file context tag still has a tool to offer and
-     * the Tools listing still shows the host its file utilities are run from; the manifest names
-     * this address as its route, so nothing derives /tools/file-workbench any more.
+     * It keeps its tool-catalog manifest row for one reason: so a file in hand can still be offered
+     * it through toolsFor(). The manifest names this address as its route, which is both what stops
+     * anything deriving /tools/file-workbench and what takes it out of the Tools listing, the Tools
+     * navigation column and the palette's tool provider — it is not one of their rows any more.
      */
     id: "file-workbench",
     label: "File Workbench",

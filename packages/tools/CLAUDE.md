@@ -9,7 +9,10 @@ and contextual entry points. No D1, no Hono, no `env`, no Svelte, no network. De
   id->component mapping in the shell).
 - **`route` is for a tool that has outgrown this area.** A tool is normally addressed at `/tools/<id>`;
   one that has earned a sidebar destination of its own says where it lives instead, and keeps its
-  manifest row so the contextual surfacing path still has a tool to offer for its context tag.
+  manifest row for one reason: the contextual surfacing path still has a tool to offer for its
+  context tag. Declaring a route is also what removes it from the Tools listing, the Tools
+  navigation column and the command palette's tool provider — it is no longer one of the things
+  those surfaces enumerate.
   `toolRoute(tool)` is the single derivation — no consumer builds `/tools/<id>` by hand. `file-workbench`
   is the only such row today (`/file-workbench`), and the only row in the `files` group: the ten file
   utilities that used to sit beside it were its own capability tabs under another name and were

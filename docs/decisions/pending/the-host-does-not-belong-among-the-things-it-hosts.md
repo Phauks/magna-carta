@@ -45,10 +45,13 @@ Tools row and its own row on the same screen.
 context tag (`toolsFor("file")`), so a tool absent from it is a tool nothing can offer. The manifest
 therefore gains an optional `route`, and `toolRoute()` becomes the one derivation every link-builder
 goes through instead of two of them spelling out `/tools/<id>`. Declaring a route is what a tool does
-when it has outgrown the area, and it carries two consequences: the Tools listing still shows the row
-(a page about the Tools area should show the host its file utilities are run from), and the command
-palette's tool provider skips it, because the palette renders the destination registry beside that
-list and one surface offered twice in a flat search is two rows a reader has to tell apart.
+when it has outgrown the area, and it carries one consequence everywhere the area enumerates its
+tools: the Tools listing and its navigation column leave the row out, and so does the command
+palette's tool provider. The column is the sharpest case — Tools became a two-sided screen, every
+row in that column loads BESIDE the column, and a row that replaced the whole screen would be the
+one control there that does not behave like the rest. The emptied `files` group falls away with it,
+which is correct rather than a gap: the utilities that filled it were the workbench's own tabs, so
+the Tools area genuinely has no file tool left to show.
 
 **Consequences:** The workbench's screen header loses its `back="tools"` — a top-level destination
 has no way back, the way Discovery and Custodian have none. `FILE_WORKBENCH_BACK` is deleted:

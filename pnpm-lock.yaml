@@ -867,6 +867,9 @@ importers:
       '@magna-carta/file-type':
         specifier: workspace:*
         version: link:../../packages/file-type
+      '@magna-carta/government-links':
+        specifier: workspace:*
+        version: link:../../packages/government-links
       '@magna-carta/merge-field-catalog-contract':
         specifier: workspace:*
         version: link:../../packages/merge-field-catalog-contract

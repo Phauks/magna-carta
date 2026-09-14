@@ -17,9 +17,18 @@ describe("the Tools catalogue", () => {
   const entries = sections.flatMap((section) => section.entries);
 
   it("surfaces every permitted tool exactly once", () => {
+    // Every tool the area still addresses. A tool that declares its own route has become a
+    // destination elsewhere and is not one of this listing's rows any more.
     expect(entries.map((entry) => entry.id).toSorted()).toEqual(
-      CATALOG.map((tool) => tool.id).toSorted(),
+      CATALOG.filter((tool) => tool.route === undefined)
+        .map((tool) => tool.id)
+        .toSorted(),
     );
+  });
+
+  it("leaves out a tool promoted to its own destination", () => {
+    expect(entries.some((entry) => entry.id === "file-workbench")).toBe(false);
+    expect(CATALOG.some((tool) => tool.id === "file-workbench")).toBe(true);
   });
 
   it("gives every section a heading and something under it", () => {

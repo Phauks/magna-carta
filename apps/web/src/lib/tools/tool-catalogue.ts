@@ -30,22 +30,36 @@ export const TOOLS_VIEW_STORAGE_KEY = "mc-tools-view";
 /**
  * Every tool the member may see, grouped by subject in the catalog's canonical order. Throws only
  * if the catalog outran the presentation layer, through that layer's own guarded accessors.
+ *
+ * A tool that declares its own `route` is left out. Declaring one is what a tool does when it has
+ * outgrown this area and become a destination of its own, and this projection draws the Tools
+ * AREA: the landing index, and the navigation column of the two-sided screen. Every row in that
+ * column loads beside the column; a row that replaced the whole screen would be the one control
+ * there that does not behave like the rest. The tool keeps its manifest so a `file` in hand can
+ * still be offered it (toolsFor), and its own sidebar destination is how a reader reaches it.
+ *
+ * An emptied subject group falls away with it, which is correct rather than a gap: the file
+ * utilities that filled the `files` group were the workbench's capability tabs, and the Tools area
+ * genuinely has no file tool left to show.
  */
 export function toolCatalogueSections(): readonly CatalogueSection[] {
-  return visibleToolGroups().map(({ group, tools }) => ({
-    id: group,
-    label: SUBJECT_GROUP_LABELS[group],
-    entries: tools.map((tool): CatalogueEntry => {
-      const presentation = toolPresentation(tool);
-      return {
-        id: tool.id,
-        name: tool.name,
-        description: presentation.description,
-        stage: presentation.stage,
-        icon: toolIcon(tool),
-        href: hasSurface(presentation.stage) ? toolRoute(tool) : null,
-        keywords: toolSearchKeywords(tool),
-      };
-    }),
-  }));
+  return visibleToolGroups()
+    .map(({ group, tools }) => ({ group, tools: tools.filter((tool) => tool.route === undefined) }))
+    .filter(({ tools }) => tools.length > 0)
+    .map(({ group, tools }) => ({
+      id: group,
+      label: SUBJECT_GROUP_LABELS[group],
+      entries: tools.map((tool): CatalogueEntry => {
+        const presentation = toolPresentation(tool);
+        return {
+          id: tool.id,
+          name: tool.name,
+          description: presentation.description,
+          stage: presentation.stage,
+          icon: toolIcon(tool),
+          href: hasSurface(presentation.stage) ? toolRoute(tool) : null,
+          keywords: toolSearchKeywords(tool),
+        };
+      }),
+    }));
 }

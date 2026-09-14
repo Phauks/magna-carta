@@ -7,6 +7,8 @@ import { ATTORNEY_LICENSE_SITES_BY_STATE } from "./attorney-license.ts";
 export interface LicensingRegistration {
   readonly code: string;
   readonly fipsPrefix: string;
+  /** The state's own name, for a consumer that has to let somebody choose one. */
+  readonly name: string;
   readonly sites: readonly AssessorSite[];
 }
 

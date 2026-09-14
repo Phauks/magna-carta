@@ -116,7 +116,9 @@ export const CATALOG: readonly ToolManifest[] = [
     matterContext: "none",
     // Addressed at the top level, because it is a sidebar destination in its own right rather than
     // a utility reached through the Tools area (apps/web/src/lib/navigation/destinations.ts). The
-    // manifest row stays so that the `file` context tag still has a tool to offer.
+    // manifest row stays for one reason only: so a `file` in hand can still be offered it through
+    // toolsFor(). The Tools area's own listing and column leave it out, as does the palette's tool
+    // provider, each because it is no longer one of the things they enumerate.
     route: "/file-workbench",
   },
 ];

@@ -55,8 +55,11 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
     stage: "soon",
   },
   "attorney-license-lookup": {
-    description: "Check a lawyer's bar standing and discipline history.",
-    stage: "soon",
+    // Not "check": the screen opens the state's own register and reads nothing back. Saying it
+    // checks standing would promise an answer this platform never sees, and standing is exactly the
+    // fact that changes after you look.
+    description: "Open the official register where a lawyer's standing is verified.",
+    stage: "alpha",
   },
   shipping: { description: "Rate and buy postage for a mailing.", stage: "soon" },
   "network-speed-test": {
@@ -140,6 +143,18 @@ export function toolIcon(tool: ToolManifest): Component {
 const TOOL_SEARCH_SYNONYMS: Record<string, readonly string[]> = {
   "network-speed-test": ["bandwidth", "throughput", "ping", "latency", "internet", "connection"],
   "whois-lookup": ["registrant", "registration", "dns", "nameserver", "domain owner"],
+  "attorney-license-lookup": [
+    "bar",
+    "bar number",
+    "good standing",
+    "admitted",
+    "admission",
+    "disbarred",
+    "suspended",
+    "discipline",
+    "opposing counsel",
+    "state bar",
+  ],
   "safe-website-viewer": [
     "phishing",
     "suspicious link",

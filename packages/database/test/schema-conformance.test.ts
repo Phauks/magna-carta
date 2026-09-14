@@ -167,6 +167,9 @@ describe("schema conformance (fitness functions)", () => {
       "scoped_setting",
       "index_split_member",
       "notification_in_app_suppression",
+      // What a conversation has been given to read: the pair IS the fact, and a file is attached to
+      // a conversation once, so a surrogate key would let the same attachment exist twice.
+      "magnus_conversation_attachment",
     ]);
     // Composite key columns are TEXT with a few documented exceptions, all the same shape: the column IS
     // a number and constraining it as one is the entire point. The value a number draw reserves is a

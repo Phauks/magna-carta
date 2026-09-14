@@ -255,10 +255,19 @@ describe("seed permission values stay inside the registry (fitness function)", (
 
 describe("migration ids stay monotonic and collision-free (fitness function)", () => {
   // Guards the timestamp-id scheme against a future hand-authored migration: every tag must be a
-  // YYYYMMDDThhmmss_slug id, tags must be unique within a lineage, and lexical (tag) order must
-  // agree with the dense drizzle idx order — which is what the loader and worker bundles rely on to
-  // apply migrations in authored order. `scripts/timestamp-latest-migration.mjs` keeps generated
-  // migrations conformant; this catches a stamp edited or added by hand.
+  // YYYYMMDDThhmmss_slug id, tags must be unique within a lineage, and the journal's dense idx must
+  // stay a gapless 0..n-1 range. `scripts/timestamp-latest-migration.mjs` keeps generated migrations
+  // conformant; this catches a stamp edited or added by hand.
+  //
+  // IT DOES NOT REQUIRE LEXICAL TAG ORDER TO MATCH IDX ORDER, and must not: apply order IS tag
+  // order (src/migration.ts sorts the journal by tag, never by idx), chosen precisely so migrations
+  // authored on parallel branches merge without a shared counter and never need renumbering. idx is
+  // drizzle's append counter, read only by the authoring scripts to find the entry just generated —
+  // which is the highest idx whatever the tags say, and which they then stamp with the current time.
+  // So two branches merging out of lexical order is the scheme working, not a defect, and asserting
+  // otherwise failed on a pair already applied in production. Renaming one to satisfy it would be
+  // the real damage: the applied ledger is keyed by TAG, and a tag a database has applied but this
+  // code no longer knows is a hard refusal on wake (src/migration-runner.ts, "deploy mismatch").
   for (const lineage of ["control-plane", "per-firm"] as const) {
     it(`${lineage}: tags are unique, timestamp-formatted, and monotonic with idx`, async () => {
       const journal = JSON.parse(
@@ -273,9 +282,18 @@ describe("migration ids stay monotonic and collision-free (fitness function)", (
         expect(tag, `${lineage} migration ${tag} is not a timestamp id`).toMatch(TIMESTAMP_TAG);
       }
 
-      const byIdx = [...entries].toSorted((a, b) => a.idx - b.idx).map((entry) => entry.tag);
+      // The journal's own integrity: a dense, gapless, duplicate-free 0..n-1 range, which is what
+      // makes "the highest idx is the one just generated" true for the authoring scripts.
+      const indexes = [...entries].map((entry) => entry.idx).toSorted((a, b) => a - b);
+      expect(
+        indexes,
+        `${lineage} idx values are not the dense range 0..${entries.length - 1}`,
+      ).toEqual(entries.map((_, position) => position));
+
+      // Apply order is tag order, so it must be total: no tag may be a duplicate (asserted above)
+      // and sorting must be deterministic. Pinned as the property the runtime actually reads.
       const byTag = [...tags].toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-      expect(byTag, `${lineage} lexical tag order disagrees with idx order`).toEqual(byIdx);
+      expect(new Set(byTag).size, `${lineage} tag order is not total`).toBe(entries.length);
     });
   }
 });
