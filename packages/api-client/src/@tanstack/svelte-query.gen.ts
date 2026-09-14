@@ -1811,7 +1811,7 @@ export const mattersGetOptions = (options: Options<MattersGetData>) => queryOpti
 });
 
 /**
- * Updates a matter's editable fields (title, description, type, Location, responsible member, client display fields). Does not change status or the assigned number.
+ * Updates a matter's editable fields (title, description, type, Location, the office its paper file is kept at, responsible member, client display fields). Does not change status or the assigned number.
  */
 export const mattersUpdateMutation = (options?: Partial<Options<MattersUpdateData>>): MutationOptions<MattersUpdateResponse, MattersUpdateError, Options<MattersUpdateData>> => {
     const mutationOptions: MutationOptions<MattersUpdateResponse, MattersUpdateError, Options<MattersUpdateData>> = {

@@ -63,6 +63,13 @@ export interface CreateMatterEventInput {
   readonly endsAtTime?: string | null;
   readonly timeZone: string;
   readonly locationText?: string | null;
+  /**
+   * Where an online setting is JOINED — the meeting's own link, whoever hosts it. A different fact
+   * from where it is HELD, which is why it is not squeezed into the location: a deposition can be
+   * in a conference room AND on a call, and a firm that wrote "Zoom" where the room goes has lost
+   * the room.
+   */
+  readonly conferenceUrl?: string | null;
   readonly courtReference?: string | null;
   readonly participants?: readonly MatterEventParticipantInput[];
 }
@@ -111,6 +118,7 @@ export function createMatterEvent(
       endsAtTime: input.endsAtTime ?? null,
       timeZone: input.timeZone,
       locationText: input.locationText ?? null,
+      conferenceUrl: input.conferenceUrl ?? null,
       courtReference: input.courtReference ?? null,
       // When the person asserted it, as against when it happens. Both are recorded because they
       // diverge routinely.
@@ -162,6 +170,13 @@ export interface UpdateMatterEventInput {
   readonly endsAtTime?: string | null;
   readonly timeZone?: string;
   readonly locationText?: string | null;
+  /**
+   * Where an online setting is JOINED — the meeting's own link, whoever hosts it. A different fact
+   * from where it is HELD, which is why it is not squeezed into the location: a deposition can be
+   * in a conference room AND on a call, and a firm that wrote "Zoom" where the room goes has lost
+   * the room.
+   */
+  readonly conferenceUrl?: string | null;
   readonly courtReference?: string | null;
   // Supplying this replaces the whole participant set; omitting it leaves it alone.
   readonly participants?: readonly MatterEventParticipantInput[];
@@ -192,6 +207,8 @@ export async function updateMatterEvent(
     endsAtTime: patch.endsAtTime === undefined ? existing.ends_at_time : patch.endsAtTime,
     timeZone: patch.timeZone ?? existing.time_zone,
     locationText: patch.locationText === undefined ? existing.location_text : patch.locationText,
+    conferenceUrl:
+      patch.conferenceUrl === undefined ? existing.conference_url : patch.conferenceUrl,
     courtReference:
       patch.courtReference === undefined ? existing.court_reference : patch.courtReference,
   };

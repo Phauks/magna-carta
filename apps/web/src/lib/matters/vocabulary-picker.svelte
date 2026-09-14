@@ -4,6 +4,12 @@
    * Locations. One component because the two fields ask the same question of the same shape, and a
    * copy per field is a copy of the data-safe pattern to keep in step.
    *
+   * NOTHING CALLS IT TODAY, and that is recorded here rather than left to be discovered. Both of
+   * the fields it was written for have since been answered by a piece that knows what it is
+   * choosing: a practice area by practice-area-picker.svelte, which can also add one to the firm,
+   * and an office by $lib/offices/office-picker.svelte, which reads the firm's offices itself and
+   * cites each one. A third firm vocabulary shaped like these two is what this is still here for.
+   *
    * The pattern is the design system's documented one for a single Combobox: the consumer owns the
    * input text, the typed query drives the filter, a pick writes the chosen label back, and closing
    * the listbox RESETS the text to whatever is actually selected. That last step is what keeps

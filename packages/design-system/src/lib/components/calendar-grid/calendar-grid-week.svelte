@@ -38,6 +38,7 @@
     emptyMessage = "Nothing recorded in this week.",
     locale,
     onActivate,
+    onCreate,
     class: className,
     ...restProps
   }: WithElementRef<HTMLTableAttributes, HTMLTableElement> & {
@@ -58,12 +59,23 @@
     loading?: boolean;
     /** What a screen reader is told while the grid is loading. */
     loadingMessage?: string;
-    /** Shown in the caption region when the week holds nothing. Name the week in it. */
+    /**
+     * Shown in the caption region when the grid holds nothing. Name the span in it. THE EMPTY
+     * STRING MEANS SAY NOTHING: a caller whose grid already shows its days to a reader — thirty
+     * empty squares are their own statement — passes it, and the caption keeps its height without
+     * spending a sentence on a fact the reader can see.
+     */
     emptyMessage?: string;
     /** The locale the weekday names and full dates are written in. The viewer's when absent. */
     locale?: string;
     /** Called with the entry when one is activated. */
     onActivate?: (entry: CalendarGridEntry) => void;
+    /**
+     * Called with the civil day (`YYYY-MM-DD`) on a double-click in an empty part of a day cell —
+     * the accelerator for starting a record on the day somebody pointed at. Never fired from a
+     * press on a chip: opening a record and making one beside it are different intentions.
+     */
+    onCreate?: (date: string) => void;
   } = $props();
 
   /** Spoken after the full date on the day that is today. */
@@ -74,6 +86,17 @@
   const heads = $derived(weekdayNames(weekStartsOn, locale));
   const placed = $derived(placeEntries(entries, days[0]!, days[days.length - 1]!));
   const isEmpty = $derived(!loading && placed.size === 0);
+
+  /**
+   * A double-click that landed on a chip is that chip's, not the cell's: the reader was opening a
+   * record, and answering with a blank form over the top of it is the wrong thing twice.
+   */
+  function create(event: MouseEvent, day: string): void {
+    if (onCreate === undefined) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest(".mc-calendar-grid-entry") !== null) return;
+    onCreate(day);
+  }
 </script>
 
 <table
@@ -87,7 +110,7 @@
     {#if loading}
       <span class="sr-only">{loadingMessage}</span>
     {/if}
-    <span class="mc-calendar-grid-caption-message">{isEmpty ? emptyMessage : "\u00a0"}</span>
+    <span class="mc-calendar-grid-caption-message">{isEmpty && emptyMessage !== "" ? emptyMessage : "\u00a0"}</span>
   </caption>
   <thead>
     <tr>
@@ -102,7 +125,13 @@
         {@const key = formatCivilDate(day)}
         {@const isToday = today !== undefined && key === today}
         {@const dayEntries = placed.get(key) ?? []}
-        <td class="mc-calendar-grid-cell" data-today={isToday ? "true" : undefined}>
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -- the create gesture is an
+             accelerator on the cell; the keyboard path is the screen's own create control. -->
+        <td
+          class="mc-calendar-grid-cell"
+          data-today={isToday ? "true" : undefined}
+          ondblclick={(event) => create(event, key)}
+        >
           <span class="mc-calendar-grid-day">
             <span class="mc-calendar-grid-day-number" aria-hidden="true">{day.day}</span>
             <span class="sr-only">

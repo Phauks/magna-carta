@@ -27,6 +27,19 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - `calendar-vocabulary.ts` — how each kind reads: word, tone, the type catalog by code; the
   LAYERS a reader can turn on over the firm calendar (`CALENDAR_LAYERS`: only the timeline's
   date-bearing sources, custody dates first); the words for a record kind and a participant kind
+- `calendar-sources.ts` — the CATALOG of individual calendars and the folders they are kept in: the
+  firm's own two, a folder per role the firm handed out holding the members who hold it, the rooms,
+  everything else that is booked, and the dates. Which are on, what a folder's own control does, and
+  the colour each is dealt. Pure
+- `calendar-preferences.svelte.ts` — which calendars THIS reader has open and what colour they gave
+  each, per browser, on the shared persisted-preference primitive. Stores only the DEPARTURES from
+  the catalog's defaults, so a calendar shipped later arrives at its own
+- `calendar-rail.svelte` — the rail those two render as: a checkbox per calendar, a three-state
+  checkbox per folder, and the palette behind the colour pip
+- `location-picker.svelte` — WHERE a setting is held, as the product's dropdown-with-add over the
+  firm's own offices and rooms, keeping a courthouse nobody has a record of
+- `day-schedule.svelte` — the day being booked, in a record form's context pane. `CalendarView` with
+  a day view and no toolbar; never a second calendar
 - `calendar-entries.ts` — the projection to `CalendarGridEntry`, and the day order
 - `calendar-reads.ts` — the read plan per scope: which reads, walked to the end or the ceiling,
   failing independently; how each read's failure is titled and described
@@ -71,7 +84,28 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - **A layer is a date-bearing source, never a history source.** A custody due-back falls due, so
   it reads on a calendar; a time entry or a filed email is history and belongs to the matter
   timeline. Adding a layer is one row in `CALENDAR_LAYERS` naming the source keys the read is
-  widened to and the word each kind paints as.
+  widened to and the word each kind paints as. A layer is also a ROW IN THE RAIL now, under Dates;
+  the word `layers` survives in the controller and the address because the address has carried it
+  since the toolbar had them, and a link somebody was handed is a promise about what they will see.
+- **A calendar that is ON is a read; a calendar that is OFF is no read at all.** That is what keeps
+  the request count the reader's own choice rather than the roster's size, and it is why the read
+  plan is a plan PER CALENDAR (`readOneCalendar`) rather than one read narrowed afterwards. A
+  member calendar is the member filter the server already resolves in SQL; a room calendar is the
+  availability read; a date calendar is the federated read narrowed to that layer's own sources.
+- **Adding a calendar is one arm of `CalendarSourceKind` and one read in `calendar-reads.ts`.** The
+  catalog builds the rows from what the context already read, so a hire or a new room appears with
+  nothing told about it. A calendar with nothing behind it yet is LISTED, marked Soon and refused
+  (`soonReason`) — the standing rule for a designed-but-unwired capability — and `selectableSources`
+  is what keeps it out of the read plan.
+- **The same record on two calendars is ONE record that knows it is on both.** The reads tag every
+  entry with the calendar it came from and `mergeByRecord` unions them, so a month never paints a
+  shared hearing twice. The DAY deliberately does: `perLane` expands one entry per column it is on,
+  because a column that left a shared hearing out of one attorney's day would be lying about that
+  attorney's afternoon. Both copies reach the one record through `recordKeyOf`.
+- **Which calendars are on is PERSONAL and lives in the browser; the week start is the FIRM's and
+  lives on the server.** They look like the same kind of setting and are not: two members looking at
+  the same week must see the same seven columns, and nobody else is affected by which of the firm's
+  twenty calendars a particular person has open.
 - **Every question the pure modules can answer is asserted in `apps/web/test/calendar-*.test.ts`
   without a browser**: the window arithmetic, the projection, the read plan over a fake fetch, the
   draft shortfalls and request shapes, which verbs a record's state allows, what a correction
@@ -90,6 +124,9 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 - **The grid tones are the subtle status register.** `info` for a court appearance, `danger` for an
   open past-due deadline, `success` satisfied, `warning` and struck for cancelled, `accent` for a
   firm entry; neutral otherwise. Decided once in `calendar-vocabulary.ts` and `calendar-entries.ts`.
+  **The CALENDAR'S COLOUR is a different fact and never shares a property with it**: the tone paints
+  the chip, the colour paints a rule down its leading edge, and putting both in one fill would lose
+  whichever was written second.
 
 ## Invariants that apply here
 
@@ -97,10 +134,17 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   non-privileged labels on purpose (a matter event's platform type code, a deadline's state); the
   title is fetched for the one row somebody opened. Deadlines paint from their own access-gated read
   and firm events from the firm's own listing, both of which carry titles by contract, and the
-  federated read is narrowed to the event kind so nothing paints twice (`FIRM_CALENDAR_KINDS`).
-- **The grid is civil.** An entry sits on the civil day its row names, in the row's own zone; the
-  grid never converts a date. Only the wall-clock text carries a zone, and only where it is not the
-  reader's (`formatWallClock`). "Today" is the reader's, resolved once through `Intl`.
+  federated read is narrowed to the event kind so nothing paints twice (`FIRM_CALENDAR_KINDS`). It
+  does carry the HOUR (`timeOfDay`/`timeZone`), which is not a departure: a time of day says nothing
+  about a case and everything about where somebody has to be, so it rides the projection exactly as
+  the civil-date sort key always has, and it is what a day grid places by. A title never will.
+- **The grid is civil, and so is the HOUR.** An entry sits on the civil day its row names, at the
+  hour its row names, in the row's own zone; the grid never converts either. Only the wall-clock
+  text carries a zone, and only where it is not the reader's (`formatWallClock`); `startMinute` is
+  the same clock as a number, in the record's own zone, because a day grid cannot read one back out
+  of somebody else's formatting. Converting would move a nine o'clock hearing to the eleven o'clock
+  row for a reader two zones east, which is the one thing a calendar of court settings must never
+  do. "Today" is the reader's, resolved once through `Intl`.
 - **Nothing here computes a date from another date**, and nothing writes "missed": `overdue` is the
   server's read-time comparison and is never re-derived client-side. The one word for an open
   deadline past its day is `deadlineStateBadgeLabel`.

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "be99795d-7877-4e2f-8ae1-5c6e7b1731c3",
+  "id": "34fb477d-3569-4f22-8a0d-e62ceae1cfdf",
   "prevId": "3300fc2e-111d-45a9-9160-700ee9275618",
   "tables": {
     "account_balance": {
@@ -9558,6 +9558,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "conference_url": {
+          "name": "conference_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "recorded_at": {
           "name": "recorded_at",
           "type": "text",
@@ -13260,13 +13267,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "intake_number": {
-          "name": "intake_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "system_key": {
           "name": "system_key",
           "type": "text",
@@ -13333,14 +13333,6 @@
           ],
           "isUnique": true,
           "where": "\"matter\".\"consultation_number\" IS NOT NULL"
-        },
-        "matter_intake_number_unique_index": {
-          "name": "matter_intake_number_unique_index",
-          "columns": [
-            "intake_number"
-          ],
-          "isUnique": true,
-          "where": "\"matter\".\"intake_number\" IS NOT NULL"
         },
         "matter_system_key_unique_index": {
           "name": "matter_system_key_unique_index",
@@ -15885,6 +15877,13 @@
         },
         "location_text": {
           "name": "location_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "conference_url": {
+          "name": "conference_url",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

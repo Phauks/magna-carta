@@ -86,6 +86,11 @@ const matterEventSource: TimelineSource = {
         actorExpression: "matter_event.recorded_by",
         labelExpression:
           "CASE WHEN matter_event_type.origin = 'platform' THEN matter_event_type.code ELSE NULL END",
+        // The hour, in the zone the row itself names. A setting's time of day says nothing about
+        // the case and everything about where the reader has to be, which is why a day grid can
+        // have it where it can never have a title.
+        timeOfDayExpression: "matter_event.starts_at_time",
+        timeZoneExpression: "matter_event.time_zone",
         conditions,
         bindings,
       }),
@@ -146,6 +151,9 @@ const matterDeadlineSource: TimelineSource = {
         kindExpression: "'deadline'",
         actorExpression: "matter_deadline.recorded_by",
         labelExpression: "matter_deadline.state",
+        // Null on most deadlines, which is exactly right: a filing is due on a DAY.
+        timeOfDayExpression: "matter_deadline.due_at_time",
+        timeZoneExpression: "matter_deadline.time_zone",
         conditions,
         bindings,
       }),
@@ -1211,6 +1219,8 @@ const firmEventSource: TimelineSource = {
         kindExpression: "'firmEvent'",
         actorExpression: "firm_event.recorded_by",
         labelExpression: "COALESCE(matter_event_type.name || ' · ', '') || firm_event.audience",
+        timeOfDayExpression: "firm_event.starts_at_time",
+        timeZoneExpression: "firm_event.time_zone",
         conditions,
         bindings,
       }),

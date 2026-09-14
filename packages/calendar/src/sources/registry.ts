@@ -62,6 +62,12 @@ export interface TimelineRawRow {
   readonly kind: string;
   readonly actor_user_id?: string | null;
   readonly label?: string | null;
+  // The wall-clock time of day this row falls at, `HH:MM`, and the IANA zone it is read in — or
+  // NULL where the row has no hour, which is what a filing and a deadline with no time are. A
+  // source that has one declares it (`timeOfDayExpression` on the select builders); every other
+  // source projects NULL and nothing about them changes.
+  readonly time_of_day?: string | null;
+  readonly time_zone?: string | null;
 }
 
 // What a caller receives. A timeline entry is a REFERENCE, not a record: identifiers, a kind, a sort
@@ -81,6 +87,15 @@ export interface TimelineEntry {
   readonly actorUserId: string | null;
   readonly label: string | null;
   readonly link: string;
+  // THE HOUR, where the row has one: `HH:MM` read in `timeZone`, the IANA zone the record itself
+  // names. It is the same class of fact as `sortKey` — when a thing happens, said in the record's
+  // own terms — and says nothing whatever about a case, which is why it rides the projection where
+  // a title never could. Null on a row with no hour: a filing is due on a day, not at an hour.
+  //
+  // NEVER CONVERTED. The zone travels with the time, so a day grid can paint 9:00 as 9:00 and name
+  // the zone only where it is not the reader's, exactly as every other calendar surface does.
+  readonly timeOfDay: string | null;
+  readonly timeZone: string | null;
   // THE DESCRIPTION, present only on a matter-scoped read that asked for one. Null on every entry
   // the federated read projects: the words come from the owning source's own `describe`, for one
   // matter, behind that source's own permission — never from the cross-matter projection above.

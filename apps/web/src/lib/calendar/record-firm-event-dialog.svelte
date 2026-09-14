@@ -10,9 +10,14 @@
    * (firm-event-draft.ts).
    *
    * THE TIMING IS THE SAME FIELDS A MATTER EVENT HAS, through the one shared component, so the two
-   * forms cannot disagree about how a date, a time or a zone is asked for. The office is optional
-   * and so is the venue: a firm event usually happens at one of the firm's own offices, sometimes
-   * offsite, and occasionally at both a named office and a room within it.
+   * forms cannot disagree about how a date, a time or a zone is asked for. So is the LOCATION: the
+   * same dropdown-with-add over the firm's own offices and rooms (owner ruling, 2026-09-14), and
+   * the same conference link beside it for a meeting held on a call. The office proper stays its own
+   * field because it is a real foreign key here — it is what says which rooms are nearby — where the
+   * location is the free text a venue is.
+   *
+   * THE DAY BEING BOOKED STANDS BESIDE THE FIELDS, in the panel's context pane, so a person choosing
+   * a time can see who is already busy at it.
    *
    * THE KEY IS MINTED PER ATTEMPT, kept while nothing answered so a retry repeats the same write,
    * and dropped once the server has answered.
@@ -41,6 +46,9 @@
   import ParticipantPicker from "./participant-picker.svelte";
   import EventTypeSelect from "./event-type-select.svelte";
   import RecordTimingFields from "./record-timing-fields.svelte";
+  import LocationPicker from "./location-picker.svelte";
+  import DaySchedule from "./day-schedule.svelte";
+  import type { FirmResource } from "./calendar-api.ts";
 
   const AUDIENCES: readonly { value: FirmEventAudience; label: string }[] = [
     { value: "all_members", label: "Everyone at the firm" },
@@ -52,8 +60,10 @@
     eventTypes,
     members,
     locations,
+    resources = [],
     preferredTimeZones,
     initialDate,
+    initialTime = null,
     onRecorded,
   }: {
     open?: boolean;
@@ -63,10 +73,14 @@
     members: readonly FirmMemberSummary[];
     /** The firm's offices. Closed ones are dropped here. */
     locations: readonly LocationSummary[];
+    /** The firm's bookable things; its rooms are what the Location field offers beside the offices. */
+    resources?: readonly FirmResource[];
     /** The zones offered first: the reader's own and the firm's offices, in that order. */
     preferredTimeZones: readonly string[];
     /** The date the form opens on, where it was opened from a day. */
     initialDate: string | null;
+    /** The wall clock the form opens on, where it was opened from an hour on a day grid. */
+    initialTime?: string | null;
     onRecorded: (recorded: { id: string }) => void;
   } = $props();
 
@@ -100,8 +114,14 @@
 
   function reset(): void {
     const timeZone = preferredTimeZones[0] ?? "";
-    draft = emptyFirmEventDraft(timeZone, initialDate);
-    since = emptyFirmEventDraft(timeZone, initialDate);
+    // The seed and the baseline alike, so a panel opened on an hour and closed untouched does not
+    // ask about unsaved work.
+    const seeded = (): FirmEventDraft => ({
+      ...emptyFirmEventDraft(timeZone, initialDate),
+      startsAtTime: initialTime ?? "",
+    });
+    draft = seeded();
+    since = seeded();
     failure = null;
     attemptKey = null;
   }
@@ -131,11 +151,15 @@
   commitLabel="Record Firm Event"
   commitBusyLabel="Recording"
   commitRefusal={refusal}
-  width="wide"
   unsavedChanges={started}
   onOpen={reset}
   onCommit={submit}
 >
+  {#snippet context()}
+    <!-- Who is already busy that day, while the time is still being chosen. -->
+    <DaySchedule date={draft.startsOn} />
+  {/snippet}
+
   {#snippet notice()}
     {#if failure !== null}
       <FailureNotice
@@ -225,9 +249,30 @@
           </Select.Root>
         </div>
         <div class="flex flex-col gap-8">
-          <Label for="{idPrefix}-venue">Venue</Label>
-          <Input id="{idPrefix}-venue" disabled={busy} bind:value={draft.locationText} />
+          <Label for="{idPrefix}-location">Location</Label>
+          <LocationPicker
+            inputId="{idPrefix}-location"
+            {locations}
+            {resources}
+            disabled={busy}
+            bind:value={draft.locationText}
+          />
         </div>
+      </div>
+
+      <!-- Where it is JOINED, where it is online: its own field, for the same reason a matter
+           event has one. -->
+      <div class="flex flex-col gap-8">
+        <Label for="{idPrefix}-conference-url">Conference link</Label>
+        <Input
+          id="{idPrefix}-conference-url"
+          type="url"
+          inputmode="url"
+          autocomplete="off"
+          spellcheck={false}
+          disabled={busy}
+          bind:value={draft.conferenceUrl}
+        />
       </div>
 
       <div class="flex flex-col gap-8">

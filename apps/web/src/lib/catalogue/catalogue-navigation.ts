@@ -12,7 +12,7 @@
  * A module rather than three lines inside the component so the rule can be pinned by a test in
  * the plugin-less node pool; imports by relative path for that reason.
  */
-import type { CatalogueEntry, CatalogueSection } from "../catalogue/catalogue.ts";
+import type { CatalogueEntry, CatalogueSection } from "./catalogue.ts";
 
 /** Whether the address names this entry's own screen, or a screen beneath it. */
 export function isCurrentCatalogueEntry(entry: CatalogueEntry, pathname: string): boolean {

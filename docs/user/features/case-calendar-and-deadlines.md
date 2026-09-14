@@ -23,21 +23,46 @@ and separately, the dates you must act by.
 **Calendar**, in the sidebar, is the firm's calendar. It opens on the whole firm's month: every
 setting and deadline on every matter you can see, and the firm's own events beside them.
 
-- **Mine, Everyone, or a colleague.** Mine narrows the month to what is on your own calendar:
-  settings you are a participant at or the responsible attorney for, and every firm event whose
-  audience is everyone. The colleague picker beside the pair reads one colleague's calendar the
-  same way, over the matters you can see. The address remembers the choice, so a link you send
+- **Your calendars, down the left.** Your firm does not have one calendar; it has one for the
+  firm's matters and deadlines, one for the firm's own events, one for each colleague, one for each
+  conference room, and a few that are dates rather than people. They are listed in folders — your
+  attorneys, your paralegals, your receptionists, each under the role your firm gave them, then
+  your rooms, then your dates. Tick one to add it to the grid; tick a folder to add everyone in it,
+  and tick it again to take them all off. A folder with only some of its calendars on shows a dash
+  rather than a tick, and pressing it turns the rest on.
+
+  Two are on when you first arrive — the firm's matters and deadlines, and the firm's events — and
+  everything else is yours to add. What you have open is **yours**: it follows you between screens
+  and visits on this browser, and changes nothing for anybody else.
+
+- **A colour per calendar.** Press the dot beside a calendar's name and pick a colour. It paints a
+  stripe down the edge of every entry from that calendar, and heads that calendar's column on the
+  day view, so one person's day is told from another's at a glance. Calendars you have not coloured
+  are given colours to start with, so eight of them turned on are still eight you can tell apart.
+- **Custody dates**, under **Dates**, adds the safe custody register's dates to the calendar: when
+  an original checked out is due back, and when a packet or an item is due for review. Each shows
+  its custody number and opens the register. **File destruction dates** is listed beside it and
+  marked Soon: it waits on a retention schedule for a matter's files, which the platform does not
+  hold yet.
+- **Mine, Everyone, or a colleague.** Mine narrows the firm's own records to what is on your own
+  calendar: settings you are a participant at or the responsible attorney for, and every firm event
+  whose audience is everyone. The colleague picker beside the pair reads one colleague's calendar
+  the same way, over the matters you can see. The address remembers the choice, so a link you send
   opens the same way.
-- **Custody dates.** Press it to add the safe custody register's dates to the calendar: when an
-  original checked out is due back, and when a packet or an item is due for review. Each shows its
-  custody number and opens the register. Off unless you turn it on, and the address remembers.
 - **Hide settled.** On the agenda, press it to leave out what is no longer coming: cancelled
   settings and satisfied, vacated or superseded deadlines. The agenda says how many it left out.
   The month and the week always show them, struck through.
-- **Month, week, agenda.** Three views of the same calendar. The month grid shows a few entries per
-  day and says how many more there are; press that and the agenda opens on that day. The week is
-  seven days side by side with each day's entries listed. The agenda is a fortnight as a list. The
-  view and the date live in the address. The week begins on the day your firm chose, Sunday unless
+- **Month, week, day, agenda.** Four views of the same calendar. The month grid shows a few entries
+  per day and says how many more there are; press that and the agenda opens on that day. The week is
+  seven days side by side with each day's entries listed. The **day** is the one with hours: the
+  time runs down the side and every calendar you have turned on gets its own column, so a Tuesday
+  your firm spends in four places reads at a glance and a free afternoon shows as a gap. Anything
+  with no time — a filing, a deadline — sits in the band above the hours. A setting two people are
+  at appears in both their columns, because it is on both their days. The agenda is a fortnight as
+  a list. The view and the date live in the address.
+- **Double-click an empty day, or an empty hour on the day view, to start recording an event on
+  it.** The form opens with that date, and that time, already filled in. It is a shortcut and not
+  the only way: **New** at the top right does the same thing and reaches the keyboard. The week begins on the day your firm chose, Sunday unless
   an administrator changed it under Settings › Calendar; it is the firm's setting rather than a
   personal one, so everybody in the firm reads the same week
   ([the administrator's guide](../admin/calendar-week-start.md)).
@@ -48,7 +73,9 @@ setting and deadline on every matter you can see, and the firm's own events besi
   can see, and they say when they are past due.
 - **Cancelled settings stay on the calendar, struck through.** A setting that was called off and one
   that never existed are different facts.
-- **Record** at the top right records an event on a matter, a deadline on a matter, or a firm event.
+- **New** at the top right records an event, a deadline on a matter, or a firm event.
+- **An empty month says nothing.** A month with nothing on it is a month with nothing on it; the
+  agenda, which would otherwise be a blank space, says so in words.
 
 **A matter's Calendar section** keeps its two tables (Deadlines, then Events) as the **List** view and
 adds **Month** and **Agenda** beside them, which are the firm calendar narrowed to this one matter
@@ -76,7 +103,9 @@ name once for somebody who is neither, such as a judge or a court reporter; each
 ## Recording an event
 
 An event is anything that happened or will happen in the case. Give it a title, a date, and the time
-zone it happens in. Everything else is optional.
+zone it happens in. Everything else is optional — **including the matter**. Leave the matter blank
+(the field's first row says so) and what you record is a **firm event** instead: a meeting, a
+training, a reservation, anything that belongs to the firm rather than to a case.
 
 - **A time is optional, and that is deliberate.** Leave it off and the event is an all-day one, which
   is what a filing is. Put it on and the event sits at that time.
@@ -85,8 +114,18 @@ zone it happens in. Everything else is optional.
   morning is nine in the morning. Nothing about your firm, the matter, or your office can work that
   out on its own, so you are asked.
 - **A range is a range.** Set an end date for a three-day trial; leave it off for a point in time.
-- **Where it is** is free text: a courtroom, a department number, an address. A courthouse is not one
-  of your offices, so it is not picked from your office list.
+- **The times are time fields, and the zone reads as a shortcode beside them** — PST, EDT — rather
+  than as a long name. The code is the right one for the day the event falls on, so a July hearing
+  reads PDT and a January one PST. One setting is read in one zone, so the end line shows the same
+  code rather than asking again.
+- **Location** offers the places your firm already has: your offices, then your conference rooms,
+  each under its own heading. Type anything else and it is kept — a courthouse, a department number,
+  opposing counsel's address — because most hearings are not at one of your offices.
+- **A conference link** is its own field, for a setting held on a call: paste the Zoom, Teams or
+  other meeting link. It is separate from Location on purpose, because a deposition can be in a
+  conference room and on a call at the same time.
+- **That day's calendar stands beside the form** while you fill it in, so you can see who is already
+  busy before you choose a time. It appears once you have chosen a date.
 - **The court's own case number** goes on the event as the court writes it.
 - **Who is there** can be a member of your firm, a contact from your directory, or somebody who is
   neither — a judge, a court reporter, an interpreter, a witness. You are not made to create a

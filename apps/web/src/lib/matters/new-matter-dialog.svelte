@@ -73,7 +73,7 @@
   import { readConflictsCheck, runConflictsCheck } from "$lib/conflicts/conflicts-api.ts";
   import MemberPicker from "./member-picker.svelte";
   import PracticeAreaPicker from "./practice-area-picker.svelte";
-  import VocabularyPicker from "./vocabulary-picker.svelte";
+  import { OfficePicker } from "$lib/offices/index.ts";
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import {
     isCreatableMatterStatus,
@@ -115,7 +115,6 @@
     prefill = null,
     session,
     matterTypes,
-    locations,
     matters,
     onCreated,
     onMatterTypeAdopted,
@@ -135,7 +134,16 @@
     /** Who is asking. The responsible attorney defaults to them, and can be changed. */
     session: SessionBootstrap;
     matterTypes: readonly MatterTypeSummary[];
-    locations: readonly LocationSummary[];
+    /**
+     * The firm's offices as the screen that opened this window already read them.
+     *
+     * ACCEPTED AND NO LONGER READ. The Location field is now the one office picker the product
+     * uses everywhere, and that piece reads the firm's offices itself through the shared store — so
+     * this list would be the same request answered twice. It stays on the signature so the three
+     * screens that open this window need no change in the same round; the prop goes when they stop
+     * passing it.
+     */
+    locations?: readonly LocationSummary[];
     /** The docket as loaded, which is where the clients the firm already has come from. */
     matters: readonly MatterSummary[];
     onCreated: (created: {
@@ -200,12 +208,6 @@
     unavailable: status === "hold" ? HOLD_AT_CREATION_REASON : closedDependency,
     soon: status !== "hold",
   }));
-
-  const locationOptions = $derived(
-    locations
-      .filter((location) => location.status === "active")
-      .map((location) => ({ id: location.id, name: location.name })),
-  );
 
   const mayAddMatterType = $derived(
     session.permissions.includes(MANAGE_MATTER_TYPES_PERMISSION),
@@ -560,12 +562,17 @@
           </div>
           <div class="flex flex-col gap-8">
             <Label for="new-matter-location">Location</Label>
-            <VocabularyPicker
-              options={locationOptions}
+            <!-- The office the matter is RUN OUT OF, picked by the one piece that picks an office
+                 anywhere in the product — so what a firm's offices are is answered in one place
+                 and a matter's office is the same record the Offices screen manages. Where the
+                 matter's paper FILE ends up is a different fact, recorded on the status window
+                 once there is a folder. -->
+            <OfficePicker
               bind:value={locationId}
               inputId="new-matter-location"
               label="Location"
-              whenEmpty="No Locations are set up."
+              disabled={busy}
+              whenEmpty="No offices are set up."
             />
           </div>
         </div>

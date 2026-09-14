@@ -84,26 +84,34 @@ describe("calendarLabel", () => {
 });
 
 describe("emptyCalendarMessage", () => {
+  it("says nothing on a grid, which shows its own empty days", () => {
+    // The owner's ruling of 2026-09-14, against "Nothing recorded in September 2026" standing over
+    // a month of empty squares: a grid that is empty has already said so.
+    expect(emptyCalendarMessage(firm, "the firm's", "September 2026", "month")).toBeUndefined();
+    expect(emptyCalendarMessage(firm, "the firm's", "Sep 13 - 19, 2026", "week")).toBeUndefined();
+    expect(emptyCalendarMessage(firm, "the firm's", "September 15, 2026", "day")).toBeUndefined();
+  });
+
   it("says a resource has nothing booked", () => {
-    expect(emptyCalendarMessage(resource, "this resource's", "September 2026")).toBe(
+    expect(emptyCalendarMessage(resource, "this resource's", "September 2026", "agenda")).toBe(
       "Nothing booked in September 2026.",
     );
   });
 
   it("says the firm's and a matter's calendars have nothing recorded", () => {
-    expect(emptyCalendarMessage(firm, "the firm's", "September 2026")).toBe(
+    expect(emptyCalendarMessage(firm, "the firm's", "September 2026", "agenda")).toBe(
       "Nothing recorded in September 2026.",
     );
-    expect(emptyCalendarMessage(matter, "this matter's", "Sep 2 - 15, 2026")).toBe(
+    expect(emptyCalendarMessage(matter, "this matter's", "Sep 2 - 15, 2026", "agenda")).toBe(
       "Nothing recorded in Sep 2 - 15, 2026.",
     );
   });
 
   it("says whose calendar is empty when it is a person's", () => {
-    expect(emptyCalendarMessage(firm, "your", "September 2026")).toBe(
+    expect(emptyCalendarMessage(firm, "your", "September 2026", "agenda")).toBe(
       "Nothing on your calendar in September 2026.",
     );
-    expect(emptyCalendarMessage(firm, "Ada Lovelace's", "September 2026")).toBe(
+    expect(emptyCalendarMessage(firm, "Ada Lovelace's", "September 2026", "agenda")).toBe(
       "Nothing on Ada Lovelace's calendar in September 2026.",
     );
   });

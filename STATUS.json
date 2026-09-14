@@ -3499,6 +3499,44 @@
       },
       "blockedBy": [],
       "notes": "The owner's third round on the deployed screen. Two of its six items are real capabilities the log did not have, and the rest is the shape of the one window it now has.\n\n**There was one modal too many, and now there is one.** Recording a call opened an action dialog; opening a row opened the record window. They rendered the same fields through the same component and disagreed about everything around them — one had tabs, one printed, one put its commit under a heading and the other in an action bar. They are one window now, and the only difference between its two states is whether it opened with a record in it. A record being made asks where it belongs, because at that moment the anchor is one of the things being said; a record already on the log moves between anchors through its own concurrency-safe acts in the action bar, as it did.\n\n**A length is typed, and it need not be the span.** The previous round derived the duration from a start and an end, which is right until somebody is put on hold: an hour on the line and twenty minutes of call are two true facts about one call, and a form that computes either from the other is asserting they are the same number. So `communication.ended_at` is stored beside `duration_seconds`, the length is typed — `20`, `1h 5m` and `1:20` all read — and an end fills an EMPTY length and never overwrites one somebody wrote. Where the two differ the form says so in a line under them and the record shows both, so the gap reads as the hold it is rather than as a mistake.\n\n**Every call and text carries a number, and it exists before the record does.** `2026-09-08-0042`: the day it happened and that day's own sequence, drawn through the shared counter idiom with the partial unique index over the rendered number as the backstop — the one sequence in the platform with no allocation table, because its rendered string contains the whole of its scope. The migration numbers every row already on the table. And the window shows the number the next record WOULD draw before anything is saved, because the person entering a call is usually still on the telephone and the save is too late for the sentence they are in the middle of; it is a preview, it says so, and the record's own number replaces it the moment there is a record.\n\n**The description is the row's second line.** It is prose, usually longer than every other fact on the row together, and as a column it was either truncated to a few words or wide enough to push the facts off the screen. It takes the row's whole width underneath the facts now, through the one table's own row-detail — the same mechanism the time sheet's description sits in.\n\n**A number longer than a number is an extension, not a formatting failure.** `AsYouType` gives up silently once the digits exceed what a country holds, so typing a direct dial onto the end of a number turned `(312) 555-0148` into a run of fourteen digits under the cursor. The extra digits roll into an extension field the phone component now owns — the split is the longest prefix libphonenumber calls possible, so a North American number typed with its trunk 1 is not cut a digit short — and the two halves store as one string, `+13125550148x4102`, which the formatter reads back into both. The Directory's contact rows had built their own extension input beside the shared field; they use the shared one now.\n\n**An intake starts from the form as well as from a record.** Save And Start An Intake records the call first and hands the saved row up: an intake with no account of the call that caused it is exactly what the control exists to prevent.\n\nThe provenance tab is a **History** rail on the right, in the shape every other record window uses."
+    },
+    {
+      "slice": "6·10 — The calendar becomes many calendars",
+      "group": "phase-6",
+      "order": 10,
+      "stages": {
+        "research": {
+          "state": "n/a"
+        },
+        "spec": {
+          "state": "done"
+        },
+        "plan": {
+          "state": "n/a"
+        },
+        "built": {
+          "state": "done"
+        },
+        "ui": {
+          "state": "done"
+        },
+        "load-profile": {
+          "state": "n/a"
+        },
+        "tested": {
+          "state": "done"
+        }
+      },
+      "branch": "claude/modest-knuth-lvlzpt",
+      "activeWork": "docs/active-work/claude/modest-knuth-lvlzpt.md",
+      "next": "The rail's order is the catalog's, not the reader's — dragging a calendar, and a saved arrangement, are the obvious next ask; file-destruction dates are listed and refused until a retention schedule exists; a member calendar carries settings and not deadlines, because the deadlines read has no member predicate",
+      "links": {
+        "spec": "docs/specs/2026-09-02-calendar-interface-design.md",
+        "plan": null,
+        "adrs": []
+      },
+      "blockedBy": [],
+      "notes": "The owner's review round of 2026-09-14, eleven corrections, built through every layer. The firm\ncalendar stops being one grid: a **catalog of individual calendars in folders** (the firm's own two,\na folder per role the firm handed out, the rooms, everything else booked, the dates) with a\nthree-state control per folder, and a **read plan per calendar** — a member calendar is the member\nfilter the server already resolves in SQL, a room calendar the availability read, a date calendar\nthe federated read narrowed to that layer. A calendar that is off is no read at all, so the request\ncount is the reader's choice rather than the roster's size; the same record from two of them merges\ninto one row that knows it is on both. Which calendars are on, and what colour each wears, is\n**personal and per browser** (the week start stays the firm's, on the server) and stores only the\ndepartures from the catalog's defaults, so a calendar shipped later arrives at its own.\n\n**`CalendarGrid.Day`**, the fourth presentation and the only one with a time axis: an hour per row,\na calendar per column, an all-day band above the hours, and the range widened by anything outside\nthe working day. A record on two calendars is drawn in both columns deliberately. It is fed by the\none thing the federated read was missing — **the hour**: `TimelineEntry` gains `timeOfDay` and\n`timeZone`, declared per source, the same class of fact as the sort key and never converted. Before\nthis the firm-wide grid painted no times at all.\n\n**One palette, one home** (`packages/design-system/src/lib/palette/`): the eleven colours the folder\nrail offered, their fills as `--mc-palette-*`, `FOLDER_COLORS` re-exporting them unchanged, and\n`PaletteSwatches` as the one control. A calendar offers the nine that read on a chip and wears its\ncolour as a leading rule, so the status register keeps the fill and a cancelled setting stays\nvisibly cancelled.\n\n**The record forms**: Where becomes Location as the dropdown-with-add over the firm's own offices\nand rooms; a **conference link** gets its own field and its own nullable column on `matter_event`\nand `firm_event`; the times become time fields with the zone beside them as a shortcode worked out\non the record's own day; the day being booked stands in the panel's context pane as the product's\nown calendar with a day view; double-clicking an empty day or hour opens the form on it; and the\n**matter stops being required** — no matter is a choice whose row says what it writes, and the form\nwrites a firm event, which is the table an event belonging to no case already had. Two lines come\noff: \"A matter is needed.\" with the requirement, and \"Nothing recorded in September 2026.\" from\nevery grid, because a month that is empty says so by being empty."
     }
   ]
 }

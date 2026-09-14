@@ -11,7 +11,11 @@
  * comes back to the record it came from.
  */
 import { civilDayOf } from "@magna-carta/civil-time/civil-date";
-import type { CalendarGridEntry } from "@magna-carta/design-system/calendar-grid";
+import {
+  wallClockMinutes,
+  type CalendarGridColor,
+  type CalendarGridEntry,
+} from "@magna-carta/design-system/calendar-grid";
 import {
   deadlineTone,
   firmEventAudienceLabel,
@@ -37,6 +41,16 @@ export type CalendarEntryKind = "event" | "deadline" | "firmEvent" | "other";
 /** A grid entry that still remembers what it is, so the window that opens on it knows what to read. */
 export interface CalendarEntry extends CalendarGridEntry {
   readonly kind: CalendarEntryKind;
+  /**
+   * Which of the reader's calendars this row is on — the catalog keys of the reads that returned
+   * it (calendar-sources.ts). Usually one; several where a hearing is on two attorneys' calendars
+   * and the firm's records besides, which is a fact about the hearing and not a duplicate.
+   *
+   * THE PROJECTION LEAVES IT EMPTY and the read plan fills it in, because a projection is handed a
+   * row and has no idea which read produced it. A surface reading an untagged entry is reading one
+   * that never went through the plan.
+   */
+  readonly sourceKeys: readonly string[];
   /** The record's own identifier, without the kind prefix. */
   readonly recordId: string;
   readonly matterId: string | null;
@@ -92,9 +106,12 @@ export function entryFromTimelineRow(
       matterId: row.matterId,
       link: row.link,
       settled: cancelled,
+      sourceKeys: [],
       date,
       label: eventTypeNameForCode(row.label, context.eventTypesByCode),
       detail: matterLine(row.matterId, context),
+      time: formatWallClock(row.timeOfDay, row.timeZone ?? "", context.readerTimeZone) ?? undefined,
+      startMinute: minutesOf(row.timeOfDay),
       tone: cancelled ? "warning" : eventTypeTone(row.label),
       struck: cancelled,
     };
@@ -107,8 +124,11 @@ export function entryFromTimelineRow(
     matterId: row.matterId,
     link: row.link,
     settled: false,
+    sourceKeys: [],
     date,
     label: layeredKindLabel(row.kind),
+    time: formatWallClock(row.timeOfDay, row.timeZone ?? "", context.readerTimeZone) ?? undefined,
+    startMinute: minutesOf(row.timeOfDay),
     detail:
       [matter, row.label].filter((part): part is string => part != null).join(" · ") || undefined,
     tone: "neutral",
@@ -129,11 +149,13 @@ export function entryFromDeadline(
     matterId: deadline.matterId,
     link: null,
     settled: deadline.state !== "open",
+    sourceKeys: [],
     date: deadline.dueOn,
     label: deadline.title,
     detail: isMatterScope(scope) ? undefined : matterLine(deadline.matterId, context),
     time:
       formatWallClock(deadline.dueAtTime, deadline.timeZone, context.readerTimeZone) ?? undefined,
+    startMinute: minutesOf(deadline.dueAtTime),
     tone: deadlineTone(deadline),
     struck,
   };
@@ -157,11 +179,14 @@ export function entryFromMatterEvent(
     matterId: event.matterId,
     link: null,
     settled: event.status === "cancelled",
+    sourceKeys: [],
     date: event.startsOn,
     endDate: event.endsOn ?? undefined,
     label: event.title,
     detail,
     time: formatWallClock(event.startsAtTime, event.timeZone, context.readerTimeZone) ?? undefined,
+    startMinute: minutesOf(event.startsAtTime),
+    endMinute: minutesOf(event.endsAtTime),
     tone: event.status === "cancelled" ? "warning" : eventTypeTone(typeCodeOf(event, context)),
     struck: event.status === "cancelled",
   };
@@ -186,11 +211,14 @@ export function entryFromFirmEvent(event: FirmEvent, context: EntryContext): Cal
     matterId: null,
     link: null,
     settled: event.status === "cancelled",
+    sourceKeys: [],
     date: event.startsOn,
     endDate: event.endsOn ?? undefined,
     label: event.title,
     detail: [typeName, firmEventAudienceLabel(event.audience)].join(" · "),
     time: formatWallClock(event.startsAtTime, event.timeZone, context.readerTimeZone) ?? undefined,
+    startMinute: minutesOf(event.startsAtTime),
+    endMinute: minutesOf(event.endsAtTime),
     tone: event.status === "cancelled" ? "warning" : "accent",
     struck: event.status === "cancelled",
   };
@@ -221,11 +249,14 @@ export function entryFromAvailability(
     matterId: null,
     link: entry.link,
     settled: false,
+    sourceKeys: [],
     date: entry.startsOn,
     endDate: entry.endsOn ?? undefined,
     label,
     detail: doubleBooked ? DOUBLE_BOOKED_LABEL : undefined,
     time: formatWallClock(entry.startsAtTime, entry.timeZone, context.readerTimeZone) ?? undefined,
+    startMinute: minutesOf(entry.startsAtTime),
+    endMinute: minutesOf(entry.endsAtTime),
     tone: doubleBooked ? "danger" : entry.eventKind === "firmEvent" ? "accent" : "info",
   };
 }
@@ -265,4 +296,117 @@ function clockMinutes(clock: string): number {
   const hour12 = Number(match[1]) % 12;
   const hour = match[3] === "PM" ? hour12 + 12 : hour12;
   return hour * 60 + Number(match[2]);
+}
+
+/**
+ * A recorded wall clock as minutes past midnight, for the day grid's hour rows; undefined where
+ * there is none, which is what all day means.
+ *
+ * IN THE RECORD'S OWN ZONE, never the reader's. The grid is civil: an entry sits on the day its row
+ * names and at the hour its row names, and only the formatted text says whose zone that is. A
+ * conversion here would move a nine o'clock hearing to the eleven o'clock row for a reader two
+ * zones east, which is the one thing a calendar of court settings must never do.
+ */
+function minutesOf(time: string | null): number | undefined {
+  if (time === null) return undefined;
+  return wallClockMinutes(time) ?? undefined;
+}
+
+/**
+ * The same entry, on one of the reader's calendars. The read plan calls it as each read lands, so
+ * an entry knows where it came from before anything merges it.
+ */
+export function taggedWith(entry: CalendarEntry, sourceKey: string): CalendarEntry {
+  return { ...entry, sourceKeys: [sourceKey] };
+}
+
+/**
+ * Entries from several calendars, merged into one row per record.
+ *
+ * A hearing two attorneys are at comes back from both their reads, and it is ONE hearing: merging
+ * by the entry's own identity and unioning the calendars it arrived from is what keeps a month grid
+ * from painting it twice, and what lets a day grid put it in both their columns on purpose. The
+ * first arrival wins on every other field, because the reads project the same record the same way
+ * and a later copy would only re-decide what the first already decided.
+ */
+export function mergeByRecord(entries: readonly CalendarEntry[]): CalendarEntry[] {
+  const byId = new Map<string, CalendarEntry>();
+  for (const entry of entries) {
+    const existing = byId.get(entry.id);
+    if (existing === undefined) {
+      byId.set(entry.id, entry);
+      continue;
+    }
+    const keys = new Set([...existing.sourceKeys, ...entry.sourceKeys]);
+    byId.set(entry.id, { ...existing, sourceKeys: [...keys] });
+  }
+  return [...byId.values()];
+}
+
+/**
+ * The colour an entry paints in: the one its calendar was given.
+ *
+ * An entry on several calendars takes the colour of the FIRST of them in the rail's own order,
+ * because the rail's order is the reader's own arrangement and "the first calendar this is on" is
+ * an answer they can predict. On a day grid the lane decides instead, which is why the lane
+ * expansion below overwrites it.
+ */
+export function colored(
+  entry: CalendarEntry,
+  colors: ReadonlyMap<string, CalendarGridColor>,
+  order: readonly string[],
+): CalendarEntry {
+  for (const key of order) {
+    if (!entry.sourceKeys.includes(key)) continue;
+    const color = colors.get(key);
+    if (color !== undefined) return { ...entry, color };
+  }
+  return entry;
+}
+
+/**
+ * A day's entries expanded one per lane: an entry on three calendars becomes three rows, each in
+ * its own column, each wearing that column's colour.
+ *
+ * This is the one place the same record is deliberately drawn more than once, and it is what a
+ * column per calendar MEANS — a hearing both attorneys are at is on both their days, and a column
+ * that left it out of one of them would be lying about that attorney's afternoon. The render key
+ * carries the lane so the two copies are two rows to Svelte rather than one row that moved; a press
+ * on either reaches the one record through `recordKeyOf`.
+ */
+export function perLane(
+  entries: readonly CalendarEntry[],
+  lanes: readonly string[],
+  colors: ReadonlyMap<string, CalendarGridColor>,
+): CalendarEntry[] {
+  const expanded: CalendarEntry[] = [];
+  for (const entry of entries) {
+    for (const lane of lanes) {
+      if (!entry.sourceKeys.includes(lane)) continue;
+      expanded.push({
+        ...entry,
+        id: `${lane}${LANE_KEY_SEPARATOR}${entry.id}`,
+        lane,
+        color: colors.get(lane),
+      });
+    }
+  }
+  return expanded;
+}
+
+/** How a lane-expanded render key is spelled: the lane, this mark, then the entry's own key. */
+const LANE_KEY_SEPARATOR = "|";
+
+/**
+ * The entry key behind a grid row's identifier — the same string either way for a row the day grid
+ * expanded into a lane and for one nothing touched.
+ *
+ * A press on a hearing in the second attorney's column must open that hearing, not fail to find a
+ * key nothing recorded, so the lane the row was drawn in comes off here rather than at each surface
+ * that activates one. A record identifier is minted with `_`, and a lane key with `:`, so neither
+ * can carry this separator and the split is unambiguous.
+ */
+export function recordKeyOf(gridEntryId: string): string {
+  const separator = gridEntryId.indexOf(LANE_KEY_SEPARATOR);
+  return separator === -1 ? gridEntryId : gridEntryId.slice(separator + 1);
 }

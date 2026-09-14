@@ -48,6 +48,12 @@ export interface CalendarEvent {
   /** The zone the wall-clock times above are read in. Never assume it is the reader's. */
   timeZone: string;
   locationText: string | null;
+  /**
+   * Where an online setting is JOINED — the meeting's own link, whoever hosts it. A DIFFERENT fact
+   * from where it is held: a deposition can be in a conference room and on a call at once, and a
+   * firm that typed "Zoom" where the room goes has lost the room.
+   */
+  conferenceUrl: string | null;
   courtReference: string | null;
   recordedAt: string;
   recordedBy: string | null;
@@ -92,6 +98,12 @@ export interface FirmEvent {
   audience: FirmEventAudience;
   locationId: string | null;
   locationText: string | null;
+  /**
+   * Where an online setting is JOINED — the meeting's own link, whoever hosts it. A DIFFERENT fact
+   * from where it is held: a deposition can be in a conference room and on a call at once, and a
+   * firm that typed "Zoom" where the room goes has lost the room.
+   */
+  conferenceUrl: string | null;
   recordedAt: string;
   recordedBy: string | null;
 }
@@ -140,6 +152,14 @@ export interface TimelineEntry {
   actorUserId: string | null;
   label: string | null;
   link: string;
+  /**
+   * The hour the row falls at, `HH:MM`, read in `timeZone` — the record's own zone, never
+   * converted. Null where the row has no hour, which is what a filing due on a day is. It is the
+   * one thing beyond the sort key the federated projection says about WHEN, and it is what lets a
+   * day grid put a hearing on the ten o'clock row without the projection ever naming it.
+   */
+  timeOfDay: string | null;
+  timeZone: string | null;
 }
 
 // ---- reads -------------------------------------------------------------------------------------
@@ -303,6 +323,7 @@ export interface CreateEventRequest {
   /** An IANA identifier — the zone the COURT sits in, which is frequently not the firm's own. */
   timeZone: string;
   locationText?: string | null;
+  conferenceUrl?: string | null;
   courtReference?: string | null;
   participants?: ParticipantInput[];
 }
@@ -337,6 +358,7 @@ export interface CreateFirmEventRequest {
   audience?: FirmEventAudience;
   locationId?: string | null;
   locationText?: string | null;
+  conferenceUrl?: string | null;
   participants?: ParticipantInput[];
 }
 
@@ -349,6 +371,7 @@ export interface ContinueEventRequest {
   endsAtTime?: string | null;
   timeZone?: string;
   locationText?: string | null;
+  conferenceUrl?: string | null;
   courtReference?: string | null;
   /** Why the old setting is not happening ("Continued on defendant's motion"). */
   statusReason?: string | null;

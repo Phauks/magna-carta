@@ -4828,6 +4828,12 @@
               "null"
             ]
           },
+          "physicalFileLocationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "responsibleMemberId": {
             "type": "string"
           },
@@ -4909,6 +4915,12 @@
               "null"
             ]
           },
+          "physicalFileLocationName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "responsibleMemberName": {
             "type": [
               "string",
@@ -4923,6 +4935,7 @@
           "status",
           "matterTypeId",
           "locationId",
+          "physicalFileLocationId",
           "responsibleMemberId",
           "clientDisplayName",
           "clientCode",
@@ -4938,6 +4951,7 @@
           "createdAt",
           "matterTypeName",
           "locationName",
+          "physicalFileLocationName",
           "responsibleMemberName"
         ]
       },
@@ -5113,6 +5127,14 @@
               "null"
             ],
             "pattern": "^location_[A-Za-z0-9_-]{21}$"
+          },
+          "physicalFileLocationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^location_[A-Za-z0-9_-]{21}$",
+            "description": "The office where the firm keeps this matter's own paper file. Not the office the matter is run out of (locationId): a folder travels, and a matter opened at one office can be boxed at another or at a remote store the firm keeps as an office. Null clears it, which is the honest answer where nobody knows where the file is."
           },
           "responsibleMemberId": {
             "type": "string",
@@ -12439,6 +12461,18 @@
           "link": {
             "type": "string"
           },
+          "timeOfDay": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "type": [
               "string",
@@ -12468,6 +12502,8 @@
           "actorUserId",
           "label",
           "link",
+          "timeOfDay",
+          "timeZone",
           "title",
           "typeText",
           "facts"
@@ -12568,6 +12604,12 @@
               "null"
             ]
           },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "courtReference": {
             "type": [
               "string",
@@ -12611,6 +12653,7 @@
           "endsAtTime",
           "timeZone",
           "locationText",
+          "conferenceUrl",
           "courtReference",
           "recordedAt",
           "recordedBy",
@@ -12998,6 +13041,14 @@
             ],
             "maxLength": 300
           },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
+          },
           "courtReference": {
             "type": [
               "string",
@@ -13145,6 +13196,14 @@
               "null"
             ],
             "maxLength": 300
+          },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
           },
           "courtReference": {
             "type": [
@@ -13477,6 +13536,12 @@
               "null"
             ]
           },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "recordedAt": {
             "type": "string"
           },
@@ -13502,6 +13567,7 @@
           "audience",
           "locationId",
           "locationText",
+          "conferenceUrl",
           "recordedAt",
           "recordedBy"
         ]
@@ -13605,6 +13671,14 @@
             ],
             "maxLength": 300
           },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
+          },
           "participants": {
             "type": "array",
             "items": {
@@ -13699,6 +13773,14 @@
               "null"
             ],
             "maxLength": 300
+          },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
           },
           "participants": {
             "type": "array",
@@ -14342,6 +14424,14 @@
               "null"
             ],
             "maxLength": 300
+          },
+          "conferenceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000,
+            "format": "uri"
           },
           "courtReference": {
             "type": [
@@ -45519,7 +45609,7 @@
         }
       },
       "patch": {
-        "description": "Updates a matter's editable fields (title, description, type, Location, responsible member, client display fields). Does not change status or the assigned number.",
+        "description": "Updates a matter's editable fields (title, description, type, Location, the office its paper file is kept at, responsible member, client display fields). Does not change status or the assigned number.",
         "operationId": "matters.update",
         "tags": [
           "matters"
