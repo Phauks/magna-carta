@@ -103,8 +103,11 @@ created, saying how many hits it found and where to read the report.
 **Client code** is your firm's own short code for that client, and matters only if your firm's
 numbering scheme uses one.
 
-**Practice area** and **Location** offer your firm's own lists. If your firm has not set any up, the
-form says so and the matter opens perfectly well without them.
+**Practice area** offers your firm's own list. **Location** is the office the matter is run out of,
+chosen from the offices set up under Settings and shown with each one's town and numbering code. Both
+are optional: if your firm has not set any up, the form says so and the matter opens perfectly well
+without them. Where the matter's paper file ends up is a separate question, answered later on the
+matter's own status window.
 
 **Responsible attorney** is the person opening the matter, and cannot yet be changed. Choosing a
 colleague waits on the firm member directory; until that exists there is no list of colleagues to
@@ -203,15 +206,36 @@ and who to ask. Ask whoever administers your firm.
 
 ### The physical file
 
-The right-hand side of the window is your firm's own paper file for the matter: what it is **held in**,
-the **location** that is kept at, and the date the file may be **destroyed after**. None of the three
-is recorded in Magna Carta yet, so each reads "Not recorded" and carries the Soon mark rather than
-being left off the screen that ought to answer for them.
+The right-hand side of the window is your firm's own paper file for the matter: the **location** it
+is kept at, what it is **held in**, and the date the file may be **destroyed after**.
+
+**Location** is one of your firm's offices, and it reads as a link: press the office's name and its
+record opens, with its address, its telephone and who works there. Press **Set Location** to record
+where the file is, or **Change Location** to move it — the field searches your firm's offices, and
+each one is shown with its town and its numbering code so two offices in the same city are told
+apart. You can also empty the field and record nothing, which is the right answer when nobody knows
+where a folder has got to; a guess left standing is worse than a gap.
+
+This is the office the **file** is kept at, not the office the matter is run out of. They are
+commonly the same, and they are not the same fact: a matter opened at one office is often boxed at
+another, or at a records store your firm keeps as an office of its own, and the matter's own office
+is the one cited under its title at the top of the page. Recording where the file is moves neither
+the matter nor anything else about it.
+
+Setting it needs the permission your firm grants for editing a matter's details. Without it the
+button is greyed, with the line saying which permission to ask for.
+
+**Held in** and **destroy after** are not recorded in Magna Carta yet, so each reads "Not recorded"
+and carries the Soon mark rather than being left off the screen that ought to answer for them.
 
 **Held in** does not assume a box. Firms keep files in boxes, in cabinet drawers, in safes, on
 shelves; what holds a file will be a record in its own right, carrying what kind of thing it is, and
 a matter will point at it. That is also why it is not simply part of the location: one container
 holds several matters' folders at once.
+
+**Destroy after** waits on something more than a screen. Magna Carta runs no retention timer, and a
+date invented here would be the date somebody destroys a client's file on. It stays empty until your
+firm's own retention rules are something the product can read.
 
 The panel sits beside the status rather than under the close because closing a matter does not move
 its file. A folder stays where it is whatever the matter's status is.

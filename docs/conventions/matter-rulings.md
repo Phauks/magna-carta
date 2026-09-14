@@ -14,9 +14,9 @@ Status values: `settled` (built and confirmed) · `regressed` (was settled, a la
 
 ## R1 — round one: the status seal becomes the control it was already called
 
-The owner's notes of 2026-09-11, staged and then built the same day. The lifecycle and the seal
-(L1, L2) are settled; the status window's Location (W1) stays `open` because it waits on the Offices
-component. The research beneath each group is what the code said when the round was staged.
+The owner's notes of 2026-09-11, staged and then built the same day — except the status window's
+Location (W1), which waited on the Offices component and was built on 2026-09-14. All three are
+settled. The research beneath each group is what the code said when the round was staged.
 
 ### The lifecycle and the seal
 
@@ -87,25 +87,60 @@ component. The research beneath each group is what the code said when the round 
 
 ### The status window's Location
 
-| #   | Ruling                                                                                                                                                                        | Status |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| W1  | **The status window's Location links to the office record**, and it is a modular component — the same piece used wherever an office is named, not a field written again here. | open   |
+| #   | Ruling                                                                                                                                                                        | Status  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| W1  | **The status window's Location links to the office record**, and it is a modular component — the same piece used wherever an office is named, not a field written again here. | settled |
 
-W1 stays open on 2026-09-11: it waits on the Offices component (`O1` in
-[`settings-rulings.md`](settings-rulings.md)), which is the piece it has to be modular over. Nothing
-about it was started in the L1/L2 pass.
+W1 stayed open on 2026-09-11 because it waits on the Offices component (`O1` in
+[`settings-rulings.md`](settings-rulings.md)), which is the piece it has to be modular over. Offices
+landed, and W1 was built on 2026-09-14.
 
-**What the code says today, and the ambiguity to settle first.** There are **two** different
-locations on a matter, and W1 has to say which it means.
+**Notes recorded this round (2026-09-14).**
+
+- **The Location W1 means is the PAPER FILE's, and it is a second office on the matter.** The
+  ambiguity below is settled the way the research reads it: the row literally in the pillbox is the
+  Physical File's Location, so that is the one that became real. It is a new nullable column
+  (`matter.physical_file_location_id`, pointing at `location`) beside the owning office, never
+  derived from it. A firm boxes a closed matter's folder with other matters' folders, commonly at a
+  remote store it keeps as an office of its own, so a matter run out of Carson City can have its
+  file at Sparks; deriving one from the other would state, with a record's confidence, a building
+  the folder has left. The write is the existing matter patch behind `matters:edit`, and null is a
+  real answer — a firm that has lost track of a file has to be able to say so.
+- **The modular piece is now proven modular**, which was the other half of the ruling. `OfficeLink`
+  names the office on the status window; `OfficePicker` sets it there and also replaced
+  `vocabulary-picker.svelte` on the New Matter dialog's Location, so the office a matter is run out
+  of and the office its file is kept at are chosen by one control reading one list. Nothing imports
+  `VocabularyPicker` any more; it is left standing with a note saying so rather than deleted.
+- **The other two rows did NOT become real, and the reasons differ.** "Held In" waits on a record
+  that does not exist: one container holds several matters' folders, so it is a thing a matter
+  points at rather than a column, and a column would decide the medium — box, drawer, safe, shelf —
+  for every firm, which the owner has already refused. "Destroy After" waits on something harder:
+  there is no retention clock anywhere in the platform, and the custody register runs no timer at
+  all. A date invented here is a date somebody destroys a client's file on. Both keep the Soon mark
+  and neither grew a dependency sentence, per the 2026-09-01 ruling.
+- **Which rows are real is one list with one test.** `MATTER_PHYSICAL_FILE_FACTS` carries a `served`
+  flag rather than the template branching on row keys, so turning "Held In" on is a word in the
+  model when its register arrives.
+- **The window reads the office itself when it opens**, the way it re-reads the engagement, so a
+  file moved from another surface between two openings is not stated where it used to be. That costs
+  one request the matter chrome's own record could have carried; folding the field into
+  `matter-record.ts` is the follow-up, and it was not taken because that file belonged to another
+  stream this round.
+- **A seam left.** The column records where a file IS, not how it got there. A firm that wants the
+  movement history — who boxed it, when, where it went — has nothing, and nothing was asked for.
+
+**What the code said when the round was staged, and the ambiguity it settled.** There were **two**
+different locations on a matter, and W1 had to say which it meant.
 
 1. The **owning office** — `matter.locationId`, chosen in the New Matter dialog through
-   `vocabulary-picker.svelte` (the one component shared by matter type and Location) and shown as
-   `matter.locationName` in the header's citation line. This is a firm office, and it is the thing
-   the Offices screen staged as `O1` in [`settings-rulings.md`](settings-rulings.md) will manage.
+   `vocabulary-picker.svelte` (the picker it shared with the matter type before practice areas took
+   their own) and shown as `matter.locationName` in the header's citation line. This is a firm
+   office, and it is the thing the Offices screen staged as `O1` in
+   [`settings-rulings.md`](settings-rulings.md) will manage.
 2. The **paper file's whereabouts** — the status window's "Physical File" section, whose three facts
    are Location, Held In and Destroy After (`MATTER_PHYSICAL_FILE_FACTS` in `matter-lifecycle.ts`).
-   All three are unserved: every row reads "Not recorded" beside a Soon mark. This is the one that
-   is literally in the pillbox today.
+   All three were unserved: every row read "Not recorded" beside a Soon mark. This is the one that
+   was literally in the pillbox, and it is the reading the round took.
 
 Reading W1 as the second — the Physical File's Location resolving to an office record rather than
 being free text, with Held In carrying the room, shelf or box beneath it — makes the paper file
@@ -115,6 +150,7 @@ citation, in the Offices screen and here. The alternative reading, that the owni
 gains a link through to its office record, is a smaller piece of the same component. Both want the
 office picker and the office link to exist once.
 
-The office record itself does not exist as a screen yet — the backend does
-(`packages/locations/`, `/api/v1/locations`, letterhead logo included), which is the finding
-recorded under `O1`. So W1 is sequenced behind the Offices work rather than beside it.
+The office record itself did not exist as a screen — the backend did (`packages/locations/`,
+`/api/v1/locations`, letterhead logo included), which is the finding recorded under `O1`. So W1 was
+sequenced behind the Offices work rather than beside it, and the notes above are what it built once
+that landed.
