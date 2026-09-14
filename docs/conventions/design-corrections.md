@@ -2183,6 +2183,9 @@ navigational menu (such as for magnus and settings), and a right content menu."
   a swap of its frame: the list of tools, or of reports, becomes the left navigation and the chosen
   one the right content. The file manager's folder tree beside its list is the other candidate.
   None of the three is in this round; each is a follow-up once the component exists.
+  _(built 2026-09-14: Settings, Magnus, Tools and Reports all render on `NavigationLayout`; Tools
+  and Reports share one catalogue column, with the landing index kept in the content column so a
+  route's back control never bounces. The folder tree remains the follow-up.)_
 
 ### 2026-09-14 — messaging's create control names a message
 
