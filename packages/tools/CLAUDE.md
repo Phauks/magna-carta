@@ -11,7 +11,15 @@ and contextual entry points. No D1, no Hono, no `env`, no Svelte, no network. De
   one that has earned a sidebar destination of its own says where it lives instead, and keeps its
   manifest row so the contextual surfacing path still has a tool to offer for its context tag.
   `toolRoute(tool)` is the single derivation — no consumer builds `/tools/<id>` by hand. `file-workbench`
-  is the only such row today (`/file-workbench`).
+  is the only such row today (`/file-workbench`), and the only row in the `files` group: the ten file
+  utilities that used to sit beside it were its own capability tabs under another name and were
+  retired into them. **A new `files` row means somebody is re-opening a door the workbench already
+  has** — `test/catalog.test.ts` fails on one.
+- **Retiring a manifest does not retire its permission.** The nine `tools:*` keys those rows declared
+  are still what gates the workbench's capability tabs, so the access-control registry entries and
+  their `role_permission` seeds stay. What changed is who grants them: `grantedPermissions()` built
+  its set from `CATALOG`, so the deletion would have emptied the tab strip silently. The web app's
+  `tool-permissions.ts` names them explicitly now, held to the capability registry by a test.
 - `backing: "library"` = self-contained (a link generator OR an interactive widget) — no connection.
   `backing: { kind: "integration", category }` stores only the category string; the shell reflects that
   integration's connection state. This layer never touches the integration framework or credentials.

@@ -103,130 +103,21 @@ export const CATALOG: readonly ToolManifest[] = [
     subjectGroup: "files",
     permission: assertPermission("tools:fileWorkbench"),
     contextTags: ["file", "none"],
-    // The host the other file utilities are run from: a file is brought here once and every
-    // capability addresses it, rather than each tool asking for the same bytes again. Ephemeral by
-    // definition — nothing here is attached to a matter, so there is no matter context to carry.
+    // THE ONLY FILE ROW, and deliberately so. Ten sibling manifests used to sit here — convert,
+    // scrub metadata, hash, unlock, verify a type, detect AI text, repair, recognize text, read an
+    // email, scan for malware — and every one of them was this screen's own capability tab under
+    // another name, so the catalog listed eleven doors into one room. They were retired into the
+    // tabs they always were; the permissions they declared live on, each named by the capability
+    // module that uses it (apps/web/src/lib/tools/file-workbench/capabilities/).
+    //
+    // Ephemeral by definition — nothing here is attached to a matter, so there is no matter context
+    // to carry.
     backing: { kind: "library" },
     matterContext: "none",
     // Addressed at the top level, because it is a sidebar destination in its own right rather than
-    // a utility reached through the Tools area (apps/web/src/lib/navigation/destinations.ts). It
-    // keeps its manifest row so that the file context tag still has a tool to offer, and so the
-    // listing that carries the ten file utilities still shows the host they are run from.
+    // a utility reached through the Tools area (apps/web/src/lib/navigation/destinations.ts). The
+    // manifest row stays so that the `file` context tag still has a tool to offer.
     route: "/file-workbench",
-  },
-  {
-    id: "file-converter",
-    name: "File Converter",
-    icon: "file-cog",
-    subjectGroup: "files",
-    permission: assertPermission("tools:fileConverter"),
-    contextTags: ["file", "none"],
-    backing: { kind: "library" },
-    matterContext: "none",
-  },
-  {
-    id: "metadata-scrubber",
-    name: "Metadata Inspector & Scrubber",
-    icon: "file-search",
-    subjectGroup: "files",
-    permission: assertPermission("tools:metadataScrubber"),
-    contextTags: ["file", "none"],
-    backing: { kind: "library" },
-    matterContext: "none",
-  },
-  {
-    id: "file-hash-integrity",
-    name: "File Hash & Integrity",
-    icon: "fingerprint",
-    subjectGroup: "files",
-    permission: assertPermission("tools:fileIntegrity"),
-    contextTags: ["file", "none"],
-    backing: { kind: "library" },
-    matterContext: "none",
-  },
-  {
-    id: "file-decryption",
-    name: "File Decryption & Recovery",
-    icon: "lock-open",
-    subjectGroup: "files",
-    permission: assertPermission("tools:decryption"),
-    contextTags: ["file"],
-    // The workbench for removing password protection. Today: unlock a file with a known password and
-    // recover a lost one. A future operation strips a PDF's owner/permissions ("editing") restrictions
-    // from a document that opens without a prompt — the engine already does this via pdf-core's
-    // decryptDocument on an owner-only document; only this tool's UI and route seam remain.
-    backing: { kind: "library" },
-    matterContext: "none",
-  },
-  {
-    id: "file-type-verifier",
-    name: "File Type Verifier",
-    icon: "file-check",
-    subjectGroup: "files",
-    permission: assertPermission("tools:fileTypeVerifier"),
-    contextTags: ["file", "none"],
-    backing: { kind: "library" },
-    matterContext: "none",
-  },
-  {
-    id: "ai-text-detection",
-    name: "AI-Text Detection",
-    icon: "scan-text",
-    subjectGroup: "files",
-    permission: assertPermission("tools:aiTextDetection"),
-    contextTags: ["none"],
-    backing: { kind: "integration", category: "ai-detection" },
-    matterContext: "optional",
-  },
-  {
-    id: "file-repair",
-    name: "File Repair & Salvage",
-    icon: "wrench",
-    subjectGroup: "files",
-    permission: assertPermission("tools:fileRepair"),
-    contextTags: ["file", "none"],
-    // The recovery engine runs in an internal Container, not a connected third-party integration, so
-    // this is `library` (the same backing the other in-house file utilities use). Stateless by default;
-    // the "optional" matter context is the seam for the opt-in attach-to-matter path.
-    backing: { kind: "library" },
-    matterContext: "optional",
-  },
-  {
-    id: "ocr",
-    name: "Text Recognition",
-    icon: "scan-text",
-    subjectGroup: "files",
-    permission: assertPermission("tools:ocr"),
-    contextTags: ["file", "none"],
-    // The recognition engine runs in an internal Container, not a connected third-party integration,
-    // so this is `library` — the same backing the other in-house file utilities use. Stateless: the
-    // engine writes nothing. Turning the recognized text into a searchable PDF lands in a later slice.
-    backing: { kind: "library" },
-    matterContext: "optional",
-  },
-  {
-    id: "email-inspector",
-    name: "Email Inspector",
-    icon: "mail-search",
-    subjectGroup: "files",
-    permission: assertPermission("tools:emailInspector"),
-    contextTags: ["file", "none"],
-    // The parse engine is in-house WebAssembly, not a connected third-party service.
-    backing: { kind: "library" },
-    // Stateless: bytes in, a report out. Nothing is stored, so no matter is involved.
-    matterContext: "none",
-  },
-  {
-    id: "malware-scan",
-    name: "Malware Scan",
-    icon: "shield-check",
-    subjectGroup: "files",
-    // Gated on the same capability the scan diagnostic route requires (POST /api/v1/scan/diagnose),
-    // seeded to every default role. A one-off, matter-less diagnostic: the file is not stored.
-    permission: assertPermission("firm:scanFile"),
-    contextTags: ["file"],
-    backing: { kind: "library" },
-    matterContext: "none",
   },
 ];
 

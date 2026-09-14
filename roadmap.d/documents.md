@@ -63,7 +63,7 @@
   status: partial
   surface: screen
   slices: file-workbench
-  evidence: apps/web/src/lib/tools/file-workbench/ — the capability registry, the ephemeral source, the browser-side type reading and digests — rendered at `/file-workbench`, a sidebar destination in the Firm group; catalog entry `file-workbench` gated on `tools:fileWorkbench`, declaring that route so nothing addresses it under Tools.
+  evidence: apps/web/src/lib/tools/file-workbench/ — the capability registry, the ephemeral source, the browser-side type reading and digests — rendered at `/file-workbench`, a sidebar destination in the Firm group; catalog entry `file-workbench` gated on `tools:fileWorkbench`, declaring that route so nothing addresses it under Tools, and the only row in the catalog's `files` group since the ten sibling utilities retired into its capability tabs.
   notes: Two capabilities answer for real in the browser (file type from the leading bytes, SHA-256/SHA-1); the eight whose engines run in a container render their control disabled and name what they wait on. The firm-scoped scratch object is what unblocks them, and what makes the retention promise real. Not the same body as the matter file manager yet — converging the two is separate work.
 
 - id: documents.file-manager.content-hash

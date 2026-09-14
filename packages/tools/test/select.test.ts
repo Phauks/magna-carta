@@ -84,15 +84,18 @@ describe("toolsFor", () => {
 });
 
 describe("file context tag", () => {
-  it("surfaces file-hash-integrity for the 'file' context when permitted", () => {
-    const permissions = new Set([assertPermission("tools:fileIntegrity")]);
+  // The File Workbench is the whole of the files group now: the ten utilities that used to answer
+  // the file tag beside it were its own capability tabs, and retired into them. This is what keeps
+  // the tag answerable at all — a file context with nothing to offer is a dead menu.
+  it("surfaces the workbench for the 'file' context when permitted", () => {
+    const permissions = new Set([assertPermission("tools:fileWorkbench")]);
     const ids = toolsFor(CATALOG, "file", permissions).map((tool) => tool.id);
-    expect(ids).toContain("file-hash-integrity");
+    expect(ids).toContain("file-workbench");
   });
 
   it("hides it without the permission", () => {
     const ids = toolsFor(CATALOG, "file", new Set()).map((tool) => tool.id);
-    expect(ids).not.toContain("file-hash-integrity");
+    expect(ids).not.toContain("file-workbench");
   });
 });
 

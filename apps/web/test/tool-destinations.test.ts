@@ -59,11 +59,11 @@ describe("toolDestinations", () => {
   });
 
   it("leaves a soon tool not launchable", () => {
-    // The file converter ships at `soon` — no page yet, so it must render as an inert "— soon" row.
-    const fileConverter = entries.find((entry) => entry.id === "file-converter");
-    expect(fileConverter).toBeDefined();
-    expect(toolPresentation({ ...CATALOG[0]!, id: "file-converter" }).stage).toBe("soon");
-    expect(fileConverter?.launchable).toBe(false);
+    // Shipping ships at `soon` — no page yet, so it must render as an inert "— soon" row.
+    const shipping = entries.find((entry) => entry.id === "shipping");
+    expect(shipping).toBeDefined();
+    expect(toolPresentation({ ...CATALOG[0]!, id: "shipping" }).stage).toBe("soon");
+    expect(shipping?.launchable).toBe(false);
   });
 
   it("makes an alpha-or-better tool launchable", () => {

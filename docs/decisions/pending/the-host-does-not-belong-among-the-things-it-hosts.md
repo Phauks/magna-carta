@@ -3,7 +3,7 @@ slug: the-host-does-not-belong-among-the-things-it-hosts
 status: Proposed
 area: Navigation & information architecture
 date: 2026-09-14
-summary: "The File Workbench leaves the Tools catalogue and becomes a sidebar destination of its own, in the Firm group at /file-workbench, starred by default. The catalogue had it inverted: of its twenty manifests, eleven are the files subject group, and ten of those eleven map one-to-one onto the workbench's own capability tabs, so the listing offered eleven doors into one room with the room filed alphabetically between them. Firm rather than Workspace on a scope test rather than an importance one — Workspace holds the matter-scoped daily surfaces and this one is matter-free by construction. The manifest row stays, because the contextual surfacing path queries the catalogue by context tag and a tool absent from it is a tool nothing can offer, so the manifest gains an optional `route` and `toolRoute()` becomes the single derivation every link-builder goes through. Supersedes the placement in ADR-0101 and the Tools row in the page-archetypes canonical grouping; supersedes the /tools/file-workbench address recorded in the workbench's own pending decision."
+summary: "The File Workbench leaves the Tools catalogue and becomes a sidebar destination of its own, in the Firm group at /file-workbench, starred by default. The catalogue had it inverted: of its twenty manifests, eleven are the files subject group, and ten of those eleven map one-to-one onto the workbench's own capability tabs, so the listing offered eleven doors into one room with the room filed alphabetically between them. Firm rather than Workspace on a scope test rather than an importance one — Workspace holds the matter-scoped daily surfaces and this one is matter-free by construction. The manifest row stays, because the contextual surfacing path queries the catalogue by context tag and a tool absent from it is a tool nothing can offer, so the manifest gains an optional `route` and `toolRoute()` becomes the single derivation every link-builder goes through. Supersedes the placement in ADR-0101 and the Tools row in the page-archetypes canonical grouping; supersedes the /tools/file-workbench address recorded in the workbench's own pending decision. The ten sibling manifests are deleted rather than left in place: their permissions move to the workbench permission seam, which is what keeps the capability tabs from vanishing, and their search vocabulary moves onto the workbench's synonyms."
 ---
 
 **A surface that hosts ten others does not belong filed among them, and one whose opening gesture is
@@ -59,8 +59,23 @@ Two registries in different packages now have to agree on one address, with noth
 system tying them, so `apps/web/test/file-workbench-destination.test.ts` ties them: if either moves,
 it fails.
 
-**What this does not decide.** The ten standalone file-utility manifests stay in the catalogue, each
-still `soon`. Whether they should be retired into the workbench's tabs outright is a real question
-and a separate one — it would need every one of them to stay findable by its own name, landing on
-the workbench opened to that capability, which the route's `?capability=` reading already supports.
-Left open deliberately rather than settled here.
+**The ten retire with it.** The manifests for the ten file utilities are deleted. Each was a
+capability tab under another name, and keeping them would have kept the catalogue promising ten
+screens that do not exist and never will. Two things had to survive them, neither enforced by a type:
+
+- **Their permissions.** Every capability module is gated on the permission its sibling manifest
+  declared, and `grantedPermissions()` built its set from `CATALOG`. Deleting the rows would have
+  taken all ten keys out of that set and emptied the workbench of every tab, silently. The seam now
+  names them, held to the capability registry by a test. The keys themselves, their entries in the
+  access-control registry and their `role_permission` seeds are untouched and still used.
+- **Their search vocabulary.** A member typing "ocr" or "scrub metadata" reached a row of its own.
+  Those words moved onto the workbench's synonyms, so the same search reaches the screen that does
+  the work.
+
+What the retirement does NOT do is give each capability a palette row of its own that lands on its
+tab. The `?capability=` seam supports it, but deriving those rows means importing the capability
+registry into the app shell, and every capability module imports a Lucide icon — ten Svelte
+components plus the conversion format graph, in the chunk the shell loads, to serve search. While
+all ten capabilities are `awaiting`, landing on the Overview and landing on a disabled tab are
+nearly the same experience, so the cost buys little. Worth revisiting as capabilities start
+shipping for real.
