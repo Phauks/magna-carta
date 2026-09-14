@@ -874,7 +874,7 @@ export const mattersListConsultations = <ThrowOnError extends boolean = false>(o
 export const mattersGet = <ThrowOnError extends boolean = false>(options: Options<MattersGetData, ThrowOnError>): RequestResult<MattersGetResponses, MattersGetErrors, ThrowOnError> => (options.client ?? client).get<MattersGetResponses, MattersGetErrors, ThrowOnError>({ url: '/api/v1/matters/{id}', ...options });
 
 /**
- * Updates a matter's editable fields (title, description, type, Location, responsible member, client display fields). Does not change status or the assigned number.
+ * Updates a matter's editable fields (title, description, type, Location, the office its paper file is kept at, responsible member, client display fields). Does not change status or the assigned number.
  */
 export const mattersUpdate = <ThrowOnError extends boolean = false>(options: Options<MattersUpdateData, ThrowOnError>): RequestResult<MattersUpdateResponses, MattersUpdateErrors, ThrowOnError> => (options.client ?? client).patch<MattersUpdateResponses, MattersUpdateErrors, ThrowOnError>({
     url: '/api/v1/matters/{id}',

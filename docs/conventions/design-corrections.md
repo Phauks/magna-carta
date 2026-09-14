@@ -2365,6 +2365,14 @@ navigational menu (such as for magnus and settings), and a right content menu."
   _(built 2026-09-14: Settings, Magnus, Tools and Reports all render on `NavigationLayout`; Tools
   and Reports share one catalogue column, with the landing index kept in the content column so a
   route's back control never bounces. The folder tree remains the follow-up.)_
+- **The row inside that column is `NavigationLayout.Row`, and a navigation row's name wraps rather
+  than truncating.** The treatment had been written three times — the settings nav, the catalogue
+  column, and inline in both. A row reading "Property Listin… Soon" has stopped naming the thing it
+  offers, so the name takes a second line and the row grows to hold it. The wrap binds every
+  navigation column, Settings included, and will bind the folder tree. _(built 2026-09-14. The name
+  has about thirteen characters a line at the `standard` measure: the column's content box is
+  `size.popover` at every width, so a wider gutter cannot buy the name room — only a third row
+  measure would, which is the owner's to settle if the wrapping reads cramped.)_
 
 ### 2026-09-14 — messaging's create control names a message
 

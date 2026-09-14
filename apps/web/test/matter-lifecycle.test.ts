@@ -248,10 +248,20 @@ describe("the physical file", () => {
 
   it("is labels and nothing else, so no row can grow prose again", () => {
     // The rows carried a sentence naming what they wait on and a note about the close; the owner
-    // removed both. A row states its name, and the value beside it states that it holds nothing.
+    // removed both. A row states its name, whether the record carries it, and nothing more — the
+    // value beside an unserved row is what says it holds nothing.
     for (const fact of MATTER_PHYSICAL_FILE_FACTS) {
-      expect(Object.keys(fact).toSorted()).toEqual(["key", "label"]);
+      expect(Object.keys(fact).toSorted()).toEqual(["key", "label", "served"]);
     }
+  });
+
+  it("serves where the file is kept, and nothing else", () => {
+    // Location resolves to one of the firm's own offices, which is a record the product holds.
+    // What a folder sits INSIDE is a record that does not exist, and no retention clock exists
+    // anywhere to derive a destruction date from — so both of those stay marked Soon rather than
+    // being invented. A date made up here would be a date somebody destroys a client's file on.
+    const served = MATTER_PHYSICAL_FILE_FACTS.filter((fact) => fact.served).map((fact) => fact.key);
+    expect(served).toEqual(["location"]);
   });
 });
 

@@ -66,6 +66,23 @@ And the values a queue would take — squash; build concurrency 1; group size 1 
 wait; a 60-minute check timeout; `gate` as the one required check; up-to-date-before-merge off — are
 in this file's history at #488, should the transfer ever happen.
 
+**It has recurred, and it is the live state as of 2026-09-14.** Every `gate` run since **2026-09-03**
+reports `failure`, and the fingerprint in [`operations.md`](conventions/operations.md) under _A job
+that never started is not a job that failed_ matches on every criterion a session can check without
+`gh`: the three jobs that gate the run (`classify`, `format`, `governance`, all `ubuntu-slim`) carry
+`started_at` **equal to** `created_at` and last 11 to 31 seconds; every other job in the run is
+`skipped` because `classify` gates them; the aggregate is red; and the log endpoint **404s on every
+job, including a run seconds old**. The decisive field, `runner_id`, is the one the GitHub tool
+server trims out of its job listing, so it is unverified here — check it with the `gh api` line in
+that section before concluding anything else.
+
+Run #1037 on 2026-09-03 was the last green one. What this costs is what the entry above describes,
+resumed: every merge from 2026-09-12 (#602, #603, #604) and the rounds of 2026-09-09 to 2026-09-14
+(#605, #606) landed on local verification alone, and each of them deployed. **A red gate in this
+window is not evidence about the code** — #605's red is this, not a defect it found, and its test
+jobs never executed. Do not read a red check on a pull request as a finding until `runner_id` says a
+runner ran.
+
 **History.** This entry replaces the one that stood here from 2026-08-05 to 2026-09-01: GitHub had
 refused to start any billable job for the repository, so the gate executed nothing for a month. The
 billing step cleared it (jobs with real runner ids from 2026-09-01). The recognition rule for that

@@ -194,6 +194,7 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     status: MatterRow["status"];
     matter_type_id: MatterTypeId | null;
     location_id: LocationId | null;
+    physical_file_location_id: LocationId | null;
     responsible_member_id: UserId;
     client_display_name: string | null;
     client_code: string | null;
@@ -212,6 +213,7 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     status: row.status,
     matterTypeId: row.matter_type_id,
     locationId: row.location_id,
+    physicalFileLocationId: row.physical_file_location_id,
     responsibleMemberId: row.responsible_member_id,
     clientDisplayName: row.client_display_name,
     clientCode: row.client_code,
@@ -408,6 +410,10 @@ function fieldsFromInput(input: MatterFieldsInput, existing?: MatterFields): Mat
     matterTypeId:
       input.matterTypeId !== undefined ? input.matterTypeId : (existing?.matterTypeId ?? null),
     locationId: input.locationId !== undefined ? input.locationId : (existing?.locationId ?? null),
+    physicalFileLocationId:
+      input.physicalFileLocationId !== undefined
+        ? input.physicalFileLocationId
+        : (existing?.physicalFileLocationId ?? null),
     responsibleMemberId: input.responsibleMemberId ?? existing?.responsibleMemberId,
     clientDisplayName:
       input.clientDisplayName !== undefined
@@ -422,6 +428,8 @@ interface MatterFieldsInput {
   readonly description?: string | null;
   readonly matterTypeId?: MatterTypeId | null;
   readonly locationId?: LocationId | null;
+  /** Where the firm's paper file is kept, which is not the office the matter is run out of. */
+  readonly physicalFileLocationId?: LocationId | null;
   readonly responsibleMemberId?: UserId;
   readonly clientDisplayName?: string | null;
   readonly clientCode?: string | null;

@@ -1192,6 +1192,7 @@ export type MatterDetail = {
     status: 'intake' | 'consultation' | 'open' | 'hold' | 'closed';
     matterTypeId: string | null;
     locationId: string | null;
+    physicalFileLocationId: string | null;
     responsibleMemberId: string;
     clientDisplayName: string | null;
     clientCode: string | null;
@@ -1206,6 +1207,7 @@ export type MatterDetail = {
     createdAt: string;
     matterTypeName: string | null;
     locationName: string | null;
+    physicalFileLocationName: string | null;
     responsibleMemberName: string | null;
 };
 
@@ -1248,6 +1250,10 @@ export type PatchMatterRequest = {
     description?: string | null;
     matterTypeId?: string | null;
     locationId?: string | null;
+    /**
+     * The office where the firm keeps this matter's own paper file. Not the office the matter is run out of (locationId): a folder travels, and a matter opened at one office can be boxed at another or at a remote store the firm keeps as an office. Null clears it, which is the honest answer where nobody knows where the file is.
+     */
+    physicalFileLocationId?: string | null;
     responsibleMemberId?: string;
     clientDisplayName?: string | null;
     clientCode?: string | null;
