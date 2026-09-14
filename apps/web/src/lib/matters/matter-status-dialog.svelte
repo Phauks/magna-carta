@@ -82,6 +82,7 @@
   import ClipboardCheck from "@lucide/svelte/icons/clipboard-check";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Hash from "@lucide/svelte/icons/hash";
+  import MapPin from "@lucide/svelte/icons/map-pin";
   import Pause from "@lucide/svelte/icons/pause";
   import Play from "@lucide/svelte/icons/play";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
@@ -140,14 +141,19 @@
     openMatter,
     readMatterCloseReadiness,
     readMatterGraduateReadiness,
+    readMatterOffices,
     readMatterOpenReadiness,
     releaseMatter,
     reopenMatter,
+    updateMatter,
+    EDIT_MATTER_PERMISSION,
     type MatterCloseNotice,
     type MatterCloseReadiness,
     type MatterGraduateReadiness,
+    type MatterOffices,
     type MatterOpenReadiness,
   } from "./matters-api.ts";
+  import { OfficeLink, OfficePicker } from "$lib/offices/index.ts";
   import type { ApiOutcome } from "$lib/api/request.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
   import { sessionPermissions } from "$lib/access/session-permissions.svelte.ts";
@@ -282,6 +288,38 @@
   const blockedDescriptionIdentifier = `${identifier}-blocked`;
 
   const isSample = $derived(matter.source === "sample");
+
+  /**
+   * The paper file's office: which of the firm's offices this matter's folder is kept at.
+   *
+   * Read from the matter itself rather than taken from the record the chrome already holds, because
+   * a file moved from another surface between two openings must not leave this window stating where
+   * it used to be — the same reason the engagement is re-read. It is NOT the office the matter is
+   * run out of, which is the citation on the header: a folder travels, and telling somebody the
+   * file is in a building it left is the one thing this row must not do.
+   */
+  let offices = $state<MatterOffices | null>(null);
+  let officesFailure = $state<StatedFailure | null>(null);
+  let officesAsked = false;
+  // A sample matter has no record behind it to ask about, so nothing is in flight and nothing is
+  // waited for; the row states what a sample states, which is that nothing is recorded.
+  const officesLoading = $derived(!isSample && offices === null && officesFailure === null);
+  const physicalFileLocationId = $derived(offices?.physicalFileLocationId ?? null);
+  const physicalFileLocationName = $derived(offices?.physicalFileLocationName ?? null);
+
+  /** Where the file is kept is set in place, the way the number is, rather than in a second window. */
+  let physicalFileFormOpen = $state(false);
+  let physicalFileDraft = $state<string | null>(null);
+  let physicalFileSaving = $state(false);
+  let physicalFileFailure = $state<StatedFailure | null>(null);
+  const physicalFileBlock = $derived.by((): string | null => {
+    if (!sessionSettled) return "Reading your session.";
+    if (permissions === null) return null;
+    return permissions.includes(EDIT_MATTER_PERMISSION)
+      ? null
+      : permissionRefusal("Recording where the paper file is kept", EDIT_MATTER_PERMISSION);
+  });
+
   const requirements = $derived(matterCloseRequirements(readiness, readinessFailed));
   const canClose = $derived(matterCanClose(readiness));
   const openRequirements = $derived(matterOpenRequirements(openReadiness, openReadinessFailed));
@@ -385,6 +423,28 @@
     })();
   });
 
+  // Where the paper file is kept, from the record. Asked when the window opens and again after it
+  // is set, so what the row states is what the matter says rather than what this window just sent.
+  async function readOffices(): Promise<void> {
+    const outcome = await readMatterOffices(fetch, matter.id);
+    if (outcome.kind === "ok") {
+      offices = outcome.value;
+      officesFailure = null;
+      return;
+    }
+    officesFailure = stated(
+      outcome.failure,
+      "The paper file's office could not be read.",
+      MATTER_LIFECYCLE_TRANSPORT_FAILURE,
+    );
+  }
+
+  $effect(() => {
+    if (!open || officesAsked || isSample) return;
+    officesAsked = true;
+    void readOffices();
+  });
+
   // A window opened again starts on the step, not on the last answer it gave — except that a
   // window opened FOR the hold, from the seal's menu, opens with the reason already asked.
   function reset(): void {
@@ -402,6 +462,34 @@
     numberTouched = false;
     numberFailure = null;
     numberRefusal = null;
+    physicalFileFormOpen = false;
+    physicalFileFailure = null;
+    // The office is re-read on every opening: the last answer stands while the read is in flight,
+    // so the row never blinks back to "Not recorded" on a window somebody has already read.
+    officesAsked = false;
+  }
+
+  async function setPhysicalFileLocation(): Promise<void> {
+    if (physicalFileSaving) return;
+    physicalFileSaving = true;
+    physicalFileFailure = null;
+    const outcome = await updateMatter(
+      fetch,
+      matter.id,
+      { physicalFileLocationId: physicalFileDraft },
+      crypto.randomUUID(),
+    );
+    physicalFileSaving = false;
+    if (outcome.kind === "ok") {
+      physicalFileFormOpen = false;
+      await readOffices();
+      return;
+    }
+    physicalFileFailure = stated(
+      outcome.failure,
+      "Where the file is kept was not recorded.",
+      "Nothing answered. The matter's paper file is unchanged.",
+    );
   }
 
   async function setNumber(): Promise<void> {
@@ -1165,21 +1253,126 @@
   <div class="flex flex-col gap-8">
     <FieldLabel as="h3">Physical File</FieldLabel>
     <!-- The firm's own paper file, which is not the custody register: that one holds client
-         property left with the firm to guard. Nothing here is served yet, and the rows say so
-         the way a row says it — "Not recorded" beside the Soon mark. There is deliberately no
-         sentence under them naming the dependency: a row that already states it holds nothing
-         and wears the Soon mark has said it, and a paragraph repeating it was the loudest copy
-         on the window (owner ruling). The reasoning lives in matter-lifecycle.ts. -->
+         property left with the firm to guard.
+
+         WHERE IT IS KEPT IS ONE OF THE FIRM'S OFFICES, named by the same piece that names an
+         office anywhere else, so a reader who wants the address or the telephone is one press from
+         the record rather than reading a name that leads nowhere. It is NOT the office the matter
+         is run out of — that one is the citation on the header — because a folder travels.
+
+         The other two rows hold nothing and say so the way a row says it: "Not recorded" beside
+         the Soon mark, with deliberately no sentence under them naming the dependency, which a row
+         that already states it holds nothing has said (owner ruling). The reasoning for all three
+         lives in matter-lifecycle.ts. -->
     <dl class="flex flex-col gap-8 text-sm">
       {#each MATTER_PHYSICAL_FILE_FACTS as fact (fact.key)}
         <div class="grid grid-cols-2 items-baseline gap-16">
           <dt class="text-text-muted">{fact.label}</dt>
-          <dd class="flex items-center gap-8 text-text-subtle">
-            Not recorded
-            <MaturityBadge stage="soon" />
-          </dd>
+          {#if fact.served}
+            <dd>
+              <LoadingRegion
+                loading={officesLoading}
+                failed={officesFailure !== null}
+                label="Reading where the paper file is kept"
+                class="flex flex-col gap-8"
+              >
+                {#snippet failure()}
+                  {#if officesFailure !== null}
+                    <FailureNotice
+                      failure={officesFailure.failure}
+                      subject="The paper file's office"
+                      fallback={officesFailure.fallback}
+                      whenSilent={officesFailure.whenSilent}
+                      onRetry={() => {
+                        officesFailure = null;
+                        void readOffices();
+                      }}
+                    />
+                  {/if}
+                {/snippet}
+                <span class="flex flex-wrap items-center gap-8">
+                  <OfficeLink
+                    officeId={physicalFileLocationId}
+                    name={physicalFileLocationName}
+                    whenNone="Not recorded"
+                  />
+                  {#if !isSample}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={physicalFileBlock !== null || physicalFileSaving}
+                      title={physicalFileBlock ?? undefined}
+                      aria-expanded={physicalFileFormOpen}
+                      onclick={() => {
+                        physicalFileDraft = physicalFileLocationId;
+                        physicalFileFormOpen = !physicalFileFormOpen;
+                      }}
+                    >
+                      <MapPin class="size-16" aria-hidden="true" />
+                      {physicalFileLocationId === null ? "Set Location" : "Change Location"}
+                    </Button>
+                  {/if}
+                </span>
+              </LoadingRegion>
+            </dd>
+          {:else}
+            <dd class="flex items-center gap-8 text-text-subtle">
+              Not recorded
+              <MaturityBadge stage="soon" />
+            </dd>
+          {/if}
         </div>
       {/each}
     </dl>
+    {#if !isSample && physicalFileBlock !== null}
+      <!-- A disabled control can be neither hovered nor focused, so the refusal has to read. -->
+      <p class="text-xs text-text-subtle">{physicalFileBlock}</p>
+    {/if}
+    {#if physicalFileFormOpen}
+      <!-- Asked in place, the way the number is. Emptying it is a real answer: a firm that does
+           not know where a folder is must be able to say that rather than leave a guess standing. -->
+      <LabelledField
+        label="Location"
+        hint="The office the firm keeps this matter's folder at. Not the office the matter is run out of: a file that has been boxed elsewhere is recorded where it actually is."
+      >
+        {#snippet children({ props })}
+          <OfficePicker
+            inputId={props.id}
+            bind:value={physicalFileDraft}
+            disabled={physicalFileSaving}
+          />
+        {/snippet}
+      </LabelledField>
+      {#if physicalFileFailure !== null}
+        <FailureNotice
+          failure={physicalFileFailure.failure}
+          title="The Paper File Is Unchanged"
+          fallback={physicalFileFailure.fallback}
+          whenSilent={physicalFileFailure.whenSilent}
+        />
+      {/if}
+      <div class="flex flex-wrap items-center gap-8">
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={physicalFileSaving}
+          onclick={() => void setPhysicalFileLocation()}
+        >
+          <MapPin class="size-16" aria-hidden="true" />
+          {physicalFileSaving ? "Recording" : "Record Location"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={physicalFileSaving}
+          onclick={() => {
+            physicalFileFormOpen = false;
+            physicalFileFailure = null;
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    {/if}
   </div>
 {/snippet}
