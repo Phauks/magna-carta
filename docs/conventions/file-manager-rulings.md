@@ -835,7 +835,12 @@ The owner's notes of 2026-09-14, from the deployed screen.
   Our own type is excluded from the file question explicitly rather than by omission, because a
   browser is free to add `Files` to a transfer we also wrote to, and an upload dialog opening over
   a row somebody was merely filing is the defect that would follow. L15's drag-and-drop upload is
-  untouched.
+  untouched in what it does; what changed is that `Dropzone` now DECLINES a drag it can positively
+  identify as ours, which is what leaves the drop for the move to take — a dropzone that lit up for
+  a row being filed would claim a drop it then silently swallows, there being no files on it. It
+  refuses only what it recognizes and never demands `Files` on the way in: a transfer's type list is
+  the browser's to populate, and a dropzone that goes dark for a real file drop is worse than one
+  that lights up for a move.
 - **A refusal is the POINTER, not a banner.** A destination that will not take the drop simply does
   not prevent the event's default, which is how the platform is built: the cursor turns to "no
   drop" and the reader is told before they let go rather than after. Four refusals — a destination

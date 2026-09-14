@@ -26,6 +26,7 @@
   import FileInput from "../file-input/file-input.svelte";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
+  import { carriesDraggedItems } from "../item-drag/item-drag.ts";
   import {
     entriesFromDataTransfer,
     entriesFromFileList,
@@ -77,14 +78,27 @@
     if (entries.length > 0) onEntries?.(entries);
   }
 
+  /*
+   * A drag of the product's OWN items is a move, not an upload, and this surface declines it.
+   *
+   * The two gestures ride the same event and can cross the same square inch — the file manager's
+   * list is an upload target AND the place a row is picked up to be filed into a folder — so they
+   * are told apart by the PAYLOAD (see components/item-drag/item-drag.ts) rather than by where they
+   * land. Declining is what leaves the drop for the move to take: a dropzone that lit up for a row
+   * being filed would claim a drop it then silently swallows, since there are no `files` on it.
+   *
+   * It refuses only what it can positively identify as ours. Demanding `Files` on the way IN would
+   * be the stricter rule and the wrong one: a transfer's type list is the browser's to populate and
+   * a surface that goes dark for a real file drop is worse than one that lights up for a move.
+   */
   function ondragenter(event: DragEvent) {
-    if (disabled) return;
+    if (disabled || carriesDraggedItems(event.dataTransfer)) return;
     event.preventDefault();
     dragDepth += 1;
   }
 
   function ondragover(event: DragEvent) {
-    if (disabled) return;
+    if (disabled || carriesDraggedItems(event.dataTransfer)) return;
     // Preventing default on dragover is what marks the element a valid drop target.
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
@@ -96,7 +110,7 @@
   }
 
   function ondrop(event: DragEvent) {
-    if (disabled) return;
+    if (disabled || carriesDraggedItems(event.dataTransfer)) return;
     event.preventDefault();
     dragDepth = 0;
     const transfer = event.dataTransfer;

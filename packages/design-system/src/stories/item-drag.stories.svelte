@@ -163,6 +163,15 @@
       await expect(destination).not.toHaveAttribute(ITEM_DROP_MARK_ATTRIBUTE);
     });
 
+    await step("A drag begun by something else in the region is left alone", async () => {
+      // A table's column header reordering itself bubbles through this same container. Preventing
+      // the default here would cancel a gesture that is not ours.
+      const foreign = dragEvent("dragstart", new StandInTransfer());
+      canvas.getByRole("group", { name: "Discovery" }).dispatchEvent(foreign);
+      await expect(foreign.defaultPrevented).toBe(false);
+      canvas.getByRole("group", { name: "Discovery" }).dispatchEvent(dragEvent("dragend", transfer));
+    });
+
     await step("A drag abandoned mid-gesture leaves no mark behind", async () => {
       const second = new StandInTransfer();
       canvas.getByText("Site Photographs").dispatchEvent(dragEvent("dragstart", second));

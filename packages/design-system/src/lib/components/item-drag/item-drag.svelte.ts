@@ -139,21 +139,31 @@ export class ItemDrag {
        * exactly as it is.
        */
       onpointerdown: (event: PointerEvent) => {
+        this.#releaseLift();
         const element = elementOf(event.target);
         const anchor = element === null ? null : sourceAt(element);
         if (anchor === null || anchor.element.draggable) return;
         if (this.#options.keysFor(anchor.key).length === 0) return;
         anchor.element.draggable = true;
         this.#lifted = anchor.element;
+        // A press that turns out to be a click ends here, and the row gets its own behaviour back
+        // without waiting for a drag that never started.
+        if (typeof document !== "undefined") {
+          document.addEventListener("pointerup", () => this.#releaseLift(), { once: true });
+        }
       },
 
       ondragstart: (event: DragEvent) => {
         const element = elementOf(event.target);
         const anchor = element === null ? null : sourceAt(element);
-        const keys = anchor === null ? [] : this.#options.keysFor(anchor.key);
+        // NOT OURS, and left entirely alone: a table's column header being reordered, a link being
+        // dragged out. Preventing the default here would cancel somebody else's gesture, and the
+        // region is a container that every drag inside it bubbles through.
+        if (anchor === null) return;
+        const keys = this.#options.keysFor(anchor.key);
         const transfer = event.dataTransfer;
         if (keys.length === 0 || transfer === null) {
-          // Nothing here can move. Refusing the gesture outright is kinder than starting one no
+          // An item that cannot move. Refusing the gesture outright is kinder than starting one no
           // destination will ever accept.
           event.preventDefault();
           return;
@@ -232,13 +242,17 @@ export class ItemDrag {
     transfer.setDragImage(badge, 0, 0);
   }
 
+  /** Give a lifted row its own behaviour back. Safe to call when nothing is lifted. */
+  #releaseLift(): void {
+    if (this.#lifted === null) return;
+    this.#lifted.draggable = false;
+    this.#lifted = null;
+  }
+
   #clear(): void {
     this.#mark(null, null);
     this.#keys = [];
-    if (this.#lifted !== null) {
-      this.#lifted.draggable = false;
-      this.#lifted = null;
-    }
+    this.#releaseLift();
     if (this.#dragImage !== null) {
       this.#dragImage.remove();
       this.#dragImage = null;
