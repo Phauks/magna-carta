@@ -54,6 +54,7 @@
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import * as Select from "@magna-carta/design-system/select";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import Badge from "@magna-carta/design-system/badge";
@@ -310,6 +311,33 @@
   );
   const heading = $derived(purpose === "intake" ? "New Intake" : "New Matter");
 
+  /*
+   * The number this file will be called by, stated before it exists.
+   *
+   * WHICH NUMBER DEPENDS ON WHAT IS BEING STARTED, and the three answers are genuinely different
+   * files. An intake draws nothing — no number of any kind exists before a matter is at least a
+   * consultation (owner ruling, 2026-09-06) — so it states no reference at all rather than promising
+   * one. A consultation draws its own TENTATIVE number, which it keeps after the matter opens and
+   * which still resolves a document filed under it. An open matter draws the matter number.
+   *
+   * Neither is previewed with a value yet: nothing serves the next matter or consultation number,
+   * and a panel that invented one would be making a promise about a counter it has not asked. What
+   * the reader is told is the honest half — that a number is drawn by the save, and which kind of
+   * number it will be — which is what the shell renders for a preview with nothing in it. When the
+   * read exists, this is the one line that changes ($lib/records/previewed-number.svelte.ts).
+   */
+  const subtitle = $derived<RecordSubject>(
+    startingStatus === "intake"
+      ? {}
+      : {
+          reference: {
+            kind: startingStatus === "consultation" ? "Consultation" : "Matter",
+            number: null,
+            standing: "preview",
+          },
+        },
+  );
+
   /**
    * Why the commit is refused, or undefined when it is not. The shell renders this beside the
    * control it refuses and puts it on the control's accessible name, so it reaches a screen reader
@@ -446,6 +474,7 @@
 <ActionDialog
   bind:open
   {heading}
+  {subtitle}
   {commitLabel}
   commitBusyLabel={purpose === "intake" ? "Starting" : "Opening"}
   commitRefusal={refusal}

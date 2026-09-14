@@ -21,6 +21,7 @@
    * it says which case it is rather than offering a number field to everybody.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Button from "@magna-carta/design-system/button";
@@ -72,6 +73,25 @@
      just chose them. */
   let depositorName = $state<string | null>(null);
   let carriedIn = $state(false);
+
+  /*
+   * The custody number this packet will be filed under, stated before it exists.
+   *
+   * TWO CASES, and the form already knows which it is in. A packet the firm is taking in now draws
+   * from the register's own counter on save; a packet CARRIED IN from a paper deeds register keeps
+   * the number already written on its physical label, because renumbering property the firm is
+   * holding means relabelling objects in a safe. So a typed carried-in number is `drawn` — it is the
+   * packet's real number, and the save is only recording it — and everything else is a preview with
+   * nothing in it yet, which the shell states as a number arriving on save rather than as silence.
+   * Nothing serves the next custody number; when it does, this is the one line that changes
+   * ($lib/records/previewed-number.svelte.ts).
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference:
+      carriedIn && draft.manualCustodyNumber !== ""
+        ? { kind: "Packet", number: draft.manualCustodyNumber }
+        : { kind: "Packet", number: null, standing: "preview" },
+  });
   let failure = $state<StatedFailure | null>(null);
 
   const options = $derived(custodyLocationOptions(locations));
@@ -175,6 +195,7 @@
 <ActionDialog
   bind:open
   heading="New Packet"
+  {subtitle}
   commitLabel="Log Packet"
   commitBusyLabel="Logging"
   commitRefusal={refusal}

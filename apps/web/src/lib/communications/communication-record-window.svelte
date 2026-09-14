@@ -49,6 +49,7 @@
   import FieldLabel from "@magna-carta/design-system/field-label";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
+  import { PreviewedNumber } from "@magna-carta/design-system/record-reference";
   import type {
     RecordReference,
     RecordSubject,
@@ -182,7 +183,12 @@
    * Null rather than a guess: a made-up number on a message slip is worse than none, and the line
    * under the heading simply says the number is drawn when it is saved until this arrives.
    */
-  let previewedNumber = $state<string | null>(null);
+  /*
+   * The number this record would draw, held by the shared seam rather than by this file.
+   * "Communication" rather than the chosen channel for the same reason the heading is: a line that
+   * renamed itself under the hand of the person filling it in is a panel arguing with its reader.
+   */
+  const previewed = new PreviewedNumber("Communication");
 
   const nameOf = $derived((userId: string | null): string | null => {
     if (userId === null) return null;
@@ -238,41 +244,31 @@
    * which nothing here reads back, so it cannot re-enter.
    */
   $effect(() => {
-    if (!open || communicationId !== null) return;
+    if (!open || communicationId !== null) {
+      previewed.clear();
+      return;
+    }
     const occurredAt = draftOccurredAt(draft);
-    previewedNumber = null;
-    void (async () => {
+    void previewed.read(async () => {
+      // The seam takes a number or nothing; the app's outcome model stays in the app. A refused or
+      // unreachable read is not an error to raise here — the panel still records the call, and the
+      // line already says a number is drawn by the save.
       const outcome = await readNextCommunicationNumber(fetch, occurredAt);
-      // A preview that lands after the record has been saved is about a record that no longer needs
-      // one; the record's own number is what the subtitle shows from then on.
-      if (outcome.kind === "ok") previewedNumber = outcome.value.referenceNumber;
-    })();
+      return outcome.kind === "ok" ? outcome.value.referenceNumber : null;
+    });
   });
 
-  /**
-   * The Directory record at the other end, by name.
-   *
-   * READ FOR THIS RECORD ALONE. No list read names the entity behind a number — the log answers
-   * handles and nothing about them, on the custody register's line — so the table shows the number
-   * and this window spends one request on the record somebody actually opened. Null until it lands,
-   * and null forever where the read fails, in which case the number stands on its own, which is a
-   * real answer a person can use where a handle is not.
-   */
   /*
    * The line under the heading: this record, by the number somebody quotes.
    *
-   * WHILE IT IS BEING ENTERED the number is a PREVIEW — the one the next record would draw — because
-   * the person typing is usually still on the telephone and the save is too late for the sentence
-   * they are in the middle of. Nothing is reserved by asking, and the shell says so in the words it
-   * says everywhere. The kind stays the panel's own noun rather than the chosen channel, for the
-   * same reason the heading does: a line that renamed itself under the hand of the person filling
-   * it in is a panel arguing with its reader.
+   * WHILE IT IS BEING ENTERED the number is the one the NEXT record would draw, because the person
+   * typing is usually still on the telephone and the save is too late for the sentence they are in
+   * the middle of. Nothing is reserved by asking, and the shell says so in the words it says
+   * everywhere.
    */
   const subtitle = $derived<RecordSubject>(
     creating
-      ? {
-          reference: { kind: "Communication", number: previewedNumber, standing: "preview" },
-        }
+      ? { reference: previewed.reference }
       : record === null
         ? {}
         : {
@@ -295,6 +291,15 @@
       : { kind: channelEntry(record.channel).label, number: record.referenceNumber },
   );
 
+  /**
+   * The Directory record at the other end, by name.
+   *
+   * READ FOR THIS RECORD ALONE. No list read names the entity behind a number — the log answers
+   * handles and nothing about them, on the custody register's line — so the table shows the number
+   * and this window spends one request on the record somebody actually opened. Null until it lands,
+   * and null forever where the read fails, in which case the number stands on its own, which is a
+   * real answer a person can use where a handle is not.
+   */
   let counterpartyName = $state<string | null>(null);
 
   $effect(() => {

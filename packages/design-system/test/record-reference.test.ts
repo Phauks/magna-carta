@@ -6,6 +6,7 @@ import {
   subjectIsEmpty,
   SUBJECT_SEPARATOR,
 } from "../src/lib/components/record-reference/record-reference-model.ts";
+import { PreviewedNumber } from "../src/lib/components/record-reference/previewed-number.svelte.ts";
 import type { ReferenceStanding } from "../src/lib/components/record-reference/types.ts";
 
 /*
@@ -104,5 +105,67 @@ describe("the subject line", () => {
     // The panels this replaces used a middle dot in five places and an em dash in a sixth, for the
     // same join. It is a constant because it was a per-call-site choice.
     expect(SUBJECT_SEPARATOR).toBe("·");
+  });
+});
+
+describe("the number a record will take, read before the record exists", () => {
+  const answers = (referenceNumber: string) => async () => referenceNumber;
+
+  function deferred(): { reader: () => Promise<string | null>; settle: (value: string) => void } {
+    let settle!: (value: string) => void;
+    const promise = new Promise<string | null>((resolve) => (settle = resolve));
+    return { reader: () => promise, settle };
+  }
+
+  it("hands the panel a preview, so nothing reads as reserved", async () => {
+    const previewed = new PreviewedNumber("Call");
+    await previewed.read(answers("2026-09-08-0042"));
+    expect(previewed.reference).toEqual({
+      kind: "Call",
+      number: "2026-09-08-0042",
+      standing: "preview",
+    });
+  });
+
+  it("carries the kind before it carries a number", () => {
+    // Null is not silence: the line states that a number is drawn by the save, which is the honest
+    // half of the answer while the read is still out.
+    expect(new PreviewedNumber("Packet").reference).toEqual({
+      kind: "Packet",
+      number: null,
+      standing: "preview",
+    });
+  });
+
+  it("refuses a read that lands after a newer one", async () => {
+    // Somebody writing up Tuesday's call on Thursday changes the date; the read for Thursday must
+    // not land on top of the read for Tuesday just because it was slower. The call log arbitrated
+    // this by asking whether a record had appeared — right for that panel, and wrong for any panel
+    // whose scope can change without one.
+    const previewed = new PreviewedNumber("Call");
+    const stale = deferred();
+    const first = previewed.read(stale.reader);
+    await previewed.read(answers("2026-09-08-0042"));
+    stale.settle("2026-09-10-0001");
+    await first;
+    expect(previewed.reference.number).toBe("2026-09-08-0042");
+  });
+
+  it("refuses a read that lands after the panel was cleared", async () => {
+    const previewed = new PreviewedNumber("Call");
+    const stale = deferred();
+    const reading = previewed.read(stale.reader);
+    previewed.clear();
+    stale.settle("2026-09-08-0042");
+    await reading;
+    expect(previewed.reference.number).toBeNull();
+  });
+
+  it("leaves the panel usable when there is no number to show", async () => {
+    // Previewing is a courtesy; a panel that could not preview a number can still record the record.
+    const previewed = new PreviewedNumber("Call");
+    await previewed.read(answers("2026-09-08-0042"));
+    await previewed.read(async () => null);
+    expect(previewed.reference.number).toBeNull();
   });
 });

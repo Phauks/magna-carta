@@ -9,6 +9,8 @@
  */
 export { default as RecordSubjectLine } from "./record-subject.svelte";
 export type { RecordReference, RecordSubject, ReferenceStanding } from "./types.ts";
+export { PreviewedNumber } from "./previewed-number.svelte.ts";
+export type { NextNumberReader } from "./previewed-number.svelte.ts";
 export {
   AWAITING_NUMBER_SENTENCE,
   PREVIEW_NOTE,
