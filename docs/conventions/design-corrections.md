@@ -42,6 +42,47 @@ and graduate into _Standing rules_ above when they turn out to bind everywhere.
 - **File Workbench** — [`file-workbench-rulings.md`](file-workbench-rulings.md). The Tools surface an
   unfiled file is brought to. Two rounds so far; the rulings that generalize beyond it are promoted
   into _Standing rules_ below.
+- **The money surfaces** — [`time-tab-rulings.md`](time-tab-rulings.md). Time, Fees, Costs and
+  Billing, on the matter and firm-wide alike: they share one anatomy, so they share one ledger.
+- **Settings** — [`settings-rulings.md`](settings-rulings.md).
+- **Conflicts** — [`conflicts-rulings.md`](conflicts-rulings.md).
+- **The matter record** — [`matter-rulings.md`](matter-rulings.md). Its header, status seal and
+  status window; the financial tabs and the Conflicts section have their own ledgers above.
+- **Magnus** — [`magnus-rulings.md`](magnus-rulings.md).
+
+### Rounds staged and not started (2026-09-09 to 2026-09-11)
+
+The owner staged six rounds ahead of the work, and asked that none of it start until they say so.
+Every row in them is `open` **by fact**, not by oversight, and each carries the research the round
+will need:
+[`file-manager-rulings.md`](file-manager-rulings.md) R22 (the Upload dialog),
+[`settings-rulings.md`](settings-rulings.md) R1,
+[`conflicts-rulings.md`](conflicts-rulings.md) R1,
+[`matter-rulings.md`](matter-rulings.md) R1,
+[`time-tab-rulings.md`](time-tab-rulings.md) R12 (the firm's money screens),
+[`magnus-rulings.md`](magnus-rulings.md) R1,
+and the messaging correction dated 2026-09-11 in _Standing rules_ below.
+
+**They are one complaint said six ways, and the cheapest order of work follows from that.** Four
+themes run through every round:
+
+1. **A screen's chrome must stop duplicating its table.** The messaging tabs, the money screens'
+   three differently-worded period dropdowns, and the conflicts panel's settings are the same
+   finding on four surfaces — and all of them meet the same obstacle, that a filter narrowing only
+   the loaded page is not a filter. Settle that once, in the table, and four screens simplify.
+2. **The shared part exists and the screens do not use it.** `settings-page.svelte` is written and
+   rendered by no route; `ScreenSearch` is "the product's one control" and no money screen imports
+   it; `DataTable.Grid` runs every register in the product except the five in Settings. Most of
+   this round is adoption, not invention.
+3. **A default belongs in the component, not at the call site.** `align="end"` is written out 95
+   times because neither `Select.Content` nor `Combobox.Content` sets one, and the two context-menu
+   parts are the only floating surfaces still on a z-layer below `modal` — which is why a
+   right-click menu is unusable inside a dialog.
+4. **Two screens are waiting on one thing that does not exist.** The Offices screen
+   ([`settings-rulings.md`](settings-rulings.md) O1) is the whole of the matter status window's
+   Location ruling ([`matter-rulings.md`](matter-rulings.md) W1) and of firm branding (F2), and its
+   backend is already built — `packages/locations/`, `/api/v1/locations`, letterhead logo included.
+   Build Offices first and three rows resolve together.
 
 ---
 
@@ -2130,3 +2171,90 @@ from fee screen".
 - **An arrangement version names the signed agreement as a file**, picked from the matter's own
   files — the conflicts waiver's precedent — never as a sentence. Optional, because the paper may
   follow the deal.
+
+### 2026-09-11 — the messaging log's tabs
+
+The owner, on the messaging screen: "messaging screen has tabs that no other screen has, and
+overlaps table functionality, remove 'Everything / Waiting to be filed (0) / On a matter / Not a
+matter'".
+
+- **The four scope tabs are removed.** No other list screen in the product narrows itself with a tab
+  strip above its table, and what these tabs ask — filed, unfiled, set aside — is what the column
+  filters already ask. _(built 2026-09-14: the tabs are gone, the Matter column's filter reaches the
+  server, and "waiting to be filed" is a figure in the counts strip)_
+- The screen's own comment argues the opposite and is what the correction overturns: "the tabs and
+  the column filters answer different questions: the tab asks the server, the column filters run
+  over what is loaded". That distinction is real and it is the thing to solve rather than to keep a
+  tab strip for — a filter that narrows only the loaded page is a filter that lies on a paged
+  register, and the answer is a column filter the server honours, on every register, not a second
+  mechanism on one screen.
+- The unfiled COUNT is not a tab, and losing the tabs must not lose it: "waiting to be filed" is
+  work the firm owes, and it belongs wherever the screen states its figures. The staged money-screen
+  round in [`time-tab-rulings.md`](time-tab-rulings.md) is the same correction on four other screens
+  — a header control answering a question the table already answers — and the two should be built to
+  one conclusion.
+
+### 2026-09-11 — one component for the two-sided screen
+
+The owner: "we need to make a consolidated component for when the main screen has two sides, a left
+navigational menu (such as for magnus and settings), and a right content menu."
+
+- **The two-sided screen is one design-system component**, `NavigationLayout`: a left navigation
+  landmark and a right content column, each scrolling independently with a reserved gutter, taking
+  the full height under the top bar and cancelling the work canvas inset itself. Two token-derived
+  navigation widths, standard and narrow. _(status: open — being built in the design system in the
+  same round as the floating-surface defaults)_
+- The consumers it replaces: `apps/web/src/routes/(app)/settings/+layout.svelte`, which hand-rolls
+  a `<nav>` at `calc(var(--mc-size-popover) + var(--mc-space-48))` inside a `-m-24` full-height row,
+  and the Magnus workspace rail in `apps/web/src/lib/magnus/magnus-surface.svelte`, a `w-2xs`
+  column — two widths and two scroll treatments for one shape. Settings adopts it first, Magnus
+  second.
+- **It reaches further than the two screens that have the shape today.** The owner, in the same
+  breath: "this may also be implemented for tools, reports, and other potential screens". Tools
+  (`apps/web/src/routes/(app)/tools/`, a landing page and one route per tool) and Reports (a
+  register page and one route per report) are both one-list-then-one-thing screens with no
+  navigation column at all, so adopting the component there is a redesign of the screen rather than
+  a swap of its frame: the list of tools, or of reports, becomes the left navigation and the chosen
+  one the right content. The file manager's folder tree beside its list is the other candidate.
+  None of the three is in this round; each is a follow-up once the component exists.
+  _(built 2026-09-14: Settings, Magnus, Tools and Reports all render on `NavigationLayout`; Tools
+  and Reports share one catalogue column, with the landing index kept in the content column so a
+  route's back control never bounces. The folder tree remains the follow-up.)_
+
+### 2026-09-14 — messaging's create control names a message
+
+The owner: "messaging, new should say new message, not new call".
+
+- **The messaging screen's create control reads "New Message".** The screen is the messaging log;
+  a call is one kind of message it holds, and a control named for one kind claims the whole screen
+  is that kind. The same control on the matter's Messaging section carries the same word.
+  _(built 2026-09-14, on both screens; the channel vocabulary keeps "Call" as the kind of message)_
+
+### 2026-09-14 — where data will arrive, its structure renders first
+
+The owner, on the messaging record's History tab ("Nothing yet. Saving this records who wrote it
+down and when…" over a paragraph about carriers' reports): remove it; "messaging history should
+have whatever table it will have once we have the history, that way it doesn't just look like
+blank space." And the general rule, with a lint asked for: "places where data will populate and it
+should be in the table, but it is just loose on the background or the screen. This doesn't prepare
+the user for incoming information, and makes it more difficult to identify issues. The Hash screen
+for files would be another example of this; but also showcases how we need to consider not every
+place we need to structure data will just be a table, but may have other elements."
+
+- **Where data will arrive, the structure that will hold it renders first, empty.** A table renders
+  its header row over an empty body; a definition list its terms over empty definitions; a rail its
+  frame. The words that explain the emptiness live inside that structure's own empty state — short —
+  never as loose prose beside or beneath it on the canvas. A reader is being prepared for what will
+  arrive, and a defect in a structure that is already standing is visible where a defect behind a
+  sentence is not. _(built 2026-09-14: `lint:structured-empty` in `tooling/lint-structured-empty/`
+  — an absence-shaped prose branch where a structure should stand, or muted prose after one, with
+  an inline `structured-empty-allow: reason` for the genuinely prose-only case; the rule itself is
+  in `ui-design.md`. The messaging History tab, the Hashes tab as a new `DefinitionList` with its
+  own `Empty`, bill History and Delivery, the trust ceiling row, the resource meters and the
+  speed-test panels are fixed; `EventRail` renders its frame with zero events and gained `note`,
+  the one honest line inside a structure; `DataTable.GridFigures` takes a per-figure
+  `scope: "whole-record"` so a server count is never labelled "In view". One finding stands in
+  the conflicts round in flight, `hit-window.svelte`.)_
+- **It is not always a table.** The Hashes tab is a definition list; a transcript is a
+  `Conversation`; a chain is a rail. The rule is about the structure the data takes, and the lint
+  looks for prose standing where any of them should.

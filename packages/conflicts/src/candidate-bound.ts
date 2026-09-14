@@ -1,19 +1,39 @@
+import { MAX_BATCH_STATEMENTS } from "@magna-carta/data-access/effect-batch";
 import type { EvidenceTier } from "./types.ts";
 
-// THE BOUND ON WHAT ONE CHECK WRITES, AND WHY IT IS A SECOND BOUND RATHER THAN A BIGGER FIRST ONE.
+// THE BOUND ON WHAT ONE CHECK WRITES, AND WHY IT IS THE PLATFORM'S AND NOT THE FIRM'S.
 //
-// The closure cap bounds how many entities the walk reaches. It cannot bound the work, because the
+// The walk's ceiling bounds how many entities a run reaches. It cannot bound the work, because the
 // candidates a run produces scale with the closure TIMES the corpus: each reached entity is asked of
 // the whole Directory, and the trigram channel answers with a large and corpus-proportional fraction
 // of it. The measured shape is in the load profile
 // (`conflictsCandidateBounds` in packages/fixtures/src/load-profile/conflicts-measurements.ts).
-// A cap on the walk is therefore a cap on one factor of a product, which is not a cap.
+// A ceiling on the walk is therefore a ceiling on one factor of a product, which is not a ceiling.
+//
+// A firm used to set this number. The owner removed that on 2026-09-11
+// (docs/conventions/conflicts-rulings.md, E2): where a search stops is not a firm's choice. What
+// remains is the one bound nobody can lift — every hit of a check rides one atomic batch with the
+// check row, and a batch has a stated ceiling (`MAX_BATCH_STATEMENTS`). A run that produced more
+// candidates than one transaction can carry would fail outright and record nothing, which is strictly
+// worse than a bounded answer that says it is bounded. So the ceiling below is derived from the
+// platform's own, is not a setting anywhere, and is recorded on every check row so a reader can see
+// what bound was in force.
 //
 // WHAT THIS IS NOT. It is not a threshold, and this package still has none. A threshold asks what a
 // candidate's evidence IS and removes it on that answer, at every volume, forever — which is the
 // mechanism that turns a missed conflict into an invisible one. This asks only how many candidates one
-// run produced, refuses nothing at all below the cap, and when it does refuse it records the count and
-// the tiers and says in words that the search is incomplete.
+// run produced, refuses nothing at all below the ceiling, and when it does refuse it records the count
+// and the tiers and says in words that the search is incomplete.
+
+// Statements a check's batch carries beside its BOUNDED hits: the idempotency record, the check row,
+// the run's settlement, the audit row, the notification, and the imputation hits — which are bounded
+// by the matter's own party list rather than by this ceiling, since an identity join finding a firm
+// member who genuinely IS a party is the strongest thing this engine produces and is never refused.
+// Sized well past the route's bound on subject parties so even a matter staffed entirely by the firm's
+// own members leaves room; its only job is to keep the two bounds from colliding.
+const CHECK_BATCH_OVERHEAD_STATEMENTS = 500;
+
+export const CANDIDATE_WRITE_CEILING = MAX_BATCH_STATEMENTS - CHECK_BATCH_OVERHEAD_STATEMENTS;
 //
 // WHAT GETS REFUSED, WHEN SOMETHING MUST BE. Strongest evidence is kept. The cap decides HOW MANY, and
 // evidence strength decides WHICH — because the alternative is refusing in whatever order the matcher

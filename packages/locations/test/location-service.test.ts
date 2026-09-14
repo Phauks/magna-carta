@@ -3,14 +3,18 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { LocationId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
+  addMemberToLocation,
   assignMemberLocations,
   clearLetterheadLogo,
   closeLocation,
   createLocation,
+  removeMemberFromLocation,
+  setFirmDefaultLocation,
   setLetterheadLogo,
   setLocationAddresses,
   updateLocation,
 } from "../src/location-service.ts";
+import { readMemberLocations } from "../src/statements.ts";
 import { LocationValidationError } from "../src/validation.ts";
 
 const clock = { now: () => "2026-06-13T12:00:00.000Z" };
@@ -372,7 +376,7 @@ describe("the letterhead logo", () => {
         "SELECT letterhead_logo_object_key, letterhead_logo_content_type, letterhead_logo_size_bytes, letterhead_logo_sha256, letterhead_logo_width_pixels, letterhead_logo_height_pixels, letterhead_logo_width_emu, letterhead_logo_updated_at FROM location WHERE id = ?1",
       )
       .bind(reno)
-      .all<Record<string, unknown>>();
+      .all();
     expect(Object.values(results[0] ?? {}).every((value) => value === null)).toBe(true);
   });
 
@@ -391,6 +395,206 @@ describe("the letterhead logo", () => {
     const database = freshDatabase();
     await expect(
       setLetterheadLogo(database, "location_missing" as LocationId, logo, options),
+    ).rejects.toMatchObject({ code: "unknown-location" });
+  });
+});
+
+describe("an office's email", () => {
+  it("is stored trimmed, and an empty one is none rather than a refusal", async () => {
+    const database = freshDatabase();
+    const { locationId, effect } = await createLocation(
+      database,
+      { name: "Reno", email: "  reno@example.com " },
+      options,
+    );
+    await commitEffectBatch(database, effect, { now });
+    const read = (email: string | null) =>
+      database
+        .prepare("SELECT email FROM location WHERE id = ?1")
+        .bind(locationId)
+        .all()
+        .then((result) => expect(result.results[0]).toEqual({ email }));
+    await read("reno@example.com");
+    const cleared = await updateLocation(database, locationId, { email: "   " }, options);
+    await commitEffectBatch(database, cleared.effect, { now });
+    await read(null);
+  });
+
+  it("refuses something that is not one address", async () => {
+    const database = freshDatabase();
+    await expect(
+      createLocation(database, { name: "Reno", email: "not an address" }, options),
+    ).rejects.toMatchObject({ code: "invalid-email" });
+    await expect(
+      createLocation(database, { name: "Reno", email: "a@b c" }, options),
+    ).rejects.toMatchObject({ code: "invalid-email" });
+  });
+});
+
+describe("an address carries the international field set", () => {
+  it("stores every line the country's form can ask for", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    const { effect } = await setLocationAddresses(
+      database,
+      reno,
+      [
+        {
+          kind: "physical",
+          street: "1 Main St",
+          streetTwo: "Suite 200",
+          dependentLocality: "Midtown",
+          city: "Reno",
+          region: "NV",
+          postal: "89501",
+          sortingCode: "CEDEX 1",
+          country: "US",
+          phone: "+17755550148",
+        },
+      ],
+      options,
+    );
+    await commitEffectBatch(database, effect, { now });
+    const { results } = await database
+      .prepare(
+        "SELECT street, street_two, dependent_locality, city, region, postal, sorting_code, country, phone FROM location_address WHERE location_id = ?1",
+      )
+      .bind(reno)
+      .all();
+    expect(results[0]).toEqual({
+      street: "1 Main St",
+      street_two: "Suite 200",
+      dependent_locality: "Midtown",
+      city: "Reno",
+      region: "NV",
+      postal: "89501",
+      sorting_code: "CEDEX 1",
+      country: "US",
+      phone: "+17755550148",
+    });
+  });
+});
+
+describe("assignment from the office's side", () => {
+  it("a member's first office is their primary whatever the caller said", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    await seedMember(database, "user_a");
+    const added = await addMemberToLocation(database, "user_a" as UserId, reno, false, options);
+    await commitEffectBatch(database, added.effect, { now });
+    expect(await readMemberLocations(database, "user_a" as UserId)).toEqual([
+      { locationId: reno, isPrimary: true },
+    ]);
+  });
+
+  it("a later office is primary only when asked, and asking demotes the one that was", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    const vegas = await seedLocation(database, { name: "Vegas" });
+    await seedMember(database, "user_a");
+    await commitEffectBatch(
+      database,
+      (await addMemberToLocation(database, "user_a" as UserId, reno, true, options)).effect,
+      { now },
+    );
+    await commitEffectBatch(
+      database,
+      (await addMemberToLocation(database, "user_a" as UserId, vegas, false, options)).effect,
+      { now },
+    );
+    expect(await readMemberLocations(database, "user_a" as UserId)).toEqual([
+      { locationId: reno, isPrimary: true },
+      { locationId: vegas, isPrimary: false },
+    ]);
+    await commitEffectBatch(
+      database,
+      (await addMemberToLocation(database, "user_a" as UserId, vegas, true, options)).effect,
+      { now },
+    );
+    expect(await readMemberLocations(database, "user_a" as UserId)).toEqual([
+      { locationId: vegas, isPrimary: true },
+      { locationId: reno, isPrimary: false },
+    ]);
+  });
+
+  it("removing the primary hands the role to the first remaining office", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    const vegas = await seedLocation(database, { name: "Vegas" });
+    await seedMember(database, "user_a");
+    await commitEffectBatch(
+      database,
+      (await addMemberToLocation(database, "user_a" as UserId, reno, true, options)).effect,
+      { now },
+    );
+    await commitEffectBatch(
+      database,
+      (await addMemberToLocation(database, "user_a" as UserId, vegas, false, options)).effect,
+      { now },
+    );
+    await commitEffectBatch(
+      database,
+      (await removeMemberFromLocation(database, "user_a" as UserId, reno, options)).effect,
+      { now },
+    );
+    expect(await readMemberLocations(database, "user_a" as UserId)).toEqual([
+      { locationId: vegas, isPrimary: true },
+    ]);
+    await commitEffectBatch(
+      database,
+      (await removeMemberFromLocation(database, "user_a" as UserId, vegas, options)).effect,
+      { now },
+    );
+    expect(await readMemberLocations(database, "user_a" as UserId)).toEqual([]);
+  });
+
+  it("refuses to put a member at an office that does not exist", async () => {
+    const database = freshDatabase();
+    await seedMember(database, "user_a");
+    await expect(
+      addMemberToLocation(
+        database,
+        "user_a" as UserId,
+        "location_missing" as LocationId,
+        true,
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "unknown-location" });
+  });
+});
+
+describe("setFirmDefaultLocation", () => {
+  it("names the office the firm numbers and prints against, and audits the choice", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    const { effect } = await setFirmDefaultLocation(database, reno, options);
+    await commitEffectBatch(database, effect, { now });
+    const setting = await database
+      .prepare("SELECT value FROM setting WHERE key = 'locations.firmDefaultLocationId'")
+      .all<{ value: string }>();
+    expect(JSON.parse(setting.results[0]?.value ?? "null")).toBe(reno);
+    const audit = await database
+      .prepare(
+        "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'location.firm_default_set'",
+      )
+      .bind(reno)
+      .all();
+    expect(audit.results).toHaveLength(1);
+  });
+
+  it("refuses a closed office and an unknown one", async () => {
+    const database = freshDatabase();
+    const reno = await seedLocation(database, { name: "Reno" });
+    await commitEffectBatch(
+      database,
+      (await closeLocation(database, reno, { ...options, firmDefaultLocationId: null })).effect,
+      { now },
+    );
+    await expect(setFirmDefaultLocation(database, reno, options)).rejects.toMatchObject({
+      code: "location-is-closed",
+    });
+    await expect(
+      setFirmDefaultLocation(database, "location_missing" as LocationId, options),
     ).rejects.toMatchObject({ code: "unknown-location" });
   });
 });

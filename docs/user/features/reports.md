@@ -4,12 +4,24 @@ Reports is where the firm's records are read back as a document: a question aske
 answered from what the firm has already recorded, shown on screen and taken away as a file. Open it
 from the sidebar under Firm.
 
+## The two sides of the screen
+
+Reports has a column on the left and the report on the right. The column lists every report the
+platform offers, grouped by family, and stays there whichever report you have open: the one you
+are on is marked, and clicking another in the column opens it in place. A report marked **Soon**
+is in the column too, greyed and not clickable; resting the pointer on it says what it is waiting
+on. On a narrow window the column sits above the report instead of beside it.
+
+The way back at the top of a report still returns you to the index, and the column is there as
+well; use whichever is closer to hand.
+
 ## The catalogue
 
-The Reports page lists every report the platform offers, grouped by family: trust compliance,
-financial, productivity, and operational. Each entry says what the report answers. A report you can
-run opens when you click it. A report marked **Soon** is listed so you can see what is coming; it
-says what it is waiting on and does nothing yet.
+On arriving, the right side is the index: every report the platform offers, grouped by family
+(trust compliance, financial, productivity, and operational), each entry saying what the report
+answers. A report you can run opens when you click it, from the index or from the column. A report
+marked **Soon** is listed so you can see what is coming; it says what it is waiting on and does
+nothing yet.
 
 The trust compliance report runs today. The accounts receivable aging, work in progress, realization,
 timekeeper productivity, and operational volumes reports are listed and marked Soon.
@@ -20,9 +32,10 @@ inside the field says how much of the whole you are looking at. It searches a re
 question it answers, the family heading, and the permission it runs under. Clear it with the cross
 at the end of the field, or press Escape.
 
-The two buttons beside the search choose how the page reads: **tiles**, a card per report with its
+The two buttons beside the search choose how the index reads: **tiles**, a card per report with its
 question at full length, or **list**, one dense line each. The choice is remembered in this browser.
-It is the same page the [Tools](tools.md) catalogue uses, and each remembers its own choice.
+It is the same screen the [Tools](tools.md) catalogue uses, and each remembers its own choice. The
+column on the left is not affected by the view or the search: it always shows every report.
 
 ## Running a report
 
@@ -77,4 +90,4 @@ somebody the report alone should grant that beside it.
 - [The trust compliance report](trust-compliance-report.md): what each section of that report means
   and when it will not be produced.
 - [Downloads](../downloads.md): where an exported file goes.
-- [Tools](tools.md): the firm's workbench, on the same catalogue page.
+- [Tools](tools.md): the firm's workbench, on the same two-sided screen.

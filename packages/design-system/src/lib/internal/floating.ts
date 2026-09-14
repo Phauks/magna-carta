@@ -1,3 +1,4 @@
+import type { Select as SelectPrimitive } from "bits-ui";
 import { mergeClasses } from "./merge-classes.ts";
 
 /*
@@ -51,8 +52,12 @@ export const FLOATING_WRAPPER_RULE =
  * opened from INSIDE a dialog painted beneath the panel at the old dropdown
  * layer — visible but unclickable, the panel intercepted the pointer. The
  * Radix/Bits ecosystem norm is anchored content above dialogs; toast stays
- * highest so notifications always win. The `dropdown` layer remains for
- * non-anchored dropdown-like surfaces that should scroll under pinned bars.
+ * highest so notifications always win. EVERY floating Content part takes
+ * `anchored` — the two context-menu parts were the last on `dropdown`, and a
+ * right-click menu raised inside a dialog painted under the panel exactly as
+ * a picker once had (corrected 2026-09-11). `dropdown` stays a token for a
+ * non-portaled surface that should scroll under pinned bars; no floating part
+ * may name it, and test/floating-surfaces.test.ts refuses one.
  */
 export const Z_LAYER_CLASSES = {
   dropdown: "z-dropdown",
@@ -112,4 +117,60 @@ export type PresenceClass =
  */
 export function floatingContentClasses(layer: ZLayer, ...presence: string[]): string {
   return mergeClasses(Z_LAYER_CLASSES[layer], ...presence);
+}
+
+/*
+ * WHERE A SURFACE OPENS, AND HOW WIDE IT MAY GROW — settled once, here, for every surface that
+ * opens from a control (Select and Combobox listboxes, dropdown menus, popovers). The owner's
+ * ruling (settings round, 2026-09-11): there is one dropdown, and its behaviour is the
+ * component's, not each call site's — alignment, width and collision handling are decided in the
+ * component so a page cannot get them wrong and a correction is made once. Before this, the
+ * alignment was written at ninety-five call sites and the components set no default of their own.
+ *
+ * A context menu is not one of these: it anchors to the pointer, not a control, and opens from the
+ * cursor in the reading direction as every platform's does.
+ */
+
+/** The alignments Bits' floating layer accepts — the same closed set on every Content part. */
+export type FloatingAlign = NonNullable<SelectPrimitive.ContentProps["align"]>;
+
+/**
+ * A surface aligns to the END (right, in left-to-right) of the control that opens it, and grows
+ * toward the start. Most controls that open one sit at the right-hand side of a row or a bar, and
+ * a panel growing rightward from there ends up against the edge of the screen. A caller whose
+ * control is left-anchored passes `align="start"` and wins; the default is what every other
+ * caller gets by writing nothing.
+ */
+export const FLOATING_ALIGN: FloatingAlign = "end";
+
+/**
+ * The room a surface keeps from the viewport's edges when Bits shifts or flips it to stay in view
+ * (the `collisionPadding` every surface passes unless a caller says otherwise).
+ */
+export const FLOATING_COLLISION_PADDING = 8;
+
+/**
+ * Inline style for a floating panel's width: never wider than the room Bits measured for it
+ * (`--bits-floating-available-width`, the clipping width less the collision padding), so a long
+ * label wraps inside the panel instead of running the panel off the screen. These are Bits-owned
+ * positioning variables, not `--mc-` tokens, so they ride an inline style on the element and never
+ * a recipe (the components.css purity gate keeps them out).
+ */
+export const FLOATING_PANEL_STYLE = "max-width: var(--bits-floating-available-width)";
+
+/**
+ * Inline style for a LISTBOX panel (Select, Combobox): at least as wide as the control it opens
+ * from (`--bits-floating-anchor-width`), and capped like every other panel. With end alignment,
+ * the panel's end edge sits on the control's and any extra width grows toward the start.
+ */
+export const LISTBOX_PANEL_STYLE = `min-width: var(--bits-floating-anchor-width); ${FLOATING_PANEL_STYLE}`;
+
+/**
+ * Composes a surface's own inline style with whatever the caller passed as `style`, the caller's
+ * declarations LAST so they win the cascade the way a later `mergeClasses` input wins — a spread
+ * `{...restProps}` carrying `style` would otherwise replace the surface's width rules outright.
+ */
+export function floatingContentStyle(base: string, callerStyle: string | null | undefined): string {
+  const caller = callerStyle?.trim();
+  return caller ? `${base}; ${caller}` : base;
 }

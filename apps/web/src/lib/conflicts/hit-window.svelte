@@ -410,11 +410,14 @@
   {/if}
 {/snippet}
 
-{#snippet trailRail()}
+{#snippet trailRail(note?: string)}
+  <!-- The one line about the trail sits INSIDE the rail's frame, beneath its events, so the words
+       about what the record holds (or does not yet) are never loose prose beside the structure. -->
   <EventRail
     {events}
     label="This hit's adjudication"
     emptyMessage="Nothing has been recorded against this hit yet."
+    {note}
   />
   {#if hit?.disposition != null && hit.disposition.shortfalls.length > 0}
     <!-- Beneath the trail, because it is not an event: it is what the latest answer's record is
@@ -455,29 +458,26 @@
         {/if}
       {/snippet}
       {#snippet fixture()}
-        <EventRail events={TRAIL_FIXTURE} label="This hit's adjudication" />
-        <p class="text-xs text-text-muted">
-          2 answers, oldest first. An answer is never edited — a reviewer who changes their mind
-          records another, and both stay on the log.
-        </p>
+        <EventRail
+          events={TRAIL_FIXTURE}
+          label="This hit's adjudication"
+          note="2 answers, oldest first. An answer is never edited — a reviewer who changes their mind records another, and both stay on the log."
+        />
       {/snippet}
       {#snippet emptyState()}
         <!-- An empty trail still has the rail's one certain event on it: the check that surfaced
-             the hit. What is empty is the reviewers' side of the record, and the line says so. -->
-        {@render trailRail()}
-        <p class="text-xs text-text-muted">
-          No reviewer has answered this hit. That is a fact about the hit, not about whether an
-          interest is adverse.
-        </p>
+             the hit. What is empty is the reviewers' side of the record, and the rail's own note
+             says so. -->
+        {@render trailRail(
+          "No reviewer has answered this hit. That is a fact about the hit, not about whether an interest is adverse.",
+        )}
       {/snippet}
-      {@render trailRail()}
-      {#if trail.length > 1}
-        <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
-        <p class="text-xs text-text-muted">
-          {trail.length} answers, oldest first. An answer is never edited — a reviewer who changes
-          their mind records another, and both stay on the log.
-        </p>
-      {/if}
+      <!-- The point of the trail: a later answer never replaces an earlier one on the record. -->
+      {@render trailRail(
+        trail.length > 1
+          ? `${String(trail.length)} answers, oldest first. An answer is never edited — a reviewer who changes their mind records another, and both stay on the log.`
+          : undefined,
+      )}
     </LoadingRegion>
   </div>
 {/snippet}

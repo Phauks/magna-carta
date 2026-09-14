@@ -5,8 +5,10 @@ import {
   beginDigests,
   digestOf,
   digestReadBytes,
+  digestReadiness,
   digestSettled,
   forgetDigests,
+  intakeReadiness,
   resetDigestsForTests,
 } from "$lib/file-manager/upload-digests.svelte.ts";
 import { intakeEntryKey } from "$lib/file-manager/upload-intake.ts";
@@ -43,15 +45,32 @@ function drivenReads(): { pending: Pending[]; read: Parameters<typeof resetDiges
   };
 }
 
+/** The firm's answer, driven by hand: which digests it holds, and whether it can answer at all. */
+function firmHolding(
+  held: Set<string>,
+  options: { readonly answers?: boolean } = {},
+): Parameters<typeof resetDigestsForTests>[1] {
+  return async ({ sha256 }) => {
+    if (options.answers === false) return null;
+    return held.has(sha256);
+  };
+}
+
+const MATTER = "matter-1";
+
 afterEach(() => {
   resetDigestsForTests();
 });
+
+async function turns(count = 10): Promise<void> {
+  for (let turn = 0; turn < count; turn += 1) await Promise.resolve();
+}
 
 describe("the digest register", () => {
   it("starts reading when files are chosen, one behind another rather than all at once", async () => {
     const { pending, read } = drivenReads();
     resetDigestsForTests(read);
-    beginDigests([entry("a.pdf"), entry("b.pdf"), entry("c.pdf")]);
+    beginDigests([entry("a.pdf"), entry("b.pdf"), entry("c.pdf")], MATTER);
     await Promise.resolve();
     expect(pending.map((one) => one.name)).toEqual(["a.pdf"]);
     pending[0]?.answer("digest-a");
@@ -76,7 +95,7 @@ describe("the digest register", () => {
     const { pending, read } = drivenReads();
     resetDigestsForTests(read);
     const chosen = entry("big.pdf", 100);
-    beginDigests([chosen]);
+    beginDigests([chosen], MATTER);
     await Promise.resolve();
     pending[0]?.report(40);
     const seen: number[] = [];
@@ -94,7 +113,7 @@ describe("the digest register", () => {
     resetDigestsForTests(read);
     const chosen = entry("watched.pdf", 100);
     const key = intakeEntryKey(chosen);
-    beginDigests([chosen]);
+    beginDigests([chosen], MATTER);
     await Promise.resolve();
     pending[0]?.report(25);
     flushSync();
@@ -110,16 +129,76 @@ describe("the digest register", () => {
     const { pending, read } = drivenReads();
     resetDigestsForTests(read);
     const chosen = entry("removed.pdf");
-    beginDigests([chosen]);
+    beginDigests([chosen], MATTER);
     await Promise.resolve();
     expect(pending).toHaveLength(1);
     forgetDigests([intakeEntryKey(chosen)]);
     flushSync();
     expect(digestReadBytes(intakeEntryKey(chosen))).toBe(0);
     pending[0]?.answer(null);
-    beginDigests([chosen]);
+    beginDigests([chosen], MATTER);
     for (let turn = 0; turn < 5; turn += 1) await Promise.resolve();
     expect(pending).toHaveLength(2);
+  });
+
+  it("asks the firm once the digest is in, and reports ready or held per file", async () => {
+    const asked: { sha256: string; matterId: string }[] = [];
+    resetDigestsForTests(
+      async (file) => `${file.name}-digest`,
+      async (question) => {
+        asked.push({ sha256: question.sha256, matterId: question.matterId });
+        return question.sha256 === "held.pdf-digest";
+      },
+    );
+    const fresh = entry("fresh.pdf");
+    const held = entry("held.pdf");
+    beginDigests([fresh, held], MATTER);
+    await turns(30);
+    flushSync();
+    expect(asked).toEqual([
+      { sha256: "fresh.pdf-digest", matterId: MATTER },
+      { sha256: "held.pdf-digest", matterId: MATTER },
+    ]);
+    expect(digestReadiness(intakeEntryKey(fresh))).toBe("ready");
+    expect(digestReadiness(intakeEntryKey(held))).toBe("held");
+    // The same answers, in the shape the table reads.
+    const readiness = intakeReadiness([fresh, held]);
+    expect(readiness.get(intakeEntryKey(fresh))).toEqual({ stage: "ready" });
+    expect(readiness.get(intakeEntryKey(held))).toEqual({ stage: "held" });
+  });
+
+  it("reads a file that could not be read as not read, and a firm that cannot answer as ready", async () => {
+    resetDigestsForTests(
+      async (file) => (file.name === "broken.pdf" ? null : `${file.name}-digest`),
+      firmHolding(new Set(), { answers: false }),
+    );
+    const broken = entry("broken.pdf");
+    const fine = entry("fine.pdf");
+    beginDigests([broken, fine], MATTER);
+    await turns(30);
+    flushSync();
+    expect(digestReadiness(intakeEntryKey(broken))).toBe("unread");
+    // A host that cannot answer costs nothing but the file reading as ready.
+    expect(digestReadiness(intakeEntryKey(fine))).toBe("ready");
+  });
+
+  it("reports a file still being read as reading, and one not yet begun as nothing at all", async () => {
+    const { pending, read } = drivenReads();
+    resetDigestsForTests(read, firmHolding(new Set()));
+    const first = entry("first.pdf", 100);
+    const second = entry("second.pdf", 100);
+    beginDigests([first, second], MATTER);
+    await Promise.resolve();
+    pending[0]?.report(40);
+    flushSync();
+    const readiness = intakeReadiness([first, second]);
+    expect(readiness.get(intakeEntryKey(first))).toEqual({ stage: "hashing", hashedBytes: 40 });
+    // Queued behind the first: chosen, and that is all.
+    expect(readiness.has(intakeEntryKey(second))).toBe(false);
+    pending[0]?.answer("first-digest");
+    await turns(30);
+    flushSync();
+    expect(intakeReadiness([first]).get(intakeEntryKey(first))).toEqual({ stage: "ready" });
   });
 
   it("keeps reading the files behind one whose read threw", async () => {
@@ -130,7 +209,7 @@ describe("the digest register", () => {
       if (failing.has(file.name)) throw new Error("unreadable");
       return `${file.name}-digest`;
     });
-    beginDigests([entry("bad.pdf"), entry("good.pdf")]);
+    beginDigests([entry("bad.pdf"), entry("good.pdf")], MATTER);
     for (let turn = 0; turn < 20; turn += 1) await Promise.resolve();
     expect(seen).toEqual(["bad.pdf", "good.pdf"]);
     expect(await digestOf(entry("good.pdf"))).toBe("good.pdf-digest");

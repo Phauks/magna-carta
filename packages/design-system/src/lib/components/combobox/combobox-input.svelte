@@ -19,7 +19,7 @@
   import { getContext } from "svelte";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import { placeholderOf } from "../../formatters/placeholder.ts";
-  import { COMBOBOX_LISTBOX_ID } from "./context.ts";
+  import { COMBOBOX_FIELD_ANCHOR, COMBOBOX_LISTBOX_ID, type ComboboxFieldAnchor } from "./context.ts";
   import type { WithoutChild } from "../../internal/types.ts";
 
   let {
@@ -37,6 +37,13 @@
   } = $props();
 
   const listboxId = getContext<string>(COMBOBOX_LISTBOX_ID);
+  // The bordered box is what the listbox aligns to — the control a person sees, not the text box
+  // inside it (see context.ts). Written into Root's slot; Content reads it.
+  const fieldAnchor = getContext<ComboboxFieldAnchor | undefined>(COMBOBOX_FIELD_ANCHOR);
+  let fieldBox = $state<HTMLElement | null>(null);
+  $effect(() => {
+    if (fieldAnchor) fieldAnchor.element = fieldBox;
+  });
 
   // A name given either way lands in the same place; a trailing colon or required-field asterisk from
   // the written label comes off. Nothing at all stays nothing, rather than becoming an empty string a
@@ -49,7 +56,7 @@
   });
 </script>
 
-<div class={mergeClasses("mc-combobox-input-wrapper w-full", className)}>
+<div bind:this={fieldBox} class={mergeClasses("mc-combobox-input-wrapper w-full", className)}>
   <ComboboxPrimitive.Input
     bind:ref
     aria-controls={listboxId}

@@ -351,6 +351,14 @@ export function reasoningModelIds(): readonly InferenceModelId[] {
   return REASONING_IDS;
 }
 
+// The same subset as whole entries, for a surface that offers the choice and has to show what each
+// choice retains. Every entry here is ZDR-eligible by the refinement above, so a firm choosing among
+// them cannot choose a model that keeps its content; what differs between them is capability, the
+// pinned snapshot, and when each fact was last verified — and those are what the surface states.
+export function reasoningEntries(): readonly CatalogEntry[] {
+  return CATALOG.filter((entry) => entry.slot === "reasoning");
+}
+
 // The curated model currently occupying a reasoning tier. Total: every tier has an occupant by
 // module-load validation, so this never returns undefined and callers need no fallback.
 export function reasoningModelForTier(tier: ReasoningTier): CatalogEntry {

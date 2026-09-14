@@ -17,6 +17,7 @@
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import {
     settingValueLabel,
@@ -131,11 +132,7 @@
   {restoreAction}
 />
 
-<!-- The middle story: the one scroll area, reaching the canvas's true edges (the breathing
-     room rides INSIDE it); scrollbar-gutter keeps pages that scroll and pages that do not at
-     identical width. Full canvas width (owner-directed): the table uses the space. -->
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
+<SettingsScrollRegion>
   <SettingsDescription>Controls that exist only in development builds.</SettingsDescription>
 
   <!-- The master switch stands in its OWN plate (owner-directed), apart from the settings it
@@ -158,5 +155,4 @@
       <SettingsRow definition={BUILD_STAMP_DEFINITION} instant={instantFor(BUILD_STAMP_FLAG)} />
     </SettingsPlate>
   {/if}
-  </div>
-</div>
+</SettingsScrollRegion>

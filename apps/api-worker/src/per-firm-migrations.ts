@@ -8,6 +8,9 @@ import seedEditOwnProfileSql from "@magna-carta/database/drizzle/per-firm/202609
 import seedManageProfileSql from "@magna-carta/database/drizzle/per-firm/20260908T060000_seed-manage-profile.sql";
 import communicationReferenceNumberAndEndSql from "@magna-carta/database/drizzle/per-firm/20260908T215427_communication-reference-number-and-end.sql";
 import seedAiSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20260909T000000_seed-ai-settings-permission.sql";
+import magnusConversationAttachmentSql from "@magna-carta/database/drizzle/per-firm/20260911T000000_magnus-conversation-attachment.sql";
+import conflictsCheckNumbersAndRunsSql from "@magna-carta/database/drizzle/per-firm/20260911T120000_conflicts-check-numbers-and-runs.sql";
+import officeEmailAddressLinesAndFirmBrandImagesSql from "@magna-carta/database/drizzle/per-firm/20260911T000000_office-email-address-lines-and-firm-brand-images.sql";
 import taskRungsAndArchiveSql from "@magna-carta/database/drizzle/per-firm/20260914T120000_task-rungs-and-archive.sql";
 
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
@@ -23,6 +26,10 @@ export function perFirmMigrations(): Migration[] {
     "20260908T060000_seed-manage-profile": seedManageProfileSql,
     "20260908T215427_communication-reference-number-and-end": communicationReferenceNumberAndEndSql,
     "20260909T000000_seed-ai-settings-permission": seedAiSettingsPermissionSql,
+    "20260911T000000_magnus-conversation-attachment": magnusConversationAttachmentSql,
+    "20260911T120000_conflicts-check-numbers-and-runs": conflictsCheckNumbersAndRunsSql,
+    "20260911T000000_office-email-address-lines-and-firm-brand-images":
+      officeEmailAddressLinesAndFirmBrandImagesSql,
     "20260914T120000_task-rungs-and-archive": taskRungsAndArchiveSql,
   });
 }

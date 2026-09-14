@@ -29,16 +29,20 @@
   import SettingsDescription from "$lib/settings/components/settings-description.svelte";
   import SettingsMasthead from "$lib/settings/components/settings-masthead.svelte";
   import SettingsPlate from "$lib/settings/components/settings-plate.svelte";
+  import SettingsScrollRegion from "$lib/settings/components/settings-scroll-region.svelte";
   import SettingsRow from "$lib/settings/components/settings-row.svelte";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import ChoicePicker from "$lib/components/choice-picker.svelte";
+  import type { ChoiceOption } from "$lib/components/choice-picker.ts";
   import {
     AI_PROCESSING_ELIGIBILITY_DEFINITION,
     AI_SETTINGS_SECTION_ID,
     AiSettingsDraft,
     MAGNUS_DAILY_TURN_CEILING_DEFINITION,
     MAGNUS_ENABLED_DEFINITION,
+    PLATFORM_MODEL_CHOICE,
   } from "$lib/ai/ai-settings-draft.svelte.ts";
   import { MANAGE_AI_SETTINGS_PERMISSION } from "$lib/ai/ai-settings-api.ts";
   import { readSession, type SessionBootstrap } from "$lib/matters/matters-api.ts";
@@ -50,7 +54,26 @@
   // permission turns out to be missing reads as a broken page.
   const canEdit = $derived(session?.permissions.includes(MANAGE_AI_SETTINGS_PERMISSION) ?? false);
 
-  const model = $derived(draft.committed?.model ?? null);
+  // The facts beneath the control describe the STAGED choice, so they read back what saving will do.
+  const shownModel = $derived(draft.stagedModelChoice);
+
+  // The roster as the combobox offers it: the platform's own choice first, then each verified model
+  // with the date its retention facts were last checked beside it.
+  const modelOptions = $derived.by((): readonly ChoiceOption[] => {
+    const definition = draft.modelDefinition;
+    const roster = draft.committed?.models ?? [];
+    return (definition.options ?? []).map((option) => {
+      const entry = roster.find((choice) => choice.modelId === option.value);
+      return entry === undefined
+        ? { value: option.value, label: option.label, keywords: ["platform", "current"] }
+        : {
+            value: option.value,
+            label: option.label,
+            aside: `zero data retention, verified ${entry.verifiedOn}${entry.tier === null ? "" : ` · ${entry.tier}`}`,
+            keywords: [entry.tier ?? "", entry.snapshotId],
+          };
+    });
+  });
 
   $effect(() => {
     void draft.load();
@@ -72,8 +95,28 @@
   showHistory={false}
 />
 
-<div class="mc-scrollbar min-h-0 grow overflow-y-auto" style="scrollbar-gutter: stable">
-  <div class="flex flex-col gap-24 p-24">
+<!-- One reported fact about the model, in the Versions page's definition-list voice: the shared
+     table grid (marker gutter, flexible label, value at the control-column measure), so these rows
+     keep the same vertical edge as the switches above them without pretending to be controls.
+     `detail` carries the one-line reading of a value that needs one. Declared at the top level: a
+     snippet declared inside a component's children would become that component's prop. -->
+{#snippet modelFact(label: string, value: string, detail: string | null)}
+  <div class="flex items-baseline gap-16 py-12">
+    <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
+    <FieldLabel as="dt" class="min-w-0 grow">{label}</FieldLabel>
+    <dd
+      class="flex shrink-0 flex-col items-end gap-4 text-end"
+      style="inline-size: var(--mc-size-popover)"
+    >
+      <span class="text-sm font-medium text-text-default tabular-nums">{value}</span>
+      {#if detail !== null}
+        <span class="text-xs text-text-muted">{detail}</span>
+      {/if}
+    </dd>
+  </div>
+{/snippet}
+
+<SettingsScrollRegion>
     <SettingsDescription>
       Whether this firm's content may be sent to a model, and which of the platform's features may
       send it. Everything here is off until the firm turns it on.
@@ -88,26 +131,6 @@
         onRetry={() => void draft.commit()}
       />
     {/if}
-
-    <!-- One reported fact about the model, in the Versions page's definition-list voice: the shared
-         table grid (marker gutter, flexible label, value at the control-column measure), so these
-         rows keep the same vertical edge as the switches above them without pretending to be
-         controls. `detail` carries the one-line reading of a value that needs one. -->
-    {#snippet modelFact(label: string, value: string, detail: string | null)}
-      <div class="flex items-baseline gap-16 py-12">
-        <div class="shrink-0" style="inline-size: var(--mc-space-16)"></div>
-        <FieldLabel as="dt" class="min-w-0 grow">{label}</FieldLabel>
-        <dd
-          class="flex shrink-0 flex-col items-end gap-4 text-end"
-          style="inline-size: var(--mc-size-popover)"
-        >
-          <span class="text-sm font-medium text-text-default tabular-nums">{value}</span>
-          {#if detail !== null}
-            <span class="text-xs text-text-muted">{detail}</span>
-          {/if}
-        </dd>
-      </div>
-    {/snippet}
 
     <!--
       ONE READ, ONE FAILURE NOTICE. All three plates below are drawn from the single
@@ -149,40 +172,83 @@
       </LoadingRegion>
     </SettingsPlate>
 
-    <!-- The model plate is deliberately a SEPARATE plate rather than more rows in the one above:
-         its rows are reported facts and the ones above are decisions, and a ledger that mixes the
-         two invites reading a fact as something that can be changed. When the platform carries no
-         entry for the firm's stored model, the plate states that rather than naming a model — see
-         the route's comment on why the field is nullable. -->
+    <!-- The model plate holds ONE decision and the facts about it. The decision is the choice: the
+         platform's current model, which moves forward as better ones are verified, or one roster
+         entry the firm pins itself to. The rows beneath are facts about whatever the control holds
+         RIGHT NOW — the staged choice, not the saved one — so the reader sees what they are about
+         to choose before they save it. The roster is the platform's verified catalog: nothing
+         lists models at runtime that could also carry the retention facts, so the catalog's own
+         version and effective date are stated as the honest answer to how fresh the list is. When
+         the platform carries no entry for the firm's stored model, the plate states that rather
+         than naming a model — see the route's comment on why the field is nullable. -->
     <SettingsPlate heading="The Model Your Content Reaches">
       <LoadingRegion loading={!draft.loaded} label="Reading the model in force">
         {#snippet fixture()}
+          <SettingsRow definition={draft.modelDefinition} value={PLATFORM_MODEL_CHOICE} />
           <dl class="flex flex-col">
-            {@render modelFact("Model", "anthropic/model-name", null)}
             {@render modelFact("Snapshot", "model-name", "the exact release behind an answer")}
           </dl>
         {/snippet}
+        {#if canEdit}
+          <SettingsRow definition={draft.modelDefinition} {draft}>
+            {#snippet control()}
+              <!-- The product's one closed choice, a combobox: each roster row carries the fact a
+                   choice is made on, its verification date, beside its id. -->
+              <div class="w-full">
+                <ChoicePicker
+                  inputId="settings-{draft.modelDefinition.id}"
+                  label="Model"
+                  options={modelOptions}
+                  value={String(draft.stagedValue(draft.modelDefinition))}
+                  onchange={(next) => draft.stage(draft.modelDefinition, next)}
+                />
+              </div>
+            {/snippet}
+          </SettingsRow>
+        {:else}
+          <SettingsRow
+            definition={draft.modelDefinition}
+            value={draft.value(draft.modelDefinition)}
+          />
+        {/if}
         <dl class="flex flex-col divide-y divide-border-default">
-          {#if model === null}
+          {#if shownModel === null}
             {@render modelFact(
               "Model",
               "—",
               "The platform no longer carries the model this firm last selected.",
             )}
           {:else}
-            {@render modelFact("Model", model.modelId, null)}
-            {@render modelFact("Snapshot", model.snapshotId, "the exact release behind an answer")}
+            {@render modelFact(
+              "Snapshot",
+              shownModel.snapshotId,
+              "the exact release behind an answer",
+            )}
             {@render modelFact(
               "Zero Data Retention",
-              model.zeroDataRetention ? "In force" : "Not in force",
-              model.zeroDataRetention
-                ? "The provider keeps nothing that is sent to it."
+              shownModel.zeroDataRetention ? "In force" : "Not in force",
+              shownModel.zeroDataRetention
+                ? `The provider keeps nothing that is sent to it. Verified ${shownModel.verifiedOn}.`
                 : "The provider retains what is sent to it.",
             )}
             {@render modelFact(
               "Training on Your Content",
-              model.noTraining ? "Never" : "Permitted",
-              model.noTraining ? "The provider does not train on what it receives." : null,
+              shownModel.noTraining ? "Never" : "Permitted",
+              shownModel.noTraining ? "The provider does not train on what it receives." : null,
+            )}
+            {@render modelFact(
+              "Still Published",
+              `Confirmed ${shownModel.availabilityVerifiedOn}`,
+              shownModel.retirementNotBefore === null
+                ? null
+                : `The provider names ${shownModel.retirementNotBefore} as the earliest it may retire this model.`,
+            )}
+          {/if}
+          {#if draft.committed !== null && draft.committed.catalog.version > 0}
+            {@render modelFact(
+              "Roster",
+              `Catalog version ${String(draft.committed.catalog.version)}, effective ${draft.committed.catalog.effectiveDate}`,
+              "The platform's verification pass is what keeps it current; a model joins the roster only once its retention facts have been checked.",
             )}
           {/if}
         </dl>
@@ -240,8 +306,7 @@
       </p>
     {/if}
     {/if}
-  </div>
-</div>
+</SettingsScrollRegion>
 
 {#if canEdit}
   <SettingsCommitFooter {draft} />

@@ -160,7 +160,7 @@ export const conflictsMeasurements: readonly Measurement<ConflictsMeasurementHan
           trigger: "comprehensive",
           matterId: handle.subjectMatterId ?? undefined,
           subjectEntityIds: [handle.subjectEntityId],
-          scope: { sources: ["party", "graph"], strictness: "balanced", depth: 1 },
+          scope: { sources: ["party", "graph"], strictness: "balanced" },
         },
         handle.writeOptions,
       );
@@ -186,7 +186,7 @@ export const conflictsMeasurements: readonly Measurement<ConflictsMeasurementHan
         {
           trigger: "comprehensive",
           subjectEntityIds: [...handle.coPartyEntityIds],
-          scope: { sources: ["party", "graph"], strictness: "over_inclusive", depth: 1 },
+          scope: { sources: ["party", "graph"], strictness: "over_inclusive" },
         },
         handle.writeOptions,
       );
@@ -204,12 +204,7 @@ export const conflictsMeasurements: readonly Measurement<ConflictsMeasurementHan
         {
           trigger: "comprehensive",
           subjectEntityIds: [handle.corporateGroupHeadId],
-          scope: {
-            sources: ["party", "graph"],
-            strictness: "balanced",
-            depth: 1,
-            closureCap: DEEP_GRAPH_CLOSURE_CAP,
-          },
+          scope: { sources: ["party", "graph"], strictness: "balanced" },
         },
         handle.writeOptions,
       );
@@ -227,12 +222,7 @@ export const conflictsMeasurements: readonly Measurement<ConflictsMeasurementHan
         {
           trigger: "comprehensive",
           subjectEntityIds: [handle.corporateGroupHeadId],
-          scope: {
-            sources: ["party", "graph"],
-            strictness: "over_inclusive",
-            depth: 1,
-            closureCap: DEEP_GRAPH_CLOSURE_CAP,
-          },
+          scope: { sources: ["party", "graph"], strictness: "over_inclusive" },
         },
         handle.writeOptions,
       );
@@ -241,24 +231,15 @@ export const conflictsMeasurements: readonly Measurement<ConflictsMeasurementHan
   {
     name: "conflicts.run-check-truncating",
     operation: async (handle) => {
-      // The same group under a cap it cannot fit in. The walk stops, the check records that it was
-      // truncated with the frontier it did not reach, and the report says the search is incomplete.
+      // The same group under a ceiling it cannot fit in. The walk stops and records the frontier it
+      // did not reach. A check itself takes no ceiling — the platform's is the only one — so the walk
+      // is measured on its own, with the ceiling the walker takes for exactly this measurement.
       // Measured because stopping honestly is a code path like any other, and one that runs on
       // exactly the corpora where the engine is under the most pressure.
-      await runConflictsCheck(
-        handle.identifierContext,
-        {
-          trigger: "comprehensive",
-          subjectEntityIds: [handle.corporateGroupHeadId],
-          scope: {
-            sources: ["party", "graph"],
-            strictness: "balanced",
-            depth: 1,
-            closureCap: TRUNCATING_CLOSURE_CAP,
-          },
-        },
-        handle.writeOptions,
-      );
+      await expandGraph(handle.identifierContext.database, [handle.corporateGroupHeadId], {
+        ceiling: TRUNCATING_CLOSURE_CAP,
+        asOf: handle.identifierContext.clock.now(),
+      });
     },
   },
 ];
@@ -279,11 +260,7 @@ export async function conflictsMatcherBounds(
   const expansion = await expandGraph(
     handle.identifierContext.database,
     [handle.corporateGroupHeadId],
-    {
-      edgeClassBudgets: { control: 1, family: 1, representation: 1 },
-      closureCap: DEEP_GRAPH_CLOSURE_CAP,
-      asOf: handle.identifierContext.clock.now(),
-    },
+    { ceiling: DEEP_GRAPH_CLOSURE_CAP, asOf: handle.identifierContext.clock.now() },
   );
   const entityIds = expansion.entities.map((entity) => entity.entityId);
   const facts = await readSubjectFactsBatch(handle.identifierContext, entityIds);

@@ -28,6 +28,7 @@
   import Button from "@magna-carta/design-system/button";
   import { buttonClasses } from "@magna-carta/design-system/button";
   import EmptyState from "@magna-carta/design-system/empty-state";
+  import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -732,11 +733,6 @@
 
         <Tabs.Content value="hashes">
           <div class="flex flex-col gap-12 p-12">
-            {#if file.currentVersionId === null}
-              <p class="text-sm text-text-muted">
-                Nothing to digest yet: no version has been committed.
-              </p>
-            {:else}
               <!-- Which version the digests describe. The current version unless the reader picks
                    an earlier one; picking one computes its digests at once. -->
               <div class="flex items-center gap-8">
@@ -779,40 +775,40 @@
                 </Button>
               </div>
 
-              <!-- Every algorithm row is here before a value is: the reader is told what is coming
-                   rather than surprised by it arriving. While the digests are being computed the
-                   rows stand in their own shape, each at its algorithm's length; a recompute keeps
-                   the digests already on screen in view until the fresh ones land. -->
+              <!-- The list stands before its values: every algorithm is a term from the start, each
+                   with an empty definition until its digest lands, and the words about why sit
+                   beneath the terms inside the list. While the digests are being computed the rows
+                   stand in their own shape, each at its algorithm's length; a recompute keeps the
+                   digests already on screen in view until the fresh ones land. -->
               <LoadingRegion
                 loading={integrityShown === null && integrityRunning}
                 refreshing={integrityShown !== null && integrityRunning}
                 label="Computing the digests"
               >
                 {#snippet fixture()}
-                  <dl class="flex flex-col gap-8 text-xs">
+                  <DefinitionList.Root class="text-xs">
                     {#each HASH_ALGORITHMS as algorithm (algorithm)}
-                      <div class="flex items-baseline gap-16">
-                        <dt class="w-48 shrink-0 font-semibold uppercase">{algorithm}</dt>
-                        <dd class="font-mono break-all">{DIGEST_FIXTURE[algorithm]}</dd>
-                      </div>
-                    {/each}
-                  </dl>
-                {/snippet}
-                <dl class="flex flex-col gap-8 text-xs">
-                  {#each HASH_ALGORITHMS as algorithm (algorithm)}
-                    <div class="flex items-baseline gap-16">
-                      <dt class="w-48 shrink-0 font-semibold uppercase">{algorithm}</dt>
-                      <dd class="font-mono break-all">
-                        {#if integrityShown !== null}
-                          {integrityShown.algorithms[algorithm]}
-                        {:else}
-                          <span class="text-text-subtle">Not computed yet</span>
-                        {/if}
-                      </dd>
-                    </div>
+                      <DefinitionList.Row term={algorithm.toUpperCase()}>
+                        <span class="font-mono">{DIGEST_FIXTURE[algorithm]}</span>
+                      </DefinitionList.Row>
                   {/each}
-                </dl>
-              </LoadingRegion>
+                </DefinitionList.Root>
+              {/snippet}
+              <DefinitionList.Root class="text-xs">
+                {#each HASH_ALGORITHMS as algorithm (algorithm)}
+                  <DefinitionList.Row term={algorithm.toUpperCase()} empty={integrityShown === null}>
+                    <span class="font-mono">{integrityShown?.algorithms[algorithm]}</span>
+                  </DefinitionList.Row>
+                {/each}
+                {#if file.currentVersionId === null}
+                  <DefinitionList.Empty>
+                    Nothing to digest yet: no version has been committed.
+                  </DefinitionList.Empty>
+                {:else if integrityShown === null}
+                  <DefinitionList.Empty>Not computed yet.</DefinitionList.Empty>
+                {/if}
+              </DefinitionList.Root>
+            </LoadingRegion>
 
               {#if integrityShown !== null && integrityShown.comparison === "mismatch"}
                 <!-- A difference between what intake recorded and what the bytes digest to now is
@@ -892,7 +888,6 @@
                   </div>
                 {/if}
               </div>
-            {/if}
           </div>
         </Tabs.Content>
 

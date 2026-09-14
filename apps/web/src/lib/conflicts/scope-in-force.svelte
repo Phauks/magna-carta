@@ -7,12 +7,19 @@
    * too — which name keys were compared, which encoders ran, which name roles were in scope — and
    * this states them.
    *
+   * IT READS BY PLACE FIRST, AS THE PANEL ASKS. Where the check searched is the Directory, Files,
+   * Messaging and Magnus — the places a member chooses between — and each says whether it was
+   * searched. The recorded sources beneath are the specifics, keyed as the row stores them, so an
+   * old row still reads.
+   *
    * THREE FACTS HERE ARE LOAD-BEARING AND ARE NEVER SOFTENED.
    *
    *   - A SOURCE THAT COULD NOT RUN IS NOT A SOURCE THAT FOUND NOTHING. Every registered source is
    *     listed, including the ones with no corpus behind them, and each says which it was.
-   *   - A TRUNCATED TRAVERSAL IS NEVER SHOWN AS A COMPLETED ONE. Where the walk stopped at its cap,
-   *     it says so, with how much was reachable and not searched.
+   *   - A TRUNCATED TRAVERSAL IS NEVER SHOWN AS A COMPLETED ONE. A check follows every recorded
+   *     relationship to closure; where the platform's ceiling stopped it, it says so, with how much
+   *     was reachable and not searched. A row from before the ceiling — one that ran under the hop
+   *     budgets a firm once set — reads under those, because that is what it did.
    *   - "THE ROW DOES NOT SAY" IS ITS OWN ANSWER. A check written before one of these records
    *     existed carries nothing for it, which is a different fact from a walk that completed or a
    *     comparison that ran, and it is never flattened into either.
@@ -22,6 +29,8 @@
   import type { ScopeInForceRecord } from "./conflicts-api.ts";
   import {
     NAME_MATCHING_LABEL,
+    SEARCH_LOCATIONS,
+    locationReading,
     sourceVocabulary,
     strictnessVocabulary,
   } from "./conflicts-vocabulary.ts";
@@ -36,6 +45,11 @@
       left.localeCompare(right),
     ),
   );
+  const toClosure = $derived(scope.traversal?.followedToClosure === true);
+
+  function count(value: number | null): string {
+    return value === null ? "Not recorded" : String(value);
+  }
 </script>
 
 {#snippet fact(label: string, value: string, title?: string)}
@@ -45,10 +59,38 @@
   </div>
 {/snippet}
 
+{#snippet notSearched(title: string)}
+  <Badge variant="neutral" {title}>Not searched</Badge>
+{/snippet}
+
 <div class="flex flex-col gap-16">
   <section class="flex flex-col gap-8">
-    <FieldLabel as="h3">Sources</FieldLabel>
+    <FieldLabel as="h3">Where It Searched</FieldLabel>
     <dl class="flex flex-col gap-4 text-sm">
+      {#each SEARCH_LOCATIONS as entry (entry.location)}
+        {@const reading = locationReading(entry, scope.sources)}
+        <div class="flex items-baseline justify-between gap-16">
+          <dt class="text-text-muted">{entry.label}</dt>
+          <dd>
+            {#if reading === "searched"}
+              <span>Searched</span>
+            {:else if reading === "not-searched"}
+              {@render notSearched(
+                "This place could not be searched. It is reported rather than omitted, so it can never read as searched and empty.",
+              )}
+            {:else}
+              <span
+                class="text-text-muted"
+                title="This check predates the record of this place. That is not the same as saying it was searched."
+              >
+                The row does not say
+              </span>
+            {/if}
+          </dd>
+        </div>
+      {/each}
+    </dl>
+    <dl class="flex flex-col gap-4 border-t border-border-default pt-8 text-sm">
       {#each sources as [source, availability] (source)}
         {@const word = sourceVocabulary(source)}
         <div class="flex items-baseline justify-between gap-16">
@@ -57,12 +99,9 @@
             {#if availability === "searched"}
               <span>Searched</span>
             {:else}
-              <Badge
-                variant="neutral"
-                title="This source could not run. It is reported rather than omitted, so it can never read as searched and empty."
-              >
-                Not searched
-              </Badge>
+              {@render notSearched(
+                "This source could not run. It is reported rather than omitted, so it can never read as searched and empty.",
+              )}
             {/if}
           </dd>
         </div>
@@ -92,10 +131,7 @@
           "This check predates the record of which channels ran. That is not the same as saying it compared what today's code compares.",
         )}
       {:else}
-        {@render fact(
-          "Name Keys",
-          scope.matching.nameKeys.join(", ") || "None recorded",
-        )}
+        {@render fact("Name Keys", scope.matching.nameKeys.join(", ") || "None recorded")}
         {@render fact(
           "Phonetic Encoders",
           scope.matching.phoneticSchemes.join(", ") || "None recorded",
@@ -116,50 +152,58 @@
   <section class="flex flex-col gap-8 border-t border-border-default pt-12">
     <FieldLabel as="h3">How Far It Walked</FieldLabel>
     <dl class="flex flex-col gap-4 text-sm">
-      {@render fact("Traversal Budget", `${String(scope.depth)} hops (widest class)`)}
-      {#each budgets as [edgeClass, budget] (edgeClass)}
-        {@render fact(edgeClass, `${String(budget)} ${budget === 1 ? "hop" : "hops"}`)}
-      {/each}
       {#if scope.traversal === null}
+        {@render fact("Traversal Budget", `${String(scope.depth)} hops (widest class)`)}
         {@render fact(
           "Traversal",
           "The row does not say",
           "This check predates the record of the walk. That is a different fact from a walk that completed.",
         )}
       {:else}
-        {@render fact("Closure Cap", scope.traversal.closureCap === null ? "Not recorded" : String(scope.traversal.closureCap))}
+        {#if toClosure}
+          {@render fact(
+            "Relationships",
+            "Every recorded relationship, followed to closure",
+            "The walk followed every relationship out from the subject parties as far as each chain goes. There was no hop budget to set.",
+          )}
+          {@render fact(
+            "Longest Chain Followed",
+            scope.traversal.longestPathLength === null
+              ? "Not recorded"
+              : `${String(scope.traversal.longestPathLength)} ${scope.traversal.longestPathLength === 1 ? "relationship" : "relationships"}`,
+          )}
+        {:else}
+          <!-- A row from before the walk went to closure ran under the firm's hop budgets of the
+               day, and reads under them: that is what it did. -->
+          {@render fact("Traversal Budget", `${String(scope.depth)} hops (widest class)`)}
+          {#each budgets as [edgeClass, budget] (edgeClass)}
+            {@render fact(edgeClass, `${String(budget)} ${budget === 1 ? "hop" : "hops"}`)}
+          {/each}
+        {/if}
+        {@render fact(
+          toClosure ? "The Platform's Ceiling" : "Closure Cap",
+          count(scope.traversal.closureCap),
+          toClosure
+            ? "The most entities one walk may reach. It is the platform's own bound, not a setting, and a walk that reaches it says so here."
+            : undefined,
+        )}
         {#if scope.traversal.truncated}
           <div class="flex items-baseline justify-between gap-16">
             <dt class="text-text-muted">Traversal</dt>
             <dd>
               <Badge
                 variant="warning"
-                title="The walk stopped at its cap. This search of the graph is incomplete, and the counts below say by how much."
+                title="The walk stopped at its bound. This search of the graph is incomplete, and the counts below say by how much."
               >
                 Truncated
               </Badge>
             </dd>
           </div>
-          {@render fact(
-            "Entities Reached",
-            scope.traversal.entitiesReached === null
-              ? "Not recorded"
-              : String(scope.traversal.entitiesReached),
-          )}
-          {@render fact(
-            "Reachable And Not Searched",
-            scope.traversal.unexploredFrontierSize === null
-              ? "Not recorded"
-              : String(scope.traversal.unexploredFrontierSize),
-          )}
-          {@render fact(
-            "Matched But Not Expanded",
-            scope.traversal.unexpandedReachedCount === null
-              ? "Not recorded"
-              : String(scope.traversal.unexpandedReachedCount),
-          )}
+          {@render fact("Entities Reached", count(scope.traversal.entitiesReached))}
+          {@render fact("Reachable And Not Searched", count(scope.traversal.unexploredFrontierSize))}
+          {@render fact("Matched But Not Expanded", count(scope.traversal.unexpandedReachedCount))}
         {:else}
-          {@render fact("Traversal", "Completed within its cap")}
+          {@render fact("Traversal", toClosure ? "Completed" : "Completed within its cap")}
         {/if}
       {/if}
     </dl>
@@ -170,14 +214,15 @@
     <dl class="flex flex-col gap-4 text-sm">
       {#if scope.candidates === null}
         {@render fact(
-          "Candidate Bound",
+          "Record Bound",
           "The row does not say",
-          "This check predates the record of the candidate bound.",
+          "This check predates the record of the bound on what one run may write.",
         )}
       {:else}
         {@render fact(
-          "Candidate Cap",
-          scope.candidates.candidateCap === null ? "Not recorded" : String(scope.candidates.candidateCap),
+          "Record Bound",
+          count(scope.candidates.candidateCap),
+          "The most candidates one record can carry. It is the platform's own bound, not a setting.",
         )}
         {#if scope.candidates.truncated}
           <div class="flex items-baseline justify-between gap-16">
@@ -185,24 +230,14 @@
             <dd>
               <Badge
                 variant="warning"
-                title="The cap refused candidates the channels had already surfaced. The strongest evidence was kept, and a co-party surfacing is never refused."
+                title="The bound refused candidates the channels had already surfaced. The strongest evidence was kept, and a co-party surfacing is never refused."
               >
                 Truncated
               </Badge>
             </dd>
           </div>
-          {@render fact(
-            "Surfaced",
-            scope.candidates.candidatesSurfaced === null
-              ? "Not recorded"
-              : String(scope.candidates.candidatesSurfaced),
-          )}
-          {@render fact(
-            "Recorded",
-            scope.candidates.candidatesWritten === null
-              ? "Not recorded"
-              : String(scope.candidates.candidatesWritten),
-          )}
+          {@render fact("Surfaced", count(scope.candidates.candidatesSurfaced))}
+          {@render fact("Recorded", count(scope.candidates.candidatesWritten))}
           {@render fact(
             "Refused",
             scope.candidates.candidatesRefused === null

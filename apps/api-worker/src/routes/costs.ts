@@ -146,35 +146,50 @@ const costParam = z.object({ id: identifierPathParam("costEntry", "id") });
 
 const incurredDateField = z.string().regex(CIVIL_DATE_PATTERN);
 
+const costStatusField = z.enum(["draft", "submitted", "approved", "billed", "void"]);
+
 const listQuery = z.object({
   ...cursorQuery.shape,
   matterId: identifierField("matter").optional(),
   from: incurredDateField.optional().openapi({
     description:
-      "The first incurred date of a period listing, inclusive. Given with `to`, the listing " +
-      "answers a span of days across every matter — the question the firm's cost record is asked " +
-      "at the end of a month, and the one a per-matter listing cannot answer without walking " +
-      "every matter first.",
+      "The first incurred date the listing covers, inclusive. Either bound stands alone: a " +
+      "listing with only `from` runs to the present, one with only `to` runs from the first cost " +
+      "the firm ever recorded, and one with neither is the firm's whole record. This is the " +
+      "screen's Date column filter, honoured here so it is true across every page rather than " +
+      "over the page in hand.",
   }),
   to: incurredDateField.optional().openapi({
-    description:
-      "The last incurred date of a period listing, inclusive. Required alongside `from`.",
+    description: "The last incurred date the listing covers, inclusive.",
   }),
   billable: z
     .enum(["true", "false"])
     .optional()
     .openapi({
       description:
-        "Narrows a period listing to the costs that are billable, or to those that are not. " +
+        "Narrows the listing to the costs that are billable, or to those that are not. " +
         "Omitted, it answers with both.",
     }),
   status: z
-    .enum(["draft", "submitted", "approved", "billed", "void"])
+    .union([costStatusField, z.array(costStatusField)])
     .optional()
     .openapi({
       description:
-        "Narrows the listing to one status. Omitted, it answers with every status the matter " +
-        "carries, which is what a matter's cost record is.",
+        "Narrows the listing to one status, or to several given repeatedly " +
+        "(`status=draft&status=submitted`): the screen's Status column filter, honoured here so " +
+        "it holds across every page. Omitted, it answers with every status the record carries, " +
+        "which is what a cost record is.",
+    }),
+  search: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .openapi({
+      description:
+        "Matched against the description, the matter's title and number, and the payee's " +
+        "name. The screen's search, honoured here so a word absent from the page in hand is " +
+        "looked for across the whole record.",
     }),
 });
 
@@ -303,13 +318,12 @@ const listRoute = defineOpenAPIRoute(listMeta, {
   method: "get",
   path: "/api/v1/costs",
   description:
-    "Lists cost entries in either of two shapes. By matter: that matter's whole cost record, in " +
-    "every status unless one is named. By a `from`/`to` span of incurred dates: the period " +
-    "listing across every matter, which is what the firm's cost record is asked for at the end of " +
-    "a month, narrowable to one matter, one status and to billable or not. Both are CURSOR-PAGED, " +
-    "most recently incurred first, over the same statement, so a cost reads back identically " +
-    "whichever shape found it. Returns an empty list when neither a matter nor a span is named, " +
-    "rather than scanning the whole table.",
+    "Lists cost entries, most recently incurred first, cursor-paged. Nothing named is the " +
+    "firm's whole cost record; `matterId` narrows it to one matter, `from` and `to` bound the " +
+    "incurred dates (each on its own or together), and `status`, `billable` and `search` narrow " +
+    "further. Every narrowing is the server's, so the firm's Costs screen can send its column " +
+    "filters here and have them hold across every page, and a cost reads back identically " +
+    "whichever narrowing found it because every shape runs over one statement.",
   request: { query: listQuery },
   responses: {
     200: {
@@ -615,6 +629,34 @@ const LIST_FROM = `FROM cost_entry
  */
 const LIST_ORDER = "ORDER BY cost_entry.incurred_date DESC, cost_entry.id DESC";
 
+/**
+ * The listing's search, as one predicate over the joined statement.
+ *
+ * A LIKE scan rather than an index, bounded by the page the caller already asked for. The matter's
+ * title and number are in it because "what did we lay out on the Whitfield file" is a question
+ * about a case before it is a question about a phrase, and the payee's name because a bookkeeper
+ * reconciling a vendor's statement asks by the vendor. The wildcards are the caller's text, not
+ * their instruction: a description reading "50% deposit" must not match everything.
+ */
+function searchConditionFor(
+  search: string | undefined,
+): { condition: string; bindings: readonly unknown[] } | undefined {
+  const term = search?.trim();
+  if (term === undefined || term.length === 0) return undefined;
+  const escaped = term.replaceAll(/[\\%_]/gu, (character) => `\\${character}`);
+  const pattern = `%${escaped}%`;
+  return {
+    condition:
+      "(cost_entry.description LIKE ? ESCAPE '\\' " +
+      "OR matter.title LIKE ? ESCAPE '\\' " +
+      "OR matter.matter_number LIKE ? ESCAPE '\\' " +
+      "OR directory_person.display_name LIKE ? ESCAPE '\\' " +
+      "OR directory_organization.display_name LIKE ? ESCAPE '\\' " +
+      "OR directory_organization.legal_name LIKE ? ESCAPE '\\')",
+    bindings: [pattern, pattern, pattern, pattern, pattern, pattern],
+  };
+}
+
 /** A listing row: the entry's own columns plus the names the statement resolved beside them. */
 type CostListRow = CostEntryRow & {
   vendor_name: string | null;
@@ -821,52 +863,67 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
       const conditions: string[] = [];
       const bindings: unknown[] = [];
 
-      if (query.from !== undefined && query.to !== undefined) {
-        // Period listing: a span of incurred dates across every matter. This is what the firm's
-        // Costs screen reads, and it is the one shape that can answer "what did the firm advance
-        // this month" without the caller first fetching every matter.
-        //
-        // NO CAPABILITY BEYOND costs:track GATES IT, and that is a deliberate reading rather than
-        // an omission. The per-matter listing on this same route already answers for any matter a
-        // costs:track holder names, so a span reveals nothing that iterating matters would not; a
-        // second gate here would be a lock on the front door of a building with no walls. Time's
-        // period listing is gated because time is PERSONAL — whose hours those are is the fact the
-        // gate protects — and a disbursement is the firm's own money advanced for a matter, which
-        // is a different kind of record.
-        if (query.from > query.to) {
-          return problemJson(c, {
-            type: "validation",
-            title: "Unprocessable",
-            status: 422,
-            detail:
-              "The period's first date is after its last. The span is not swapped for you, because a swap would answer a question nobody asked.",
-          });
-        }
-        conditions.push("cost_entry.incurred_date >= ?", "cost_entry.incurred_date <= ?");
-        bindings.push(query.from, query.to);
-        if (query.matterId !== undefined) {
-          conditions.push("cost_entry.matter_id = ?");
-          bindings.push(query.matterId);
-        }
-        if (query.billable !== undefined) {
-          conditions.push("cost_entry.billable = ?");
-          bindings.push(query.billable === "true" ? 1 : 0);
-        }
-      } else if (query.matterId !== undefined) {
+      /*
+       * Every narrowing is optional and they compose. Nothing named is the firm's whole cost
+       * record, most recently incurred first, walked a page at a time over the incurred-date
+       * index — the read used to answer empty here "rather than a full-table scan", which made the
+       * firm's Costs screen unable to open on its whole record and pushed a period control into
+       * its header that duplicated the Date column. A column filter that only narrows the loaded
+       * page is not a filter, so each bound and each choice is honoured here instead.
+       *
+       * NO CAPABILITY BEYOND costs:track GATES THE FIRM-WIDE READ, and that is a deliberate
+       * reading rather than an omission. The per-matter listing on this same route already
+       * answers for any matter a costs:track holder names, so the whole record reveals nothing
+       * that iterating matters would not; a second gate here would be a lock on the front door of
+       * a building with no walls. Time's firm-wide listing is gated because time is PERSONAL —
+       * whose hours those are is the fact the gate protects — and a disbursement is the firm's own
+       * money advanced for a matter, which is a different kind of record.
+       */
+      if (query.from !== undefined && query.to !== undefined && query.from > query.to) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Unprocessable",
+          status: 422,
+          detail:
+            "The period's first date is after its last. The span is not swapped for you, because a swap would answer a question nobody asked.",
+        });
+      }
+      if (query.from !== undefined) {
+        conditions.push("cost_entry.incurred_date >= ?");
+        bindings.push(query.from);
+      }
+      if (query.to !== undefined) {
+        conditions.push("cost_entry.incurred_date <= ?");
+        bindings.push(query.to);
+      }
+      if (query.matterId !== undefined) {
         // An absent status means EVERY status. A matter's cost record is all of the cost on it;
         // this defaulted to "draft" and answered a narrower question than it was asked, silently,
         // so an approved or invoiced disbursement simply did not appear on the matter it was
         // advanced for and nothing in the contract said it would not.
         conditions.push("cost_entry.matter_id = ?");
         bindings.push(query.matterId);
-      } else {
-        // Neither a matter nor a span — return an empty list rather than a full-table scan.
-        return c.json({ data: [] as z.infer<typeof CostSummary>[], nextCursor: null }, 200);
+      }
+      if (query.billable !== undefined) {
+        conditions.push("cost_entry.billable = ?");
+        bindings.push(query.billable === "true" ? 1 : 0);
+      }
+      const search = searchConditionFor(query.search);
+      if (search !== undefined) {
+        conditions.push(search.condition);
+        bindings.push(...search.bindings);
       }
 
-      if (query.status !== undefined) {
-        conditions.push("cost_entry.status = ?");
-        bindings.push(query.status);
+      // A status given once arrives as a string and given repeatedly as an array; either is a list.
+      const statuses =
+        query.status === undefined
+          ? []
+          : Array.isArray(query.status)
+            ? query.status
+            : [query.status];
+      if (statuses.length > 0) {
+        conditions.push(`cost_entry.status IN (${statuses.map(() => "?").join(", ")})`);
+        bindings.push(...statuses);
       }
       appendCursorPredicateOnColumn(conditions, bindings, decodeCursor(query.cursor), {
         sortColumn: "cost_entry.incurred_date",
@@ -878,7 +935,7 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
 
       const { results } = await firm.firmDatabase
         .prepare(
-          `SELECT ${LIST_COLUMNS} ${LIST_FROM} WHERE ${conditions.join(" AND ")} ${LIST_ORDER} LIMIT ?`,
+          `SELECT ${LIST_COLUMNS} ${LIST_FROM} ${conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")}`} ${LIST_ORDER} LIMIT ?`,
         )
         .bind(...bindings)
         .all<CostListRow>();

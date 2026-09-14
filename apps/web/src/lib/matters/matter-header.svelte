@@ -44,9 +44,11 @@
    * Status never gates or varies the screen flow — it changes only what this header showcases: the
    * seal and the number-or-Consultation line.
    *
-   * THE SEAL IS THE CONTROL. Pressing the status seal opens the status window, which is where a
-   * matter is opened, closed or reopened (matter-status-dialog.svelte). An action that belongs to a
-   * fact belongs on it.
+   * THE SEAL IS THE CONTROL. Pressing the status seal opens a menu of the steps the lifecycle
+   * allows from where the matter stands — open, hold, close, release, reopen, never a list of
+   * statuses — and the way into the status window, where the number, the engagement and the
+   * paper file live (matter-status-dialog.svelte; owner ruling, 2026-09-11). An action that
+   * belongs to a fact belongs on it.
    *
    * THE WAY BACK LEADS THE BAND, SHOWING THE DOCKET IN MINIATURE. It was an unlabelled arrow inside
    * the citation line until 2026-09-03, which cost no height but said only "back": a reader had to

@@ -15,7 +15,7 @@ export const conflictsCheckStepReader: IntakeStepReader = async ({ database, mat
     return { satisfied: false, statement: "A conflicts check has not yet run on this matter." };
   }
   const shortfall = posture.scopeShortfall;
-  if (shortfall.sources.length > 0 || shortfall.strictness !== null || shortfall.depth !== null) {
+  if (shortfall.sources.length > 0 || shortfall.strictness !== null) {
     return {
       satisfied: false,
       statement:
