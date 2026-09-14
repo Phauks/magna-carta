@@ -439,25 +439,38 @@ export function matterOpenRefusals(problem: Problem): readonly MatterCloseBlocke
  * about the file whatever the matter's status is, which is why it sits beside the status rather
  * than under the step.
  *
- * NEITHER IS MODELLED, AND NEITHER IS THE CUSTODY REGISTER. Custodian holds CLIENT property left
- * with the firm to guard — an original will, a deed, a passport — which stays in the register for as
- * long as the client's affairs need it, long after the matter that brought it in has closed. The
- * firm's own file is a different object with a different life, and the platform does not carry it:
- * no register, no location, no box, and no retention clock anywhere to derive a destruction date
- * from. The custody register is explicit that it runs no timer at all — an original is destroyed on
- * a written basis, by two people, never because a date arrived.
+ * NONE OF IT IS THE CUSTODY REGISTER. Custodian holds CLIENT property left with the firm to guard —
+ * an original will, a deed, a passport — which stays in the register for as long as the client's
+ * affairs need it, long after the matter that brought it in has closed. The firm's own file is a
+ * different object with a different life.
  *
- * So every row renders, holding nothing, marked Soon. That is the standing rule for anything
- * designed ahead of what serves it: the shape of the answer, never an invented one. A date made up
- * here would be a date somebody destroys a client's file on.
+ * LOCATION IS SERVED AND THE OTHER TWO ARE NOT. Where the file is kept is one of the firm's own
+ * offices, a record the product already holds, so it resolves to that record and links to it rather
+ * than being free text nobody can follow. It is NOT the office the matter is run out of: a folder
+ * travels, and a matter opened at one office is commonly boxed at another or at a remote store the
+ * firm keeps as an office of its own.
  *
- * The rows carry no sentence naming the dependency (owner ruling): a row that says "Not recorded"
- * beside the Soon mark has already said it is not built, and a paragraph repeating that under three
- * rows was the loudest copy on a window whose whole point is to be short.
+ * "Held In" and "Destroy After" hold nothing yet, and there is nothing behind either to invent
+ * from: one container holds several matters' folders, so it is a record of its own that does not
+ * exist, and there is no retention clock anywhere to derive a destruction date from. The custody
+ * register is explicit that it runs no timer at all — an original is destroyed on a written basis,
+ * by two people, never because a date arrived. So both render, holding nothing, marked Soon: the
+ * shape of the answer, never an invented one. A date made up here would be a date somebody destroys
+ * a client's file on.
+ *
+ * An unserved row carries no sentence naming the dependency (owner ruling): a row that says "Not
+ * recorded" beside the Soon mark has already said it is not built, and a paragraph repeating that
+ * under three rows was the loudest copy on a window whose whole point is to be short.
  */
 export interface MatterPhysicalFileFact {
   readonly key: string;
   readonly label: string;
+  /**
+   * Whether the record carries this fact. False renders the row holding nothing behind the Soon
+   * mark; it is a property of the row rather than a branch in the template so the set of rows that
+   * are real is one list with one test, and turning a row on is a word here.
+   */
+  readonly served: boolean;
 }
 
 /**
@@ -471,9 +484,9 @@ export interface MatterPhysicalFileFact {
  * record: one container holds the folders of several matters, so a matter points at it.
  */
 export const MATTER_PHYSICAL_FILE_FACTS: readonly MatterPhysicalFileFact[] = [
-  { key: "location", label: "Location" },
-  { key: "container", label: "Held In" },
-  { key: "destroy-after", label: "Destroy After" },
+  { key: "location", label: "Location", served: true },
+  { key: "container", label: "Held In", served: false },
+  { key: "destroy-after", label: "Destroy After", served: false },
 ];
 
 // ---- what stops the step being taken from this screen ---------------------------------------------

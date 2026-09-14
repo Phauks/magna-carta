@@ -11,26 +11,23 @@
    * catalogue holds. Names only: the descriptive line, the view switch and the search stay on the
    * landing screen, which is where a reader goes to find out what a thing does.
    *
-   * A ROW IS THE SETTINGS NAV'S ROW. Control-sized, rounded, a quiet surface tint on hover, and
-   * the active row carrying the gilt start-edge bar as an inset shadow (a border would bend
-   * around the rounded corners) with a selected fill and firmer text. The same treatment, so a
-   * reader who has learned one two-sided screen has learned them all.
-   *
-   * A NAME WRAPS RATHER THAN TRUNCATES. The column is the popover measure wide, and a report's
-   * name beside a Soon mark does not fit it on one line; a row that reads "Property Listin..."
-   * has stopped naming the thing, which is the one job a navigation row has. So the name takes a
-   * second line where it needs one and the row grows to hold it — the control height is a
-   * minimum, not a size.
+   * A ROW IS THE DESIGN SYSTEM'S ROW. NavigationLayout.Row carries the control height, the hover
+   * tint, the lit row's selected fill and gilt start-edge bar, and the wrap that keeps a long name
+   * readable — the same part the settings nav uses, so a reader who has learned one two-sided
+   * screen has learned them all. What stays here is the grouping and the indent stagger, which are
+   * the catalogue's own and which the layout deliberately leaves to its consumer.
    *
    * AN ENTRY WITH NOWHERE TO GO IS STILL A ROW. The standing rule is that a designed-but-unwired
    * surface ships visible and marked, never omitted: a soon entry stands in its group with its
    * glyph and name, unlinked and quieter, wearing the Soon mark, and carrying what it waits on as
-   * its hover title where the registry knows it. It is never dressed as a disabled control, which
-   * would read as broken rather than as not yet.
+   * its hover title where the registry knows it. Passing `href={null}` is what says so — the same
+   * spelling the catalogue vocabulary uses — and the row is never dressed as a disabled control,
+   * which would read as broken rather than as not yet.
    */
   import FieldLabel from "@magna-carta/design-system/field-label";
+  import { NavigationLayoutRow } from "@magna-carta/design-system/navigation-layout";
   import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
-  import type { CatalogueSection } from "$lib/catalogue/catalogue.ts";
+  import type { CatalogueSection } from "./catalogue.ts";
   import { isCurrentCatalogueEntry } from "./catalogue-navigation.ts";
 
   let {
@@ -45,14 +42,6 @@
     /** What the catalogue holds, plural and lower-case, for the nothing-here sentence. */
     noun: string;
   } = $props();
-
-  const ROW =
-    "flex items-center gap-8 rounded-md px-12 py-4 text-sm transition-colors duration-fast ease-standard";
-  const ROW_AT_REST = "text-text-muted hover:bg-surface-raised hover:text-text-default";
-  const ROW_CURRENT = "bg-surface-selected font-medium text-text-default";
-  const ROW_HEIGHT = "min-block-size: var(--mc-control-sm);";
-  const ROW_CURRENT_BAR =
-    " box-shadow: inset var(--mc-focus-ring-width) var(--mc-space-0) var(--mc-space-0) var(--mc-space-0) var(--mc-accent-default);";
 </script>
 
 <div class="flex flex-col gap-24">
@@ -65,29 +54,28 @@
       <ul class="flex flex-col gap-4 ps-12">
         {#each section.entries as entry (entry.id)}
           {@const Icon = entry.icon}
-          {@const current = isCurrentCatalogueEntry(entry, pathname)}
           <li>
-            {#if entry.href !== null}
-              <a
-                href={entry.href}
-                aria-current={current ? "page" : undefined}
-                class="{ROW} {current ? ROW_CURRENT : ROW_AT_REST}"
-                style="{ROW_HEIGHT}{current ? ROW_CURRENT_BAR : ''}"
+            <!-- Two branches because the Soon mark belongs to exactly one of them, and a snippet
+                 handed to a component cannot be declared inside a conditional. -->
+            {#if entry.href === null}
+              <NavigationLayoutRow
+                href={null}
+                title={entry.waitsOn === undefined
+                  ? undefined
+                  : soonDependencySentence(entry.waitsOn)}
               >
-                <Icon class="size-16 shrink-0" aria-hidden="true" />
-                <span class="min-w-0 grow">{entry.name}</span>
-              </a>
+                {#snippet icon()}<Icon />{/snippet}
+                {entry.name}
+                {#snippet trailing()}<MaturityBadge stage={entry.stage} />{/snippet}
+              </NavigationLayoutRow>
             {:else}
-              <span
-                aria-disabled="true"
-                title={entry.waitsOn === undefined ? undefined : soonDependencySentence(entry.waitsOn)}
-                class="{ROW} text-text-subtle"
-                style={ROW_HEIGHT}
+              <NavigationLayoutRow
+                href={entry.href}
+                current={isCurrentCatalogueEntry(entry, pathname)}
               >
-                <Icon class="size-16 shrink-0" aria-hidden="true" />
-                <span class="min-w-0 grow">{entry.name}</span>
-                <MaturityBadge stage={entry.stage} class="shrink-0" />
-              </span>
+                {#snippet icon()}<Icon />{/snippet}
+                {entry.name}
+              </NavigationLayoutRow>
             {/if}
           </li>
         {/each}

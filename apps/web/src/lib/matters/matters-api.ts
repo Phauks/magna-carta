@@ -287,6 +287,88 @@ export function readSession(fetchImpl: typeof fetch): Promise<ApiOutcome<Session
 /** The permission the create endpoint names. A member without it is refused server-side. */
 export const CREATE_MATTER_PERMISSION = "matters:create";
 
+/** The permission the patch endpoint names: correcting a matter's own fields. */
+export const EDIT_MATTER_PERMISSION = "matters:edit";
+
+/**
+ * What the matter read answers about the two offices a matter names, and nothing else.
+ *
+ * TWO OFFICES, NEVER ONE. `locationId` is the office the matter is RUN OUT OF — the fact the
+ * header's citation states. `physicalFileLocationId` is the office the firm's own paper file for
+ * this matter is KEPT AT, which is the status window's Physical File. A folder travels, so the two
+ * are commonly the same office and are never the same fact; collapsing them would tell somebody the
+ * file is in a building it left.
+ */
+export interface MatterOffices {
+  locationId: string | null;
+  locationName: string | null;
+  physicalFileLocationId: string | null;
+  physicalFileLocationName: string | null;
+}
+
+/**
+ * Read the two offices from the matter itself.
+ *
+ * The status window asks for this when it opens, every time, for the same reason it re-reads the
+ * engagement: a file moved from another surface between two openings must not leave this window
+ * stating where it used to be.
+ */
+export async function readMatterOffices(
+  fetchImpl: typeof fetch,
+  matterId: string,
+): Promise<ApiOutcome<MatterOffices>> {
+  // Every key optional on the wire, not in the contract. The contract requires all four; a Worker
+  // deployed before the paper file's office landed answers without two of them, and this app is
+  // served from the same origin as one specific Worker but cached independently of it.
+  const outcome = await requestJson<Partial<MatterOffices>>(
+    fetchImpl,
+    `/api/v1/matters/${encodeURIComponent(matterId)}`,
+  );
+  if (outcome.kind !== "ok") return outcome;
+  return {
+    kind: "ok",
+    value: {
+      locationId: outcome.value.locationId ?? null,
+      locationName: outcome.value.locationName ?? null,
+      physicalFileLocationId: outcome.value.physicalFileLocationId ?? null,
+      physicalFileLocationName: outcome.value.physicalFileLocationName ?? null,
+    },
+  };
+}
+
+/**
+ * The matter fields a correction may set. Every one is optional and an absent key is left alone,
+ * which is what lets a surface that owns one fact write only that fact.
+ */
+export interface MatterPatch {
+  title?: string;
+  description?: string | null;
+  matterTypeId?: string | null;
+  locationId?: string | null;
+  /** Where the firm's paper file is kept. Null is a real answer: nobody has recorded it. */
+  physicalFileLocationId?: string | null;
+  responsibleMemberId?: string;
+  clientDisplayName?: string | null;
+  clientCode?: string | null;
+}
+
+/**
+ * Correct a matter's own fields. The idempotency key is required by the contract, so a retried
+ * submit writes once; the status and the number are not reachable from here by construction.
+ */
+export function updateMatter(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  patch: MatterPatch,
+  idempotencyKey: string,
+): Promise<ApiOutcome<{ matterId: string }>> {
+  return requestJson(fetchImpl, `/api/v1/matters/${encodeURIComponent(matterId)}`, {
+    method: "PATCH",
+    body: patch,
+    idempotencyKey,
+  });
+}
+
 /**
  * The permission that governs the firm's matter types. A member without it can choose any practice
  * area the firm already holds and cannot add one, which is exactly what the server enforces — so
