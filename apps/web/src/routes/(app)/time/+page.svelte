@@ -38,7 +38,6 @@
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import Badge from "@magna-carta/design-system/badge";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
@@ -500,20 +499,6 @@
       caption="Time recorded across the firm's matters"
       loading={list.items === null || !sessionRead}
     >
-      {#snippet empty()}
-        {#if grid.isFiltered}
-          <EmptyState title="Nothing Matches That">
-            No entry in this period answers to what is asked. Widening the column filters brings the
-            period back.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Time In This Period">
-            Nothing was recorded by {whoseTimePhrase} between {spanLabel(scope.from, scope.to)}. A
-            wider span is one click away, and the Time Sheet in the top bar records a row without
-            leaving whatever screen you are on.
-          </EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter {grid}>

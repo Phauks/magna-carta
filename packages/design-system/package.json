@@ -39,6 +39,7 @@
     "./entity-identity": "./src/lib/components/entity-identity/index.ts",
     "./entity-picker": "./src/lib/components/entity-picker/index.ts",
     "./empty-state": "./src/lib/components/empty-state/index.ts",
+    "./no-results": "./src/lib/components/empty-state/no-results.svelte",
     "./event-rail": "./src/lib/components/event-rail/index.ts",
     "./failure-band": "./src/lib/components/failure-band/index.ts",
     "./failure-details": "./src/lib/components/failure-details/index.ts",

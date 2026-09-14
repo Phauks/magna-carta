@@ -14,7 +14,6 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import { MaturityBadge } from "@magna-carta/design-system/maturity";
   import type { HitDetail } from "./conflicts-api.ts";
   import {
@@ -86,12 +85,6 @@
   </div>
 
   <DataTable.Grid {grid} caption="What this check surfaced" cell={hitCell} {loading}>
-    {#snippet empty()}
-      <EmptyState title="Nothing Surfaced">
-        The search ran and no candidate surfaced. That is a fact about the search, and the statement
-        above says which channels ran and which sources have no corpus behind them.
-      </EmptyState>
-    {/snippet}
   </DataTable.Grid>
 
   <DataTable.GridFooter {grid} />

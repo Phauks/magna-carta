@@ -37,7 +37,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button, { buttonClasses } from "@magna-carta/design-system/button";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import { DateRangePicker } from "@magna-carta/design-system/date-range-picker";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
@@ -420,19 +419,6 @@
       caption="Costs advanced across the firm's matters"
       loading={list.items === null}
     >
-      {#snippet empty()}
-        {#if grid.isFiltered}
-          <EmptyState title="Nothing Matches That">
-            No cost in this period answers to what is asked. Widening the column filters brings the
-            period back.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Costs In This Period">
-            Nothing was advanced between {spanLabel(scope.from, scope.to)}. A wider span is one click
-            away, and a cost is captured from the matter it was advanced for.
-          </EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter {grid}>

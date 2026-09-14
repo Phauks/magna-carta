@@ -35,7 +35,6 @@
   import * as Select from "@magna-carta/design-system/select";
   import * as Alert from "@magna-carta/design-system/alert";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
   import { page } from "$app/state";
@@ -357,25 +356,6 @@
       caption="Bills raised across the firm's clients"
       loading={bills.list.items === null}
     >
-      {#snippet empty()}
-        {#if grid.isFiltered}
-          <EmptyState title="Nothing Matches That">
-            No bill in this register answers to what is asked. Widening the column filters brings the
-            register back.
-          </EmptyState>
-        {:else if chosenStatus !== null}
-          <EmptyState title="No Bills In That State">
-            The firm has raised no bill that is
-            {chosenStatus === "draft" ? "still a draft" : chosenStatus === "final" ? "finalized" : "a voided draft"}. Choosing
-            All bills above shows the whole register.
-          </EmptyState>
-        {:else}
-          <EmptyState title="No Bills Yet">
-            Nothing has been billed. A bill is opened as a draft from the matter it charges, where
-            the work it claims lives.
-          </EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter {grid}>

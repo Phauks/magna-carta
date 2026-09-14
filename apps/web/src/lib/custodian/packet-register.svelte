@@ -20,7 +20,6 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import type { Snippet } from "svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -177,16 +176,6 @@
       cell={packetCell}
       loading={packets === null}
     >
-      {#snippet empty()}
-        {#if narrowed}
-          <EmptyState title="Nothing Matches That">
-            No packet on the firm's register answers to what is asked. Widening the filters brings
-            the register back.
-          </EmptyState>
-        {:else}
-          <EmptyState title={emptyTitle} actions={emptyActions}>{@render emptyBody()}</EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <!-- The counts strip: how much of the register is on screen, and the way to the rest of it.

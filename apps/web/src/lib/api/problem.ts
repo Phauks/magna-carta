@@ -9,9 +9,12 @@
  * "something went wrong". Everything here is read, and every surface renders from this record rather
  * than from a sentence squeezed out of it.
  *
- * `apps/web` does not depend on @magna-carta/api-client, so these shapes are hand-written mirrors of
- * apps/api-worker/openapi/openapi.json. This module is the single home the joining, WHOIS and
- * safe-browse transports each used to keep a private copy of.
+ * These shapes stay hand-written even though `apps/web` now reads the contract through
+ * @magna-carta/api-client, because they are not the contract: `Problem` is what a FAILURE SURFACE
+ * renders from, assembled defensively out of whatever a failing call left behind. The generated
+ * types describe a body the server meant to send; this describes what is knowable when it did not.
+ * This module is the single home the joining, WHOIS and safe-browse transports each used to keep a
+ * private copy of.
  */
 
 /** One field-level rejection inside a validation problem. */
@@ -104,33 +107,45 @@ function fieldErrors(value: unknown): readonly ProblemFieldError[] | undefined {
 }
 
 /**
+ * Read a problem document out of an already-parsed body, against the status the response carried.
+ *
+ * Split out from `readProblem` because the generated client throws the PARSED body rather than the
+ * `Response` it came off (@magna-carta/api-client's fetch client parses the error body itself, then
+ * throws it). Both entry points read the same twelve fields the same way, so a problem means the
+ * same thing whichever transport carried it.
+ */
+export function problemOf(body: unknown, status: number): Problem {
+  if (typeof body !== "object" || body === null) return { status };
+  const record = body as Record<string, unknown>;
+  return {
+    status,
+    type: text(record.type),
+    title: text(record.title),
+    detail: text(record.detail),
+    errorId: text(record.errorId),
+    correlationId: text(record.correlationId),
+    instance: text(record.instance),
+    errors: fieldErrors(record.errors),
+    requestAccess: flag(record.requestAccess),
+    stepUpRequired: flag(record.stepUpRequired),
+    attemptsRemaining: wholeNumber(record.attemptsRemaining),
+    retryAfterSeconds: wholeNumber(record.retryAfterSeconds),
+  };
+}
+
+/**
  * Read a problem document off a response. Defensive throughout: a body that is not JSON, or that is
  * JSON of the wrong shape, still yields a usable problem carrying the HTTP status — a failure must
  * never fail to be describable.
  */
 export async function readProblem(response: Response): Promise<Problem> {
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
-    const parsed: unknown = await response.json();
-    if (typeof parsed !== "object" || parsed === null) return { status: response.status };
-    body = parsed as Record<string, unknown>;
+    body = await response.json();
   } catch {
     return { status: response.status };
   }
-  return {
-    status: response.status,
-    type: text(body.type),
-    title: text(body.title),
-    detail: text(body.detail),
-    errorId: text(body.errorId),
-    correlationId: text(body.correlationId),
-    instance: text(body.instance),
-    errors: fieldErrors(body.errors),
-    requestAccess: flag(body.requestAccess),
-    stepUpRequired: flag(body.stepUpRequired),
-    attemptsRemaining: wholeNumber(body.attemptsRemaining),
-    retryAfterSeconds: wholeNumber(body.retryAfterSeconds),
-  };
+  return problemOf(body, response.status);
 }
 
 /**

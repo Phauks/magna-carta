@@ -70,6 +70,29 @@ export const GLOBAL_TRIGGER_PREFIXES = [
 // script, most of tooling/) can't be scoped via the graph, so it forces a whole-repo lint.
 const LINT_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs"]);
 
+/*
+ * Package sources the linter is configured never to read, held verbatim from `lint.ignorePatterns`
+ * in the root vite.config.ts and checked against it by scope-fitness.mjs, so the two cannot drift.
+ *
+ * WHY THE COST PROXY HAS TO KNOW. The proxy below counts a package's transitive closure by file
+ * EXTENSION, which was right while every `.ts` file in the workspace was one the linter opens. The
+ * generated Hey API client is not: it is excluded from lint outright (its codegen idioms trip our
+ * rules) and type-checked by its own `tsc -p` instead. Counting it charged @magna-carta/web 19 files
+ * of lint minutes that the linter does not spend, and that error lands on the one measurement the
+ * fan-out-sink rule is decided by — a package can be pushed across the outlier threshold by a
+ * dependency that costs the linter nothing. Only the two whole-directory package excludes are
+ * listed; `.claude/worktrees/**` is outside every package and cannot reach this count.
+ */
+export const LINT_EXCLUDED_PACKAGE_SOURCES = ["packages/api-client/src"];
+
+/** True when the linter is configured to skip this directory and everything under it. */
+function isLintExcluded(directory, root) {
+  const relative = path.relative(root, directory).split(path.sep).join("/");
+  return LINT_EXCLUDED_PACKAGE_SOURCES.some(
+    (excluded) => relative === excluded || relative.startsWith(`${excluded}/`),
+  );
+}
+
 // Discover every workspace package as name -> { dir (repo-relative, POSIX), deps:Set<@magna-carta/*> }.
 // Unlike the tsconfig-references graph this includes web and api-client: they are lint dependents whose
 // findings can flip when a dependency changes, even though api-client's own src is lint-ignored.
@@ -112,7 +135,8 @@ const UNCOUNTED_DIRECTORIES = new Set([
   ".vite",
 ]);
 
-function countLintableFiles(directory) {
+function countLintableFiles(directory, root) {
+  if (root !== undefined && isLintExcluded(directory, root)) return 0;
   let total = 0;
   let entries;
   try {
@@ -123,7 +147,7 @@ function countLintableFiles(directory) {
   for (const entry of entries) {
     if (entry.isDirectory()) {
       if (!UNCOUNTED_DIRECTORIES.has(entry.name) && !entry.name.startsWith(".")) {
-        total += countLintableFiles(path.join(directory, entry.name));
+        total += countLintableFiles(path.join(directory, entry.name), root);
       }
     } else if (LINT_EXTENSIONS.has(path.posix.extname(entry.name))) {
       total += 1;
@@ -140,7 +164,7 @@ function countLintableFiles(directory) {
 export function computeTypeProgramWeights({ root, packages }) {
   const ownFiles = new Map();
   for (const [name, member] of packages) {
-    ownFiles.set(name, countLintableFiles(path.join(root, member.dir)));
+    ownFiles.set(name, countLintableFiles(path.join(root, member.dir), root));
   }
   const weights = new Map();
   for (const name of packages.keys()) {

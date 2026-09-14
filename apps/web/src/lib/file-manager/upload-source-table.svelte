@@ -17,7 +17,6 @@
   import * as DataTable from "@magna-carta/design-system/data-table";
   import type { GridColumn } from "@magna-carta/design-system/data-table";
   import Button from "@magna-carta/design-system/button";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import FileIcon from "@magna-carta/design-system/file-icon";
   import FolderGlyph from "@magna-carta/design-system/folder-glyph";
   import type { DroppedEntry } from "@magna-carta/design-system/dropzone";
@@ -123,7 +122,6 @@
     {grid}
     {cell}
     {caption}
-    empty={emptyIntake}
     density="compact"
     class="min-h-0 grow rounded-b-none"
   />
@@ -135,11 +133,6 @@
   />
 </div>
 
-{#snippet emptyIntake()}
-  <EmptyState title={emptyTitle}>
-    {emptyLine}
-  </EmptyState>
-{/snippet}
 
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<IntakeRow>)}
   {#if column.id === "name"}
