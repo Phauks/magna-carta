@@ -315,13 +315,15 @@ const timeEntryParam = z.object({ id: identifierPathParam("timeEntry", "id") });
 
 const workDateField = z.string().regex(CIVIL_DATE_PATTERN);
 
-/*
- * The open ends of a period nobody bounded. A civil date is a `YYYY-MM-DD` string and sorts as
- * text, so these two bracket every work date a firm could record; the range statement asks for
- * both ends and a listing with neither is the whole record.
- */
-const OPEN_SPAN_START = "0000-01-01";
-const OPEN_SPAN_END = "9999-12-31";
+const timeEntryStatusField = z.enum(["draft", "submitted", "approved", "billed", "void"]);
+
+/** A status given once arrives as a string and given repeatedly as an array; either way, a list. */
+function statusesOf(
+  status: z.infer<typeof timeEntryStatusField> | z.infer<typeof timeEntryStatusField>[] | undefined,
+): readonly z.infer<typeof timeEntryStatusField>[] {
+  if (status === undefined) return [];
+  return Array.isArray(status) ? status : [status];
+}
 
 const listQuery = z.object({
   timekeeperUserId: identifierField("user").optional(),
@@ -340,12 +342,25 @@ const listQuery = z.object({
     description: "The last work date the period listing covers, inclusive.",
   }),
   status: z
-    .enum(["draft", "submitted", "approved", "billed", "void"])
+    .union([timeEntryStatusField, z.array(timeEntryStatusField)])
     .optional()
     .openapi({
       description:
-        "Narrows a per-matter or period listing to one status. Omitted, the listing answers with " +
-        "every status the scope carries, which is what a time record is.",
+        "Narrows the listing to one status, or to several given repeatedly " +
+        "(`status=draft&status=submitted`): the firm's Time screen's Status column filter, " +
+        "honoured here so it holds across every page. Omitted, the listing answers with every " +
+        "status the scope carries, which is what a time record is.",
+    }),
+  search: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .openapi({
+      description:
+        "Matched against the narrative, the entry number, the matter's title and number, and " +
+        "the timekeeper's name, on the period listing. The screen's search, honoured here so a " +
+        "word absent from the page in hand is looked for across the whole record.",
     }),
   ...cursorQuery.shape,
 });
@@ -1236,9 +1251,13 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
         // defaulted to "draft" and answered a narrower question than it was asked, silently -- the
         // approved, billed and voided entries on the matter simply did not appear, and nothing in
         // the contract said they would not.
+        // The matter's own read takes one status; a list narrows to one only where it holds one.
+        const [onlyStatus] = statusesOf(query.status);
         const page = await listTimeEntriesByMatter(firm.firmDatabase, {
           matterId: query.matterId,
-          ...(query.status === undefined ? {} : { status: query.status }),
+          ...(onlyStatus === undefined || statusesOf(query.status).length !== 1
+            ? {}
+            : { status: onlyStatus }),
           ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
         });
         return c.json({ nextCursor: page.nextCursor, data: page.data.map(recordToSummary) }, 200);
@@ -1251,9 +1270,9 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       //
       // A BOUND IS OPTIONAL, AND AN ABSENT ONE IS OPEN. The screen's Date column filter may set
       // either end or neither, and a filter that only narrowed the loaded page would not be a
-      // filter, so each bound is honoured here as it is given. The range statement takes both
-      // ends, so an absent one is passed as the widest civil date that sorts on its side; the
-      // work-date index carries the read either way.
+      // filter, so each bound is honoured here as it is given; the work-date index carries the
+      // read either way. The Status column's whole selection and the screen's search reach the
+      // statement on the same reasoning.
       //
       // WHOSE TIME, AND WHO MAY ASK. Naming no timekeeper asks for the firm's whole record for
       // those days, which is a supervisor's question and gated as one; naming somebody else is
@@ -1285,13 +1304,14 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
         });
       }
       const page = await listTimeEntriesInRange(firm.firmDatabase, {
-        from: query.from ?? OPEN_SPAN_START,
-        to: query.to ?? OPEN_SPAN_END,
+        ...(query.from === undefined ? {} : { from: query.from }),
+        ...(query.to === undefined ? {} : { to: query.to }),
         ...(query.timekeeperUserId === undefined
           ? {}
           : { timekeeperUserId: query.timekeeperUserId }),
         ...(query.matterId === undefined ? {} : { matterId: query.matterId }),
-        ...(query.status === undefined ? {} : { status: query.status }),
+        status: statusesOf(query.status),
+        ...(query.search === undefined ? {} : { search: query.search }),
         ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
       });
       return c.json({ nextCursor: page.nextCursor, data: page.data.map(recordToSummary) }, 200);

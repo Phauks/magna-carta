@@ -10,12 +10,16 @@
    * up to a receivable a partner can act on.
    *
    * THE TABLE IS THE ONLY THING THAT NARROWS IT. The screen opens on the whole register and the
-   * Status column's filter picks a state; the screen used to carry a status dropdown in its header
-   * answering the same question (the owner's ruling of 2026-09-11, docs/conventions/time-tab-
-   * rulings.md round twelve). A filter that only narrowed the loaded page would report a draft
-   * missing from a register it had never finished reading, so a Status selection that stays inside
-   * one invoice status is sent to the listing as its own `status` and re-read; Unpaid, Partially
-   * Paid and Paid are all readings of a finalized bill, so any of them alone asks for the finalized.
+   * Status column's filter picks the states; the screen used to carry a status dropdown in its
+   * header answering the same question (the owner's ruling of 2026-09-11, docs/conventions/time-
+   * tab-rulings.md round twelve). A filter that only narrowed the loaded page would report a draft
+   * missing from a register it had never finished reading, so the invoice statuses a Status
+   * selection reaches are sent to the listing as its own `status` list and re-read; Unpaid,
+   * Partially Paid and Paid are all readings of a finalized bill, so any of them asks for the
+   * finalized and the table narrows those to the standing chosen.
+   *
+   * THE SEARCH IS THE PRODUCT'S ONE CONTROL, and it is the listing's own: an invoice number or a
+   * client's name is looked for across the whole register, never only in the page in hand.
    *
    * IT STARTS A BILL, AND THE BILL IS BUILT ELSEWHERE. A draft is opened against a matter's client
    * and then built up by claiming that matter's unbilled work, which lives on the matter's own
@@ -36,11 +40,6 @@
    *
    * THE SCOPE IS IN THE ADDRESS, so a partner looking at the firm's open drafts sends that view by
    * sending the link, and an opened bill is a link of its own.
-   *
-   * THE SEARCH IS THE PRODUCT'S ONE CONTROL, AND HERE IT IS NOT SERVED YET. The invoice listing has
-   * no search of its own, and a search that quietly covered only the loaded page would tell a
-   * reader their client appears nowhere in a register it never looked at. So the control renders in
-   * its place, disabled and marked, until the listing can answer it.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Alert from "@magna-carta/design-system/alert";
@@ -48,7 +47,6 @@
   import CreateControl from "@magna-carta/design-system/create-control";
   import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
-  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
@@ -65,8 +63,8 @@
     NOT_APPLICABLE,
     absentShareTitle,
     billColumns,
-    invoiceStatusForStandings,
-    standingFilterForStatus,
+    invoiceStatusesForStandings,
+    standingFilterForStatuses,
   } from "$lib/billing/bill-columns.ts";
   import DraftBillDialog from "$lib/billing/draft-bill-dialog.svelte";
   import { FirmBills } from "$lib/billing/firm-bills.svelte.ts";
@@ -138,37 +136,58 @@
     if (seededFromAddress) return;
     seededFromAddress = true;
     grid.filters = filtersSeededBy(grid.filters, {
-      [BILL_COLUMN_IDENTIFIERS.standing]: standingFilterForStatus(
-        page.url.searchParams.get("status"),
+      [BILL_COLUMN_IDENTIFIERS.standing]: standingFilterForStatuses(
+        page.url.searchParams.getAll("status"),
       ),
     });
   });
 
-  const chosenStatus = $derived(
-    invoiceStatusForStandings(grid.filterFor(BILL_COLUMN_IDENTIFIERS.standing)),
+  /*
+   * The search is the listing's own, so it reads the whole register rather than the page in the
+   * browser; it waits for typing to pause because the read leaves the machine.
+   */
+  let searchText = $state("");
+  let appliedSearch = $state("");
+
+  const chosenStatuses = $derived(
+    invoiceStatusesForStandings(grid.filterFor(BILL_COLUMN_IDENTIFIERS.standing)),
   );
-  const scope = $derived<InvoiceListScope>(
-    chosenStatus === undefined ? {} : { status: chosenStatus },
-  );
+  const scope = $derived<InvoiceListScope>({
+    ...(chosenStatuses.length === 0 ? {} : { statuses: chosenStatuses }),
+    ...(appliedSearch.trim() === "" ? {} : { search: appliedSearch.trim() }),
+  });
 
   /** Bumped after a write, so the register re-reads what the server now holds rather than guessing. */
   let reloadToken = $state(0);
 
   $effect(() => {
-    const subject = `${chosenStatus ?? "all"}:${String(reloadToken)}`;
+    const subject = `${JSON.stringify(scope)}:${String(reloadToken)}`;
     bills.load(fetch, scope, subject);
   });
 
   /*
-   * The status the listing honours rides the address, so the view is a link somebody can send.
+   * The statuses the listing honours ride the address, so the view is a link somebody can send.
    * `replaceState` rather than a navigation: narrowing the register is the same screen looking at
    * fewer bills, and stacking every adjustment on the history would make Back useless.
    */
   $effect(() => {
     if (!seededFromAddress) return;
-    const next = addressAfterFilters(page.url, { status: chosenStatus });
+    const next = addressAfterFilters(page.url, { status: chosenStatuses });
     if (next.href !== page.url.href) replaceState(next, page.state);
   });
+
+  const narrowed = $derived(appliedSearch.trim() !== "" || grid.activeFilterCount > 0);
+  const narrowingSummary = $derived(
+    appliedSearch.trim() === ""
+      ? "Show every bill"
+      : `Showing "${appliedSearch.trim()}" of the register`,
+  );
+
+  function clearNarrowing(): void {
+    searchText = "";
+    appliedSearch = "";
+    grid.clearAllFilters();
+  }
 
   // ---- the aging -----------------------------------------------------------------------------
 
@@ -329,20 +348,17 @@
   <ScreenHeader title="Billing">
     {#snippet actions()}
       <!-- The search, then the create control, then the way back to everything: the same row, in
-           the same order, as every other list screen. The search is the product's one control and
-           the invoice listing cannot answer it yet, so it stands here disabled and marked rather
-           than quietly searching the page in hand. -->
-      <SoonAffordance reason="the invoice listing's own search">
-        {#snippet control(soon)}
-          <span title={soon.title} aria-describedby={soon["aria-describedby"]}>
-            <ScreenSearch
-              label="Search the firm's bills"
-              placeholder={placeholderOf("Search the firm's bills")}
-              disabled={soon.disabled}
-            />
-          </span>
-        {/snippet}
-      </SoonAffordance>
+           the same order, as every other list screen. -->
+      <ScreenSearch
+        bind:value={searchText}
+        label="Search the firm's bills"
+        placeholder={placeholderOf("Search the firm's bills")}
+        searchOn="pause"
+        fieldClass="w-2xs sm:w-xs"
+        onsearch={(next) => {
+          appliedSearch = next;
+        }}
+      />
 
       <CreateControl
         noun="Bill"
@@ -351,7 +367,10 @@
         onpress={() => (draftOpen = true)}
       />
 
-      <DataTable.ClearFilters {grid} />
+      <DataTable.ClearFilters
+        {grid}
+        narrowing={{ narrowed, summary: narrowingSummary, clear: clearNarrowing }}
+      />
     {/snippet}
   </ScreenHeader>
 
@@ -411,10 +430,10 @@
       loading={bills.list.items === null}
     >
       {#snippet empty()}
-        {#if grid.isFiltered}
+        {#if narrowed}
           <EmptyState title="Nothing Matches That">
-            No bill in this register answers to what is asked. Widening the column filters brings the
-            register back.
+            No bill in this register answers to what is asked. Widening the search or the column
+            filters brings the register back.
           </EmptyState>
         {:else}
           <EmptyState title="No Bills Yet">

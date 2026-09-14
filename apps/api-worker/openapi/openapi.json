@@ -83893,18 +83893,35 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "submitted",
-                "approved",
-                "billed",
-                "void"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "billed",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "approved",
+                      "billed",
+                      "void"
+                    ]
+                  }
+                }
               ],
-              "description": "Narrows the listing to one status. Omitted, it answers with every status the record carries, which is what a cost record is."
+              "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page. Omitted, it answers with every status the record carries, which is what a cost record is."
             },
             "required": false,
-            "description": "Narrows the listing to one status. Omitted, it answers with every status the record carries, which is what a cost record is.",
+            "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page. Omitted, it answers with every status the record carries, which is what a cost record is.",
             "name": "status",
             "in": "query"
           },
@@ -85167,16 +85184,35 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "submitted",
-                "approved",
-                "billed",
-                "void"
-              ]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "billed",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "approved",
+                      "billed",
+                      "void"
+                    ]
+                  }
+                }
+              ],
+              "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page."
             },
             "required": false,
+            "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=submitted`): the screen's Status column filter, honoured here so it holds across every page.",
             "name": "status",
             "in": "query"
           },
@@ -90095,15 +90131,44 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "final",
-                "void"
-              ]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "final",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "final",
+                      "void"
+                    ]
+                  }
+                }
+              ],
+              "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=void`): the firm's Billing screen's Status column filter, honoured here so it holds across every page."
             },
             "required": false,
+            "description": "Narrows to one status, or to several given repeatedly (`status=draft&status=void`): the firm's Billing screen's Status column filter, honoured here so it holds across every page.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the invoice number and the client's name. The screen's search, honoured here so a client absent from the page in hand is looked for across the whole register."
+            },
+            "required": false,
+            "description": "Matched against the invoice number and the client's name. The screen's search, honoured here so a client absent from the page in hand is looked for across the whole register.",
+            "name": "search",
             "in": "query"
           },
           {
@@ -94527,19 +94592,48 @@
           },
           {
             "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "submitted",
-                "approved",
-                "billed",
-                "void"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "billed",
+                    "void"
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "submitted",
+                      "approved",
+                      "billed",
+                      "void"
+                    ]
+                  }
+                }
               ],
-              "description": "Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is."
+              "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the firm's Time screen's Status column filter, honoured here so it holds across every page. Omitted, the listing answers with every status the scope carries, which is what a time record is."
             },
             "required": false,
-            "description": "Narrows a per-matter or period listing to one status. Omitted, the listing answers with every status the scope carries, which is what a time record is.",
+            "description": "Narrows the listing to one status, or to several given repeatedly (`status=draft&status=submitted`): the firm's Time screen's Status column filter, honoured here so it holds across every page. Omitted, the listing answers with every status the scope carries, which is what a time record is.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name, on the period listing. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record."
+            },
+            "required": false,
+            "description": "Matched against the narrative, the entry number, the matter's title and number, and the timekeeper's name, on the period listing. The screen's search, honoured here so a word absent from the page in hand is looked for across the whole record.",
+            "name": "search",
             "in": "query"
           },
           {

@@ -146,6 +146,8 @@ const costParam = z.object({ id: identifierPathParam("costEntry", "id") });
 
 const incurredDateField = z.string().regex(CIVIL_DATE_PATTERN);
 
+const costStatusField = z.enum(["draft", "submitted", "approved", "billed", "void"]);
+
 const listQuery = z.object({
   ...cursorQuery.shape,
   matterId: identifierField("matter").optional(),
@@ -169,12 +171,14 @@ const listQuery = z.object({
         "Omitted, it answers with both.",
     }),
   status: z
-    .enum(["draft", "submitted", "approved", "billed", "void"])
+    .union([costStatusField, z.array(costStatusField)])
     .optional()
     .openapi({
       description:
-        "Narrows the listing to one status. Omitted, it answers with every status the record " +
-        "carries, which is what a cost record is.",
+        "Narrows the listing to one status, or to several given repeatedly " +
+        "(`status=draft&status=submitted`): the screen's Status column filter, honoured here so " +
+        "it holds across every page. Omitted, it answers with every status the record carries, " +
+        "which is what a cost record is.",
     }),
   search: z
     .string()
@@ -910,9 +914,16 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
         bindings.push(...search.bindings);
       }
 
-      if (query.status !== undefined) {
-        conditions.push("cost_entry.status = ?");
-        bindings.push(query.status);
+      // A status given once arrives as a string and given repeatedly as an array; either is a list.
+      const statuses =
+        query.status === undefined
+          ? []
+          : Array.isArray(query.status)
+            ? query.status
+            : [query.status];
+      if (statuses.length > 0) {
+        conditions.push(`cost_entry.status IN (${statuses.map(() => "?").join(", ")})`);
+        bindings.push(...statuses);
       }
       appendCursorPredicateOnColumn(conditions, bindings, decodeCursor(query.cursor), {
         sortColumn: "cost_entry.incurred_date",

@@ -246,6 +246,23 @@ describe("the span", () => {
     expect(body.nextCursor).toBeNull();
   });
 
+  it("searches the narrative and the matter across the whole record", async () => {
+    const byWord = await listed(await get("/api/v1/time-entries?search=colleague"));
+    expect(byWord.map((row) => row.narrative)).toEqual(["The colleague's own hour"]);
+    const byMatter = await listed(await get("/api/v1/time-entries?search=Pemberton"));
+    expect(byMatter.length).toBe(4);
+    // The wildcards are the caller's text: a percent sign matches a percent sign, not everything.
+    expect(await listed(await get("/api/v1/time-entries?search=%25"))).toEqual([]);
+  });
+
+  it("takes several statuses at once, given repeatedly, as the Status filter holds them", async () => {
+    const drafts = await listed(await get("/api/v1/time-entries?status=draft"));
+    expect(drafts.length).toBe(4);
+    const two = await listed(await get("/api/v1/time-entries?status=draft&status=void"));
+    expect(two.length).toBe(4);
+    expect(await listed(await get("/api/v1/time-entries?status=billed&status=void"))).toEqual([]);
+  });
+
   it("honours either bound on its own, as a Date filter set at one end is", async () => {
     const fromOnly = await listed(
       await get(`/api/v1/time-entries?from=2026-07-01&timekeeperUserId=${ownerUserId}`),

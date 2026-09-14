@@ -53,13 +53,11 @@ The strip under the table says how much you are looking at and how much there is
 · filtered", with the columns you filtered on named and one click to show all of them again.
 
 The Date, Status and Timekeeper filters reach the record itself, so they hold across every page.
-A Status filter holding two states at once narrows only the rows already loaded; pick one state to
-have it hold across the whole record.
+A Status filter holding several states at once holds across the whole record too.
 
-The search at the top is not connected yet: the time record cannot be searched by a word, and a
-search that quietly looked only at the rows on screen would tell you a word appears nowhere in a
-record it never read. The control is there, marked Soon, and the column filters are the way to
-narrow until it is.
+The search at the top reads the whole record too: type part of a description, an entry number, a
+matter's name or number, or a timekeeper's name, and the rows that answer arrive from wherever
+they are.
 
 ## What the Figures Mean
 

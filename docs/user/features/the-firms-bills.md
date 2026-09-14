@@ -32,7 +32,8 @@ The screen opens on the whole register. To see only the drafts, the finalized bi
 drafts, filter the **Status** column from its own heading. The filter offers every state whether or
 not a bill in it has loaded, and it reaches the register itself: filtering to Draft finds every draft
 the firm has, not only the ones already on screen. Unpaid, Partially Paid and Paid are all readings
-of a finalized bill, so any of them alone asks for the finalized ones.
+of a finalized bill, so any of them asks for the finalized ones and the table shows the standing you
+chose. Several states at once hold across the whole register too.
 
 The choice is in the address, so a partner looking at the firm's open drafts can send that exact view
 by sending the link.
@@ -44,10 +45,8 @@ Delivered, and the rest. Filter Client to one client, Status to unpaid, in any c
 counts strip says how many rows are showing out of how many there are, so you always know what a
 filter left out.
 
-The search at the top is not connected yet: the register cannot be searched by a client's name or a
-number, and a search that quietly looked only at the rows on screen would tell you a client appears
-nowhere in a register it never read. The control is there, marked Soon, and the Client column's
-filter is the way to narrow until it is.
+The search at the top reads the whole register: type part of an invoice number or a client's name,
+and the bills that answer arrive from wherever they are.
 
 ## What the Columns Say
 
