@@ -2191,3 +2191,26 @@ The owner: "messaging, new should say new message, not new call".
   a call is one kind of message it holds, and a control named for one kind claims the whole screen
   is that kind. The same control on the matter's Messaging section carries the same word.
   _(status: open — routed to the messaging round in flight)_
+
+### 2026-09-14 — where data will arrive, its structure renders first
+
+The owner, on the messaging record's History tab ("Nothing yet. Saving this records who wrote it
+down and when…" over a paragraph about carriers' reports): remove it; "messaging history should
+have whatever table it will have once we have the history, that way it doesn't just look like
+blank space." And the general rule, with a lint asked for: "places where data will populate and it
+should be in the table, but it is just loose on the background or the screen. This doesn't prepare
+the user for incoming information, and makes it more difficult to identify issues. The Hash screen
+for files would be another example of this; but also showcases how we need to consider not every
+place we need to structure data will just be a table, but may have other elements."
+
+- **Where data will arrive, the structure that will hold it renders first, empty.** A table renders
+  its header row over an empty body; a definition list its terms over empty definitions; a rail its
+  frame. The words that explain the emptiness live inside that structure's own empty state — short —
+  never as loose prose beside or beneath it on the canvas. A reader is being prepared for what will
+  arrive, and a defect in a structure that is already standing is visible where a defect behind a
+  sentence is not. _(status: open — the messaging History tab is routed to the messaging round in
+  flight; the Hashes tab, the lint `lint:structured-empty`, and every other hit are with a fresh
+  agent)_
+- **It is not always a table.** The Hashes tab is a definition list; a transcript is a
+  `Conversation`; a chain is a rail. The rule is about the structure the data takes, and the lint
+  looks for prose standing where any of them should.
