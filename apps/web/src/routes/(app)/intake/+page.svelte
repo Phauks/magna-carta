@@ -66,6 +66,7 @@
     listIntakeDesk,
     scheduleRefusal,
     INTAKE_DESK_INITIAL_SORT,
+    deskNumberOf,
     UNNUMBERED_INTAKE,
     type IntakeDeskRow,
   } from "$lib/intake/intake-desk.ts";
@@ -383,7 +384,8 @@
   {#if column.id === "consultationNumber"}
     <!-- Tabular figures: a number is read down a column and quoted back over the phone. The
          unnumbered word reads muted, because it is the absence of one. -->
-    {#if row.consultationNumber === null}
+    {@const number = deskNumberOf(row)}
+    {#if number === null}
       <span class="text-text-muted">{UNNUMBERED_INTAKE}</span>
     {:else}
       <a
@@ -391,7 +393,7 @@
         href={intakeResumeHref(row)}
         onclick={(event) => event.stopPropagation()}
       >
-        {row.consultationNumber}
+        {number}
       </a>
     {/if}
   {:else if column.id === "status"}

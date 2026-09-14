@@ -16,7 +16,7 @@ import {
   URL_SAFE_PATTERN,
   type NumberSegment,
 } from "@magna-carta/matters/numbering/segments";
-import { DEFAULT_CONSULTATION_SCHEME } from "@magna-carta/matters/numbering/consultation-scheme";
+import { sequenceOf } from "@magna-carta/matters/numbering/sequences";
 import { ZodError } from "zod";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -69,9 +69,9 @@ const NumberSegmentSchema = z
   ])
   .openapi("NumberSegment");
 
-// Which of the firm's two sequences a request is about. Absent means the matter number: the surface
-// predates the consultation sequence, and a caller that says nothing means what it always meant.
-const purposeField = z.enum(["matter", "consultation"]).default("matter");
+// Which of the firm's three sequences a request is about. Absent means the matter number: the
+// surface predates the other two, and a caller that says nothing means what it always meant.
+const purposeField = z.enum(["matter", "consultation", "intake"]).default("matter");
 
 const SchemeBody = z
   .object({ segments: z.array(NumberSegmentSchema), purpose: purposeField })
@@ -106,9 +106,10 @@ const GetSchemeResponse = z
     segments: z.array(NumberSegmentSchema).nullable(),
     purpose: z.enum(["matter", "consultation"]),
     // True when the firm has configured nothing and the segments above are the built-in default that
-    // is actually rendering numbers today — which only the consultation sequence has. A matter
-    // sequence with nothing configured returns null segments and false: nothing is in force, and a
-    // draw refuses rather than inventing a shape for a number that is then frozen.
+    // is actually rendering numbers today — which the consultation and intake sequences have and
+    // the matter sequence does not. A matter sequence with nothing configured returns null segments
+    // and false: nothing is in force, and a draw refuses rather than inventing a shape for a number
+    // that is then frozen.
     usingDefault: z.boolean(),
   })
   .openapi("NumberingSchemeResponse");
@@ -131,9 +132,10 @@ export const getNumberingSchemeRoute = defineOpenAPIRoute(getNumberingSchemeMeta
   path: "/api/v1/numbering-scheme",
   description:
     "Returns the firm's active numbering scheme for one purpose (the ordered segment template): " +
-    "'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry. " +
-    "Returns null segments when none is configured and no default applies; usingDefault marks the " +
-    "built-in consultation sequence that renders until the firm sets its own.",
+    "'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry, " +
+    "'intake' for the numbers enquiries wear from the moment they are written down. Returns null " +
+    "segments when none is configured and no default applies; usingDefault marks a built-in " +
+    "sequence that renders until the firm sets its own.",
   request: { query: z.object({ purpose: purposeField }) },
   responses: {
     200: {
@@ -285,10 +287,12 @@ export function registerNumberingRoutes(app: NumberingApp, chokepoint: Chokepoin
       const firm = requireChokepointFirmContext(c);
       const { purpose } = c.req.valid("query");
       const configured = (await readActiveScheme(firm.firmDatabase, purpose)) ?? null;
-      // The consultation sequence falls back to the built-in default, so the screen shows what is
-      // actually rendering rather than an empty box beside numbers people can already see.
-      const usingDefault = configured === null && purpose === "consultation";
-      const segments = usingDefault ? DEFAULT_CONSULTATION_SCHEME : configured;
+      // A sequence that has a built-in default falls back to it, so the screen shows what is
+      // actually rendering rather than an empty box beside numbers people can already see. Which
+      // sequences those are is the sequence table's answer, not a branch repeated here.
+      const fallback = sequenceOf(purpose).fallbackScheme;
+      const usingDefault = configured === null && fallback !== null;
+      const segments = usingDefault ? fallback : configured;
       return c.json({ segments, purpose, usingDefault } as z.infer<typeof GetSchemeResponse>, 200);
     },
   );

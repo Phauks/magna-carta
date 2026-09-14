@@ -18,7 +18,7 @@ import { MATTER_TYPE_TABLE } from "./matter-type-statements.ts";
 export type { Page };
 
 const MATTER_LIST_COLUMNS =
-  "id, title, status, matter_type_id, location_id, responsible_member_id, client_display_name, matter_number, consultation_number, created_at";
+  "id, title, status, matter_type_id, location_id, responsible_member_id, client_display_name, matter_number, consultation_number, intake_number, created_at";
 
 export interface ListMattersFilters {
   readonly status?: MatterStatus;
@@ -71,14 +71,15 @@ export function listMattersStatement(
     bindings.push(filters.responsibleMemberId);
   }
   if (filters.search !== undefined && filters.search.length > 0) {
-    // The consultation number is searched alongside the matter number: for a file that is still a
-    // consultation it is the ONLY number anyone has, so leaving it out would make the number on the
-    // screen the one thing that finds nothing.
+    // Every number a matter has ever worn is searched, not only the newest: at each rung the number
+    // drawn there is the ONLY one anyone has, and a file that has since moved on is still quoted by
+    // the number it was filed under at the time. Leaving any of them out would make the number on
+    // somebody's note the one thing that finds nothing.
     conditions.push(
-      "(title LIKE ? OR matter_number LIKE ? OR consultation_number LIKE ? OR client_display_name LIKE ?)",
+      "(title LIKE ? OR matter_number LIKE ? OR consultation_number LIKE ? OR intake_number LIKE ? OR client_display_name LIKE ?)",
     );
     const term = `%${filters.search}%`;
-    bindings.push(term, term, term, term);
+    bindings.push(term, term, term, term, term);
   }
   appendCursorPredicate(conditions, bindings, cursor);
   bindings.push(limit);
@@ -99,6 +100,7 @@ interface MatterRowRaw {
   client_display_name: string | null;
   matter_number: string | null;
   consultation_number: string | null;
+  intake_number: string | null;
   created_at: string;
 }
 
@@ -114,6 +116,10 @@ export interface MatterListItem {
   // The tentative number a consultation carries. Kept beside the matter number rather than folded
   // into it: which of the two a reader is looking at changes what it means.
   readonly consultationNumber: string | null;
+  // And the number the intake carried before either of them. Three columns rather than one, for the
+  // same reason: a file that came the whole way answers to all three, and which one a reader is
+  // looking at tells them which rung the record was on when it was written down.
+  readonly intakeNumber: string | null;
   readonly createdAt: string;
 }
 
@@ -128,6 +134,7 @@ function toMatterListItem(row: MatterRowRaw): MatterListItem {
     clientDisplayName: row.client_display_name,
     matterNumber: row.matter_number,
     consultationNumber: row.consultation_number,
+    intakeNumber: row.intake_number,
     createdAt: row.created_at,
   };
 }

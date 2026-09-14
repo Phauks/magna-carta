@@ -155,6 +155,14 @@ is usually the fastest way to understand the rule.
   hover, the selection and the pinned columns rather than building a second row. _(the time sheet;
   reissued for the call log, 2026-09-08: "the description should be in a line beneath the other
   information, consider how we do that for time entries")_
+- **Every rung of a record's life draws a number, on a run of its own, and keeps it.** An enquiry is
+  numbered the moment it is written down, a consultation when it graduates, a matter when it opens —
+  and each number stands beside the last rather than replacing it, so a note filed under any of them
+  still resolves. The runs are separate because a run is only readable if it counts one thing: a
+  consultation run pitted with declined enquiries cannot be told apart from one with records
+  missing. What a surface SHOWS is the newest number the record has drawn, and what a surface
+  SEARCHES is all of them. _(2026-09-14: "everything should have a number, intake would have a
+  number as well"; generalizing the consultation sequence of 2026-08-31.)_
 - **A record a person quotes out loud carries a NUMBER, and the number is a column.** A handle is
   what the platform joins on; it is not something anybody can read back down a telephone or write on
   a slip. Where a record is referred to out loud — a matter, an entry, an invoice, a call — it draws
@@ -1071,6 +1079,24 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-09-14 — everything has a number, intake included
+
+The owner, on seeing the modal-header work land: "everything should have a number, intake would have
+a number as well." What binds:
+
+- **The last of "no number before active" is gone.** The lifecycle ruling of 2026-09-06 said no
+  number of any kind existed before a matter became active; the consultation sequence reversed half
+  of it and this reverses the rest. An intake draws its own number the moment the enquiry is written
+  down, from a third run beside the matter and consultation runs, rendering `I2026-0001` by default.
+- **A number per rung, not a number moved earlier.** Drawing the consultation number at intake
+  instead would have been cheaper and is the wrong shape: most enquiries are declined, so the
+  consultation run would fill with numbers issued to nothing and stop being readable as a run of
+  consultations. Each run counts one thing, which is what keeps each of them dense enough to read.
+- **A file that came the whole way answers to three names and keeps all three.** Nothing is
+  replaced. A surface shows the newest number the record has drawn — that is the one a person is
+  being told now — and searches every one of them, because a note quoting the number a file was
+  filed under at the time has to keep finding it.
+
 ### 2026-09-14 — the modal header: the act, and the identifier of what it acts on
 
 The owner, opening this stream: a standardized format for stating what a modal does and the
@@ -1475,9 +1501,11 @@ status as well." What binds:
 - **A matter's statuses are Intake, Consultation, Active, On Hold and Closed**, stored as `intake`,
   `consultation`, `open`, `hold`, `closed`. On Hold is reached only from Active — "no longer
   active" presumes it was — and returns only to Active.
-- **A hold keeps the number and draws nothing.** No number of any kind exists before a matter is
-  active, and none is surrendered or re-drawn on either side of a pause. A held matter stays on the
-  docket wearing its status; it is not an unnumbered rung and does not go to the Intake desk.
+- **A hold keeps the number and draws nothing.** None is surrendered or re-drawn on either side of a
+  pause. A held matter stays on the docket wearing its status; it is not an unnumbered rung and does
+  not go to the Intake desk. _(The half of this ruling that said no number of any kind exists before
+  a matter is active has since been reversed in full: the consultation sequence on 2026-08-31, the
+  intake sequence on 2026-09-14. Every rung draws a number of its own now, on a run of its own.)_
 - **A hold carries its reason, and the reason is required.** It is asked in a sentence, in place,
   beneath the step that records it, and printed beside the status wherever the status is read. A
   pause nobody can explain is not a pause anybody can resume.

@@ -15,6 +15,7 @@ import {
   reopenMatter,
   updateMatter,
 } from "../src/matter-service.ts";
+import type { NumberingPurpose } from "../src/matter-statements.ts";
 import type { NumberSegment } from "../src/numbering/segments.ts";
 import { MatterValidationError } from "../src/validation.ts";
 
@@ -90,7 +91,7 @@ async function seedMember(database: BatchDatabase, userId: string): Promise<void
 async function seedScheme(
   database: BatchDatabase,
   segments: NumberSegment[],
-  purpose: "matter" | "consultation" = "matter",
+  purpose: NumberingPurpose = "matter",
 ): Promise<void> {
   // One active scheme per purpose: deactivate any existing of that purpose, then insert the new one.
   await database
@@ -113,13 +114,14 @@ async function seedScheme(
 async function readMatter(database: BatchDatabase, matterId: MatterId) {
   const { results } = await database
     .prepare(
-      "SELECT status, matter_number, consultation_number, opened_at, held_at, hold_reason, closed_at FROM matter WHERE id = ?1",
+      "SELECT status, matter_number, consultation_number, intake_number, opened_at, held_at, hold_reason, closed_at FROM matter WHERE id = ?1",
     )
     .bind(matterId)
     .all<{
       status: string;
       matter_number: string | null;
       consultation_number: string | null;
+      intake_number: string | null;
       opened_at: string | null;
       held_at: string | null;
       hold_reason: string | null;
@@ -409,24 +411,60 @@ describe("closeMatter / reopenMatter", () => {
     });
   });
 
-  it("creates an intake with no number of either kind, and no counter touched", async () => {
+  it("creates an intake with its own number, leaving the other two runs untouched", async () => {
     const database = await setup();
     const created = await createMatter(database, { ...baseInput, status: "intake" }, options);
     expect(created.matterNumber).toBeNull();
     expect(created.consultationNumber).toBeNull();
+    // No intake scheme is configured here, so the built-in default renders: an enquiry is never left
+    // unnumbered while somebody gets round to the settings screen.
+    expect(created.intakeNumber).toBe("I2026-0001");
     expect(await readMatter(database, created.matterId)).toMatchObject({
       status: "intake",
       matter_number: null,
       consultation_number: null,
+      intake_number: "I2026-0001",
       opened_at: null,
     });
-    // The consultation run is untouched: the next consultation recorded outright is the first.
+    // The other two runs are untouched: the next consultation recorded outright is still the first,
+    // which is the whole reason an intake counts on a run of its own.
     const outright = await createMatter(
       database,
       { ...baseInput, status: "consultation" },
       options,
     );
     expect(outright.consultationNumber).toBe("C2026-0001");
+    expect(outright.intakeNumber).toBeNull();
+  });
+
+  it("counts intakes on their own run, in their own scope", async () => {
+    const database = await setup();
+    const first = await createMatter(database, { ...baseInput, status: "intake" }, options);
+    const second = await createMatter(database, { ...baseInput, status: "intake" }, options);
+    expect([first.intakeNumber, second.intakeNumber]).toEqual(["I2026-0001", "I2026-0002"]);
+    // Three runs allocating in the same tables, kept apart by the scope-key prefix.
+    expect(await readAllocations(database)).toEqual([
+      { scope_key: "intake/2026", drawn_value: 1 },
+      { scope_key: "intake/2026", drawn_value: 2 },
+    ]);
+  });
+
+  it("renders an intake number from the firm's own intake scheme when it has one", async () => {
+    const database = await setup();
+    await seedScheme(
+      database,
+      [
+        { kind: "literal", text: "ENQ-" },
+        { kind: "counter", padWidth: 3, start: 7 },
+      ],
+      "intake",
+    );
+    const { intakeNumber } = await createMatter(
+      database,
+      { ...baseInput, status: "intake" },
+      options,
+    );
+    expect(intakeNumber).toBe("ENQ-007");
   });
 
   it("graduates an intake to a consultation, drawing its consultation number, and only once", async () => {
@@ -437,6 +475,9 @@ describe("closeMatter / reopenMatter", () => {
     expect(await readMatter(database, matterId)).toMatchObject({
       status: "consultation",
       consultation_number: "C2026-0001",
+      // The intake number STANDS. Graduation adds a number beside it rather than over it, so a note
+      // filed under the enquiry's own number still resolves a year later.
+      intake_number: "I2026-0001",
       matter_number: null,
       opened_at: null,
     });

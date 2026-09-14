@@ -222,6 +222,8 @@ const DeskRow = z
     // Which rung: an intake still clearing its procedure, or a consultation awaiting its meeting.
     status: z.enum(["intake", "consultation"]),
     consultationNumber: z.string().nullable(),
+    // On an intake still clearing its procedure this is the only number the row has.
+    intakeNumber: z.string().nullable(),
     matterTypeId: z.string().nullable(),
     matterTypeName: z.string().nullable(),
     responsibleMemberId: z.string(),
