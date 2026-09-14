@@ -4,7 +4,6 @@
    * speed test states. The round trip to Magna Carta sits beside them because that is the one
    * thing their page cannot tell you.
    */
-  import * as DefinitionList from "@magna-carta/design-system/definition-list";
   import { formatMilliseconds } from "./speed-test-format.ts";
   import { ABSENT_MARKER, ABSENT_DESCRIPTION } from "./absence.ts";
   import { ipVersion, type MeasurementServer } from "./speed-test-meta.ts";
@@ -14,34 +13,24 @@
     meta,
     probe,
   }: { meta: MeasurementServer | null; probe: ProbeOutcome | null } = $props();
-
-  /*
-   * The four facts as terms, present before the server has answered, so the list stands in its
-   * shape and each value lands where its term already is. A value not yet measured takes the
-   * tool's one absence marker, the same one every other reading on the page takes.
-   */
-  const facts = $derived([
-    { term: "Connected via", value: meta === null ? null : ipVersion(meta.clientIp) },
-    { term: "Server location", value: meta === null ? null : `${meta.coloCity} (${meta.coloIata})` },
-    { term: "Your network", value: meta === null ? null : `${meta.asOrganization} (AS${meta.asn})` },
-    { term: "Your IP address", value: meta === null ? null : meta.clientIp },
-  ]);
 </script>
 
-<DefinitionList.Root>
-  {#each facts as fact (fact.term)}
-    <DefinitionList.Row term={fact.term}>
-      {#if fact.value === null}
-        <span aria-label={`${fact.term}: ${ABSENT_DESCRIPTION}`}>{ABSENT_MARKER}</span>
-      {:else}
-        {fact.value}
-      {/if}
-    </DefinitionList.Row>
-  {/each}
-  {#if meta === null}
-    <DefinitionList.Empty>The measurement server has not identified itself.</DefinitionList.Empty>
-  {/if}
-</DefinitionList.Root>
+{#if meta === null}
+  <p class="text-sm text-text-muted">The measurement server has not identified itself.</p>
+{:else}
+  <dl class="grid grid-cols-1 gap-16 text-sm sm:grid-cols-2">
+    <div><dt class="text-text-muted">Connected via</dt><dd>{ipVersion(meta.clientIp)}</dd></div>
+    <div>
+      <dt class="text-text-muted">Server location</dt>
+      <dd>{meta.coloCity} ({meta.coloIata})</dd>
+    </div>
+    <div>
+      <dt class="text-text-muted">Your network</dt>
+      <dd>{meta.asOrganization} (AS{meta.asn})</dd>
+    </div>
+    <div><dt class="text-text-muted">Your IP address</dt><dd>{meta.clientIp}</dd></div>
+  </dl>
+{/if}
 
 <div class="mt-16">
   {#if probe === null}
