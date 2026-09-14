@@ -16,7 +16,6 @@
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
   import Badge from "@magna-carta/design-system/badge";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import type { Snippet } from "svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -148,16 +147,6 @@
       cell={reviewSetCell}
       loading={reviewSets === null}
     >
-      {#snippet empty()}
-        {#if (ownGrid?.activeFilterCount ?? 0) > 0 || search.trim() !== ""}
-          <EmptyState title="Nothing Matches That">
-            No review set here answers to what is asked. Widening the search or the filters brings
-            them back.
-          </EmptyState>
-        {:else}
-          <EmptyState title={emptyTitle} actions={emptyActions}>{@render emptyBody()}</EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter grid={ownGrid}>

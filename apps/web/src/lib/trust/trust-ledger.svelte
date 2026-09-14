@@ -26,7 +26,6 @@
    * where the design puts it, refused, naming what it waits on.
    */
   import * as DataTable from "@magna-carta/design-system/data-table";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant } from "@magna-carta/design-system/formatters";
   import { MaturityBadge, soonDependencySentence } from "@magna-carta/design-system/maturity";
@@ -234,13 +233,6 @@
   {/if}
 {/snippet}
 
-{#snippet emptyLedger()}
-  <EmptyState title="No Trust Movements Yet">
-    Deposits into this matter&rsquo;s trust ledger, disbursements out of it and transfers between
-    this client&rsquo;s matters land here, each with who recorded it and who released it. New
-    Deposit, at the top of the matter, records the first.
-  </EmptyState>
-{/snippet}
 
 <!-- The one honest line about why this ledger stands empty: nothing can name a trust account. -->
 {#snippet notices()}
@@ -266,7 +258,6 @@
         class={tableClass}
         {density}
         {caption}
-        empty={emptyLedger}
         {loading}
       />
     </div>

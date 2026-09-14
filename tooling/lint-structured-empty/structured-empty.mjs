@@ -6,7 +6,8 @@
  * information, and makes it more difficult to identify issues." A table renders its header row and
  * its empty body; a definition list renders its terms with empty definitions; a rail renders its
  * frame. The words that explain the emptiness live INSIDE that structure's own empty state — the
- * design system's EmptyState in DataTable.Grid's `empty` snippet, EventRail's `emptyMessage`, the
+ * design system's own words — DataTable.Grid renders "No Results" itself, EventRail takes an
+ * `emptyMessage`, the
  * list's own empty row — never as loose prose beside or beneath it on the canvas.
  *
  * THE TWO SHAPES THIS CATCHES are the two the owner pointed at:
@@ -61,7 +62,7 @@ export const STRUCTURES = new Map([
   [
     "DataTable.",
     "the table's own empty body — DataTable.Grid renders its header row over an empty body on its " +
-      "own, and takes an `empty` snippet (EmptyState) for the words",
+      'own, and says "No Results" in it without being asked',
   ],
   ["table", "the table's own empty body, under its header row"],
   [

@@ -28,7 +28,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import CalendarPlus from "@lucide/svelte/icons/calendar-plus";
@@ -345,20 +344,6 @@
         cell={deskCell}
         loading={rows === null}
       >
-        {#snippet empty()}
-          {#if narrowed}
-            <EmptyState title="Nothing Matches That">
-              No intake in flight answers to what is asked. Widening the search brings the desk
-              back.
-            </EmptyState>
-          {:else}
-            <EmptyState title="Nothing Is In Intake">
-              An intake starts when somebody asks the firm to act: the caller is chosen from the
-              directory or recorded into it, the matter is named, and a consultation is recorded.
-              New Intake, at the top of the screen, starts the first one.
-            </EmptyState>
-          {/if}
-        {/snippet}
       </DataTable.Grid>
 
       <DataTable.GridFooter {grid}>

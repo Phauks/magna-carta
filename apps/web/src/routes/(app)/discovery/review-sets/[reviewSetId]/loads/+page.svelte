@@ -37,7 +37,6 @@
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
   import CreateControl from "@magna-carta/design-system/create-control";
-  import EmptyState from "@magna-carta/design-system/empty-state";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -284,21 +283,6 @@
       caption="What has been loaded into this review set"
       loading={loads === null}
     >
-      {#snippet empty()}
-        {#if searching || grid.activeFilterCount > 0}
-          <EmptyState title="Nothing Matches That">
-            No load here answers to what is asked. Widening the search or the filters brings them
-            back.
-          </EmptyState>
-        {:else}
-          <EmptyState title="Nothing Has Been Loaded Yet">
-            A load is declared before its material arrives — how much is coming, where from, and
-            whether the firm's own assistant transcripts are in scope. What then arrives is
-            reconciled against that declaration, which is what lets the manifest state a finding
-            rather than a claim.
-          </EmptyState>
-        {/if}
-      {/snippet}
     </DataTable.Grid>
 
     <DataTable.GridFooter {grid}>
