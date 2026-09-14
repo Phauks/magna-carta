@@ -1843,9 +1843,11 @@
    * made by pointer is the same change as a move made by menu, and undo must not be able to tell
    * them apart.
    *
-   * KEYBOARD PARITY. Nothing here is the only way to move a file: Cut and Paste are on every
-   * right-click menu with their shortcuts, and the folder picker in the delete dialog chooses a
-   * destination without a pointer. A drag is the fast way, never the only way.
+   * KEYBOARD PARITY. Nothing here is the only way to move a file. Cut (Ctrl X) and Paste (Ctrl V)
+   * are on every right-click menu with their shortcuts and are answered by this window's own key
+   * handler, and the rail's menu pastes into a folder — so every move a drag makes can be made
+   * without a pointer. A drag is the fast way, never the only way, and a separate "move to folder"
+   * picker would be a third answer to a question the surface has already settled twice.
    */
   function movableKeys(keys: readonly string[], targetKey: string): readonly string[] {
     return landableKeys(index, keys, targetKey, findRowAnywhere);
@@ -1874,8 +1876,10 @@
 
   /*
    * The list's rows are the shared table's, which stamps `data-grid-row` on each and puts no
-   * `draggable` there — so the drag reads its rows through that attribute and lifts the row it is
-   * pressed on. The icon grid's tiles carry the same attribute for the same reason.
+   * `draggable` there — so the drag reads its rows through that attribute and lifts the row under
+   * the press for the duration of it. The icon grid's tiles carry the same attribute because they
+   * stand for the same rows: one resolver then serves both layouts, and switching between them
+   * changes how a row is drawn rather than whether it can be dragged.
    */
   const gridDragRegion = {
     sourceAt: (element: HTMLElement): ItemDragAnchor | null => {
