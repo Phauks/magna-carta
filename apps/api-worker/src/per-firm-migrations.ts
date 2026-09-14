@@ -8,6 +8,7 @@ import seedEditOwnProfileSql from "@magna-carta/database/drizzle/per-firm/202609
 import seedManageProfileSql from "@magna-carta/database/drizzle/per-firm/20260908T060000_seed-manage-profile.sql";
 import communicationReferenceNumberAndEndSql from "@magna-carta/database/drizzle/per-firm/20260908T215427_communication-reference-number-and-end.sql";
 import seedAiSettingsPermissionSql from "@magna-carta/database/drizzle/per-firm/20260909T000000_seed-ai-settings-permission.sql";
+import conflictsCheckNumbersAndRunsSql from "@magna-carta/database/drizzle/per-firm/20260911T120000_conflicts-check-numbers-and-runs.sql";
 
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
 // add the new import alongside its journal entry, keyed by its monotonic timestamp id. The test
@@ -22,6 +23,7 @@ export function perFirmMigrations(): Migration[] {
     "20260908T060000_seed-manage-profile": seedManageProfileSql,
     "20260908T215427_communication-reference-number-and-end": communicationReferenceNumberAndEndSql,
     "20260909T000000_seed-ai-settings-permission": seedAiSettingsPermissionSql,
+    "20260911T120000_conflicts-check-numbers-and-runs": conflictsCheckNumbersAndRunsSql,
   });
 }
 
