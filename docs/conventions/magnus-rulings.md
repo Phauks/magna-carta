@@ -19,11 +19,11 @@ reasoning the build followed, and the notes block at the end records what was de
 
 ### The rail
 
-| #  | Ruling                                                                                                                                                                      | Status  |
-| -- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| R1 | **The rail sorts, and by more than one thing.** By name, by the matter the conversation is kept on, and by date — date being the default.                                   | settled |
-| R2 | **The sort control is there in the empty state too.** A rail with nothing in it still shows how it would be ordered; the control is not conjured by the first conversation. | settled |
-| R3 | **Renaming a conversation happens in line.** The name is edited where it is read, not by swapping the conversation's head row for a labelled field and two buttons.         | settled |
+| #   | Ruling                                                                                                                                                                      | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| R1  | **The rail sorts, and by more than one thing.** By name, by the matter the conversation is kept on, and by date — date being the default.                                   | settled |
+| R2  | **The sort control is there in the empty state too.** A rail with nothing in it still shows how it would be ordered; the control is not conjured by the first conversation. | settled |
+| R3  | **Renaming a conversation happens in line.** The name is edited where it is read, not by swapping the conversation's head row for a labelled field and two buttons.         | settled |
 
 **What the code says today.** The rail is a `PagedList` read newest-first with no ordering choice at
 all — the listing's order is the server's and the surface never asks for another. Sorting by name
@@ -38,10 +38,10 @@ Renaming today replaces the conversation's head row with a `Label`, an `Input`, 
 
 ### The conversation
 
-| #  | Ruling                                                                                                                                                    | Status  |
-| -- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| C1 | **A conversation can be pointed at a matter.** Not only at the moment it is started — a conversation that turns out to belong to a matter is filed on it. | settled |
-| C2 | **Files can be uploaded into a conversation.**                                                                                                            | settled |
+| #   | Ruling                                                                                                                                                    | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| C1  | **A conversation can be pointed at a matter.** Not only at the moment it is started — a conversation that turns out to belong to a matter is filed on it. | settled |
+| C2  | **Files can be uploaded into a conversation.**                                                                                                            | settled |
 
 **What the code says today.** A conversation carries `matterId` and it is set when the conversation
 is STARTED (`start: { title, matterId }`); the listing filters by it, and the matter's own section
@@ -57,10 +57,10 @@ disclosure (`magnus-disclosure.svelte`) exists to answer honestly.
 
 ### The model
 
-| #  | Ruling                                                                                                                                              | Status  |
-| -- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| M1 | **The model is selectable.** Which model answers is a choice the firm makes and can see, rather than a value fixed behind the surface.              | settled |
-| M2 | **The model list keeps itself current**, rather than being a list somebody has to remember to edit. Cloudflare's AI Gateway is the candidate route. | settled |
+| #   | Ruling                                                                                                                                              | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| M1  | **The model is selectable.** Which model answers is a choice the firm makes and can see, rather than a value fixed behind the surface.              | settled |
+| M2  | **The model list keeps itself current**, rather than being a list somebody has to remember to edit. Cloudflare's AI Gateway is the candidate route. | settled |
 
 **What the code says today, and the tension to settle.**
 
@@ -89,9 +89,9 @@ disclosure (`magnus-disclosure.svelte`) exists to answer honestly.
 
 ### The screen
 
-| #  | Ruling                                                                                                                                        | Status  |
-| -- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| G1 | **Magnus wants a much better interface, taken as a whole.** The rows above are the specific asks; the screen itself is what the round is for. | settled |
+| #   | Ruling                                                                                                                                        | Status  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| G1  | **Magnus wants a much better interface, taken as a whole.** The rows above are the specific asks; the screen itself is what the round is for. | settled |
 
 **What the code said before the round.** `magnus-surface.svelte` was 858 lines carrying both
 presentations — the workspace's standing rail and the matter section's switcher — behind one `rail`
