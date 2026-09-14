@@ -31,6 +31,10 @@
   import EventRail from "@magna-carta/design-system/event-rail";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
+  import {
+    RecordSubjectLine,
+    type RecordSubject,
+  } from "@magna-carta/design-system/record-reference";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant, formatInstantDate } from "@magna-carta/design-system/formatters";
   import { statusBadgeAttributes, statusEntry } from "@magna-carta/design-system/status-register";
@@ -133,6 +137,11 @@
   const isDraft = $derived(row?.summary.status === "draft");
   const isFinal = $derived(row?.summary.status === "final");
   const isVoid = $derived(row?.summary.status === "void");
+
+  const subjectLine = $derived<RecordSubject>({
+    reference: { kind: "Matter", number: matterNumber },
+    facts: [clientName],
+  });
 
   /** What the bill is NAMED. A bill with no number has only its standing to be called by. */
   const heading = $derived.by((): string => {
@@ -293,7 +302,9 @@
 {/snippet}
 
 {#snippet subtitle()}
-  <span>{clientName}</span>
+  <!-- The bill's own number is its HEADING — a bill is called "Invoice 2026-0147" — so this line
+       names who it is for and which matter it is on, and never repeats the number above it. -->
+  <RecordSubjectLine subject={subjectLine} />
   {#if row !== null && standing !== null && chipAddsAFact}
     <Badge {...statusBadgeAttributes(standing)}>{statusEntry(standing).label}</Badge>
   {/if}

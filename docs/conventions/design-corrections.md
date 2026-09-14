@@ -161,7 +161,8 @@ is usually the fastest way to understand the rule.
   a human number, that number leads the row, and the screen's search matches it first. A number that
   carries the day it belongs to is legible without a lookup, and scoping its sequence to that day is
   what keeps it short enough to say. _(the call log, 2026-09-08: "all calls and logs should have a
-  number, which we can identify in the log ... should incorporate date")_
+  number, which we can identify in the log ... should incorporate date")_ Enforced by
+  `pnpm run lint:modal-headers`, which asks it of every panel handed a record's number.
 - **A control that undoes a state exists only while that state is in play.** The clear-filters
   control appears when something is narrowing the view and is absent otherwise, so its absence is
   itself the answer to "is anything hidden". _(matters docket, 2026-08-30)_
@@ -423,7 +424,27 @@ is usually the fastest way to understand the rule.
 - **A panel does not explain its own subject, and a refusal does not lecture.** The subtitle names
   what is being acted on; it is not the place for a paragraph on what the subsystem is for. A
   refusal states what to do in as few words as that takes — "Name at least one party.", not a
-  sentence about what a check is. _(the New Check panel, 2026-09-08)_
+  sentence about what a check is. Enforced by `pnpm run lint:modal-headers`, and by the type: the
+  subtitle slot takes a `RecordSubject`, so a paragraph cannot be passed as a string at all.
+  _(the New Check panel, 2026-09-08)_
+- **A modal says two things: what it DOES, and WHICH RECORD it does it to.** The heading names the
+  act in the imperative — "Write Off a Balance" — a panel that MAKES a record says "New &lt;Noun&gt;"
+  with the create control's own noun, and a panel that asks for nothing is `kind="reading"` and names
+  the thing it shows. No heading ends in a question mark: the panel is what makes it a question, and
+  a destructive kind already takes the alertdialog role and traps the decision. Interior articles and
+  short prepositions stay lower case — "File a Copy", never "File A Copy". The subtitle is the
+  RECORD, by the number somebody would read back down a telephone, plus the few facts about that
+  record worth stating beside it. Both lines are asserted by `pnpm run lint:modal-headers`, whose
+  verb vocabulary is a closed set: a new act adds one reviewed line rather than a noun quietly
+  becoming a heading. _(2026-09-14, generalizing the two rulings of 2026-09-08 above and below)_
+- **A record a panel was HANDED the number of is a record that panel names.** Being given a record's
+  number is being told which record the panel is about, so it appears in the heading (where the
+  number IS the record's name — a bill opens as "Invoice 2026-0147") or in the subtitle's reference,
+  and never only in the record pane or on the printed sheet. The scan reads the platform's record
+  numbers out of the schema's own `*_number` columns rather than a list somebody keeps, so a record
+  kind that grows a number is asked this question the day its column lands; a number that is a number
+  of something else — a telephone, a vehicle, a parcel of land — is recorded as such with its reason.
+  _(2026-09-14)_
 
 - **A screen makes something new through ONE control, and it is the same control on every screen.**
   The design system's `CreateControl`: a primary button reading "New" and one noun ("New Fee",
@@ -1049,6 +1070,36 @@ name, which is every screen outside a matter.
 Append an entry under the round it came from, then promote the generalizable part into _Standing
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
+
+### 2026-09-14 — the modal header: the act, and the identifier of what it acts on
+
+The owner, opening this stream: a standardized format for stating what a modal does and the
+identifier of the data being entered, "because all data should be traceable, and in that way, all
+data should have identifiers. These are our tentative matter numbers, or message numbers".
+
+The round found that both halves had already been ruled on — on 2026-09-08, twice, and in the
+shells' own prop documentation before that — and that none of it held. Across 82 panel openings, 18
+of 54 subtitles were paragraphs about what a subsystem is for, four billing panels put a number and
+a sentence in one string behind a middle dot in three places and an em dash in a fourth, five
+headings asked a question where forty-seven named an act, six capitalised an article fourteen left
+alone, and the preview-before-save the owner had asked for had reached exactly one file.
+
+- **A ruling in a ledger binds the people who read the ledger; a ruling with a gate binds the diff.**
+  The two rulings of 2026-09-08 were both correct, both written down, and both broken within the
+  week by people with no way to know they existed. What changed is not the rulings — it is that the
+  subtitle slot stopped being typed `string`, and that `pnpm run lint:modal-headers` now reads the
+  call sites. Promoted into _Controls and patterns_ above.
+- **A number a record does not hold yet is still stated, and says which it is.** Three standings,
+  and the difference between the last two is load-bearing rather than a shade of wording: a matter
+  number is `drawn`, a consultation number is `tentative` — the record really carries it, it
+  survives the matter opening, and a document filed under it still resolves — and a `preview` is
+  what the NEXT record would take, shown while the reader is still filling the panel in. A panel with
+  no number to show says "A number is drawn when this is saved." rather than standing empty.
+- **What a panel explains goes beside the thing it explains.** Every sentence removed from a
+  subtitle in this round either restated the heading (deleted) or explained a field, a choice or a
+  consequence (moved beside it). The one that mattered most was on the detach confirmation, where
+  the fear the panel has to answer — that pressing Detach destroys the file — now sits in the
+  panel's body instead of in the line that names the document.
 
 ### 2026-09-09 — the front door asks less, and confirming is the way in
 

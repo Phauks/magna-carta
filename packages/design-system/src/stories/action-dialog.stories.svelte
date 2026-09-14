@@ -200,7 +200,7 @@
   </button>
   <ActionDialog
     {...acting(args)}
-    heading="Discard This Draft Bill?"
+    heading="Discard This Draft Bill"
     commitLabel="Discard the Draft"
     bind:open={showing.confirm}
     kind="confirm"
@@ -220,7 +220,7 @@
   </button>
   <ActionDialog
     {...acting(args)}
-    heading="Void This Cost?"
+    heading="Void This Cost"
     commitLabel="Void the Cost"
     bind:open={showing.destructive}
     kind="destructive"

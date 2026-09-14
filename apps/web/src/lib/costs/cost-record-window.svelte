@@ -30,6 +30,10 @@
   import RecordAttachments from "@magna-carta/design-system/record-attachments";
   import RecordChain from "@magna-carta/design-system/record-chain";
   import RecordWindow, { type RecordWindowTab } from "@magna-carta/design-system/record-window";
+  import {
+    RecordSubjectLine,
+    type RecordSubject,
+  } from "@magna-carta/design-system/record-reference";
   import Textarea from "@magna-carta/design-system/textarea";
   import { formatDate, formatMoney } from "@magna-carta/design-system/data-table";
   import { formatInstant, placeholderOf } from "@magna-carta/design-system/formatters";
@@ -280,6 +284,26 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
         }),
   );
 
+  /*
+   * The line under the heading: the matter this record sits on, by its number.
+   *
+   * The number belongs here rather than only on the printed sheet — a record a person quotes out
+   * loud is named in the panel that shows it, and a handle is not something anybody reads back. The
+   * record's OWN number is not shown beside it because it does not have one yet: the entry-number
+   * gap is a fact about this ledger, and it is stated as one.
+   */
+  const subjectLine = $derived<RecordSubject>(
+    entry === null && picksItsMatter
+      ? { facts: [chosenMatterTitle ?? "No matter chosen yet"] }
+      : {
+          reference: { kind: "Matter", number: matterNumber },
+          facts:
+            entry === null
+              ? [matterTitle]
+              : [matterTitle, `${COST_LEDGER_GAPS.entryNumber.field} not yet recorded`],
+        },
+  );
+
   const payeeSearch = directoryPickerSearch(fetch);
 
   // The payee as the picker holds it: the record's own two fields, read back as one entity. A cost
@@ -358,15 +382,11 @@ import { GONE_RECORDER_NOTE, recorderState, recorderText, returnedDraftReason } 
 </script>
 
 {#snippet subtitle()}
-  {#if entry === null}
-    <!-- On a matterless surface the subtitle follows the pick, so the window's own heading answers
-         "which matter" as soon as it has been decided rather than standing empty above a filled
-         form. -->
-    <span>{picksItsMatter ? (chosenMatterTitle ?? "No matter chosen yet") : matterTitle}</span>
-  {:else}
-    <span title={gapCellTitle("entryNumber")}>
-      {COST_LEDGER_GAPS.entryNumber.field} not yet recorded
-    </span>
+  <!-- The matter this sits on, by its number. On a matterless surface the line follows the pick, so
+       the window answers "which matter" as soon as it has been decided rather than standing empty
+       above a filled form. -->
+  <RecordSubjectLine subject={subjectLine} />
+  {#if entry !== null}
     <Badge {...statusBadgeAttributes(costStatusKey(entry.status))}>
       {statusEntry(costStatusKey(entry.status)).label}
     </Badge>
