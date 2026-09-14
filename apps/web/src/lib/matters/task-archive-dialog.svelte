@@ -74,7 +74,7 @@
 <ActionDialog
   bind:open
   heading="Archive This Task"
-  subtitle={task?.title ?? ""}
+  subtitle={task === null ? {} : { facts: [task.title] }}
   commitLabel="Archive Task"
   commitBusyLabel="Archiving"
   unsavedChanges={reason.trim() !== ""}

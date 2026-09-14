@@ -161,6 +161,24 @@ describe("a number a panel was handed is a number it names", () => {
     expect(audit(source).problems).toEqual([]);
   });
 
+  it("accepts it through one derived alias", () => {
+    // A panel that can be opened ON a matter or pick one answers `chosen ?? prop` and names the
+    // result; the prop reaches the reference through that one value. One hop is resolved and a
+    // chain deliberately is not — a rule that quietly followed three would be unpredictable.
+    const source = `<script lang="ts">
+  let { open, matterNumber, chosen } = $props();
+  const effectiveMatterNumber = $derived(
+    chosen?.matterNumber ?? matterNumber,
+  );
+</script>
+<ActionDialog
+  heading="Draft a Bill"
+  commitLabel="Open Draft"
+  subtitle={{ reference: { kind: "Matter", number: effectiveMatterNumber } }}
+/>`;
+    expect(audit(source).problems).toEqual([]);
+  });
+
   it("says nothing about an identifier the panel merely reads", () => {
     // A picker's label, a guard's condition and a callback's parameter are not the panel being told
     // which record it is about. Reporting them is the shape of a gate people switch off.

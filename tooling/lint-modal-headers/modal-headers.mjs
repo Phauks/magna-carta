@@ -59,10 +59,13 @@ export const ACT_VERBS = new Set([
   "amend",
   "answer",
   "apply",
+  "archive",
   "assign",
+  "attach",
   "book",
   "cancel",
   "change",
+  "close",
   "confirm",
   "continue",
   "delete",
@@ -77,12 +80,14 @@ export const ACT_VERBS = new Set([
   "invite",
   "issue",
   "join",
+  "keep",
   "kick",
   "move",
   "open",
   "recategorize",
   "record",
   "relate",
+  "remove",
   "report",
   "request",
   "restore",
@@ -417,8 +422,24 @@ export function findReferenceProblems({ file, source, markup, tags, identifiers 
    * literal `reference:` label would miss every one of those.
    */
   const shown = new Set();
+  /*
+   * A prop is usually handed to the reference directly, and sometimes through ONE derived value: a
+   * panel that can be opened on a matter or pick one answers `chosenMatter?.matterNumber ?? prop`
+   * and names the result. So a name that a `$derived` computed FROM the prop counts as the prop for
+   * this rule's purpose. One hop, deliberately: following a chain would need a parser, and a rule
+   * that quietly resolved three hops would be one nobody could predict the verdict of.
+   */
+  const aliases = new Map();
+  for (const derived of source.matchAll(
+    /\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*\$derived[\s\S]{0,600}?\n\s*\);?\n/gu,
+  )) {
+    for (const name of identifiers.keys()) {
+      if (derived[0].includes(name)) aliases.set(derived[1], name);
+    }
+  }
   const named = (text) => {
     for (const name of identifiers.keys()) if (text.includes(name)) shown.add(name);
+    for (const [alias, name] of aliases) if (text.includes(alias)) shown.add(name);
   };
   for (const object of source.matchAll(/\{[^{}]*\bkind:[^{}]*\bnumber:[^{}]*\}/gu))
     named(object[0]);

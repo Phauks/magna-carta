@@ -38,6 +38,7 @@
    * check will draw is previewed on the panel, so a member can quote it before pressing anything.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import { PreviewedNumber } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -90,7 +91,12 @@
   let policyAsked = false;
   let failure = $state<StatedFailure | null>(null);
   /** The number the next check would draw. A preview, never a reservation: two panels may show it. */
-  let nextNumber = $state<string | null>(null);
+  /*
+   * The number this check will be filed under, said before it exists. Held by the shared seam, so
+   * the wording, the guard against a stale read landing on a newer one, and the reset are the ones
+   * every panel that previews a number uses.
+   */
+  const previewed = new PreviewedNumber("Check");
 
   /*
    * The firm's own policy, read so a blank bound can show the number it will actually take, and so
@@ -110,12 +116,14 @@
 
   // The number is read on EVERY opening: a check opened from another panel in between draws it.
   $effect(() => {
-    if (!open) return;
-    nextNumber = null;
-    void (async () => {
+    if (!open) {
+      previewed.clear();
+      return;
+    }
+    void previewed.read(async () => {
       const outcome = await readNextConflictsCheckNumber(fetch);
-      if (outcome.kind === "ok") nextNumber = outcome.value.checkNumber;
-    })();
+      return outcome.kind === "ok" ? outcome.value.checkNumber : null;
+    });
   });
 
   /** The matter the check is filed under: the surface's, or the one chosen in the left pane. */
@@ -160,7 +168,7 @@
 <ActionDialog
   bind:open
   heading="New Check"
-  subtitle={nextNumber === null ? undefined : `Will be ${nextNumber}`}
+  subtitle={{ reference: previewed.reference }}
   commitLabel="Run Check"
   commitBusyLabel="Opening"
   commitRefusal={composed.refusal ?? undefined}

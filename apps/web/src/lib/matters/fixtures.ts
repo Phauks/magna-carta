@@ -15,6 +15,8 @@ export interface MatterFixture {
   matterNumber: string | null;
   /** The consultation's own tentative number, kept after opening rather than replaced by it. */
   consultationNumber: string | null;
+  /** The number the intake was written down under, kept through every later rung. */
+  intakeNumber: string | null;
   matterTypeName: string | null;
   locationName: string | null;
   responsibleAttorneyName: string;
@@ -67,6 +69,7 @@ export const matterFixtures: readonly MatterFixture[] = [
     status: "open",
     matterNumber: "2026-0147",
     consultationNumber: "C2026-0031",
+    intakeNumber: "I2026-0044",
     matterTypeName: "Commercial Litigation",
     locationName: "Reno",
     responsibleAttorneyName: "Eleanor Vance",
@@ -168,6 +171,7 @@ export const matterFixtures: readonly MatterFixture[] = [
     status: "hold",
     matterNumber: "2026-0112",
     consultationNumber: "C2026-0019",
+    intakeNumber: "I2026-0027",
     matterTypeName: "Personal Injury",
     locationName: "Reno",
     responsibleAttorneyName: "Eleanor Vance",
@@ -194,6 +198,7 @@ export const matterFixtures: readonly MatterFixture[] = [
     status: "intake",
     matterNumber: null,
     consultationNumber: null,
+    intakeNumber: "I2026-0061",
     matterTypeName: "Landlord & Tenant",
     locationName: null,
     responsibleAttorneyName: "Priya Raghunathan",
@@ -219,6 +224,7 @@ export const matterFixtures: readonly MatterFixture[] = [
     status: "consultation",
     matterNumber: null,
     consultationNumber: "C2026-0058",
+    intakeNumber: "I2026-0072",
     matterTypeName: "Estate & Probate",
     locationName: null,
     responsibleAttorneyName: "Priya Raghunathan",
@@ -244,6 +250,9 @@ export const matterFixtures: readonly MatterFixture[] = [
     status: "closed",
     matterNumber: "2024-0089",
     consultationNumber: null,
+    // Opened outright, and long before the intake sequence existed: it was never an enquiry the
+    // firm wrote down, so there is no number to carry forward.
+    intakeNumber: null,
     matterTypeName: "Real Property",
     locationName: "Reno",
     responsibleAttorneyName: "Marcus Okafor",
