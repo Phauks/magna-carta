@@ -2209,9 +2209,15 @@ place we need to structure data will just be a table, but may have other element
   frame. The words that explain the emptiness live inside that structure's own empty state — short —
   never as loose prose beside or beneath it on the canvas. A reader is being prepared for what will
   arrive, and a defect in a structure that is already standing is visible where a defect behind a
-  sentence is not. _(status: open — the messaging History tab is routed to the messaging round in
-  flight; the Hashes tab, the lint `lint:structured-empty`, and every other hit are with a fresh
-  agent)_
+  sentence is not. _(built 2026-09-14: `lint:structured-empty` in `tooling/lint-structured-empty/`
+  — an absence-shaped prose branch where a structure should stand, or muted prose after one, with
+  an inline `structured-empty-allow: reason` for the genuinely prose-only case; the rule itself is
+  in `ui-design.md`. The messaging History tab, the Hashes tab as a new `DefinitionList` with its
+  own `Empty`, bill History and Delivery, the trust ceiling row, the resource meters and the
+  speed-test panels are fixed; `EventRail` renders its frame with zero events and gained `note`,
+  the one honest line inside a structure; `DataTable.GridFigures` takes a per-figure
+  `scope: "whole-record"` so a server count is never labelled "In view". One finding stands in
+  the conflicts round in flight, `hit-window.svelte`.)_
 - **It is not always a table.** The Hashes tab is a definition list; a transcript is a
   `Conversation`; a chain is a rail. The rule is about the structure the data takes, and the lint
   looks for prose standing where any of them should.
