@@ -28,6 +28,18 @@
    * filter, a pick writes the value back, and closing the listbox settles the text on the country
    * actually held — so typed-but-unchosen text is never mistaken for one.
    *
+   * A SEARCH STARTS ON OPENING OR TYPING, NEVER ON FOCUS ALONE, AND THE SETTLE WRITES THE INPUT
+   * ITSELF. Choosing the country already chosen writes nothing (the primitive treats it as no
+   * change), so the name's restoration rests on the close settling the text, after which the
+   * primitive hands focus back to the input; a search that began on every focus blanked the field
+   * again at exactly that moment. And the typed text reaches the input from the keyboard, not from
+   * this component, so the framework's record of what it last wrote there still says the chosen
+   * name and it writes nothing when the settle hands it that same name — which is exactly the
+   * re-pick case. The same two halves the app's closed-choice picker had
+   * (apps/web/src/lib/components/choice-picker.svelte, owner-reported 2026-09-14), and the same
+   * remedy: focus only selects the text that is there, and the settle and the search reset put
+   * their text into the input directly as well as through the controlled `inputValue`.
+   *
    * DOMAIN-BLIND, like every component here. It takes the parts, the country and the list of
    * countries to offer, and hands back the parts. It knows nothing about who an address belongs to.
    */
@@ -71,10 +83,21 @@
     );
   });
 
+  /** The input element, for the two writes the framework cannot be relied on to make (see above). */
+  let countryInput = $state<HTMLInputElement | null>(null);
+
   /** Back to reading the country the address is in, rather than searching for another. */
   function settleCountry(): void {
     searchingCountry = false;
     countryQuery = "";
+    if (countryInput !== null) countryInput.value = chosenCountry;
+  }
+
+  /** Opening is asking to choose again: the whole world is on offer, not the one country in the field. */
+  function startCountrySearch(): void {
+    searchingCountry = true;
+    countryQuery = "";
+    if (countryInput !== null) countryInput.value = "";
   }
   const shown = $derived(new Set(format.lines.flat().map((field) => field.key)));
 
@@ -126,19 +149,21 @@
           if (chosen !== "") value = { ...value, country: chosen };
         }}
         onOpenChange={(open) => {
-          if (!open) settleCountry();
+          if (open) startCountrySearch();
+          else settleCountry();
         }}
       >
         <Combobox.Input
           {...props}
+          bind:ref={countryInput}
           fieldName="Country"
           autocomplete="off"
           spellcheck={false}
-          onfocus={() => {
-            // Arriving in the field is asking to choose again, so the whole world is on offer
-            // rather than the one country whose name happens to be sitting in it.
-            searchingCountry = true;
-            countryQuery = "";
+          onfocus={(event) => {
+            // Arriving selects what is there, so the first letter typed replaces the name rather
+            // than appending to it. Nothing else: a focus that is the primitive returning to the
+            // input after a close must leave the settled name standing.
+            event.currentTarget.select();
           }}
           onblur={settleCountry}
           oninput={(event) => {
