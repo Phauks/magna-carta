@@ -61,9 +61,19 @@
     color: var(--mc-text-subtle);
     cursor: default;
   }
-  /* The leading glyph keeps its size while the name beside it wraps to a second line. */
+  /*
+   * The leading glyph keeps its size while the name beside it wraps to a second line. The part
+   * draws this wrapper itself and sizes the icon THROUGH it, so a consumer's `icon` snippet is a
+   * bare `<Icon />` — a size class written at the call site is a size class that can be written
+   * wrong, and a Lucide glyph left unsized renders at its own 24px default.
+   */
   .mc-navigation-layout-row-icon {
+    display: flex;
     flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-navigation-layout-row-icon > svg {
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }

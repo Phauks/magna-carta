@@ -29,7 +29,11 @@
    *                      the same spelling the app's catalogue vocabulary already uses for it.
    */
   import type { Snippet } from "svelte";
-  import type { HTMLAnchorAttributes, HTMLButtonAttributes } from "svelte/elements";
+  import type {
+    HTMLAnchorAttributes,
+    HTMLAttributes,
+    HTMLButtonAttributes,
+  } from "svelte/elements";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
 
@@ -67,6 +71,12 @@
   }: Props = $props();
 
   const rowClasses = $derived(mergeClasses("mc-navigation-layout-row w-full", className));
+
+  // The relaxed intersection above describes the two INTERACTIVE elements, so its event handlers
+  // are typed to them and a <span> cannot accept the same bag. The row reads none of it — it
+  // forwards whatever the consumer handed over, which for a row with nowhere to go is the title
+  // naming what it waits on — so the span takes them as the plain attributes they are.
+  const plainAttributes = $derived(restProps as HTMLAttributes<HTMLSpanElement>);
 </script>
 
 <!--
@@ -100,7 +110,7 @@
     aria-disabled="true"
     data-current={current ? "true" : undefined}
     class={rowClasses}
-    {...restProps}
+    {...plainAttributes}
   >
     {@render body()}
   </span>
