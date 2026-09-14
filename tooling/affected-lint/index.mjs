@@ -193,10 +193,25 @@ export function computeTypeProgramWeights({ root, packages }) {
 // selects a broad slice of the workspace rather than a couple of outliers.
 export const FANOUT_SINK_SHARE = 0.5;
 
-export function selectFanoutSinks({ weights, share = FANOUT_SINK_SHARE, totalLintableFiles }) {
+export function selectFanoutSinks({
+  weights,
+  share = FANOUT_SINK_SHARE,
+  totalLintableFiles,
+  ownFiles = new Map(),
+}) {
   const threshold = totalLintableFiles * share;
   const sinks = new Set();
-  for (const [name, weight] of weights) if (weight >= threshold) sinks.add(name);
+  for (const [name, weight] of weights) {
+    if (weight < threshold) continue;
+    // A package with no lintable files OF ITS OWN cannot be a sink, however heavy its closure.
+    // Deferring it defers no lint work — there is nothing in it to lint — while its weight is
+    // entirely its dependencies', which are selected on their own merits or not at all. apps/web-worker
+    // is the live case: zero own files, one dependency on apps/web, and therefore apps/web's weight
+    // exactly and forever. Counting it as a second sink would report the same lint minutes twice and
+    // spend the two-sink budget on a package whose deferral saves nothing.
+    if (ownFiles.size > 0 && (ownFiles.get(name) ?? 0) === 0) continue;
+    sinks.add(name);
+  }
   return sinks;
 }
 
@@ -320,10 +335,19 @@ export function resolveFanoutSinks({ root, packages }) {
   // covers; a weight is measured against that, not against the sum of the weights (which
   // double-counts every shared dependency).
   let totalLintableFiles = 0;
-  for (const member of packages.values()) {
-    totalLintableFiles += countLintableFiles(path.join(root, member.dir));
+  const ownFiles = new Map();
+  for (const [name, member] of packages) {
+    const own = countLintableFiles(path.join(root, member.dir), root);
+    ownFiles.set(name, own);
+    totalLintableFiles += own;
   }
-  return { weights, totalLintableFiles, sinks: selectFanoutSinks({ weights, totalLintableFiles }) };
+  return {
+    weights,
+    ownFiles,
+    totalLintableFiles,
+    threshold: totalLintableFiles * FANOUT_SINK_SHARE,
+    sinks: selectFanoutSinks({ weights, totalLintableFiles, ownFiles }),
+  };
 }
 
 if (isMain()) {

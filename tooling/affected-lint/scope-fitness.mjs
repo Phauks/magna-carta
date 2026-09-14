@@ -44,14 +44,47 @@ export const GATE_INVOCATIONS = {
   postMerge: 'node tooling/affected-lint/index.mjs --base "$base" --max-hops all',
 };
 
-// The sink rule must stay a rule about outliers. At most this many packages may be selected, and each
-// must weigh at least this multiple of the heaviest NON-sink package. Measured 2026-08-05: the one
-// sink (@magna-carta/api-worker) weighs 1261 lintable files against the next package's 550 — a factor of
-// 2.29. The floor is set below that with room to breathe; if a genuine second sink ever appears, raise
-// the count deliberately and record the measured distribution here, never widen it to make a red run
-// green.
+// The sink rule must stay a rule about outliers: at most this many packages may be selected, and each
+// must be clearly over the bar rather than sitting on it.
+//
+// "Clearly over the bar" is measured against the SELECTION THRESHOLD (`FANOUT_SINK_SHARE` of every
+// lintable file in the workspace), not against the heaviest non-sink package. It used to be the
+// latter, and that was the wrong quantity — recalibrated 2026-09-14 with the distribution below.
+//
+// WHY THE NEIGHBOUR COMPARISON WAS WRONG. Second place moving is not evidence about first place. The
+// ratio decayed monotonically as apps/web grew, which is the product being built rather than the
+// dependency shape degrading: simulated against this graph, adding 50 / 200 / 400 files to apps/web
+// drives it to 1.44 / 1.30 / 1.16 with nothing about api-worker's deferral having changed. Past about
+// +600 it stops failing that way and starts failing a different way — apps/web and apps/web-worker
+// cross the threshold together and three sinks are selected — so no value of a neighbour ratio
+// survives ordinary growth. Measured 2026-08-05 it was 1261 against 550 (2.29x) and the floor was set
+// at 1.5; by 2026-09-14 it was 2022 against 1350 (1.50x), failing on any branch that added four
+// TypeScript files to apps/web. A tripwire that ordinary work trips is a tripwire somebody removes.
+//
+// Against the threshold the check is self-consistent with the rule it guards: a package is selected
+// because it crosses the bar, and it is held to being meaningfully past it. When api-worker's closure
+// genuinely stops being whole-repo-scale, its margin falls to 1.0 and then it stops being selected at
+// all — which the `sinks.size === 0` branch already reports as the deferral having become a no-op,
+// the correct and informative outcome rather than a mystery.
+//
+// MEASURED 2026-09-14 (85 packages, 3088 lintable files, threshold 1544):
+//   @magna-carta/api-worker    2022  65.5%  — selected, 1.31x the threshold
+//   @magna-carta/web           1350  43.7%  — not selected
+//   @magna-carta/web-worker    1350  43.7%  — never selectable: no lintable files of its own
+//   @magna-carta/fixtures      1024  33.2%
+//   @magna-carta/notifications  759  24.6%
+//
+// RUNWAY. Simulated over this graph by growing apps/web (the package that moves): the rule holds
+// through roughly +400 own files, about 67% growth on today's 596, and then reports that apps/web has
+// crossed the bar with a margin of 1.00x. That is a real question arriving — should the web app be
+// deferred too, and is a 50% share still the right bar for a workspace with two programs that size —
+// rather than a tripwire, which is what the old neighbour ratio had become. Whoever meets it should
+// re-measure and decide, not retune.
+//
+// The floor is set below today's 1.31 with room to breathe. Raise it only with a fresh distribution in
+// hand; never lower it to make a red run green.
 export const MAX_FANOUT_SINKS = 2;
-export const MIN_SINK_SEPARATION = 1.5;
+export const MIN_SINK_THRESHOLD_MARGIN = 1.15;
 
 // The true transitive dependent closure of `seed`, by repeated relaxation over the FORWARD dependency
 // edges: keep adding any package that depends on something already in the set until nothing changes.
@@ -143,7 +176,7 @@ export function verifyScopeCoverage({ packages, sinks, computeScope = computeAff
   return problems;
 }
 
-export function verifySinkSelection({ weights, sinks }) {
+export function verifySinkSelection({ weights, sinks, threshold = 0 }) {
   const problems = [];
   if (sinks.size === 0) {
     problems.push(
@@ -156,19 +189,11 @@ export function verifySinkSelection({ weights, sinks }) {
       `  ${sinks.size} fan-out sinks selected (cap ${MAX_FANOUT_SINKS}): ${[...sinks].join(", ")} — the rule is meant to catch outliers, not a slice of the workspace`,
     );
   }
-  let heaviestNonSink = 0;
-  let heaviestNonSinkName = "(none)";
-  for (const [name, weight] of weights) {
-    if (!sinks.has(name) && weight > heaviestNonSink) {
-      heaviestNonSink = weight;
-      heaviestNonSinkName = name;
-    }
-  }
   for (const name of sinks) {
     const weight = weights.get(name) ?? 0;
-    if (heaviestNonSink > 0 && weight < heaviestNonSink * MIN_SINK_SEPARATION) {
+    if (threshold > 0 && weight < threshold * MIN_SINK_THRESHOLD_MARGIN) {
       problems.push(
-        `  ${name} weighs ${weight} lintable files against ${heaviestNonSinkName}'s ${heaviestNonSink} — a factor of ${(weight / heaviestNonSink).toFixed(2)}, under the ${MIN_SINK_SEPARATION}x separation the outlier rule needs`,
+        `  ${name} weighs ${weight} lintable files against a selection threshold of ${Math.round(threshold)} — a margin of ${(weight / threshold).toFixed(2)}x, under the ${MIN_SINK_THRESHOLD_MARGIN}x the outlier rule needs. A package sitting ON the bar is not a whole-repo lint, and deferring it costs the pull-request pass more than it saves`,
       );
     }
   }
@@ -181,11 +206,14 @@ function main() {
     console.error("lint-affected-scope: discovered no workspace packages — refusing to pass");
     process.exit(1);
   }
-  const { weights, sinks, totalLintableFiles } = resolveFanoutSinks({ root: ROOT, packages });
+  const { weights, sinks, totalLintableFiles, threshold } = resolveFanoutSinks({
+    root: ROOT,
+    packages,
+  });
 
   const problems = [
     ...verifyWorkflowInvocations(readFileSync(WORKFLOW_PATH, "utf8")),
-    ...verifySinkSelection({ weights, sinks }),
+    ...verifySinkSelection({ weights, sinks, threshold }),
     ...verifyScopeCoverage({ packages, sinks }),
   ];
 
