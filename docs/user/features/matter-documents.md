@@ -168,6 +168,27 @@ The **status** column is worth reading:
   deliberately, so a document that did not make it is visible rather than quietly missing. A rejected
   document has no readable content and cannot be opened.
 
+The list is the only part of the screen that scrolls. The matter's title and its row of sections,
+the folder path, and the counts strip along the bottom all stay where they are however long the list
+gets, so you can scroll a folder of two thousand documents and still reach everything around it.
+
+### As icons instead of rows
+
+The switch on the right of the strip above the list swaps the rows for tiles. A name too long for a
+tile runs onto a second and a third line and then stops with an ellipsis; the whole name is on the
+tile's hover either way, and no tile ever covers the one beside it.
+
+### Taking something back
+
+The arrows at the bottom of the screen undo and redo. They cover renaming, moving a file or folder
+between folders, pasting a cut, deleting a file, and pinning — and each says what it will take back,
+so **Undo renaming Motion.pdf to Answer.pdf** is what you read before you press it. The small arrow
+beside each one opens the list of recent changes, so you can walk back several at once.
+
+Two things are outside them. Deleting a **folder** cannot be undone; when you delete one, the screen
+says so and points you at **Deleted Files**, where the documents it held can still be brought back
+one by one. And undo does not survive a reload: it is for the change you just made.
+
 ### Where you are in the folders
 
 The strip above the list is the path to the folder you are in, starting at the home icon. Home is

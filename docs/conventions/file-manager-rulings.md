@@ -802,3 +802,58 @@ around in the dialog.
   are now stale against this round and the harness is not this round's to edit. The built dialog
   was not driven in a browser this round; the Status column's readiness words, the tab strip and
   the pinned height are unverified visually.
+
+## R23 — round twenty: the list is the one scroll region, and the acts can be taken back
+
+The owner's notes of 2026-09-14, from the deployed screen.
+
+| #    | Ruling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Status  |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| N37  | **Only the file list scrolls.** "When the list gets long and I scroll, I am scrolling the entire page... The only part that should scroll is inside where the files are. In that way it maintains its look as one screen." The matter header, the section strip, the file-manager toolbar and the counts strip all hold still at any list length; the grid's own scroll region is the one that moves. Root cause below, and it was never this surface's own markup.                                                                                                                       | settled |
+| T9   | **One selected treatment down the rail, whatever the row names.** A chosen folder wore the accent tint with the gilt edge; the four view rows beneath it wore `surface-selected`, which on a SUNKEN rail is very nearly the rail's own colour — so the open view read as barely marked beside a folder that was plainly lit. The view row now carries the tree row's own selected declarations. Where the reader is standing is one fact and cannot look like two states.                                                                                                                 | settled |
+| L50  | **A tile's name wraps, and no tile covers its neighbour at any name length.** The tile has a fixed width and its whole job is to name one file, so the name breaks onto a second and a third line rather than being cut at the first — #607's standing rule for a navigation row, applied for the same reason. Past the THIRD line it ends in an ellipsis and the whole name is on the tile's hover, so a folder of long names stays a grid of even tiles rather than a column of tall ones. The overlap itself was a box never told it could shrink; the wrap is honest only once it is. | settled |
+| L51  | **The pin's space is reserved whether or not the thing is pinned.** "So we don't have reflow." On a tile the gutter opens at the start of the name line and an equal space closes it, so the name stays centred and pinning lights a glyph and moves nothing. L11 and L38 are untouched: same Lucide pin, filled when pinned, still above the rule. **The TABLE row's pin is the design system's and is still unreserved** — see the note below.                                                                                                                                          | open    |
+| A29b | **Undo and redo are wired to the acts.** Renaming, moving between folders, pasting a cut, deleting a FILE and pinning each record a step; each step is a command with a real inverse and never a snapshot, and each names the act it will take back. A15, A15b and A15c are unchanged — the stack, the placement and the control were never the defect. **Extends A15's movement-only scope**, which is what left the pair disabled through most of a session.                                                                                                                            | settled |
+| A30b | **A folder's delete is refused out loud rather than half-offered.** There is no route that brings a folder back, so no step is pushed for one; the screen states it in its own band and names Deleted Files, where the documents the folder held can still be recovered one by one. A22's dialog is otherwise untouched.                                                                                                                                                                                                                                                                  | settled |
+| I51  | **The details panel hosts its own rename field and commits a name through it.** The list's rename is still the list's (F2, the row, the context menu); what the panel had was a button that opened the field on the ROW, which is not renaming from the panel. The panel commits a name and this surface runs the list's own path for it — the same collision refusal (L45), the same write, the same undo step — so a name typed on the right behaves exactly like a name typed on a row. I39 is what this builds.                                                                       | settled |
+
+**Notes recorded this round:**
+
+- **N37's cause was one utility, and it reached every working surface in the product.** A screen of
+  this shape renders inside `FullHeightSection`, which sits in a column whose height is
+  `min-height: 100%` over an auto height — deliberate, so an ordinary document section can still
+  grow past the fold. The section asked for its share with `flex-1`, which is `flex: 1 1 0%`, and a
+  PERCENTAGE basis against a column whose main size is content-based resolves to the item's own
+  content. So the section reported the whole table as its base size, the column grew to meet it, the
+  minimum never applied, and nothing downstream was ever capped: the canvas scrolled the matter
+  header off the top while the list never scrolled inside itself at all. A definite basis (`h-0`
+  with `grow`) gives the column its minimum back. The four money ledgers and the two document pages
+  compose the same component and inherit the fix — they had the same latent defect and it showed
+  later only because their tables are shorter.
+- **The undo defect was never the stack or the control.** `HistoryStack`, `UndoRedoControls` and
+  `historyShortcuts` were all wired correctly; `moveRows` was the only act that pushed anything, so
+  four acts out of five recorded nothing and the pair sat disabled. The steps now live in
+  `apps/web/src/lib/file-manager/file-manager-history.ts` with a test per act
+  (`apps/web/test/file-manager-history.test.ts`), because an inverse written inline in a
+  two-thousand-line component is an inverse nobody exercises.
+- **A move recorded an origin BEFORE its write, so a refused move still landed on the stack** and
+  undo would have offered to put back something that never left. Origins are recorded per key, only
+  after that key's write has answered.
+- **A file's delete restores into the folder it came out of**, not through the route's own fallback.
+  A restore with no destination falls back to the matter root when the old folder has gone, which is
+  the right default for a reader browsing Deleted Files and the wrong one for an undo, where the
+  folder is still there and is where the file belongs.
+- **A pin step carries only the keys the act CHANGED.** Pinning over a selection that was already
+  half pinned would otherwise unpin, on the way back, rows the reader had pinned earlier.
+- **L51 is open on the table row because the pin is drawn by the design system's grid**, not by this
+  surface: `data-table-grid.svelte` renders it inside the first cell only while `mark.pinned` is
+  true, so pinning shifts that cell's content by the glyph and its gap. Reserving the slot is one
+  change to that component and its recipe and it is every table's, not this screen's — recorded here
+  rather than worked around with a second pin drawn in the file manager's own cell.
+- **The rail is not adopting `NavigationLayout.Row`.** Its `current` register is `surface-selected`
+  over the canvas, which is right for a column sitting on the work surface and is precisely the fill
+  that disappears on this sunken rail. What the two share is the RULE — one lit row, the gilt start
+  edge, firmer ink — not the token, and T9 settles this rail on the tree's own register instead.
+- The screen was not driven in a browser this round: the scroll chain, the rail's selected fill and
+  the icon tiles are asserted by the reasoning above and by the lints (`lint:page-inset`,
+  `lint:scrollbar`), and are unverified visually.
