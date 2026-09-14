@@ -35,7 +35,8 @@ and a firm event. The backend it consumes is `packages/calendar` behind
   each, per browser, on the shared persisted-preference primitive. Stores only the DEPARTURES from
   the catalog's defaults, so a calendar shipped later arrives at its own
 - `calendar-rail.svelte` — the rail those two render as: a checkbox per calendar, a three-state
-  checkbox per folder, and the palette behind the colour pip
+  checkbox per folder, and the palette behind the colour pip. It is the CONTENT of the design
+  system's navigation column and draws no column of its own
 - `location-picker.svelte` — WHERE a setting is held, as the product's dropdown-with-add over the
   firm's own offices and rooms, keeping a courthouse nobody has a record of
 - `day-schedule.svelte` — the day being booked, in a record form's context pane. `CalendarView` with
@@ -74,6 +75,17 @@ and a firm event. The backend it consumes is `packages/calendar` behind
 
 ## Local conventions
 
+- **The firm calendar is the design system's two-sided screen, and this module frames none of it.**
+  Where the rail stands, `CalendarView` renders `NavigationLayout` — the rail in its navigation
+  column, the toolbar and the grid in its content column — so the measure, the two independent
+  scroll regions, the reserved gutters, the cancelled canvas inset and the full height under the top
+  bar are the design system's, exactly as they are on Settings, Magnus, Tools and Reports. A width,
+  a scrollbar or a column written here is the drift the one component exists to end. That layout
+  takes the full height under the top bar, so **a host's masthead is handed DOWN as the `header`
+  snippet** and drawn at the top of the content column rather than above the tag; the Magnus
+  workspace does the same, for the same reason. The rail's rows stay CHECKBOX rows rather than
+  `NavigationLayout.Row`: the shared row renders its own anchor or button, and a switch cannot be
+  nested inside one. What the columns share is the frame and the indent stagger.
 - **A host embeds `CalendarView` with a scope and records through the dialogs. It writes no
   calendar read of its own.** A feature that needs "the next thirty days on this matter" is the
   component with a matter scope, `toolbar={false}`, `agendaDays={30}` and a `limit`, not a new

@@ -140,43 +140,49 @@
   }
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-16">
-  <ScreenHeader {title} {back}>
-    {#snippet actions()}
-      <!-- The glyphs are the ones each kind already wears wherever it is named
-           (calendar-activity-contribution.ts): one kind, one glyph, across the product. -->
-      <CreateControl
-        title="Record an event, a deadline or a firm event."
-        refusal={recordRefusal}
-        choices={[
-          { label: "New Event", icon: CalendarDays, onselect: () => openFrom("event") },
-          { label: "New Deadline", icon: CalendarClock, onselect: () => openFrom("deadline") },
-          { label: "New Firm Event", icon: Building2, onselect: () => openFrom("firmEvent") },
-        ]}
+<!--
+  THE SCREEN IS THE COMPONENT'S TWO SIDES, and this file frames nothing. The rail of calendars is the
+  navigation column of the design system's NavigationLayout, which takes the full height under the
+  top bar and cancels the work canvas inset itself — so the masthead goes DOWN into the component, to
+  be drawn at the top of the content column, rather than standing above the whole canvas. The Magnus
+  workspace hands its own header down for the same reason.
+-->
+<CalendarView
+  {scope}
+  bind:view
+  bind:anchor
+  address={true}
+  rail={true}
+  onCreate={startOnDay}
+  {openEntry}
+  {refreshToken}
+>
+  {#snippet header()}
+    <ScreenHeader {title} {back}>
+      {#snippet actions()}
+        <!-- The glyphs are the ones each kind already wears wherever it is named
+             (calendar-activity-contribution.ts): one kind, one glyph, across the product. -->
+        <CreateControl
+          title="Record an event, a deadline or a firm event."
+          refusal={recordRefusal}
+          choices={[
+            { label: "New Event", icon: CalendarDays, onselect: () => openFrom("event") },
+            { label: "New Deadline", icon: CalendarClock, onselect: () => openFrom("deadline") },
+            { label: "New Firm Event", icon: Building2, onselect: () => openFrom("firmEvent") },
+          ]}
+        />
+      {/snippet}
+    </ScreenHeader>
+
+    {#if context.sessionFailure !== null}
+      <FailureNotice
+        failure={context.sessionFailure}
+        title="Your Session Could Not Be Read"
+        fallback="Who is asking could not be read, so the calendar opens on everyone and nothing can be recorded."
       />
-    {/snippet}
-  </ScreenHeader>
-
-  {#if context.sessionFailure !== null}
-    <FailureNotice
-      failure={context.sessionFailure}
-      title="Your Session Could Not Be Read"
-      fallback="Who is asking could not be read, so the calendar opens on everyone and nothing can be recorded."
-    />
-  {/if}
-
-  <CalendarView
-    {scope}
-    bind:view
-    bind:anchor
-    address={true}
-    rail={true}
-    onCreate={startOnDay}
-    {openEntry}
-    {refreshToken}
-    class="min-h-0 flex-1"
-  />
-</div>
+    {/if}
+  {/snippet}
+</CalendarView>
 
 <RecordEventDialog
   bind:open={eventOpen}

@@ -11,9 +11,18 @@
    * notice above it naming which read failed, with the Error ID and Retry, because a firm whose
    * deadline read errored still needs to see its hearings.
    *
-   * THE CALENDARS ARE A RAIL, on the firm side. Which of the firm's calendars a reader has open is
-   * theirs and is drawn beside the grid rather than hidden in a menu; a matter's calendar and a
-   * room's have exactly one calendar each and draw no rail at all.
+   * THE CALENDARS ARE A RAIL, on the firm side, AND THE RAIL IS A NAVIGATION COLUMN. Which of the
+   * firm's calendars a reader has open is theirs and is drawn beside the grid rather than hidden in
+   * a menu; where it stands, the two sides are the design system's `NavigationLayout` — the same
+   * component Settings, Magnus, Tools and Reports are — so this file draws no column, no measure
+   * and no scroll region of its own. A matter's calendar and a room's have exactly one calendar
+   * each, draw no rail, and keep the plain frame: one stack, the grid taking what is left.
+   *
+   * THE HOST'S HEADER GOES INSIDE THE LAYOUT, WHICH IS WHY THERE IS A `header` SNIPPET. The layout
+   * takes the full height under the top bar and cancels the work canvas inset, so a screen drawing
+   * its masthead above this tag would be drawing it above the whole canvas. The firm screen hands
+   * its masthead down instead and it is rendered at the top of the content column — the arrangement
+   * the Magnus workspace already uses, for the same reason.
    *
    * DOUBLE-CLICKING AN EMPTY DAY OR HOUR STARTS A RECORD ON IT. The component does not own the
    * forms — the host does, because the host is what knows whether a matter is in scope — so the
@@ -25,9 +34,10 @@
    * that way is looked for among the chips on screen first, because it can only be read through
    * the matter and the day the chip knows.
    */
-  import { onMount, untrack } from "svelte";
+  import { onMount, untrack, type Snippet } from "svelte";
   import { afterNavigate, goto } from "$app/navigation";
   import * as CalendarGrid from "@magna-carta/design-system/calendar-grid";
+  import NavigationLayout from "@magna-carta/design-system/navigation-layout";
   import type { CalendarGridEntry } from "@magna-carta/design-system/calendar-grid";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { calendarContext } from "./calendar-context.svelte.ts";
@@ -68,6 +78,7 @@
     limit = null,
     rail = false,
     onCreate,
+    header,
     class: className,
   }: {
     /** What this calendar is a calendar of: the firm, one member's own day, or one matter. */
@@ -104,6 +115,14 @@
      * no forms, because only the host knows whether a matter is in scope.
      */
     onCreate?: (date: string, minuteOfDay?: number) => void;
+    /**
+     * The host screen's own masthead, drawn at the top of the content column where the rail stands.
+     * It belongs INSIDE the layout rather than above this tag: the navigation layout takes the full
+     * height under the top bar and cancels the canvas inset, so a masthead above it would sit above
+     * the whole canvas. A host with no rail is under no such layout: it draws its own masthead above
+     * this tag and passes nothing here, which is why the plain frame renders no header.
+     */
+    header?: Snippet;
     class?: string;
   } = $props();
 
@@ -264,11 +283,26 @@
   const moreHref = $derived(
     restOfCalendarAddress(scope, controller.anchor, controller.scopeChoice, controller.memberChoice),
   );
+
+  /*
+   * Whether this calendar is the two-sided screen. The rail is a firm-side thing — a matter's
+   * calendar and a room's are one calendar each, and a column offering one row is not a column — so
+   * a host asking for it on a scope that has nothing to list gets the plain frame rather than an
+   * empty navigation column.
+   */
+  const railStands = $derived(rail && controller.firmSide);
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-12 {className ?? ''}">
+<!--
+  The calendar itself, in one stack: the action row, the failures a read left, the grid taking the
+  rest of the height, and the lines that say what was left out. It is a snippet because the frame
+  around it is one of two — the navigation layout where the rail stands, a plain full-height stack
+  everywhere else — and the calendar inside them is the same calendar.
+-->
+{#snippet calendar(frameClass: string)}
+<div class="flex min-h-0 flex-col gap-12 {frameClass}">
   {#if toolbar}
-    <CalendarToolbar {controller} {viewSwitch} members={context.members} />
+    <CalendarToolbar {controller} {viewSwitch} />
   {/if}
 
   {#each controller.failures as failed (readFailureKey(failed))}
@@ -280,11 +314,7 @@
     />
   {/each}
 
-  <div class="flex min-h-0 flex-1 gap-16">
-    {#if rail && controller.firmSide}
-      <CalendarRail {controller} />
-    {/if}
-    <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
+  <div class="mc-scrollbar min-h-0 flex-1 overflow-y-auto">
       {#if view === "month"}
         <CalendarGrid.Month
           entries={painted}
@@ -335,8 +365,7 @@
           {emptyMessage}
           onActivate={activate}
         />
-      {/if}
-    </div>
+    {/if}
   </div>
 
   {#if beyondLimit > 0}
@@ -363,6 +392,41 @@
     </p>
   {/if}
 </div>
+{/snippet}
+
+{#if railStands}
+  <!--
+    The two-sided screen, drawn by the design system and by nothing here: the layout owns the
+    landmark and its name, the column's measure, the two independent scroll regions with their
+    reserved gutters, the canvas inset it cancels and the full height under the top bar.
+
+    `contentScrolls={false}` because this side stages its own three parts — the host's masthead, the
+    action row, and the grid as the one scroll region beneath them — and a column that had already
+    reserved a gutter for a scrollbar would otherwise draw a second one inside it. The `p-24` is the
+    canvas inset the layout cancelled, put back where a scrollbar then sits at the true edge.
+  -->
+  <NavigationLayout
+    navigationLabel="Calendars"
+    navigationWidth="standard"
+    contentScrolls={false}
+    class={className}
+  >
+    {#snippet navigation()}
+      <CalendarRail {controller} />
+    {/snippet}
+    <div class="flex min-h-0 flex-1 flex-col gap-16 p-24">
+      {#if header}
+        {@render header()}
+      {/if}
+      {@render calendar("flex-1")}
+    </div>
+  </NavigationLayout>
+{:else}
+  <!-- One calendar, one stack: a matter's section, a room's grid, a card on Home. There is no
+       masthead to render here — a host with no rail sits under a masthead of its own, above this
+       tag, where nothing is cancelling the canvas. -->
+  {@render calendar(`h-full ${className ?? ""}`)}
+{/if}
 
 <EntryWindow
   bind:open={windowOpen}
