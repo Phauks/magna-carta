@@ -10,6 +10,11 @@
    * the rows rather than by a filter above them. The row above the list is for the acts a reader
    * arrives wanting — searching, and making a new task.
    *
+   * MAKING ONE IS A MODAL ACT AND HAPPENS IN A PANEL (new-task-dialog.svelte), not in a form that
+   * unfolds between the controls and the rows: a composer inside the list is a second place to
+   * learn where a task's fields live, and the list loses its own shape — its count, its ordering,
+   * what is overdue — while somebody is typing in the middle of it.
+   *
    * WHAT IS DUE NEXT IS FIRST, and everything nobody has scheduled is last. That ordering is the
    * server's and is the same on both screens, so a task does not move when you change surface.
    *
@@ -35,6 +40,8 @@
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import CreateControl from "@magna-carta/design-system/create-control";
+  import NewTaskDialog from "$lib/matters/new-task-dialog.svelte";
+  import { SAMPLE_MATTER_REFUSAL } from "$lib/matters/create-action.svelte.ts";
   import ScreenSearch from "@magna-carta/design-system/screen-search";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
   import FieldLabel from "@magna-carta/design-system/field-label";
@@ -53,7 +60,6 @@
     attachTaskDocument,
     cancelTask,
     completeTask,
-    createTask,
     deleteTask,
     detachTaskDocument,
     editTask,
@@ -173,14 +179,9 @@
     composing = true;
   }
 
-  // Composing.
+  // Whether the new-task panel is showing. The fields are its own, so nothing about a draft task
+  // lives on this component — which is the point of moving the composer off the list.
   let composing = $state(false);
-  let draftTitle = $state("");
-  let draftBody = $state("");
-  let draftPriority = $state<TaskPriority>("normal");
-  let draftDueOn = $state("");
-  let draftDueAtTime = $state("");
-  let draftAssignee = $state("");
   let saving = $state(false);
   // The failure RECORD, not a sentence assembled from it: the Error ID and the remedy reach the
   // screen from the record, and a surface that flattened it would drop both. The words travel with
@@ -266,6 +267,15 @@
   // are absent rather than present-and-refusing.
   const canWrite = $derived(session === null || session.permissions.includes("tasks:write"));
   const canAssign = $derived(session === null || session.permissions.includes("tasks:assign"));
+  // Why nothing can be written, stated once and read by both the control that opens the panel and
+  // the panel's own commit. Two copies of a refusal is one copy that has already drifted.
+  const writeRefusal = $derived(
+    isSample
+      ? SAMPLE_MATTER_REFUSAL
+      : canWrite
+        ? undefined
+        : permissionRefusal("Adding a task", "tasks:write"),
+  );
 
   function reload(): void {
     taskList.reset(subject);
@@ -303,16 +313,6 @@
     };
   }
 
-  function resetComposer(): void {
-    composing = false;
-    draftTitle = "";
-    draftBody = "";
-    draftPriority = "normal";
-    draftDueOn = "";
-    draftDueAtTime = "";
-    draftAssignee = "";
-  }
-
   async function runWrite(
     call: () => Promise<ApiOutcome<unknown>>,
     whenSilent: string,
@@ -329,27 +329,6 @@
       return;
     }
     writeFailure = stated(outcome.failure, whenSilent);
-  }
-
-  async function saveTask(): Promise<void> {
-    if (draftTitle.trim().length === 0) return;
-    await runWrite(
-      () =>
-        createTask(
-          fetch,
-          {
-            matterId,
-            title: draftTitle.trim(),
-            body: draftBody.trim().length === 0 ? null : draftBody.trim(),
-            priority: draftPriority,
-            assigneeUserId: draftAssignee === "" ? null : draftAssignee,
-            ...dueOf(draftDueOn, draftDueAtTime),
-          },
-          newWriteKey(),
-        ),
-      "The task was not created.",
-      resetComposer,
-    );
   }
 
   function beginEdit(task: MatterTask): void {
@@ -464,16 +443,12 @@
   />
   {#if ownNewButton}
     <!-- The one create control, the design system's, so this list reads like every other screen. It
-         stays put while the composer is open — the control never leaves its place in the row, and
-         abandoning a draft is asked for in the draft, where the draft is. -->
+         stays put while the panel is open — the control never leaves its place in the row, and
+         abandoning a draft is asked for in the panel, where the draft is. -->
     <CreateControl
       noun="Task"
       title="Add a task, with whose it is and when it is due."
-      refusal={isSample
-        ? "This is a sample matter. There is no firm record behind it, so nothing can be recorded against it."
-        : canWrite
-          ? undefined
-          : permissionRefusal("Adding a task", "tasks:write")}
+      refusal={writeRefusal}
       onpress={openNew}
     />
   {/if}
@@ -504,89 +479,6 @@
       title="Nothing Changed"
       fallback={writeFailure.fallback}
     />
-  {/if}
-
-  {#if composing}
-    <!-- Everything the task will carry, generated fields included, so nothing is stored that the
-         writer was not shown. -->
-    <div class="flex flex-col gap-12 rounded-md border border-border-strong p-16">
-      <dl class="flex flex-wrap gap-x-24 gap-y-4 text-xs">
-        <div class="flex gap-4">
-          <dt class="text-text-muted">Matter</dt>
-          <dd>{matterTitle ?? "None — the firm's own work"}</dd>
-        </div>
-        <div class="flex gap-4">
-          <dt class="text-text-muted">Created by</dt>
-          <dd>{myName}</dd>
-        </div>
-      </dl>
-
-      <div class="flex flex-col gap-4">
-        <Label for="task-title">What to do</Label>
-        <Input id="task-title" bind:value={draftTitle} disabled={saving} />
-      </div>
-
-      <div class="flex flex-col gap-4">
-        <Label for="task-body">Detail</Label>
-        <Textarea id="task-body" bind:value={draftBody} rows={3} disabled={saving} />
-      </div>
-
-      <div class="flex flex-wrap items-end gap-16">
-        <div class="flex flex-col gap-4">
-          <DatePicker
-            label="Due"
-            value={civilDateValue(draftDueOn)}
-            onValueChange={(next) => (draftDueOn = civilDateTextOrEmpty(next))}
-            disabled={saving}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="task-due-time">Time</Label>
-          <Input
-            id="task-due-time"
-            type="time"
-            bind:value={draftDueAtTime}
-            disabled={saving || draftDueOn === ""}
-          />
-        </div>
-        <div class="flex flex-col gap-4">
-          <Label for="task-priority">Priority</Label>
-          <Select.Root type="single" bind:value={draftPriority} disabled={saving}>
-            <Select.Trigger id="task-priority" class="w-128">
-              {PRIORITY_LABELS[draftPriority]}
-            </Select.Trigger>
-            <Select.Content>
-              {#each TASK_PRIORITIES as priority (priority)}
-                <Select.Item value={priority} label={PRIORITY_LABELS[priority]} />
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-        {#if canAssign}
-          <div class="flex flex-col gap-4">
-            <Label for="task-assignee">Assign to</Label>
-            <Select.Root type="single" bind:value={draftAssignee} disabled={saving}>
-              <Select.Trigger id="task-assignee" class="w-192">
-                {draftAssignee === "" ? "Nobody yet" : nameOf(draftAssignee)}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="" label="Nobody yet" />
-                {#each assignableMembers as member (member.userId)}
-                  <Select.Item value={member.userId} label={member.displayName} />
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-        {/if}
-      </div>
-
-      <div class="flex justify-end gap-8">
-        <Button variant="secondary" disabled={saving} onclick={resetComposer}>Cancel</Button>
-        <Button onclick={saveTask} disabled={saving || draftTitle.trim().length === 0}>
-          Create Task
-        </Button>
-      </div>
-    </div>
   {/if}
 
   {#if reviewingPlan !== null && matterId !== null}
@@ -1067,3 +959,16 @@
     </div>
   {/if}
 </section>
+
+<!-- The panel a new task is asked for in. It carries its own fields and its own failure, so a
+     draft never touches this component's state and the list keeps its shape while one is open. -->
+<NewTaskDialog
+  bind:open={composing}
+  {matterId}
+  {matterTitle}
+  authorName={myName}
+  {assignableMembers}
+  {canAssign}
+  refusal={writeRefusal}
+  onCreated={reload}
+/>

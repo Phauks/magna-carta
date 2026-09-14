@@ -16,7 +16,9 @@ due date is just you changing your mind rather than a hearing being reset.
 
 ## Creating a Task
 
-Press **New Task**. Say what to do, and add detail underneath if the title is not enough on its own.
+Press **New Task**. A panel opens over the list — the same panel every other record in Magna
+Carta is started in, so the list you were reading stays where it was. Say what to do, and add
+detail underneath if the title is not enough on its own.
 
 **Due** and **Time** are both optional, and plenty of tasks have neither. If you give a date, the
 task is due at the end of that day in your own time zone — so a task due Friday is not treated as
@@ -32,6 +34,10 @@ can still create tasks and take them yourself.
 You cannot assign a task on a matter to somebody who cannot open that matter. A task nobody can look
 at is a gap in their list that nothing explains, so it is refused when you try rather than appearing
 and then not working.
+
+The panel names the matter the task will land on, and who it will be recorded as coming from, so
+nothing is stored that you were not shown. Closing it before you press **Create Task** asks first and
+then throws the draft away; nothing is created until you press it.
 
 ## Tasks That Belong to No Matter
 

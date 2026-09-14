@@ -287,6 +287,13 @@ is usually the fastest way to understand the rule.
     (where it belongs); a record already stored opens in its values, and the acts that move it
     between queues live in the action bar. _(the call log, 2026-09-08: "we now have two modals for
     creating a call which is weird")_
+  - **A record with no window of its own is still MADE in a panel, not in the list.** Where a record
+    is read as a row rather than in a record window, starting one is asked for in the shared action
+    dialog. The rule is about where a reader learns a record's fields, not about which shell happens
+    to exist: a form that unfolds between the control row and the rows it will join is a second
+    place to learn them, and the list loses its own shape — its count, its ordering, what is overdue
+    — while somebody is typing in the middle of it. _(tasks, 2026-09-14: "creating a new task should
+    be a modal, not in-line")_
   - **A record that is quoted out loud is identified BEFORE it is saved.** Where a record carries a
     reference number a person reads back — to a caller, onto a message slip — the window states the
     number the next one would draw while it is still being filled in, and says that it is a preview
