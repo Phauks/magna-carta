@@ -20,8 +20,9 @@
    * now, which is the part that makes the wrap honest rather than decorative.
    *
    * THE PIN'S SPACE IS RESERVED WHETHER OR NOT THE TILE IS PINNED, and an equal space closes the
-   * line, so pinning lights a glyph and moves nothing — not the name under the pointer, and not the
-   * tiles beside it.
+   * line, so pinning lights a glyph and moves nothing — not the icon under the pointer, and not the
+   * tiles beside it. It rides the GLYPH's line rather than the name's: on a tile this narrow a
+   * gutter each side of the name would have taken a third of the room the name is there to use.
    */
   import FileIcon from "@magna-carta/design-system/file-icon";
   import FolderGlyph from "@magna-carta/design-system/folder-glyph";
@@ -89,30 +90,31 @@
             shift: event.shiftKey,
           })}
       >
-        {#if row.kind === "folder"}
-          <FolderGlyph
-            class="size-48"
-            color={folderAppearance[row.folder.id]?.color}
-            icon={folderAppearance[row.folder.id]?.icon}
-          />
-        {:else}
-          <FileIcon
-            contentType={row.file.sniffedContentType ?? undefined}
-            fileName={row.file.name}
-            class="size-48"
-          />
-        {/if}
-        <span class="flex w-full items-start justify-center gap-4 text-xs">
-          <!-- The pin's gutter, held open on every tile. An empty span is the reserved space. -->
+        <!-- The glyph's line, not the name's: the pin's gutter is held open beside the icon, with
+             an equal space closing the line so the icon stays centred. Putting it on the name's
+             line would have taken a third of the room the name is there to use. -->
+        <span class="flex w-full items-center justify-center gap-4">
           <span class="size-12 shrink-0 text-accent-default">
             {#if mark?.pinned === true}
               <Pin class="size-12" aria-hidden="true" fill="currentColor" />
             {/if}
           </span>
-          <span class="line-clamp-3 min-w-0 break-words">{name}</span>
-          <!-- The gutter's twin, so the name stays centred in the tile whichever state it is in. -->
+          {#if row.kind === "folder"}
+            <FolderGlyph
+              class="size-48 shrink-0"
+              color={folderAppearance[row.folder.id]?.color}
+              icon={folderAppearance[row.folder.id]?.icon}
+            />
+          {:else}
+            <FileIcon
+              contentType={row.file.sniffedContentType ?? undefined}
+              fileName={row.file.name}
+              class="size-48 shrink-0"
+            />
+          {/if}
           <span class="size-12 shrink-0" aria-hidden="true"></span>
         </span>
+        <span class="line-clamp-3 w-full break-words text-xs">{name}</span>
         {#if row.kind === "file"}
           <SafetyMark verdict={safetyKeyOf(row.file)} />
         {/if}
