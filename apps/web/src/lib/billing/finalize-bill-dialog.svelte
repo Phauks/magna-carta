@@ -20,6 +20,7 @@
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import * as Card from "@magna-carta/design-system/card";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Info from "@lucide/svelte/icons/info";
   import Lock from "@lucide/svelte/icons/lock";
@@ -55,6 +56,17 @@
     failure = null;
   }
 
+  /*
+   * A draft has no invoice number — finalizing is what draws one — so the reference names the kind
+   * of record alone and the amount stands beside it as a fact about that draft. It does not preview
+   * the number it is about to take: nothing serves the next invoice number yet, and a panel that
+   * invented one would be making a promise about a counter it has not asked.
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference: { kind: "Draft", number: null },
+    facts: [money(total)],
+  });
+
   const refusal = $derived.by((): string | undefined => {
     if (issueDate === "") return "A bill has to say when it was issued.";
     if (dueDate === "") return "A bill has to say when it falls due.";
@@ -86,7 +98,7 @@
 <ActionDialog
   bind:open
   heading="Finalize This Bill"
-  subtitle={`Draft · ${money(total)}`}
+  {subtitle}
   commitLabel="Finalize"
   commitBusyLabel="Finalizing"
   commitRefusal={refusal}

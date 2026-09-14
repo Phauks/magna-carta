@@ -138,7 +138,6 @@
   bind:open={confirmOpen}
   kind="confirm"
   heading="Confirm These Changes"
-  subtitle="Saving applies every staged change below at once."
   commitLabel="Save Changes"
   unsavedChanges={false}
   onCommit={confirmSave}

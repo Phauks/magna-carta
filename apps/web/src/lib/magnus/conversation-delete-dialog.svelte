@@ -8,6 +8,7 @@
    * a reader needs before pressing, and neither of them is softened.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -30,7 +31,11 @@
 
   let failure = $state<StatedFailure | null>(null);
 
-  const identity = $derived(conversation === null ? "" : conversationDisplayName(conversation));
+  const subtitle = $derived<RecordSubject>(
+    // A conversation carries no number anybody reads back, so what names it here is what names it
+    // in the list: the words it was given. The empty case renders no line rather than an empty one.
+    conversation === null ? {} : { facts: [conversationDisplayName(conversation)] },
+  );
 
   async function remove(): Promise<ActionOutcome> {
     if (conversation === null) return "refused";
@@ -53,7 +58,7 @@
   bind:open
   kind="destructive"
   heading="Delete Conversation"
-  subtitle={identity}
+  {subtitle}
   commitLabel="Delete Conversation"
   commitBusyLabel="Deleting"
   unsavedChanges={false}

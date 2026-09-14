@@ -85,6 +85,9 @@
   import { CloseGuard } from "../../internal/close-guard.svelte.ts";
   import { FrameExpansion, actionDialogExpansion } from "../../internal/frame-expansion.svelte.ts";
   import DiscardQuestion from "../../internal/discard-question.svelte";
+  import RecordSubjectLine from "../record-reference/record-subject.svelte";
+  import { subjectIsEmpty } from "../record-reference/record-reference-model.ts";
+  import type { RecordSubject } from "../record-reference/types.ts";
   import {
     DISCARD_SENTENCE,
     DISMISS_LABEL,
@@ -106,10 +109,17 @@
     heading: string;
     /**
      * What is being acted on, named once. A record's own reference belongs here and only here;
-     * repeating it in the body makes a reader check whether the two agree. A string where it is
-     * plain text — twelve of the first fourteen were — and a snippet where it carries markup.
+     * repeating it in the body makes a reader check whether the two agree.
+     *
+     * A `RecordSubject` — the reference, and the few facts about the subject worth stating beside
+     * it — which the design system renders. It is NOT a string, and that is the mechanism rather
+     * than a preference: the slot took one until 2026-09-14, and eighteen of fifty-four call sites
+     * used it for a paragraph about what a subsystem is for, which the owner had already struck
+     * from the panel it was first noticed on. A sentence about the act has nowhere to go here,
+     * because the heading is where the act is named. The snippet arm stays for a subject that
+     * carries real markup.
      */
-    subtitle?: string | Snippet;
+    subtitle?: RecordSubject | Snippet;
     /**
      * The failure band's PLACE, which is the shell's; its CONTENT, which is the caller's. The
      * design system cannot know what a failure reads like — that lives in the app, over the app's
@@ -231,6 +241,14 @@
 
   const traits = $derived(traitsOf(kind));
   const reading = $derived(kind === "reading");
+  /*
+   * Whether the header band draws its second line at all. A subject built from a record that has
+   * not loaded carries neither a reference nor a fact, and an empty description element under the
+   * heading is a gap a reader reads as a missing answer.
+   */
+  const hasSubtitle = $derived(
+    typeof subtitle === "function" ? true : subtitle !== undefined && !subjectIsEmpty(subtitle),
+  );
 
   /* The frame's expansion, shared with the record window; this shell's memory is its own. */
   const expansion = new FrameExpansion(actionDialogExpansion, {
@@ -425,10 +443,10 @@
 {/snippet}
 
 {#snippet subtitleContent()}
-  {#if typeof subtitle === "string"}
-    {subtitle}
-  {:else if subtitle}
+  {#if typeof subtitle === "function"}
     {@render subtitle()}
+  {:else if subtitle}
+    <RecordSubjectLine subject={subtitle} />
   {/if}
 {/snippet}
 
@@ -558,7 +576,7 @@
       <div class="mc-modal-frame-header">
         <div class="mc-modal-frame-identity">
           <AlertDialog.Title class="mc-modal-frame-heading">{heading}</AlertDialog.Title>
-          {#if subtitle}
+          {#if hasSubtitle}
             <AlertDialog.Description class="mc-modal-frame-subtitle">
               {@render subtitleContent()}
             </AlertDialog.Description>
@@ -596,7 +614,7 @@
       <div class="mc-modal-frame-header">
         <div class="mc-modal-frame-identity">
           <Dialog.Title class="mc-modal-frame-heading">{heading}</Dialog.Title>
-          {#if subtitle}
+          {#if hasSubtitle}
             <Dialog.Description class="mc-modal-frame-subtitle">
               {@render subtitleContent()}
             </Dialog.Description>

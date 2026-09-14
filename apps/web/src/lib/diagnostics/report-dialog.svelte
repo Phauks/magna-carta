@@ -106,7 +106,6 @@
   bind:open
   kind="form"
   heading="Report a Problem"
-  subtitle="This goes to the firm's own reporting pipeline, not to a third party."
   commitLabel="Send Report"
   commitBusyLabel="Sending"
   commitRefusal={refusal}

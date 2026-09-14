@@ -196,13 +196,22 @@ is usually the fastest way to understand the rule.
   hover, the selection and the pinned columns rather than building a second row. _(the time sheet;
   reissued for the call log, 2026-09-08: "the description should be in a line beneath the other
   information, consider how we do that for time entries")_
+- **Every rung of a record's life draws a number, on a run of its own, and keeps it.** An enquiry is
+  numbered the moment it is written down, a consultation when it graduates, a matter when it opens —
+  and each number stands beside the last rather than replacing it, so a note filed under any of them
+  still resolves. The runs are separate because a run is only readable if it counts one thing: a
+  consultation run pitted with declined enquiries cannot be told apart from one with records
+  missing. What a surface SHOWS is the newest number the record has drawn, and what a surface
+  SEARCHES is all of them. _(2026-09-14: "everything should have a number, intake would have a
+  number as well"; generalizing the consultation sequence of 2026-08-31.)_
 - **A record a person quotes out loud carries a NUMBER, and the number is a column.** A handle is
   what the platform joins on; it is not something anybody can read back down a telephone or write on
   a slip. Where a record is referred to out loud — a matter, an entry, an invoice, a call — it draws
   a human number, that number leads the row, and the screen's search matches it first. A number that
   carries the day it belongs to is legible without a lookup, and scoping its sequence to that day is
   what keeps it short enough to say. _(the call log, 2026-09-08: "all calls and logs should have a
-  number, which we can identify in the log ... should incorporate date")_
+  number, which we can identify in the log ... should incorporate date")_ Enforced by
+  `pnpm run lint:modal-headers`, which asks it of every panel handed a record's number.
 - **A control that undoes a state exists only while that state is in play.** The clear-filters
   control appears when something is narrowing the view and is absent otherwise, so its absence is
   itself the answer to "is anything hidden". _(matters docket, 2026-08-30)_
@@ -551,7 +560,27 @@ is usually the fastest way to understand the rule.
 - **A panel does not explain its own subject, and a refusal does not lecture.** The subtitle names
   what is being acted on; it is not the place for a paragraph on what the subsystem is for. A
   refusal states what to do in as few words as that takes — "Name at least one party.", not a
-  sentence about what a check is. _(the New Check panel, 2026-09-08)_
+  sentence about what a check is. Enforced by `pnpm run lint:modal-headers`, and by the type: the
+  subtitle slot takes a `RecordSubject`, so a paragraph cannot be passed as a string at all.
+  _(the New Check panel, 2026-09-08)_
+- **A modal says two things: what it DOES, and WHICH RECORD it does it to.** The heading names the
+  act in the imperative — "Write Off a Balance" — a panel that MAKES a record says "New &lt;Noun&gt;"
+  with the create control's own noun, and a panel that asks for nothing is `kind="reading"` and names
+  the thing it shows. No heading ends in a question mark: the panel is what makes it a question, and
+  a destructive kind already takes the alertdialog role and traps the decision. Interior articles and
+  short prepositions stay lower case — "File a Copy", never "File A Copy". The subtitle is the
+  RECORD, by the number somebody would read back down a telephone, plus the few facts about that
+  record worth stating beside it. Both lines are asserted by `pnpm run lint:modal-headers`, whose
+  verb vocabulary is a closed set: a new act adds one reviewed line rather than a noun quietly
+  becoming a heading. _(2026-09-14, generalizing the two rulings of 2026-09-08 above and below)_
+- **A record a panel was HANDED the number of is a record that panel names.** Being given a record's
+  number is being told which record the panel is about, so it appears in the heading (where the
+  number IS the record's name — a bill opens as "Invoice 2026-0147") or in the subtitle's reference,
+  and never only in the record pane or on the printed sheet. The scan reads the platform's record
+  numbers out of the schema's own `*_number` columns rather than a list somebody keeps, so a record
+  kind that grows a number is asked this question the day its column lands; a number that is a number
+  of something else — a telephone, a vehicle, a parcel of land — is recorded as such with its reason.
+  _(2026-09-14)_
 
 - **A screen makes something new through ONE control, and it is the same control on every screen.**
   The design system's `CreateControl`: a primary button reading "New" and one noun ("New Fee",
@@ -1237,6 +1266,54 @@ Append an entry under the round it came from, then promote the generalizable par
 rules_ above. An entry that is purely local to one surface (a specific string on one screen) stays
 in the round and never gets promoted.
 
+### 2026-09-14 — everything has a number, intake included
+
+The owner, on seeing the modal-header work land: "everything should have a number, intake would have
+a number as well." What binds:
+
+- **The last of "no number before active" is gone.** The lifecycle ruling of 2026-09-06 said no
+  number of any kind existed before a matter became active; the consultation sequence reversed half
+  of it and this reverses the rest. An intake draws its own number the moment the enquiry is written
+  down, from a third run beside the matter and consultation runs, rendering `I2026-0001` by default.
+- **A number per rung, not a number moved earlier.** Drawing the consultation number at intake
+  instead would have been cheaper and is the wrong shape: most enquiries are declined, so the
+  consultation run would fill with numbers issued to nothing and stop being readable as a run of
+  consultations. Each run counts one thing, which is what keeps each of them dense enough to read.
+- **A file that came the whole way answers to three names and keeps all three.** Nothing is
+  replaced. A surface shows the newest number the record has drawn — that is the one a person is
+  being told now — and searches every one of them, because a note quoting the number a file was
+  filed under at the time has to keep finding it.
+
+### 2026-09-14 — the modal header: the act, and the identifier of what it acts on
+
+The owner, opening this stream: a standardized format for stating what a modal does and the
+identifier of the data being entered, "because all data should be traceable, and in that way, all
+data should have identifiers. These are our tentative matter numbers, or message numbers".
+
+The round found that both halves had already been ruled on — on 2026-09-08, twice, and in the
+shells' own prop documentation before that — and that none of it held. Across 82 panel openings, 18
+of 54 subtitles were paragraphs about what a subsystem is for, four billing panels put a number and
+a sentence in one string behind a middle dot in three places and an em dash in a fourth, five
+headings asked a question where forty-seven named an act, six capitalised an article fourteen left
+alone, and the preview-before-save the owner had asked for had reached exactly one file.
+
+- **A ruling in a ledger binds the people who read the ledger; a ruling with a gate binds the diff.**
+  The two rulings of 2026-09-08 were both correct, both written down, and both broken within the
+  week by people with no way to know they existed. What changed is not the rulings — it is that the
+  subtitle slot stopped being typed `string`, and that `pnpm run lint:modal-headers` now reads the
+  call sites. Promoted into _Controls and patterns_ above.
+- **A number a record does not hold yet is still stated, and says which it is.** Three standings,
+  and the difference between the last two is load-bearing rather than a shade of wording: a matter
+  number is `drawn`, a consultation number is `tentative` — the record really carries it, it
+  survives the matter opening, and a document filed under it still resolves — and a `preview` is
+  what the NEXT record would take, shown while the reader is still filling the panel in. A panel with
+  no number to show says "A number is drawn when this is saved." rather than standing empty.
+- **What a panel explains goes beside the thing it explains.** Every sentence removed from a
+  subtitle in this round either restated the heading (deleted) or explained a field, a choice or a
+  consequence (moved beside it). The one that mattered most was on the detach confirmation, where
+  the fear the panel has to answer — that pressing Detach destroys the file — now sits in the
+  panel's body instead of in the line that names the document.
+
 ### 2026-09-14 — the calendar: many calendars in folders, a day of columns, and a form that asks where
 
 The owner walked the deployed calendar and issued eleven corrections in one round. Most of them
@@ -1685,9 +1762,11 @@ status as well." What binds:
 - **A matter's statuses are Intake, Consultation, Active, On Hold and Closed**, stored as `intake`,
   `consultation`, `open`, `hold`, `closed`. On Hold is reached only from Active — "no longer
   active" presumes it was — and returns only to Active.
-- **A hold keeps the number and draws nothing.** No number of any kind exists before a matter is
-  active, and none is surrendered or re-drawn on either side of a pause. A held matter stays on the
-  docket wearing its status; it is not an unnumbered rung and does not go to the Intake desk.
+- **A hold keeps the number and draws nothing.** None is surrendered or re-drawn on either side of a
+  pause. A held matter stays on the docket wearing its status; it is not an unnumbered rung and does
+  not go to the Intake desk. _(The half of this ruling that said no number of any kind exists before
+  a matter is active has since been reversed in full: the consultation sequence on 2026-08-31, the
+  intake sequence on 2026-09-14. Every rung draws a number of its own now, on a run of its own.)_
 - **A hold carries its reason, and the reason is required.** It is asked in a sentence, in place,
   beneath the step that records it, and printed beside the status wherever the status is read. A
   pause nobody can explain is not a pause anybody can resume.

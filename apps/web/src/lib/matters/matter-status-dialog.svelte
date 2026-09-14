@@ -68,6 +68,7 @@
   import { invalidateAll } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import Badge from "@magna-carta/design-system/badge";
   import Button from "@magna-carta/design-system/button";
@@ -114,7 +115,7 @@
   import { renumberMatter, RENUMBER_MATTER_PERMISSION } from "./numbering-api.ts";
   import { matterNumberRefusal } from "./numbering-scheme.ts";
   import type { MatterRecord } from "./matter-record.ts";
-  import { matterStatusPresentation } from "./matter-status.ts";
+  import { matterStatusLabel, matterStatusPresentation } from "./matter-status.ts";
   import {
     matterCanClose,
     matterCanGraduate,
@@ -664,13 +665,26 @@
   }
 
   /** The record, named once, for every panel this control opens. */
-  const reference = $derived(
-    matter.matterNumber !== null
-      ? `Matter ${matter.matterNumber}`
-      : matter.consultationNumber !== null
-        ? `Consultation ${matter.consultationNumber}`
-        : seal.label,
-  );
+  /*
+   * The matter by the newest number it has drawn: its matter number, else the tentative one it wears
+   * as a consultation, else the one its intake was written down under. Every rung has one, so the
+   * status word is reached only by a matter recorded before its rung was numbered.
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference:
+      matter.matterNumber !== null
+        ? { kind: "Matter", number: matter.matterNumber }
+        : matter.consultationNumber !== null
+          ? {
+              kind: matterStatusLabel("consultation"),
+              number: matter.consultationNumber,
+              standing: "tentative",
+            }
+          : matter.intakeNumber !== null
+            ? { kind: matterStatusLabel("intake"), number: matter.intakeNumber }
+            : { kind: seal.label, number: null },
+    facts: [matter.title],
+  });
 </script>
 
 <!-- The seal is a real button around the chip, never a chip pretending to be one: a Badge labels
@@ -730,7 +744,7 @@
   kind="confirm"
   bind:open={confirmOpen}
   heading={confirming?.confirmation?.heading ?? ""}
-  subtitle="{reference} · {matter.title}"
+  {subtitle}
   commitLabel={confirming?.label ?? ""}
   commitBusyLabel={confirming?.busyLabel}
   unsavedChanges={false}
@@ -761,14 +775,11 @@
   kind="reading"
   bind:open
   heading="Matter Status"
+  {subtitle}
   width="record"
   context={taken === null ? physicalFile : undefined}
   onOpen={reset}
 >
-  {#snippet subtitle()}
-    {reference} · {matter.title}
-  {/snippet}
-
   {#snippet fields()}
     {#if taken === null}
       <!-- The matter's status and the step it offers. -->

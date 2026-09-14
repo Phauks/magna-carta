@@ -1198,7 +1198,7 @@ export const locationsAssignMember = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry. Returns null segments when none is configured and no default applies; usingDefault marks the built-in consultation sequence that renders until the firm sets its own.
+ * Returns the firm's active numbering scheme for one purpose (the ordered segment template): 'matter' for matter numbers, 'consultation' for the tentative numbers consultations carry, 'intake' for the numbers enquiries wear from the moment they are written down. Returns null segments when none is configured and no default applies; usingDefault marks a built-in sequence that renders until the firm sets its own.
  */
 export const numberingGet = <ThrowOnError extends boolean = false>(options?: Options<NumberingGetData, ThrowOnError>): RequestResult<NumberingGetResponses, NumberingGetErrors, ThrowOnError> => (options?.client ?? client).get<NumberingGetResponses, NumberingGetErrors, ThrowOnError>({ url: '/api/v1/numbering-scheme', ...options });
 

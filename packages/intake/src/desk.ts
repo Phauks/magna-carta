@@ -50,6 +50,9 @@ export interface DeskRow {
   readonly title: string;
   readonly status: "intake" | "consultation";
   readonly consultationNumber: string | null;
+  // The number the enquiry was written down under. On an intake still clearing its procedure it is
+  // the ONLY number there is, which is the whole reason the desk shows it.
+  readonly intakeNumber: string | null;
   readonly matterTypeId: string | null;
   readonly matterTypeName: string | null;
   readonly responsibleMemberId: string;
@@ -183,6 +186,7 @@ export async function readIntakeDesk(
       title: matter.title,
       status: matter.status === "intake" ? "intake" : "consultation",
       consultationNumber: matter.consultationNumber,
+      intakeNumber: matter.intakeNumber,
       matterTypeId: matter.matterTypeId,
       matterTypeName:
         matter.matterTypeId === null ? null : (typeNames.get(matter.matterTypeId) ?? null),

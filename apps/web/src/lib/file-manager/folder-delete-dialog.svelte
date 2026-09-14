@@ -76,17 +76,17 @@
     where === "up" ? (folder?.parentFolderId ?? null) : where === "root" ? null : pickedFolderId,
   );
   const holds = $derived(
-    `This folder holds ${countPhrase(files.length, "file")}${
+    `holds ${countPhrase(files.length, "file")}${
       subfolderCount > 0 ? ` in ${countPhrase(subfolderCount, "subfolder")}` : ""
-    }. Deleting a file here is a soft delete: nothing is destroyed.`,
+    }`,
   );
 </script>
 
 <ActionDialog
   bind:open
   kind="destructive"
-  heading={`Delete "${folder?.name ?? ""}"?`}
-  subtitle={holds}
+  heading={`Delete "${folder?.name ?? ""}"`}
+  subtitle={{ facts: [holds] }}
   commitLabel="Delete Folder"
   commitBusyLabel="Deleting"
   commitRefusal={folder === null ? "No folder is chosen." : undefined}
@@ -96,6 +96,10 @@
   {onDismiss}
 >
   {#snippet fields({ busy })}
+    <p class="text-xs text-text-muted">
+      Deleting a file here is a soft delete: nothing is destroyed.
+    </p>
+
     {#if files.length > 0}
       <div class="flex flex-col gap-4">
         <Button

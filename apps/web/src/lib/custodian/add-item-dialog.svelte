@@ -20,6 +20,7 @@
    * belongs to whatever surface records an appraisal, which knows what the appraisal was in.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordReference } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Checkbox from "@magna-carta/design-system/checkbox";
@@ -43,11 +44,14 @@
   let {
     open = $bindable(false),
     packetId,
+    reference,
     onAdded,
   }: {
     open?: boolean;
     /** The packet being described. Null while no packet is open. */
     packetId: string | null;
+    /** That packet by its custody number — which packet is gaining an item, said once. */
+    reference: RecordReference | null;
     onAdded: () => void;
   } = $props();
 
@@ -136,8 +140,8 @@
 
 <ActionDialog
   bind:open
-  heading="Describe An Item"
-  subtitle="One thing inside this packet. A packet holding a will and two codicils is three items."
+  heading="Describe an Item"
+  subtitle={reference === null ? undefined : { reference }}
   commitLabel="Record Item"
   commitBusyLabel="Recording"
   commitRefusal={refusal}

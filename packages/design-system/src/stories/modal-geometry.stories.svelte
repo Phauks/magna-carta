@@ -142,7 +142,10 @@
 {#snippet formTemplate()}
   <ActionDialog
     heading="Write Off a Balance"
-    subtitle="Invoice 2026-0147 · this matter still owes $4,120.00"
+    subtitle={{
+      reference: { kind: "Invoice", number: "2026-0147" },
+      facts: ["this matter still owes $4,120.00"],
+    }}
     commitLabel="Write It Off"
     bind:open={open.form}
     kind="form"
@@ -155,7 +158,7 @@
 {#snippet withContextTemplate()}
   <ActionDialog
     heading="Open a Matter"
-    subtitle="A context pane opens the panel at the record width"
+    subtitle={{ facts: ["A context pane opens the panel at the record width"] }}
     commitLabel="Open the Matter"
     bind:open={open.withContext}
     kind="form"
@@ -169,7 +172,7 @@
 {#snippet tooLongTemplate()}
   <ActionDialog
     heading="Write Off a Balance"
-    subtitle="A form that does not fit caps at the screen less its gutter"
+    subtitle={{ facts: ["A form that does not fit caps at the screen less its gutter"] }}
     commitLabel="Write It Off"
     bind:open={open.tooLong}
     kind="form"
@@ -182,7 +185,7 @@
 {#snippet expandedTemplate()}
   <ActionDialog
     heading="Write Off a Balance"
-    subtitle="Expanded, the panel is the screen"
+    subtitle={{ facts: ["Expanded, the panel is the screen"] }}
     commitLabel="Write It Off"
     bind:open={open.expanded}
     expanded={true}

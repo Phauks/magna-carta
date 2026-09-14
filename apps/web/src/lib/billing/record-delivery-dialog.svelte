@@ -18,6 +18,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
+  import type { RecordSubject } from "@magna-carta/design-system/record-reference";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
   import * as Select from "@magna-carta/design-system/select";
   import Input from "@magna-carta/design-system/input";
@@ -77,6 +78,16 @@
     return DELIVERY_CHANNELS.find((candidate) => candidate === channel) ?? "email";
   }
 
+  /*
+   * The bill being acted on, by its own number. The facts beside it are facts about THAT BILL — what
+   * it still owes, what it is worth — never a description of the act, which the heading has already
+   * given. Both were in one interpolated string before, which is how a number and a sentence came to
+   * share a line behind three different separators across these panels.
+   */
+  const subtitle = $derived<RecordSubject>({
+    reference: { kind: "Invoice", number: row?.summary.invoiceNumber ?? null },
+  });
+
   const refusal = $derived.by((): string | undefined => {
     if (recipient.trim() === "") return "Say who received it: the address, mailbox, or person.";
     if (deliveryDate === "") return "Say when it reached them.";
@@ -110,7 +121,7 @@
 <ActionDialog
   bind:open
   heading="Record a Delivery"
-  subtitle={`${row?.summary.invoiceNumber ?? "This bill"} · records a delivery the firm made; nothing is sent`}
+  {subtitle}
   commitLabel="Record Delivery"
   commitBusyLabel="Recording"
   commitRefusal={refusal}

@@ -32,6 +32,15 @@ properties; off-token values are machine-rejected.
   exists) belongs to the consumer
 - `src/lib/components/action-dialog/` — `ActionDialog`, the one panel an act is asked for in;
   `action-dialog-model.ts` holds the kind table (what each kind implies) as data, not `{#if}`
+- `src/lib/components/record-reference/` — what a modal's SUBTITLE is allowed to say. `types.ts` is
+  the contract (`RecordSubject` = an optional `RecordReference` plus short facts; a reference is
+  `kind`, `number` and a standing of `drawn | tentative | preview`), `record-reference-model.ts` is
+  the table that resolves a reference to what it reads as, `record-subject.svelte` renders the line,
+  and `previewed-number.svelte.ts` holds the number a record will take before the record exists —
+  the ticketed read that stops a stale answer landing on a newer one. It takes a reader answering a
+  number or nothing, so the app's transport and failure model stay in the app. EntityIdentity names
+  a PERSON OR ORGANIZATION from elsewhere; this names the RECORD a panel is acting on, by the number
+  somebody quotes. Asserted at the call sites by `pnpm run lint:modal-headers`
 - `src/lib/components/dropdown-menu/hover-open.ts` — the hover activation every DropdownMenu gets:
   the timing, the focus rules, and the one-hover-menu-at-a-time arbitration, shared from Root to
   Trigger/Content/SubContent through context (`openOnHover={false}` on Root keeps a menu click-only)
@@ -117,8 +126,15 @@ is still an `ActionDialog` inside it, not a panel of its own.
   is stated beside the commit, never as a browser bubble. A caller must not put a second `<form>`
   inside `fields`, and a raw `<button>` inside it needs `type="button"` (the design system's Button
   already defaults to it).
-- **`subtitle` is `string | Snippet`.** A string where it is plain text (most panels); a snippet
-  where it carries markup. Rendered through one `subtitleContent` snippet in the shell.
+- **`subtitle` is `RecordSubject | Snippet`, and the removal of the `string` arm is the point.**
+  A `RecordSubject` (`../record-reference`) is an optional `RecordReference` — `kind`, `number` and
+  a `standing` of `drawn | tentative | preview` — plus short facts, rendered by `RecordSubjectLine`.
+  The slot took a string until 2026-09-14, and eighteen of fifty-four call sites used it for a
+  paragraph about what a subsystem is for; the owner had already struck exactly that on 2026-09-08,
+  and a slot typed `string` accepts it anyway. A sentence about the ACT has nowhere to go now,
+  because the heading names the act. The snippet arm stays for a subject carrying real markup, and
+  both arms still render through one `subtitleContent` snippet in the shell. `RecordWindow` takes
+  the same union, so a record window and the panel that created that record name it identically.
 - **`commitSoon: { reason }` is the acting arm's seam for an act not served yet.** The shell wraps
   its own commit in `SoonAffordance` (`../maturity`), so the commit is disabled with the Soon mark
   beside it and the dependency as its accessible description. The commit is ONE snippet rendered

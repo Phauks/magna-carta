@@ -75,6 +75,7 @@ export interface CommunicationWithMatterRow extends CommunicationRow {
   readonly matter_status: string | null;
   readonly matter_number: string | null;
   readonly consultation_number: string | null;
+  readonly intake_number: string | null;
 }
 
 const COLUMNS = [
@@ -105,7 +106,7 @@ const COLUMNS = [
 // and an inner join would drop exactly them while looking like it worked.
 const MATTER_COLUMNS =
   "matter.title AS matter_title, matter.status AS matter_status, " +
-  "matter.matter_number AS matter_number, matter.consultation_number AS consultation_number";
+  "matter.matter_number AS matter_number, matter.consultation_number AS consultation_number, matter.intake_number AS intake_number";
 const MATTER_JOIN = `LEFT JOIN matter ON matter.id = ${COMMUNICATION_TABLE}.matter_id`;
 
 export interface InsertCommunicationInput {
@@ -331,8 +332,9 @@ function searchConditionFor(
       `OR ${COMMUNICATION_TABLE}.counterparty_number LIKE ? ESCAPE '\\' ` +
       `OR matter.title LIKE ? ESCAPE '\\' ` +
       `OR matter.matter_number LIKE ? ESCAPE '\\' ` +
-      `OR matter.consultation_number LIKE ? ESCAPE '\\')`,
-    bindings: [pattern, pattern, pattern, pattern, pattern, pattern, pattern],
+      `OR matter.consultation_number LIKE ? ESCAPE '\\' ` +
+      `OR matter.intake_number LIKE ? ESCAPE '\\')`,
+    bindings: [pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern],
   };
 }
 

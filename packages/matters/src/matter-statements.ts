@@ -5,17 +5,21 @@ import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/id
 export const MATTER_TABLE = "matter";
 export const NUMBERING_SCHEME_TABLE = "numbering_scheme";
 
-// The lifecycle, in the order a matter passes through it. An intake becomes a consultation when the
-// firm's intake procedure lets it through (the consultation number is drawn then); a consultation
-// opens (the matter number is drawn then); an open matter can be put on hold for a recorded reason
-// and released back to open; an open or held matter closes; a closed matter reopens to where it
-// was. No number is drawn or surrendered on either side of a hold.
+// The lifecycle, in the order a matter passes through it. An intake draws its own number as soon as
+// it exists; it becomes a consultation when the firm's intake procedure lets it through (the
+// consultation number is drawn then, BESIDE the intake number rather than over it); a consultation
+// opens (the matter number is drawn then, beside both). Nothing is ever replaced, so a note filed
+// under any of the three still resolves. An open matter can be put on hold for a recorded reason and
+// released back to open; an open or held matter closes; a closed matter reopens to where it was. No
+// number is drawn or surrendered on either side of a hold.
 export type MatterStatus = "intake" | "consultation" | "open" | "hold" | "closed";
 
-// The two sequences a firm numbers, each with its own active scheme: the permanent matter number,
-// and the tentative number a consultation carries. Kept apart so a consultation that never becomes
-// a matter consumes no matter number — a gap in that run reads as a lost file.
-export type NumberingPurpose = "matter" | "consultation";
+// The three sequences a firm numbers, each with its own active scheme: the permanent matter number,
+// the tentative number a consultation carries, and the number an intake wears from the moment the
+// enquiry is written down. Kept apart so a rung that goes no further consumes nothing from a run it
+// never reached — a gap in the matter run reads as a lost file, and a consultation run pitted with
+// declined enquiries cannot be told apart from one with records missing.
+export type NumberingPurpose = "matter" | "consultation" | "intake";
 
 // The mutable, caller-supplied matter fields (everything bar id, status, the number columns, and the
 // lifecycle timestamps the service owns). A full-row UPDATE keeps updateMatterFieldsStatement static.
@@ -42,6 +46,8 @@ export interface InsertMatterRow extends MatterFields {
   readonly matterNumber: string | null;
   // Drawn in this same batch for a consultation; null for a matter created straight to open.
   readonly consultationNumber: string | null;
+  // Drawn in this same batch for an intake; null for a matter created at any later rung.
+  readonly intakeNumber: string | null;
   readonly numberedAt: string | null;
   readonly openedAt: string | null;
   readonly createdAt: string;
@@ -50,7 +56,7 @@ export interface InsertMatterRow extends MatterFields {
 export function insertMatterStatement(database: SqlDatabase, row: InsertMatterRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${MATTER_TABLE} (id, title, description, status, matter_type_id, location_id, physical_file_location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, NULL, ?15, ?15)`,
+      `INSERT INTO ${MATTER_TABLE} (id, title, description, status, matter_type_id, location_id, physical_file_location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, intake_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, NULL, ?16, ?16)`,
     )
     .bind(
       row.id,
@@ -65,6 +71,7 @@ export function insertMatterStatement(database: SqlDatabase, row: InsertMatterRo
       row.clientCode,
       row.matterNumber,
       row.consultationNumber,
+      row.intakeNumber,
       row.numberedAt,
       row.openedAt,
       row.createdAt,
@@ -76,6 +83,7 @@ export interface MatterRow extends MatterFields {
   readonly status: MatterStatus;
   readonly matterNumber: string | null;
   readonly consultationNumber: string | null;
+  readonly intakeNumber: string | null;
   // The honest "was this matter ever opened" signal: set by createMatter (status 'open') and by
   // openMatter, never by renumberMatter — so reopen restores the real pre-close status.
   readonly openedAt: string | null;
@@ -88,7 +96,7 @@ export interface MatterRow extends MatterFields {
 export function selectMatterStatement(database: SqlDatabase, id: MatterId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, title, description, status, matter_type_id, location_id, physical_file_location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, opened_at, held_at, hold_reason FROM ${MATTER_TABLE} WHERE id = ?1`,
+      `SELECT id, title, description, status, matter_type_id, location_id, physical_file_location_id, responsible_member_id, client_display_name, client_code, matter_number, consultation_number, intake_number, opened_at, held_at, hold_reason FROM ${MATTER_TABLE} WHERE id = ?1`,
     )
     .bind(id);
 }
@@ -123,6 +131,7 @@ export function selectMatterDetailStatement(database: SqlDatabase, id: MatterId)
               matter.client_code AS client_code,
               matter.matter_number AS matter_number,
               matter.consultation_number AS consultation_number,
+              matter.intake_number AS intake_number,
               matter.e_billing AS e_billing,
               matter.opened_at AS opened_at,
               matter.held_at AS held_at,
@@ -313,5 +322,16 @@ export function isConsultationNumberConflict(error: unknown): boolean {
     error instanceof Error &&
     error.message.includes("UNIQUE constraint failed") &&
     error.message.includes(`${MATTER_TABLE}.consultation_number`)
+  );
+}
+
+// And for the intake sequence. Third of three, each matched on its own column for the same reason:
+// a draw that retried on another run's collision would step its own counter past a number nobody
+// had taken.
+export function isIntakeNumberConflict(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("UNIQUE constraint failed") &&
+    error.message.includes(`${MATTER_TABLE}.intake_number`)
   );
 }

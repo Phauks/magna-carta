@@ -176,8 +176,12 @@
       await userEvent.click(canvas.getByRole("button", { name: "Detach Exhibit board.png" }));
       const confirmation = await body.findByRole("alertdialog");
       await waitFor(() => expect(confirmation).toBeVisible());
-      await expect(confirmation).toHaveAccessibleName("Detach This Document?");
-      await expect(confirmation).toHaveAccessibleDescription(/stays in this matter's files/);
+      await expect(confirmation).toHaveAccessibleName("Detach This Document");
+      // The panel's description NAMES THE DOCUMENT, so a reader who cannot see the row is told
+      // which file this is about before anything else. Where it will still be afterwards is the
+      // panel's body, beside the act, rather than the line that identifies the subject.
+      await expect(confirmation).toHaveAccessibleDescription("Exhibit board.png");
+      await expect(confirmation).toHaveTextContent(/stays in this matter's files/);
       // The word the reader must never see here is Delete: this destroys nothing.
       await expect(confirmation).not.toHaveTextContent(/delete/i);
     });
